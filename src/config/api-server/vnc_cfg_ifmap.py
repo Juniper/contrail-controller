@@ -13,7 +13,6 @@ import gevent.event
 from gevent.queue import Queue, Empty
 import sys
 import time
-import functools
 from pprint import pformat
 
 from lxml import etree, objectify
@@ -98,15 +97,6 @@ class VncIfmapClient(object):
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
                  uname, passwd, ssl_options):
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
-            obj_type = resource_type.replace('-', '_')
-            for oper in ('alloc', 'set', 'create', 'read_to_meta_index',
-                         'update', 'delete'):
-                method = getattr(self, '_object_%s' %(oper))
-                bound_method = functools.partial(method, resource_type)
-                functools.update_wrapper(bound_method, method)
-                setattr(self, '_ifmap_%s_%s' %(obj_type, oper), bound_method)
-
         self._ifmap_srv_ip = ifmap_srv_ip
         self._ifmap_srv_port = ifmap_srv_port
         self._username = uname
@@ -141,7 +131,7 @@ class VncIfmapClient(object):
         self._health_checker_greenlet = gevent.spawn(self._health_checker)
     # end __init__
 
-    def _object_alloc(self, res_type, parent_type, fq_name):
+    def object_alloc(self, res_type, parent_type, fq_name):
         my_fqn = ':'.join(fq_name)
         parent_fqn = ':'.join(fq_name[:-1])
 
@@ -158,10 +148,9 @@ class VncIfmapClient(object):
         parent_imid = escape(parent_imid)
 
         return True, (my_imid, parent_imid)
-    # end _object_alloc
+    # end object_alloc
 
-    def _object_set(self, res_type, my_imid, existing_metas, obj_dict):
-        obj_type = res_type.replace('-', '_')
+    def object_set(self, res_type, my_imid, existing_metas, obj_dict):
         obj_class = self._db_client_mgr.get_resource_class(res_type)
         update = {}
 
@@ -243,10 +232,10 @@ class VncIfmapClient(object):
 
         self._publish_update(my_imid, update)
         return (True, '')
-    # end _object_set
+    # end object_set
 
-    def _object_create(self, res_type, obj_ids, obj_dict):
-        obj_type = res_type.replace('-', '_')
+    def object_create(self, obj_ids, obj_dict):
+        obj_type = obj_ids['type'].replace('-', '_')
 
         if not 'parent_type' in obj_dict:
             # parent is config-root
@@ -266,27 +255,20 @@ class VncIfmapClient(object):
             self._update_id_pair_meta(update, obj_ids['imid'], meta)
             self._publish_update(parent_imid, update)
 
-        (ok, result) = self._object_set(res_type, obj_ids['imid'], None, obj_dict)
+        (ok, result) = self.object_set(res_type, obj_ids['imid'], None, obj_dict)
         return (ok, result)
-    # end _object_create
+    # end object_create
 
-    def _object_read_to_meta_index(self, res_type, ifmap_id):
-        obj_type = res_type.replace('-', '_')
-        obj_cls = self._db_client_mgr.get_resource_class(res_type)
-        # metas is a dict where key is meta-name and val is list of dict
-        # of form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
-        metas = {}
-        for meta_name, meta_val in self._id_to_metas[ifmap_id].items():
-            metas[meta_name] = meta_val
-
-        return metas
+    def _object_read_to_meta_index(self, ifmap_id):
+        # metas is a dict where key is meta-name and val is list of dict of
+        # form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
+        return self._id_to_metas[ifmap_id].copy()
     # end _object_read_to_meta_index
 
-    def _object_update(self, res_type, ifmap_id, new_obj_dict):
-        obj_type = res_type.replace('-', '_')
+    def object_update(self, res_type, ifmap_id, new_obj_dict):
         obj_cls = self._db_client_mgr.get_resource_class(res_type)
         # read in refs from ifmap to determine which ones become inactive after update
-        existing_metas = self._object_read_to_meta_index(res_type, ifmap_id)
+        existing_metas = self._object_read_to_meta_index(ifmap_id)
 
         # remove properties that are no longer active
         props = obj_cls.prop_field_metas
@@ -317,16 +299,14 @@ class VncIfmapClient(object):
         if delete_list:
             self._delete_id_pair_meta_list(ifmap_id, delete_list)
 
-        (ok, result) = self._object_set(res_type, ifmap_id, existing_metas, new_obj_dict)
+        (ok, result) = self.object_set(res_type, ifmap_id, existing_metas, new_obj_dict)
         return (ok, result)
-    # end _object_update
+    # end object_update
 
-    def _object_delete(self, res_type, obj_ids):
-        obj_type = res_type.replace('-', '_')
-
+    def object_delete(self, res_type, obj_ids):
         ifmap_id = obj_ids['imid']
         parent_imid = obj_ids.get('parent_imid')
-        existing_metas = self._object_read_to_meta_index(res_type, ifmap_id)
+        existing_metas = self._object_read_to_meta_index(ifmap_id)
         meta_list = []
         for meta_name, meta_infos in existing_metas.items():
             for meta_info in meta_infos:
@@ -346,7 +326,7 @@ class VncIfmapClient(object):
         self._delete_id_self_meta(ifmap_id, None)
 
         return (True, '')
-    # end _object_delete
+    # end object_delete
 
     def _init_conn(self):
         mapclient = client(("%s" % (self._ifmap_srv_ip),
@@ -751,21 +731,6 @@ class VncServerCassandraClient(VncCassandraClient):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
 
-    def create(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_create' % (method_name))
-        return method(*args, **kwargs)
-    # end create
-
-    def update(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_update' % (method_name))
-        return method(*args, **kwargs)
-    # end update
-
-    def delete(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_delete' % (method_name))
-        return method(*args, **kwargs)
-    # end delete
-
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
         bch = self._obj_uuid_cf.batch()
         if operation == 'ADD':
@@ -844,8 +809,6 @@ class VncServerCassandraClient(VncCassandraClient):
             else:
                 bch.remove(old_ref_uuid, columns=[
                            'backref:%s:%s' % (obj_type, obj_uuid)])
-                self._db_client_mgr.dbe_cache_invalidate({'uuid':
-                                                         old_ref_uuid})
         else:
             # retain old ref with new ref attr
             new_ref_data = new_ref_infos[ref_type][old_ref_uuid]
@@ -855,16 +818,12 @@ class VncServerCassandraClient(VncCassandraClient):
                  (ref_type, old_ref_uuid): json.dumps(new_ref_data)})
             if obj_type == ref_type:
                 bch.insert(
-                    old_ref_uuid,
-                    {'ref:%s:%s' %
-                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
+                    old_ref_uuid, {'ref:%s:%s' % (obj_type, obj_uuid):
+                                   json.dumps(new_ref_data)})
             else:
                 bch.insert(
-                    old_ref_uuid,
-                    {'backref:%s:%s' %
-                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
-                self._db_client_mgr.dbe_cache_invalidate({'uuid':
-                                                         old_ref_uuid})
+                    old_ref_uuid, {'backref:%s:%s' % (obj_type, obj_uuid):
+                                   json.dumps(new_ref_data)})
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_type][old_ref_uuid]
     # end _update_ref
@@ -876,8 +835,7 @@ class VncServerCassandraClient(VncCassandraClient):
             bch = self._cassandra_db._obj_uuid_cf.batch()
         bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
         if obj_type == ref_type:
-            bch.remove(ref_uuid, columns=[
-                       'ref:%s:%s' % (obj_type, obj_uuid)])
+            bch.remove(ref_uuid, columns=['ref:%s:%s' % (obj_type, obj_uuid)])
         else:
             bch.remove(ref_uuid, columns=[
                        'backref:%s:%s' % (obj_type, obj_uuid)])
@@ -1107,9 +1065,7 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            method_name = obj_info['type'].replace('-', '_')
-            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
-            (ok, result) = method(obj_info, obj_dict)
+            (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
             if not ok:
                 self.config_log(result, level=SandeshLevel.SYS_ERR)
                 raise Exception(result)
@@ -1143,9 +1099,7 @@ class VncServerKombuClient(VncKombuClient):
         finally:
             ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
                                                             obj_info['uuid'])
-            method_name = obj_info['type'].replace('-', '_')
-            method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
-            (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+            (ok, ifmap_result) = self._ifmap_db.object_update(obj_info['type'], ifmap_id, new_obj_dict)
             if not ok:
                 raise Exception(ifmap_result)
     #end _dbe_update_notification
@@ -1173,9 +1127,7 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            method_name = obj_info['type'].replace('-', '_')
-            method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
-            (ok, ifmap_result) = method(obj_info)
+            (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info['type'], obj_info)
             if not ok:
                 self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
                 raise Exception(ifmap_result)
@@ -1552,8 +1504,8 @@ class VncDbClient(object):
                 continue
             try:
                 parent_type = obj_dict.get('parent_type', None)
-                method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
-                (ok, result) = method(parent_type, obj_dict['fq_name'])
+                (ok, result) = self._ifmap_db.object_alloc(
+                    obj_type, parent_type, obj_dict['fq_name'])
                 (my_imid, parent_imid) = result
             except Exception as e:
                 self.config_object_error(
@@ -1561,10 +1513,9 @@ class VncDbClient(object):
                 continue
 
             try:
-                obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
+                obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
                            'parent_imid': parent_imid}
-                method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
-                (ok, result) = method(obj_ids, obj_dict)
+                (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
             except Exception as e:
                 self.config_object_error(
                     obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
@@ -1576,7 +1527,7 @@ class VncDbClient(object):
     def _dbe_check(self, obj_type, obj_uuids):
         for obj_uuid in obj_uuids:
             try:
-                (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
+                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
             except Exception as e:
                 return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
      # end _dbe_check
@@ -1585,7 +1536,7 @@ class VncDbClient(object):
         results = []
         for obj_uuid in obj_uuids:
             try:
-                (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
+                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
                 result_dict = obj_dict[0]
                 result_dict['type'] = obj_type
                 result_dict['uuid'] = obj_uuid
@@ -1624,10 +1575,9 @@ class VncDbClient(object):
         except ResourceExistsError as e:
             return (False, (409, str(e)))
 
-        parent_type = obj_dict.get('parent_type', None)
-        method_name = obj_type.replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (method_name))
-        (ok, result) = method(parent_type, obj_dict['fq_name'])
+        parent_type = obj_dict.get('parent_type')
+        (ok, result) = self._ifmap_db.object_alloc(obj_type, parent_type,
+                                                   obj_dict['fq_name'])
         if not ok:
             self.dbe_release(obj_type, obj_dict['fq_name'])
             return False, result
@@ -1764,8 +1714,8 @@ class VncDbClient(object):
     @dbe_trace('create')
     @build_shared_index('create')
     def dbe_create(self, obj_type, obj_ids, obj_dict):
-        method_name = obj_type.replace('-', '_')
-        (ok, result) = self._cassandra_db.create(method_name, obj_ids, obj_dict)
+        (ok, result) = self._cassandra_db.object_create(
+            obj_type, obj_ids['uuid'], obj_dict)
 
         # publish to ifmap via msgbus
         self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
@@ -1775,11 +1725,9 @@ class VncDbClient(object):
 
     # input id is ifmap-id + uuid
     def dbe_read(self, obj_type, obj_ids, obj_fields=None):
-        method_name = obj_type.replace('-', '_')
         try:
-            (ok, cassandra_result) = self._cassandra_db.read(method_name,
-                                                             [obj_ids['uuid']],
-                                                             obj_fields)
+            (ok, cassandra_result) = self._cassandra_db.object_read(
+                obj_type, [obj_ids['uuid']], obj_fields)
         except NoIdError as e:
             # if NoIdError is for obj itself (as opposed to say for parent
             # or ref), let caller decide if this can be handled gracefully
@@ -1793,10 +1741,9 @@ class VncDbClient(object):
     # end dbe_read
 
     def dbe_count_children(self, obj_type, obj_id, child_type):
-        method_name = obj_type.replace('-', '_')
         try:
-            (ok, cassandra_result) = self._cassandra_db.count_children(
-                method_name, obj_id, child_type)
+            (ok, cassandra_result) = self._cassandra_db.object_count_children(
+                obj_type, obj_id, child_type)
         except NoIdError as e:
             return (False, str(e))
 
@@ -1807,10 +1754,9 @@ class VncDbClient(object):
         if not obj_ids_list:
             return (True, [])
 
-        method_name = obj_type.replace('-', '_')
         try:
-            (ok, cassandra_result) = self._cassandra_db.read(
-                method_name, [obj_id['uuid'] for obj_id in obj_ids_list],
+            (ok, cassandra_result) = self._cassandra_db.object_read(
+                obj_type, [obj_id['uuid'] for obj_id in obj_ids_list],
                 obj_fields)
         except NoIdError as e:
             return (False, str(e))
@@ -1831,8 +1777,8 @@ class VncDbClient(object):
     @build_shared_index('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
         method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.update(
-            method_name, obj_ids['uuid'], new_obj_dict)
+        (ok, cassandra_result) = self._cassandra_db.object_update(
+            obj_type, obj_ids['uuid'], new_obj_dict)
 
         # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_update_publish(obj_type, obj_ids)
@@ -1843,9 +1789,8 @@ class VncDbClient(object):
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, count=False, filters=None,
                  paginate_start=None, paginate_count=None):
-        method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.list(
-                 method_name, parent_uuids=parent_uuids,
+        (ok, cassandra_result) = self._cassandra_db.object_list(
+                 obj_type, parent_uuids=parent_uuids,
                  back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
                  count=count, filters=filters)
         return (ok, cassandra_result)
@@ -1853,9 +1798,8 @@ class VncDbClient(object):
 
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
-        method_name = obj_type.replace('-', '_')
-        (ok, cassandra_result) = self._cassandra_db.delete(method_name,
-                                                           obj_ids['uuid'])
+        (ok, cassandra_result) = self._cassandra_db.object_delete(
+            obj_type, obj_ids['uuid'])
 
         # publish to ifmap via message bus (rabbitmq)
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
@@ -1870,10 +1814,6 @@ class VncDbClient(object):
     def dbe_release(self, obj_type, obj_fq_name):
         self._zk_db.delete_fq_name_to_uuid_mapping(obj_type, obj_fq_name)
     # end dbe_release
-
-    def dbe_cache_invalidate(self, obj_ids):
-        pass
-    # end dbe_cache_invalidate
 
     def dbe_oper_publish_pending(self):
         return self._msgbus.dbe_oper_publish_pending()
