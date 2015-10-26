@@ -39,6 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
     GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
+from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -114,6 +115,12 @@ class DeviceManager(object):
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
                 ModuleNames[Module.DEVICE_MANAGER])
+
+        PushConfigState.set_repush_interval(int(self._args.repush_interval))
+        PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
+        PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
+        PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
+        PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
 
         self._sandesh = Sandesh()
         # Reset the sandesh send rate limit value
@@ -346,6 +353,11 @@ def parse_args(args_str):
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
+                         --repush_interval 15
+                         --repush_max_interval 300
+                         --push_delay_per_kb 0.01
+                         --push_delay_max 100
+                         --push_delay_enable True
                          [--reset_config]
     '''
 
@@ -381,6 +393,11 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'repush_interval': '15',
+        'repush_max_interval': '600',
+        'push_delay_per_kb': '0.01',
+        'push_delay_max': '100',
+        'push_delay_enable': 'True',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     secopts = {
@@ -475,6 +492,16 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument("--repush_interval",
+                        help="time interval for config re push")
+    parser.add_argument("--repush_max_interval",
+                        help="max time interval for config re push")
+    parser.add_argument("--push_delay_per_kb",
+                        help="time delay between two successful commits per kb config size")
+    parser.add_argument("--push_delay_max",
+                        help="max time delay between two successful commits")
+    parser.add_argument("--push_delay_enable",
+                        help="enable delay between two successful commits")
     parser.add_argument("--cassandra_user",
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
