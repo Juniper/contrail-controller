@@ -375,6 +375,11 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
             rt_entry.entry.security_group_list.security_group.push_back(101);
         }
 
+        if (attributes.communities.size()) {
+            rt_entry.entry.community_tag_list.community_tag =
+                attributes.communities;
+        }
+
         // Encode LoadBalance attribute
         attributes.loadBalanceAttribute.Encode(rt_entry.entry.load_balance);
 
@@ -436,6 +441,11 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
                 attributes.sgids;
         } else {
             rt_entry.entry.security_group_list.security_group.push_back(101);
+        }
+
+        if (attributes.communities.size()) {
+            rt_entry.entry.community_tag_list.community_tag =
+                attributes.communities;
         }
 
         // Encode LoadBalance attribute

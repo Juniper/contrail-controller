@@ -292,7 +292,7 @@ protected:
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int med,
         const string &encap, const string &origin_vn, const vector<int> sgids,
-        const LoadBalance &loadBalance) {
+        const LoadBalance &loadBalance, const vector<string> communities) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
@@ -306,6 +306,9 @@ protected:
             return false;
         if (!sgids.empty() &&
             rt->entry.security_group_list.security_group != sgids)
+            return false;
+        if (!communities.empty() &&
+            rt->entry.community_tag_list.community_tag != communities)
             return false;
         if (!(LoadBalance(rt->entry.load_balance) == loadBalance)) {
             return false;
@@ -321,7 +324,8 @@ protected:
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int med) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop,
-            local_pref, med, string(), string(), vector<int>(), LoadBalance()));
+            local_pref, med, string(), string(), vector<int>(), LoadBalance(),
+            vector<string>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
@@ -331,21 +335,29 @@ protected:
         const LoadBalance lb = LoadBalance()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, local_pref, 0, encap, origin_vn,
-            sgids, lb));
+            sgids, lb, vector<string>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const vector<int> sgids) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, 0, 0, string(), string(), sgids,
-            LoadBalance()));
+            LoadBalance(), vector<string>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const LoadBalance &lb) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, 0, 0, string(), string(), vector<int>(),
-            lb));
+            lb, vector<string>()));
+    }
+
+
+    void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
+        string prefix, string nexthop, const vector<string> &communities) {
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(
+            agent, net, prefix, nexthop, 0, 0, string(), string(), vector<int>(),
+            LoadBalance(), communities));
     }
 
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
@@ -502,6 +514,128 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteChangeLocalPref) {
     agent_a_->SessionDown();
     agent_b_->SessionDown();
 }
+
+//
+// Route added with community list
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteWithCommunity) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with NO_REORIGINATE community
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+
+    vector<std::string> community_a;
+    community_a.push_back("no-reoriginate");
+    test::RouteAttributes attr_a(community_a);
+    test::NextHops nexthops_a;
+    nexthops_a.push_back(test::NextHop("192.168.1.1", 0));
+    agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B
+    VerifyRouteExists(agent_a_, "blue", route_a.str(),
+                      "192.168.1.1", community_a);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(),
+                      "192.168.1.1", community_a);
+
+    community_a.push_back("64521:9999");
+    attr_a.SetCommunities(community_a);
+    agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
+    task_util::WaitForIdle();
+
+    sort(community_a.begin(), community_a.end());
+    // Verify that route showed up on agents A & B
+    VerifyRouteExists(agent_a_, "blue", route_a.str(),
+                      "192.168.1.1", community_a);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(),
+                      "192.168.1.1", community_a);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Route added with No-Export community. Validate the route advertisement in CN
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteWithNoExportCommunity) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with NO_EXPORT community
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+
+    vector<std::string> community_a;
+    community_a.push_back("no-export");
+    test::RouteAttributes attr_a(community_a);
+    test::NextHops nexthops_a;
+    nexthops_a.push_back(test::NextHop("192.168.1.1", 0));
+    agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agent A
+    VerifyRouteExists(agent_a_, "blue", route_a.str(),
+                      "192.168.1.1", community_a);
+    // Verify that route doesn't show up on agent B as it is tagged with
+    // "no-export" community
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
 
 //
 // Route added with explicit med has expected med.
