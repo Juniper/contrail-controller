@@ -55,6 +55,25 @@ bool DnsInfoLogger() {
     return true;
 }
 
+bool DnsServerReEvaluatePublishCb(IFMapServer *ifmap_server, 
+                                  std::string &message) {
+
+    IFMapManager *ifmap_manager = ifmap_server->get_ifmap_manager();
+    if (ifmap_manager && !ifmap_manager->GetEndOfRibComputed()) {
+        message = "IFMap Server End-Of-RIB not computed";
+        return false;
+    }
+
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if (dns_manager && !dns_manager->IsBindStatusUp()) {
+        message = "Connection to named DOWN";
+        return false;
+    }
+
+    message = "OK";
+    return true; 
+}
+
 static string FileRead(const string &filename) {
     ifstream file(filename.c_str());
     string content((istreambuf_iterator<char>(file)),
@@ -222,7 +241,8 @@ int main(int argc, char *argv[]) {
                       "</port></" << sname << ">";
             std::string pub_msg;
             pub_msg = pub_ss.str();
-            ds_client->Publish(sname, pub_msg);
+            ds_client->Publish(sname, pub_msg,
+                boost::bind(&DnsServerReEvaluatePublishCb, &ifmap_server, _1));
         }
 
         //subscribe to collector service if not configured

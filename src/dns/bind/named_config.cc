@@ -502,11 +502,16 @@ bool BindStatus::CheckBindStatus() {
         pid_file.close();
     }
 
-    if (new_pid != named_pid_) {
-        named_pid_ = new_pid;
-        if (new_pid == (uint32_t) -1) {
+    if (new_pid == (uint32_t) -1) {
+        handler_(Down);
+    } else if (kill(new_pid, 0) != 0) {
+        if (named_pid_ != (uint32_t) -1) {
+            named_pid_ = -1;
             handler_(Down);
-        } else {
+        }
+    } else {
+        if (named_pid_ != new_pid) {
+            named_pid_ = new_pid;
             handler_(Up);
         }
     }
