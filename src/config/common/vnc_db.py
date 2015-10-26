@@ -212,7 +212,7 @@ class DBBase(object):
 
     @classmethod
     def read_obj(cls, uuid, obj_type=None):
-        ok, objs = cls._cassandra.read(obj_type or cls.obj_type, [uuid])
+        ok, objs = cls._cassandra.object_read(obj_type or cls.obj_type, [uuid])
         if not ok:
             cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
@@ -243,11 +243,11 @@ class DBBase(object):
     @classmethod
     def list_obj(cls, obj_type=None):
         obj_type = obj_type or cls.obj_type
-        ok, result = cls._cassandra.list(obj_type)
+        ok, result = cls._cassandra.object_list(obj_type)
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
-        ok, objs = cls._cassandra.read(obj_type, uuids)
+        ok, objs = cls._cassandra.object_read(obj_type, uuids)
         if not ok:
             return []
         return objs
