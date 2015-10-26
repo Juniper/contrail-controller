@@ -8,13 +8,13 @@ import test_common_utils as test_utils
 class VirtualMachineManagerTest(unittest.TestCase):
     def setUp(self):
         VirtualMachineSM._cassandra = mock.MagicMock()
-        VirtualMachineSM._cassandra.read = test_utils.vm_db_read
+        VirtualMachineSM._cassandra.object_read = test_utils.vm_db_read
         VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
-        VirtualMachineInterfaceSM._cassandra.read = test_utils.vmi_db_read
+        VirtualMachineInterfaceSM._cassandra.object_read = test_utils.vmi_db_read
         InstanceIpSM._cassandra = mock.MagicMock()
-        InstanceIpSM._cassandra.read = test_utils.iip_db_read
+        InstanceIpSM._cassandra.object_read = test_utils.iip_db_read
         InterfaceRouteTableSM._cassandra = mock.MagicMock()
-        InterfaceRouteTableSM._cassandra.read = test_utils.irt_db_read
+        InterfaceRouteTableSM._cassandra.object_read = test_utils.irt_db_read
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
