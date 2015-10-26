@@ -955,13 +955,13 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             api_server.config_log = orig_config_log
 
         try:
-            orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+            orig_vn_read = api_server._db_conn._cassandra_db.object_read
             test_obj = self._create_test_object()
-            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = exception_on_vn_read
+            api_server._db_conn._cassandra_db.object_read = exception_on_vn_read
             with ExpectedException(HttpError):
                 self._vnc_lib.virtual_network_read(fq_name=test_obj.get_fq_name())
         finally:
-            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+            api_server._db_conn._cassandra_db.object_read = orig_vn_read
 
     def test_sandesh_trace(self):
         from lxml import etree
@@ -1685,7 +1685,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
                 gevent.sleep(1)
             return orig_vn_read(*args, **kwargs)
 
-        api_server._db_conn._cassandra_db._cassandra_virtual_network_read = slow_response_on_vn_read
+        api_server._db_conn._cassandra_db.object_read = slow_response_on_vn_read
 
         logger.info("Creating a test VN object.")
         test_obj = self._create_test_object()
@@ -1700,7 +1700,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
 
     def test_within_max_api_requests(self):
         api_server = test_common.vnc_cfg_api_server.server
-        orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+        orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
             self.api_requests(orig_vn_read, 5)
             logger.info("Making one more requests well within the max_requests to api server")
@@ -1714,11 +1714,11 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             else:
                 self.assertEqual(vn_obj.name, vn_name)
         finally:
-            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+            api_server._db_conn._cassandra_db.object_read = orig_vn_read
 
     def test_err_on_max_api_requests(self):
         api_server = test_common.vnc_cfg_api_server.server
-        orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+        orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
             self.api_requests(orig_vn_read, 11)
             logger.info("Making one more requests (max_requests + 1) to api server")
@@ -1733,7 +1733,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             else:
                 self.assertTrue(False, 'Request succeeded unexpectedly')
         finally:
-            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+            api_server._db_conn._cassandra_db.object_read = orig_vn_read
 
 # end class TestVncCfgApiServerRequests
 
