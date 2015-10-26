@@ -33,7 +33,7 @@ class ConfigDBTest(unittest.TestCase):
         proj_dict = self.obj_to_dict(project)
         proj_dict['uuid'] = 'project'
         proj_obj = Project.from_dict(**proj_dict)
-        config_db.ProjectSM._cassandra.read = mock.Mock(return_value=(True, [proj_dict]))
+        config_db.ProjectSM._cassandra.object_read = mock.Mock(return_value=(True, [proj_dict]))
         config_db.ProjectSM.locate(uuid)
         return proj_obj
     # end add_project
@@ -41,7 +41,7 @@ class ConfigDBTest(unittest.TestCase):
     def add_domain(self, name, uuid):
         dom = Domain(name)
         dom_dict = self.obj_to_dict(dom)
-        config_db.DomainSM._cassandra.read = mock.Mock(return_value=(True, [dom_dict]))
+        config_db.DomainSM._cassandra.object_read = mock.Mock(return_value=(True, [dom_dict]))
         config_db.DomainSM.locate(uuid)
     # end
 
@@ -51,7 +51,7 @@ class ConfigDBTest(unittest.TestCase):
         net_dict['parent_uuid'] = parent_obj.uuid
         net_dict['uuid'] = uuid
         net_obj = VirtualNetwork.from_dict(**net_dict)
-        config_db.VirtualNetworkSM._cassandra.read = mock.Mock(return_value=(True, [net_dict]))
+        config_db.VirtualNetworkSM._cassandra.object_read = mock.Mock(return_value=(True, [net_dict]))
         config_db.VirtualNetworkSM.locate(uuid)
         return net_obj
     # end add_vn
@@ -69,7 +69,7 @@ class ConfigDBTest(unittest.TestCase):
         vmi_dict['parent_uuid'] = parent_obj.uuid
         vmi_dict['uuid'] = uuid
         vmi_obj = VirtualMachineInterface.from_dict(**vmi_dict)
-        config_db.VirtualMachineInterfaceSM._cassandra.read = mock.Mock(return_value=(True, [vmi_dict]))
+        config_db.VirtualMachineInterfaceSM._cassandra.object_read = mock.Mock(return_value=(True, [vmi_dict]))
         config_db.VirtualMachineInterfaceSM.locate(uuid)
         return vmi_obj
     # end add_vmi
@@ -79,7 +79,7 @@ class ConfigDBTest(unittest.TestCase):
         vm_dict = self.obj_to_dict(vm)
         vm_dict['uuid'] = uuid
         vm_obj = VirtualMachine.from_dict(**vm_dict)
-        config_db.VirtualMachineSM._cassandra.read = mock.Mock(return_value=(True, [vm_dict]))
+        config_db.VirtualMachineSM._cassandra.object_read = mock.Mock(return_value=(True, [vm_dict]))
         config_db.VirtualMachineSM.locate(uuid)
         return vm_obj
     # end add_vm
@@ -91,7 +91,7 @@ class ConfigDBTest(unittest.TestCase):
         vr_dict = self.obj_to_dict(vr)
         vr_dict['uuid'] = uuid
         vr_obj = VirtualRouter.from_dict(**vr_dict)
-        config_db.VirtualRouterSM._cassandra.read = mock.Mock(return_value=(True, [vr_dict]))
+        config_db.VirtualRouterSM._cassandra.object_read = mock.Mock(return_value=(True, [vr_dict]))
         config_db.VirtualRouterSM.locate(uuid)
     # end add_vr
 
@@ -109,7 +109,7 @@ class ConfigDBTest(unittest.TestCase):
         sas_dict = self.obj_to_dict(sas_obj)
         sas_dict['uuid'] = uuid
         sas_obj = ServiceApplianceSet.from_dict(**sas_dict)
-        config_db.ServiceApplianceSetSM._cassandra.read= mock.Mock(
+        config_db.ServiceApplianceSetSM._cassandra.object_read= mock.Mock(
             return_value=(True, [sas_dict]))
         config_db.ServiceApplianceSetSM.locate(uuid)
         return sas_obj
@@ -120,7 +120,7 @@ class ConfigDBTest(unittest.TestCase):
         st_dict = self.obj_to_dict(st)
         st_dict['uuid'] = uuid
         st_obj = ServiceTemplate.from_dict(**st_dict)
-        config_db.ServiceTemplateSM._cassandra.read = mock.Mock(return_value=(True, [st_dict]))
+        config_db.ServiceTemplateSM._cassandra.object_read = mock.Mock(return_value=(True, [st_dict]))
         config_db.ServiceTemplateSM.locate(uuid)
         return st_obj
     # end add_st
@@ -131,7 +131,7 @@ class ConfigDBTest(unittest.TestCase):
         si_dict = self.obj_to_dict(si)
         si_dict['uuid'] = uuid
         si_obj = ServiceInstance.from_dict(**si_dict)
-        config_db.ServiceInstanceSM._cassandra.read = mock.Mock(return_value=(True, [si_dict]))
+        config_db.ServiceInstanceSM._cassandra.object_read = mock.Mock(return_value=(True, [si_dict]))
         config_db.ServiceInstanceSM.locate(uuid)
         return si_obj
     # end add_si
@@ -195,7 +195,7 @@ class ConfigDBTest(unittest.TestCase):
         iip_dict = self.obj_to_dict(iip)
         iip_dict['uuid'] = 'iip'
         iip_obj = InstanceIp.from_dict(**iip_dict)
-        config_db.InstanceIpSM._cassandra.read = mock.Mock(return_value=(True, [iip_dict]))
+        config_db.InstanceIpSM._cassandra.object_read = mock.Mock(return_value=(True, [iip_dict]))
         config_db.InstanceIpSM.locate('iip')
 
         vmi = config_db.VirtualMachineInterfaceSM.get('vmi')
@@ -230,7 +230,7 @@ class ConfigDBTest(unittest.TestCase):
         sa_dict = self.obj_to_dict(sa_obj)
         sa_dict['uuid'] = 'sa'
         sa_dict['parent_uuid'] = 'sas'
-        config_db.ServiceApplianceSM._cassandra.read = mock.Mock(return_value=(True, [sa_dict]))
+        config_db.ServiceApplianceSM._cassandra.object_read = mock.Mock(return_value=(True, [sa_dict]))
         config_db.ServiceApplianceSM.locate('sa')
 
         sas = config_db.ServiceApplianceSetSM.get('sas')
@@ -254,7 +254,7 @@ class ConfigDBTest(unittest.TestCase):
         hm_dict['uuid'] = 'hm'
         hm_dict['parent_uuid'] = 'project'
         hm_obj = LoadbalancerHealthmonitor.from_dict(**hm_dict)
-        config_db.HealthMonitorSM._cassandra.read = mock.Mock(return_value=(True, [hm_dict]))
+        config_db.HealthMonitorSM._cassandra.object_read = mock.Mock(return_value=(True, [hm_dict]))
         config_db.HealthMonitorSM.locate("hm")
 
         pool_obj = LoadbalancerPool("Test-Pool", proj_obj)
@@ -265,7 +265,7 @@ class ConfigDBTest(unittest.TestCase):
         pool_dict['uuid'] = 'pool'
         pool_dict['parent_uuid'] = 'project'
         pool_obj = LoadbalancerPool.from_dict(**pool_dict)
-        config_db.LoadbalancerPoolSM._cassandra.read = mock.Mock(return_value=(True, [pool_dict]))
+        config_db.LoadbalancerPoolSM._cassandra.object_read = mock.Mock(return_value=(True, [pool_dict]))
         config_db.LoadbalancerPoolSM.locate('pool')
 
         member_obj = LoadbalancerMember("member-0" , pool_obj)
@@ -273,7 +273,7 @@ class ConfigDBTest(unittest.TestCase):
         member_dict['uuid'] = 'member'
         member_dict['parent_uuid'] = 'pool'
         member_obj = LoadbalancerMember.from_dict(**member_dict)
-        config_db.LoadbalancerMemberSM._cassandra.read = mock.Mock(return_value=(True, [member_dict]))
+        config_db.LoadbalancerMemberSM._cassandra.object_read = mock.Mock(return_value=(True, [member_dict]))
         config_db.LoadbalancerMemberSM.locate('member')
 
         vip_obj = VirtualIp("Test-vip", proj_obj)
@@ -282,7 +282,7 @@ class ConfigDBTest(unittest.TestCase):
         vip_dict['uuid'] = 'vip'
         vip_dict['parent_uuid'] = 'project'
         vip_obj = VirtualIp.from_dict(**vip_dict)
-        config_db.VirtualIpSM._cassandra.read = mock.Mock(return_value=(True, [vip_dict]))
+        config_db.VirtualIpSM._cassandra.object_read = mock.Mock(return_value=(True, [vip_dict]))
         config_db.VirtualIpSM.locate('vip')
 
         hm = config_db.HealthMonitorSM.get('hm')
@@ -370,7 +370,7 @@ class ConfigDBTest(unittest.TestCase):
         fip_dict['parent_uuid'] = 'pool'
         fip_dict['uuid'] = 'fip'
         fip_obj = FloatingIp.from_dict(**fip_dict)
-        config_db.FloatingIpSM._cassandra.read = mock.Mock(return_value=(True, [fip_dict]))
+        config_db.FloatingIpSM._cassandra.object_read = mock.Mock(return_value=(True, [fip_dict]))
         config_db.FloatingIpSM.locate('fip')
 
         fip = config_db.FloatingIpSM.get('fip')
@@ -397,7 +397,7 @@ class ConfigDBTest(unittest.TestCase):
         sg_dict['parent_uuid'] = 'project'
         sg_dict['uuid'] = 'sg'
         sg_obj = SecurityGroup.from_dict(**sg_dict)
-        self.cassandra._cassandra_security_group_read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             return_value=(True, [sg_dict]))
         config_db.SecurityGroupSM.locate('sg')
 
@@ -420,7 +420,7 @@ class ConfigDBTest(unittest.TestCase):
         irt_dict['parent_uuid'] = 'project'
         irt_dict['uuid'] = 'irt'
         irt_obj = InterfaceRouteTable.from_dict(**irt_dict)
-        config_db.InterfaceRouteTableSM._cassandra.read = mock.Mock(return_value=(True, [irt_dict]))
+        config_db.InterfaceRouteTableSM._cassandra.object_read = mock.Mock(return_value=(True, [irt_dict]))
         config_db.InterfaceRouteTableSM.locate('irt')
 
         vmi_obj = self.add_vmi("Test-VMI", 'vmi', project, net_obj, None, irt_obj)
@@ -443,14 +443,14 @@ class ConfigDBTest(unittest.TestCase):
                             physical_router_management_ip="12.3.2.2",
                             physical_router_vendor_name="mx")
         pr_dict = self.obj_to_dict(pr)
-        config_db.PhysicalRouterSM._cassandra.read = mock.Mock(return_value=(True, [pr_dict]))
+        config_db.PhysicalRouterSM._cassandra.object_read = mock.Mock(return_value=(True, [pr_dict]))
         pr_dict['uuid'] = 'pr'
         pr_obj = PhysicalRouter.from_dict(**pr_dict)
         config_db.PhysicalRouterSM.locate('pr')
 
         pi = PhysicalInterface(name="Test-PI", parent_obj=pr_obj)
         pi_dict = self.obj_to_dict(pi)
-        config_db.PhysicalInterfaceSM._cassandra.read = mock.Mock(return_value=(True, [pi_dict]))
+        config_db.PhysicalInterfaceSM._cassandra.object_read = mock.Mock(return_value=(True, [pi_dict]))
         pi_dict['uuid'] = 'pi'
         pi_dict['parent_uuid'] = 'pr'
         pi_obj = PhysicalInterface.from_dict(**pi_dict)
@@ -462,7 +462,7 @@ class ConfigDBTest(unittest.TestCase):
             else:
                 li_0 = LogicalInterface(name="Test-LI", parent_obj=pi_obj)
             li_dict = self.obj_to_dict(li_0)
-            config_db.LogicalInterfaceSM._cassandra.read = mock.Mock(
+            config_db.LogicalInterfaceSM._cassandra.object_read = mock.Mock(
                 return_value=(True, [li_dict]))
             li_dict['uuid'] = 'li_'+str(i)
             if i%2:
@@ -515,7 +515,7 @@ class ConfigDBTest(unittest.TestCase):
         lr_dict = self.obj_to_dict(lr)
         lr_dict['parent_uuid'] = 'project'
         lr_dict['uuid'] = 'lr'
-        config_db.LogicalRouterSM._cassandra.read = mock.Mock(return_value=(True, [lr_dict]))
+        config_db.LogicalRouterSM._cassandra.object_read = mock.Mock(return_value=(True, [lr_dict]))
         config_db.LogicalRouterSM.locate('lr')
 
         lr = config_db.LogicalRouterSM.get('lr')

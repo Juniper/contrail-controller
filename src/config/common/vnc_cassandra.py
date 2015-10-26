@@ -20,7 +20,6 @@ from sandesh_common.vns.constants import API_SERVER_KEYSPACE_NAME, \
 import time
 from cfgm_common import jsonutils as json
 import utils
-import functools
 import datetime
 import re
 from operator import itemgetter
@@ -56,17 +55,6 @@ class VncCassandraClient(object):
         self._re_match_ref = re.compile('ref:')
         self._re_match_backref = re.compile('backref:')
         self._re_match_children = re.compile('children:')
-
-        # bind CRUDL methods to all types
-        for resource_type in vnc_api.all_resource_types:
-            obj_type = resource_type.replace('-', '_')
-            for oper in ('create', 'read', 'update', 'delete', 'list',
-                         'count_children'):
-                method = getattr(self, '_object_%s' %(oper))
-                bound_method = functools.partial(method, resource_type)
-                functools.update_wrapper(bound_method, method)
-                setattr(self, '_cassandra_%s_%s' %(obj_type, oper),
-                    bound_method)
 
         self._reset_config = reset_config
         self._cache_uuid_to_fq_name = {}
@@ -261,7 +249,7 @@ class VncCassandraClient(object):
         return getattr(vnc_api, cls_name)
     # end _get_resource_class
 
-    def _object_create(self, res_type, obj_ids, obj_dict):
+    def object_create(self, res_type, obj_id, obj_dict):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
 
@@ -279,7 +267,7 @@ class VncCassandraClient(object):
             parent_fq_name = obj_dict['fq_name'][:-1]
             obj_cols['parent_type'] = json.dumps(parent_type)
             parent_uuid = self.fq_name_to_uuid(parent_method_type, parent_fq_name)
-            self._create_child(bch, parent_method_type, parent_uuid, obj_type, obj_ids['uuid'])
+            self._create_child(bch, parent_method_type, parent_uuid, obj_type, obj_id)
 
         # Properties
         for prop_field in obj_class.prop_fields:
@@ -290,7 +278,7 @@ class VncCassandraClient(object):
                 field['created'] = datetime.datetime.utcnow().isoformat()
                 field['last_modified'] = field['created']
 
-            self._create_prop(bch, obj_ids['uuid'], prop_field, field)
+            self._create_prop(bch, obj_id, prop_field, field)
 
         # References
         # e.g. ref_field = 'network_ipam_refs'
@@ -304,21 +292,21 @@ class VncCassandraClient(object):
                 ref_uuid = self.fq_name_to_uuid(ref_type, ref['to'])
                 ref_attr = ref.get('attr')
                 ref_data = {'attr': ref_attr, 'is_weakref': False}
-                self._create_ref(bch, obj_type, obj_ids['uuid'],
+                self._create_ref(bch, obj_type, obj_id,
                     ref_type.replace('-', '_'), ref_uuid, ref_data)
 
-        bch.insert(obj_ids['uuid'], obj_cols)
+        bch.insert(obj_id, obj_cols)
         bch.send()
 
         # Update fqname table
         fq_name_str = ':'.join(obj_dict['fq_name'])
-        fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_ids['uuid']: json.dumps(None)}
+        fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_id: json.dumps(None)}
         self._obj_fq_name_cf.insert(obj_type, fq_name_cols)
 
         return (True, '')
-    # end _object_create
+    # end object_create
 
-    def _object_read(self, res_type, obj_uuids, field_names=None):
+    def object_read(self, res_type, obj_uuids, field_names=None):
         # if field_names=None, all fields will be read/returned
 
         obj_type = res_type.replace('-', '_')
@@ -410,9 +398,9 @@ class VncCassandraClient(object):
         # end for all rows
 
         return (True, results)
-    # end _object_read
+    # end object_read
 
-    def _object_count_children(self, res_type, obj_uuid, child_type):
+    def object_count_children(self, res_type, obj_uuid, child_type):
         if child_type is None:
             return (False, '')
 
@@ -430,9 +418,9 @@ class VncCassandraClient(object):
                                    column_finish=col_finish,
                                    max_count=self._MAX_COL)
         return (True, num_children)
-    # end _object_count_children
+    # end object_count_children
 
-    def _object_update(self, res_type, obj_uuid, new_obj_dict):
+    def object_update(self, res_type, obj_uuid, new_obj_dict):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
          # Grab ref-uuids and properties in new version
@@ -502,9 +490,9 @@ class VncCassandraClient(object):
         bch.send()
 
         return (True, '')
-    # end _object_update
+    # end object_update
 
-    def _object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
+    def object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
                      obj_uuids=None, count=False, filters=None):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
@@ -701,9 +689,9 @@ class VncCassandraClient(object):
 
         return (True, children_fq_names_uuids)
 
-    # end _object_list
+    # end object_list
 
-    def _object_delete(self, res_type, obj_uuid):
+    def object_delete(self, res_type, obj_uuid):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
@@ -742,22 +730,7 @@ class VncCassandraClient(object):
         self._obj_fq_name_cf.remove(obj_type, columns = [fq_name_col])
 
         return (True, '')
-    # end _object_delete
-
-    def read(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_read' % (method_name))
-        return method(*args, **kwargs)
-    # end read
-
-    def count_children(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_count_children' % (method_name))
-        return method(*args, **kwargs)
-    # end count_children
-
-    def list(self, method_name, *args, **kwargs):
-        method = getattr(self, '_cassandra_%s_list' % (method_name))
-        return method(*args, **kwargs)
-    # end list
+    # end object_delete
 
     def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
         self._cache_uuid_to_fq_name[id] = (fq_name, obj_type)
