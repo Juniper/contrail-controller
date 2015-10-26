@@ -43,6 +43,7 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
 #include "net/address.h"
+#include "net/community.h"
 #include <pugixml/pugixml.hpp>
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
@@ -736,7 +737,7 @@ TYPED_TEST(StaticRouteTest, Basic) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     static_rt =
         this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
@@ -808,7 +809,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     static_rt =
         this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
@@ -841,7 +842,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     // Delete nexthop route
     this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));
@@ -891,7 +892,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     static_rt =
     this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
@@ -904,7 +905,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     params = this->GetStaticRouteConfig(
         "controller/src/bgp/testdata/static_route_4.xml");
@@ -937,7 +938,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "blue");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     static_rt =
         this->RouteLookup("nat", this->BuildPrefix("192.168.1.0", 24));
@@ -949,7 +950,7 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
     EXPECT_TRUE(attr->as_path() == NULL);
     EXPECT_TRUE(attr->community() != NULL);
-    EXPECT_TRUE(attr->community()->ContainsValue(Community::AcceptOwn));
+    EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::AcceptOwn));
 
     // Delete nexthop route
     this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));

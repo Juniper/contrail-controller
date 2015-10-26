@@ -23,6 +23,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
 #include "net/bgp_af.h"
+#include "net/community.h"
 #include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
@@ -71,6 +72,13 @@ private:
     void AddMcastUnreach(const BgpRoute *route);
     bool AddMcastRoute(const BgpRoute *route, const RibOutAttr *roattr);
 
+    void ProcessCommunity(const Community *community) {
+        if (community == NULL)
+            return;
+        BOOST_FOREACH(uint32_t value, community->communities()) {
+            community_list_.push_back(CommunityType::CommunityToString(value));
+        }
+    }
     void ProcessExtCommunity(const ExtCommunity *ext_community) {
         if (ext_community == NULL)
             return;
@@ -110,6 +118,7 @@ private:
     uint32_t sequence_number_;
     string virtual_network_;
     vector<int> security_group_list_;
+    vector<string> community_list_;
     string repr_;
     string repr_new_;
     size_t repr_part1_;
@@ -130,6 +139,7 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
 
     if (is_reachable_) {
         const BgpAttr *attr = roattr->attr();
+        ProcessCommunity(attr->community());
         ProcessExtCommunity(attr->ext_community());
         if (virtual_network_.empty() && roattr->vrf_originated()) {
             virtual_network_ =
@@ -219,6 +229,11 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     for (vector<int>::iterator it = security_group_list_.begin();
          it !=  security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
+    }
+
+    for (vector<string>::iterator it = community_list_.begin();
+         it !=  community_list_.end(); ++it) {
+        item.entry.community_tag_list.community_tag.push_back(*it);
     }
 
     // Encode load balance attribute.

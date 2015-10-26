@@ -31,6 +31,7 @@
 #include "bgp/routing-instance/static_route_types.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
+#include "net/community.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -446,7 +447,7 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         const Community *orig_community =
             nexthop_route_path->GetAttr()->community();
         CommunityPtr new_community =
-            comm_db->AppendAndLocate(orig_community, Community::AcceptOwn);
+            comm_db->AppendAndLocate(orig_community, CommunityType::AcceptOwn);
         new_attr =
             attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
 

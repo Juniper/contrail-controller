@@ -24,6 +24,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "net/community.h"
 
 using std::map;
 using std::make_pair;
@@ -154,12 +155,12 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         if (attr->community() != NULL &&
             attr->community()->communities().size()) {
             BOOST_FOREACH(uint32_t value, attr->community()->communities()) {
-                if (value == Community::NoAdvertise)
+                if (value == CommunityType::NoAdvertise)
                     return NULL;
 
                 if ((ribout->peer_type() == BgpProto::EBGP) &&
-                    ((value == Community::NoExport) ||
-                     (value == Community::NoExportSubconfed))) {
+                    ((value == CommunityType::NoExport) ||
+                     (value == CommunityType::NoExportSubconfed))) {
                     return NULL;
                 }
             }

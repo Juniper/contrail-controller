@@ -22,6 +22,7 @@
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "io/test/event_manager_test.h"
+#include "net/community.h"
 #include "testing/gunit.h"
 
 using namespace std;
@@ -411,7 +412,7 @@ TEST_P(BgpTableExportParamTest1, NoFeasiblePath) {
 //
 TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise1) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
-    SetAttrCommunity(Community::NoAdvertise);
+    SetAttrCommunity(CommunityType::NoAdvertise);
     AddPath();
     RunExport();
     VerifyExportReject();
@@ -425,7 +426,7 @@ TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise1) {
 //
 TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise2) {
     CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
-    SetAttrCommunity(Community::NoAdvertise);
+    SetAttrCommunity(CommunityType::NoAdvertise);
     AddPath();
     RunExport();
     VerifyExportReject();
@@ -439,7 +440,7 @@ TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise2) {
 //
 TEST_P(BgpTableExportParamTest1, CommunityNoExport) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
-    SetAttrCommunity(Community::NoExport);
+    SetAttrCommunity(CommunityType::NoExport);
     AddPath();
     RunExport();
     VerifyExportReject();
@@ -453,7 +454,7 @@ TEST_P(BgpTableExportParamTest1, CommunityNoExport) {
 //
 TEST_P(BgpTableExportParamTest1, CommunityNoExportSubconfed) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
-    SetAttrCommunity(Community::NoExportSubconfed);
+    SetAttrCommunity(CommunityType::NoExportSubconfed);
     AddPath();
     RunExport();
     VerifyExportReject();
@@ -636,7 +637,7 @@ class BgpTableExportParamTest3 :
 //
 TEST_P(BgpTableExportParamTest3, CommunityNoExport) {
     CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
-    SetAttrCommunity(Community::NoExport);
+    SetAttrCommunity(CommunityType::NoExport);
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -650,7 +651,7 @@ TEST_P(BgpTableExportParamTest3, CommunityNoExport) {
 //
 TEST_P(BgpTableExportParamTest3, CommunityNoExportSubconfed) {
     CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
-    SetAttrCommunity(Community::NoExportSubconfed);
+    SetAttrCommunity(CommunityType::NoExportSubconfed);
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -854,7 +855,7 @@ TEST_P(BgpTableExportParamTest4b, AttrNoChange) {
 // Intent: NoAdvertise community is ignored if RibOut is XMPP.
 //
 TEST_P(BgpTableExportParamTest4b, CommunityNoAdvertise) {
-    SetAttrCommunity(Community::NoAdvertise);
+    SetAttrCommunity(CommunityType::NoAdvertise);
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -868,7 +869,7 @@ TEST_P(BgpTableExportParamTest4b, CommunityNoAdvertise) {
 // Intent: NoExport community is ignored if RibOut is XMPP.
 //
 TEST_P(BgpTableExportParamTest4b, CommunityNoExport) {
-    SetAttrCommunity(Community::NoExport);
+    SetAttrCommunity(CommunityType::NoExport);
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -882,7 +883,7 @@ TEST_P(BgpTableExportParamTest4b, CommunityNoExport) {
 // Intent: NoExportSubconfed community is ignored if RibOut is XMPP.
 //
 TEST_P(BgpTableExportParamTest4b, CommunityNoExportSubconfed) {
-    SetAttrCommunity(Community::NoExportSubconfed);
+    SetAttrCommunity(CommunityType::NoExportSubconfed);
     AddPath();
     RunExport();
     VerifyExportAccept();

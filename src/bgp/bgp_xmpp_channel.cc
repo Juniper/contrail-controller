@@ -38,6 +38,7 @@
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/bgp_af.h"
+#include "net/community.h"
 #include "net/mac_address.h"
 #include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_multicast_types.h"
@@ -59,6 +60,7 @@ using autogen::McastTunnelEncapsulationListType;
 using autogen::ItemType;
 using autogen::NextHopListType;
 using autogen::SecurityGroupListType;
+using autogen::CommunityTagListType;
 using autogen::TunnelEncapsulationListType;
 
 using boost::system::error_code;
@@ -1094,6 +1096,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     uint32_t label = 0;
     uint32_t flags = 0;
     ExtCommunitySpec ext;
+    CommunitySpec comm;
 
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1171,6 +1174,18 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         if (med.med != 0)
             attrs.push_back(&med);
 
+        // Process community tags
+        const CommunityTagListType &ict_list = item.entry.community_tag_list;
+        for (CommunityTagListType::const_iterator cit = ict_list.begin();
+             cit != ict_list.end(); ++cit) {
+            error_code error;
+            uint32_t rt_community =
+                CommunityType::CommunityFromString(*cit, &error);
+            if (error)
+                continue;
+            comm.communities.push_back(rt_community);
+        }
+
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
@@ -1195,6 +1210,9 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         LoadBalance load_balance(item.entry.load_balance);
         if (!load_balance.IsDefault())
             ext.communities.push_back(load_balance.GetExtCommunityValue());
+
+        if (!comm.communities.empty())
+            attrs.push_back(&comm);
 
         if (!ext.communities.empty())
             attrs.push_back(&ext);

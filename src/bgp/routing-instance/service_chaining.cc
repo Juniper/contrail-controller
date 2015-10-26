@@ -36,6 +36,7 @@
 #include "db/db_table_partition.h"
 #include "net/address.h"
 #include "net/address_util.h"
+#include "net/community.h"
 
 using boost::bind;
 using boost::system::error_code;
@@ -176,8 +177,11 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
                 } else {
                     const BgpAttr *attr = route->BestPath()->GetAttr();
                     const Community *comm = attr ? attr->community() : NULL;
-                    if (comm && comm->ContainsValue(Community::NoAdvertise))
+                    if (comm) {
+                        if ((comm->ContainsValue(CommunityType::NoAdvertise)) ||
+                           (comm->ContainsValue(CommunityType::NoReOriginate)))
                         deleted = true;
+                    }
 
                     int vn_index = GetOriginVnIndex(table, route);
                     int src_vn_index = src_->virtual_network_index();
@@ -436,7 +440,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
     BgpAttrDB *attr_db = server->attr_db();
     CommunityDB *comm_db = server->comm_db();
     CommunityPtr new_community =
-        comm_db->AppendAndLocate(orig_community, Community::AcceptOwn);
+        comm_db->AppendAndLocate(orig_community, CommunityType::AcceptOwn);
     ExtCommunityDB *extcomm_db = server->extcomm_db();
     PeerRibMembershipManager *membership_mgr = server->membership_mgr();
     OriginVnPathDB *ovnpath_db = server->ovnpath_db();

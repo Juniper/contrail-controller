@@ -44,6 +44,7 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
+#include "net/community.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
@@ -716,7 +717,7 @@ protected:
         const string &prefix, const string &path_id, const string &origin_vn,
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
             SiteOfOrigin(), commlist, vector<string>()));
@@ -761,7 +762,7 @@ protected:
 
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>(), lb));
@@ -772,7 +773,7 @@ protected:
         int label = 0) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>()));
@@ -781,7 +782,7 @@ protected:
     void VerifyRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn) {
         task_util::WaitForIdle();
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>()));
@@ -792,7 +793,7 @@ protected:
         const vector<uint32_t> sg_ids) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
             SiteOfOrigin(), commlist, vector<string>()));
@@ -803,7 +804,7 @@ protected:
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             tunnel_encaps, SiteOfOrigin(), commlist, vector<string>()));
@@ -814,7 +815,7 @@ protected:
         const SiteOfOrigin &soo) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), soo, commlist, vector<string>()));
@@ -836,7 +837,7 @@ protected:
         const vector<string> &origin_vn_path) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(Community::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, origin_vn_path));
@@ -2577,7 +2578,7 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Change Ext connect route to have NO_ADVERTISE community
-    vector<uint32_t> commlist = list_of(Community::NoAdvertise);
+    vector<uint32_t> commlist = list_of(CommunityType::NoAdvertise);
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
                    commlist);
 
@@ -2585,6 +2586,57 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteNoAdvertiseCommunity) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
 
     // Change Ext connect route to not have NO_ADVERTISE community
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
+
+    // Check for ExtConnect route
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("10.1.1.0", 24),
+                                this->BuildNextHopAddress("2.3.4.5"), "red");
+
+    // Delete ExtRoute and connected route
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
+    this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add MX leaked route 10.1.1.0/24
+// 3. Add connected route
+// 4. Verify that ext connect route 10.1.1.0/24 is added
+// 5. Change ext connected route to have NO_REORIGINATE community
+// 6. Verify that ext connect route is removed
+// 7. Change ext connected route to not have NO_REORIGINATE community
+// 8. Verify that ext connect route 10.1.1.0/24 is added
+//
+TYPED_TEST(ServiceChainTest, ExtConnectRouteNoReOriginateCommunity) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add Ext connect route
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
+
+    // Add Connected
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("2.3.4.5"));
+
+    // Check for ExtConnect route
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
+
+    // Change Ext connect route to have NO_REORIGINATE community
+    vector<uint32_t> commlist = list_of(CommunityType::NoReOriginate);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100,
+                   commlist);
+
+    // Check for ExtConnect route
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
+
+    // Change Ext connect route to not have NO_REORIGINATE community
     this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
 
     // Check for ExtConnect route
@@ -3415,7 +3467,7 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
 
     // Check for ExtConnect route
     CommunitySpec commspec;
-    commspec.communities.push_back(Community::AcceptOwn);
+    commspec.communities.push_back(CommunityType::AcceptOwn);
     commspec.communities.insert(
         commspec.communities.end(), commlist.begin(), commlist.end());
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));

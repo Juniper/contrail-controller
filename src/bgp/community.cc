@@ -12,6 +12,7 @@
 #include "base/string_util.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "net/community.h"
 
 using std::sort;
 using std::string;
@@ -77,25 +78,7 @@ bool Community::ContainsValue(uint32_t value) const {
 
 void Community::BuildStringList(vector<string> *list) const {
     BOOST_FOREACH(uint32_t community, communities_) {
-        string name;
-        switch (community) {
-        case AcceptOwn:
-            name = "accept-own";
-            break;
-        case NoExport:
-            name = "no-export";
-            break;
-        case NoAdvertise:
-            name = "no-advertise";
-            break;
-        case NoExportSubconfed:
-            name = "no-export-subconfed";
-            break;
-        default:
-            name = integerToString(community / 65536) + ":" +
-                integerToString(community % 65536);
-            break;
-        }
+        string name = CommunityType::CommunityToString(community);
         list->push_back(name);
     }
 }
