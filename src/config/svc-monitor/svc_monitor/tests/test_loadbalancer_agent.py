@@ -71,7 +71,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
                    'service_appliance_driver': 'svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver'
                    }])
             return (False, None)
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=sas_read_side_effect)
         DBBase.init(self.svc, None, self.cassandra)
         self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc, self.vnc_lib,

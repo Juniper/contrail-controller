@@ -64,7 +64,7 @@ class F5LBTest(unittest.TestCase):
                    }])
             return (False, None)
         DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.read = \
+        config_db.ServiceApplianceSetSM._cassandra.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         # return NoIdError exception for first query
@@ -82,7 +82,7 @@ class F5LBTest(unittest.TestCase):
 OpencontrailLoadbalancerDriver")
         sas.add()
         DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.read = \
+        config_db.ServiceApplianceSetSM._cassandra.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         import sys
