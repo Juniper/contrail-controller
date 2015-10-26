@@ -3198,7 +3198,11 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing6) {
 // RTargetRoute i.e. the one with the lowest router id. The other peer will
 // receive the VPN route via IBGP.
 //
-TEST_F(BgpXmppRTargetTest, PathSelection1) {
+// This test was disabled when default behavior of route target filtering
+// got modified via launchpad bug 1509945. It can be re-enabled when a knob
+// to limit the number of external paths is added.
+//
+TEST_F(BgpXmppRTargetTest, DISABLED_PathSelection1a) {
     Unconfigure();
     task_util::WaitForIdle();
     Configure(64496, 64496, 64497);
@@ -3220,6 +3224,39 @@ TEST_F(BgpXmppRTargetTest, PathSelection1) {
     BgpRoute *rt2 = VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
     uint32_t cn1_id = cn1_->bgp_identifier();
     TASK_UTIL_EXPECT_EQ(cn1_id, rt2->BestPath()->GetPeer()->bgp_identifier());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// If a RTargetRoute is received from EBGP peers that are in same AS, VPN
+// routes should be sent to all the peers that sent the best path for the
+// RTargetRoute, not just the one with the lowest router-id.
+//
+// This test was added when the default behavior of route target filtering
+// got modified via launchpad bug 1509945.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection1b) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64497);
+    SubscribeAgents("blue", 1);
+    task_util::WaitForIdle();
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    RTargetRoute *rtgt_rt =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    uint32_t mx_id = mx_->bgp_identifier();
+    BgpRoute *rt1 = VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    TASK_UTIL_EXPECT_EQ(mx_id, rt1->BestPath()->GetPeer()->bgp_identifier());
+    BgpRoute *rt2 = VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    TASK_UTIL_EXPECT_EQ(mx_id, rt2->BestPath()->GetPeer()->bgp_identifier());
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
@@ -3253,7 +3290,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection2) {
 
 //
 // If RTargetRoute is received from an EBGP peer and an IBGP peer, VPN routes
-// should be sent only to the EBGP peer.
+// should be sent to the both the EBGP and IBGP peers.
 //
 TEST_F(BgpXmppRTargetTest, PathSelection3) {
     Unconfigure();
@@ -3272,7 +3309,7 @@ TEST_F(BgpXmppRTargetTest, PathSelection3) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
-    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
