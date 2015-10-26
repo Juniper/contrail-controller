@@ -23,7 +23,7 @@
 class CdbIf : public GenDb::GenDbIf {
 public:
     CdbIf(DbErrorHandler, const std::vector<std::string>&,
-        const std::vector<int>&, int ttl, std::string name,
+        const std::vector<int>&, std::string name,
         bool only_sync);
     CdbIf();
     ~CdbIf();
@@ -255,7 +255,6 @@ private:
     mutable tbb::mutex cdbq_mutex_;
     InitTask *init_task_;
     CleanupTask *cleanup_task_;
-    int cassandra_ttl_;
     bool only_sync_;
     int task_instance_;
     int prev_task_instance_;

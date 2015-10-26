@@ -12,8 +12,8 @@ using namespace GenDb;
 GenDbIf *GenDbIf::GenDbIfImpl(GenDbIf::DbErrorHandler hdlr,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        int analytics_ttl, std::string name, bool only_sync) {
-    return (new CdbIf(hdlr, cassandra_ips, cassandra_ports, analytics_ttl,
+        std::string name, bool only_sync) {
+    return (new CdbIf(hdlr, cassandra_ips, cassandra_ports,
         name, only_sync));
 }
 
