@@ -2,24 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_attr.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <pthread.h>
 #include <sstream>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_server.h"
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;

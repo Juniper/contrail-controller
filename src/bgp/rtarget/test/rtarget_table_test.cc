@@ -4,22 +4,11 @@
 
 #include "bgp/rtarget/rtarget_table.h"
 
-#include <boost/bind.hpp>
-#include <tbb/atomic.h>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_server.h"
-#include "bgp/rtarget/rtarget_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -28,7 +17,7 @@ protected:
     RTargetTableTest()
             : server_(&evm_), rtable_(NULL) {
     }
-              
+
     virtual void SetUp() {
         master_cfg_.reset(new BgpInstanceConfig(BgpConfigManager::kMasterInstance));
         server_.routing_instance_mgr()->CreateRoutingInstance(
@@ -127,7 +116,7 @@ TEST_F(RTargetTableTest, DupDelete) {
     RTargetTable::RequestKey key(prefix, NULL);
     TASK_UTIL_EXPECT_TRUE((static_cast<Route *>(rtable_->Find(&key)) != NULL));
 
-    
+
     Route *rt_entry = static_cast<Route *>(rtable_->Find(&key));
     rt_entry->SetState(rtable_, tid_, NULL);
 

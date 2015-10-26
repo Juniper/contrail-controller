@@ -6,31 +6,23 @@
 
 #include <bitset>
 #include <fstream>
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -297,7 +289,7 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterIdentifierChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    const BgpProtocolConfig *protocol_cfg = 
+    const BgpProtocolConfig *protocol_cfg =
             config_manager_->GetProtocolConfig(
                 BgpConfigManager::kMasterInstance);
     ASSERT_TRUE(protocol_cfg != NULL);
@@ -338,7 +330,7 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterAutonomousSystemChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    const BgpProtocolConfig *protocol_cfg = 
+    const BgpProtocolConfig *protocol_cfg =
             config_manager_->GetProtocolConfig(
                 BgpConfigManager::kMasterInstance);
     ASSERT_TRUE(protocol_cfg != NULL);
@@ -378,7 +370,7 @@ TEST_F(BgpIfmapConfigManagerTest, BgpRouterHoldTimeChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
-    const BgpProtocolConfig *protocol_cfg = 
+    const BgpProtocolConfig *protocol_cfg =
             config_manager_->GetProtocolConfig(
                 BgpConfigManager::kMasterInstance);
     ASSERT_TRUE(protocol_cfg != NULL);

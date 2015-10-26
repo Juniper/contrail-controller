@@ -8,7 +8,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
-#include <yaml-cpp/yaml.h>
 
 #include "base/logging.h"
 #include "base/task.h"

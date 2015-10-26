@@ -4,11 +4,9 @@
 
 #include <algorithm>
 #include <boost/foreach.hpp>
-#include <arpa/inet.h>
 #include <string>
 #include <vector>
 
-#include "base/parse_object.h"
 #include "bgp/extended-community/load_balance.h"
 
 using namespace std;

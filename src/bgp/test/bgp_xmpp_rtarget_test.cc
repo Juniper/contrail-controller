@@ -5,7 +5,6 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_xmpp_sandesh.h"
@@ -24,7 +23,6 @@
 #include "io/test/event_manager_test.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
 
 using boost::assign::list_of;

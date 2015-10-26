@@ -4,28 +4,15 @@
 
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/assign/std/vector.hpp>
 #include <fstream>
 
-#include "base/logging.h"
-#include "base/util.h"
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
 #include "control-node/test/network_agent_mock.h"
-#include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
-#include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
-#include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_enet_types.h"
-#include "schema/bgp_schema_types.h"
-#include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
 
 using namespace std;

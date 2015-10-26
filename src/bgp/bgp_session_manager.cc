@@ -8,7 +8,6 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_session.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 
 BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
     : TcpServer(evm),

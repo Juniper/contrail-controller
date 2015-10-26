@@ -2,34 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_update.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/foreach.hpp>
 
 #include <tbb/compat/condition_variable>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
-#include "base/util.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/message_builder.h"
 #include "bgp/scheduling_group.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "io/event_manager.h"
-#include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace std;
 
@@ -157,7 +144,7 @@ class BgpUpdateTest : public ::testing::Test {
 protected:
     static const int kPeerCount = 2;
     static const int kAttrCount = 20;
-    BgpUpdateTest() 
+    BgpUpdateTest()
         : server_(&evm_),
           inetvpn_table_(static_cast<InetVpnTable *>(db_.CreateTable("bgp.l3vpn.0"))),
           tbl1_(inetvpn_table_, &mgr_, RibExportPolicy()) {
@@ -189,7 +176,7 @@ protected:
         BgpTestPeer *peer = new BgpTestPeer();
         peers_.push_back(peer);
         RibOutRegister(&tbl1_, peer);
-        ASSERT_TRUE(tbl1_.GetSchedulingGroup() != NULL);        
+        ASSERT_TRUE(tbl1_.GetSchedulingGroup() != NULL);
     }
 
     void CreateAttrs() {
@@ -275,7 +262,7 @@ TEST_F(BgpUpdateTest, Basic) {
     TASK_UTIL_EXPECT_EQ(1, adv_slist->size());
     const AdvertiseInfo &ainfo = *adv_slist->begin();
     TASK_UTIL_EXPECT_TRUE(tbl1_.PeerSet() == ainfo.bitset);
-    
+
     // delete
     u1 = BuildWithdraw(&rt1, tbl1_);
     EnqueueOneUpdate(updates, &rt1, u1);
@@ -298,7 +285,7 @@ TEST_F(BgpUpdateTest, UpdatePack) {
     RouteUpdate *u2 = BuildUpdate(&rt2, tbl1_, a2_);
     RouteUpdate *u3 = BuildUpdate(&rt3, tbl1_, a1_);
     RouteUpdate *u4 = BuildUpdate(&rt4, tbl1_, a3_);
-    
+
     TaskScheduler::GetInstance()->Stop();
     RibOutUpdates *updates = tbl1_.updates();
     EnqueueOneUpdate(updates, &rt1, u1);
@@ -379,7 +366,7 @@ TEST_F(BgpUpdateTest, MultipleMarkers) {
 
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(peers_[0].update_count() == 10);
-    
+
     // peers_[1].WaitOnBlocked(&mgr_);
     peers_[1].WriteActive(&mgr_);
     peers_[2].WriteActive(&mgr_);
@@ -399,7 +386,7 @@ TEST_F(BgpUpdateTest, MultipleMarkers) {
     TASK_UTIL_EXPECT_TRUE(peers_[2].update_count() == 10);
     TASK_UTIL_EXPECT_TRUE(peers_[3].update_count() == 10);
     TASK_UTIL_EXPECT_TRUE(peers_[4].update_count() == 10);
-    
+
     task_util::WaitForIdle();
     BOOST_FOREACH(BgpRoute *route, routes) {
         DeleteRouteState(&tbl1_, route);
@@ -421,19 +408,19 @@ protected:
 
         for (int i = 0; i < 2; i++) {
             BgpTestPeer *peer = new BgpTestPeer();
-            peers_.push_back(peer);        
+            peers_.push_back(peer);
             RibOutRegister(&tbl2_, peer);
         }
     }
 
-    RibOut tbl2_;    
+    RibOut tbl2_;
 };
 
 // 4. Multiple ribs (in sync)
 TEST_F(BgpUpdate2RibTest, Basic) {
     RibOutRegister(&tbl2_, &peers_[0]);
     ASSERT_EQ(tbl1_.GetSchedulingGroup(), tbl2_.GetSchedulingGroup());
-    
+
     InetVpnPrefix prefix(InetVpnPrefix::FromString("0:0:192.168.24.0/24"));
     InetVpnRoute rt1(prefix), rt2(prefix), rt3(prefix), rt4(prefix);
     RouteUpdate *u1 = BuildUpdate(&rt1, tbl1_, a1_);
@@ -472,7 +459,7 @@ TEST_F(BgpUpdate2RibTest, Basic) {
 TEST_F(BgpUpdate2RibTest, WithBlock) {
     for (int i = 0; i < 4; i++) {
         BgpTestPeer *peer = new BgpTestPeer();
-        peers_.push_back(peer);    
+        peers_.push_back(peer);
         RibOutRegister(&tbl1_, peer);
         RibOutRegister(&tbl2_, peer);
     }

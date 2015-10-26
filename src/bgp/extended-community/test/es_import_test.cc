@@ -4,7 +4,6 @@
 
 #include "bgp/extended-community/es_import.h"
 
-#include "base/logging.h"
 #include "testing/gunit.h"
 
 class EsImportTest : public ::testing::Test {

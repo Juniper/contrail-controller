@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
@@ -11,13 +9,10 @@
 #include "bgp/test/bgp_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
-#include "control-node/test/network_agent_mock.h"
 #include "ifmap/ifmap_server_parser.h"
-#include "ifmap/test/ifmap_test_util.h"
 #include "io/test/event_manager_test.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using std::cout;
 using std::endl;

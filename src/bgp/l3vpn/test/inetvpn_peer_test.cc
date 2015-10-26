@@ -2,26 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <tbb/mutex.h>
 
 #include <fstream>
 
-#include "base/task.h"
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "db/db_table_partition.h"
 #include "io/test/event_manager_test.h"
 
-#include "testing/gunit.h"
 
 using std::ifstream;
 using std::istreambuf_iterator;
@@ -326,7 +318,7 @@ protected:
             IpAddress::from_string("127.0.0.1"));
         b_peer_blue_config_->set_port(3);
         b_peer_blue_config_->set_peer_as(65533);
- 
+
         b_peer_blue_ = dynamic_cast<BgpPeerTest *>(
             b_blue->peer_manager()->PeerLocate(
                 b_.get(), b_peer_blue_config_.get()));

@@ -4,7 +4,6 @@
 
 #include "bgp/bgp_update.h"
 
-#include "base/logging.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 

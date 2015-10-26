@@ -2,26 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "testing/gunit.h"
 
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_proto.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_server.h"
-#include "bgp/l3vpn/inetvpn_address.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
-#include "io/event_manager.h"
 
 using namespace std;
 
@@ -105,7 +94,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
     InetVpnPrefix p1 = InetVpnPrefix::FromString("12345:2:1.1.1.1/24");
     InetVpnRoute route(p1);
-    BgpPath *path = 
+    BgpPath *path =
         new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
     route.InsertPath(path);
     BgpMessage message;
@@ -142,7 +131,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
     p1 = InetVpnPrefix::FromString("64.64.64.64:2:1.1.1.1/24");
     InetVpnRoute route2(p1);
-    BgpPath *path2 = 
+    BgpPath *path2 =
         new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
     route2.InsertPath(path2);
     message.AddRoute(&route2, &rib_out_attr);

@@ -4,22 +4,11 @@
 
 #include "bgp/l3vpn/inetvpn_table.h"
 
-#include <boost/bind.hpp>
-#include <tbb/atomic.h>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_server.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
-#include "io/event_manager.h"
-#include "testing/gunit.h"
 
 class BgpPeerMock : public IPeer {
 public:

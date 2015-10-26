@@ -4,13 +4,10 @@
 
 #include "bgp/bgp_config_ifmap.h"
 
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/task.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config_listener.h"
-#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
@@ -266,7 +263,7 @@ void BgpIfmapPeeringConfig::Update(BgpIfmapConfigManager *manager,
         const autogen::BgpRouter *remote_rt_config =
                 static_cast<const autogen::BgpRouter *>(
                     routers.second->GetObject());
-        if (local_rt_config && 
+        if (local_rt_config &&
             local_rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS) &&
             remote_rt_config &&
             remote_rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {

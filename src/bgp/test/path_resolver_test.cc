@@ -4,15 +4,10 @@
 
 #include "bgp/routing-instance/path_resolver.h"
 
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/inet6/inet6_table.h"
 #include "bgp/test/bgp_server_test_util.h"
-#include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
-#include "testing/gunit.h"
 
 using std::string;
 

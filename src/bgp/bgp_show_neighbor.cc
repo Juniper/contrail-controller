@@ -4,13 +4,9 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/bind.hpp>
 
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 
 using std::string;
 using std::vector;

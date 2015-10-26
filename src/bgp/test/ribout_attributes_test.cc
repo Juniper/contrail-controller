@@ -2,23 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/util.h"
-#include "base/logging.h"
 #include "base/test/task_test_util.h"
 
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_route.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_server.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/inet/inet_route.h"
 #include "control-node/control_node.h"
-#include "io/event_manager.h"
 
-#include "testing/gunit.h"
 
 class BgpPeerMock : public IPeer {
 public:

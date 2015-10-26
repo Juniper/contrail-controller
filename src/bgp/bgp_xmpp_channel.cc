@@ -4,42 +4,26 @@
 
 #include "bgp/bgp_xmpp_channel.h"
 
-#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <pugixml/pugixml.hpp>
 
 #include <limits>
 #include <vector>
 #include <sstream>
 
-#include "base/label_block.h"
-#include "base/logging.h"
 #include "base/task_annotations.h"
-#include "base/util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/inet6/inet6_route.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
-#include "bgp/ipeer.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/rtarget/rtarget_prefix.h"
 #include "bgp/rtarget/rtarget_table.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
-#include "net/bgp_af.h"
-#include "net/mac_address.h"
-#include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
 #include "xml/xml_pugi.h"

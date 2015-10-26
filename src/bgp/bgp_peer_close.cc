@@ -4,23 +4,10 @@
 
 #include "bgp/bgp_peer_close.h"
 
-#include <boost/assign/list_of.hpp>
-#include <boost/bind.hpp>
-#include <boost/foreach.hpp>
-#include <tbb/recursive_mutex.h>
 
-#include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
-#include "bgp/bgp_table.h"
-#include "bgp/bgp_update_queue.h"
-#include "db/db.h"
 
 //
 // Create an instance of PeerCloseManager with back reference to the parent

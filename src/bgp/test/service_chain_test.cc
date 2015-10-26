@@ -7,32 +7,26 @@
 #include <boost/regex.hpp>
 
 #include <boost/foreach.hpp>
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
 #include <pugixml/pugixml.hpp>
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
-#include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -43,10 +37,8 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;

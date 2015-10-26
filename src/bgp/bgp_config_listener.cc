@@ -11,8 +11,6 @@
 
 #include "ifmap/ifmap_dependency_tracker.h"
 
-#include "schema/bgp_schema_types.h"
-#include "schema/vnc_cfg_types.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;

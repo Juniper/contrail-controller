@@ -7,8 +7,6 @@
 #include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
-#include "base/test/task_test_util.h"
-#include "bgp/extended-community/load_balance.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -20,10 +18,7 @@
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "schema/xmpp_unicast_types.h"
-#include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace std;
 using boost::assign::list_of;

@@ -7,29 +7,19 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
 #include "bgp/bgp_session_manager.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_table.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
 #include "control-node/test/network_agent_mock.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 
-#include "schema/bgp_schema_types.h"
-#include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_factory.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace boost::assign;
 using boost::asio::ip::tcp;
@@ -128,7 +118,7 @@ class RtUnicastTest : public ::testing::Test {
                     << "<family>erm-vpn</family>"
                     << "<family>route-target</family>"
                     << "</address-families>"
-                    << "</session>";                
+                    << "</session>";
             }
             oss << "</bgp-router>";
         }
@@ -195,7 +185,7 @@ class RtUnicastTest : public ::testing::Test {
             if (xmpp->HasSessionReadAvailable()) {
                 return false;
             }
-            RoutingInstance *rti = 
+            RoutingInstance *rti =
                     server->routing_instance_mgr()->GetRoutingInstance(network);
             if (rti == NULL) {
                 return false;

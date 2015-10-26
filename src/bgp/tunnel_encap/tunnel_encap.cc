@@ -4,12 +4,10 @@
 
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
-#include <stdio.h>
 
 #include <algorithm>
 #include <sstream>
 
-#include "base/parse_object.h"
 
 using std::copy;
 using std::fill;

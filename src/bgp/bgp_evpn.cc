@@ -10,13 +10,9 @@
 #include <string>
 
 #include "base/task_annotations.h"
-#include "base/util.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_route.h"
 #include "bgp/evpn/evpn_table.h"
-#include "bgp/origin-vn/origin_vn.h"
 
 using std::sort;
 using std::string;

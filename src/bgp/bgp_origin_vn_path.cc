@@ -4,7 +4,6 @@
 
 #include "bgp/bgp_origin_vn_path.h"
 
-#include <boost/foreach.hpp>
 
 #include <algorithm>
 #include <string>

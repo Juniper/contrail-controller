@@ -2,37 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <unistd.h>
 #include <fstream>
 #include <sstream>
-#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 
 using namespace boost::assign;
 
-#include <pugixml/pugixml.hpp>
 
 #include "base/task_annotations.h"
-#include "base/util.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_proto.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/inet/inet_table.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "io/test/event_manager_test.h"
@@ -40,21 +24,14 @@ using namespace boost::assign;
 #include "control-node/test/network_agent_mock.h"
 
 
-#include "schema/xmpp_unicast_types.h"
 
-#include "xmpp/xmpp_client.h"
-#include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-#include "xmpp/xmpp_state_machine.h"
 
-#include "xml/xml_pugi.h"
 
-#include "testing/gunit.h"
 
 using namespace boost::asio;
 using namespace std;
 
-#define SUB_ADDR "agent@vnsw.contrailsystems.com" 
+#define SUB_ADDR "agent@vnsw.contrailsystems.com"
 
 class BgpXmppChannelMock;
 
@@ -137,7 +114,7 @@ static const char *config_template_without_instances = "\
 
 class BgpXmppUnitTest : public ::testing::Test {
 public:
-    bool PeerRegistered(BgpXmppChannel *channel, std::string instance_name, 
+    bool PeerRegistered(BgpXmppChannel *channel, std::string instance_name,
                         int instance_id) {
         RoutingInstanceMgr *instance_mgr = a_->routing_instance_mgr();
         RoutingInstance *rt_instance =
@@ -233,7 +210,7 @@ protected:
         xs_a_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
 
         a_->session_manager()->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " << 
+        BGP_DEBUG_UT("Created server at port: " <<
                 a_->session_manager()->GetPort());
         xs_a_->Initialize(0, false);
 
@@ -294,7 +271,7 @@ protected:
     }
 
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from, 
+                                            const string &from,
                                             const string &to,
                                             bool isClient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
@@ -372,11 +349,11 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
         xs_a_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
 
         a_->session_manager()->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " << 
+        BGP_DEBUG_UT("Created server at port: " <<
                      a_->session_manager()->GetPort());
         xs_a_->Initialize(0, false);
 
-        bgp_channel_manager_.reset(new BgpXmppChannelManagerMock(xs_a_, 
+        bgp_channel_manager_.reset(new BgpXmppChannelManagerMock(xs_a_,
                                                                  a_.get()));
 
         thread_.Start();
@@ -385,7 +362,7 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
         task_util::WaitForIdle();
 
         // create an XMPP client in server A
-        agent_a_.reset(new test::NetworkAgentMock(&evm_, 
+        agent_a_.reset(new test::NetworkAgentMock(&evm_,
                                                   SUB_ADDR, xs_a_->GetPort()));
 
         TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
@@ -479,9 +456,9 @@ TEST_F(BgpXmppUnitTest, Connection) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
-    agent_a_->Subscribe("blue", 1); 
-    agent_a_->Subscribe("red", 2); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe("red", 2);
     agent_a_->AddRoute("blue","10.1.1.1/32");
 
     TASK_UTIL_EXPECT_EQ(2, agent_a_->RouteCount());
@@ -501,7 +478,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     show_req->Release();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
-    
+
     //trigger a TCP close event on the server
     agent_a_->SessionDown();
     TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->Count());
@@ -522,11 +499,11 @@ TEST_F(BgpXmppUnitTest, ConnectionTearWithPendingReg) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
 
     //trigger a TCP close event on the server with two subscribe request
-    agent_a_->Subscribe("red", 2); 
-    agent_a_->Subscribe("blue", 1); 
+    agent_a_->Subscribe("red", 2);
+    agent_a_->Subscribe("blue", 1);
     agent_a_->AddRoute("blue","10.1.1.1/32");
     agent_a_->SessionDown();
     task_util::WaitForIdle();
@@ -544,16 +521,16 @@ TEST_F(BgpXmppUnitTest, ConnectionTearWithPendingUnreg) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
-    agent_a_->Subscribe("red", 2); 
-    agent_a_->Subscribe("blue", 1); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
+    agent_a_->Subscribe("red", 2);
+    agent_a_->Subscribe("blue", 1);
     agent_a_->AddRoute("blue","10.1.1.1/32");
     TASK_UTIL_EXPECT_EQ(2, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 2);
 
     //trigger a TCP close event on the server with two unsubscribe request
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Unsubscribe("blue", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }
@@ -569,14 +546,14 @@ TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe("red", 2); 
-    agent_a_->Subscribe("blue", 1); 
+    agent_a_->Subscribe("red", 2);
+    agent_a_->Subscribe("blue", 1);
     agent_a_->AddRoute("blue","10.1.1.1/32");
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
 
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 0);
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                      BgpConfigManager::kMasterInstance, -1));
 
     task_util::WaitForIdle();
@@ -588,8 +565,8 @@ TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
     ASSERT_TRUE(agent_a_->RouteCount() == 2);
 
     //trigger a TCP close event on the server with two unsubscribe request
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Unsubscribe("blue", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }
@@ -605,14 +582,14 @@ TEST_F(BgpXmppUnitTest, RegAddDelAddRouteWithoutRoutingInstance) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe("red", 2); 
-    agent_a_->Subscribe("blue", 1); 
+    agent_a_->Subscribe("red", 2);
+    agent_a_->Subscribe("blue", 1);
     agent_a_->AddRoute("blue","10.1.1.1/32");
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
 
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 0);
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                      BgpConfigManager::kMasterInstance, -1));
 
     agent_a_->DeleteRoute("blue","10.1.1.1/32");
@@ -626,8 +603,8 @@ TEST_F(BgpXmppUnitTest, RegAddDelAddRouteWithoutRoutingInstance) {
     ASSERT_TRUE(agent_a_->RouteCount() == 2);
 
     //trigger a TCP close event on the server with two unsubscribe request
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Unsubscribe("blue", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }
@@ -644,26 +621,26 @@ TEST_F(BgpXmppUnitTest, RegUnregWithoutRoutingInstance) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1); 
-    agent_a_->Subscribe("red", 2); 
-    agent_a_->Subscribe("blue", 1); 
+    agent_a_->Subscribe(BgpConfigManager::kMasterInstance, -1);
+    agent_a_->Subscribe("red", 2);
+    agent_a_->Subscribe("blue", 1);
     agent_a_->AddRoute("blue","10.3.1.1/32");
 
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 0);
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                      BgpConfigManager::kMasterInstance, -1));
 
     // unsubscribe request
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Unsubscribe("blue", -1, false); 
-    agent_a_->Unsubscribe(BgpConfigManager::kMasterInstance, -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe(BgpConfigManager::kMasterInstance, -1, false);
 
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 0);
-    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_,
                                      BgpConfigManager::kMasterInstance));
 
     Configure();
@@ -2623,13 +2600,13 @@ TEST_F(BgpXmppUnitTest, AddDeleteEnetRouteWithoutRegister3) {
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq1) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Subscribe("red", 1, false); 
+    agent_a_->Subscribe("red", 1, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
-    agent_a_->Unsubscribe("red", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
     scheduler->Start();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_,
                                             "red"));
     BGP_VERIFY_ROUTE_COUNT(
         a_->routing_instance_mgr()->GetRoutingInstance("red")->GetTable(
@@ -2639,14 +2616,14 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq1) {
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq2) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Subscribe("red", 1, false); 
+    agent_a_->Subscribe("red", 1, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 2, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 2, false);
     scheduler->Start();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                          "red", 2));
     BGP_VERIFY_ROUTE_COUNT(
         a_->routing_instance_mgr()->GetRoutingInstance("red")->GetTable(
@@ -2656,16 +2633,16 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq2) {
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq3) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Subscribe("red", 1, false); 
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 2, false); 
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 2, false); 
+    agent_a_->Subscribe("red", 1, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 2, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 2, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
     scheduler->Start();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                          "red", 2));
     TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 1);
@@ -2674,18 +2651,18 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq3) {
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq4) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Subscribe("red", 1, false); 
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 2, false); 
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 3, false); 
+    agent_a_->Subscribe("red", 1, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 2, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
-    agent_a_->Unsubscribe("red", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
     scheduler->Start();
 
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_,
                                          "red"));
     BGP_VERIFY_ROUTE_COUNT(
         a_->routing_instance_mgr()->GetRoutingInstance("red")->GetTable(
@@ -2693,43 +2670,43 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq4) {
 }
 
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq5) {
-    agent_a_->Subscribe("red", 1, false); 
+    agent_a_->Subscribe("red", 1, false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                          "red", 1));
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 3, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
     scheduler->Start();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                          "red", 3));
     TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 1);
 }
 
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq6) {
-    agent_a_->Subscribe("red", 1, false); 
+    agent_a_->Subscribe("red", 1, false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_,
                                          "red", 1));
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Stop();
-    agent_a_->Unsubscribe("red", -1, false); 
-    agent_a_->Subscribe("red", 3, false); 
+    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
-    agent_a_->Unsubscribe("red", -1, false); 
+    agent_a_->Unsubscribe("red", -1, false);
     scheduler->Start();
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_, 
+    TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(bgp_channel_manager_->channel_,
                                          "red"));
     BGP_VERIFY_ROUTE_COUNT(
         a_->routing_instance_mgr()->GetRoutingInstance("red")->GetTable(
@@ -3038,7 +3015,7 @@ TEST_F(BgpXmppUnitTest, BgpXmppBadAddress) {
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
-    agent_a_->Subscribe("red", 1, false); 
+    agent_a_->Subscribe("red", 1, false);
     agent_a_->AddRoute("red","10.1.1.1./32");
     agent_a_->AddRoute("red","10.1.1.1/32", "70.2.");
     BGP_VERIFY_ROUTE_COUNT(

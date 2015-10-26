@@ -2,18 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/asio/ip/tcp.hpp>
-#include <pugixml/pugixml.hpp>
 
 #include <fstream>
 
-#include "base/logging.h"
-#include "base/task.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "xml/xml_base.h"
 #include "xml/xml_pugi.h"
-#include "xmpp/xmpp_channel.h"
 #include "testing/gunit.h"
 
 using std::auto_ptr;

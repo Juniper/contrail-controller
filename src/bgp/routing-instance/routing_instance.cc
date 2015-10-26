@@ -7,22 +7,17 @@
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include "base/lifetime.h"
 #include "base/set_util.h"
 #include "base/task_annotations.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
-#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/rtarget/rtarget_route.h"
-#include "db/db_table.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;

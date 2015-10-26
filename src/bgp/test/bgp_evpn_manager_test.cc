@@ -5,22 +5,16 @@
 #include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
-#include "base/util.h"
-#include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_evpn.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
-#include "bgp/evpn/evpn_route.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
-#include "db/db.h"
 #include "io/test/event_manager_test.h"
-#include "testing/gunit.h"
 
 using namespace std;
 

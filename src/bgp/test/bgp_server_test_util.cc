@@ -4,31 +4,18 @@
 
 #include "bgp_server_test_util.h"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <tbb/mutex.h>
 
-#include "base/logging.h"
-#include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/state_machine.h"
-#include "bgp/routing-instance/peer_manager.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 
 using boost::uuids::nil_generator;
 using namespace boost::asio;
