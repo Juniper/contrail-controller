@@ -13,6 +13,7 @@
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
+#include "net/community_type.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -314,10 +315,10 @@ TEST_F(BgpAttrTest, CommunityCompare2) {
 TEST_F(BgpAttrTest, CommunityBuildStringList1) {
     CommunitySpec spec;
     spec.communities.push_back(0xFFFF0000);
-    spec.communities.push_back(Community::AcceptOwn);
-    spec.communities.push_back(Community::NoExport);
-    spec.communities.push_back(Community::NoAdvertise);
-    spec.communities.push_back(Community::NoExportSubconfed);
+    spec.communities.push_back(CommunityType::AcceptOwn);
+    spec.communities.push_back(CommunityType::NoExport);
+    spec.communities.push_back(CommunityType::NoAdvertise);
+    spec.communities.push_back(CommunityType::NoExportSubconfed);
     Community comm(comm_db_, spec);
 
     vector<string> expected_list = list_of("65535:0")("accept-own")
@@ -329,10 +330,10 @@ TEST_F(BgpAttrTest, CommunityBuildStringList1) {
 
 TEST_F(BgpAttrTest, CommunityBuildStringList2) {
     CommunitySpec spec;
-    spec.communities.push_back(Community::NoExportSubconfed);
-    spec.communities.push_back(Community::NoAdvertise);
-    spec.communities.push_back(Community::NoExport);
-    spec.communities.push_back(Community::AcceptOwn);
+    spec.communities.push_back(CommunityType::NoExportSubconfed);
+    spec.communities.push_back(CommunityType::NoAdvertise);
+    spec.communities.push_back(CommunityType::NoExport);
+    spec.communities.push_back(CommunityType::AcceptOwn);
     spec.communities.push_back(0xFFFF0000);
     Community comm(comm_db_, spec);
 
