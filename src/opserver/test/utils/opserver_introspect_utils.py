@@ -122,7 +122,6 @@ class VerificationOpsSrv (IntrospectUtilBase):
                        purge_request_url, json_str, sync)
             if resp is not None:
                 res = json.loads(resp)
-                res = res['status']
         except Exception as e:
             print str(e)
         finally:
