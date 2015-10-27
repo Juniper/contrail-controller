@@ -71,10 +71,8 @@ DBTableBase *BridgeAgentRouteTable::CreateTable(DB *db,
 }
 
 BridgeRouteEntry *BridgeAgentRouteTable::FindRoute(const MacAddress &mac) {
-    BridgeRouteKey key(agent()->local_vm_peer(), vrf_name(), mac, 0);
-    BridgeRouteEntry *route =
-        static_cast<BridgeRouteEntry *>(FindActiveEntry(&key));
-    return route;
+    BridgeRouteEntry entry(vrf_entry(), mac, Peer::LOCAL_PEER, false);
+    return static_cast<BridgeRouteEntry *>(FindActiveEntry(&entry));
 }
 
 /////////////////////////////////////////////////////////////////////////////

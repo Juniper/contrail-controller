@@ -26,6 +26,7 @@ public:
     static const std::string LinkLocalVn() {
         return Agent::GetInstance()->linklocal_vn_name();
     }
+    bool IsL3ModeFlow() const;
 
 private:
 };
