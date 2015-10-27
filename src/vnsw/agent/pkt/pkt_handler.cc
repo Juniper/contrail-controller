@@ -101,7 +101,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Compute L2/L3 forwarding mode for packet
-    ComputeForwardingMode(pkt_info);
+    pkt_info->l3_forwarding = ComputeForwardingMode(pkt_info);
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
@@ -206,37 +206,23 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
 // Compute L2/L3 forwarding mode for pacekt.
 // Forwarding mode is L3 if,
 // - Packet uses L3 label
-// - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
+// - DMAC in packet is VRRP Mac or VHOST MAC
 // Else forwarding mode is L2
-void PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
-    if (pkt_info->l3_label) {
-        pkt_info->l3_forwarding = true;
-        return;
+bool PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
+    if (pkt_info->tunnel.type.GetType() == TunnelType::MPLS_GRE ||
+        pkt_info->tunnel.type.GetType() == TunnelType::MPLS_UDP) {
+        return pkt_info->l3_label;
     }
 
-    pkt_info->l3_forwarding = false;
-    VrfTable *table = static_cast<VrfTable *>(agent_->vrf_table());
-    VrfEntry *vrf = table->FindVrfFromId(pkt_info->agent_hdr.vrf);
-    if (vrf == NULL) {
-        return;
-    }
-    BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
-    AgentRoute *rt = static_cast<AgentRoute *>
-        (l2_table->FindRoute(pkt_info->dmac));
-    if (rt == NULL) {
-        return;
+    if (pkt_info->dmac == agent_->vrrp_mac()) {
+        return true;
     }
 
-    const NextHop *nh = rt->GetActiveNextHop();
-    if (nh == NULL) {
-        return;
+    if (pkt_info->dmac == agent_->vhost_interface()->mac()) {
+        return true;
     }
 
-    if (nh->GetType() == NextHop::L2_RECEIVE) {
-        pkt_info->l3_forwarding = true;
-    }
-    return;
+    return false;
 }
 
 void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
