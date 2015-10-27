@@ -1833,6 +1833,8 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         if PLATFORM.lower() == 'ubuntu':
             if VERSION.find('12.') == 0:
                 return True
+            if VERSION.find('14.') == 0: # Kafka-related errors on ubuntu14,
+                return True              # so skip on ubuntu14 as well.
         if PLATFORM.lower() == 'centos':
             if VERSION.find('6.') == 0:
                 return True
