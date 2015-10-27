@@ -114,11 +114,13 @@ else:
 env.Append(LIBS = ['bgp_inet'])
 
 inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
-                                 ['inetvpn_ext_peer_test.cc'])
+                                     ['inetvpn_ext_peer_test.cc'],
+                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp/l3vpn:inetvpn_ext_peer_test', inetvpn_ext_peer_test)
 
 inetvpn_peer_test = env.UnitTest('inetvpn_peer_test',
-                                 ['inetvpn_peer_test.cc'])
+                                 ['inetvpn_peer_test.cc'],
+                                 platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp/l3vpn:inetvpn_peer_test', inetvpn_peer_test)
 
 inetvpn_route_test = env.UnitTest('inetvpn_route_test',
@@ -145,3 +147,7 @@ flaky_test = env.TestSuite('l3vpn-flaky-test', flaky_test_suite)
 env.Alias('controller/src/bgp/l3vpn:flaky-test', flaky_test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

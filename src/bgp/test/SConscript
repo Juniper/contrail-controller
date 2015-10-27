@@ -209,7 +209,8 @@ bgp_route_test = env.UnitTest('bgp_route_test',
 env.Alias('src/bgp:bgp_route_test', bgp_route_test)
 
 bgp_server_test = env.UnitTest('bgp_server_test',
-                               ['bgp_server_test.cc'])
+                               ['bgp_server_test.cc'],
+                               platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_server_test', bgp_server_test)
 
 bgp_session_test = env.UnitTest('bgp_session_test',
@@ -221,7 +222,8 @@ bgp_sg_test = env.UnitTest('bgp_sg_test',
 env.Alias('src/bgp:bgp_sg_test', bgp_sg_test)
 
 bgp_show_evpn_table_test = env.UnitTest('bgp_show_evpn_table_test',
-    ['bgp_show_evpn_table_test.cc'])
+                                        ['bgp_show_evpn_table_test.cc'],
+                                        platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_show_evpn_table_test',
     bgp_show_evpn_table_test)
 
@@ -236,22 +238,26 @@ env.Alias('src/bgp:bgp_show_multicast_manager_test',
     bgp_show_multicast_manager_test)
 
 bgp_show_neighbor_test = env.UnitTest('bgp_show_neighbor_test',
-    ['bgp_show_neighbor_test.cc'])
+                                      ['bgp_show_neighbor_test.cc'],
+                                      platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_show_neighbor_test',
     bgp_show_neighbor_test)
 
 bgp_show_route_summary_test = env.UnitTest('bgp_show_route_summary_test',
-    ['bgp_show_route_summary_test.cc'])
+                                           ['bgp_show_route_summary_test.cc'],
+                                           platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_show_route_summary_test',
     bgp_show_route_summary_test)
 
 bgp_show_routing_instance_test = env.UnitTest('bgp_show_routing_instance_test',
-    ['bgp_show_routing_instance_test.cc'])
+                                              ['bgp_show_routing_instance_test.cc'],
+                                              platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_show_routing_instance_test',
     bgp_show_routing_instance_test)
 
 bgp_show_rtarget_group_test = env.UnitTest('bgp_show_rtarget_group_test',
-    ['bgp_show_rtarget_group_test.cc'])
+                                           ['bgp_show_rtarget_group_test.cc'],
+                                           platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_show_rtarget_group_test',
     bgp_show_rtarget_group_test)
 
@@ -276,7 +282,8 @@ bgp_update_test = env.UnitTest('bgp_update_test',
 env.Alias('src/bgp:bgp_update_test', bgp_update_test)
 
 bgp_xmpp_basic_test = env.UnitTest('bgp_xmpp_basic_test',
-                                   ['bgp_xmpp_basic_test.cc'])
+                                   ['bgp_xmpp_basic_test.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_basic_test', bgp_xmpp_basic_test)
 
 bgp_xmpp_channel_test = env.UnitTest('bgp_xmpp_channel_test',
@@ -288,11 +295,13 @@ bgp_xmpp_deferq_test = env.UnitTest('bgp_xmpp_deferq_test',
 env.Alias('src/bgp:bgp_xmpp_deferq_test', bgp_xmpp_deferq_test)
 
 bgp_xmpp_inetvpn_test = env.UnitTest('bgp_xmpp_inetvpn_test',
-                                     ['bgp_xmpp_inetvpn_test.cc'])
+                                     ['bgp_xmpp_inetvpn_test.cc'],
+                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_inetvpn_test', bgp_xmpp_inetvpn_test)
 
 bgp_xmpp_evpn_mcast_test = env.UnitTest('bgp_xmpp_evpn_mcast_test',
-                                        ['bgp_xmpp_evpn_mcast_test.cc'])
+                                        ['bgp_xmpp_evpn_mcast_test.cc'],
+                                        platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_evpn_mcast_test', bgp_xmpp_evpn_mcast_test)
 
 bgp_xmpp_evpn_test = env.UnitTest('bgp_xmpp_evpn_test',
@@ -305,7 +314,8 @@ env.Alias('controller/src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
 env.Alias('src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
 
 bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
-                                   ['bgp_xmpp_mcast_test.cc'])
+                                   ['bgp_xmpp_mcast_test.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
 
 bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
@@ -313,7 +323,8 @@ bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
 env.Alias('src/bgp:bgp_xmpp_parse_test', bgp_xmpp_parse_test)
 
 bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test', 
-                                     ['bgp_xmpp_rtarget_test.cc'])
+                                     ['bgp_xmpp_rtarget_test.cc'],
+                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_rtarget_test', bgp_xmpp_rtarget_test)
 
 bgp_xmpp_test = env.UnitTest('bgp_xmpp_test',
@@ -352,7 +363,8 @@ rt_network_attr_test = env.UnitTest('rt_network_attr_test',
                                     ['rt_network_attr_test.cc'])
 env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
 
-xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
+xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'],
+                              platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
 
 rt_unicast_test = env.UnitTest('rt_unicast_test',
@@ -368,23 +380,28 @@ service_chain_test = env.UnitTest('service_chain_test',
 env.Alias('src/bgp:service_chain_test', service_chain_test)
 
 service_chain_test1 = env.UnitTest('service_chain_test1',
-                                     ['service_chain_test1.cc'])
+                                   ['service_chain_test1.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:service_chain_test1', service_chain_test1)
 
 service_chain_test2 = env.UnitTest('service_chain_test2',
-                                     ['service_chain_test2.cc'])
+                                   ['service_chain_test2.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:service_chain_test2', service_chain_test2)
 
 service_chain_test3 = env.UnitTest('service_chain_test3',
-                                     ['service_chain_test3.cc'])
+                                   ['service_chain_test3.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:service_chain_test3', service_chain_test3)
 
 service_chain_test4 = env.UnitTest('service_chain_test4',
-                                     ['service_chain_test4.cc'])
+                                   ['service_chain_test4.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:service_chain_test4', service_chain_test4)
 
 svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration_test',
-                                     ['svc_static_route_intergration_test.cc'])
+                                                  ['svc_static_route_intergration_test.cc'],
+                                                  platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
 
 svc_static_route_intergration_test1 = env.UnitTest('svc_static_route_intergration_test1',
@@ -404,7 +421,8 @@ svc_static_route_intergration_test1_3 = env.UnitTest('svc_static_route_intergrat
 env.Alias('src/bgp:svc_static_route_intergration_test1_3', svc_static_route_intergration_test1_3)
 
 svc_static_route_intergration_test1_4 = env.UnitTest('svc_static_route_intergration_test1_4',
-                                     ['svc_static_route_intergration_test1_4.cc'])
+                                                     ['svc_static_route_intergration_test1_4.cc'],
+                                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:svc_static_route_intergration_test1_4', svc_static_route_intergration_test1_4)
 
 svc_static_route_intergration_test1_5 = env.UnitTest('svc_static_route_intergration_test1_5',
@@ -420,7 +438,8 @@ svc_static_route_intergration_test1_7 = env.UnitTest('svc_static_route_intergrat
 env.Alias('src/bgp:svc_static_route_intergration_test1_7', svc_static_route_intergration_test1_7)
 
 svc_static_route_intergration_test1_8 = env.UnitTest('svc_static_route_intergration_test1_8',
-                                     ['svc_static_route_intergration_test1_8.cc'])
+                                                     ['svc_static_route_intergration_test1_8.cc'],
+                                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:svc_static_route_intergration_test1_8', svc_static_route_intergration_test1_8)
 
 svc_static_route_intergration_test2 = env.UnitTest('svc_static_route_intergration_test2',
