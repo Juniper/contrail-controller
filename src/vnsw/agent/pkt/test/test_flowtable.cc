@@ -447,11 +447,11 @@ VmInterface *FlowTableTest::vif3;
 std::string FlowTableTest::eth_itf;
 
 TEST_F(FlowTableTest, FlowAdd_local_1) {
-    EXPECT_TRUE(ValidateFlow(key1, key1_r, (1 << TrafficAction::DROP)));
+    EXPECT_TRUE(ValidateFlow(key1, key1_r, (1 << TrafficAction::DENY)));
 }
 
 TEST_F(FlowTableTest, FlowAdd_non_local_1) {
-    EXPECT_TRUE(ValidateFlow(key2, key2_r, (1 << TrafficAction::DROP)));
+    EXPECT_TRUE(ValidateFlow(key2, key2_r, (1 << TrafficAction::DENY)));
 }
 
 TEST_F(FlowTableTest, RevFlowDelete_before_KSyncAck) {

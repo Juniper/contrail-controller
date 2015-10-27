@@ -22,7 +22,7 @@
 
     <acl name="ingress-access-control-list-acl1" uuid="1">
       <ace src-sg="2" dst-sg="1" sport="0:65535" dport="0:65535"
-       action="drop"/>
+       action="deny"/>
       <ace svn="vn1" dvn="vn1" sport="0:65535"
        dport="0:65535" action="pass"/>
     </acl>
@@ -66,7 +66,7 @@
     <validate name="validate-3">
        <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="10"
         sip="2.2.2.10" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
-        dvn="vn1" action="drop"/>
+        dvn="vn1" action="deny"/>
        <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="13"
         sip="2.2.2.11" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
         dvn="vn1" action="pass"/>
@@ -80,7 +80,7 @@
     <validate name="validate-4">
         <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="13"
             sip="1.1.1.1" dip="2.2.2.11" proto="udp" sport="1" dport="1" svn="vn1"
-            dvn="vn1" action="drop"/>
+            dvn="vn1" action="deny"/>
     </validate>
 
     <fdb uuid="1" id="1" name="fdb_1" delete="1" mac="00:00:00:00:02:02" vrf="vrf1"

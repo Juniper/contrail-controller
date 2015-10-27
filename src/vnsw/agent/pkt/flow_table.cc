@@ -257,8 +257,8 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
 
     // If no acl matched, make it imlicit deny
     if (action == 0 && add_implicit_deny) {
-        action = (1 << TrafficAction::DROP) | 
-            (1 << TrafficAction::IMPLICIT_DENY);;
+        action = (1 << TrafficAction::DENY) |
+            (1 << TrafficAction::IMPLICIT_DENY);
         if (info) {
             info->uuid = FlowPolicyStateStr.at(IMPLICIT_DENY);
             info->drop = true;
@@ -306,13 +306,13 @@ bool FlowEntry::ActionRecompute() {
 
     // Force short flows to DROP
     if (is_flags_set(FlowEntry::ShortFlow)) {
-        action |= (1 << TrafficAction::DROP);
+        action |= (1 << TrafficAction::DENY);
     }
 
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
         action = (action & ~TrafficAction::DROP_FLAGS & ~TrafficAction::PASS_FLAGS);
-        action |= (1 << TrafficAction::DROP);
+        action |= (1 << TrafficAction::DENY);
         if (is_flags_set(FlowEntry::ShortFlow)) {
             data_.drop_reason = short_flow_reason_;
         } else if (ShouldDrop(data_.match_p.policy_action)) {
@@ -535,7 +535,7 @@ bool FlowEntry::DoPolicy() {
                 &&
                 ShouldDrop(data_.match_p.reverse_sg_action |
                            data_.match_p.reverse_out_sg_action)) {
-                data_.match_p.sg_action_summary = (1 << TrafficAction::DROP);
+                data_.match_p.sg_action_summary = (1 << TrafficAction::DENY);
                 sg_rule_uuid_ = sg_acl_info.uuid;
             } else {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);

@@ -21,15 +21,15 @@ public:
       SIMPLE_ACTION = 1,
       MIRROR_ACTION = 2,
       VRF_TRANSLATE_ACTION = 3,
+      LOG_ACTION = 4,
+      ALERT_ACTION = 5
     };
     // Don't go beyond 31
     enum Action {
         ALERT = 1,
-        DROP = 2,
         DENY = 3,
         LOG = 4,
         PASS = 5,
-        REJECT = 6,
         MIRROR = 7,
         VRF_TRANSLATE = 8,
         TRAP = 28,
@@ -37,22 +37,25 @@ public:
         RESERVED = 30,
         UNKNOWN = 31,
     };
-    static const uint32_t DROP_FLAGS = ((1 << DROP) | (1 << DENY) | 
-                                        (1 << REJECT));
+    static const std::string kActionLogStr;
+    static const std::string kActionAlertStr;
+    static const uint32_t DROP_FLAGS = ((1 << DENY));
     static const uint32_t PASS_FLAGS = ((1 << PASS));
     static const uint32_t IMPLICIT_DENY_FLAGS = ((1 << IMPLICIT_DENY));
 
-    TrafficAction() {};
-    virtual ~TrafficAction() {};
+    TrafficAction() {}
+    TrafficAction(Action action, TrafficActionType type) : action_(action),
+        action_type_(type) {}
+    virtual ~TrafficAction() {}
 
     bool IsDrop() const;
-    virtual Action GetAction() {return action_;};
-    virtual TrafficActionType GetActionType() {return tact_type;};
+    Action action() const {return action_;}
+    TrafficActionType action_type() const {return action_type_;}
     static std::string ActionToString(enum Action at);
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
     virtual bool Compare(const TrafficAction &rhs) const = 0;
     bool operator==(const TrafficAction &rhs) const {
-        if (tact_type != rhs.tact_type) {
+        if (action_type_ != rhs.action_type_) {
             return false;
         }
         if (action_ != rhs.action_) {
@@ -60,18 +63,17 @@ public:
         }
         return Compare(rhs);
     }
-
-    TrafficActionType tact_type;
+private:
     Action action_;
+    TrafficActionType action_type_;
 };
 
 class SimpleAction : public TrafficAction {
 public:
-    SimpleAction(Action action) {action_ = action; tact_type = SIMPLE_ACTION;};
-    ~SimpleAction() {};
-    Action GetAction() const {return action_;};
+    SimpleAction(Action action) : TrafficAction(action, SIMPLE_ACTION) {}
+    ~SimpleAction() {}
     virtual bool Compare(const TrafficAction &rhs) const {
-        if (action_ != rhs.action_) {
+        if (action() != rhs.action()) {
             return false;
         }
         return true;
@@ -83,25 +85,20 @@ private:
 class MirrorAction : public TrafficAction {
 public:
     MirrorAction(std::string analyzer_name, std::string vrf_name, 
-                 IpAddress ip, uint16_t port, std::string encap) : 
-                                            analyzer_name_(analyzer_name),
-                                            vrf_name_(vrf_name), m_ip_(ip), 
-                                            port_(port), encap_(encap) {
-                                    tact_type = MIRROR_ACTION; 
-                                    action_ = MIRROR;};
+                 IpAddress ip, uint16_t port, std::string encap) :
+         TrafficAction(MIRROR, MIRROR_ACTION), analyzer_name_(analyzer_name),
+         vrf_name_(vrf_name), m_ip_(ip), port_(port), encap_(encap) {}
     ~MirrorAction();
-                                    // {};
-    IpAddress GetIp() {return m_ip_;};
-    uint32_t  GetPort() {return port_;};
-    std::string vrf_name() {return vrf_name_;};
-    std::string GetAnalyzerName() {return analyzer_name_;};
-    std::string GetEncap() {return encap_;};
+    IpAddress GetIp() {return m_ip_;}
+    uint32_t  GetPort() {return port_;}
+    std::string vrf_name() {return vrf_name_;}
+    std::string GetAnalyzerName() {return analyzer_name_;}
+    std::string GetEncap() {return encap_;}
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
     virtual bool Compare(const TrafficAction &rhs) const;
 private:
     std::string analyzer_name_;
     std::string vrf_name_;
-    //Action action_;
     IpAddress m_ip_;
     uint16_t port_;
     std::string encap_;
@@ -111,8 +108,8 @@ private:
 class VrfTranslateAction : public TrafficAction {
 public:
     VrfTranslateAction(const std::string &vrf_name, bool ignore_acl):
-        vrf_name_(vrf_name), ignore_acl_(ignore_acl) {
-        tact_type = VRF_TRANSLATE_ACTION, action_ = VRF_TRANSLATE; };
+        TrafficAction(VRF_TRANSLATE, VRF_TRANSLATE_ACTION),
+        vrf_name_(vrf_name), ignore_acl_(ignore_acl) {}
     const std::string& vrf_name() const { return vrf_name_;}
     bool ignore_acl() const { return ignore_acl_;}
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
@@ -120,5 +117,33 @@ public:
 private:
     std::string vrf_name_;
     bool ignore_acl_;
+};
+
+class LogAction : public TrafficAction {
+public:
+    LogAction() : TrafficAction(LOG, LOG_ACTION) {}
+    ~LogAction() {}
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action() != rhs.action()) {
+            return false;
+        }
+        return true;
+    }
+private:
+    DISALLOW_COPY_AND_ASSIGN(LogAction);
+};
+
+class AlertAction : public TrafficAction {
+public:
+    AlertAction() : TrafficAction(ALERT, ALERT_ACTION) {}
+    ~AlertAction() {}
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action() != rhs.action()) {
+            return false;
+        }
+        return true;
+    }
+private:
+    DISALLOW_COPY_AND_ASSIGN(AlertAction);
 };
 #endif

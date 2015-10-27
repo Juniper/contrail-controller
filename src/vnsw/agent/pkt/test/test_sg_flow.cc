@@ -574,12 +574,12 @@ TEST_F(SgTest, Fwd_Sg_Change_2) {
     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                             vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE((fe->data().match_p.action_info.action &
-                (1 << TrafficAction::DROP)) != 0);
+                (1 << TrafficAction::DENY)) != 0);
     EXPECT_TRUE((fe->data().match_p.action_info.action &
                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
     FlowEntry *reverse_flow = fe->reverse_flow_entry();
     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
-                (1 << TrafficAction::DROP)) != 0);
+                (1 << TrafficAction::DENY)) != 0);
     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
 
@@ -624,12 +624,12 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                             vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE((fe->data().match_p.action_info.action &
-                (1 << TrafficAction::DROP)) != 0);
+                (1 << TrafficAction::DENY)) != 0);
     EXPECT_TRUE((fe->data().match_p.action_info.action &
                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
     FlowEntry *reverse_flow = fe->reverse_flow_entry();
     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
-                (1 << TrafficAction::DROP)) != 0);
+                (1 << TrafficAction::DENY)) != 0);
     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
 
@@ -845,7 +845,7 @@ TEST_F(SgTest, Sg_Policy_1) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0,
-                               TrafficAction::DROP,
+                               TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     client->WaitForIdle();
@@ -901,7 +901,7 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0,
-                               TrafficAction::DROP,
+                               TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     client->WaitForIdle();
