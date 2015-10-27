@@ -190,7 +190,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_FORWARD;
         } 
         
-        if ((fe_action) & (1 << TrafficAction::DROP)) {
+        if ((fe_action) & (1 << TrafficAction::DENY)) {
             action = VR_FLOW_ACTION_DROP;
             drop_reason = GetDropReason(flow_entry_->data().drop_reason);
         }

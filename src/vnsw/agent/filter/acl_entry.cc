@@ -119,6 +119,12 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
             if ((*it).ta_type == TrafficAction::SIMPLE_ACTION) {
                 SimpleAction *act = new SimpleAction((*it).simple_action);
                 actions_.push_back(act);
+            } else if ((*it).ta_type == TrafficAction::LOG_ACTION) {
+                LogAction *act = new LogAction(TrafficAction::LOG);
+                actions_.push_back(act);
+            } else if ((*it).ta_type == TrafficAction::ALERT_ACTION) {
+                AlertAction *act = new AlertAction(TrafficAction::ALERT);
+                actions_.push_back(act);
             } else if ((*it).ta_type == TrafficAction::MIRROR_ACTION) {
                 MirrorAction *act = new MirrorAction((*it).ma.analyzer_name,
                                                      (*it).ma.vrf_name,

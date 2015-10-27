@@ -1302,7 +1302,7 @@ static bool MatchFlowAction(FlowEntry *flow, const string &str) {
         return (action & (1 << TrafficAction::PASS));
     }
 
-    if (str == "drop") {
+    if (str == "deny") {
         return ((action & TrafficAction::DROP_FLAGS) != 0);
     }
 

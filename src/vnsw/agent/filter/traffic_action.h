@@ -21,15 +21,15 @@ public:
       SIMPLE_ACTION = 1,
       MIRROR_ACTION = 2,
       VRF_TRANSLATE_ACTION = 3,
+      LOG_ACTION = 4,
+      ALERT_ACTION = 5
     };
     // Don't go beyond 31
     enum Action {
         ALERT = 1,
-        DROP = 2,
         DENY = 3,
         LOG = 4,
         PASS = 5,
-        REJECT = 6,
         MIRROR = 7,
         VRF_TRANSLATE = 8,
         TRAP = 28,
@@ -37,8 +37,9 @@ public:
         RESERVED = 30,
         UNKNOWN = 31,
     };
-    static const uint32_t DROP_FLAGS = ((1 << DROP) | (1 << DENY) | 
-                                        (1 << REJECT));
+    static const std::string kActionLogStr;
+    static const std::string kActionAlertStr;
+    static const uint32_t DROP_FLAGS = ((1 << DENY));
     static const uint32_t PASS_FLAGS = ((1 << PASS));
     static const uint32_t IMPLICIT_DENY_FLAGS = ((1 << IMPLICIT_DENY));
 
@@ -121,4 +122,35 @@ private:
     std::string vrf_name_;
     bool ignore_acl_;
 };
+
+class LogAction : public TrafficAction {
+public:
+    LogAction(Action action) {action_ = action; tact_type = LOG_ACTION;};
+    ~LogAction() {};
+    Action GetAction() const {return action_;};
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action_ != rhs.action_) {
+            return false;
+        }
+        return true;
+    }
+private:
+    DISALLOW_COPY_AND_ASSIGN(LogAction);
+};
+
+class AlertAction : public TrafficAction {
+public:
+    AlertAction(Action action) {action_ = action; tact_type = ALERT_ACTION;};
+    ~AlertAction() {};
+    Action GetAction() const {return action_;};
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action_ != rhs.action_) {
+            return false;
+        }
+        return true;
+    }
+private:
+    DISALLOW_COPY_AND_ASSIGN(AlertAction);
+};
+
 #endif
