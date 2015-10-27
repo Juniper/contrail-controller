@@ -13,7 +13,7 @@ ksync_test_suite = []
 ksync_flaky_test_suite = []
 
 test_ksync_route = AgentEnv.MakeTestCmd(env, 'test_ksync_route', ksync_flaky_test_suite)
-test_vnswif = AgentEnv.MakeTestCmd(env, 'test_vnswif', ksync_test_suite)
+test_vnswif = AgentEnv.MakeTestCmd(env, 'test_vnswif', ksync_flaky_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', ksync_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/ksync:flaky_test', flaky_test)
