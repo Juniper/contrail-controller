@@ -417,6 +417,7 @@ int KSyncSock::SendBulkMessage(KSyncBulkSandeshContext *bulk_context,
     KSyncBufferList iovec;
     // Get all buffers to send into single io-vector
     bulk_context->Data(&iovec);
+    tx_count_++;
 
     if (!read_inline_) {
         AsyncSendTo(&iovec, seqno,

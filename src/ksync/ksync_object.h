@@ -108,6 +108,7 @@ public:
 
     // Create an entry
     KSyncEntry *Create(const KSyncEntry *key);
+    KSyncEntry *Create(const KSyncEntry *key, bool skip_lookup);
     // Create a Stale entry, which needs to be cleanedup as part for
     // stale entry cleanup (timer).
     // Derived class can choose to create this entry to manage stale

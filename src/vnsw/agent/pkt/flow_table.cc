@@ -994,7 +994,7 @@ void FlowTable::UpdateKSync(FlowEntry *flow) {
     if (flow->ksync_entry() == NULL) {
         FlowTableKSyncEntry key(ksync_obj, flow, flow->flow_handle());
         flow->set_ksync_entry
-            (static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key)));
+            (static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key, true)));
         if (flow->deleted()) {
             /*
              * Create and delete a KSync Entry when update ksync entry is

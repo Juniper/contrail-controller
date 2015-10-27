@@ -126,9 +126,14 @@ void KSyncObject::ClearStale(KSyncEntry *entry) {
     stale_entry_tree_.erase(entry);
 }
 
-KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
+// Creates a KSync entry. Calling routine sets no_lookup to TRUE when its
+// guaranteed that KSync entry is not present (ex: flow)
+KSyncEntry *KSyncObject::Create(const KSyncEntry *key, bool no_lookup) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
-    KSyncEntry *entry = Find(key);
+
+    KSyncEntry *entry = NULL;
+    if (no_lookup == false)
+        entry = Find(key);
     if (entry == NULL) {
         entry = CreateImpl(key);
     } else {
@@ -144,6 +149,10 @@ KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
 
     NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
     return entry;
+}
+
+KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
+    return Create(key, false);
 }
 
 KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
