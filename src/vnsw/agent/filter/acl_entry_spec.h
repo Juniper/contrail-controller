@@ -49,10 +49,15 @@ struct VrfTranslateActionSpec {
 };
 
 struct ActionSpec {
+    /* For actions log and alert we don't have any specific field. Only ta_type
+     * of TrafficAction::LOG_ACTION and TrafficAction::ALERT_ACTION is enough
+     */
     TrafficAction::Action simple_action;
     TrafficAction::TrafficActionType ta_type;
     MirrorActionSpec ma;
     VrfTranslateActionSpec vrf_translate;
+    ActionSpec() {}
+    ActionSpec(TrafficAction::TrafficActionType type) : ta_type(type) {}
 };
 
 typedef enum AclTypeSpec {

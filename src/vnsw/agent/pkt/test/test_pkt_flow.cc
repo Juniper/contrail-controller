@@ -409,6 +409,104 @@ public:
         client->WaitForIdle();
     }
 
+    std::string AddAclXmlString(const char *name, int id, int proto,
+                                const char *simple_action,
+                                const char *log_action,
+                                const char* uuid) {
+        char buff[10240];
+        sprintf(buff,
+                "<?xml version=\"1.0\"?>\n"
+                "<config>\n"
+                "   <update>\n"
+                "       <node type=\"access-control-list\">\n"
+                "           <name>%s</name>\n"
+                "           <id-perms>\n"
+                "               <permissions>\n"
+                "                   <owner></owner>\n"
+                "                   <owner_access>0</owner_access>\n"
+                "                   <group></group>\n"
+                "                   <group_access>0</group_access>\n"
+                "                   <other_access>0</other_access>\n"
+                "               </permissions>\n"
+                "               <uuid>\n"
+                "                   <uuid-mslong>0</uuid-mslong>\n"
+                "                   <uuid-lslong>%d</uuid-lslong>\n"
+                "               </uuid>\n"
+                "           </id-perms>\n"
+                "           <access-control-list-entries>\n"
+                "                <dynamic>false</dynamic>\n"
+                "                <acl-rule>\n"
+                "                    <match-condition>\n"
+                "                        <src-address>\n"
+                "                            <virtual-network> any </virtual-network>\n"
+                "                        </src-address>\n"
+                "                        <protocol>%d</protocol>\n"
+                "                        <src-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 10000 </end-port>\n"
+                "                        </src-port>\n"
+                "                        <dst-address>\n"
+                "                            <virtual-network> any </virtual-network>\n"
+                "                        </dst-address>\n"
+                "                        <dst-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 10000 </end-port>\n"
+                "                        </dst-port>\n"
+                "                    </match-condition>\n"
+                "                    <action-list>\n"
+                "                        <simple-action>\n"
+                "                            %s\n"
+                "                        </simple-action>\n"
+                "                        <log>%s</log>\n"
+                "                    </action-list>\n"
+                "                    <rule-uuid>%s</rule-uuid>\n"
+                "                </acl-rule>\n"
+                "                <acl-rule>\n"
+                "                    <match-condition>\n"
+                "                        <src-address>\n"
+                "                            <virtual-network> vn6 </virtual-network>\n"
+                "                        </src-address>\n"
+                "                        <protocol>any</protocol>\n"
+                "                        <src-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 60000 </end-port>\n"
+                "                        </src-port>\n"
+                "                        <dst-address>\n"
+                "                            <virtual-network> vn6 </virtual-network>\n"
+                "                        </dst-address>\n"
+                "                        <dst-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 60000 </end-port>\n"
+                "                        </dst-port>\n"
+                "                    </match-condition>\n"
+                "                    <action-list>\n"
+                "                        <simple-action>\n"
+                "                            deny\n"
+                "                        </simple-action>\n"
+                "                    </action-list>\n"
+                "                    <rule-uuid>fe6a4dcb-dde4-48e6-8957-856a7aacb2e1</rule-uuid>\n"
+                "                </acl-rule>\n"
+                "           </access-control-list-entries>\n"
+                "       </node>\n"
+                "   </update>\n"
+                "</config>\n", name, id, proto, simple_action, log_action,
+            uuid);
+        string s(buff);
+        return s;
+    }
+    void AddAclLogActionEntry(const char *name, int id, int proto,
+                              const char *simple_action, const char *log_action,
+                              const char *uuid_str) {
+        std::string s = AddAclXmlString(name, id, proto, simple_action,
+                                        log_action, uuid_str);
+        pugi::xml_document xdoc_;
+        pugi::xml_parse_result result = xdoc_.load(s.c_str());
+        EXPECT_TRUE(result);
+        Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(),
+                                                          0);
+        client->WaitForIdle();
+    }
+
     void AddSgEntry(const char *sg_name, const char *name, int id,
                     int proto, const char *action, AclDirection direction,
                     const char *uuid1, const char* uuid2) {
@@ -3790,6 +3888,61 @@ TEST_F(FlowTest, AclRuleUpdate) {
 
     DelNode("security-group", "sg_e");
     FlowTeardown();
+    client->WaitForIdle(5);
+}
+
+TEST_F(FlowTest, FlowPolicyLogAction_1) {
+    AddAclLogActionEntry("acl4", 4, 1, "deny", "true",
+                         "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2");
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+
+    //Verify the network policy uuid
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                 fe->nw_ace_uuid().c_str());
+    uint32_t action = fe->match_p().action_info.action;
+
+    bool log_action = false, alert_action = false;
+    if (action & (1 << TrafficAction::LOG)) {
+        log_action = true;
+    }
+    EXPECT_TRUE(log_action);
+
+    if (action & (1 << TrafficAction::ALERT)) {
+        alert_action = true;
+    }
+    EXPECT_FALSE(alert_action);
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
     client->WaitForIdle(5);
 }
 

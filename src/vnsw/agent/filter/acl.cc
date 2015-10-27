@@ -173,12 +173,8 @@ bool AclTable::Delete(DBEntry *entry, const DBRequest *req) {
 }
 
 void AclTable::ActionInit() {
-    ta_map_["alert"] = TrafficAction::ALERT;
-    ta_map_["drop"] = TrafficAction::DROP;
     ta_map_["deny"] = TrafficAction::DENY;
-    ta_map_["log"] = TrafficAction::LOG;
     ta_map_["pass"] = TrafficAction::PASS;
-    ta_map_["reject"] = TrafficAction::REJECT;
     ta_map_["mirror"] = TrafficAction::MIRROR;
 }
 
@@ -271,6 +267,10 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
         ActionStr astr;
         if (action.ta_type == TrafficAction::SIMPLE_ACTION) {
             astr.action = TrafficAction::ActionToString(action.simple_action);
+        } else if (action.ta_type == TrafficAction::LOG_ACTION) {
+            astr.action = TrafficAction::kActionLogStr;
+        } else if (action.ta_type == TrafficAction::ALERT_ACTION) {
+            astr.action = TrafficAction::kActionAlertStr;
         } else if (action.ta_type == TrafficAction::MIRROR_ACTION) {
             astr.action = action.ma.vrf_name + " " + 
                     action.ma.analyzer_name + " " +
@@ -851,6 +851,16 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         saction.simple_action =
             acl_table->ConvertActionString(action_list.simple_action);
         action_l.push_back(saction);
+    }
+
+    if (action_list.log) {
+        ActionSpec action(TrafficAction::LOG_ACTION);
+        action_l.push_back(action);
+    }
+
+    if (action_list.alert) {
+        ActionSpec action(TrafficAction::ALERT_ACTION);
+        action_l.push_back(action);
     }
 
     if (!action_list.mirror_to.analyzer_name.empty()) {
