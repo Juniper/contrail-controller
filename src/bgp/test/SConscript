@@ -209,7 +209,8 @@ bgp_route_test = env.UnitTest('bgp_route_test',
 env.Alias('src/bgp:bgp_route_test', bgp_route_test)
 
 bgp_server_test = env.UnitTest('bgp_server_test',
-                               ['bgp_server_test.cc'])
+                               ['bgp_server_test.cc'],
+                               platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_server_test', bgp_server_test)
 
 bgp_session_test = env.UnitTest('bgp_session_test',
@@ -276,7 +277,8 @@ bgp_update_test = env.UnitTest('bgp_update_test',
 env.Alias('src/bgp:bgp_update_test', bgp_update_test)
 
 bgp_xmpp_basic_test = env.UnitTest('bgp_xmpp_basic_test',
-                                   ['bgp_xmpp_basic_test.cc'])
+                                   ['bgp_xmpp_basic_test.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_basic_test', bgp_xmpp_basic_test)
 
 bgp_xmpp_channel_test = env.UnitTest('bgp_xmpp_channel_test',
@@ -288,11 +290,13 @@ bgp_xmpp_deferq_test = env.UnitTest('bgp_xmpp_deferq_test',
 env.Alias('src/bgp:bgp_xmpp_deferq_test', bgp_xmpp_deferq_test)
 
 bgp_xmpp_inetvpn_test = env.UnitTest('bgp_xmpp_inetvpn_test',
-                                     ['bgp_xmpp_inetvpn_test.cc'])
+                                     ['bgp_xmpp_inetvpn_test.cc'],
+                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_inetvpn_test', bgp_xmpp_inetvpn_test)
 
 bgp_xmpp_evpn_mcast_test = env.UnitTest('bgp_xmpp_evpn_mcast_test',
-                                        ['bgp_xmpp_evpn_mcast_test.cc'])
+                                        ['bgp_xmpp_evpn_mcast_test.cc'],
+                                        platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_evpn_mcast_test', bgp_xmpp_evpn_mcast_test)
 
 bgp_xmpp_evpn_test = env.UnitTest('bgp_xmpp_evpn_test',
@@ -305,7 +309,8 @@ env.Alias('controller/src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
 env.Alias('src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
 
 bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
-                                   ['bgp_xmpp_mcast_test.cc'])
+                                   ['bgp_xmpp_mcast_test.cc'],
+                                   platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
 
 bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
@@ -313,7 +318,8 @@ bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
 env.Alias('src/bgp:bgp_xmpp_parse_test', bgp_xmpp_parse_test)
 
 bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test', 
-                                     ['bgp_xmpp_rtarget_test.cc'])
+                                     ['bgp_xmpp_rtarget_test.cc'],
+                                     platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:bgp_xmpp_rtarget_test', bgp_xmpp_rtarget_test)
 
 bgp_xmpp_test = env.UnitTest('bgp_xmpp_test',
@@ -348,7 +354,8 @@ rt_network_attr_test = env.UnitTest('rt_network_attr_test',
                                     ['rt_network_attr_test.cc'])
 env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
 
-xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
+xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'],
+                              platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
 
 rt_unicast_test = env.UnitTest('rt_unicast_test',
@@ -364,7 +371,8 @@ service_chain_test = env.UnitTest('service_chain_test',
 env.Alias('src/bgp:service_chain_test', service_chain_test)
 
 svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration_test',
-                                     ['svc_static_route_intergration_test.cc'])
+                                                  ['svc_static_route_intergration_test.cc'],
+                                                  platform_exclude=[('Ubuntu','14.04')])
 env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
 
 show_route_test = env.UnitTest('show_route_test',
