@@ -91,7 +91,7 @@ class KeystoneSyncTestCase(VncOpenstackTestCase):
     # end tearDown
 # end class KeystoneSyncTestCase
 
-class ResouceDriverNetworkTestCase(VncOpenstackTestCase):
+class ResourceDriverTestCase(VncOpenstackTestCase):
     def setup_flexmock(self):
         import keystoneclient.v2_0.client as keystone
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [vnc_openstack.OpenstackDriver]
@@ -101,12 +101,12 @@ class ResouceDriverNetworkTestCase(VncOpenstackTestCase):
 
     def setUp(self):
         self.setup_flexmock()
-        super(ResouceDriverNetworkTestCase, self).setUp()
+        super(ResourceDriverTestCase, self).setUp()
     # end setUp
 
     def tearDown(self):
         del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync']
         del FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi']
-        super(ResouceDriverNetworkTestCase, self).tearDown()
+        super(ResourceDriverTestCase, self).tearDown()
     # end tearDown
-# end class ResouceDriverNetworkTestCase
+# end class ResourceDriverTestCase
