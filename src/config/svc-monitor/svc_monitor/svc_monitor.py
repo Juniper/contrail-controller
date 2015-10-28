@@ -65,7 +65,7 @@ class SvcMonitor(object):
             'service_appliance': []
         },
         "service_appliance": {
-            'self': ['service_appliance_set'],
+            'self': ['service_appliance_set','physical_interface'],
             'service_appliance_set': []
         },
         "loadbalancer_pool": {
@@ -87,8 +87,9 @@ class SvcMonitor(object):
             'loadbalancer_pool': []
         },
         "service_instance": {
-            'self': ['virtual_machine'],
-            'virtual_machine': []
+            'self': ['virtual_machine','virtual_machine_interface'],
+            'virtual_machine': [],
+            'virtual_machine_interface' : []
         },
         "instance_ip": {
             'self': [],
@@ -104,6 +105,8 @@ class SvcMonitor(object):
         },
         "physical_interface": {
             'self': [],
+            'service_appliance':['virtual_machine_interface'],
+            'virtual_machine_interfaces':['service_appliance'],
         },
         "logical_interface": {
             'self': [],
@@ -123,6 +126,8 @@ class SvcMonitor(object):
             'self': ['interface_route_table', 'virtual_machine'],
             'interface_route_table': [],
             'virtual_machine': [],
+            'service_instance': ['physical_interface'],
+            'physical_interface': ['service_instance']
         },
         "interface_route_table": {
             'self': [],
@@ -142,9 +147,10 @@ class SvcMonitor(object):
         # initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(self._args.disc_server_ip,
-                                                self._args.disc_server_port,
-                                                ModuleNames[Module.SVC_MONITOR])
+            self._disc = client.DiscoveryClient(
+                self._args.disc_server_ip,
+                self._args.disc_server_port,
+                ModuleNames[Module.SVC_MONITOR])
         # initialize logger
         self.logger = ServiceMonitorLogger(self._disc, args)
 
@@ -159,7 +165,7 @@ class SvcMonitor(object):
                 self._svc_err_logger.addHandler(handler)
         except IOError:
             self.logger.log_warning("Failed to open trace file %s" %
-                self._err_file)
+                                    self._err_file)
 
         # Connect to Rabbit and Initialize cassandra connection
         self._connect_rabbit()
@@ -235,12 +241,14 @@ class SvcMonitor(object):
         except Exception:
             cgitb_error_log(self)
 
-        for sas_id in dependency_tracker.resources.get('service_appliance_set', []):
+        for sas_id in dependency_tracker.resources.get(
+                'service_appliance_set', []):
             sas_obj = ServiceApplianceSetSM.get(sas_id)
             if sas_obj is not None:
                 sas_obj.add()
 
-        for lb_pool_id in dependency_tracker.resources.get('loadbalancer_pool', []):
+        for lb_pool_id in dependency_tracker.resources.get(
+                'loadbalancer_pool', []):
             lb_pool = LoadbalancerPoolSM.get(lb_pool_id)
             if lb_pool is not None:
                 lb_pool.add()
@@ -270,7 +278,8 @@ class SvcMonitor(object):
                         if (':').join(vn.fq_name) in intf.values():
                             self._create_service_instance(si)
 
-        for vmi_id in dependency_tracker.resources.get('virtual_machine_interface', []):
+        for vmi_id in dependency_tracker.resources.get(
+                'virtual_machine_interface', []):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
             if vmi:
                 for vm_id in dependency_tracker.resources.get(
@@ -333,9 +342,17 @@ class SvcMonitor(object):
             self.vrouter_scheduler, self._nova_client,
             self._agent_manager, self._args)
 
+        # load PNF instance manager
+        self.ps_manager = importutils.import_object(
+            'svc_monitor.physical_service_manager.PhysicalServiceManager',
+            self._vnc_lib, self._cassandra, self.logger,
+            self.vrouter_scheduler, self._nova_client,
+            self._agent_manager, self._args)
+
         # load a loadbalancer agent
-        self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib,
-                                                    self._cassandra, self._args)
+        self.loadbalancer_agent = LoadbalancerAgent(
+            self, self._vnc_lib,
+            self._cassandra, self._args)
         self._agent_manager.register_agent(self.loadbalancer_agent)
 
         # load a snat agent
@@ -361,7 +378,8 @@ class SvcMonitor(object):
                                       hypervisor_type='network-namespace',
                                       scaling=True)
         # create default loadbalancer template
-        self._create_default_template('haproxy-loadbalancer-template', 'loadbalancer',
+        self._create_default_template('haproxy-loadbalancer-template',
+                                      'loadbalancer',
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
@@ -393,7 +411,7 @@ class SvcMonitor(object):
                 if vm.virtualization_type:
                     continue
                 nova_vm = self._nova_client.oper('servers', 'get',
-                    si.proj_name, id=vm_id)
+                                                 si.proj_name, id=vm_id)
                 if not nova_vm:
                     continue
                 if not nova_vm.name.split('__')[-1].isdigit():
@@ -409,7 +427,7 @@ class SvcMonitor(object):
                 vm_obj.uuid = vm_id
                 vm_obj.fq_name = [vm_id]
                 vm_obj.set_display_name(instance_name + '__' +
-                    st.virtualization_type)
+                                        st.virtualization_type)
                 try:
                     self._vnc_lib.virtual_machine_update(vm_obj)
                 except Exception:
@@ -459,7 +477,7 @@ class SvcMonitor(object):
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
         self.logger.log_info("Creating %s %s hypervisor %s" %
-            (domain_name, st_name, hypervisor_type))
+                             (domain_name, st_name, hypervisor_type))
 
         domain_obj = None
         for domain in DomainSM.values():
@@ -475,7 +493,7 @@ class SvcMonitor(object):
         for st in ServiceTemplateSM.values():
             if st.fq_name == st_fq_name:
                 self.logger.log_info("%s exists uuid %s" %
-                    (st.name, str(st.uuid)))
+                                     (st.name, str(st.uuid)))
                 return
 
         svc_properties = ServiceTemplateType()
@@ -514,14 +532,14 @@ class SvcMonitor(object):
             st_uuid = self._vnc_lib.service_template_create(st_obj)
         except Exception as e:
             self.logger.log_error("%s create failed with error %s" %
-                (st_name, str(e)))
+                                  (st_name, str(e)))
             return
 
         # Create the service template in local db
         ServiceTemplateSM.locate(st_uuid)
 
         self.logger.log_info("%s created with uuid %s" %
-            (st_name, str(st_uuid)))
+                             (st_name, str(st_uuid)))
     #_create_default_analyzer_template
 
     def port_delete_or_si_link(self, vm, vmi):
@@ -549,7 +567,7 @@ class SvcMonitor(object):
         st = ServiceTemplateSM.get(si.service_template)
         if not st:
             self.logger.log_error("template not found for %s" %
-                ((':').join(si.fq_name)))
+                                  ((':').join(si.fq_name)))
             return
 
         self.logger.log_info("Creating SI %s (%s)" %
@@ -561,9 +579,11 @@ class SvcMonitor(object):
                 self.netns_manager.create_service(st, si)
             elif st.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.create_service(st, si)
+            elif st.virtualization_type == 'physical-device':
+                self.ps_manager.create_service(st, si)
             else:
                 self.logger.log_error("Unknown virt type: %s" %
-                    st.virtualization_type)
+                                      st.virtualization_type)
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
@@ -571,7 +591,7 @@ class SvcMonitor(object):
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
-            ((':').join(vm.proj_fq_name), vm.uuid))
+                             ((':').join(vm.proj_fq_name), vm.uuid))
 
         try:
             if vm.virtualization_type == svc_info.get_vm_instance_type():
@@ -580,6 +600,8 @@ class SvcMonitor(object):
                 self.netns_manager.delete_service(vm)
             elif vm.virtualization_type == 'vrouter-instance':
                 self.vrouter_manager.delete_service(vm)
+            elif vm.virtualization_type == 'physical-device':
+                self.ps_manager.delete_service(vm)
         except Exception:
             cgitb_error_log(self)
 
@@ -602,7 +624,8 @@ class SvcMonitor(object):
             status = self.netns_manager.check_service(si)
         elif st.virtualization_type == 'vrouter-instance':
             status = self.vrouter_manager.check_service(si)
-
+        elif st.virtualization_type == 'physical-device':
+            status = self.ps_manager.check_service(si)
         return status
 
     def _delete_interface_route_table(self, irt_uuid):
@@ -643,6 +666,7 @@ def skip_check_service(si):
         si.back_off = 10
         return True
     return False
+
 
 def timer_callback(monitor):
     # delete vms without si
@@ -688,13 +712,15 @@ def timer_callback(monitor):
             elif vn.name.startswith(svc_info.get_snat_left_vn_prefix()):
                 monitor._delete_shared_vn(vn.uuid)
 
+
 def launch_timer(monitor):
     if not monitor._args.check_service_interval.isdigit():
         monitor.logger.log_emergency("set seconds for check_service_interval "
-            "in contrail-svc-monitor.conf. example: check_service_interval=60")
+                                     "in contrail-svc-monitor.conf. \
+                                        example: check_service_interval=60")
         sys.exit()
     monitor.logger.log_notice("check_service_interval set to %s seconds" %
-        monitor._args.check_service_interval)
+                              monitor._args.check_service_interval)
 
     while True:
         gevent.sleep(int(monitor._args.check_service_interval))
@@ -703,10 +729,12 @@ def launch_timer(monitor):
         except Exception:
             cgitb_error_log(monitor)
 
+
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
     cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
     monitor.logger.log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+
 
 def parse_args(args_str):
     '''
@@ -781,9 +809,9 @@ def parse_args(args_str):
         'cluster_id': '',
         'logging_conf': '',
         'logger_class': None,
-        'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'check_service_interval': '60',
-        }
+    }
     secopts = {
         'use_certs': False,
         'keyfile': '',
@@ -802,18 +830,17 @@ def parse_args(args_str):
         'admin_tenant_name': 'default-domain'
     }
     schedops = {
-        'si_netns_scheduler_driver': \
-            'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
+        'si_netns_scheduler_driver':
+        'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
         'availability_zone': None,
         'netns_availability_zone': None,
     }
     cassandraopts = {
-        'cassandra_user'     : None,
-        'cassandra_password' : None,
+        'cassandra_user': None,
+        'cassandra_password': None,
     }
-
 
     config = ConfigParser.SafeConfigParser()
     if args.conf_file:
@@ -829,7 +856,6 @@ def parse_args(args_str):
             schedops.update(dict(config.items("SCHEDULER")))
         if 'CASSANDRA' in config.sections():
             cassandraopts.update(dict(config.items('CASSANDRA')))
-
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -911,11 +937,11 @@ def parse_args(args_str):
         "--logger_class",
         help=("Optional external logger class, default: None"))
     parser.add_argument("--cassandra_user",
-            help="Cassandra user name")
+                        help="Cassandra user name")
     parser.add_argument("--cassandra_password",
-            help="Cassandra password")
+                        help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec.")
+                        help="Sandesh send rate limit in messages/sec.")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config
@@ -946,13 +972,15 @@ def run_svc_monitor(args=None):
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port, api_server_use_ssl=args.api_server_use_ssl)
+                args.api_server_ip, args.api_server_port,
+                api_server_use_ssl=args.api_server_use_ssl)
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
-            monitor.logger.api_conn_status_update(ConnectionStatus.DOWN, str(e))
+            monitor.logger.api_conn_status_update(
+                ConnectionStatus.DOWN, str(e))
             time.sleep(3)
-        except ResourceExhaustionError: # haproxy throws 503
+        except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
 
     monitor.post_init(vnc_api, args)
@@ -972,10 +1000,12 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
 
-    _zookeeper_client = ZookeeperClient(client_pfx+"svc-monitor", args.zk_server_ip)
+    _zookeeper_client = ZookeeperClient(
+        client_pfx+"svc-monitor", args.zk_server_ip)
     _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
-                                  run_svc_monitor, args)
+                                      run_svc_monitor, args)
 # end main
+
 
 def server_main():
     cgitb.enable(format='text')
