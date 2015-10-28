@@ -2,11 +2,14 @@ import sys
 import json
 import uuid
 import logging
+import gevent.event
 
 from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type
 
 from vnc_api.vnc_api import *
+import fake_neutron
+import vnc_openstack
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -17,7 +20,7 @@ import test_case
 logger = logging.getLogger(__name__)
 
 
-class NetworkKVPTest(test_case.ResouceDriverNetworkTestCase):
+class NetworkKVPTest(test_case.ResourceDriverTestCase):
     def setUp(self):
         super(NetworkKVPTest, self).setUp()
         domain_name = 'my-domain'
@@ -178,3 +181,89 @@ class NetworkKVPTest(test_case.ResouceDriverNetworkTestCase):
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 0)
 # end class NetworkKVPTest
+
+
+class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
+    CONN_DELAY = 1
+    def setUp(self):
+        orig_get_api_connection = getattr(
+            vnc_openstack.ResourceApiDriver, '_get_api_connection')
+        orig_post_project_create = getattr(
+            vnc_openstack.ResourceApiDriver, 'post_project_create')
+        orig_pre_project_delete = getattr(
+            vnc_openstack.ResourceApiDriver, 'pre_project_delete')
+        orig_domain_project_sync = getattr(
+            vnc_openstack.OpenstackDriver, 'resync_domains_projects')
+
+        self.post_project_create_entered = gevent.event.Event()
+        def delayed_get_api_connection(*args, **kwargs):
+            self.post_project_create_entered.wait()
+            # sleep so hook code is forced to wait
+            gevent.sleep(self.CONN_DELAY)
+
+            # Fake errors in connection upto RETRIES_BEFORE_LOG
+            orig_retries_before_log = vnc_openstack.RETRIES_BEFORE_LOG
+            vnc_openstack.RETRIES_BEFORE_LOG = 2
+
+            orig_vnc_api = vnc_api.VncApi
+            try:
+                err_instances = []
+                class BoundedErrorVncApi(object):
+                    def __init__(self, *args, **kwargs):
+                        if len(err_instances) < vnc_openstack.RETRIES_BEFORE_LOG:
+                            err_instances.append(True)
+                            raise Exception("Faking Api connection exception")
+                        vnc_api.VncApi = orig_vnc_api
+                        return orig_vnc_api(*args, **kwargs)
+                vnc_api.VncApi = BoundedErrorVncApi
+
+                resource_driver = FakeExtensionManager.get_extension_objects(
+                    'vnc_cfg_api.resourceApi')[0]
+                return orig_get_api_connection(
+                    resource_driver, *args, **kwargs)
+            finally:
+                setattr(vnc_openstack, 'RETRIES_BEFORE_LOG', orig_retries_before_log)
+                vnc_api.VncApi = orig_vnc_api
+
+        def delayed_post_project_create(*args, **kwargs):
+            self.post_project_create_entered.set()
+            resource_driver = FakeExtensionManager.get_extension_objects(
+                'vnc_cfg_api.resourceApi')[0]
+            return orig_post_project_create(
+                resource_driver, *args, **kwargs)
+
+        def stub(*args, **kwargs): pass
+        test_common.setup_extra_flexmock([
+            (vnc_openstack.ResourceApiDriver, '_get_api_connection',
+             delayed_get_api_connection),
+            (vnc_openstack.ResourceApiDriver, 'post_project_create',
+             delayed_post_project_create),
+            (vnc_openstack.ResourceApiDriver, 'pre_project_delete',
+             None),
+            (vnc_openstack.OpenstackDriver, 'resync_domains_projects',
+             stub),])
+        super(DelayedApiServerConnectionTest, self).setUp()
+
+        def unset_mocks():
+            setattr(vnc_openstack.ResourceApiDriver, '_get_api_connection',
+                orig_get_api_connection)
+            setattr(vnc_openstack.ResourceApiDriver, 'post_project_create',
+                orig_post_project_create)
+            setattr(vnc_openstack.ResourceApiDriver, 'pre_project_delete',
+                orig_pre_project_delete)
+            setattr(vnc_openstack.OpenstackDriver, 'resync_domains_projects',
+                orig_domain_project_sync)
+
+        self.addCleanup(unset_mocks)
+    # end setUp
+
+    # end tearDown
+
+    def test_post_project_create_default_sg(self):
+        proj_obj = Project('proj-%s' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        sg_obj = self._vnc_lib.security_group_read(
+            fq_name=proj_obj.fq_name+['default'])
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+    # end test_post_project_create_default_sg
+# end class DelayedApiServerConnectionTest
