@@ -87,6 +87,7 @@ class DatabaseEventManager(EventManager):
                 Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
             cassandra_data_dir = cassandra_data_dir.strip()
             analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            analytics_socket = "/tmp/supervisord_analytics.sock"
             if os.path.exists(analytics_dir):
                 self.stderr.write("analytics_dir is " + analytics_dir + "\n")
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
@@ -107,6 +108,8 @@ class DatabaseEventManager(EventManager):
                     (ret_value, error_value) = Popen(
                         cmd_str, shell=True, stdout=PIPE).communicate()
                     self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
+                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+            elif not os.path.exists(analytics_socket):
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
