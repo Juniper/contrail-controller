@@ -36,9 +36,10 @@ from vnc_api.common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
-    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
+from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
+    ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
+    VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
@@ -47,7 +48,9 @@ from sandesh.dm_introspect import ttypes as sandesh
 class DeviceManager(object):
     _REACTION_MAP = {
         'physical_router': {
-            'self': ['bgp_router', 'physical_interface', 'logical_interface'],
+            'self': ['bgp_router',
+                     'physical_interface',
+                     'logical_interface'],
             'bgp_router': [],
             'physical_interface': [],
             'logical_interface': [],
@@ -64,12 +67,17 @@ class DeviceManager(object):
             'physical_router': [],
         },
         'physical_interface': {
-            'self': ['physical_router', 'logical_interface'],
+            'self': ['physical_router',
+                     'physical_interface',
+                     'logical_interface'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
+            'physical_interface': ['physical_router'],
+            'virtual_machine_interface': ['physical_interface'],
         },
         'logical_interface': {
-            'self': ['physical_router', 'physical_interface',
+            'self': ['physical_router',
+                     'physical_interface',
                      'virtual_machine_interface'],
             'physical_interface': ['virtual_machine_interface'],
             'virtual_machine_interface': ['physical_router',
@@ -77,22 +85,37 @@ class DeviceManager(object):
             'physical_router': ['virtual_machine_interface']
         },
         'virtual_machine_interface': {
-            'self': ['logical_interface', 'virtual_network', 'floating_ip', 'instance_ip'],
+            'self': ['logical_interface',
+                     'physical_interface',
+                     'virtual_network',
+                     'floating_ip',
+                     'instance_ip',
+                     'service_instance'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface'],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
+            'routing_instance': ['physical_interface'],
+            'service_instance': ['physical_interface']
+        },
+        'service_instance': {
+            'self': ['virtual_machine_interface'],
+            'virtual_machine_interface': []
         },
         'virtual_network': {
-            'self': ['physical_router', 'virtual_machine_interface'],
+            'self': ['physical_router',
+                     'virtual_machine_interface'],
             'routing_instance': ['physical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
             'virtual_machine_interface': ['physical_router'],
         },
         'routing_instance': {
-            'self': ['routing_instance', 'virtual_network'],
-            'routing_instance': ['virtual_network'],
+            'self': ['routing_instance',
+                     'virtual_network',
+                     'virtual_machine_interface'],
+            'routing_instance': ['virtual_network',
+                                 'virtual_machine_interface'],
             'virtual_network': []
         },
         'floating_ip': {
@@ -115,7 +138,7 @@ class DeviceManager(object):
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
                 ModuleNames[Module.DEVICE_MANAGER])
-
+        
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
@@ -125,7 +148,7 @@ class DeviceManager(object):
         self._sandesh = Sandesh()
         # Reset the sandesh send rate limit value
         if self._args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit( \
+            SandeshSystem.set_sandesh_send_rate_limit(
                 self._args.sandesh_send_rate_limit)
         module = Module.DEVICE_MANAGER
         module_name = ModuleNames[module]
@@ -158,7 +181,8 @@ class DeviceManager(object):
                 self._vnc_lib = VncApi(
                     args.admin_user, args.admin_password,
                     args.admin_tenant_name, args.api_server_ip,
-                    args.api_server_port, api_server_use_ssl=args.api_server_use_ssl)
+                    args.api_server_port,
+                    api_server_use_ssl=args.api_server_use_ssl)
                 connected = True
                 self.connection_state_update(ConnectionStatus.UP)
             except requests.exceptions.ConnectionError as e:
@@ -184,7 +208,7 @@ class DeviceManager(object):
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
 
-        self._cassandra = DMCassandraDB.getInstance(self) 
+        self._cassandra = DMCassandraDB.getInstance(self, _zookeeper_client)
 
         DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
         for obj in GlobalSystemConfigDM.list_obj():
@@ -209,17 +233,25 @@ class DeviceManager(object):
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
             li_set = pr.logical_interfaces
+            vmi_set = set()
             for pi_id in pr.physical_interfaces:
                 pi = PhysicalInterfaceDM.locate(pi_id)
                 if pi:
                     li_set |= pi.logical_interfaces
-            vmi_set = set()
+                    vmi_set |= pi.virtual_machine_interfaces
             for li_id in li_set:
                 li = LogicalInterfaceDM.locate(li_id)
                 if li and li.virtual_machine_interface:
                     vmi_set |= set([li.virtual_machine_interface])
             for vmi_id in vmi_set:
                 vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+
+        si_obj_list = ServiceInstanceDM.list_obj()
+        si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
+        self._cassandra.handle_pnf_resource_deletes(si_uuid_set)
+
+        for obj in si_obj_list:
+            ServiceInstanceDM.locate(obj['uuid'], obj)
 
         for obj in InstanceIpDM.list_obj():
             InstanceIpDM.locate(obj['uuid'], obj)
@@ -413,8 +445,8 @@ def parse_args(args_str):
         'admin_tenant_name': 'default-domain',
     }
     cassandraopts = {
-        'cassandra_user'     : None,
-        'cassandra_password' : None
+        'cassandra_user': None,
+        'cassandra_password': None
     }
 
     if args.conf_file:
@@ -429,7 +461,6 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
         if 'CASSANDRA' in config.sections():
             cassandraopts.update(dict(config.items('CASSANDRA')))
-
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -503,11 +534,11 @@ def parse_args(args_str):
     parser.add_argument("--push_delay_enable",
                         help="enable delay between two successful commits")
     parser.add_argument("--cassandra_user",
-            help="Cassandra user name")
+                        help="Cassandra user name")
     parser.add_argument("--cassandra_password",
-            help="Cassandra password")
+                        help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec")
+                        help="Sandesh send rate limit in messages/sec")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
