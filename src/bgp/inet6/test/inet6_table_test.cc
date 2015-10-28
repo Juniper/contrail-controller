@@ -166,14 +166,13 @@ TEST_F(Inet6TableTest, AddDeleteMultipleRoute1) {
 
 TEST_F(Inet6TableTest, Hashing) {
     std::string ip_address = "2001:0db8:85a3:fedc:ba09:8a2e:0370:";
-    std::string plen = "/64";
+    char buf[1024];
     for (int idx = 1; idx <= kRouteCount; idx++) {
-        std::ostringstream repr;
-        repr << ip_address << idx << plen;
-        AddRoute(repr.str());
+        snprintf(buf, sizeof(buf), "%s%04X/64", ip_address.c_str(), idx);
+        AddRoute(std::string(buf));
     }
-    task_util::WaitForIdle();
 
+    TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
@@ -181,11 +180,10 @@ TEST_F(Inet6TableTest, Hashing) {
     }
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
-        std::ostringstream repr;
-        repr << ip_address << idx << plen;
-        DelRoute(repr.str());
+        snprintf(buf, sizeof(buf), "%s%04X/64", ip_address.c_str(), idx);
+        DelRoute(std::string(buf));
     }
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 }
 
 int main(int argc, char **argv) {
