@@ -44,7 +44,7 @@ from database.sandesh.database.process_info.constants import \
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
-                 hostip, minimum_diskgb, cassandra_repair_interval):
+                 hostip, minimum_diskgb, contrail_databases, cassandra_repair_interval):
         EventManager.__init__(
             self, rule_file, discovery_server,
             discovery_port, collector_addr)
@@ -53,6 +53,7 @@ class DatabaseEventManager(EventManager):
         self.module_id = ModuleNames[self.module]
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
+        self.contrail_databases = contrail_databases
         self.cassandra_repair_interval = cassandra_repair_interval
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         self.add_current_process()
@@ -107,6 +108,8 @@ class DatabaseEventManager(EventManager):
                     (ret_value, error_value) = Popen(
                         cmd_str, shell=True, stdout=PIPE).communicate()
                     self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
+                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+            elif 'analytics' not in self.contrail_databases:
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
@@ -177,6 +180,8 @@ class DatabaseEventManager(EventManager):
                 db_info.database_usage = [db_stat]
                 usage_stat = DatabaseUsage(data=db_info)
                 usage_stat.send()
+            elif 'analytics' not in self.contrail_databases:
+                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:

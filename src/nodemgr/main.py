@@ -68,6 +68,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'collectors': [],
                'hostip': '127.0.0.1',
                'minimum_diskgb': 256,
+               'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
                'sandesh_send_rate_limit': \
                     SandeshSystem.get_sandesh_send_rate_limit(),
@@ -122,6 +123,10 @@ def main(args_str=' '.join(sys.argv[1:])):
         parser.add_argument("--minimum_diskgb",
                             type=int,
                             help="Minimum disk space in GB's")
+        parser.add_argument("--contrail_databases",
+                            nargs='+',
+                            help='Contrail databases on this node' +
+                                 'in format: config analytics' )
         parser.add_argument("--hostip",
                             help="IP address of host")
         parser.add_argument("--cassandra_repair_interval", type=int,
@@ -167,11 +172,12 @@ def main(args_str=' '.join(sys.argv[1:])):
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
         minimum_diskgb = _args.minimum_diskgb
+        contrail_databases = _args.contrail_databases
         cassandra_repair_interval = _args.cassandra_repair_interval
         prog = DatabaseEventManager(
             rule_file, discovery_server,
             discovery_port, collector_addr,
-            hostip, minimum_diskgb, cassandra_repair_interval)
+            hostip, minimum_diskgb, contrail_databases, cassandra_repair_interval)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return
