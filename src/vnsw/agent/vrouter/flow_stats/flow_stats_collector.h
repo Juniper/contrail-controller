@@ -93,6 +93,7 @@ public:
                                uint64_t bytes, uint64_t pkts);
     void FlowIndexUpdateEvent(const FlowKey &key, uint32_t idx);
     size_t Size() const { return flow_tree_.size(); }
+    void NewFlow(const FlowKey &key, const FlowExportInfo &info);
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsRecordsReq;

@@ -216,8 +216,6 @@ public:
     bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
 
     // Update flow port bucket information
-    void NewFlow(const FlowEntry *flow);
-    void DeleteFlow(const FlowEntry *flow);
     void DeleteByIndex(uint32_t flow_handle, FlowEntry *fe);
     void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
     FlowEntry *FindByIndex(uint32_t flow_handle);
