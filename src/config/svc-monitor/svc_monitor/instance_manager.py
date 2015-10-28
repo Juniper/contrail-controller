@@ -26,6 +26,7 @@ from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from config_db import *
 
+
 @six.add_metaclass(abc.ABCMeta)
 class InstanceManager(object):
 
@@ -52,7 +53,7 @@ class InstanceManager(object):
 
     def mac_alloc(self, uuid):
         return '02:%s:%s:%s:%s:%s' % (uuid[0:2], uuid[2:4],
-            uuid[4:6], uuid[6:8], uuid[9:11])
+                                      uuid[4:6], uuid[6:8], uuid[9:11])
 
     def _get_default_security_group(self, vn):
         sg_fq_name = vn.fq_name[:-1] + ['default']
@@ -64,7 +65,7 @@ class InstanceManager(object):
                 return sg_obj
 
         self.logger.log_error(
-                "Security group not found %s" % (':'.join(sg_fq_name)))
+            "Security group not found %s" % (':'.join(sg_fq_name)))
         return None
 
     def _get_instance_name(self, si, inst_count):
@@ -153,12 +154,12 @@ class InstanceManager(object):
         fip = FloatingIpSM.get(fip_id)
         if fip:
             self._vnc_lib.ref_update('floating-ip', fip_id,
-                'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
+                                     'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
 
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
         if not static_routes:
-            static_routes = {'route':[]}
+            static_routes = {'route': []}
 
         proj_obj = self._get_project_obj(si.fq_name[:-1])
         if not proj_obj:
@@ -166,7 +167,7 @@ class InstanceManager(object):
 
         rt_fq_name = self._get_if_route_table_name(nic['type'], si)
         rt_obj = InterfaceRouteTable(name=rt_fq_name[-1],
-            parent_obj=proj_obj, interface_route_table_routes=static_routes)
+                                     parent_obj=proj_obj, interface_route_table_routes=static_routes)
         for irt in InterfaceRouteTableSM.values():
             if irt.fq_name == rt_fq_name:
                 rt_obj.set_interface_route_table_routes(static_routes)
@@ -205,7 +206,7 @@ class InstanceManager(object):
 
         VirtualMachineSM.locate(vm_obj.uuid)
         self.logger.log_info("Info: VM %s updated SI %s" %
-            (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+                             (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
     def create_service_vn(self, vn_name, vn_subnet,
                           proj_fq_name, user_visible=None):
@@ -266,7 +267,7 @@ class InstanceManager(object):
         si_obj.set_service_instance_properties(si_props)
         self._vnc_lib.service_instance_update(si_obj)
         self.logger.log_notice("SI %s config upgraded for interfaces" %
-                (si_obj.get_fq_name_str()))
+                               (si_obj.get_fq_name_str()))
 
     def validate_network_config(self, st, si):
         if not si.params.get('interface_list'):
@@ -276,7 +277,7 @@ class InstanceManager(object):
         si_if_list = si.params.get('interface_list', [])
         if not len(st_if_list) or not len(si_if_list):
             self.logger.log_notice("Interface list empty for ST %s SI %s" %
-                ((':').join(st.fq_name), (':').join(si.fq_name)))
+                                   ((':').join(st.fq_name), (':').join(si.fq_name)))
             return False
 
         si.vn_info = []
@@ -324,7 +325,7 @@ class InstanceManager(object):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id, fields = ['instance_ip_back_refs'])
+                    id=vmi_id, fields=['instance_ip_back_refs'])
             except NoIdError:
                 continue
 
@@ -358,14 +359,15 @@ class InstanceManager(object):
             self._vnc_lib.virtual_machine_create(vm_obj)
             vm = VirtualMachineSM.locate(vm_obj.uuid)
             self.logger.log_info("Info: VM %s created for SI %s" %
-                (instance_name, si_obj.get_fq_name_str()))
+                                 (instance_name, si_obj.get_fq_name_str()))
         else:
             vm_obj.uuid = vm.uuid
 
         for nic in si.vn_info:
             vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st,
-                local_preference=si.local_preference[instance_index],
-                vm_obj=vm_obj)
+                                               local_preference=si.local_preference[
+                                                   instance_index],
+                                               vm_obj=vm_obj)
 
         # notify all the agents
         self._agent_manager.post_create_service_vm(instance_index, si, st, vm)
@@ -373,7 +375,8 @@ class InstanceManager(object):
         return vm
 
     def _create_svc_vm_port(self, nic, instance_name, si, st,
-                            local_preference=None, vm_obj=None):
+                            local_preference=None, vm_obj=None, pi=None,
+                            instance_id=None):
         # get network
         vn = VirtualNetworkSM.get(nic['net-id'])
         if vn:
@@ -402,7 +405,8 @@ class InstanceManager(object):
             if vmi.fq_name == port_fq_name:
                 vmi_obj.uuid = vmi.uuid
                 vmi_obj.fq_name = vmi.fq_name
-                if_properties = VirtualMachineInterfacePropertiesType(**vmi.params)
+                if_properties = VirtualMachineInterfacePropertiesType(
+                    **vmi.params)
                 vmi_network = vmi.virtual_network
                 vmi_irt = vmi.interface_route_table
                 vmi_sg = vmi.security_group
@@ -411,7 +415,7 @@ class InstanceManager(object):
         if not vmi_obj.uuid:
             if nic['user-visible'] is not None:
                 id_perms = IdPermsType(enable=True,
-                    user_visible=nic['user-visible'])
+                                       user_visible=nic['user-visible'])
                 vmi_obj.set_id_perms(id_perms)
             vmi_create = True
             vmi_network = None
@@ -424,7 +428,7 @@ class InstanceManager(object):
             vmi_obj.set_virtual_machine(vm_obj)
             vmi_updated = True
             self.logger.log_info("Info: VMI %s updated with VM %s" %
-                (vmi_obj.get_fq_name_str(), instance_name))
+                                 (vmi_obj.get_fq_name_str(), instance_name))
 
         if not vmi_network:
             vmi_obj.set_virtual_network(vn_obj)
@@ -442,7 +446,7 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if (st.params.get('service_mode') in ['in-network', 'in-network-nat'] and
-            proj_obj.name != 'default-project'):
+                proj_obj.name != 'default-project'):
             if not vmi_sg:
                 sg_obj = self._get_default_security_group(vn_obj)
                 vmi_obj.set_security_group(sg_obj)
@@ -459,6 +463,25 @@ class InstanceManager(object):
                 self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+            if pi:
+                vmi_obj.instance_id = instance_id
+                vmi_obj.interface_type = nic['type']
+                self._vnc_lib.ref_update('virtual-machine-interface',
+                                         vmi_obj.uuid,
+                                         'physical_interface_refs',
+                                         pi,
+                                         None,
+                                         'ADD')
+                self._vnc_lib.ref_update('service-instance',
+                                         si.uuid,
+                                         'virtual_machine_interface_refs',
+                                         vmi_obj.uuid,
+                                         None,
+                                         'ADD',
+                                         {
+                                             "instance_id": instance_id,
+                                             "interface_type": vmi_obj.interface_type
+                                         })
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
@@ -512,7 +535,7 @@ class InstanceManager(object):
             if chosen_vr_fq_name:
                 vrouter_name = chosen_vr_fq_name[-1]
                 self.logger.log_notice("vrouter %s updated with vm %s" %
-                    (':'.join(chosen_vr_fq_name), vm.name))
+                                       (':'.join(chosen_vr_fq_name), vm.name))
                 vm.update()
         else:
             vr = VirtualRouterSM.get(vm.virtual_router)
@@ -539,7 +562,9 @@ class InstanceManager(object):
             if vm:
                 self._check_create_netns_vm(vm.index, si, st, vm)
 
+
 class VRouterHostedManager(InstanceManager):
+
     @abc.abstractmethod
     def create_service(self, st, si):
         pass
@@ -552,9 +577,9 @@ class VRouterHostedManager(InstanceManager):
 
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
-                'virtual-machine', vm.uuid, None, 'DELETE')
+                                     'virtual-machine', vm.uuid, None, 'DELETE')
             self.logger.log_info("vm %s deleted from vr %s" %
-                (vm.fq_name, vm.virtual_router))
+                                 (vm.fq_name, vm.virtual_router))
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
         VirtualMachineSM.delete(vm.uuid)
@@ -574,9 +599,10 @@ class VRouterHostedManager(InstanceManager):
                 if self.vrouter_scheduler.vrouter_running(vr.name):
                     continue
                 self._vnc_lib.ref_update('virtual-router', vr.uuid,
-                    'virtual-machine', vm.uuid, None, 'DELETE')
+                                         'virtual-machine', vm.uuid, None, 'DELETE')
                 vr.update()
-                self.logger.log_error("vrouter %s down for vm %s" % (vr.name, vm.uuid))
+                self.logger.log_error(
+                    "vrouter %s down for vm %s" % (vr.name, vm.uuid))
                 service_up = False
 
         return service_up
@@ -624,8 +650,8 @@ class NetworkNamespaceManager(VRouterHostedManager):
         # uve trace
         si.state = 'active'
         self.logger.uve_svc_instance((':').join(si.fq_name),
-            status='CREATE', vms=instances,
-            st_name=(':').join(st.fq_name))
+                                     status='CREATE', vms=instances,
+                                     st_name=(':').join(st.fq_name))
 
     def add_fip_to_vip_vmi(self, vmi, fip):
         iip = InstanceIpSM.get(vmi.instance_ip)
@@ -650,7 +676,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
                 continue
 
             vmi_obj = VirtualMachineInterface(parent_obj=proj_obj,
-                name=vmi.name)
+                                              name=vmi.name)
             vmi_obj.uuid = vmi.uuid
             vmi_obj.fq_name = vmi.fq_name
             fip_obj.add_virtual_machine_interface(vmi_obj)
