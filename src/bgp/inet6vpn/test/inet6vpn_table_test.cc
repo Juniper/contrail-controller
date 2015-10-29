@@ -4,6 +4,7 @@
 
 #include "bgp/inet6vpn/inet6vpn_table.h"
 
+#include <boost/format.hpp>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -226,10 +227,10 @@ TEST_F(Inet6VpnTableTest, Hashing) {
     std::string plen = "/64";
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
-        repr << rd_string << ip_address << idx << plen;
+        repr << rd_string << ip_address << (boost::format("%04X") % idx) << plen;
         AddRoute(repr.str());
     }
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(kRouteCount, inet6_vpn_table_->Size());
 
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition = static_cast<DBTablePartition *>
@@ -239,10 +240,10 @@ TEST_F(Inet6VpnTableTest, Hashing) {
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
-        repr << rd_string << ip_address << idx << plen;
+        repr << rd_string << ip_address << (boost::format("%04X") % idx) << plen;
         DelRoute(repr.str());
     }
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, inet6_vpn_table_->Size());
 }
 
 int main(int argc, char **argv) {
