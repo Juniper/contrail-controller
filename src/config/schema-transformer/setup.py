@@ -19,6 +19,7 @@ class RunTestsCommand(Command):
     def run(self):
         logfname = 'test.log'
         args = '-V'
+        args += '--concurrency ' + os.getenv('SCONS_JOBS', '1')
         if self.coverage:
             logfname = 'coveragetest.log'
             args += ' -c'
