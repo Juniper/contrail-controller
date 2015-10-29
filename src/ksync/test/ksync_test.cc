@@ -1013,6 +1013,111 @@ TEST_F(TestUT, CreateStaleFailure) {
     vlan_table_->Delete(vlan1);
 }
 
+TEST_F(TestUT, DeleteAddEvent) {
+    Vlan *vlan2 = AddVlan(0xF02, 0xF03, KSyncEntry::ADD_DEFER, Vlan::INIT, 0);
+    Vlan *vlan1 = AddVlan(0xF01, 0xF02, KSyncEntry::ADD_DEFER, Vlan::INIT, 2);
+    EXPECT_EQ(Vlan::add_count_, 0);
+    vlan_table_->Delete(vlan2);
+    EXPECT_EQ(vlan2->GetState(), KSyncEntry::TEMP);
+
+    // trigger DeleteAdd on Temp state
+    vlan2->all_delete_state_comp_ = false;
+    vlan_table_->NotifyEvent(vlan2, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_EQ(vlan2->GetState(), KSyncEntry::ADD_DEFER);
+    EXPECT_EQ(Vlan::delete_count_, 0);
+    EXPECT_EQ(Vlan::add_count_, 0);
+
+    TestInit();
+    // trigger DeleteAdd on AddDefer state
+    vlan1->all_delete_state_comp_ = false;
+    vlan_table_->NotifyEvent(vlan1, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::ADD_DEFER);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(Vlan::add_count_, 0);
+
+    TestInit();
+    // trigger DeleteAdd on SyncWait state
+    Vlan *vlan3 = AddVlan(0x4, 0, KSyncEntry::SYNC_WAIT, Vlan::ADD, 3);
+    vlan3->all_delete_state_comp_ = false;
+    EXPECT_EQ(Vlan::add_count_, 1);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_TRUE(vlan3->del_add_pending());
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::ADD_ACK);
+    EXPECT_FALSE(vlan3->del_add_pending());
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(Vlan::add_count_, 2);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::ADD_ACK);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::IN_SYNC);
+
+    TestInit();
+    // trigger DeleteAdd on InSync state
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(Vlan::add_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::SYNC_WAIT);
+
+    TestInit();
+    // trigger DeleteAdd on DelDeferSync state
+    vlan_table_->Delete(vlan3);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::DEL_DEFER_SYNC);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_TRUE(vlan3->del_add_pending());
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::ADD_ACK);
+    EXPECT_FALSE(vlan3->del_add_pending());
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+
+    TestInit();
+    // trigger DeleteAdd on RenewWait state
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_TRUE(vlan3->del_add_pending());
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_FALSE(vlan3->del_add_pending());
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+
+    TestInit();
+    // trigger DeleteAdd on DelDeferDelAck state
+    vlan_table_->Delete(vlan3);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::DEL_DEFER_DEL_ACK);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_TRUE(vlan3->del_add_pending());
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_FALSE(vlan3->del_add_pending());
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+    vlan3->all_delete_state_comp_ = true;
+
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(Vlan::add_count_, 1);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::ADD_ACK);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::IN_SYNC);
+
+    TestInit();
+    // trigger DeleteAdd on DelDeferRef state
+    KSyncEntry::KSyncEntryPtr vlan3_ref = vlan3;
+    vlan_table_->Delete(vlan3);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::DEL_DEFER_REF);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ADD_REQ);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan3->GetState(), KSyncEntry::RENEW_WAIT);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(Vlan::add_count_, 1);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::ADD_ACK);
+    vlan3_ref = NULL;
+
+    vlan_table_->Delete(vlan3);
+    vlan_table_->NotifyEvent(vlan3, KSyncEntry::DEL_ACK);
+
+    TestInit();
+    vlan_table_->Delete(vlan1);
+    vlan_table_->Delete(vlan2);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
