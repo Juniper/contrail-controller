@@ -30,9 +30,10 @@ public:
     enum PathSource {
         None = 0,
         BGP_XMPP = 1,
-        ServiceChain = 2,
-        StaticRoute = 3,
-        Local = 4,
+        ResolvedRoute = 2,
+        ServiceChain = 3,
+        StaticRoute = 4,
+        Local = 5,
     };
 
     static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
@@ -52,11 +53,12 @@ public:
     virtual ~BgpPath() {
     }
 
+    RouteDistinguisher GetSourceRouteDistinguisher() const;
 
     bool IsVrfOriginated() const {
         if (IsReplicated())
             return false;
-        if (source_ != BGP_XMPP && source_ != Local)
+        if (source_ != ResolvedRoute && source_ != BGP_XMPP && source_ != Local)
             return false;
         return true;
     }
@@ -152,6 +154,8 @@ public:
 
     virtual ~BgpSecondaryPath() {
     }
+
+    RouteDistinguisher GetPrimaryRouteDistinguisher() const;
 
     const BgpTable *src_table() const {
         return src_table_;

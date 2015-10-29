@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_path.h"
 
+#include "bgp/bgp_route.h"
+
 std::string BgpPath::PathIdString(uint32_t path_id) {
     Ip4Address addr(path_id);
     return addr.to_string();
@@ -13,6 +15,8 @@ std::string BgpPath::PathSourceString(PathSource source) {
     switch (source) {
         case None:
             return "None";
+        case ResolvedRoute:
+            return "ResolvedRoute";
         case BGP_XMPP:
             return "BGP_XMPP";
         case StaticRoute:
@@ -124,7 +128,21 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     return 0;
 }
 
+RouteDistinguisher BgpPath::GetSourceRouteDistinguisher() const {
+    if (!attr_->source_rd().IsZero())
+        return attr_->source_rd();
+    if (!IsReplicated())
+        return RouteDistinguisher::kZeroRd;
+
+    const BgpSecondaryPath *path = static_cast<const BgpSecondaryPath *>(this);
+    return path->GetPrimaryRouteDistinguisher();
+}
+
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,
         PathSource src, const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
     : BgpPath(peer, path_id, src, ptr, flags, label) {
+}
+
+RouteDistinguisher BgpSecondaryPath::GetPrimaryRouteDistinguisher() const {
+    return src_entry_->GetRouteDistinguisher();
 }

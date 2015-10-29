@@ -200,6 +200,29 @@ private:
 };
 
 //
+// CheckMatchState
+// API to check if MatchState is added by module registering ConditionMatch
+// object.
+//
+bool BgpConditionListener::CheckMatchState(BgpTable *table, BgpRoute *route,
+                                           ConditionMatch *obj) {
+    TableMap::iterator loc = map_.find(table);
+    ConditionMatchTableState *ts = loc->second;
+    tbb::mutex::scoped_lock lock(ts->table_state_mutex());
+
+    // Get the DBState.
+    MatchState *dbstate =
+        static_cast<MatchState *>(route->GetState(table, ts->GetListenerId()));
+    if (dbstate == NULL)
+        return false;
+
+    // Index with ConditionMatch object to check.
+    MatchState::MatchStateList::iterator it =
+        dbstate->list_.find(ConditionMatchPtr(obj));
+    return (it != dbstate->list_.end()) ? true : false;
+}
+
+//
 // GetMatchState
 // API to fetch MatchState added by module registering ConditionMatch object
 // MatchState is maintained as Map of ConditionMatch object and State in
@@ -385,7 +408,7 @@ void BgpConditionListener::WalkDone(DBTableBase *table) {
     }
 }
 
-void BgpConditionListener::UnregisterCondition(BgpTable *bgptable,
+void BgpConditionListener::UnregisterMatchCondition(BgpTable *bgptable,
                                           ConditionMatch *obj) {
     TableMap::iterator loc = map_.find(bgptable);
     assert(loc != map_.end());

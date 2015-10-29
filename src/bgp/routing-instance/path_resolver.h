@@ -7,7 +7,6 @@
 
 #include <tbb/mutex.h>
 
-#include <list>
 #include <map>
 #include <set>
 #include <vector>
@@ -75,6 +74,8 @@ class TaskTrigger;
 //
 // bgp::Config is mutually exclusive with bgp::ResolverPath
 // bgp::Config is mutually exclusive with bgp::ResolverNexthop
+// db::DBTable is mutually exclusive with bgp::ResolverPath
+// db::DBTable is mutually exclusive with bgp::ResolverNexthop
 // bgp::ResolverPath is mutually exclusive with bgp::ResolverNexthop
 //
 class PathResolver {
@@ -89,6 +90,7 @@ public:
     BgpTable *table() { return table_; }
     Address::Family family() const;
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
+    BgpConditionListener *condition_listener() { return condition_listener_; }
 
     bool IsDeleted() const;
     void ManagedDelete();
@@ -118,8 +120,17 @@ private:
 
     bool RouteListener(DBTablePartBase *root, DBEntryBase *entry);
 
-    void DisableRegUnregProcessing();
-    void EnableRegUnregProcessing();
+    void DisableResolverNexthopRegUnregProcessing();
+    void EnableResolverNexthopRegUnregProcessing();
+    size_t GetResolverNexthopRegUnregListSize() const;
+
+    void DisableResolverNexthopUpdateProcessing();
+    void EnableResolverNexthopUpdateProcessing();
+    size_t GetResolverNexthopUpdateListSize() const;
+
+    void DisableResolverPathUpdateProcessing();
+    void EnableResolverPathUpdateProcessing();
+    size_t GetResolverPathUpdateListSize() const;
 
     BgpTable *table_;
     BgpConditionListener *condition_listener_;
@@ -172,8 +183,13 @@ public:
     }
     PathResolver *resolver() const { return resolver_; }
     BgpTable *table() const { return resolver_->table(); }
+    DBTablePartBase *table_partition() {
+        return table()->GetTablePartition(part_id_);
+    }
 
 private:
+    friend class PathResolver;
+
     typedef std::map<const BgpPath *, ResolverPath *> PathToResolverPathMap;
     typedef std::set<ResolverPath *> ResolverPathList;
 
@@ -182,6 +198,10 @@ private:
     ResolverPath *FindResolverPath(const BgpPath *path);
     ResolverPath *RemoveResolverPath(const BgpPath *path);
     bool ProcessResolverPathUpdateList();
+
+    void DisableResolverPathUpdateProcessing();
+    void EnableResolverPathUpdateProcessing();
+    size_t GetResolverPathUpdateListSize() const;
 
     int part_id_;
     PathResolver *resolver_;
@@ -269,7 +289,12 @@ public:
     void clear_path() { path_ = NULL; }
 
 private:
-    typedef std::list<BgpPath *> ResolvedPathList;
+    typedef std::set<BgpPath *> ResolvedPathList;
+
+    void AddResolvedPath(ResolvedPathList::const_iterator it);
+    void DeleteResolvedPath(ResolvedPathList::const_iterator it);
+    BgpPath *LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
+        uint32_t label);
 
     PathResolverPartition *partition_;
     const BgpPath *path_;
