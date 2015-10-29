@@ -1,4 +1,5 @@
 import gevent
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import cfgm_common
 
 class ApiInternalRequest(object):
@@ -62,13 +63,13 @@ class ApiContext(object):
             (undo_callable, (args, kwargs)))
     # end push_undo
 
-    def invoke_undo(self, failure_code, failure_msg):
+    def invoke_undo(self, failure_code, failure_msg, logger):
         for undo_callable, (args, kwargs) in self.undo_callables_with_args:
             try:
                 undo_callable(*args, **kwargs)
             except Exception as e:
                 err_msg = cfgm_common.utils.detailed_traceback()
-                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                logger(err_msg, level=SandeshLevel.SYS_ERR)
     # end invoke_undo
 # end class ApiContext
 

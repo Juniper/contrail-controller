@@ -374,7 +374,7 @@ class VncApiServer(object):
         obj_ids = {}
         def undo_create(result):
             (code, msg) = result
-            get_context().invoke_undo(code, msg)
+            get_context().invoke_undo(code, msg, self.config_log)
             failed_stage = get_context().get_state()
             fq_name_str = ':'.join(fq_name)
             self.config_object_error(
@@ -625,7 +625,7 @@ class VncApiServer(object):
         obj_ids = {'uuid': id}
         def undo_update(result):
             (code, msg) = result
-            get_context().invoke_undo(code, msg)
+            get_context().invoke_undo(code, msg, self.config_log)
             failed_stage = get_context().get_state()
             self.config_object_error(
                 id, None, obj_type, failed_stage, msg)
@@ -783,7 +783,7 @@ class VncApiServer(object):
 
         def undo_delete(result):
             (code, msg) = result
-            get_context().invoke_undo(code, msg)
+            get_context().invoke_undo(code, msg, self.config_log)
             failed_stage = get_context().get_state()
             self.config_object_error(
                 id, None, obj_type, failed_stage, msg)

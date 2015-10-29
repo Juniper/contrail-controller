@@ -201,6 +201,20 @@ def launch_device_manager(test_id, api_server_ip, api_server_port):
     device_manager.main(args_str)
 # end launch_device_manager
 
+@contextlib.contextmanager
+def flexmocks(mocks):
+    orig_values = {}
+    try:
+        for cls, method_name, val in mocks:
+            kwargs = {method_name: val}
+            # save orig cls.method_name
+            orig_values[(cls, method_name)] = getattr(cls, method_name)
+            flexmock(cls, **kwargs)
+        yield
+    finally:
+        for (cls, method_name), method in orig_values.items():
+            setattr(cls, method_name, method)
+# end flexmocks
 
 def setup_extra_flexmock(mocks):
     for (cls, method_name, val) in mocks:

@@ -366,10 +366,12 @@ class ZookeeperClient(object):
             raise e
     # end delete_node
 
-    def read_node(self, path):
+    def read_node(self, path, include_timestamp=False):
         try:
             retry = self._retry.copy()
             value = retry(self._zk_client.get, path)
+            if include_timestamp:
+                return value
             return value[0]
         except Exception:
             return None
