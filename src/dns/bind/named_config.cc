@@ -491,6 +491,28 @@ bool BindStatus::SetTrigger() {
     return false;
 }
 
+// Check if a given pid belongs to contrail-named
+bool BindStatus::IsBindPid(uint32_t pid) {
+    bool ret = false;
+    std::stringstream str;
+    str << "/proc/" << pid << "/cmdline";
+
+    ifstream ifile(str.str().c_str());
+    if (ifile.good()) {
+        std::string cmdline;
+        cmdline.assign((istreambuf_iterator<char>(ifile)),
+                        istreambuf_iterator<char>());
+        istringstream cmdstream(cmdline);
+        if (cmdstream.str().find("/usr/bin/contrail-named") !=
+            std::string::npos) {
+           ret = true;
+        }
+    }
+
+    ifile.close();
+    return ret;
+}
+
 bool BindStatus::CheckBindStatus() {
     uint32_t new_pid = -1;
     NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
@@ -502,11 +524,16 @@ bool BindStatus::CheckBindStatus() {
         pid_file.close();
     }
 
-    if (new_pid != named_pid_) {
-        named_pid_ = new_pid;
-        if (new_pid == (uint32_t) -1) {
+    if (new_pid == (uint32_t) -1) {
+        handler_(Down);
+    } else if (!IsBindPid(new_pid)) {
+        if (named_pid_ != (uint32_t) -1) {
+            named_pid_ = -1;
             handler_(Down);
-        } else {
+        }
+    } else {
+        if (named_pid_ != new_pid) {
+            named_pid_ = new_pid;
             handler_(Up);
         }
     }
