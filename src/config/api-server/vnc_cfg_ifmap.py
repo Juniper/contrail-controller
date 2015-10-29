@@ -997,6 +997,11 @@ class VncZkClient(object):
         return allocator.read(addr)
     # end subnet_is_addr_allocated
 
+    def subnet_alloc_count(self, subnet):
+        allocator = self._get_subnet_allocator(subnet)
+        return allocator.get_alloc_count()
+    # end subnet_alloc_count
+
     def subnet_alloc_req(self, subnet, addr=None):
         allocator = self._get_subnet_allocator(subnet)
         try:
@@ -1473,6 +1478,10 @@ class VncDbClient(object):
     def subnet_is_addr_allocated(self, subnet, addr):
         return self._zk_db.subnet_is_addr_allocated(subnet, addr)
     # end subnet_is_addr_allocated
+
+    def subnet_alloc_count(self, subnet):
+        return self._zk_db.subnet_alloc_count(subnet)
+    # end subnet_alloc_count
 
     def subnet_alloc_req(self, subnet, addr=None):
         return self._zk_db.subnet_alloc_req(subnet, addr)

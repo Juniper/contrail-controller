@@ -639,10 +639,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end ip_free
 
     @classmethod
-    def subnet_ip_count(cls, obj_dict, subnet_list):
+    def subnet_ip_count(cls, vn_fq_name, subnet_list):
         ip_count_list = []
         for item in subnet_list:
-            ip_count_list.append(cls.addr_mgmt.ip_count(obj_dict, item))
+            ip_count_list.append(cls.addr_mgmt.ip_count_req(vn_fq_name, item))
         return {'ip_count_list': ip_count_list}
     # end subnet_ip_count
 
@@ -679,10 +679,9 @@ class NetworkIpamServer(NetworkIpamServerGen):
             return True, ""
         old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
         new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
-        if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
-                                     db_conn):
-            return (False, (409, "Cannot change DNS Method from " +
-                    old_dns_method + " to " + new_dns_method +
+        if not cls.is_change_allowed(old_dns_method, new_dns_method,
+                                     read_result, db_conn):
+            return (False, (409, "Cannot change DNS Method " +
                     " with active VMs referring to the IPAM"))
         return True, ""
     # end http_put
@@ -695,16 +694,15 @@ class NetworkIpamServer(NetworkIpamServerGen):
 
     @classmethod
     def is_change_allowed(cls, old, new, obj_dict, db_conn):
-        if (old == "default-dns-server" or old == "virtual-dns-server"):
-            if ((new == "tenant-dns-server" or new == "none") and
-                    cls.is_active_vm_present(obj_dict, db_conn)):
+        active_vm_present = cls.is_active_vm_present(obj_dict, db_conn)
+        if active_vm_present:
+            if (old == "default-dns-server" or old == "virtual-dns-server"):
+                if (new == "tenant-dns-server" or new == None):
+                    return False
+            if (old == "tenant-dns-server" and new != old):
                 return False
-        if (old == "tenant-dns-server" and new != old and
-                cls.is_active_vm_present(obj_dict, db_conn)):
-            return False
-        if (old == "none" and new != old and
-                cls.is_active_vm_present(obj_dict, db_conn)):
-            return False
+            if (old == None and new != old):
+                return False
         return True
     # end is_change_allowed
 

@@ -109,6 +109,10 @@ class IndexAllocator(object):
             self._in_use[idx] = 1
     # end _set_in_use
 
+    def get_alloc_count(self):
+        return self._in_use.count()
+    # end get_alloc_count
+
     def alloc(self, value=None):
         if self._in_use.all():
             idx = self._in_use.length()

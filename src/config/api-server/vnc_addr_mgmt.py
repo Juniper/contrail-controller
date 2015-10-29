@@ -280,6 +280,10 @@ class Subnet(object):
         return self._db_conn.subnet_is_addr_allocated(self._name, addr)
     # end is_ip_allocated
 
+    def ip_count(self):
+        return self._db_conn.subnet_alloc_count(self._name)
+    # end ip_count
+
     def ip_alloc(self, ipaddr=None):
         req = None
         if ipaddr:
@@ -771,6 +775,14 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet_delete
 
+    # return number of ip address currently allocated for a subnet
+    # count will also include reserved ips
+    def ip_count_req(self, vn_fq_name, subnet_name=None):
+        vn_fq_name_str = ':'.join(vn_fq_name)
+        subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
+        return subnet_obj.ip_count()
+    # end ip_count_req
+
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None, 
@@ -942,32 +954,6 @@ class AddrMgmt(object):
                 subnet_obj.ip_free(IPAddress(ip_addr))
                 break
     # end ip_free_notify
-
-    # Given IP address count on given virtual network, subnet/List of subnet
-    def ip_count(self, obj_dict, subnet=None):
-        db_conn = self._get_db_conn()
-        addr_num = 0
-        if not subnet:
-            return addr_num
-
-        instip_refs = obj_dict.get('instance_ip_back_refs', None)
-        if instip_refs:
-            for ref in instip_refs:
-                uuid = ref['uuid']
-                try:
-                    (ok, result) = db_conn.dbe_read(
-                        'instance-ip', {'uuid': uuid})
-                except cfgm_common.exceptions.NoIdError:
-                    continue
-                if not ok:
-                    continue
-
-                inst_ip = result.get('instance_ip_address', None)
-                if IPAddress(inst_ip) in IPNetwork(subnet):
-                    addr_num += 1
-
-        return addr_num
-    # end ip_count
 
     def mac_alloc(self, obj_dict):
         uid = obj_dict['uuid']
