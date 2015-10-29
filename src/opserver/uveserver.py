@@ -243,7 +243,9 @@ class UVEServer(object):
         state[key] = {}
         rsp = {}
         failures = False
-       
+
+        tab = key.split(":",1)[0]
+ 
         for r_inst in self._redis_uve_map.keys():
             try:
                 redish = self._redis_inst_get(r_inst)
@@ -296,9 +298,6 @@ class UVEServer(object):
                             if attr not in afilter_list:
                                 continue
 
-                        if typ not in state[key]:
-                            state[key][typ] = {}
-
                         if value[0] == '<':
                             snhdict = xmltodict.parse(value)
                             if snhdict[attr]['@type'] == 'list':
@@ -312,7 +311,7 @@ class UVEServer(object):
                                         snhdict[attr]['list'][sname] = [
                                             snhdict[attr]['list'][sname]]
                                 if typ == 'UVEAlarms' and attr == 'alarms' and \
-                                    ackfilter is not None:
+                                        ackfilter is not None:
                                     alarms = []
                                     for alarm in snhdict[attr]['list'][sname]:
                                         ack_attr = alarm.get('ack')
@@ -327,10 +326,26 @@ class UVEServer(object):
                                     snhdict[attr]['list'][sname] = alarms
                                     snhdict[attr]['list']['@size'] = \
                                         str(len(alarms))
+                                # TODO: This is a hack for separating external
+                                # bgp routers from control-nodes
+                                elif typ == 'ContrailConfig' and \
+                                        tab == 'ObjectBgpRouter' and \
+                                        attr == 'elements':
+                                    try:
+                                        elem = OpServerUtils.uve_attr_flatten(\
+                                            snhdict[attr])
+                                        vendor = json.loads(\
+                                            elem['bgp_router_parameters'])["vendor"]
+                                        if vendor != "contrail":
+                                            continue
+                                    except:
+                                        pass
                         else:
                             continue
 
                         # print "Attr %s Value %s" % (attr, snhdict)
+                        if typ not in state[key]:
+                            state[key][typ] = {}
                         if attr not in state[key][typ]:
                             state[key][typ][attr] = {}
                         if dsource in state[key][typ][attr]:

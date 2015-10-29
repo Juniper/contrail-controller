@@ -1783,17 +1783,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 'uve_list_get': [
                     'default-domain:project2:vn1'
                 ],
-                'uve_get_post': {
-                    'value': [
-                        {
-                            'name': 'default-domain:project2:vn1',
-                            'value': {
-                                'UVEAlarms': {
-                                }
-                            }
-                        }
-                    ]
-                },
+                'uve_get_post': {'value': []},
             }
         ]
 
