@@ -4,6 +4,7 @@
 
 #include "bgp/inet6/inet6_table.h"
 
+#include <boost/format.hpp>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -169,10 +170,10 @@ TEST_F(Inet6TableTest, Hashing) {
     std::string plen = "/64";
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
-        repr << ip_address << idx << plen;
+        repr << ip_address << (boost::format("%04X") % idx) << plen;
         AddRoute(repr.str());
     }
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
 
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
@@ -182,10 +183,10 @@ TEST_F(Inet6TableTest, Hashing) {
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
-        repr << ip_address << idx << plen;
+        repr << ip_address << (boost::format("%04X") % idx) << plen;
         DelRoute(repr.str());
     }
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 }
 
 int main(int argc, char **argv) {
