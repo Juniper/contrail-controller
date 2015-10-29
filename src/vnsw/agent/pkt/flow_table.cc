@@ -45,10 +45,6 @@
 #include <pkt/pkt_sandesh_flow.h>
 #include <pkt/flow_mgmt.h>
 #include <pkt/flow_mgmt_response.h>
-#include <uve/agent_uve.h>
-#include <uve/vm_uve_table.h>
-#include <uve/vn_uve_table.h>
-#include <uve/vrouter_uve_entry.h>
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 const string FlowTable::kTaskName = "Agent::FlowTable";
@@ -588,53 +584,13 @@ FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
 ////////////////////////////////////////////////////////////////////////////
 // Flow Info tree management
 ////////////////////////////////////////////////////////////////////////////
-void FlowTable::NewFlow(const FlowEntry *flow) {
-    uint8_t proto = flow->key().protocol;
-    uint16_t sport = flow->key().src_port;
-    uint16_t dport = flow->key().dst_port;
-    AgentUveBase *uve = agent()->uve();
-
-    // Update vrouter port bitmap
-    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>(
-        uve->vrouter_uve_entry());
-    vre->UpdateBitmap(proto, sport, dport);
-
-    // Update source-vn port bitmap
-    VnUveTable *vnte = static_cast<VnUveTable *>(uve->vn_uve_table());
-    vnte->UpdateBitmap(flow->data().source_vn, proto, sport, dport);
-
-    // Update dest-vn port bitmap
-    vnte->UpdateBitmap(flow->data().dest_vn, proto, sport, dport);
-
-    const Interface *intf = flow->data().intf_entry.get();
-    const VmInterface *port = dynamic_cast<const VmInterface *>(intf);
-    if (port == NULL) {
-        return;
-    }
-    const VmEntry *vm = port->vm();
-    if (vm == NULL) {
-        return;
-    }
-
-    // update vm and interface (all interfaces of vm) bitmap
-    VmUveTable *vmt = static_cast<VmUveTable *>(uve->vm_uve_table());
-    vmt->UpdateBitmap(vm, proto, sport, dport);
-}
-
 void FlowTable::AddFlowInfo(FlowEntry *fe) {
-    NewFlow(fe);
     // Add VmFlowTree
     AddVmFlowInfo(fe);
     agent_->pkt()->flow_mgmt_manager()->AddEvent(fe);
 }
 
-void FlowTable::DeleteFlow(const FlowEntry *flow) {
-    /* We need not reset bitmaps on flow deletion. We will have to
-     * provide introspect to reset this */
-}
-
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) {
-    DeleteFlow(fe);
     // Remove from VmFlowTree
     DeleteVmFlowInfo(fe);
     agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe);

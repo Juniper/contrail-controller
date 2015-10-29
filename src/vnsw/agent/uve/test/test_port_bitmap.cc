@@ -271,14 +271,12 @@ public:
     }
     void NewFlow(FlowEntry *f) {
         Agent *agent = Agent::GetInstance();
-        FlowTable *table = agent->pkt()->flow_table();
-        table->NewFlow(f);
+        FlowStatsCollector *table = agent->flow_stats_collector();
+        FlowExportInfo info(f, UTCTimestampUsec());
+        table->NewFlow(f->key(), info);
     }
 
     void DeleteFlow(FlowEntry *f) {
-        Agent *agent = Agent::GetInstance();
-        FlowTable *table = agent->pkt()->flow_table();
-        table->DeleteFlow(f);;
     }
 
 protected:

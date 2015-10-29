@@ -23,6 +23,7 @@
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
 #include <uve/interface_uve_stats_table.h>
+#include <uve/vrouter_uve_entry.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <pkt/flow_mgmt.h>
@@ -852,6 +853,44 @@ FlowStatsCollector::FindFlowExportInfo(const FlowKey &flow) {
     return &it->second;
 }
 
+void FlowStatsCollector::NewFlow(const FlowKey &key,
+                                 const FlowExportInfo &info) {
+    uint8_t proto = key.protocol;
+    uint16_t sport = key.src_port;
+    uint16_t dport = key.dst_port;
+
+    // Update vrouter port bitmap
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>(
+        agent_uve_->vrouter_uve_entry());
+    vre->UpdateBitmap(proto, sport, dport);
+
+    // Update source-vn port bitmap
+    VnUveTable *vnte = static_cast<VnUveTable *>(agent_uve_->vn_uve_table());
+    vnte->UpdateBitmap(info.source_vn(), proto, sport, dport);
+
+    // Update dest-vn port bitmap
+    vnte->UpdateBitmap(info.dest_vn(), proto, sport, dport);
+
+
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, info.interface_uuid(),
+                            "");
+    Interface *intf = static_cast<Interface *>
+        (agent_uve_->agent()->interface_table()->Find(&intf_key, true));
+
+    const VmInterface *port = dynamic_cast<const VmInterface *>(intf);
+    if (port == NULL) {
+        return;
+    }
+    const VmEntry *vm = port->vm();
+    if (vm == NULL) {
+        return;
+    }
+
+    // update vm and interface (all interfaces of vm) bitmap
+    VmUveTable *vmt = static_cast<VmUveTable *>(agent_uve_->vm_uve_table());
+    vmt->UpdateBitmap(vm, proto, sport, dport);
+}
+
 void FlowStatsCollector::AddFlow(const FlowKey &key, FlowExportInfo info) {
     FlowEntryTree::iterator it = flow_tree_.find(key);
     if (it != flow_tree_.end()) {
@@ -859,6 +898,8 @@ void FlowStatsCollector::AddFlow(const FlowKey &key, FlowExportInfo info) {
         return;
     }
 
+    /* Invoke NewFlow only if the entry is not present in our tree */
+    NewFlow(key, info);
     flow_tree_.insert(make_pair(key, info));
 }
 
