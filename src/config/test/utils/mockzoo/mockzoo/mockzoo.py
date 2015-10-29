@@ -19,8 +19,9 @@ from kazoo.client import KazooClient
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
-zookeeper_version = '3.4.5'
-zookeeper_url = '/tmp/zookeeper-'+zookeeper_version+'.tar.gz'
+zookeeper_version = 'zookeeper-3.4.5'
+zookeeper_dl = '/zookeeper-3.4.5.tar.gz'
+zookeeper_bdir  = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
 
 def start_zoo(cport):
     '''
@@ -28,24 +29,26 @@ def start_zoo(cport):
     Arguments:
         cport : An unused TCP port for zookeeper to use as the client port
     '''
-    zookeeper_download = 'curl -o ' +\
-        zookeeper_url + ' -s -m 120 http://archive.apache.org/dist/zookeeper/zookeeper-'+\
-        zookeeper_version+'/zookeeper-'+zookeeper_version+'.tar.gz'
-    if not os.path.exists(zookeeper_url):
+    if not os.path.exists(zookeeper_bdir):
+        output,_ = call_command_("mkdir " + zookeeper_bdir)
+    zookeeper_download = 'wget -O ' + zookeeper_bdir + zookeeper_dl + \
+        ' https://github.com/Juniper/contrail-third-party-cache/blob/master/zookeeper' + \
+        zookeeper_dl + '?raw=true'
+
+    if not os.path.exists(zookeeper_bdir + zookeeper_dl):
         process = subprocess.Popen(zookeeper_download.split(' '))
         process.wait()
         if process.returncode is not 0:
             logging.info('Cannot download Zk: %s' % zookeeper_download)
             return False
 
-    basefile = "zookeeper-"+zookeeper_version
-    tarfile = zookeeper_url
-    cassbase = "/tmp/zoo." + str(cport) + "/"
+    basefile = zookeeper_version
+    cassbase = "/tmp/zoo.%s.%d/" % (os.getenv('USER', 'None'), cport)
     confdir = cassbase + basefile + "/conf/"
     output,_ = call_command_("mkdir " + cassbase)
 
     logging.info('Installing zookeeper in ' + cassbase) 
-    os.system("cat " + tarfile + " | tar -xpzf - -C " + cassbase)
+    os.system("cat " + zookeeper_bdir + zookeeper_dl + " | tar -xpzf - -C " + cassbase)
 
     output,_ = call_command_("cp " + confdir + "zoo_sample.cfg " + confdir + "zoo.cfg")
 
@@ -78,8 +81,8 @@ def stop_zoo(cport):
     Arguments:
         cport : The Client Port for the instance of zookeper be stopped
     '''
-    cassbase = "/tmp/zoo." + str(cport) + "/"
-    basefile = "zookeeper-"+zookeeper_version
+    cassbase = "/tmp/zoo.%s.%d/" % (os.getenv('USER', 'None'), cport)
+    basefile = zookeeper_version
     logging.info('Killing zookeeper %d' % cport)
     output,_ = call_command_(cassbase + basefile + '/bin/zkServer.sh stop')
     output,_ = call_command_("rm -rf " + cassbase)
