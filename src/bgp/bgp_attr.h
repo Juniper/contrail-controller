@@ -61,6 +61,8 @@ struct BgpAttrNextHop : public BgpAttribute {
     }
     explicit BgpAttrNextHop(uint32_t nexthop)
         : BgpAttribute(NextHop, kFlags), nexthop(nexthop) {}
+    explicit BgpAttrNextHop(Ip4Address v4_nexthop)
+        : BgpAttribute(NextHop, kFlags), nexthop(v4_nexthop.to_ulong()) {}
     explicit BgpAttrNextHop(Ip6Address v6_nexthop)
         : BgpAttribute(NextHop, kFlags), nexthop(0), v6_nexthop(v6_nexthop) {}
     uint32_t nexthop;

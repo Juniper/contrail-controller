@@ -6,6 +6,8 @@
 #define ctrlplane_bgp_af_h
 
 #include <string>
+#include <utility>
+
 #include <inttypes.h>
 
 #include "net/address.h"
@@ -13,11 +15,13 @@
 class BgpAf {
 public:
     enum Afi {
+        UnknownAfi = 0,
         IPv4 = 1,
         IPv6 = 2,
         L2Vpn = 25,
     };
     enum Safi {
+        UnknownSafi = 0,
         Unicast = 1,
         EVpn = 70,
         Vpn = 128,
@@ -29,8 +33,7 @@ public:
 
     static std::string ToString(uint16_t afi, uint8_t safi);
     static Address::Family AfiSafiToFamily(uint16_t afi, uint8_t safi);
-    static void FamilyToAfiSafi(Address::Family fmly, uint16_t &afi, 
-                                uint8_t &safi);
+    static std::pair<uint16_t, uint8_t> FamilyToAfiSafi(Address::Family family);
 };
 
 #endif

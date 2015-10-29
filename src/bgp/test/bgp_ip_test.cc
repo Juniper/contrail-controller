@@ -81,15 +81,38 @@ static const char *cfg_template = "\
 </config>\
 ";
 
+//
+// Template structure to pass to fixture class template. Needed because
+// gtest fixture class template can accept only one template parameter.
+//
+template <typename T1, typename T2, typename T3>
+struct TypeDefinition {
+  typedef T1 TableT;
+  typedef T2 PrefixT;
+  typedef T3 AddressT;
+};
+
+// TypeDefinitions that we want to test.
+typedef TypeDefinition<InetTable, Ip4Prefix, Ip4Address> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix, Ip6Address> Inet6Definition;
+
+//
+// Fixture class template - instantiated later for each TypeDefinition.
+//
+template <typename T>
 class BgpIpTest : public ::testing::Test {
 protected:
+    typedef typename T::TableT TableT;
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::AddressT AddressT;
+
     BgpIpTest()
         : thread_(&evm_),
           peer1_(new PeerMock("192.168.1.1")),
           peer2_(new PeerMock("192.168.1.2")),
           peer_xy_(NULL),
           peer_yx_(NULL),
-          family_(Address::INET6),
+          family_(GetFamily()),
           master_(BgpConfigManager::kMasterInstance),
           ipv6_prefix_("::ffff:") {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -134,15 +157,9 @@ protected:
         task_util::WaitForIdle();
     }
 
-    string BuildHostAddress(const string &ipv4_addr) const {
-        if (family_ == Address::INET) {
-            return ipv4_addr;
-        }
-        if (family_ == Address::INET6) {
-            return ipv6_prefix_ + ipv4_addr;
-        }
+    Address::Family GetFamily() const {
         assert(false);
-        return "";
+        return Address::UNSPEC;
     }
 
     string BuildPrefix(const string &ipv4_prefix, uint8_t ipv4_plen) const {
@@ -214,11 +231,11 @@ protected:
         const string &prefix_str, const string &nexthop_str) {
 
         boost::system::error_code ec;
-        Inet6Prefix prefix = Inet6Prefix::FromString(prefix_str, &ec);
+        PrefixT prefix = PrefixT::FromString(prefix_str, &ec);
         EXPECT_FALSE(ec);
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.key.reset(new Inet6Table::RequestKey(prefix, peer));
+        request.key.reset(new typename TableT::RequestKey(prefix, peer));
 
         BgpTable *table = GetTable(server, instance);
         BgpAttrSpec attr_spec;
@@ -235,7 +252,7 @@ protected:
         path_spec.path_segments.push_back(path_seg);
         attr_spec.push_back(&path_spec);
 
-        Ip6Address nh_addr = Ip6Address::from_string(nexthop_str, ec);
+        AddressT nh_addr = AddressT::from_string(nexthop_str, ec);
         EXPECT_FALSE(ec);
         BgpAttrNextHop nh_spec(nh_addr);
         attr_spec.push_back(&nh_spec);
@@ -248,12 +265,12 @@ protected:
     void DeleteRoute(BgpServerTestPtr server, IPeer *peer,
         const string &instance, const string &prefix_str) {
         boost::system::error_code ec;
-        Inet6Prefix prefix = Inet6Prefix::FromString(prefix_str, &ec);
+        PrefixT prefix = PrefixT::FromString(prefix_str, &ec);
         EXPECT_FALSE(ec);
 
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_DELETE;
-        request.key.reset(new Inet6Table::RequestKey(prefix, peer));
+        request.key.reset(new typename TableT::RequestKey(prefix, peer));
 
         BgpTable *table = GetTable(server, instance);
         table->Enqueue(&request);
@@ -263,15 +280,15 @@ protected:
         const string &prefix) {
         task_util::TaskSchedulerLock lock;
         BgpTable *bgp_table = GetTable(server, instance_name);
-        Inet6Table *table = dynamic_cast<Inet6Table *>(bgp_table);
+        TableT *table = dynamic_cast<TableT *>(bgp_table);
         EXPECT_TRUE(table != NULL);
         if (table == NULL) {
             return NULL;
         }
         boost::system::error_code error;
-        Inet6Prefix nlri = Inet6Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
-        typename Inet6Table::RequestKey key(nlri, NULL);
+        typename TableT::RequestKey key(nlri, NULL);
         BgpRoute *rt = dynamic_cast<BgpRoute *>(table->Find(&key));
         return rt;
     }
@@ -353,86 +370,121 @@ protected:
     string ipv6_prefix_;
 };
 
+// Specialization of GetFamily for INET.
+template<>
+Address::Family BgpIpTest<InetDefinition>::GetFamily() const {
+    return Address::INET;
+}
+
+// Specialization of GetFamily for INET6.
+template<>
+Address::Family BgpIpTest<Inet6Definition>::GetFamily() const {
+    return Address::INET6;
+}
+
+// Instantiate fixture class template for each TypeDefinition.
+typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
+TYPED_TEST_CASE(BgpIpTest, TypeDefinitionList);
+
 //
 // Add a single prefix on X and verify it shows up on X and Y.
 //
-TEST_F(BgpIpTest, SinglePrefix) {
-    AddRoute(bs_x_, peer1_, master_, this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    VerifyPathExists(bs_x_, master_, this->BuildPrefix(1),
-        peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-    VerifyPathExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
+TYPED_TEST(BgpIpTest, SinglePrefix) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    BgpPeer *peer_yx_ = this->peer_yx_;
+    const string &master = this->master_;
 
-    DeleteRoute(bs_x_, peer1_, master_, this->BuildPrefix(1));
-    VerifyRouteNoExists(bs_x_, master_, this->BuildPrefix(1));
-    VerifyRouteNoExists(bs_y_, master_, this->BuildPrefix(1));
+    this->AddRoute(bs_x, peer1, master, this->BuildPrefix(1),
+        this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_x, master, this->BuildPrefix(1),
+        peer1, this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx_, this->BuildNextHopAddress(peer1->ToString()));
+
+    this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(1));
+    this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(1));
+    this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(1));
 }
 
 //
 // Add a single prefix with 2 paths on X and verify it on X and Y.
 // X should have both paths while Y will have only 1 path.
 //
-TEST_F(BgpIpTest, SinglePrefixMultipath) {
-    AddRoute(bs_x_, peer2_, master_, this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
-    VerifyPathExists(bs_x_, master_, this->BuildPrefix(1),
-        peer2_, this->BuildNextHopAddress(peer2_->ToString()));
-    VerifyPathNoExists(bs_x_, master_, this->BuildPrefix(1),
-        peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-    VerifyPathExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer2_->ToString()));
-    VerifyPathNoExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
+TYPED_TEST(BgpIpTest, SinglePrefixMultipath) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    PeerMock *peer2 = this->peer2_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
 
-    AddRoute(bs_x_, peer1_, master_, this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    VerifyPathExists(bs_x_, master_, this->BuildPrefix(1),
-        peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-    VerifyPathExists(bs_x_, master_, this->BuildPrefix(1),
-        peer2_, this->BuildNextHopAddress(peer2_->ToString()));
-    VerifyPathExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
-    VerifyPathNoExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer2_->ToString()));
+    this->AddRoute(bs_x, peer2, master, this->BuildPrefix(1),
+        this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathExists(bs_x, master, this->BuildPrefix(1),
+        peer2, this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathNoExists(bs_x, master, this->BuildPrefix(1),
+        peer1, this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer1->ToString()));
 
-    DeleteRoute(bs_x_, peer1_, master_, this->BuildPrefix(1));
-    VerifyPathNoExists(bs_x_, master_, this->BuildPrefix(1),
-        peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-    VerifyPathExists(bs_x_, master_, this->BuildPrefix(1),
-        peer2_, this->BuildNextHopAddress(peer2_->ToString()));
-    VerifyPathExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer2_->ToString()));
-    VerifyPathNoExists(bs_y_, master_, this->BuildPrefix(1),
-        peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
+    this->AddRoute(bs_x, peer1, master, this->BuildPrefix(1),
+        this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_x, master, this->BuildPrefix(1),
+        peer1, this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_x, master, this->BuildPrefix(1),
+        peer2, this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer2->ToString()));
 
-    DeleteRoute(bs_x_, peer2_, master_, this->BuildPrefix(1));
+    this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(1));
+    this->VerifyPathNoExists(bs_x, master, this->BuildPrefix(1),
+        peer1, this->BuildNextHopAddress(peer1->ToString()));
+    this->VerifyPathExists(bs_x, master, this->BuildPrefix(1),
+        peer2, this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer2->ToString()));
+    this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(1),
+        peer_yx, this->BuildNextHopAddress(peer1->ToString()));
 
-    VerifyRouteNoExists(bs_x_, master_, this->BuildPrefix(1));
-    VerifyRouteNoExists(bs_y_, master_, this->BuildPrefix(1));
+    this->DeleteRoute(bs_x, peer2, master, this->BuildPrefix(1));
+
+    this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(1));
+    this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(1));
 }
 
 //
 // Add multiple prefixes on X and verify they show up on X and Y.
 //
-TEST_F(BgpIpTest, MultiplePrefix) {
+TYPED_TEST(BgpIpTest, MultiplePrefix) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddRoute(bs_x_, peer1_, master_, this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddRoute(bs_x, peer1, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer1->ToString()));
     }
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathExists(bs_x_, master_, this->BuildPrefix(idx),
-            peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-        VerifyPathExists(bs_y_, master_, this->BuildPrefix(idx),
-            peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer1->ToString()));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeleteRoute(bs_x_, peer1_, master_, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));
     }
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyRouteNoExists(bs_x_, master_, this->BuildPrefix(idx));
-        VerifyRouteNoExists(bs_y_, master_, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(idx));
     }
 }
 
@@ -440,31 +492,38 @@ TEST_F(BgpIpTest, MultiplePrefix) {
 // Add multiple prefixes with 2 paths each on X and verify them on X and Y.
 // X should have both paths while Y will have only 1 path for each prefix.
 //
-TEST_F(BgpIpTest, MultiplePrefixMultipath) {
+TYPED_TEST(BgpIpTest, MultiplePrefixMultipath) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    PeerMock *peer2 = this->peer2_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddRoute(bs_x_, peer2_, master_, this->BuildPrefix(idx),
-            this->BuildHostAddress(peer2_->ToString()));
-        AddRoute(bs_x_, peer1_, master_, this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddRoute(bs_x, peer2, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer2->ToString()));
+        this->AddRoute(bs_x, peer1, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer1->ToString()));
     }
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathExists(bs_x_, master_, this->BuildPrefix(idx),
-            peer2_, this->BuildNextHopAddress(peer2_->ToString()));
-        VerifyPathExists(bs_x_, master_, this->BuildPrefix(idx),
-            peer1_, this->BuildNextHopAddress(peer1_->ToString()));
-        VerifyPathExists(bs_y_, master_, this->BuildPrefix(idx),
-            peer_yx_, this->BuildNextHopAddress(peer1_->ToString()));
-        VerifyPathNoExists(bs_y_, master_, this->BuildPrefix(idx),
-            peer_yx_, this->BuildNextHopAddress(peer2_->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer2->ToString()));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeleteRoute(bs_x_, peer1_, master_, this->BuildPrefix(idx));
-        DeleteRoute(bs_x_, peer2_, master_, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer2, master, this->BuildPrefix(idx));
     }
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyRouteNoExists(bs_x_, master_, this->BuildPrefix(idx));
-        VerifyRouteNoExists(bs_y_, master_, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(idx));
     }
 }
 
