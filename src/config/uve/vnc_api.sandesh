@@ -39,7 +39,7 @@ systemlog sandesh VncApiError {
 
 struct ContrailConfig {
     1: string name (key="none")
-    2: list<sandesh_dynamic_uve.DynamicElement> elements
+    2: map<string,string> elements
     3: bool deleted
 }
 
