@@ -34,7 +34,7 @@ class HAProxyTest(unittest.TestCase):
             return (True, [self.obj_to_dict(self._store_si[uuid[0]])])
 
         def store_si_create(obj):
-            config_db.ServiceInstanceSM._cassandra.read = \
+            config_db.ServiceInstanceSM._cassandra.object_read = \
                 mock.Mock(side_effect=read_si)
             obj.uuid = 'pool-si'
             self._store_si[obj.uuid] = obj
@@ -101,7 +101,7 @@ class HAProxyTest(unittest.TestCase):
                    }])
             return (False, None)
         DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.read = \
+        config_db.ServiceApplianceSetSM._cassandra.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc, self.vnc_lib,

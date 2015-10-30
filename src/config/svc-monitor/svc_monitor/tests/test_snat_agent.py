@@ -173,7 +173,7 @@ class SnatAgentTest(unittest.TestCase):
                                 'uuid': 'snat-vn-uuid'}])
             return (False, None)
 
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=db_read_side_effect)
 
         def vn_create_side_effect(vn_obj):
@@ -203,7 +203,7 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         # check that the correct private network is read
-        self.cassandra.read.assert_called_with(
+        self.cassandra.object_read.assert_called_with(
             'virtual_network', ['private1-uuid'])
 
         # check that the snat service network is created
@@ -267,7 +267,7 @@ class SnatAgentTest(unittest.TestCase):
                                 'uuid': 'private1-uuid'}])
             return (False, None)
 
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=db_read_side_effect)
 
         router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'])
@@ -329,7 +329,7 @@ class SnatAgentTest(unittest.TestCase):
                                 'uuid': 'private2-uuid'}])
             return (False, None)
 
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=db_read_side_effect)
 
         router_dict = copy.deepcopy(ROUTER_1)
@@ -436,7 +436,7 @@ class SnatAgentTest(unittest.TestCase):
                                 'uuid': 'private2-uuid'}])
             return (False, None)
 
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=db_read_side_effect)
 
         # generate an update on the router to add the interface
@@ -445,7 +445,7 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         # check that the correct private network is read
-        self.cassandra.read.assert_called_with('virtual_network',
+        self.cassandra.object_read.assert_called_with('virtual_network',
             ['private2-uuid'])
 
         # check that the route table is applied to the network
@@ -491,7 +491,7 @@ class SnatAgentTest(unittest.TestCase):
                                 'uuid': 'private1-uuid'}])
             return (False, None)
 
-        self.cassandra.read = mock.Mock(
+        self.cassandra.object_read = mock.Mock(
             side_effect=db_read_side_effect)
 
         # generate an update on the router to remove the interface
@@ -500,7 +500,7 @@ class SnatAgentTest(unittest.TestCase):
         self.snat_agent.update_snat_instance(router)
 
         # check that the correct private network is read
-        self.cassandra.read.assert_called_with(
+        self.cassandra.object_read.assert_called_with(
             'virtual_network', ['private1-uuid'])
 
         # check that the route table is applied to the network
