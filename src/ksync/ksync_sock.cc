@@ -54,17 +54,17 @@ const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                 {"Agent::KSync", "Agent::Uve"};
 
 // Copy data from io-vector to a buffer
-static void IoVectorToData(char *data, KSyncBufferList *iovec) {
+static uint32_t IoVectorToData(char *data, KSyncBufferList *iovec) {
     KSyncBufferList::iterator it = iovec->begin();
     int offset = 0;
     while (it != iovec->end()) {
         unsigned char *buf = boost::asio::buffer_cast<unsigned char *>(*it);
         memcpy(data + offset, buf, boost::asio::buffer_size(*it));
-        offset +=  boost::asio::buffer_size(*iovec);
+        offset +=  boost::asio::buffer_size(*it);
         it++;
     }
+    return offset;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 // Netlink utilities
 /////////////////////////////////////////////////////////////////////////////
@@ -718,18 +718,15 @@ bool KSyncSockTcp::IsMoreData(char *data) {
 
 size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     char msg[4096];
-    uint32_t total_length = nl_client_->cl_buf_offset + bulk_buf_size_;
-    assert(total_length < 4096);
-
     ResetNetlink(nl_client_);
+    int offset = nl_client_->cl_buf_offset;
     UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
-    memcpy(msg, nl_client_->cl_buf, nl_client_->cl_buf_offset);
-    int offset = nl_client_->cl_buf_offset;
-
-    IoVectorToData(msg + offset, iovec);
-    session_->Send((const uint8_t *)msg, total_length, NULL);
-    return total_length;
+    KSyncBufferList::iterator it = iovec->begin();
+    iovec->insert(it, buffer((char *)nl_client_->cl_buf, offset));
+    uint32_t len = IoVectorToData(msg, iovec);
+    session_->Send((const uint8_t *)msg, len, NULL);
+    return nl_client_->cl_buf_offset;
 }
 
 void KSyncSockTcp::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
@@ -742,9 +739,9 @@ bool KSyncSockTcp::Validate(char *data) {
     return ValidateNetlink(data);
 }
 
-// We dont expect any non-bulk operation on UDP
 bool KSyncSockTcp::Decoder(char *data, AgentSandeshContext *context) {
-    assert(0);
+    KSyncSockNetlink::NetlinkDecoder(data, context);
+    return true;
 }
 
 bool KSyncSockTcp::BulkDecoder(char *data,
