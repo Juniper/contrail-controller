@@ -2,6 +2,8 @@ import sys
 import json
 
 from testtools.matchers import Equals, Contains
+from testtools import ExpectedException
+import webtest.app
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -10,6 +12,35 @@ import test_common
 import test_case
 
 class TestBasic(test_case.NeutronBackendTestCase):
+    def read_resource(self, url_pfx, id):
+        context = {'operation': 'READ',
+                   'user_id': '',
+                   'roles': ''}
+        data = {'fields': None,
+                'id': id}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/%s' %(url_pfx), body)
+        return json.loads(resp.text)
+    # end read_resource
+
+    def list_resource(self, url_pfx,
+        proj_uuid=None, req_fields=None, req_filters=None):
+        if proj_uuid == None:
+            proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'READALL',
+                   'user_id': '',
+                   'tenant_id': proj_uuid,
+                   'roles': '',
+                   'is_admin': 'False'}
+        data = {'fields': req_fields, 'filters': req_filters or {}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json(
+            '/neutron/%s' %(url_pfx), body)
+        return json.loads(resp.text)
+    # end list_resource
+
     def test_list_with_inconsistent_members(self):
         self.skipTest("Skipping this flakky test, till finding the"
                       " root cause for the first run failure")
@@ -150,6 +181,69 @@ class TestBasic(test_case.NeutronBackendTestCase):
             present_ids = [r['id'] for r in res_dicts] 
             self.assertNotIn(sn2_id, present_ids)
     # end test_list_with_inconsistent_members
+
+    def test_subnet_uuid_heal(self):
+        # 1. create 2 subnets thru vnc_api
+        # 2. mess with useragent-kv index for one
+        # 3. neutron subnet list should report fine
+        # 4. neutron subnet list with uuids where
+        #    one is a fake uuid shouldnt cause error in list
+        ipam_obj = vnc_api.NetworkIpam('ipam-%s' %(self.id()))
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj = vnc_api.VirtualNetwork('vn1-%s' %(self.id()))
+        sn1_uuid = str(uuid.uuid4())
+        vn1_obj.add_network_ipam(ipam_obj,
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28),
+                                        subnet_uuid=sn1_uuid)]))
+        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn2_obj = vnc_api.VirtualNetwork('vn2-%s' %(self.id()))
+        sn2_uuid = str(uuid.uuid4())
+        vn2_obj.add_network_ipam(ipam_obj,
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('2.2.2.0', 28),
+                                        subnet_uuid=sn2_uuid)]))
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        # the list primes cfgdb handle(conn to api server)
+        self.list_resource('subnet')
+        neutron_api_obj = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.neutronApi')[0]
+        neutron_db_obj = neutron_api_obj._npi._cfgdb
+
+        heal_invoked = [False]
+        def verify_heal_invoked(orig_method, *args, **kwargs):
+            heal_invoked[0] = True
+            return orig_method(*args, **kwargs)
+        with test_common.patch(
+            neutron_db_obj, 'subnet_id_heal', verify_heal_invoked):
+            with CassandraCFs.get_cf(
+                'useragent_keyval_table').patch_row(sn2_uuid, None):
+                # verify heal
+                rsp = self.list_resource('subnet',
+                    req_filters={'id': [sn1_uuid, sn2_uuid]})
+                self.assertEqual(heal_invoked[0], True)
+                self.assertEqual(len(rsp), 2)
+                self.assertEqual(set([r['id'] for r in rsp]),
+                                 set([sn1_uuid, sn2_uuid]))
+
+                # verify wrong/non-existent id doesn't cause
+                # list to have error
+                heal_invoked[0] = False
+                fake_uuid = str(uuid.uuid4())
+                rsp = self.list_resource('subnet',
+                    req_filters={'id': [sn1_uuid, sn2_uuid, fake_uuid]})
+                self.assertEqual(heal_invoked[0], True)
+                self.assertEqual(len(rsp), 2)
+                self.assertEqual(set([r['id'] for r in rsp]),
+                                 set([sn1_uuid, sn2_uuid]))
+
+                # verify read of non-existent id throws exception
+                # and valid one doesn't
+                with ExpectedException(webtest.app.AppError):
+                    self.read_resource('subnet', fake_uuid)
+                self.read_resource('subnet', sn1_uuid)
+    # end test_subnet_uuid_heal
 
     def test_extra_fields_on_network(self):
         test_obj = self._create_test_object()

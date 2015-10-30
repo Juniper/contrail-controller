@@ -774,13 +774,46 @@ class DBInterface(object):
         return net_obj
     #end _network_read
 
+    def subnet_id_heal(self, req_subnet_id=None):
+        ret_subnet_key = None
+        # resolve/heal all useragent-kv subnet entries
+        # since the walk is expensive
+        all_net_objs = self._virtual_network_list(detail=True)
+        for net_obj in all_net_objs:
+            ipam_refs = net_obj.get_network_ipam_refs()
+            net_uuid = net_obj.uuid
+            for ipam_ref in ipam_refs or []:
+                subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
+                for subnet_vnc in subnet_vncs or []:
+                    subnet_key = self._subnet_vnc_get_key(
+                        subnet_vnc, net_uuid)
+                    subnet_uuid = subnet_vnc.subnet_uuid
+                    if not subnet_uuid: # can't do much
+                        continue
+                    if subnet_uuid == req_subnet_id:
+                        ret_subnet_key = subnet_key
+                    # check and heal key->id mapping
+                    try:
+                        self._vnc_lib.kv_retrieve(subnet_key)
+                    except NoIdError:
+                        self._vnc_lib.kv_store(subnet_key, subnet_uuid)
+                    # check and heal id->key mapping
+                    try:
+                        self._vnc_lib.kv_retrieve(subnet_uuid)
+                    except NoIdError:
+                        self._vnc_lib.kv_store(subnet_uuid, subnet_key)
+
+        return ret_subnet_key
+    # subnet_id_heal
+
     def _subnet_vnc_read_mapping(self, id=None, key=None):
         if id:
             try:
                 subnet_key = self._vnc_lib.kv_retrieve(id)
             except NoIdError:
-                self._raise_contrail_exception('SubnetNotFound',
-                                                   subnet_id=id)
+                # contrail UI/api might have been used to create the subnet
+                # and useragent-kv index might be out of date, try to recover.
+                subnet_key = self.subnet_id_heal(id)
             return subnet_key
 
         if key:
@@ -2490,6 +2523,9 @@ class DBInterface(object):
 
     def subnet_read(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id=subnet_id)
         net_id = subnet_key.split()[0]
 
         try:
@@ -2526,6 +2562,9 @@ class DBInterface(object):
                     msg="update of allocation_pools is not allowed")
 
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id)
         net_id = subnet_key.split()[0]
         net_obj = self._network_read(net_id)
         ipam_refs = net_obj.get_network_ipam_refs()
@@ -2594,6 +2633,9 @@ class DBInterface(object):
 
     def subnet_delete(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id)
         net_id = subnet_key.split()[0]
 
         net_obj = self._network_read(net_id)
@@ -2627,6 +2669,8 @@ class DBInterface(object):
             net_ids = set([])
             for subnet_id in filters['id']:
                 subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+                if not subnet_key:
+                    continue
                 net_ids.add(subnet_key.split()[0])
             all_net_objs.extend(self._virtual_network_list(obj_uuids=list(net_ids),
                                                            detail=True))
