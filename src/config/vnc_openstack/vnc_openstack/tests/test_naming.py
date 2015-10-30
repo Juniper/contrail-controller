@@ -151,4 +151,32 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
 
         self._vnc_lib.project_delete(id=proj_id)
         self._vnc_lib.project_delete(id=new_proj_id)
+
+    def test_dup_domain(self):
+        openstack_driver = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.resync')[0]
+        orig_ks_domains_list = openstack_driver._ks_domains_list
+        orig_ks_domain_get = openstack_driver._ks_domain_get
+        try:
+            openstack_driver._ks_domains_list = openstack_driver._ksv3_domains_list
+            openstack_driver._ks_domain_get = openstack_driver._ksv3_domain_get
+            logger.info('Creating first domain in "keystone"')
+            dom_id = str(uuid.uuid4())
+            dom_name = self.id()
+            test_case.get_keystone_client().domains.add_domain(dom_id, dom_name)
+            dom_obj = self._vnc_lib.domain_read(id=dom_id)
+            self.assertThat(dom_obj.name, Equals(dom_name))
+
+            logger.info('Creating second domain with same name diff id in "keystone"')
+            new_dom_id = str(uuid.uuid4())
+            test_case.get_keystone_client().domains.add_domain(new_dom_id, dom_name)
+            new_dom_obj = self._vnc_lib.domain_read(id=new_dom_id)
+            self.assertThat(new_dom_obj.name, Not(Equals(dom_name)))
+            self.assertThat(new_dom_obj.name, Contains(dom_name))
+
+            self._vnc_lib.domain_delete(id=dom_id)
+            self._vnc_lib.domain_delete(id=new_dom_id)
+        finally:
+            openstack_driver._ks_domains_list = orig_ks_domains_list
+            openstack_driver._ks_domain_get = orig_ks_domain_get
 # end class KeystoneSync

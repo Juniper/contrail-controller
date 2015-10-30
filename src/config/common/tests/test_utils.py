@@ -1030,6 +1030,24 @@ def get_keystone_auth_protocol(*args, **kwargs):
 #end get_keystone_auth_protocol
 
 class FakeKeystoneClient(object):
+    class Domains(object):
+        _domains = {}
+        def add_domain(self, id, name):
+            self.id = id
+            self.name = name
+            self._domains[id] = self
+
+        def create(self, name, id=None):
+            self.name = name
+            self.id = str(id or uuid.uuid4())
+            self._domains[id] = self
+
+        def list(self):
+            return self._domains.values()
+
+        def get(self, id):
+            return self._domains[str(uuid.UUID(id))]
+
     class Tenants(object):
         _tenants = {}
         def add_tenant(self, id, name):
@@ -1085,6 +1103,7 @@ class FakeKeystoneClient(object):
 
     def __init__(self, *args, **kwargs):
         self.tenants = FakeKeystoneClient.Tenants()
+        self.domains = FakeKeystoneClient.Domains()
         self.users = FakeKeystoneClient.Users()
         self.roles = FakeKeystoneClient.Roles()
         pass
