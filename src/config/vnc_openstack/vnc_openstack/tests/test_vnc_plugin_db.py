@@ -7,6 +7,10 @@ from vnc_openstack import neutron_plugin_db as db
 
 class MockDbInterface(db.DBInterface):
     def __init__(self):
+        class MockConnection(object):
+            def wait(self):
+                return
+        self._connected_to_api_server = MockConnection()
         pass
 
 class TestDbInterface(unittest.TestCase):
