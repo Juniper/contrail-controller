@@ -127,8 +127,7 @@ env.Alias('controller/src/bgp/inet6vpn:inet6vpn_route_test',
           inet6vpn_route_test)
 
 inet6vpn_table_test = env.UnitTest('inet6vpn_table_test',
-                                   ['inet6vpn_table_test.cc'],
-                                   platform_exclude=[('Ubuntu','14.04')])
+                                   ['inet6vpn_table_test.cc'])
 env.Alias('src/bgp/inet6vpn:inet6vpn_table_test', inet6vpn_table_test)
 env.Alias('controller/src/bgp/inet6vpn:inet6vpn_table_test',
           inet6vpn_table_test)

@@ -131,7 +131,7 @@ public:
     virtual ~StateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
+        connect_timer_->Start(100,
             boost::bind(&StateMachine::ConnectTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
@@ -145,7 +145,7 @@ public:
     void StartIdleHoldTimer() {
         if (idle_hold_time_ <= 0)
             return;
-        idle_hold_timer_->Start(10,
+        idle_hold_timer_->Start(100,
             boost::bind(&StateMachine::IdleHoldTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
