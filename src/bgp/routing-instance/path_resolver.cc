@@ -4,7 +4,8 @@
 
 #include "bgp/routing-instance/path_resolver.h"
 
-#include "base/task_annotations.h"
+#include <boost/foreach.hpp>
+
 #include "base/lifetime.h"
 #include "base/set_util.h"
 #include "base/task.h"
@@ -709,6 +710,48 @@ BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
 }
 
 //
+// Return an extended community that's built by combining the values in the
+// original path's attributes with values from the nexthop path's attributes.
+//
+// Pick up the security groups, tunnel encapsulation and load balance from
+// the nexthop path's attributes.
+//
+static ExtCommunityPtr UpdateExtendedCommunity(ExtCommunityDB *extcomm_db,
+    const BgpAttr *attr, const BgpAttr *nh_attr) {
+    ExtCommunityPtr ext_community = attr->ext_community();
+    const ExtCommunity *nh_ext_community = nh_attr->ext_community();
+    if (!nh_ext_community)
+        return ext_community;
+
+    ExtCommunity::ExtCommunityList sgid_list;
+    ExtCommunity::ExtCommunityList encap_list;
+    ExtCommunity::ExtCommunityValue lb;
+    bool lb_is_valid = false;
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
+        nh_ext_community->communities()) {
+        if (ExtCommunity::is_security_group(value)) {
+            sgid_list.push_back(value);
+        } else if (ExtCommunity::is_tunnel_encap(value)) {
+            encap_list.push_back(value);
+        } else if (ExtCommunity::is_load_balance(value) && !lb_is_valid) {
+            lb_is_valid = true;
+            lb = value;
+        }
+    }
+
+    // Replace sgid list, encap list and load balance.
+    ext_community = extcomm_db->ReplaceSGIDListAndLocate(
+        ext_community.get(), sgid_list);
+    ext_community = extcomm_db->ReplaceTunnelEncapsulationAndLocate(
+        ext_community.get(), encap_list);
+    if (lb_is_valid) {
+        ext_community = extcomm_db->ReplaceLoadBalanceAndLocate(
+            ext_community.get(), lb);
+    }
+    return ext_community;
+}
+
+//
 // Update resolved BgpPaths for the ResolverPath based on the BgpRoute for
 // the ResolverNexthop.
 //
@@ -723,6 +766,7 @@ bool ResolverPath::UpdateResolvedPaths() {
 
     BgpServer *server = partition_->table()->server();
     BgpAttrDB *attr_db = server->attr_db();
+    ExtCommunityDB *extcomm_db = server->extcomm_db();
 
     // Go through paths of the nexthop route and build the list of future
     // resolved paths.
@@ -763,6 +807,11 @@ bool ResolverPath::UpdateResolvedPaths() {
         // Use nexthop address from the nexthop path.
         attr = attr_db->ReplaceNexthopAndLocate(attr.get(),
             nh_path->GetAttr()->nexthop());
+
+        // Update extended community based on the nexthop path and use it.
+        ExtCommunityPtr ext_community =
+            UpdateExtendedCommunity(extcomm_db, attr.get(), nh_path->GetAttr());
+        attr = attr_db->ReplaceExtCommunityAndLocate(attr.get(), ext_community);
 
         // Locate the resolved path.
         uint32_t path_id = nh_path->GetAttr()->nexthop().to_v4().to_ulong();

@@ -239,6 +239,17 @@ void ExtCommunity::RemoveTunnelEncapsulation() {
     }
 }
 
+void ExtCommunity::RemoveLoadBalance() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_load_balance(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 vector<string> ExtCommunity::GetTunnelEncap() const {
     vector<string> encap_list;
     for (ExtCommunityList::const_iterator iter = communities_.begin();
@@ -407,5 +418,20 @@ ExtCommunityPtr ExtCommunityDB::ReplaceTunnelEncapsulationAndLocate(
 
     clone->RemoveTunnelEncapsulation();
     clone->Append(tunnel_encaps);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceLoadBalanceAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &lb) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveLoadBalance();
+    clone->Append(lb);
     return Locate(clone);
 }
