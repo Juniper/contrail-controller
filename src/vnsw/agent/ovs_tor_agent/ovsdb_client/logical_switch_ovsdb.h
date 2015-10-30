@@ -8,11 +8,13 @@
 #include <ovsdb_entry.h>
 #include <ovsdb_object.h>
 #include <ovsdb_client_idl.h>
+#include <ovsdb_resource_vxlan_id.h>
 
 class PhysicalDeviceVn;
 
 namespace OVSDB {
 class LogicalSwitchEntry;
+class OvsdbResourceVxLanId;
 
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
@@ -80,6 +82,7 @@ public:
     const std::string &device_name() const;
     int64_t vxlan_id() const;
     std::string tor_service_node() const;
+    const OvsdbResourceVxLanId &res_vxlan_id() const;
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
@@ -118,6 +121,7 @@ private:
     struct ovsdb_idl_row *mcast_remote_row_;
     OvsdbIdlRowList old_mcast_remote_row_list_;
     OvsdbIdlRowList ucast_local_row_list_;
+    OvsdbResourceVxLanId res_vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };
