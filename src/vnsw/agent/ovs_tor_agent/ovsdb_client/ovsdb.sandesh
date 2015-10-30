@@ -131,8 +131,10 @@ struct OvsdbLogicalSwitchEntry {
     2: string name;
     3: string physical_switch;
     4: i64 vxlan_id;
-    5: string tor_service_node;
-    6: optional string message;
+    5: bool vxlan_id_available;
+    6: i64 ovs_vxlan_id;
+    7: string tor_service_node;
+    8: optional string message;
 }
 
 response sandesh OvsdbLogicalSwitchResp {
@@ -143,6 +145,7 @@ request sandesh OvsdbLogicalSwitchReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
     3: string name;
+    4: u32 vxlan_id;
 }
 
 struct SandeshLogicalSwitchInfo {
