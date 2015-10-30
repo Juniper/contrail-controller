@@ -45,6 +45,7 @@ const int IFMapSTOptions::kDEFAULT_NUM_EVENTS = 50;
 const int IFMapSTOptions::kDEFAULT_NUM_XMPP_CLIENTS = 5;
 const int IFMapSTOptions::kDEFAULT_PER_CLIENT_NUM_VMS = 24;
 const int IFMapSTOptions::kDEFAULT_NUM_VMIS_PER_VM = 8;
+const int IFMapSTOptions::kDEFAULT_WAIT_FOR_IDLE_TIME = 30;
 const string IFMapSTOptions::kDEFAULT_EVENT_WEIGHTS_FILE=
         "controller/src/ifmap/testdata/ifmap_event_weights.txt";
 
@@ -58,6 +59,7 @@ IFMapSTOptions::IFMapSTOptions() :
         num_xmpp_clients_(kDEFAULT_NUM_XMPP_CLIENTS),
         num_vms_(kDEFAULT_PER_CLIENT_NUM_VMS),
         num_vmis_(kDEFAULT_NUM_VMIS_PER_VM),
+        wait_for_idle_time_(kDEFAULT_WAIT_FOR_IDLE_TIME),
         event_weight_file_(kDEFAULT_EVENT_WEIGHTS_FILE),
         desc_("Configuration options") {
     Initialize();
@@ -72,12 +74,15 @@ void IFMapSTOptions::Initialize() {
         + integerToString(IFMapSTOptions::kDEFAULT_PER_CLIENT_NUM_VMS) + ")";
     string num_vmis_msg = "Number of interfaces per VM (default "
         + integerToString(IFMapSTOptions::kDEFAULT_NUM_VMIS_PER_VM) + ")";
+    string idle_time_msg = "Number of seconds to wait for idle cpu (default "
+        + integerToString(IFMapSTOptions::kDEFAULT_WAIT_FOR_IDLE_TIME) + ")";
     desc_.add_options()
         ("Help", "produce help message")
         ("nclients-xmpp", opt::value<int>(), ncli_xmpp_msg.c_str())
         ("nevents", opt::value<int>(), nevents_msg.c_str())
         ("num-vms", opt::value<int>(), num_vms_msg.c_str())
         ("num-vmis", opt::value<int>(), num_vmis_msg.c_str())
+        ("wait-for-idle-time", opt::value<int>(), idle_time_msg.c_str())
         ("events-file", opt::value<string>(), "Events filename")
         ("event-weight-file", opt::value<string>(), "Event weights filename")
         ;
@@ -101,6 +106,9 @@ void IFMapSTOptions::Initialize() {
     }
     if (var_map.count("num-vmis")) {
         num_vmis_ = var_map["num-vmis"].as<int>();
+    }
+    if (var_map.count("wait-for-idle-time")) {
+        wait_for_idle_time_ = var_map["wait-for-idle-time"].as<int>();
     }
     if (var_map.count("events-file")) {
         events_file_ = var_map["events-file"].as<string>();
@@ -132,6 +140,10 @@ int IFMapSTOptions::num_vms() const {
 
 int IFMapSTOptions::num_vmis() const {
     return num_vmis_;
+}
+
+int IFMapSTOptions::wait_for_idle_time() const {
+    return wait_for_idle_time_;
 }
 
 // **** Start IFMapSTEventMgr routines.
@@ -300,6 +312,13 @@ void IFMapStressTest::Log(string log_string) {
     log_buffer_.push_back(log_string);
 }
 
+void IFMapStressTest::WaitForIdle() {
+    if (config_options_.wait_for_idle_time()) {
+        usleep(10);
+        task_util::WaitForIdle(config_options_.wait_for_idle_time());
+    }
+}
+
 void IFMapStressTest::SetUp() {
     xmpp_server_ = new XmppServer(&evm_, kDefaultXmppServerName);
     thread_.reset(new ServerThread(&evm_));
@@ -325,22 +344,24 @@ void IFMapStressTest::SetUp() {
 }
 
 void IFMapStressTest::TearDown() {
-    VerifyNodes();
+    WaitForIdle();
+    VerifyConfig();
     DeleteXmppClients();
 
+    WaitForIdle();
     ifmap_server_.Shutdown();
-    task_util::WaitForIdle();
 
+    WaitForIdle();
     IFMapLinkTable_Clear(&db_);
     IFMapTable::ClearTables(&db_);
-    task_util::WaitForIdle();
 
+    WaitForIdle();
     db_.Clear();
     DB::ClearFactoryRegistry();
     parser_->MetadataClear("vnc_cfg");
 
     xmpp_server_->Shutdown();
-    task_util::WaitForIdle();
+    WaitForIdle();
     TcpServerManager::DeleteServer(xmpp_server_);
     evm_.Shutdown();
     if (thread_.get() != NULL) {
@@ -453,21 +474,96 @@ IFMapStressTest::GetCallback(IFMapStressTest::EventType event) {
     return iter->second;
 }
 
+void IFMapStressTest::VerifyConfig() {
+    for (ClientIdSet::const_iterator xc_iter = xmpp_connected_.begin();
+            xc_iter != xmpp_connected_.end(); ++xc_iter) {
+        int client_id = *xc_iter;
+        TASK_UTIL_EXPECT_TRUE(
+            ConnectedToXmppServer(xmpp_clients_.at(client_id)->name()));
+    }
+    for (ClientIdSet::const_iterator vrs_iter = vr_subscribed_.begin();
+            vrs_iter != vr_subscribed_.end(); ++vrs_iter) {
+        int client_id = *vrs_iter;
+        string vr_name = xmpp_clients_.at(client_id)->name();
+        TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(vr_name) != NULL);
+    }
+    IFMapTable *vm_table = static_cast<IFMapTable *>(
+        db_.FindTable("__ifmap__.virtual_machine.0"));
+    assert(vm_table);
+    for (int client_id = 0; client_id < config_options_.num_xmpp_clients();
+         ++client_id) {
+        VmIdSet vtai_set = vm_to_add_ids_.at(client_id);
+        for (VmIdSet::const_iterator iter = vtai_set.begin();
+             iter != vtai_set.end(); ++iter) {
+            string vm_name = VirtualMachineNameCreate(client_id, *iter);
+            TASK_UTIL_EXPECT_FALSE(vm_table->FindNode(vm_name) != NULL);
+        }
+        VmIdSet vtdi_set = vm_to_delete_ids_.at(client_id);
+        for (VmIdSet::const_iterator iter = vtdi_set.begin();
+             iter != vtdi_set.end(); ++iter) {
+            string vm_name = VirtualMachineNameCreate(client_id, *iter);
+            TASK_UTIL_EXPECT_TRUE(vm_table->FindNode(vm_name) != NULL);
+        }
+    }
+    for (int client_id = 0; client_id < config_options_.num_xmpp_clients();
+         ++client_id) {
+        IFMapClient *client =
+            ifmap_server_.FindClient(xmpp_clients_.at(client_id)->name());
+        if (!client) {
+            continue;
+        }
+        VmIdSet vspi_set = vm_sub_pending_ids_.at(client_id);
+        for (VmIdSet::const_iterator iter = vspi_set.begin();
+             iter != vspi_set.end(); ++iter) {
+            string vm_name = VirtualMachineNameCreate(client_id, *iter);
+            TASK_UTIL_EXPECT_FALSE(client->HasAddedVm(vm_name));
+        }
+        VmIdSet vupi_set = vm_unsub_pending_ids_.at(client_id);
+        for (VmIdSet::const_iterator iter = vupi_set.begin();
+             iter != vupi_set.end(); ++iter) {
+            string vm_name = VirtualMachineNameCreate(client_id, *iter);
+            TASK_UTIL_EXPECT_TRUE(client->HasAddedVm(vm_name));
+        }
+    }
+    VerifyNodes();
+}
+
 void IFMapStressTest::VerifyNodes() {
+    IFMapTable *vr_table = static_cast<IFMapTable *>(
+        db_.FindTable("__ifmap__.virtual_router.0"));
+    assert(vr_table);
     for (VrNameSet::const_iterator vr_iter = vr_nodes_created_.begin();
             vr_iter != vr_nodes_created_.end(); ++vr_iter) {
-        IFMapTable *vr_table = static_cast<IFMapTable *>(
-            db_.FindTable("__ifmap__.virtual_router.0"));
-        assert(vr_table);
         TASK_UTIL_EXPECT_TRUE(vr_table->FindNode(*vr_iter) != NULL);
     }
 
+    IFMapTable *vm_table = static_cast<IFMapTable *>(
+        db_.FindTable("__ifmap__.virtual_machine.0"));
+    assert(vm_table);
     for (VmNameSet::const_iterator vm_iter = vm_nodes_created_.begin();
             vm_iter != vm_nodes_created_.end(); ++vm_iter) {
-        IFMapTable *vm_table = static_cast<IFMapTable *>(
-            db_.FindTable("__ifmap__.virtual_machine.0"));
-        assert(vm_table);
         TASK_UTIL_EXPECT_TRUE(vm_table->FindNode(*vm_iter) != NULL);
+    }
+
+    IFMapTable *vmi_table = static_cast<IFMapTable *>(
+        db_.FindTable("__ifmap__.virtual_machine_interface.0"));
+    assert(vmi_table);
+    IFMapTable *vn_table = static_cast<IFMapTable *>(
+        db_.FindTable("__ifmap__.virtual_network.0"));
+    assert(vn_table);
+    int client_id = -1, vm_id = -1;
+    for (VmNameSet::const_iterator vm_iter = vm_configs_added_names_.begin();
+            vm_iter != vm_configs_added_names_.end(); ++vm_iter) {
+        VmNameToIds(*vm_iter, &client_id, &vm_id);
+        assert(client_id != -1);
+        assert(vm_id != -1);
+        for (int vmi_id = 0; vmi_id < config_options_.num_vmis(); ++vmi_id) {
+            string vmi_name = VMINameCreate(client_id, vm_id, vmi_id);
+            TASK_UTIL_EXPECT_TRUE(vmi_table->FindNode(vmi_name) != NULL);
+
+            string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
+            TASK_UTIL_EXPECT_TRUE(vn_table->FindNode(vn_name) != NULL);
+        }
     }
 }
 
@@ -518,7 +614,7 @@ void IFMapStressTest::PrintTestInfo() {
              << right << counters.xmpp_connects_ignored << endl;
         cout << "\t" << setw(35) << left << "xmpp_disconns_ignored" << setw(9)
              << right << counters.xmpp_disconnects_ignored << endl;
-        cout << "\t" << setw(35) << left << "Total ignored Events" << setw(9)
+        cout << "\t" << setw(35) << left << "Total ignored events" << setw(9)
              << right << counters.get_ignored_events() << endl;
         total_client_ignored_events += counters.get_ignored_events();
     }
@@ -801,7 +897,7 @@ void IFMapStressTest::OtherConfigAdd() {
     vm_configs_added_names_.insert(vm_name);
 
     client_counters_.at(client_id).incr_other_config_adds();
-    Log("Other-cfg-adds, client id " + integerToString(client_id) + "VM " +
+    Log("Other-cfg-adds, client id " + integerToString(client_id) + ", VM " +
         vm_name);
 }
 
@@ -815,7 +911,7 @@ void IFMapStressTest::OtherConfigDelete() {
     OtherConfigDeleteInternal(vm_name);
     int client_id = VmNameToClientId(vm_name);
     client_counters_.at(client_id).incr_other_config_deletes();
-    Log("Other-cfg-deletes, client id " + integerToString(client_id) + "VM "
+    Log("Other-cfg-deletes, client id " + integerToString(client_id) + ", VM "
         + vm_name);
 }
 
@@ -976,6 +1072,7 @@ void IFMapStressTest::XmppDisconnect() {
         return;
     }
     int client_id = GetXmppConnectedClientId();
+    EXPECT_TRUE(ConnectedToXmppServer(xmpp_clients_.at(client_id)->name()));
     xmpp_clients_.at(client_id)->UnRegisterWithXmpp();
     client_counters_.at(client_id).incr_xmpp_disconnects();
     Log("Xmpp-disconnect for client " + integerToString(client_id) +

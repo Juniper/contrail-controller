@@ -37,6 +37,7 @@ public:
     static const int kDEFAULT_NUM_XMPP_CLIENTS;
     static const int kDEFAULT_PER_CLIENT_NUM_VMS;
     static const int kDEFAULT_NUM_VMIS_PER_VM;
+    static const int kDEFAULT_WAIT_FOR_IDLE_TIME;
     static const std::string kDEFAULT_EVENT_WEIGHTS_FILE;
 
     IFMapSTOptions();
@@ -46,6 +47,7 @@ public:
     int num_xmpp_clients() const;
     int num_vms() const;
     int num_vmis() const;
+    int wait_for_idle_time() const;
     const std::string &events_file() const;
     const std::string &event_weight_file() const;
 
@@ -54,6 +56,7 @@ private:
     int num_xmpp_clients_;
     int num_vms_;
     int num_vmis_;
+    int wait_for_idle_time_;
     std::string event_weight_file_;
     std::string events_file_;
     boost::program_options::options_description desc_;
@@ -197,6 +200,7 @@ protected:
     IFMapStressTest();
     void SetUp();
     void TearDown();
+    void WaitForIdle();
     std::string XmppClientNameCreate(int id);
     void CreateXmppClients();
     void DeleteXmppClients();
@@ -217,6 +221,7 @@ protected:
     void SetupEventCallbacks();
     EvCb GetCallback(EventType event);
     std::string EventToString(EventType event) const;
+    void VerifyConfig();
     void VerifyNodes();
     bool ConnectedToXmppServer(const std::string &client_name);
 
