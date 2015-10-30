@@ -519,7 +519,7 @@ static void ResumeDelete(LifetimeActor *actor) {
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
@@ -531,7 +531,7 @@ TEST_F(BgpServerUnitTest, Connection) {
 // the key to the second peer and check that it does comes up.
 TEST_F(BgpServerUnitTest, BasicMd5Check) {
     int peer_count = 1;
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
 
     // Set the key for router 'A'.
@@ -576,7 +576,7 @@ TEST_F(BgpServerUnitTest, BasicMd5Check) {
 // remove the keys from both the peers.
 TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     int peer_count = 1;
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
 
     // Bring up the peers without any keys.
@@ -658,7 +658,7 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
 // second peer. Keepalives should resume.
 TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     int peer_count = 1;
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
 
     // Set the same key for both 'A' and 'B'.
@@ -752,7 +752,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
 }
 
 TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
@@ -1451,7 +1451,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
 TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
     int peer_count = 3;
 
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
@@ -2808,12 +2808,11 @@ TEST_F(BgpServerUnitTest, ClearNeighbor5) {
 }
 
 TEST_F(BgpServerUnitTest, ShowBgpServer) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3,a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 3);
-    StateMachineTest::set_keepalive_time_msecs(0);
 
     BgpSandeshContext sandesh_context;
     ShowBgpServerReq *show_req;

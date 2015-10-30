@@ -42,7 +42,6 @@ void WaitForIdle(long wait_seconds, bool running_only) {
         }
         usleep(kTimeoutUsecs);
     }
-    EXPECT_TRUE(scheduler->IsEmpty(running_only));
 }
 
 static void TimeoutHandler(const boost::system::error_code &error) {
