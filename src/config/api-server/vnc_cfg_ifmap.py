@@ -36,7 +36,7 @@ from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
 
 import copy
-import json
+from cfgm_common import jsonutils as json
 import uuid
 import datetime
 import pycassa

@@ -3,7 +3,7 @@
 #
 
 import sys
-import json
+from cfgm_common import jsonutils as json
 import uuid
 import gevent
 import gevent.monkey

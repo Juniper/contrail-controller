@@ -12,7 +12,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 import inspect
-import json
+from cfgm_common import jsonutils as json
 import time
 
 

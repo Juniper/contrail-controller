@@ -17,7 +17,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import API_SERVER_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 import time
-import json
+from cfgm_common import jsonutils as json
 import utils
 
 class VncCassandraClient(VncCassandraClientGen):
