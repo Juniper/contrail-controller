@@ -18,6 +18,9 @@
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
 
+const std::string TrafficAction::kActionLogStr = "log";
+const std::string TrafficAction::kActionAlertStr = "alert";
+
 bool TrafficAction::IsDrop() const {
     if (((1 << action_) & TrafficAction::DROP_FLAGS) ||
         ((1 << action_) & TrafficAction::IMPLICIT_DENY_FLAGS)) {
@@ -30,19 +33,15 @@ std::string TrafficAction::ActionToString(enum Action at)
 {
     switch(at) {
         case ALERT: 
-            return("alert");
-        case DROP:
-            return("drop");
+            return kActionAlertStr;
         case DENY:
             return("deny");
         case LOG:
-            return("log");
+            return kActionLogStr;
         case PASS:
             return("pass");
-        case REJECT:
-            return("reject");
         case MIRROR:
-	    return("mirror");
+            return("mirror");
         case TRAP:
             return("trap");
         case IMPLICIT_DENY:
@@ -56,14 +55,14 @@ std::string TrafficAction::ActionToString(enum Action at)
 
 void TrafficAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     ActionStr astr;
-    astr.action = ActionToString(action_);
+    astr.action = ActionToString(action());
     actions.push_back(astr);
     return;
 }
 
 void MirrorAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     ActionStr astr;
-    astr.action = ActionToString(action_);
+    astr.action = ActionToString(action());
     actions.push_back(astr);
     astr.action = m_ip_.to_string();
     actions.push_back(astr);
@@ -102,7 +101,7 @@ bool MirrorAction::Compare(const TrafficAction &rhs) const {
 
 void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     ActionStr astr;
-    astr.action = ActionToString(action_);
+    astr.action = ActionToString(action());
     actions.push_back(astr);
     std::stringstream ss;
     ss << vrf_name_;
