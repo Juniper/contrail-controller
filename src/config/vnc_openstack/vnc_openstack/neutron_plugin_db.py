@@ -57,6 +57,7 @@ class DBInterface(object):
         self._list_optimization_enabled = list_optimization_enabled
 
         # Retry till a api-server is up
+        self._connected_to_api_server = gevent.event.Event()
         connected = False
         while not connected:
             try:
@@ -64,6 +65,7 @@ class DBInterface(object):
                 self._vnc_lib = VncApi(admin_name, admin_password,
                                        admin_tenant_name, api_srvr_ip,
                                        api_srvr_port, '/', user_info=user_info)
+                self._connected_to_api_server.set()
                 connected = True
             except requests.exceptions.RequestException as e:
                 gevent.sleep(3)
@@ -768,13 +770,46 @@ class DBInterface(object):
         return net_obj
     #end _network_read
 
+    def subnet_id_heal(self, req_subnet_id=None):
+        ret_subnet_key = None
+        # resolve/heal all useragent-kv subnet entries
+        # since the walk is expensive
+        all_net_objs = self._virtual_network_list(detail=True)
+        for net_obj in all_net_objs:
+            ipam_refs = net_obj.get_network_ipam_refs()
+            net_uuid = net_obj.uuid
+            for ipam_ref in ipam_refs or []:
+                subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
+                for subnet_vnc in subnet_vncs or []:
+                    subnet_key = self._subnet_vnc_get_key(
+                        subnet_vnc, net_uuid)
+                    subnet_uuid = subnet_vnc.subnet_uuid
+                    if not subnet_uuid: # can't do much
+                        continue
+                    if subnet_uuid == req_subnet_id:
+                        ret_subnet_key = subnet_key
+                    # check and heal key->id mapping
+                    try:
+                        self._vnc_lib.kv_retrieve(subnet_key)
+                    except NoIdError:
+                        self._vnc_lib.kv_store(subnet_key, subnet_uuid)
+                    # check and heal id->key mapping
+                    try:
+                        self._vnc_lib.kv_retrieve(subnet_uuid)
+                    except NoIdError:
+                        self._vnc_lib.kv_store(subnet_uuid, subnet_key)
+
+        return ret_subnet_key
+    # subnet_id_heal
+
     def _subnet_vnc_read_mapping(self, id=None, key=None):
         if id:
             try:
                 subnet_key = self._vnc_lib.kv_retrieve(id)
             except NoIdError:
-                self._raise_contrail_exception('SubnetNotFound',
-                                                   subnet_id=id)
+                # contrail UI/api might have been used to create the subnet
+                # and useragent-kv index might be out of date, try to recover.
+                subnet_key = self.subnet_id_heal(id)
             return subnet_key
 
         if key:
@@ -2179,8 +2214,17 @@ class DBInterface(object):
                 except vnc_exc.NoIdError:
                     pass
 
+    def wait_for_api_server_connection(func):
+        def wrapper(self, *args, **kwargs):
+            self._connected_to_api_server.wait()
+            return func(self, *args, **kwargs)
+
+        return wrapper
+    # end wait_for_api_server_connection
+
     # public methods
     # network api handlers
+    @wait_for_api_server_connection
     def network_create(self, network_q):
         net_obj = self._network_neutron_to_vnc(network_q, CREATE)
         try:
@@ -2197,6 +2241,7 @@ class DBInterface(object):
         return ret_network_q
     #end network_create
 
+    @wait_for_api_server_connection
     def network_read(self, net_uuid, fields=None):
         # see if we can return fast...
         #if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
@@ -2211,6 +2256,7 @@ class DBInterface(object):
         return self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
     #end network_read
 
+    @wait_for_api_server_connection
     def network_update(self, net_id, network_q):
         net_obj = self._virtual_network_read(net_id=net_id)
         router_external = net_obj.get_router_external()
@@ -2245,11 +2291,13 @@ class DBInterface(object):
         return ret_network_q
     #end network_update
 
+    @wait_for_api_server_connection
     def network_delete(self, net_id):
         self._virtual_network_delete(net_id=net_id)
     #end network_delete
 
     # TODO request based on filter contents
+    @wait_for_api_server_connection
     def network_list(self, context=None, filters=None):
         ret_dict = {}
 
@@ -2391,6 +2439,7 @@ class DBInterface(object):
 
     # end _resource_count_optimized
 
+    @wait_for_api_server_connection
     def network_count(self, filters=None):
         count = self._resource_count_optimized("virtual_networks", filters)
         if count is not None:
@@ -2401,6 +2450,7 @@ class DBInterface(object):
     #end network_count
 
     # subnet api handlers
+    @wait_for_api_server_connection
     def subnet_create(self, subnet_q):
         net_id = subnet_q['network_id']
         net_obj = self._virtual_network_read(net_id=net_id)
@@ -2460,8 +2510,12 @@ class DBInterface(object):
         return subnet_info
     #end subnet_create
 
+    @wait_for_api_server_connection
     def subnet_read(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id=subnet_id)
         net_id = subnet_key.split()[0]
 
         try:
@@ -2484,6 +2538,7 @@ class DBInterface(object):
         return {}
     #end subnet_read
 
+    @wait_for_api_server_connection
     def subnet_update(self, subnet_id, subnet_q):
         if 'gateway_ip' in subnet_q:
             if subnet_q['gateway_ip'] != None:
@@ -2498,6 +2553,9 @@ class DBInterface(object):
                     msg="update of allocation_pools is not allowed")
 
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id)
         net_id = subnet_key.split()[0]
         net_obj = self._network_read(net_id)
         ipam_refs = net_obj.get_network_ipam_refs()
@@ -2564,8 +2622,12 @@ class DBInterface(object):
         return {}
     # end subnet_update
 
+    @wait_for_api_server_connection
     def subnet_delete(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        if not subnet_key:
+            self._raise_contrail_exception('SubnetNotFound',
+                                           subnet_id)
         net_id = subnet_key.split()[0]
 
         net_obj = self._network_read(net_id)
@@ -2589,6 +2651,7 @@ class DBInterface(object):
                     return
     #end subnet_delete
 
+    @wait_for_api_server_connection
     def subnets_list(self, context, filters=None):
         ret_subnets = []
 
@@ -2599,6 +2662,8 @@ class DBInterface(object):
             net_ids = set([])
             for subnet_id in filters['id']:
                 subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+                if not subnet_key:
+                    continue
                 net_ids.add(subnet_key.split()[0])
             all_net_objs.extend(self._virtual_network_list(obj_uuids=list(net_ids),
                                                            detail=True))
@@ -2661,12 +2726,14 @@ class DBInterface(object):
         return ret_subnets
     #end subnets_list
 
+    @wait_for_api_server_connection
     def subnets_count(self, context, filters=None):
         subnets_info = self.subnets_list(context, filters)
         return len(subnets_info)
     #end subnets_count
 
     # ipam api handlers
+    @wait_for_api_server_connection
     def ipam_create(self, ipam_q):
         # TODO remove below once api-server can read and create projects
         # from keystone on startup
@@ -2681,6 +2748,7 @@ class DBInterface(object):
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_create
 
+    @wait_for_api_server_connection
     def ipam_read(self, ipam_id):
         try:
             ipam_obj = self._vnc_lib.network_ipam_read(id=ipam_id)
@@ -2692,6 +2760,7 @@ class DBInterface(object):
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_read
 
+    @wait_for_api_server_connection
     def ipam_update(self, ipam_id, ipam_q):
         ipam_q['id'] = ipam_id
         ipam_obj = self._ipam_neutron_to_vnc(ipam_q, UPDATE)
@@ -2700,11 +2769,13 @@ class DBInterface(object):
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_update
 
+    @wait_for_api_server_connection
     def ipam_delete(self, ipam_id):
         self._vnc_lib.network_ipam_delete(id=ipam_id)
     #end ipam_delete
 
     # TODO request based on filter contents
+    @wait_for_api_server_connection
     def ipam_list(self, context=None, filters=None):
         ret_list = []
 
@@ -2742,6 +2813,7 @@ class DBInterface(object):
         return ret_list
     #end ipam_list
 
+    @wait_for_api_server_connection
     def ipam_count(self, filters=None):
         count = self._resource_count_optimized("network_ipams", filters)
         if count is not None:
@@ -2752,6 +2824,7 @@ class DBInterface(object):
     #end ipam_count
 
     # policy api handlers
+    @wait_for_api_server_connection
     def policy_create(self, policy_q):
         # TODO remove below once api-server can read and create projects
         # from keystone on startup
@@ -2766,6 +2839,7 @@ class DBInterface(object):
         return self._policy_vnc_to_neutron(policy_obj)
     #end policy_create
 
+    @wait_for_api_server_connection
     def policy_read(self, policy_id):
         try:
             policy_obj = self._vnc_lib.network_policy_read(id=policy_id)
@@ -2775,6 +2849,7 @@ class DBInterface(object):
         return self._policy_vnc_to_neutron(policy_obj)
     #end policy_read
 
+    @wait_for_api_server_connection
     def policy_update(self, policy_id, policy):
         policy_q = policy
         policy_q['id'] = policy_id
@@ -2784,11 +2859,13 @@ class DBInterface(object):
         return self._policy_vnc_to_neutron(policy_obj)
     #end policy_update
 
+    @wait_for_api_server_connection
     def policy_delete(self, policy_id):
         self._vnc_lib.network_policy_delete(id=policy_id)
     #end policy_delete
 
     # TODO request based on filter contents
+    @wait_for_api_server_connection
     def policy_list(self, context=None, filters=None):
         ret_list = []
 
@@ -2826,6 +2903,7 @@ class DBInterface(object):
         return ret_list
     #end policy_list
 
+    @wait_for_api_server_connection
     def policy_count(self, filters=None):
         count = self._resource_count_optimized("network_policys", filters)
         if count is not None:
@@ -3028,6 +3106,7 @@ class DBInterface(object):
         self._vnc_lib.virtual_network_update(net_obj)
 
     # router api handlers
+    @wait_for_api_server_connection
     def router_create(self, router_q):
         #self._ensure_project_exists(router_q['tenant_id'])
 
@@ -3041,6 +3120,7 @@ class DBInterface(object):
         return ret_router_q
     #end router_create
 
+    @wait_for_api_server_connection
     def router_read(self, rtr_uuid, fields=None):
         # see if we can return fast...
         if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
@@ -3056,6 +3136,7 @@ class DBInterface(object):
         return self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
     #end router_read
 
+    @wait_for_api_server_connection
     def router_update(self, rtr_id, router_q):
         router_q['id'] = rtr_id
         rtr_obj = self._router_neutron_to_vnc(router_q, UPDATE)
@@ -3066,6 +3147,7 @@ class DBInterface(object):
         return ret_router_q
     #end router_update
 
+    @wait_for_api_server_connection
     def router_delete(self, rtr_id):
         try:
             rtr_obj = self._logical_router_read(rtr_id)
@@ -3081,6 +3163,7 @@ class DBInterface(object):
     #end router_delete
 
     # TODO request based on filter contents
+    @wait_for_api_server_connection
     def router_list(self, context=None, filters=None):
         ret_list = []
 
@@ -3160,6 +3243,7 @@ class DBInterface(object):
         return ret_list
     #end router_list
 
+    @wait_for_api_server_connection
     def router_count(self, filters=None):
         count = self._resource_count_optimized("logical_routers", filters)
         if count is not None:
@@ -3202,6 +3286,7 @@ class DBInterface(object):
         except NoIdError:
             pass
 
+    @wait_for_api_server_connection
     def add_router_interface(self, context, router_id, port_id=None, subnet_id=None):
         router_obj = self._logical_router_read(router_id)
         if port_id:
@@ -3266,6 +3351,7 @@ class DBInterface(object):
         return info
     # end add_router_interface
 
+    @wait_for_api_server_connection
     def remove_router_interface(self, router_id, port_id=None, subnet_id=None):
         router_obj = self._logical_router_read(router_id)
         subnet = None
@@ -3312,6 +3398,7 @@ class DBInterface(object):
     # end remove_router_interface
 
     # floatingip api handlers
+    @wait_for_api_server_connection
     def floatingip_create(self, context, fip_q):
         try:
             fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
@@ -3332,6 +3419,7 @@ class DBInterface(object):
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_create
 
+    @wait_for_api_server_connection
     def floatingip_read(self, fip_uuid):
         try:
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_uuid)
@@ -3342,6 +3430,7 @@ class DBInterface(object):
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_read
 
+    @wait_for_api_server_connection
     def floatingip_update(self, context, fip_id, fip_q):
         fip_q['id'] = fip_id
         fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, UPDATE)
@@ -3350,10 +3439,12 @@ class DBInterface(object):
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_update
 
+    @wait_for_api_server_connection
     def floatingip_delete(self, fip_id):
         self._vnc_lib.floating_ip_delete(id=fip_id)
     #end floatingip_delete
 
+    @wait_for_api_server_connection
     def floatingip_list(self, context, filters=None):
         # Read in floating ips with either
         # - port(s) as anchor
@@ -3396,6 +3487,7 @@ class DBInterface(object):
         return ret_list
     #end floatingip_list
 
+    @wait_for_api_server_connection
     def floatingip_count(self, context, filters=None):
         count = self._resource_count_optimized("floating_ips", filters)
         if count is not None:
@@ -3457,6 +3549,7 @@ class DBInterface(object):
     # end _port_create_instance_ip
 
     # port api handlers
+    @wait_for_api_server_connection
     def port_create(self, context, port_q):
         net_id = port_q['network_id']
         net_obj = self._network_read(net_id)
@@ -3522,6 +3615,7 @@ class DBInterface(object):
     #end port_create
 
     # TODO add obj param and let caller use below only as a converter
+    @wait_for_api_server_connection
     def port_read(self, port_id):
         try:
             port_obj = self._virtual_machine_interface_read(port_id=port_id)
@@ -3533,6 +3627,7 @@ class DBInterface(object):
         return ret_port_q
     #end port_read
 
+    @wait_for_api_server_connection
     def port_update(self, port_id, port_q):
         # if ip address passed then use it
         req_ip_addrs = []
@@ -3553,6 +3648,7 @@ class DBInterface(object):
         return ret_port_q
     #end port_update
 
+    @wait_for_api_server_connection
     def port_delete(self, port_id):
         port_obj = self._port_neutron_to_vnc({'id': port_id}, None, DELETE)
         if port_obj.parent_type == 'virtual-machine':
@@ -3623,6 +3719,7 @@ class DBInterface(object):
         return False
     # end _port_fixed_ips_is_present
 
+    @wait_for_api_server_connection
     def port_list(self, context=None, filters=None):
         project_obj = None
         ret_q_ports = []
@@ -3709,6 +3806,7 @@ class DBInterface(object):
         return ret_q_ports
     #end port_list
 
+    @wait_for_api_server_connection
     def port_count(self, filters=None):
         count = self._resource_count_optimized("virtual_machine_interfaces",
                                                filters)
@@ -3735,6 +3833,7 @@ class DBInterface(object):
     #end port_count
 
     # security group api handlers
+    @wait_for_api_server_connection
     def security_group_create(self, sg_q):
         sg_obj = self._security_group_neutron_to_vnc(sg_q, CREATE)
 
@@ -3761,6 +3860,7 @@ class DBInterface(object):
         return ret_sg_q
     #end security_group_create
 
+    @wait_for_api_server_connection
     def security_group_update(self, sg_id, sg_q):
         sg_q['id'] = sg_id
         sg_obj = self._security_group_neutron_to_vnc(sg_q, UPDATE)
@@ -3771,6 +3871,7 @@ class DBInterface(object):
         return ret_sg_q
     #end security_group_update
 
+    @wait_for_api_server_connection
     def security_group_read(self, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
@@ -3780,6 +3881,7 @@ class DBInterface(object):
         return self._security_group_vnc_to_neutron(sg_obj)
     #end security_group_read
 
+    @wait_for_api_server_connection
     def security_group_delete(self, context, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
@@ -3799,6 +3901,7 @@ class DBInterface(object):
 
    #end security_group_delete
 
+    @wait_for_api_server_connection
     def security_group_list(self, context, filters=None):
         ret_list = []
 
@@ -3869,6 +3972,7 @@ class DBInterface(object):
                 self._raise_contrail_exception('SecurityGroupMissingIcmpType',
                                                value=rule['port_range_max'])
 
+    @wait_for_api_server_connection
     def security_group_rule_create(self, sgr_q):
         self._validate_port_range(sgr_q)
         sg_id = sgr_q['security_group_id']
@@ -3880,6 +3984,7 @@ class DBInterface(object):
         return ret_sg_rule_q
     #end security_group_rule_create
 
+    @wait_for_api_server_connection
     def security_group_rule_read(self, context, sgr_id):
         project_uuid = None
         if not context['is_admin']:
@@ -3893,6 +3998,7 @@ class DBInterface(object):
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
     #end security_group_rule_read
 
+    @wait_for_api_server_connection
     def security_group_rule_delete(self, context, sgr_id):
         project_uuid = None
         if not context['is_admin']:
@@ -3905,6 +4011,7 @@ class DBInterface(object):
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
     #end security_group_rule_delete
 
+    @wait_for_api_server_connection
     def security_group_rules_read(self, sg_id, sg_obj=None):
         try:
             if not sg_obj:
@@ -3926,6 +4033,7 @@ class DBInterface(object):
         return sg_rules
     #end security_group_rules_read
 
+    @wait_for_api_server_connection
     def security_group_rule_list(self, context=None, filters=None):
         ret_list = []
 
@@ -3964,6 +4072,7 @@ class DBInterface(object):
     #end security_group_rule_list
 
     #route table api handlers
+    @wait_for_api_server_connection
     def route_table_create(self, rt_q):
         rt_obj = self._route_table_neutron_to_vnc(rt_q, CREATE)
         try:
@@ -3975,6 +4084,7 @@ class DBInterface(object):
         return ret_rt_q
     #end security_group_create
 
+    @wait_for_api_server_connection
     def route_table_read(self, rt_id):
         try:
             rt_obj = self._vnc_lib.route_table_read(id=rt_id)
@@ -3985,6 +4095,7 @@ class DBInterface(object):
         return self._route_table_vnc_to_neutron(rt_obj)
     #end route_table_read
 
+    @wait_for_api_server_connection
     def route_table_update(self, rt_id, rt_q):
         rt_q['id'] = rt_id
         rt_obj = self._route_table_neutron_to_vnc(rt_q, UPDATE)
@@ -3992,10 +4103,12 @@ class DBInterface(object):
         return self._route_table_vnc_to_neutron(rt_obj)
     #end policy_update
 
+    @wait_for_api_server_connection
     def route_table_delete(self, rt_id):
         self._route_table_delete(rt_id)
     #end route_table_delete
 
+    @wait_for_api_server_connection
     def route_table_list(self, context, filters=None):
         ret_list = []
 
@@ -4041,6 +4154,7 @@ class DBInterface(object):
     #end route_table_list
 
     #service instance api handlers
+    @wait_for_api_server_connection
     def svc_instance_create(self, si_q):
         si_obj = self._svc_instance_neutron_to_vnc(si_q, CREATE)
         si_uuid = self._svc_instance_create(si_obj)
@@ -4048,6 +4162,7 @@ class DBInterface(object):
         return ret_si_q
     #end svc_instance_create
 
+    @wait_for_api_server_connection
     def svc_instance_read(self, si_id):
         try:
             si_obj = self._vnc_lib.service_instance_read(id=si_id)
@@ -4058,10 +4173,12 @@ class DBInterface(object):
         return self._svc_instance_vnc_to_neutron(si_obj)
     #end svc_instance_read
 
+    @wait_for_api_server_connection
     def svc_instance_delete(self, si_id):
         self._svc_instance_delete(si_id)
     #end svc_instance_delete
 
+    @wait_for_api_server_connection
     def svc_instance_list(self, context, filters=None):
         ret_list = []
 
