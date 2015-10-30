@@ -974,8 +974,8 @@ class DMCassandraDB(VncCassandraClient):
             cass_reset_config = []
 
         super(DMCassandraDB, self).__init__(
-            cass_server_list, cass_reset_config, self._args.cluster_id, keyspaces,
-            manager.config_log)
+            cass_server_list, self._args.cluster_id, keyspaces,
+            manager.config_log, reset_config=cass_reset_config)
         self.pr_vn_ip_map = {}
         self.init_pr_map()
     #end
