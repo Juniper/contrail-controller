@@ -1337,7 +1337,6 @@ class VncDbClient(object):
             "virtual_machine" : "ObjectVMTable",
             "service_instance" : "ObjectSITable",
             "virtual_router" : "ObjectVRouter",
-            "control_node" : "ObjectBgpRouter",
             "analytics_node" : "ObjectCollectorInfo",
             "database_node" : "ObjectDatabaseInfo",
             "config_node" : "ObjectConfigNode",
@@ -1347,7 +1346,6 @@ class VncDbClient(object):
 
         self._UVEGLOBAL = set([
             "virtual_router",
-            "control_node",
             "analytics_node",
             "database_node",
             "config_node",
@@ -1683,14 +1681,14 @@ class VncDbClient(object):
         req_id = get_trace_id()
         db_trace = DBRequestTrace(request_id=req_id)
         db_trace.operation = oper
-        db_trace.body = json.dumps(obj_dict)
+        db_trace.body = "name=" + str(oo['name']) + " type=" + typ + " value=" +  json.dumps(obj_dict)
         trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
 
         attr_contents = None
-        elist = []
+        emap = {}
         if oo['value']:
             for ck,cv in oo['value'].iteritems():
-                elist.append(DynamicElement(ck, json.dumps(cv)))
+                emap[ck] = json.dumps(cv)
 
         utype = oo['type']
         urawkey = ':'.join(oo['name'])
@@ -1702,13 +1700,16 @@ class VncDbClient(object):
                 ukey = urawkey.split(":",1)[1]
             else:
                 ukey = urawkey
+        elif utype == 'bgp_router':
+            utab = "ObjectBgpRouter"
+            ukey = urawkey.rsplit(":",1)[1]
         else:
             return
 
         if oo['value']:
-            cc = ContrailConfig(name=ukey, elements=elist)
+            cc = ContrailConfig(name=ukey, elements=emap)
         else:
-            cc = ContrailConfig(name=ukey, elements=[], deleted=True)
+            cc = ContrailConfig(name=ukey, elements={}, deleted=True)
         cfg_msg = ContrailConfigTrace(data=cc, table=utab,
                                       sandesh=self._sandesh)
         cfg_msg.send(sandesh=self._sandesh)

@@ -120,6 +120,13 @@ class OpServerUtils(object):
             #ret[sname] = lst
             ret = lst
             return ret
+        elif (inp['@type'] == 'map'):
+            fmap = {}
+            for idx in range(0,int(inp['map']['@size'])):
+                m_attr = inp['map']['element'][idx*2]
+                m_val = str(inp['map']['element'][(idx*2)+1])
+                fmap[m_attr] = m_val
+            return fmap
         else:
             if '#text' not in inp:
                 return None
