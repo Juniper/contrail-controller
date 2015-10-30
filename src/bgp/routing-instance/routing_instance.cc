@@ -571,10 +571,15 @@ void RoutingInstance::ProcessConfig() {
         RTargetTableCreate();
 
         BgpTable *table_inet = static_cast<BgpTable *>(
-                server_->database()->CreateTable("inet.0"));
-        if (table_inet != NULL) {
-            AddTable(table_inet);
-        }
+            server_->database()->CreateTable("inet.0"));
+        assert(table_inet);
+        AddTable(table_inet);
+
+        BgpTable *table_inet6 = static_cast<BgpTable *>(
+            server_->database()->CreateTable("inet6.0"));
+        assert(table_inet6);
+        AddTable(table_inet6);
+
     } else {
         // Create foo.family.0.
         VrfTableCreate(Address::INET, Address::INETVPN);
@@ -1016,7 +1021,7 @@ const BgpTable *RoutingInstance::GetTable(Address::Family fmly) const {
 }
 
 string RoutingInstance::GetVrfFromTableName(const string table) {
-    static set<string> master_tables = list_of("inet.0");
+    static set<string> master_tables = list_of("inet.0")("inet6.0");
     static set<string> vpn_tables =
         list_of("bgp.l3vpn.0")("bgp.ermvpn.0")("bgp.evpn.0")("bgp.rtarget.0")
                 ("bgp.l3vpn-inet6.0");

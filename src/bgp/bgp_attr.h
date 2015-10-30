@@ -59,9 +59,12 @@ struct BgpAttrNextHop : public BgpAttribute {
     explicit BgpAttrNextHop(const BgpAttribute &rhs)
         : BgpAttribute(rhs), nexthop(0) {
     }
-    explicit BgpAttrNextHop(uint32_t nexthop) :
-            BgpAttribute(NextHop, kFlags), nexthop(nexthop) {}
+    explicit BgpAttrNextHop(uint32_t nexthop)
+        : BgpAttribute(NextHop, kFlags), nexthop(nexthop) {}
+    explicit BgpAttrNextHop(Ip6Address v6_nexthop)
+        : BgpAttribute(NextHop, kFlags), nexthop(0), v6_nexthop(v6_nexthop) {}
     uint32_t nexthop;
+    Ip6Address v6_nexthop;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;

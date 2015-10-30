@@ -29,6 +29,10 @@ public:
 
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                Ip4Prefix *prefix);
+    static int FromProtoPrefix(BgpServer *server,
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr, Ip4Prefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label);
     static Ip4Prefix FromString(const std::string &str,
                                 boost::system::error_code *errorp = NULL);
 

@@ -190,7 +190,7 @@ public:
                                 const std::string &uuid);
     BgpPeer *FindPeer(const char *routing_instance,
                       const std::string &peername);
-    BgpPeer *FindMatchingPeer(const char *routing_instance,
+    BgpPeer *FindMatchingPeer(const std::string &routing_instance,
                               const std::string &name);
     void DisableAllPeers();
     void EnableAllPeers();

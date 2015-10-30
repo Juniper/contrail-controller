@@ -1169,10 +1169,10 @@ public:
 
     struct OptMatch {
         bool match(const BgpMpNlri *obj) {
-            return
-                (((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) ||
-                 ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn))     ||
-                 ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)));
+            return ((obj->afi == BgpAf::IPv4 && obj->safi == BgpAf::Unicast) ||
+                (obj->afi == BgpAf::IPv4 && obj->safi == BgpAf::Vpn) ||
+                (obj->afi == BgpAf::IPv6 && obj->safi == BgpAf::Unicast) ||
+                (obj->afi == BgpAf::IPv6 && obj->safi == BgpAf::Vpn));
         }
     };
 
@@ -1308,6 +1308,9 @@ public:
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
             }
+            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Unicast)) {
+                value = 0;
+            }
             if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
             }
@@ -1327,6 +1330,9 @@ public:
                 return 0;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
+                return 0;
+            }
+            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Unicast)) {
                 return 0;
             }
             if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {

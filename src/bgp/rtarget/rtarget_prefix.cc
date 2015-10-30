@@ -40,6 +40,13 @@ int RTargetPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
     return 0;
 }
 
+int RTargetPrefix::FromProtoPrefix(BgpServer *server,
+                                   const BgpProtoPrefix &proto_prefix,
+                                   const BgpAttr *attr, RTargetPrefix *prefix,
+                                   BgpAttrPtr *new_attr, uint32_t *label) {
+    return FromProtoPrefix(proto_prefix, prefix);
+}
+
 void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
     proto_prefix->prefix.clear();
     if (as_ == 0 && rtarget_ == RouteTarget::null_rtarget) {

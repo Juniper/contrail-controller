@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "bgp/bgp_attr_base.h"
+#include "bgp/bgp_attr.h"
 #include "bgp/bgp_common.h"
 #include "bgp/rtarget/rtarget_address.h"
 
@@ -25,6 +25,10 @@ public:
 
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                RTargetPrefix *prefix);
+    static int FromProtoPrefix(BgpServer *server,
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr, RTargetPrefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label);
     static RTargetPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
 

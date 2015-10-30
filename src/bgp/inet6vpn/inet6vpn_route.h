@@ -26,6 +26,10 @@ public:
 
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                Inet6VpnPrefix *prefix, uint32_t *label);
+    static int FromProtoPrefix(BgpServer *server,
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr, Inet6VpnPrefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label);
     static Inet6VpnPrefix FromString(const std::string &str,
                                      boost::system::error_code *errorp = NULL);
 

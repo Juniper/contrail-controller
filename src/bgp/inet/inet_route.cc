@@ -24,6 +24,12 @@ int Ip4Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
     return 0;
 }
 
+int Ip4Prefix::FromProtoPrefix(BgpServer *server,
+    const BgpProtoPrefix &proto_prefix, const BgpAttr *attr,
+    Ip4Prefix *prefix, BgpAttrPtr *new_attr, uint32_t *label) {
+    return FromProtoPrefix(proto_prefix, prefix);
+}
+
 string Ip4Prefix::ToString() const {
     string repr(ip4_addr().to_string());
     char strplen[4];
@@ -64,7 +70,8 @@ bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
     // My prefixlen must be longer in order to be more specific.
     if (prefixlen_ < rhs.prefixlen()) return false;
 
-    uint32_t mask = ((uint32_t) ~0) << (32 - rhs.prefixlen());
+    uint32_t mask =
+        ((uint32_t) ~0) << (Address::kMaxV4PrefixLen - rhs.prefixlen());
     return (ip4_addr_.to_ulong() & mask) ==
         (rhs.ip4_addr().to_ulong() & mask);
 }
@@ -117,7 +124,7 @@ void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
 
 void InetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
                                      IpAddress nexthop) const {
-    nh.resize(4);
+    nh.resize(Address::kMaxV4Bytes);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
     copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
