@@ -32,6 +32,7 @@ class TaskScheduler;
 class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
+class FlowStatsManager;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -225,6 +226,10 @@ public:
         INET6_UNICAST,
         ROUTE_TABLE_MAX
     };
+
+    typedef void (*FlowStatsReqHandler)(Agent *agent,
+                       uint32_t proto, uint32_t port,
+                       uint64_t timeout);
 
     Agent();
     virtual ~Agent();
@@ -708,8 +713,8 @@ public:
     AgentStatsCollector *stats_collector() const;
     void set_stats_collector(AgentStatsCollector *asc);
 
-    FlowStatsCollector *flow_stats_collector() const;
-    void set_flow_stats_collector(FlowStatsCollector *fsc);
+    FlowStatsManager *flow_stats_manager() const;
+    void set_flow_stats_manager(FlowStatsManager *fsc);
 
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
@@ -902,6 +907,14 @@ public:
     }
     Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
 
+    FlowStatsReqHandler& flow_stats_req_handler() {
+        return flow_stats_req_handler_;
+    }
+
+    void set_flow_stats_req_handler(FlowStatsReqHandler req) {
+        flow_stats_req_handler_ = req;
+    }
+
 private:
 
     AgentParam *params_;
@@ -910,7 +923,7 @@ private:
     KSync *ksync_;
     AgentUveBase *uve_;
     AgentStatsCollector *stats_collector_;
-    FlowStatsCollector *flow_stats_collector_;
+    FlowStatsManager *flow_stats_manager_;
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;
@@ -1070,6 +1083,7 @@ private:
     uint32_t vrouter_max_bridge_entries_;
     uint32_t vrouter_max_oflow_bridge_entries_;
     std::string vrouter_build_info_;
+    FlowStatsReqHandler flow_stats_req_handler_;
 
     // Constants
     static const std::string config_file_;

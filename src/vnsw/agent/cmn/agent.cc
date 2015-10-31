@@ -198,6 +198,16 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne(AGENT_INIT_TASKNAME, agent_init_exclude_list,
                      sizeof(agent_init_exclude_list) / sizeof(char *));
+
+    const char *flow_stats_manager_excluse_list[] = {
+        "Agent::FlowTable",
+        "Agent::FlowHandler",
+        "Agent::StatsCollector",
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne("Agent::FlowStatsManager", flow_stats_manager_excluse_list,
+                     sizeof(flow_stats_manager_excluse_list) / sizeof(char *));
+
 }
 
 void Agent::CreateLifetimeManager() {
@@ -389,7 +399,7 @@ void Agent::InitPeers() {
 
 Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
-    stats_collector_(NULL), flow_stats_collector_(NULL), pkt_(NULL),
+    stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
     diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
     agent_xmpp_channel_(), ifmap_channel_(), xmpp_client_(), xmpp_init_(),
@@ -427,7 +437,7 @@ Agent::Agent() :
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
-    vrouter_max_oflow_bridge_entries_(0) {
+    vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
@@ -519,12 +529,12 @@ void Agent::set_stats_collector(AgentStatsCollector *asc) {
     stats_collector_ = asc;
 }
 
-FlowStatsCollector *Agent::flow_stats_collector() const {
-    return flow_stats_collector_;
+FlowStatsManager *Agent::flow_stats_manager() const {
+    return flow_stats_manager_;
 }
 
-void Agent::set_flow_stats_collector(FlowStatsCollector *fsc) {
-    flow_stats_collector_ = fsc;
+void Agent::set_flow_stats_manager(FlowStatsManager *aging_module) {
+    flow_stats_manager_ = aging_module;
 }
 
 PktModule *Agent::pkt() const {

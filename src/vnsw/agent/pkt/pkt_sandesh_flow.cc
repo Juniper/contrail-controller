@@ -216,11 +216,12 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktSandeshFlow::PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx,
+PktSandeshFlow::PktSandeshFlow(Agent *agent, FlowRecordsResp *obj,
+                               std::string resp_ctx,
                                std::string key) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::PktFlowResponder")),
           0), resp_obj_(obj), resp_data_(resp_ctx), 
-    flow_iteration_key_(), key_valid_(false), delete_op_(false) {
+    flow_iteration_key_(), key_valid_(false), delete_op_(false), agent_(agent) {
     if (key != Agent::GetInstance()->NullString()) {
         if (SetFlowKey(key)) {
             key_valid_ = true;
@@ -336,16 +337,16 @@ bool PktSandeshFlow::Run() {
 
 void NextFlowRecordsSet::HandleRequest() const {
     FlowRecordsResp *resp = new FlowRecordsResp();
-    
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(), get_flow_key());
+
+    PktSandeshFlow *task = new PktSandeshFlow(NULL, resp, context(), get_flow_key());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
 
 void FetchAllFlowRecords::HandleRequest() const {
     FlowRecordsResp *resp = new FlowRecordsResp();
-    
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(), 
+
+    PktSandeshFlow *task = new PktSandeshFlow(NULL, resp, context(),
                                               PktSandeshFlow::start_key);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
@@ -354,7 +355,7 @@ void FetchAllFlowRecords::HandleRequest() const {
 void DeleteAllFlowRecords::HandleRequest() const {
     FlowRecordsResp *resp = new FlowRecordsResp();
 
-    PktSandeshFlow *task = new PktSandeshFlow(resp, context(),
+    PktSandeshFlow *task = new PktSandeshFlow(NULL, resp, context(),
                                               PktSandeshFlow::start_key);
     task->set_delete_op(true);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -398,7 +399,8 @@ void FlowAgeTimeReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     uint32_t age_time = get_new_age_time();
 
-    FlowStatsCollector *collector = agent->flow_stats_collector();
+    FlowStatsCollector *collector =
+        agent->flow_stats_manager()->default_flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
     if (collector == NULL) {
@@ -446,4 +448,100 @@ void FetchLinkLocalFlowInfo::HandleRequest() const {
     resp->Response();
 }
 
+bool PktSandeshFlowStats::Run() {
+    std::vector<SandeshFlowData>& list =
+        const_cast<std::vector<SandeshFlowData>&>(resp_->get_flow_list());
+    int count = 0;
+    bool flow_key_set = false;
+
+    FlowTable *flow_obj = agent_->pkt()->flow_table();
+    FlowStatsManager *fm = agent_->flow_stats_manager();
+    const FlowStatsCollector *fsc = fm->Find(proto_, port_);
+    if (!fsc) {
+        FlowErrorResp *resp = new FlowErrorResp();
+        SendResponse(resp);
+        return true;
+    }
+
+    FlowStatsCollector::FlowEntryTree::const_iterator it =
+        fsc->upper_bound(flow_iteration_key_);
+    while (it != fsc->end()) {
+        FlowTable::FlowEntryMap::iterator fe_it =
+            flow_obj->flow_entry_map_.find(it->first);
+        if (fe_it != flow_obj->flow_entry_map_.end()) {
+            SetSandeshFlowData(list, fe_it->second);
+        }
+        FlowStatsCollector::FlowEntryTree::const_iterator old_it = it++;
+        count++;
+        if (count == 1) { //kMaxFlowResponse) {
+            if (it != fsc->end()) {
+                ostringstream ostr;
+                ostr << proto_ << ":" << port_ << ":"
+                     << GetFlowKey(old_it->first);
+                resp_->set_flow_key(ostr.str());
+                flow_key_set = true;
+            }
+            break;
+        }
+    }
+
+    if (!flow_key_set) {
+        ostringstream ostr;
+        ostr << proto_ << ":" << port_ << ":" << PktSandeshFlow::start_key;
+        resp_->set_flow_key(ostr.str());
+    }
+    SendResponse(resp_);
+    return true;
+}
+
+bool PktSandeshFlowStats::SetProto(string &key) {
+    size_t n = std::count(key.begin(), key.end(), ':');
+    if (n != 7) {
+        return false;
+    }
+    stringstream ss(key);
+    string item;
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> proto_;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> port_;
+    }
+    getline(ss, item);
+    key = item;
+    return true;
+}
+
+PktSandeshFlowStats::PktSandeshFlowStats(Agent *agent, FlowStatsRecordsResp *obj,
+                                         std::string resp_ctx, std::string key):
+    PktSandeshFlow(agent, NULL, resp_ctx, key), resp_(obj) {
+    if (key != agent_->NullString()) {
+        if (SetProto(key) && SetFlowKey(key)) {
+            key_valid_ = true;
+        }
+    }
+}
+
+void ShowFlowStatsCollector::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    FlowStatsRecordsResp *resp = new FlowStatsRecordsResp();
+
+    ostringstream ostr;
+    ostr << get_protocol() << ":" << get_port() << ":" <<
+        PktSandeshFlow::start_key;
+    PktSandeshFlowStats *task = new PktSandeshFlowStats(agent, resp, context(),
+                                                        ostr.str());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+void NextFlowStatsRecordsSet::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    FlowStatsRecordsResp *resp = new FlowStatsRecordsResp();
+
+    PktSandeshFlow *task = new PktSandeshFlowStats(agent, resp, context(),
+                                                   get_flow_key());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
 ////////////////////////////////////////////////////////////////////////////////
