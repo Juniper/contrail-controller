@@ -184,6 +184,27 @@ class InstanceManager(object):
 
         return vn_obj.uuid
 
+    def _check_create_service_vn(self, itf_type, si):
+        vn_id = None
+
+        # search or create shared vn
+        funcname = "get_" + itf_type + "_vn_name"
+        func = getattr(svc_info, funcname)
+        service_vn_name = func()
+        funcname = "get_" + itf_type + "_vn_subnet"
+        func = getattr(svc_info, funcname)
+        service_vn_subnet = func()
+
+        vn_fq_name = si.fq_name[:-1] + [service_vn_name]
+        try:
+            vn_id = self._vnc_lib.fq_name_to_id(
+                'virtual-network', vn_fq_name)
+        except NoIdError:
+            vn_id = self.create_service_vn(service_vn_name,
+                service_vn_subnet, si.fq_name[:-1])
+
+        return vn_id
+
     def _upgrade_config(self, st, si):
         left_vn = si.params.get('left_virtual_network', None)
         right_vn = si.params.get('right_virtual_network', None)

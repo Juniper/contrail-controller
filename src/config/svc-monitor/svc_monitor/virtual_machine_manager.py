@@ -66,27 +66,6 @@ class VirtualMachineManager(InstanceManager):
         self.link_si_to_vm(si, st, instance_index, nova_vm.id)
         return nova_vm.id
 
-    def _check_create_service_vn(self, itf_type, si):
-        vn_id = None
-
-        # search or create shared vn
-        funcname = "get_" + itf_type + "_vn_name"
-        func = getattr(svc_info, funcname)
-        service_vn_name = func()
-        funcname = "get_" + itf_type + "_vn_subnet"
-        func = getattr(svc_info, funcname)
-        service_vn_subnet = func()
-
-        vn_fq_name = si.fq_name[:-1] + [service_vn_name]
-        try:
-            vn_id = self._vnc_lib.fq_name_to_id(
-                'virtual-network', vn_fq_name)
-        except NoIdError:
-            vn_id = self.create_service_vn(service_vn_name,
-                service_vn_subnet, si.fq_name[:-1])
-
-        return vn_id
-
     def _validate_nova_objects(self, st, si):
         # check image and flavor
         si.flavor = st.params.get('flavor', None)
