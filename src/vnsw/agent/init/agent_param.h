@@ -154,6 +154,9 @@ public:
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
     void set_vrouter_stats_interval(int val) { vrouter_stats_interval_ = val; }
+    void set_subnet_hosts_resolvable(bool val) {
+        subnet_hosts_resolvable_ = val;
+    }
     VirtualGatewayConfigTable *vgw_config_table() const { 
         return vgw_config_table_.get();
     }
@@ -178,6 +181,9 @@ public:
     }
     bool vrouter_on_host() const {
         return platform_ == VROUTER_ON_HOST;
+    }
+    bool subnet_hosts_resolvable() const {
+        return subnet_hosts_resolvable_;
     }
 
     void Init(const std::string &config_file,
@@ -413,6 +419,7 @@ private:
     std::string agent_base_dir_;
     uint32_t send_ratelimit_;
     uint16_t flow_thread_count_;
+    bool subnet_hosts_resolvable_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
