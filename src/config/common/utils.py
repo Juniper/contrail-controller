@@ -27,6 +27,7 @@ import sys
 import cgitb
 import cStringIO
 import logging
+import os
 
 def detailed_traceback():
     buf = cStringIO.StringIO()
@@ -124,10 +125,13 @@ def obj_type_to_vnc_class(obj_type, module_name):
 # end obj_type_to_vnc_class
 
 def getCertKeyCaBundle(bundle, certs):
+    if os.path.isfile(bundle):
+       return bundle
     with open(bundle, 'w') as ofile:
          for cert in certs:
              with open(cert) as ifile:
                   for line in ifile:
                       ofile.write(line)
+    os.chmod(bundle,0o777)
     return bundle
 #end CreateCertKeyCaBundle
