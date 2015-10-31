@@ -6,13 +6,17 @@
 import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
+AgentEnv.MakeTestEnv(env)
+flow_manager_suite=[]
+#FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
+#FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
+#FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
 
-FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
-FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
-FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
+#libflowstats = env.Library('flowstats',
+#                          FlowStatsSandeshGenObjs +
+#                         [
+#                          'flow_stats_collector.cc'
+#                         ])
 
-libflowstats = env.Library('flowstats',
-                          FlowStatsSandeshGenObjs +
-                         [
-                          'flow_stats_collector.cc'
-                         ])
+test_flow_stats_manager= AgentEnv.MakeTestCmd(env, 'test_flow_stats_manager',
+                                              flow_manager_suite)

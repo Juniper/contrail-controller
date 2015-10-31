@@ -16,6 +16,7 @@
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cmn/agent.h>
+#include <init/agent_param.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>
@@ -203,9 +204,9 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
 
     InetInterfaceKey intf_key(interface);
     table->AddResolveRoute(agent->local_peer(), vrf->GetName(),
-                           Address::GetIp4SubnetAddress(addr, plen), plen,
-                           intf_key, MplsTable::kInvalidLabel, false, vn_name,
-                           SecurityGroupList());
+            Address::GetIp4SubnetAddress(addr, plen), plen,
+            intf_key, MplsTable::kInvalidLabel, false, vn_name,
+            SecurityGroupList());
 }
 
 static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,

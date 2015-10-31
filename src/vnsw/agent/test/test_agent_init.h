@@ -45,7 +45,7 @@ private:
     std::auto_ptr<AgentUveBase> uve_;
     std::auto_ptr<TestPkt0Interface> pkt0_;
     std::auto_ptr<AgentStatsCollectorTest> stats_collector_;
-    std::auto_ptr<FlowStatsCollector> flow_stats_collector_;
+    std::auto_ptr<FlowStatsManager> flow_stats_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };
