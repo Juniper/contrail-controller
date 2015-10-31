@@ -440,6 +440,7 @@ AgentPath *BridgeRouteEntry::FindEvpnPathUsingKeyData
 void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                                               const AgentRouteData *data,
                                               bool force_delete) {
+    std::list<AgentPath *> to_be_deleted_path_list;
     Route::PathList::iterator it;
     for (it = GetPathList().begin(); it != GetPathList().end(); ) {
         AgentPath *path = static_cast<AgentPath *>(it.operator->());
@@ -494,9 +495,17 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
             // In case of multicast routes, BGP can give multiple paths.
             // So, continue looking for other paths for this peer
             if (delete_path) {
-                DeletePathInternal(path);
+                to_be_deleted_path_list.push_back(path);
             }
         }
+    }
+
+    std::list<AgentPath *>::iterator to_be_deleted_path_list_it =
+        to_be_deleted_path_list.begin();
+    while (to_be_deleted_path_list_it != to_be_deleted_path_list.end()) {
+        AgentPath *path = static_cast<AgentPath *>(*to_be_deleted_path_list_it);
+        DeletePathInternal(path);
+        to_be_deleted_path_list_it++;
     }
 }
 
