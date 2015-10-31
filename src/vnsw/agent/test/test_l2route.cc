@@ -77,6 +77,8 @@ protected:
         strcpy(local_vm_ip6_str_, "fdff::10");
         local_vm_ip6_ = Ip6Address::from_string(local_vm_ip6_str_);
 
+        strcpy(flood_mac_str_, "ff:ff:ff:ff:ff:ff");
+        flood_mac_ = MacAddress::FromString(flood_mac_str_);
         strcpy(remote_vm_mac_str_, "00:00:01:01:01:11");
         remote_vm_mac_ = MacAddress::FromString(remote_vm_mac_str_);
         strcpy(remote_vm_ip4_str_, "1.1.1.11");
@@ -164,6 +166,8 @@ protected:
     char local_vm_ip6_str_[100];
     IpAddress  local_vm_ip6_;
 
+    char flood_mac_str_[100];
+    MacAddress  flood_mac_;
     char remote_vm_mac_str_[100];
     MacAddress  remote_vm_mac_;
     char remote_vm_ip4_str_[100];
@@ -1227,6 +1231,77 @@ TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
     client->WaitForIdle();
     bgp_peer.reset();
     delete vrf2;
+}
+
+// Bug# 1508894
+TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and keep a reference of same.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    BgpPeer *bgp_peer_ptr_2 = CreateBgpPeer(Ip4Address(2), "BGP Peer2");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    boost::shared_ptr<BgpPeer> bgp_peer_2 =
+        bgp_peer_ptr_2->GetBgpXmppPeer()->bgp_peer_id_ref();
+
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::VxlanType()));
+    //Send explicit evpn olist
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 0,
+                                 1);
+    client->WaitForIdle();
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr_2,
+                                 "vrf1",
+                                 olist,
+                                 0,
+                                 1);
+    client->WaitForIdle();
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                    Ip4Address(0));
+    EXPECT_TRUE(rt != NULL);
+
+    AgentPath *path = rt->FindPath(bgp_peer_ptr_2);
+    path->set_is_stale(true);
+
+    Route::PathList::iterator it = rt->GetPathList().begin();
+    while (it != rt->GetPathList().end()) {
+        AgentPath *it_path = static_cast<AgentPath *>(it.operator->());
+        EXPECT_TRUE(it_path != NULL);
+        it++;
+    }
+    //Delete Evpn path
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 0,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    //Delete all
+    DeleteBgpPeer(bgp_peer.get());
+    DeleteBgpPeer(bgp_peer_2.get());
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    bgp_peer.reset();
+    bgp_peer_2.reset();
 }
 
 int main(int argc, char *argv[]) {
