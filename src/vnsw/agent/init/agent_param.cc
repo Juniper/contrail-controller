@@ -447,6 +447,13 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
         log_property_file_ = "";
     }
+
+    if (optional<bool> subnet_hosts_resolvable_opt =
+            tree_.get_optional<bool>("DEFAULT.subnet_hosts_resolvable")) {
+        subnet_hosts_resolvable_ = *subnet_hosts_resolvable_opt;
+    } else {
+        subnet_hosts_resolvable_ = false;
+    }    
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -1114,7 +1121,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         platform_(VROUTER_ON_HOST),
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
-        agent_base_dir_() {
+        agent_base_dir_(),
+        subnet_hosts_resolvable_(true) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1172,6 +1180,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
+        ("DEFAULT.subnet_hosts_resolvable",
+          opt::value<bool>()->default_value(true))
         ;
     options_.add(generic);
 

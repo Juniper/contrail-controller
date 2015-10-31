@@ -59,6 +59,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
+    EXPECT_EQ(param.subnet_hosts_resolvable(), true);
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -80,6 +81,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dns_port_2(), 12999);
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
+    EXPECT_EQ(param.subnet_hosts_resolvable(), false);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -139,6 +141,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
+        (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -158,7 +161,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-
+    EXPECT_EQ(param.subnet_hosts_resolvable(), false);
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
@@ -170,6 +173,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
         (char *) "--HYPERVISOR.type",    (char *)"xen", 
         (char *) "--HYPERVISOR.xen_ll_interface",   (char *)"xenport",
         (char *) "--HYPERVISOR.xen_ll_ip", (char *)"1.1.1.2/16",
+        (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -194,6 +198,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
         (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
         (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
         (char *) "--DEFAULT.debug",   (char *)"0",
+        (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
     };
 
     AgentParam param(Agent::GetInstance());
