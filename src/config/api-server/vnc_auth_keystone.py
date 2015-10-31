@@ -141,10 +141,12 @@ class AuthServiceKeystone(object):
 
     def __init__(self, server_mgr, args):
         _kscertbundle=''
-        if args.certfile and args.keyfile and args.cafile \
-           and args.auth_protocol == 'https':
-               certs=[args.certfile, args.keyfile, args.cafile]
-               _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+        if args.auth_protocol == 'https':
+           if args.certfile and args.cafile:
+              certs=[args.certfile, args.cafile]
+              _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+           elif args.certfile:
+              _kscertbundle=args.certfile
         self._conf_info = {
             'auth_host': args.auth_host,
             'auth_port': args.auth_port,
