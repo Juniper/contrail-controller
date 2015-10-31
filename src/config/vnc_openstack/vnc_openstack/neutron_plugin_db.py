@@ -1809,7 +1809,10 @@ class DBInterface(object):
 
                     cidr = address_pair['ip_address'].split('/')
                     if len(cidr) == 1:
-                        subnet=SubnetType(cidr[0], 32);
+                        if (IPAddress(cidr[0]).version == 4):
+                            subnet=SubnetType(cidr[0], 32)
+                        elif (IPAddress(cidr[0]).version == 6):
+                            subnet=SubnetType(cidr[0], 128)
                     elif len(cidr) == 2:
                         subnet=SubnetType(cidr[0], int(cidr[1]));
                     else:
