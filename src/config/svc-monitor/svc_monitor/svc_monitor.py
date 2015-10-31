@@ -29,6 +29,7 @@ import logging.handlers
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
+from cfgm_common import utils
 
 from cfgm_common.vnc_kombu import VncKombuClient
 from config_db import *
@@ -53,6 +54,9 @@ _zookeeper_client = None
 
 
 class SvcMonitor(object):
+
+    _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+    _kscertbundle=None
 
     """
     data + methods used/referred to by ssrc and arc greenlets
@@ -283,7 +287,7 @@ class SvcMonitor(object):
 
         self._nova_client = importutils.import_object(
             'svc_monitor.nova_client.ServiceMonitorNovaClient',
-            self._args, self.logger)
+            self._args, self.logger, SvcMonitor._kscertbundle)
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
@@ -786,7 +790,10 @@ def parse_args(args_str):
         'auth_insecure': True,
         'admin_user': 'user1',
         'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain'
+        'admin_tenant_name': 'default-domain',
+        'certfile': '',
+        'keyfile': '',
+        'cafile': '',
     }
     schedops = {
         'si_netns_scheduler_driver': \
@@ -809,6 +816,15 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
         if 'SCHEDULER' in config.sections():
             schedops.update(dict(config.items("SCHEDULER")))
+
+    kscertfile=ksopts.get('certfile')
+    kskeyfile=ksopts.get('keyfile')
+    kscafile=ksopts.get('cafile')
+    ksauthproto=ksopts.get('auth_protocol')
+    if kscertfile and kskeyfile and kscafile \
+    and ksauthproto == 'https':
+        certs=[kscertfile, kskeyfile, kscafile]
+        SvcMonitor._kscertbundle=utils.getCertKeyCaBundle(SvcMonitor._DEFAULT_KS_CERT_BUNDLE,certs)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
