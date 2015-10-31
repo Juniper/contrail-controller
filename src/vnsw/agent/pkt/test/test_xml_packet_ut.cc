@@ -34,7 +34,7 @@ public:
     }
 
     virtual void TearDown() {
-        agent_->flow_stats_collector()->set_flow_export_count(0);
+        agent_->flow_stats_manager()->set_flow_export_count(0);
     }
 
     Agent *agent_;
@@ -117,11 +117,11 @@ TEST_F(TestPkt, unknown_unicast_flood) {
         test.Run();
     }
     client->WaitForIdle();
-    client->agent()->flow_stats_collector()->set_delete_short_flow(true);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(true);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(000, 1000, (0U == client->agent()->pkt()->flow_table()->Size()));
-    client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(false);
 }
 
 TEST_F(TestPkt, tcp) {
@@ -136,11 +136,11 @@ TEST_F(TestPkt, tcp) {
         test.Run();
     }
     client->WaitForIdle();
-    client->agent()->flow_stats_collector()->set_delete_short_flow(true);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(true);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(000, 1000, (0U == client->agent()->pkt()->flow_table()->Size()));
-    client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(false);
 }
 
 
@@ -208,8 +208,9 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = XmlPktParseTestInit(init_file, ksync_init);
-    client->agent()->flow_stats_collector()->set_expiry_time(1000*1000);
-    client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+    client->agent()->flow_stats_manager()->
+        default_flow_stats_collector()->set_expiry_time(1000*1000);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(false);
     boost::system::error_code ec;
     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                           "xmpp channel");

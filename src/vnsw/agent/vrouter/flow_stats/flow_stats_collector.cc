@@ -7,6 +7,9 @@
 #include <db/db.h>
 #include <base/util.h>
 
+#include <cmn/agent_cmn.h>
+#include <boost/functional/factory.hpp>
+#include <cmn/agent_factory.h>
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 
@@ -27,18 +30,25 @@
 #include <oper/global_vrouter.h>
 #include <init/agent_param.h>
 
+const uint8_t FlowStatsManager::kCatchAllProto;
+
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
-                                       AgentUveBase *uve) :
+                                       AgentUveBase *uve,
+                                       uint32_t instance_id,
+                                       FlowAgingTableKey *key,
+                                       FlowStatsManager *aging_module) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
-                       ("Agent::StatsCollector"),
-                       StatsCollector::FlowStatsCollector,
+                       ("Agent::StatsCollector"), instance_id,
                        io, intvl, "Flow stats collector"),
-        agent_uve_(uve), delete_short_flow_(true),
-        flow_export_count_(0), prev_flow_export_rate_compute_time_(0),
-        flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
-        flow_export_msg_drops_(0), prev_cfg_flow_export_rate_(0),
-        flow_tcp_syn_age_time_(FlowTcpSynAgeTime) {
+        agent_uve_(uve),
+        flow_tcp_syn_age_time_(FlowTcpSynAgeTime), flow_aging_key_(*key),
+        flow_stats_manager_(aging_module),
+        request_queue_(agent_uve_->agent()->task_scheduler()->
+                       GetTaskId("Agent::StatsCollector"),
+                       instance_id,
+                       boost::bind(&FlowStatsCollector::RequestHandler, this,
+                                   _1)) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
@@ -49,6 +59,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         }
         flow_count_per_pass_ = FlowCountPerPass;
         UpdateFlowMultiplier();
+        deleted_ = false;
 }
 
 FlowStatsCollector::~FlowStatsCollector() {
@@ -56,6 +67,7 @@ FlowStatsCollector::~FlowStatsCollector() {
 
 void FlowStatsCollector::Shutdown() {
     StatsCollector::Shutdown();
+    request_queue_.Shutdown();
 }
 
 void FlowStatsCollector::UpdateFlowMultiplier() {
@@ -362,17 +374,17 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
      * configured flow-export-rate */
     if (!flow->IsActionLog() &&
         !agent_uve_->agent()->oper_db()->global_vrouter()->flow_export_rate()) {
-        flow_export_msg_drops_++;
+        flow_stats_manager_->flow_export_msg_drops_++;
         return;
     }
 
-    if (!flow->IsActionLog() && (diff_bytes < threshold_)) {
-        double probability = diff_bytes/threshold_;
-        uint32_t num = rand() % threshold_;
+    if (!flow->IsActionLog() && (diff_bytes < threshold())) {
+        double probability = diff_bytes/threshold();
+        uint32_t num = rand() % threshold();
         if (num > diff_bytes) {
             /* Do not export the flow, if the random number generated is more
              * than the diff_bytes */
-            flow_export_msg_drops_++;
+            flow_stats_manager_->flow_export_msg_drops_++;
             return;
         }
         /* Normalize the diff_bytes and diff_packets reported using the
@@ -482,7 +494,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(flow->egress_uuid()));
         DispatchFlowMsg(level, s_flow);
-        flow_export_count_ += 2;
+        flow_stats_manager_->flow_export_count_ += 2;
     } else {
         if (flow->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
@@ -491,7 +503,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
             s_flow.set_direction_ing(0);
         }
         DispatchFlowMsg(level, s_flow);
-        flow_export_count_++;
+        flow_stats_manager_->flow_export_count_++;
     }
 
 }
@@ -501,12 +513,13 @@ void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
     FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
 }
 
-void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
+bool FlowStatsManager::UpdateFlowThreshold() {
+    uint64_t curr_time = UTCTimestampUsec();
     bool export_rate_calculated = false;
 
     /* If flows are not being exported, no need to update threshold */
     if (!flow_export_count_) {
-        return;
+        return true;
     }
     // Calculate Flow Export rate
     if (prev_flow_export_rate_compute_time_) {
@@ -517,9 +530,9 @@ void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
             diff_secs = diff_micro_secs/1000000;
         }
         if (diff_secs) {
-            flow_export_rate_ = flow_export_count_/diff_secs;
+            uint32_t flow_export_count = flow_export_count_reset();
+            flow_export_rate_ = flow_export_count/diff_secs;
             prev_flow_export_rate_compute_time_ = curr_time;
-            flow_export_count_ = 0;
             export_rate_calculated = true;
         }
     } else {
@@ -527,13 +540,13 @@ void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
         flow_export_count_ = 0;
     }
 
-    uint32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
-        flow_export_rate();
+    uint32_t cfg_rate = agent_->oper_db()->global_vrouter()->
+                            flow_export_rate();
     /* No need to update threshold when flow_export_rate is NOT calculated
      * and configured flow export rate has not changed */
     if (!export_rate_calculated &&
         (cfg_rate == prev_cfg_flow_export_rate_)) {
-        return;
+        return true;
     }
     // Update sampling threshold based on flow_export_rate_
     if (flow_export_rate_ < cfg_rate/4) {
@@ -550,37 +563,94 @@ void FlowStatsCollector::UpdateFlowThreshold(uint64_t curr_time) {
         UpdateThreshold((threshold_ * 2));
     }
     prev_cfg_flow_export_rate_ = cfg_rate;
+    return true;
 }
 
-void FlowStatsCollector::UpdateThreshold(uint32_t new_value) {
+bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
+    switch (req->event()) {
+    case FlowExportReq::ADD_FLOW: {
+        AddFlow(req->key(), req->flow());
+        break;
+    }
+
+    case FlowExportReq::DELETE_FLOW: {
+        /* Remove the entry from our tree */
+        DeleteFlow(req->key());
+        break;
+    }
+
+    case FlowExportReq::UPDATE_FLOW_INDEX: {
+        UpdateFlowIndex(req->key(), req->index());
+        break;
+    }
+
+    default:
+         assert(0);
+
+    }
+
+    if (deleted_ && flow_tree_.size() == 0 &&
+        request_queue_.IsQueueEmpty() == true) {
+        flow_stats_manager_->Free(flow_aging_key_);
+    }
+
+    return true;
+}
+
+void FlowStatsCollector::AddFlow(const FlowKey &key, FlowEntryPtr ptr) {
+    FlowEntryTree::iterator it = flow_tree_.find(key);
+    if (it != flow_tree_.end()) {
+        it->second = ptr;
+        return;
+    }
+
+    flow_tree_.insert(make_pair(key, ptr));
+}
+
+void FlowStatsCollector::DeleteFlow(const FlowKey &key) {
+    FlowEntryTree::iterator it = flow_tree_.find(key);
+    if (it == flow_tree_.end())
+        return;
+
+    flow_tree_.erase(it);
+}
+
+void FlowStatsCollector::UpdateFlowIndex(const FlowKey &key, uint32_t idx) {
+    return;
+}
+
+uint32_t FlowStatsCollector::threshold() const {
+    return flow_stats_manager_->threshold();
+}
+
+void FlowStatsManager::UpdateThreshold(uint32_t new_value) {
     if (new_value != 0) {
         threshold_ = new_value;
     }
 }
 
 bool FlowStatsCollector::Run() {
-    FlowTable::FlowEntryMap::iterator it;
+    FlowEntryTree::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
     FlowStats *stats = NULL;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
-    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
 
     run_counter_++;
-    if (!flow_obj->Size()) {
+    if (!flow_tree_.size()) {
         return true;
     }
     uint64_t curr_time = UTCTimestampUsec();
-    it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
-    if (it == flow_obj->flow_entry_map_.end()) {
-        it = flow_obj->flow_entry_map_.begin();
+    it = flow_tree_.upper_bound(flow_iteration_key_);
+    if (it == flow_tree_.end()) {
+        it = flow_tree_.begin();
     }
     FlowTableKSyncObject *ksync_obj =
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    while (it != flow_obj->flow_entry_map_.end()) {
-        entry = it->second;
+    while (it != flow_tree_.end()) {
+        entry = it->second.get();
         stats = &(entry->stats_);
         it++;
         assert(entry);
@@ -611,13 +681,12 @@ bool FlowStatsCollector::Run() {
         }
 
         if (deleted == true) {
-            if (it != flow_obj->flow_entry_map_.end()) {
+            if (it != flow_tree_.end()) {
                 if (it->second == reverse_flow) {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->Delete
-                (entry->key(), reverse_flow != NULL? true : false);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteEnqueue(entry);
             entry = NULL;
             if (reverse_flow) {
                 count++;
@@ -663,9 +732,9 @@ bool FlowStatsCollector::Run() {
             }
         }
 
-        if ((!deleted) && (delete_short_flow_ == true) &&
+        if ((!deleted) && (flow_stats_manager_->delete_short_flow() == true) &&
             entry->is_flags_set(FlowEntry::ShortFlow)) {
-            if (it != flow_obj->flow_entry_map_.end()) {
+            if (it != flow_tree_.end()) {
                 if (it->second == reverse_flow) {
                     it++;
                 }
@@ -688,7 +757,7 @@ bool FlowStatsCollector::Run() {
     }
 
     if (count == flow_count_per_pass_) {
-        if (it != flow_obj->flow_entry_map_.end()) {
+        if (it != flow_tree_.end()) {
             key_updation_reqd = false;
         }
     }
@@ -698,11 +767,10 @@ bool FlowStatsCollector::Run() {
         flow_iteration_key_.Reset();
     }
 
-    UpdateFlowThreshold(curr_time);
     /* Update the flow_timer_interval and flow_count_per_pass_ based on
      * total flows that we have
      */
-    uint32_t total_flows = flow_obj->Size();
+    uint32_t total_flows = flow_tree_.size();
     uint32_t flow_timer_interval;
 
     uint32_t age_time_millisec = flow_age_time_intvl() / 1000;
@@ -730,8 +798,11 @@ bool FlowStatsCollector::Run() {
 void SetFlowStatsInterval_InSeconds::HandleRequest() const {
     SandeshResponse *resp;
     if (get_interval() > 0) {
-        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_collector();
-        fec->set_expiry_time(get_interval() * 1000);
+        FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
+        FlowStatsCollector *fsc = fam->default_flow_stats_collector();
+        if (fsc) {
+            fsc->set_expiry_time(get_interval() * 1000);
+        }
         resp = new FlowStatsCfgResp();
     } else {
         resp = new FlowStatsCfgErrResp();
@@ -745,9 +816,300 @@ void SetFlowStatsInterval_InSeconds::HandleRequest() const {
 void GetFlowStatsInterval::HandleRequest() const {
     FlowStatsIntervalResp_InSeconds *resp =
         new FlowStatsIntervalResp_InSeconds();
-    resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_collector()->
-        expiry_time())/1000);
+    resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_manager()->
+                default_flow_stats_collector()->expiry_time())/1000);
 
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
+    request_queue_(agent_->task_scheduler()->GetTaskId("Agent::FlowStatsManager"),
+                   StatsCollector::FlowStatsCollector,
+                   boost::bind(&FlowStatsManager::RequestHandler, this, _1)),
+    flow_export_count_(), prev_flow_export_rate_compute_time_(0),
+    flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
+    flow_export_msg_drops_(), prev_cfg_flow_export_rate_(0),
+    timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
+           "FlowThresholdTimer",
+           TaskScheduler::GetInstance()->GetTaskId("Agent::FlowStatsManager"), 0)),
+    delete_short_flow_(true) {
+    flow_export_count_ = 0;
+    flow_export_msg_drops_ = 0;
+}
+
+FlowStatsManager::~FlowStatsManager() {
+    assert(flow_aging_table_map_.size() == 0);
+}
+
+bool FlowStatsManager::RequestHandler(boost::shared_ptr<FlowStatsCollectorReq>
+                                      req) {
+    switch (req->event) {
+    case FlowStatsCollectorReq::ADD_FLOW_STATS_COLLECTOR: {
+        AddReqHandler(req);
+        break;
+    }
+
+    case FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR: {
+        DeleteReqHandler(req);
+        break;
+    }
+
+    case FlowStatsCollectorReq::FREE_FLOW_STATS_COLLECTOR: {
+        FreeReqHandler(req);
+        break;
+    }
+
+    default: {
+        assert(0);
+        break;
+    }
+    }
+    return true;
+}
+
+void FlowStatsManager::AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
+                                    req) {
+    FlowAgingTableMap::iterator it = flow_aging_table_map_.find(req->key);
+    if (it != flow_aging_table_map_.end()) {
+        it->second->set_deleted(false);
+        return;
+    }
+
+    FlowAgingTablePtr aging_table(
+        AgentObjectFactory::Create<FlowStatsCollector>(
+        *(agent()->event_manager()->io_service()),
+        req->flow_stats_interval, req->flow_cache_timeout,
+        agent()->uve(), req->key.proto, &(req->key), this));
+
+    flow_aging_table_map_.insert(FlowAgingTableEntry(req->key, aging_table));
+    if (req->key.proto == kCatchAllProto && req->key.port == 0) {
+        default_flow_stats_collector_ = aging_table;
+    }
+}
+
+void FlowStatsManager::DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
+                                       req) {
+    FlowAgingTableMap::iterator it = flow_aging_table_map_.find(req->key);
+    if (it == flow_aging_table_map_.end()) {
+        return;
+    }
+
+    FlowAgingTablePtr flow_aging_table_ptr = it->second;
+    flow_aging_table_ptr->set_deleted(true);
+
+    if (flow_aging_table_ptr->flow_tree_.size() == 0 &&
+        flow_aging_table_ptr->request_queue_.IsQueueEmpty() == true) {
+        flow_aging_table_map_.erase(it);
+    }
+}
+
+void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
+                                     req) {
+    FlowAgingTableMap::iterator it = flow_aging_table_map_.find(req->key);
+    if (it == flow_aging_table_map_.end()) {
+        return;
+    }
+
+    FlowAgingTablePtr flow_aging_table_ptr = it->second;
+    if (flow_aging_table_ptr->deleted() == false) {
+        return;
+    }
+    assert(flow_aging_table_ptr->flow_tree_.size() == 0);
+    assert(flow_aging_table_ptr->request_queue_.IsQueueEmpty() == true);
+    flow_aging_table_ptr->Shutdown();
+    flow_aging_table_map_.erase(it);
+}
+
+void FlowStatsManager::Add(const FlowAgingTableKey &key,
+                          uint64_t flow_stats_interval,
+                          uint64_t flow_cache_timeout) {
+    if (key.proto == IPPROTO_TCP) {
+        return;
+    }
+
+    boost::shared_ptr<FlowStatsCollectorReq>
+        req(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::ADD_FLOW_STATS_COLLECTOR,
+                    key, flow_stats_interval, flow_cache_timeout));
+    request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::Delete(const FlowAgingTableKey &key) {
+    if (key.proto == kCatchAllProto) {
+        return;
+    }
+    boost::shared_ptr<FlowStatsCollectorReq>
+        req(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR,
+                    key));
+    request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::Free(const FlowAgingTableKey &key) {
+    boost::shared_ptr<FlowStatsCollectorReq>
+        req(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::FREE_FLOW_STATS_COLLECTOR,
+                    key));
+    request_queue_.Enqueue(req);
+}
+
+const FlowStatsCollector*
+FlowStatsManager::Find(uint32_t proto, uint32_t port) const {
+
+     FlowAgingTableKey key1(proto, port);
+     FlowAgingTableMap::const_iterator key1_it = flow_aging_table_map_.find(key1);
+
+     if (key1_it == flow_aging_table_map_.end()){
+         return NULL;
+     }
+
+     return key1_it->second.get();
+}
+
+FlowStatsCollector*
+FlowStatsManager::GetFlowStatsCollector(const FlowKey &key) const {
+    FlowAgingTableKey key1(key.protocol, key.src_port);
+    FlowAgingTableKey key2(key.protocol, key.dst_port);
+    FlowAgingTableKey key3(key.protocol, 0);
+    FlowAgingTableKey default_key(kCatchAllProto, 0);
+
+    FlowAgingTableMap::const_iterator key1_it = flow_aging_table_map_.find(key1);
+    FlowAgingTableMap::const_iterator key2_it = flow_aging_table_map_.find(key2);
+    FlowAgingTableMap::const_iterator key3_it = flow_aging_table_map_.find(key3);
+
+    if (key1_it == flow_aging_table_map_.end() &&
+        key2_it == flow_aging_table_map_.end() &&
+        key3_it == flow_aging_table_map_.end()) {
+        return flow_aging_table_map_.find(default_key)->second.get();
+    }
+
+    if (key1_it == flow_aging_table_map_.end() &&
+        key2_it == flow_aging_table_map_.end()) {
+        return key3_it->second.get();
+    }
+
+    if (key1_it == flow_aging_table_map_.end()) {
+        return key2_it->second.get();
+    } else {
+        return key1_it->second.get();
+    }
+
+    if (key1_it->second->flow_age_time_intvl() ==
+        key2_it->second->flow_age_time_intvl()) {
+        if (key.src_port < key.dst_port) {
+            return key1_it->second.get();
+        } else {
+            return key2_it->second.get();
+        }
+    }
+
+    if (key1_it->second->flow_age_time_intvl() <
+        key2_it->second->flow_age_time_intvl()) {
+        return key1_it->second.get();
+    } else {
+        return key2_it->second.get();
+    }
+}
+
+void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
+    FlowStatsCollector *fsc = NULL;
+    FlowEntry *fe = flow.get();
+
+    if (fe->stats_.aging_protocol == 0) {
+        fsc = GetFlowStatsCollector(flow->key());
+        fe->stats_.aging_protocol = fsc->flow_aging_key_.proto;
+        fe->stats_.aging_port = fsc->flow_aging_key_.port;
+    } else {
+        FlowAgingTableKey key(flow->stats().aging_protocol,
+                              flow->stats().aging_port);
+        FlowAgingTableMap::const_iterator key_it =
+            flow_aging_table_map_.find(key);
+        fsc = key_it->second.get();
+    }
+
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::ADD_FLOW, fe->key(), flow));
+    fsc->request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::DeleteEvent(FlowEntryPtr &flow) {
+    FlowAgingTableKey key(flow->stats().aging_protocol,
+                          flow->stats().aging_port);
+    FlowAgingTableMap::const_iterator key_it = flow_aging_table_map_.find(key);
+
+    FlowStatsCollector *fsc = key_it->second.get();
+    assert(fsc != NULL);
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::DELETE_FLOW, flow->key(),
+                              UTCTimestampUsec()));
+    fsc->request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::FlowIndexUpdateEvent(const FlowKey &key, uint32_t idx) {
+    FlowStatsCollector *fsc = GetFlowStatsCollector(key);
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_INDEX, key, 0, idx));
+    fsc->request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::Init(uint64_t flow_stats_interval,
+                           uint64_t flow_cache_timeout) {
+    Add(FlowAgingTableKey(kCatchAllProto, 0),
+        flow_stats_interval,
+        flow_cache_timeout);
+    timer_->Start(FlowThresoldUpdateTime,
+                  boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
+}
+
+void FlowStatsManager::Shutdown() {
+    default_flow_stats_collector_->Shutdown();
+    flow_aging_table_map_.clear();
+    timer_->Cancel();
+
+}
+
+void ShowAgingConfig::HandleRequest() const {
+    SandeshResponse *resp;
+
+    FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
+    resp = new AgingConfigResponse();
+
+    FlowStatsManager::FlowAgingTableMap::const_iterator it = fam->begin();
+    while (it != fam->end()) {
+        AgingConfig cfg;
+        cfg.set_protocol(it->first.proto);
+        cfg.set_port(it->first.port);
+        cfg.set_cache_timeout(it->second->flow_age_time_intvl_in_secs());
+        cfg.set_stats_interval(0);
+        std::vector<AgingConfig> &list =
+            const_cast<std::vector<AgingConfig>&>(
+                    ((AgingConfigResponse *)resp)->get_aging_config_list());
+        list.push_back(cfg);
+        it++;
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void AddAgingConfig::HandleRequest() const {
+    FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
+    fam->Add(FlowAgingTableKey(get_protocol(), get_port()),
+                               get_stats_interval(), get_cache_timeout());
+    SandeshResponse *resp = new FlowStatsCfgResp();
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void DeleteAgingConfig::HandleRequest() const {
+    FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
+    fam->Delete(FlowAgingTableKey(get_protocol(), get_port()));
+
+    SandeshResponse *resp = new FlowStatsCfgResp();
     resp->set_context(context());
     resp->Response();
     return;

@@ -484,7 +484,8 @@ TEST_F(UveTest, SandeshTest) {
         (Agent::GetInstance()->stats_collector());
 
     int agent_stats_interval = collector->expiry_time();
-    int flow_stats_interval = agent->flow_stats_collector()->expiry_time();
+    int flow_stats_interval = agent->flow_stats_manager()->
+        default_flow_stats_collector()->expiry_time();
 
     //Set Flow stats interval to invalid value
     ClearCounters();
@@ -493,7 +494,8 @@ TEST_F(UveTest, SandeshTest) {
     //Verify that flow stats interval has not changed
     EXPECT_EQ(1, error_responses_);
     EXPECT_EQ(0, success_responses_);
-    EXPECT_EQ(flow_stats_interval, agent->flow_stats_collector()->expiry_time());
+    EXPECT_EQ(flow_stats_interval, agent->flow_stats_manager()->
+              default_flow_stats_collector()->expiry_time());
 
     //Set Agent stats interval to invalid value
     ClearCounters();
@@ -511,7 +513,8 @@ TEST_F(UveTest, SandeshTest) {
     //Verify that flow stats interval has been updated
     EXPECT_EQ(0, error_responses_);
     EXPECT_EQ(1, success_responses_);
-    EXPECT_EQ((3 * 1000), agent->flow_stats_collector()->expiry_time());
+    EXPECT_EQ((3 * 1000), agent->flow_stats_manager()->
+                          default_flow_stats_collector()->expiry_time());
 
     //Set Agent stats interval to a valid value
     ClearCounters();

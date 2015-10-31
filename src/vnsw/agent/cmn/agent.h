@@ -32,6 +32,7 @@ class TaskScheduler;
 class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
+class FlowStatsManager;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -708,8 +709,8 @@ public:
     AgentStatsCollector *stats_collector() const;
     void set_stats_collector(AgentStatsCollector *asc);
 
-    FlowStatsCollector *flow_stats_collector() const;
-    void set_flow_stats_collector(FlowStatsCollector *fsc);
+    FlowStatsManager *flow_stats_manager() const;
+    void set_flow_stats_manager(FlowStatsManager *fsc);
 
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
@@ -910,7 +911,7 @@ private:
     KSync *ksync_;
     AgentUveBase *uve_;
     AgentStatsCollector *stats_collector_;
-    FlowStatsCollector *flow_stats_collector_;
+    FlowStatsManager *flow_stats_manager_;
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;

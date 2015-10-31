@@ -976,7 +976,8 @@ TEST_F(UveVmUveTest, SIP_override) {
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_collector());
+        (Agent::GetInstance()->flow_stats_manager()->
+         default_flow_stats_collector());
     f->ClearList();
 
     std::vector<FlowDataIpv4> list = f->ingress_flow_log_list();

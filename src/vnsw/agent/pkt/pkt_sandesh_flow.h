@@ -14,7 +14,8 @@ public:
     static const int kMaxFlowResponse = 100;
     static const std::string start_key;
 
-    PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx, std::string key);
+    PktSandeshFlow(Agent * agent, FlowRecordsResp *obj,
+                   std::string resp_ctx, std::string key);
     virtual ~PktSandeshFlow();
 
     void SendResponse(SandeshResponse *resp);
@@ -31,9 +32,24 @@ protected:
     FlowKey flow_iteration_key_;
     bool key_valid_;
     bool delete_op_;
+    Agent *agent_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(PktSandeshFlow);
 };
 
+class PktSandeshFlowStats : public PktSandeshFlow {
+public:
+    PktSandeshFlowStats(Agent *agent, FlowStatsRecordsResp *obj, std::string resp_ctx,
+                        std::string key);
+    virtual ~PktSandeshFlowStats() {}
+    bool SetProtoKey(std::string key);
+    virtual bool Run();
+    bool SetProto(std::string &key);
+private:
+    uint32_t proto_;
+    uint32_t port_;
+    FlowStatsRecordsResp *resp_;
+    DISALLOW_COPY_AND_ASSIGN(PktSandeshFlowStats);
+};
 #endif
