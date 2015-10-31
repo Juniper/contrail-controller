@@ -173,11 +173,14 @@ class VncApi(VncApiClientGen):
             apicafile=_read_cfg(cfg_parser,'global','cafile','')
 
             self._use_api_certs=False
-            if apicertfile and apikeyfile \
-               and apicafile and api_server_use_ssl:
-                    certs=[apicertfile, apikeyfile, apicafile]
-                    self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
-                    self._use_api_certs=True
+            if api_server_use_ssl:
+               if apicertfile and apicafile:
+                  certs=[apicertfile, apicafile]
+                  self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
+               elif apicertfile:
+                  self._apicertbundle=apicertfile
+               if self._apicertbundle:
+                  self._use_api_certs=True
 
             # keystone SSL support
             try:
@@ -191,11 +194,14 @@ class VncApi(VncApiClientGen):
             kscafile=_read_cfg(cfg_parser,'auth','cafile','')
 
             self._use_ks_certs=False
-            if kscertfile and kskeyfile and kscafile \
-               and self._authn_protocol == 'https':
-                   certs=[kscertfile, kskeyfile, kscafile]
-                   self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
-                   self._use_ks_certs=True
+            if self._authn_protocol == 'https':
+               if kscertfile and kscafile:
+                  certs=[kscertfile, kscafile]
+                  self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
+               elif kscertfile:
+                  self._kscertbundle=kscertfile
+               if self._kscertbundle:
+                  self._use_ks_certs=True
 
             if 'v2' in self._authn_url:
                  self._authn_body = \

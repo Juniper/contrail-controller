@@ -1045,10 +1045,12 @@ def parse_args(args_str):
     kskeyfile=ksopts.get('keyfile')
     kscafile=ksopts.get('cafile')
     ksauthproto=ksopts.get('auth_protocol')
-    if kscertfile and kskeyfile and kscafile \
-    and ksauthproto == 'https':
-        certs=[self._kscertfile, self._kskeyfile, self._kscafile]
-        SvcMonitor._kscertbundle=utils.getCertKeyCaBundle(SvcMonitor._DEFAULT_KS_CERT_BUNDLE,certs)
+    if ksauthproto == 'https':
+       if kscertfile and kscafile:
+          certs=[kscertfile, kscafile]
+          SvcMonitor._kscertbundle=utils.getCertKeyCaBundle(SvcMonitor._DEFAULT_KS_CERT_BUNDLE,certs)
+       elif kscertfile:
+          SvcMonitor._kscertbundle=kscertfile
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
