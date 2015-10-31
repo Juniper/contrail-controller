@@ -78,7 +78,8 @@ public:
                 StatsCollector::FlowStatsCollector) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->flow_stats_collector()->Run();
+        Agent::GetInstance()->flow_stats_manager()->
+            default_flow_stats_collector()->Run();
     }
 };
 
