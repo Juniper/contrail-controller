@@ -539,7 +539,8 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     EXPECT_EQ(0U, vmut->InterfaceUveCount());
 
     FlowSetUp();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
+                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -597,7 +598,8 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     EXPECT_EQ(0U, vmut->InterfaceUveCount());
 
     FlowSetUp();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
+                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -652,7 +654,8 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     EXPECT_EQ(0U, vmut->InterfaceUveCount());
 
     FlowSetUp();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
+                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -737,7 +740,8 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     EXPECT_EQ(0U, vmut->InterfaceUveCount());
 
     FlowSetUp2();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
+                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm_a_ip, vm_c_fip2, 1, 0, 0, "vrf6",
@@ -817,7 +821,8 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     EXPECT_EQ(0U, vmut->InterfaceUveCount());
 
     FlowSetUp();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
+                                  default_flow_stats_collector();
     CreatePeer();
     util_.CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip,
                       remote_router_ip, 30, "default-project:vn4", peer_);

@@ -134,7 +134,7 @@ struct FlowKey {
 };
 
 struct Inet4FlowKeyCmp {
-    bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
+    bool operator()(const FlowKey &lhs, const FlowKey &rhs) const {
         const FlowKey &lhs_base = static_cast<const FlowKey &>(lhs);
         return lhs_base.IsLess(rhs);
     }
@@ -143,7 +143,7 @@ struct Inet4FlowKeyCmp {
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
         bytes(0), packets(0), intf_in(0), exported(false), fip(0),
-        fip_vm_port_id(Interface::kInvalidIndex) {}
+        fip_vm_port_id(Interface::kInvalidIndex), fsc(NULL) {}
 
     uint64_t setup_time;
     uint64_t teardown_time;
@@ -156,6 +156,7 @@ struct FlowStats {
     // Following fields are required for FIP stats accounting
     uint32_t fip;
     uint32_t fip_vm_port_id;
+    FlowStatsCollector *fsc;
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
@@ -441,6 +442,7 @@ class FlowEntry {
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
+    friend class FlowStatsManager;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
@@ -738,6 +740,7 @@ public:
     void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
+    friend class PktSandeshFlowStats;
     friend class FetchFlowRecord;
     friend class RouteFlowUpdate;
     friend class InetRouteFlowUpdate;
@@ -770,6 +773,7 @@ private:
     InetUnicastRouteEntry inet4_route_key_;
     InetUnicastRouteEntry inet6_route_key_;
     FlowIndexTree flow_index_tree_;
+    boost::scoped_ptr<WorkQueue<FlowKey> > delete_queue_;
 
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
@@ -819,9 +823,9 @@ private:
     void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time);
     void SendFlows(FlowEntry *flow, FlowEntry *rflow, uint64_t time);
     void SendFlowInternal(FlowEntry *fe, uint64_t time);
-
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-
+    bool FlowDelete(FlowKey key);
+    void DeleteEnqueue(FlowEntry *fe);
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 
