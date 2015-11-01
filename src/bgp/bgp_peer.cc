@@ -6,10 +6,9 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include "base/task_annotations.h"
-
-
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
@@ -21,15 +20,16 @@
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
+#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/rtarget/rtarget_table.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using boost::system::error_code;
+using boost::tie;
 using namespace std;
 
 class BgpPeer::PeerClose : public IPeerClose {
@@ -273,7 +273,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
     BgpProto::Update update;
     uint16_t afi;
     uint8_t safi;
-    BgpAf::FamilyToAfiSafi(family, afi, safi);
+    tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);
     BgpMpNlri *nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri, afi, safi);
     update.path_attributes.push_back(nlri);
     uint8_t data[256];
@@ -608,33 +608,10 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
         return false;
 
     // Check if the peer advertised it in his Open message.
-    switch (family) {
-    case Address::INET:
-        return MpNlriAllowed(BgpAf::IPv4, BgpAf::Unicast);
-        break;
-    case Address::INETVPN:
-        return MpNlriAllowed(BgpAf::IPv4, BgpAf::Vpn);
-        break;
-    case Address::RTARGET:
-        return MpNlriAllowed(BgpAf::IPv4, BgpAf::RTarget);
-        break;
-    case Address::EVPN:
-        return MpNlriAllowed(BgpAf::L2Vpn, BgpAf::EVpn);
-        break;
-    case Address::ERMVPN:
-        return MpNlriAllowed(BgpAf::IPv4, BgpAf::ErmVpn);
-        break;
-    case Address::INET6:
-        return MpNlriAllowed(BgpAf::IPv6, BgpAf::Unicast);
-        break;
-    case Address::INET6VPN:
-        return MpNlriAllowed(BgpAf::IPv6, BgpAf::Vpn);
-        break;
-    default:
-        break;
-    }
-
-    return false;
+    uint16_t afi;
+    uint8_t safi;
+    tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);
+    return MpNlriAllowed(afi, safi);
 }
 
 // Release resources for a peer that is going to be deleted.
@@ -788,26 +765,17 @@ void BgpPeer::RegisterAllTables() {
     peer_info.set_send_state("not advertising");
     BGPPeerInfo::Send(peer_info);
 
-    if (IsFamilyNegotiated(Address::INET)) {
-        BgpTable *table = instance->GetTable(Address::INET);
+    vector<Address::Family> family_list = list_of
+        (Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, family_list) {
+        if (!IsFamilyNegotiated(family))
+            continue;
+        BgpTable *table = instance->GetTable(family);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-            membership_req_pending_++;
-        }
-    }
-
-    if (IsFamilyNegotiated(Address::INET6)) {
-        BgpTable *table = instance->GetTable(Address::INET6);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           table, "Register peer with the table");
-        if (table) {
-            membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-            membership_req_pending_++;
-        }
+        membership_mgr->Register(this, table, policy_, -1,
+            boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+        membership_req_pending_++;
     }
 
     vpn_tables_registered_ = false;
@@ -1001,7 +969,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     BOOST_FOREACH(Address::Family family, family_) {
         uint16_t afi;
         uint8_t safi;
-        BgpAf::FamilyToAfiSafi(family, afi, safi);
+        tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);
         if (!MpNlriAllowed(afi, safi))
             continue;
         negotiated_families_.push_back(Address::FamilyToString(family));
