@@ -178,20 +178,22 @@ bool DbHandler::CreateTables() {
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(4);
 
+        uint64_t current_tm = UTCTimestampUsec();
+
         GenDb::NewCol *col(new GenDb::NewCol(
-            g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
+            g_viz_constants.SYSTEM_OBJECT_START_TIME, current_tm, 0));
         columns.push_back(col);
 
         GenDb::NewCol *flow_col(new GenDb::NewCol(
-            g_viz_constants.SYSTEM_OBJECT_FLOW_START_TIME, UTCTimestampUsec(), 0));
+            g_viz_constants.SYSTEM_OBJECT_FLOW_START_TIME, current_tm, 0));
         columns.push_back(flow_col);
 
         GenDb::NewCol *msg_col(new GenDb::NewCol(
-            g_viz_constants.SYSTEM_OBJECT_MSG_START_TIME, UTCTimestampUsec(), 0));
+            g_viz_constants.SYSTEM_OBJECT_MSG_START_TIME, current_tm, 0));
         columns.push_back(msg_col);
 
         GenDb::NewCol *stat_col(new GenDb::NewCol(
-            g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, UTCTimestampUsec(), 0));
+            g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, current_tm, 0));
         columns.push_back(stat_col);
 
         if (!dbif_->Db_AddColumnSync(col_list)) {

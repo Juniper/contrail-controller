@@ -1782,7 +1782,8 @@ class OpServer(object):
         self._analytics_db.number_of_purge_requests += 1
         purge_info.number_of_purge_requests = \
             self._analytics_db.number_of_purge_requests
-        total_rows_deleted = self._analytics_db.db_purge(purge_cutoff, purge_id)
+        total_rows_deleted, purge_stat.purge_status_details = \
+            self._analytics_db.db_purge(purge_cutoff, purge_id)
         self._analytics_db.delete_db_purge_status()
 
         if (total_rows_deleted > 0):

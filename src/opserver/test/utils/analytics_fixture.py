@@ -21,6 +21,7 @@ from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
+from generator_introspect_utils import VerificationGenerator
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 from opserver.opserver_util import OpServerUtils
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
@@ -1923,7 +1924,6 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=5)
     def verify_collector_object_log_before_purge(self, start_time, end_time):
         self.logger.info('verify_collector_object_log_before_purge')
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
         res = self.verify_collector_object_log(start_time, end_time)
         self.logger.info("collector object log before purging: %s" % res)
         if not res:
@@ -1935,14 +1935,18 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('verify database purge query');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
         res = vns.post_purge_query_json(json_qstr)
-        assert(res == 'started')
-        return True
+        try:
+            assert(res['status'] == 'started')
+            purge_id = res['purge_id']
+        except KeyError:
+            assert(False)
+        else:
+            return purge_id
     # end verify_database_purge_query
 
     @retry(delay=2, tries=5)
     def verify_collector_object_log_after_purge(self, start_time, end_time):
         self.logger.info('verify_collector_object_log_after_purge')
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         res = self.verify_collector_object_log(start_time, end_time)
         self.logger.info("collector object log after purging: %s" % res)
         if res != []:
@@ -1950,17 +1954,38 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_collector_object_log_after_purge
 
+    @retry(delay=2, tries=5)
+    def verify_database_purge_status(self, purge_id):
+        self.logger.info('verify database purge status: purge_id [%s]' %
+                         (purge_id))
+        try:
+            ops_introspect = VerificationGenerator('127.0.0.1',
+                                self.opserver.http_port)
+            db_purge_uve = ops_introspect.get_uve('DatabasePurgeInfo')
+            db_purge_stats = db_purge_uve['stats'][0]
+        except Exception as e:
+            self.logger.error('Failed to get DatabasePurgeInfo UVE: %s' % (e))
+            return False
+        else:
+            self.logger.info(str(db_purge_stats))
+            if db_purge_stats['purge_id'] != purge_id or \
+               db_purge_stats['purge_status'] != 'success' or \
+               db_purge_stats['purge_status_details']:
+                return False
+        return True
+    # end verify_database_purge_status
+
     def verify_database_purge_with_percentage_input(self):
-        self.logger.info('verify database purge query')
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        self.logger.info('verify database purge with percentage input')
         end_time = UTCTimestampUsec()
         start_time = end_time - 10*60*pow(10,6)
         assert(self.verify_collector_object_log_before_purge(start_time, end_time))
         json_qstr = json.dumps({'purge_input': 100})
-        assert(self.verify_database_purge_query(json_qstr))
+        purge_id = self.verify_database_purge_query(json_qstr)
+        assert(self.verify_database_purge_status(purge_id))
         assert(self.verify_collector_object_log_after_purge(start_time, end_time))
         return True
-    # end verify_database_purge_query
+    # end verify_database_purge_with_percentage_input
 
     def verify_database_purge_support_utc_time_format(self):
         self.logger.info('verify database purge support utc time format')
@@ -1969,7 +1994,8 @@ class AnalyticsFixture(fixtures.Fixture):
         end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
         start_time = end_time - 20*60*pow(10,6)
         assert(self.verify_collector_object_log_before_purge(start_time, end_time))
-        assert(self.verify_database_purge_query(json_qstr))
+        purge_id = self.verify_database_purge_query(json_qstr)
+        assert(self.verify_database_purge_status(purge_id))
         assert(self.verify_collector_object_log_after_purge(start_time, end_time))
         return True
     # end verify_database_purge_support_utc_time_format
@@ -1982,7 +2008,8 @@ class AnalyticsFixture(fixtures.Fixture):
         end_time = OpServerUtils.convert_to_utc_timestamp_usec(dt)
         start_time = end_time - 30*60*pow(10,6)
         assert(self.verify_collector_object_log_before_purge(start_time, end_time))
-        assert(self.verify_database_purge_query(json_qstr))
+        purge_id = self.verify_database_purge_query(json_qstr)
+        assert(self.verify_database_purge_status(purge_id))
         assert(self.verify_collector_object_log_after_purge(start_time, end_time))
         return True
     # end verify_database_purge_support_datetime_format
@@ -1994,7 +2021,8 @@ class AnalyticsFixture(fixtures.Fixture):
         end_time = OpServerUtils.convert_to_utc_timestamp_usec('-1s')
         start_time = end_time - 10*60*pow(10,6)
         assert(self.verify_collector_object_log_before_purge(start_time, end_time))
-        assert(self.verify_database_purge_query(json_qstr))
+        purge_id = self.verify_database_purge_query(json_qstr)
+        assert(self.verify_database_purge_status(purge_id))
         assert(self.verify_collector_object_log_after_purge(start_time, end_time))
         return True
     # end verify_database_purge_support_deltatime_format
@@ -2004,11 +2032,16 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         json_qstr = json.dumps({'purge_input': 50})
         res = vns.post_purge_query_json(json_qstr)
-        if (res == 'started'):
+        self.logger.info(str(res))
+        try:
+            assert(res['status'] == 'started')
+            purge_id = res['purge_id']
             res1 = vns.post_purge_query_json(json_qstr)
-            if (res1 == 'running'):
-                return True
-        return False
+            assert(res1['status'] == 'running')
+            assert(res1['purge_id'] == purge_id)
+        except KeyError:
+            assert(False)
+        return True
     # end verify_database_purge_request_limit
 
     @retry(delay=1, tries=5)
