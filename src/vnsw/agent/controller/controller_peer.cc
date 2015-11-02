@@ -1841,11 +1841,11 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
                                                 const std::string &destination,
                                                 const std::string &source,
                                                 bool associate) {
-    assert(route->GetTableType() == Agent::BRIDGE);
+    assert(route->GetTableType() == Agent::EVPN);
     const AgentPath *path = NULL;
-    BridgeRouteEntry *l2_route =
-        dynamic_cast<BridgeRouteEntry *>(route);
-    path = l2_route->FindOvsPath();
+    EvpnRouteEntry *evpn_route =
+        dynamic_cast<EvpnRouteEntry *>(route);
+    path = evpn_route->FindOvsPath();
     if ((path == NULL) && (associate)) {
         CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(),
                          route->vrf()->GetName(),
@@ -1866,7 +1866,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
 
     rstr.str("");
     //TODO fix this when multicast moves to evpn
-    assert(l2_route->is_multicast());
+    assert(evpn_route->is_multicast());
     rstr << destination;
     rstr << "/32";
     item.entry.nlri.ethernet_tag = 0;
@@ -2414,7 +2414,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn, NULL,
-                                                  label, bmap, "", "",
+                                                  label, bmap,
+                                                  "", "",
                                                   path_preference, false);
     }
     return ret;
