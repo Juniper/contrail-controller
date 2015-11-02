@@ -20,10 +20,14 @@ env.Alias('src/net:mac_address_test', mac_address_test)
 rd_test = env.UnitTest('rd_test', ['rd_test.cc'])
 env.Alias('src/net:rd_test', rd_test)
 
+address_test = env.UnitTest('address_test', ['address_test.cc'])
+env.Alias('src/net:address_test', rd_test)
+
 test_suite = [
     esi_test,
     mac_address_test,
-    rd_test
+    rd_test,
+    address_test
 ]
 
 test = env.TestSuite('net-test', test_suite)

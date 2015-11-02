@@ -127,6 +127,9 @@ boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
         return make_error_code(boost::system::errc::invalid_argument);
     }
     *plen = atoi(str.c_str() + pos + 1);
+    if ((*plen < 0) || (*plen > Address::kMaxV4PrefixLen)) {
+        return make_error_code(boost::system::errc::invalid_argument);
+    }
     
     string addrstr = str.substr(0, pos);
     int dots = CountDots(addrstr);
@@ -134,8 +137,12 @@ boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
         addrstr.append(".0");
         dots++;
     }
+
     boost::system::error_code err;
-    *addr = Ip4Address::from_string(addrstr, err);
+    Ip4Address address = Ip4Address::from_string(addrstr, err);
+    if (!err) {
+        *addr = Address::GetIp4SubnetAddress(address, *plen);
+    }
     return err;
 }
 
@@ -152,7 +159,10 @@ boost::system::error_code Inet6PrefixParse(const string &str, Ip6Address *addr,
 
     string addrstr = str.substr(0, pos);
     boost::system::error_code err;
-    *addr = Ip6Address::from_string(addrstr, err);
+    Ip6Address address = Ip6Address::from_string(addrstr, err);
+    if (!err) {
+        *addr = Address::GetIp6SubnetAddress(address, *plen);
+    }
     return err;
 }
 

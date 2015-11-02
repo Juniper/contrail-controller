@@ -121,21 +121,21 @@ protected:
 };
 
 TEST_F(Inet6TableTest, AddDeleteOneRoute) {
-    AddRoute("2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/64");
+    AddRoute("2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
-    VerifyRouteExists("2001:0db8:85a3::8a2e:0370:aaaa/64");
+    VerifyRouteExists("2001:0db8:85a3::8a2e:0370:aaaa/128");
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
 
-    DelRoute("2001:0db8:85a3::8a2e:0370:aaaa/64");
+    DelRoute("2001:0db8:85a3::8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(del_notification_, 1);
-    VerifyRouteNoExists("2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/64");
+    VerifyRouteNoExists("2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
 }
 
 TEST_F(Inet6TableTest, AddDeleteMultipleRoute1) {
     std::string ip_address = "2001:0db8:85a3::8a2e:0370:";
-    std::string plen = "/64";
+    std::string plen = "/128";
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         std::ostringstream repr;
         repr << ip_address << idx << plen;
@@ -149,6 +149,7 @@ TEST_F(Inet6TableTest, AddDeleteMultipleRoute1) {
         VerifyRouteExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), kRouteCount);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         std::ostringstream repr;
@@ -163,17 +164,41 @@ TEST_F(Inet6TableTest, AddDeleteMultipleRoute1) {
         VerifyRouteNoExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), 0);
+}
+
+// Add kRouteCount routes that differ only in the last byte i.e. the byte that
+// is not considered for a /64. Only one route should get added.
+TEST_F(Inet6TableTest, AddDeleteMultipleRoute2) {
+    std::string ip_address = "2001:0db8:85a3:aaaa::0370:";
+    std::string plen = "/64";
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        std::ostringstream repr;
+        repr << ip_address << idx << plen;
+        AddRoute(repr.str());
+    }
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), 1);
+
+    for (int idx = 1; idx <= kRouteCount; idx++) {
+        std::ostringstream repr;
+        repr << ip_address << (boost::format("%04X") % idx) << plen;
+        DelRoute(repr.str());
+    }
+    TASK_UTIL_EXPECT_EQ(del_notification_, 1);
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), 0);
 }
 
 TEST_F(Inet6TableTest, Hashing) {
     std::string ip_address = "2001:0db8:85a3:fedc:ba09:8a2e:0370:";
-    std::string plen = "/64";
+    std::string plen = "/128";
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
         repr << ip_address << (boost::format("%04X") % idx) << plen;
         AddRoute(repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(kRouteCount, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), kRouteCount);
 
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
@@ -186,7 +211,7 @@ TEST_F(Inet6TableTest, Hashing) {
         repr << ip_address << (boost::format("%04X") % idx) << plen;
         DelRoute(repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(blue_->Size(), 0);
 }
 
 int main(int argc, char **argv) {
