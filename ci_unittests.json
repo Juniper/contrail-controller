@@ -43,7 +43,34 @@
             "controller/src/ifmap:test",
             "controller/src/xmpp:test"
         ],
-        "misc_test_targets" : [ ]
+        "misc_test_targets" : [ ],
+        "environment" : [
+            {
+                "tuples" : [
+                    "NO_HEAPCHECK=TRUE",
+                    "LOG_DISABLE=TRUE"
+                ],
+                "tests" : [
+                    ".*/bgp/l3vpn/test/inetvpn_peer_test$",
+                    ".*/bgp/test/bgp_evpn_manager_test$",
+                    ".*/bgp/test/bgp_server_test$",
+                    ".*/bgp/test/bgp_show_neighbor_test$",
+                    ".*/bgp/test/bgp_show_evpn_table_test$",
+                    ".*/bgp/test/bgp_show_route_summary_test$",
+                    ".*/bgp/test/bgp_show_routing_instance_test$",
+                    ".*/bgp/test/bgp_show_rtarget_group_test$",
+                    ".*/bgp/test/bgp_xmpp_basic_test$",
+                    ".*/bgp/test/bgp_xmpp_evpn_mcast_test$",
+                    ".*/bgp/test/bgp_xmpp_inetvpn_test$",
+                    ".*/bgp/test/bgp_xmpp_inet6vpn_test$",
+                    ".*/bgp/test/bgp_xmpp_mcast_test$",
+                    ".*/bgp/test/bgp_xmpp_rtarget_test$",
+                    ".*/bgp/test/service_chain_test",
+                    ".*/bgp/test/svc_static_route_intergration_test",
+                    ".*/bgp/test/xmpp_ecmp_test$"
+                ]
+            }
+        ]
     },
     "contrail-vrouter" : {
         "source_directories" : [
