@@ -70,7 +70,7 @@
       <ace src-sg="1" dst-sg="1" sport="0:65535" dport="0:65535"
           action="pass"/>
       <ace src-sg="1" dst-sg="2" sport="0:65535" dport="0:65535"
-       action="drop"/>
+       action="deny"/>
       <ace src-ip="1.1.1.0/24" dst-sg="1.1.1.0/24" sport="0:65535"
        dport="0:65535" action="pass"/>
     </acl>
@@ -78,7 +78,7 @@
       <ace src-sg="1" dst-sg="1" sport="0:65535" dport="0:65535"
        action="pass"/>
       <ace src-sg="1" dst-sg="2" sport="0:65535" dport="0:65535"
-       action="drop"/>
+       action="deny"/>
       <ace src-ip="1.1.1.0/24" dst-sg="1.1.1.0/24" sport="0:65535"
        dport="0:65535" action="pass"/>
     </acl>
@@ -110,10 +110,10 @@
     <validate name="validate-3">
         <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="drop"/>
+         dvn="vn1" action="deny"/>
          <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="11"/>
+         dvn="vn1" action="deny" rpf_nh="11"/>
          <flow name="l3-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="11"/>
@@ -126,13 +126,13 @@
     <validate name="validate-4">
         <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="2"/>
+         dvn="vn1" action="deny" rpf_nh="2"/>
         <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="16"/>
+         dvn="vn1" action="deny" rpf_nh="16"/>
         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="16"/>
+         dvn="vn1" action="deny" rpf_nh="16"/>
     </validate>
 
      <l3-route delete="1" uuid="1" id="1" name="route_1" src-ip="1.1.1.4" plen="32"
@@ -140,10 +140,10 @@
      <validate name="validate-5">
         <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="2"/>
+         dvn="vn1" action="deny" rpf_nh="2"/>
         <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="drop" rpf_nh="11"/>
+         dvn="vn1" action="deny" rpf_nh="11"/>
         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="11"/>

@@ -1155,7 +1155,7 @@ void AclAddReq(int id, int ace_id, bool drop) {
     ActionSpec action;
     action.ta_type = TrafficAction::SIMPLE_ACTION;
     if (drop) {
-        action.simple_action = TrafficAction::DROP;
+        action.simple_action = TrafficAction::DENY;
     } else {
         action.simple_action = TrafficAction::PASS;
     }

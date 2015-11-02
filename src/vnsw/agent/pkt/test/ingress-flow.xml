@@ -28,10 +28,10 @@
     <validate name="validate-2">
         <flow name="l2-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="1" svn="vn1"
-         dvn="__UNKNOWN__" action="drop"/> 
+         dvn="__UNKNOWN__" action="deny"/>
         <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="2" svn="vn1"
-         dvn="__UNKNOWN__" action="drop"/> 
+         dvn="__UNKNOWN__" action="deny"/>
     </validate>
 
     <virtual-machine uuid="2" name="vm2"/>

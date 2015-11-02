@@ -445,7 +445,7 @@ TEST_F(SgTestV6, Flow_Drop_1) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], IPPROTO_ICMPV6, 0, 0,
-                               TrafficAction::DROP,
+                               TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
                            IPPROTO_ICMPV6, 0, 0, vnet[1]->flow_key_nh()->id()));
@@ -547,7 +547,7 @@ TEST_F(SgTestV6, DISABLED_Sg_Policy_1) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, IPPROTO_ICMPV6, 0, 0,
-                               TrafficAction::DROP,
+                               TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     client->WaitForIdle();
@@ -609,7 +609,7 @@ TEST_F(SgTestV6, Sg_Policy_2) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], IPPROTO_ICMPV6, 0, 0,
-                               TrafficAction::DROP,
+                               TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
     client->WaitForIdle();
 

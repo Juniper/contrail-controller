@@ -224,9 +224,9 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
                        "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn2"),
-            new VerifyAction((1 << TrafficAction::DROP) | 
+            new VerifyAction((1 << TrafficAction::DENY) |
                              (1 << TrafficAction::VRF_TRANSLATE),
-                             (1 << TrafficAction::DROP) | 
+                             (1 << TrafficAction::DENY) |
                              (1 << TrafficAction::IMPLICIT_DENY))
         }
         }
@@ -253,9 +253,9 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl5) {
                 "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn2"),
-            new VerifyAction((1 << TrafficAction::DROP) |
+            new VerifyAction((1 << TrafficAction::DENY) |
                              (1 << TrafficAction::VRF_TRANSLATE),
-                             (1 << TrafficAction::DROP))
+                             (1 << TrafficAction::DENY))
         }
         }
     };
@@ -623,7 +623,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
             new VerifyAction((1 << TrafficAction::PASS) |
                              (1 << TrafficAction::VRF_TRANSLATE) |
                              (1 << TrafficAction::MIRROR),
-                             (1 << TrafficAction::DROP) | (1 << TrafficAction::IMPLICIT_DENY))
+                             (1 << TrafficAction::DENY) | (1 << TrafficAction::IMPLICIT_DENY))
         }
         }
     };

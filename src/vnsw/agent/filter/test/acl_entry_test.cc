@@ -61,7 +61,7 @@ TEST_F(AclEntryTest, Basic) {
     EXPECT_EQ(1U, al.size());
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     // EXPECT_TRUE(entry1->Match(packet1));
 
     packet1->src_ip = Ip4Address(0x01010101);
@@ -128,7 +128,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(TrafficAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(TrafficAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
 
     packet1->src_ip = Ip4Address(0x01010101);
@@ -137,7 +137,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
 
     packet1->src_ip = Ip4Address(0x01010110);
@@ -145,7 +145,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());    
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());    
     //EXPECT_TRUE(entry1->Match(packet1));
 
     packet1->src_ip = Ip4Address(0x01010101);
@@ -217,7 +217,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     //entry1->FindPermitDenyAction(action);
     //EXPECT_TRUE(action);
 
@@ -227,7 +227,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     //ASSERT_EQ(1, entry1->Match(packet1));
     //entry1->FindPermitDenyAction(action);
     //EXPECT_TRUE(action);
@@ -238,7 +238,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
 
     packet1->src_ip = Ip4Address(0x01010101);
@@ -314,7 +314,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
@@ -325,7 +325,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
@@ -336,7 +336,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->action());
     //EXPECT_TRUE(entry1->Match(packet1));
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
@@ -409,7 +409,7 @@ TEST_F(AclEntryTest, BasicIntrospecIpAclEntry) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::DENY, static_cast<SimpleAction *>(*ial.operator->())->action());
     AclEntrySandeshData data;
     entry1.SetAclEntrySandeshData(data);
     EXPECT_EQ(data.src_type, "ip");
@@ -462,7 +462,7 @@ TEST_F(AclEntryTest, BasicIntrospecNetworkAclEntry) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     AclEntrySandeshData data;
     entry1.SetAclEntrySandeshData(data);
     EXPECT_EQ(data.src_type, "network");
@@ -524,7 +524,7 @@ TEST_F(AclEntryTest, BasicIntrospecSgAclEntry) {
     AclEntry::ActionList::iterator ial;
     ial = al.begin();
     EXPECT_EQ(1U, al.size());
-    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
+    EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->action());
     AclEntrySandeshData data;
     entry1.SetAclEntrySandeshData(data);
     EXPECT_EQ(data.src_type, "sg");
