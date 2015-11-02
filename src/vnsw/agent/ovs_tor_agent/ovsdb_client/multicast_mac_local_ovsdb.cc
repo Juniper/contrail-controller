@@ -30,19 +30,19 @@ using std::string;
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
         const MulticastMacLocalEntry *key) : OvsdbEntry(table),
     logical_switch_name_(key->logical_switch_name_), vrf_(NULL, this),
-    vxlan_id_(key->vxlan_id_), row_list_(key->row_list_), tor_ip_() {
+    vxlan_id_(key->vxlan_id_), row_list_(key->row_list_) {
 }
 
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
         const std::string &logical_switch_name)
     : OvsdbEntry(table), logical_switch_name_(logical_switch_name),
-    vrf_(NULL, this), vxlan_id_(0), row_list_(), tor_ip_() {
+    vrf_(NULL, this), vxlan_id_(0), row_list_() {
 }
 
 MulticastMacLocalEntry::MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
         const std::string &logical_switch_name, struct ovsdb_idl_row *row)
     : OvsdbEntry(table), logical_switch_name_(logical_switch_name),
-    vrf_(NULL, this), vxlan_id_(0), row_list_(), tor_ip_() {
+    vrf_(NULL, this), vxlan_id_(0), row_list_() {
     if (row) {
         row_list_.insert(row);
     }
@@ -72,40 +72,24 @@ void MulticastMacLocalEntry::OnVrfDelete() {
 
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Deleting Multicast Route VN uuid " + logical_switch_name_);
-    table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_, tor_ip_);
+    TorIpList::iterator it_ip = tor_ip_list_.begin();
+    for (; it_ip != tor_ip_list_.end(); it_ip++) {
+        table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
+                                                   (*it_ip));
+    }
+    tor_ip_list_.clear();
     table->vrf_dep_list_.erase(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
                                                                    this));
     // remove vrf reference after deleting route
-    tor_ip_ = Ip4Address();
     vrf_ = NULL;
     return;
 }
 
 bool MulticastMacLocalEntry::Add() {
-    // TODO(prabhjot) currently only take the first physical locator from the
-    // first multicast row for the logical switch, eventually needs to be
-    // converted into list of ToR IPs and export different routes for all
     OvsdbIdlRowList::iterator it = row_list_.begin();
-    std::string tor_ip_str;
-    Ip4Address idl_tor_ip = Ip4Address();
-
-    if (it != row_list_.end()) {
-        struct ovsdb_idl_row *l_set =
-            ovsdb_wrapper_mcast_mac_local_physical_locator_set(*it);
-        if (0 != ovsdb_wrapper_physical_locator_set_locator_count(l_set)) {
-            struct ovsdb_idl_row *locator =
-                ovsdb_wrapper_physical_locator_set_locators(l_set)[0];
-            tor_ip_str = ovsdb_wrapper_physical_locator_dst_ip(locator);
-        }
-        boost::system::error_code ec;
-        idl_tor_ip = Ip4Address::from_string(tor_ip_str, ec);
-    }
-
-    if (idl_tor_ip.to_ulong() == 0) {
-        Delete();
-        return true;
-    }
-    tor_ip_ = idl_tor_ip;
+    TorIpList old_tor_ip_list = tor_ip_list_;
+    // clear the list to hold new entries
+    tor_ip_list_.clear();
 
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
@@ -115,10 +99,42 @@ bool MulticastMacLocalEntry::Add() {
     vxlan_id_ = vn_entry->vxlan_id();
     table->vrf_dep_list_.insert(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
                                                                     this));
-    table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
-                                            vn_entry->name(),
-                                            table_->client_idl()->tsn_ip(),
-                                            tor_ip_);
+
+    for (; it != row_list_.end(); it++) {
+        struct ovsdb_idl_row *l_set =
+            ovsdb_wrapper_mcast_mac_local_physical_locator_set(*it);
+        std::size_t count =
+            ovsdb_wrapper_physical_locator_set_locator_count(l_set);
+        for (std::size_t i = 0; i != count; i++) {
+            struct ovsdb_idl_row *locator =
+                ovsdb_wrapper_physical_locator_set_locators(l_set)[i];
+            std::string tor_ip_str =
+                ovsdb_wrapper_physical_locator_dst_ip(locator);
+            boost::system::error_code ec;
+            Ip4Address tor_ip = Ip4Address::from_string(tor_ip_str, ec);
+            if (tor_ip.to_ulong() == 0) {
+                // 0 ip is not valid ip to export, continue to next row
+                continue;
+            }
+            // insert the current ip to new list
+            tor_ip_list_.insert(tor_ip);
+            // remove from the old list
+            old_tor_ip_list.erase(tor_ip);
+
+            // export the OVS route to Oper Db
+            table->peer()->AddOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
+                                                    vn_entry->name(),
+                                                    table_->client_idl()->tsn_ip(),
+                                                    tor_ip);
+        }
+    }
+
+    TorIpList::iterator it_ip = old_tor_ip_list.begin();
+    for (; it_ip != old_tor_ip_list.end(); it_ip++) {
+        table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), vxlan_id_,
+                                                   (*it_ip));
+    }
+
     return true;
 }
 
@@ -148,8 +164,9 @@ KSyncEntry *MulticastMacLocalEntry::UnresolvedReference() {
     return NULL;
 }
 
-const Ip4Address &MulticastMacLocalEntry::tor_ip() const {
-    return tor_ip_;
+const MulticastMacLocalEntry::TorIpList &
+MulticastMacLocalEntry::tor_ip_list() const {
+    return tor_ip_list_;
 }
 
 const std::string &MulticastMacLocalEntry::logical_switch_name() const {
@@ -320,7 +337,11 @@ void MulticastMacLocalSandeshTask::UpdateResp(KSyncEntry *kentry,
     oentry.set_vxlan_id(entry->vxlan_id());
     std::vector<std::string> &tor_ip =
         const_cast<std::vector<std::string>&>(oentry.get_tor_ip());
-    tor_ip.push_back(entry->tor_ip().to_string());
+    MulticastMacLocalEntry::TorIpList::const_iterator it =
+        entry->tor_ip_list().begin();
+    for (; it != entry->tor_ip_list().end(); it++) {
+        tor_ip.push_back((*it).to_string());
+    }
     OvsdbMulticastMacLocalResp *m_resp =
         static_cast<OvsdbMulticastMacLocalResp *>(resp);
     std::vector<OvsdbMulticastMacLocalEntry> &macs =
