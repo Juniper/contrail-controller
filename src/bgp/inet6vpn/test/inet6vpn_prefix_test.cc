@@ -20,9 +20,9 @@ TEST_F(Inet6VpnPrefixTest, BuildPrefix) {
 
     // type 0 - 2B asn, 4B local
     Inet6VpnPrefix prefix(Inet6VpnPrefix::FromString(
-        "65412:4294967295:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec));
+        "65412:4294967295:2001:0db8:85a3:0000:0000:8a2e:0370:7334/128", &ec));
     EXPECT_EQ(prefix.ToString(),
-              "65412:4294967295:2001:db8:85a3::8a2e:370:7334/64");
+              "65412:4294967295:2001:db8:85a3::8a2e:370:7334/128");
     EXPECT_EQ(ec.value(), 0);
 
     // type 0 - asn 0 is invalid
@@ -47,28 +47,40 @@ TEST_F(Inet6VpnPrefixTest, BuildPrefix) {
 
     // type 1 - 4B ip address, 2B local
     prefix = Inet6VpnPrefix::FromString(
+        "10.1.1.1:4567:2001:0db8:85a3:0000:0000:8a2e:0370:7334/128", &ec);
+    EXPECT_EQ(prefix.ToString(),
+              "10.1.1.1:4567:2001:db8:85a3::8a2e:370:7334/128");
+    EXPECT_EQ(ec.value(), 0);
+
+    prefix = Inet6VpnPrefix::FromString(
         "10.1.1.1:4567:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec);
     EXPECT_EQ(prefix.ToString(),
-              "10.1.1.1:4567:2001:db8:85a3::8a2e:370:7334/64");
+              "10.1.1.1:4567:2001:db8:85a3::/64");
     EXPECT_EQ(ec.value(), 0);
 
     // type 1 with assigned as 0
     prefix = Inet6VpnPrefix::FromString(
+        "10.1.1.1:0:2001:0db8:85a3:0000:0000:8a2e:0370:7334/128", &ec);
+    EXPECT_EQ(prefix.ToString(),
+              "10.1.1.1:0:2001:db8:85a3::8a2e:370:7334/128");
+    EXPECT_EQ(ec.value(), 0);
+
+    prefix = Inet6VpnPrefix::FromString(
         "10.1.1.1:0:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec);
     EXPECT_EQ(prefix.ToString(),
-              "10.1.1.1:0:2001:db8:85a3::8a2e:370:7334/64");
+              "10.1.1.1:0:2001:db8:85a3::/64");
     EXPECT_EQ(ec.value(), 0);
 
     // type 1 with assigned as 65535
     prefix = Inet6VpnPrefix::FromString(
-        "10.1.1.1:65535:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec);
+        "10.1.1.1:65535:2001:0db8:85a3:0000:0000:8a2e:0370:7334/128", &ec);
     EXPECT_EQ(prefix.ToString(),
-              "10.1.1.1:65535:2001:db8:85a3::8a2e:370:7334/64");
+              "10.1.1.1:65535:2001:db8:85a3::8a2e:370:7334/128");
     EXPECT_EQ(ec.value(), 0);
 
     // type 1 - assinged local 65536 is invalid
     prefix = Inet6VpnPrefix::FromString(
-        "10.1.1.1:65536:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec);
+        "10.1.1.1:65536:2001:0db8:85a3:0000:0000:8a2e:0370:7334/128", &ec);
     EXPECT_NE(ec.value(), 0);
 
     // Incomplete prefix
@@ -93,24 +105,23 @@ TEST_F(Inet6VpnPrefixTest, IsMoreSpecific) {
     boost::system::error_code ec;
 
     Inet6VpnPrefix phost1(Inet6VpnPrefix::FromString(
-        "65412:4294967295:2001:0db8:85a3:0000:0000:8a2e:0370:7334/80", &ec));
+        "65412:4294967295:2001:0db8:85a3:aaaa:bbbb:8a2e:0370:7334/80", &ec));
     EXPECT_EQ(phost1.ToString(),
-              "65412:4294967295:2001:db8:85a3::8a2e:370:7334/80");
+              "65412:4294967295:2001:db8:85a3:aaaa:bbbb::/80");
     EXPECT_EQ(ec.value(), 0);
 
     Inet6VpnPrefix pnet1_1(Inet6VpnPrefix::FromString(
-        "65412:4294967295:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec));
+        "65412:4294967295:2001:0db8:85a3:aaaa:bbbb:8a2e:0370:7334/64", &ec));
     EXPECT_EQ(pnet1_1.ToString(),
-              "65412:4294967295:2001:db8:85a3::8a2e:370:7334/64");
+              "65412:4294967295:2001:db8:85a3:aaaa::/64");
     EXPECT_EQ(ec.value(), 0);
 
     EXPECT_EQ(phost1.IsMoreSpecific(pnet1_1), true);
 
     // Smaller RD value should not matter since only ip's are compared
     Inet6VpnPrefix pnet1_2(Inet6VpnPrefix::FromString(
-        "1:1:2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec));
-    EXPECT_EQ(pnet1_2.ToString(),
-              "1:1:2001:db8:85a3::8a2e:370:7334/64");
+        "1:1:2001:0db8:85a3:aaaa:bbbb:8a2e:0370:7334/64", &ec));
+    EXPECT_EQ(pnet1_2.ToString(), "1:1:2001:db8:85a3:aaaa::/64");
     EXPECT_EQ(ec.value(), 0);
 
     EXPECT_EQ(phost1.IsMoreSpecific(pnet1_2), true);

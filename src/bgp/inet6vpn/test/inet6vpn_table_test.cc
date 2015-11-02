@@ -107,15 +107,15 @@ protected:
 };
 
 TEST_F(Inet6VpnTableTest, AddDeleteOneRoute) {
-    AddRoute("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/64");
+    AddRoute("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
-    VerifyRouteExists("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/64");
+    VerifyRouteExists("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/128");
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
 
-    DelRoute("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/64");
+    DelRoute("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(del_notification_, 1);
-    VerifyRouteNoExists("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/64");
+    VerifyRouteNoExists("100:65535:2001:0db8:85a3::8a2e:0370:aaaa/128");
     task_util::WaitForIdle();
 }
 
@@ -123,7 +123,7 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute1) {
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         std::ostringstream repr;
         repr << idx << ":65535:";
-        repr << "2001:0db8:85a3::8a2e:0370:aaaa/64";
+        repr << "2001:0db8:85a3::8a2e:0370:aaaa/128";
         AddRoute(repr.str());
     }
     task_util::WaitForIdle();
@@ -131,15 +131,16 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute1) {
     for (int idx = 1; idx <= kRouteCount; ++idx) {
         std::ostringstream repr;
         repr << idx << ":65535:";
-        repr << "2001:0db8:85a3::8a2e:0370:aaaa/64";
+        repr << "2001:0db8:85a3::8a2e:0370:aaaa/128";
         VerifyRouteExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), kRouteCount);
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
         repr << idx << ":65535:";
-        repr << "2001:0db8:85a3::8a2e:0370:aaaa/64";
+        repr << "2001:0db8:85a3::8a2e:0370:aaaa/128";
         DelRoute(repr.str());
     }
     task_util::WaitForIdle();
@@ -147,10 +148,11 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute1) {
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
         repr << idx << ":65535:";
-        repr << "2001:0db8:85a3::8a2e:0370:aaaa/64";
+        repr << "2001:0db8:85a3::8a2e:0370:aaaa/128";
         VerifyRouteNoExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), 0);
 }
 
 TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute2) {
@@ -169,6 +171,7 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute2) {
         VerifyRouteExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), kRouteCount);
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
@@ -185,6 +188,7 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute2) {
         VerifyRouteNoExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), 0);
 }
 
 TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute3) {
@@ -203,6 +207,7 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute3) {
         VerifyRouteExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(adc_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), kRouteCount);
 
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
@@ -219,18 +224,19 @@ TEST_F(Inet6VpnTableTest, AddDeleteMultipleRoute3) {
         VerifyRouteNoExists(repr.str());
     }
     TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), 0);
 }
 
 TEST_F(Inet6VpnTableTest, Hashing) {
     std::string rd_string = "100:4294967295:";
     std::string ip_address = "2001:0db8:85a3:fedc:ba09:8a2e:0370:";
-    std::string plen = "/64";
+    std::string plen = "/128";
     for (int idx = 1; idx <= kRouteCount; idx++) {
         std::ostringstream repr;
         repr << rd_string << ip_address << (boost::format("%04X") % idx) << plen;
         AddRoute(repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(kRouteCount, inet6_vpn_table_->Size());
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), kRouteCount);
 
     for (int idx = 0; idx < DB::PartitionCount(); idx++) {
         DBTablePartition *tbl_partition = static_cast<DBTablePartition *>
@@ -243,7 +249,7 @@ TEST_F(Inet6VpnTableTest, Hashing) {
         repr << rd_string << ip_address << (boost::format("%04X") % idx) << plen;
         DelRoute(repr.str());
     }
-    TASK_UTIL_EXPECT_EQ(0, inet6_vpn_table_->Size());
+    TASK_UTIL_EXPECT_EQ(inet6_vpn_table_->Size(), 0);
 }
 
 int main(int argc, char **argv) {

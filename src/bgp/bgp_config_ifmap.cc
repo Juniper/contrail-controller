@@ -584,14 +584,14 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
         item.route_target = route.route_target;
         if (item.nexthop.is_v4()) {
             Ip4Address address;
-            ec = Ip4PrefixParse(route.prefix, &address, &item.prefix_length);
+            ec = Ip4SubnetParse(route.prefix, &address, &item.prefix_length);
             if (ec != 0)
                 continue;
             item.address = address;
             inet_list.push_back(item);
         } else {
             Ip6Address address;
-            ec = Inet6PrefixParse(route.prefix, &address, &item.prefix_length);
+            ec = Inet6SubnetParse(route.prefix, &address, &item.prefix_length);
             if (ec != 0)
                 continue;
             item.address = address;
