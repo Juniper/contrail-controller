@@ -602,7 +602,10 @@ class DiscoveryServer():
 
         # handle query for all publishers
         if count == 0:
-            r = [entry['info'] for entry in pubs_active]
+            for entry in pubs_active:
+                r_dict = entry['info'].copy()
+                r_dict['@publisher-id'] = entry['service_id']
+                r.append(r_dict)
             response = {'ttl': ttl, service_type: r}
             if 'application/xml' in ctype:
                 response = xmltodict.unparse({'response': response})
@@ -624,7 +627,8 @@ class DiscoveryServer():
                     if policy == 'fixed' and entry is None and entry2:
                         self._db_conn.delete_service(entry2)
                     continue
-                result = entry['info']
+                result = entry['info'].copy()
+                result['@publisher-id'] = entry['service_id']
                 self._db_conn.insert_client(
                     service_type, service_id, client_id, result, ttl)
                 r.append(result)
@@ -645,7 +649,8 @@ class DiscoveryServer():
 
         # take first 'count' publishers
         for entry in pubs[:min(count, len(pubs))]:
-            result = entry['info']
+            result = entry['info'].copy()
+            result['@publisher-id'] = entry['service_id']
             r.append(result)
 
             self.syslog(' assign service=%s, info=%s' %
