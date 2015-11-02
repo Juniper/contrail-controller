@@ -91,7 +91,7 @@ InetVpnPrefix InetVpnPrefix::FromString(const string &str,
     }
 
     string ip4pstr(str, pos + 1);
-    boost::system::error_code pfxerr = Ip4PrefixParse(ip4pstr, &prefix.addr_,
+    boost::system::error_code pfxerr = Ip4SubnetParse(ip4pstr, &prefix.addr_,
                                        &prefix.prefixlen_);
     if (errorp != NULL) {
         *errorp = pfxerr;

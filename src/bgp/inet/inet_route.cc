@@ -57,7 +57,7 @@ int Ip4Prefix::CompareTo(const Ip4Prefix &rhs) const {
 Ip4Prefix Ip4Prefix::FromString(const string &str,
                                 boost::system::error_code *errorp) {
     Ip4Prefix prefix;
-    boost::system::error_code pfxerr = Ip4PrefixParse(str, &prefix.ip4_addr_,
+    boost::system::error_code pfxerr = Ip4SubnetParse(str, &prefix.ip4_addr_,
                                        &prefix.prefixlen_);
     if (errorp != NULL) {
         *errorp = pfxerr;

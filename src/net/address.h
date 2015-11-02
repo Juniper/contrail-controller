@@ -55,7 +55,11 @@ private:
 
 boost::system::error_code Ip4PrefixParse(const std::string &str,
                                          Ip4Address *addr, int *plen);
+boost::system::error_code Ip4SubnetParse(const std::string &str,
+                                         Ip4Address *addr, int *plen);
 boost::system::error_code Inet6PrefixParse(const std::string &str,
+                                           Ip6Address *addr, int *plen);
+boost::system::error_code Inet6SubnetParse(const std::string &str,
                                            Ip6Address *addr, int *plen);
 
 #endif

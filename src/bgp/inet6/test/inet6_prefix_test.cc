@@ -27,12 +27,12 @@ TEST_F(Inet6PrefixTest, BuildPrefix) {
 
     Inet6Prefix prefix(Inet6Prefix::FromString(
         "2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", &ec));
-    EXPECT_EQ(prefix.ToString(), "2001:db8:85a3::8a2e:370:7334/64");
+    EXPECT_EQ(prefix.ToString(), "2001:db8:85a3::/64");
     EXPECT_EQ(ec.value(), 0);
 
     // :: format
     prefix = Inet6Prefix::FromString("2001:0db8:85a3::8a2e:0370:7334/64", &ec);
-    EXPECT_EQ(prefix.ToString(), "2001:db8:85a3::8a2e:370:7334/64");
+    EXPECT_EQ(prefix.ToString(), "2001:db8:85a3::/64");
     EXPECT_EQ(ec.value(), 0);
 
     // :: at the end

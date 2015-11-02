@@ -54,7 +54,7 @@ int Inet6Prefix::CompareTo(const Inet6Prefix &rhs) const {
 
 Inet6Prefix Inet6Prefix::FromString(const string &str, error_code *error) {
     Inet6Prefix prefix;
-    error_code pfxerr = Inet6PrefixParse(str, &prefix.ip6_addr_,
+    error_code pfxerr = Inet6SubnetParse(str, &prefix.ip6_addr_,
                                        &prefix.prefixlen_);
     if (error != NULL) {
         *error = pfxerr;
