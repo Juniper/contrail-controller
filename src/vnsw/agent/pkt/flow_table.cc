@@ -2199,7 +2199,7 @@ void InetRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
                              route->plen() - 1);
         RouteFlowInfo *rt_info =
             agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
-        agent->pkt()->flow_table()->FlowRecompute(rt_info);
+        agent->pkt()->flow_table()->FlowRecompute(rt_info, &rt_key.key);
     }
 }
 
@@ -2212,7 +2212,7 @@ void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
                                       route->plen()));
     RouteFlowInfo *rt_info =
         agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
-    agent->pkt()->flow_table()->FlowRecompute(rt_info);
+    agent->pkt()->flow_table()->FlowRecompute(rt_info, NULL);
 }
 
 bool InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
@@ -2575,7 +2575,35 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     }
 }
 
-void FlowTable::FlowRecompute(RouteFlowInfo *rt_info) {
+bool FlowTable::NeedsReCompute(const FlowEntry *flow, const RouteFlowKey *key) {
+    if (key == NULL)
+        return true;
+
+    if (key->Match(flow->key().src_addr)) {
+        return true;
+    }
+
+    if (key->Match(flow->key().dst_addr)) {
+        return true;
+    }
+
+    const FlowEntry *rflow = flow->reverse_flow_entry();
+    if (rflow == NULL)
+        return true;
+
+    if (key->Match(rflow->key().src_addr)) {
+        return true;
+    }
+
+    if (key->Match(rflow->key().dst_addr)) {
+        return true;
+    }
+
+    return false;
+}
+
+void FlowTable::FlowRecompute(RouteFlowInfo *rt_info,
+                              const RouteFlowKey *rt_key) {
     if (rt_info == NULL) {
         return;
     }
@@ -2585,6 +2613,9 @@ void FlowTable::FlowRecompute(RouteFlowInfo *rt_info) {
     for (;it != fet.end(); ++it) {
         FlowEntry *fe = (*it).get();
         if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+            continue;
+        }
+        if (NeedsReCompute(fe, rt_key) == false) {
             continue;
         }
         if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
