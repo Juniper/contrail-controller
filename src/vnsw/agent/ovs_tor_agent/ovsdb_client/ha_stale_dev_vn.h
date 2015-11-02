@@ -118,9 +118,6 @@ public:
     const std::string &vn_name() const;
     uint32_t vxlan_id() const;
 
-protected:
-    virtual bool IsNoTxnEntry() { return true; }
-
 private:
     friend class HaStaleDevVnTable;
     boost::uuids::uuid vn_uuid_;

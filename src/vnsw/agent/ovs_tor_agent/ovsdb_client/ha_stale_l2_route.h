@@ -42,6 +42,12 @@ public:
 private:
     friend class HaStaleL2RouteEntry;
 
+    // Enqueue entry to route export queue
+    void EnqueueExportEntry(HaStaleL2RouteEntry *entry);
+
+    // API to process route export queue entries
+    bool ProcessExportEntry(HaStaleL2RouteEntry *entry);
+
     LifetimeRef<HaStaleL2RouteTable> table_delete_ref_;
     // DevVn entry will not be deleted till we del_ack for it
     HaStaleDevVnEntry *dev_vn_;
@@ -52,6 +58,7 @@ private:
     // of vrf pointer even if Add route request fails, due to any reason
     VrfEntryRef vrf_;
     std::string vn_name_;
+    WorkQueue<HaStaleL2RouteEntry *> *route_export_queue_;
     DISALLOW_COPY_AND_ASSIGN(HaStaleL2RouteTable);
 };
 
@@ -61,9 +68,9 @@ public:
                           const std::string &mac);
     ~HaStaleL2RouteEntry();
 
-    void AddMsg(struct ovsdb_idl_txn *);
-    void ChangeMsg(struct ovsdb_idl_txn *);
-    void DeleteMsg(struct ovsdb_idl_txn *);
+    bool Add();
+    bool Change();
+    bool Delete();
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
@@ -74,14 +81,15 @@ public:
     uint32_t vxlan_id() const;
     bool IsStale() const;
 
-protected:
-    virtual bool IsNoTxnEntry() { return true; }
-
 private:
     friend class HaStaleL2RouteTable;
     friend class VrfRouteReflectorTable;
 
     void StaleClearCb();
+
+    void AddEvent();
+    void ChangeEvent();
+    void DeleteEvent();
 
     std::string mac_;
     uint32_t path_preference_;
