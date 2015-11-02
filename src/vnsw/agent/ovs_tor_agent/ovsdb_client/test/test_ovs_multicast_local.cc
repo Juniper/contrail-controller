@@ -131,20 +131,47 @@ TEST_F(MulticastLocalRouteTest, MulticastLocalBasic) {
                  (true == add_mcast_mac_local(entry->name(),
                                               "unknow-dst",
                                               "11.11.11.11")));
+        // Add mcast route for another ToR IP
+        WAIT_FOR(100, 10000,
+                 (true == add_mcast_mac_local(entry->name(),
+                                              "unknow-dst",
+                                              "11.11.11.12")));
         MulticastMacLocalEntry *mcast_entry;
         // Wait for entry to add
         WAIT_FOR(100, 10000,
                  (NULL != (mcast_entry = FindMcastLocal(entry->name()))));
 
         WAIT_FOR(100, 10000, mcast_entry->IsResolved());
+
+        Ip4Address tor_ip_1 = Ip4Address::from_string("11.11.11.11");
+        Ip4Address tor_ip_2 = Ip4Address::from_string("11.11.11.12");
+        MacAddress mac("ff:ff:ff:ff:ff:ff");
+        // Validate both the routes exported to EVPN table
+        WAIT_FOR(100, 10000,
+                 (NULL != EvpnRouteGet("vrf1", mac, tor_ip_1, 100)));
+        WAIT_FOR(100, 10000,
+                 (NULL != EvpnRouteGet("vrf1", mac, tor_ip_2, 100)));
+
         OvsdbMulticastMacLocalReq *req = new OvsdbMulticastMacLocalReq();
         req->HandleRequest();
         client->WaitForIdle();
         req->Release();
 
+        // retract and validate removal of mcast route individualy
         WAIT_FOR(100, 10000,
                  (true == del_mcast_mac_local(entry->name(),
                                               "unknow-dst", "11.11.11.11")));
+        WAIT_FOR(100, 10000,
+                 (NULL == EvpnRouteGet("vrf1", mac, tor_ip_1, 100)));
+        WAIT_FOR(100, 10000,
+                 (NULL != EvpnRouteGet("vrf1", mac, tor_ip_2, 100)));
+        WAIT_FOR(100, 10000,
+                 (true == del_mcast_mac_local(entry->name(),
+                                              "unknow-dst", "11.11.11.12")));
+        WAIT_FOR(100, 10000,
+                 (NULL == EvpnRouteGet("vrf1", mac, tor_ip_1, 100)));
+        WAIT_FOR(100, 10000,
+                 (NULL == EvpnRouteGet("vrf1", mac, tor_ip_2, 100)));
         // Wait for entry to del
         WAIT_FOR(100, 10000,
                  (NULL == FindMcastLocal(entry->name())));

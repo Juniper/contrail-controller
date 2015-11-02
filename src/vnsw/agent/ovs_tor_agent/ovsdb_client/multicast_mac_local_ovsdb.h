@@ -42,6 +42,7 @@ private:
 class MulticastMacLocalEntry : public OvsdbEntry {
 public:
     typedef std::set<struct ovsdb_idl_row *> OvsdbIdlRowList;
+    typedef std::set<Ip4Address> TorIpList;
     MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
             const MulticastMacLocalEntry *key);
     MulticastMacLocalEntry(MulticastMacLocalOvsdb *table,
@@ -58,7 +59,7 @@ public:
     std::string ToString() const {return "Multicast Mac Local";}
 
     const std::string &mac() const;
-    const Ip4Address &tor_ip() const;
+    const TorIpList &tor_ip_list() const;
     const std::string &logical_switch_name() const;
     const uint32_t vxlan_id() const {return vxlan_id_;}
     OVSDB::VnOvsdbEntry *GetVnEntry() const;
@@ -74,7 +75,7 @@ private:
     VrfEntryRef vrf_;
     uint32_t vxlan_id_;
     OvsdbIdlRowList row_list_;
-    Ip4Address tor_ip_;
+    TorIpList tor_ip_list_;
     DISALLOW_COPY_AND_ASSIGN(MulticastMacLocalEntry);
 };
 
