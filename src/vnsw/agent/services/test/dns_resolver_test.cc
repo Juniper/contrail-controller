@@ -396,10 +396,15 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
 
     DnsProto::DnsStats stats;
     int count = 0;
+    Agent::GetInstance()->GetDnsProto()->set_timeout(30);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(1);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
     client->WaitForIdle();
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
+    Agent::GetInstance()->GetDnsProto()->set_timeout(2000);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(2);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     AddVDNS("vdns1", vdns_attr);
@@ -453,7 +458,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     g_xid++;
     SendDnsResp(5, ptr_items, 5, auth_items, 5, add_items);
     usleep(1000);
-    CHECK_CONDITION(stats.resolved < 2);
+    CHECK_CONDITION(stats.resolved < 3);
     CHECK_STATS(stats, 5, 3, 2, 0, 0, 0);
 
     //second bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
@@ -463,7 +468,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     SendDnsResp(5, ptr_items, 5, auth_items, 5, add_items);
-    CHECK_CONDITION(stats.resolved < 3);
+    CHECK_CONDITION(stats.resolved < 4);
     CHECK_STATS(stats, 6, 4, 2, 0, 0, 0);
     g_xid++;
     SendDnsResp(5, ptr_items, 5, auth_items, 0, add_items, true);
@@ -478,7 +483,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
     g_xid++;
     SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
-    CHECK_CONDITION(stats.resolved < 4);
+    CHECK_CONDITION(stats.fail < 1);
     // check fail stats incremented
     CHECK_STATS(stats, 7, 4, 2, 0, 1, 0);
 

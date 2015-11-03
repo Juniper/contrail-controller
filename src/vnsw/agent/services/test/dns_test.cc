@@ -463,12 +463,17 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
     client->WaitForIdle();
 
+    Agent::GetInstance()->GetDnsProto()->set_timeout(30);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(1);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
     DnsProto::DnsStats stats;
     int count = 0;
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
     client->WaitForIdle();
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
+    Agent::GetInstance()->GetDnsProto()->set_timeout(30);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(1);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     AddVDNS("vdns1", vdns_attr);
