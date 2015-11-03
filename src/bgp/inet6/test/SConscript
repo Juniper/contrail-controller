@@ -120,9 +120,7 @@ inet6_route_test = env.UnitTest('inet6_route_test', ['inet6_route_test.cc'])
 env.Alias('src/bgp/inet6:inet6_route_test', inet6_route_test)
 env.Alias('controller/src/bgp/inet6:inet6_route_test', inet6_route_test)
 
-inet6_table_test = env.UnitTest('inet6_table_test',
-                                ['inet6_table_test.cc'],
-                                platform_exclude=[('Ubuntu','14.04')])
+inet6_table_test = env.UnitTest('inet6_table_test', ['inet6_table_test.cc'])
 env.Alias('src/bgp/inet6:inet6_table_test', inet6_table_test)
 
 test_suite = [
