@@ -26,6 +26,8 @@ public:
     // overriden by the derived class to get triggers
     virtual void TxnDoneNoMessage() {}
 
+    KSyncEntry::KSyncEvent ack_event() {return ack_event_;}
+
 protected:
     friend class OvsdbClientIdl;
     KSyncEntry::KSyncEvent ack_event_;
