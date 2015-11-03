@@ -100,7 +100,7 @@ public:
 private:
     friend class PathResolverPartition;
     friend class ResolverNexthop;
-    friend class PathResolverTest;
+    template <typename U> friend class PathResolverTest;
 
     class DeleteActor;
     typedef std::map<IpAddress, ResolverNexthop *> ResolverNexthopMap;

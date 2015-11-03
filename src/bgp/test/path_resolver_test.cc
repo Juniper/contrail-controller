@@ -12,6 +12,7 @@
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/inet6/inet6_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 
@@ -77,21 +78,44 @@ static const char *config = "\
 </config>\
 ";
 
+//
+// Template structure to pass to fixture class template. Needed because
+// gtest fixture class template can accept only one template parameter.
+//
+template <typename T1, typename T2, typename T3>
+struct TypeDefinition {
+  typedef T1 TableT;
+  typedef T2 PrefixT;
+  typedef T3 AddressT;
+};
+
+// TypeDefinitions that we want to test.
+typedef TypeDefinition<InetTable, Ip4Prefix, Ip4Address> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix, Ip6Address> Inet6Definition;
+
+//
+// Fixture class template - instantiated later for each TypeDefinition.
+//
+template <typename T>
 class PathResolverTest : public ::testing::Test {
 protected:
+    typedef typename T::TableT TableT;
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::AddressT AddressT;
+
     PathResolverTest()
         : bgp_server_(new BgpServerTest(&evm_, "localhost")),
-          family_(Address::INET),
+          family_(GetFamily()),
           ipv6_prefix_("::ffff:"),
-          peer1_(new PeerMock(false, "192.168.1.1")),
-          peer2_(new PeerMock(false, "192.168.1.2")),
+          bgp_peer1_(new PeerMock(false, "192.168.1.1")),
+          bgp_peer2_(new PeerMock(false, "192.168.1.2")),
           xmpp_peer1_(new PeerMock(true, "172.16.1.1")),
           xmpp_peer2_(new PeerMock(true, "172.16.1.2")) {
         bgp_server_->session_manager()->Initialize(0);
     }
     ~PathResolverTest() {
-        delete peer1_;
-        delete peer2_;
+        delete bgp_peer1_;
+        delete bgp_peer2_;
         delete xmpp_peer1_;
         delete xmpp_peer2_;
     }
@@ -105,6 +129,11 @@ protected:
         task_util::WaitForIdle();
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
+    }
+
+    Address::Family GetFamily() const {
+        assert(false);
+        return Address::UNSPEC;
     }
 
     string BuildHostAddress(const string &ipv4_addr) const {
@@ -168,23 +197,48 @@ protected:
             bgp_server_->database()->FindTable(GetTableName(instance)));
     }
 
-    void AddPath(IPeer *peer, bool resolve, const string &instance,
-        const string &prefix_str, const string &nexthop_str1,
-        int label = 0, const string &nexthop_str2 = string(),
-        vector<uint32_t> sgid_list = vector<uint32_t>(),
-        set<string> encap_list = set<string>()) {
-        assert(!nexthop_str1.empty());
-        assert(peer->IsXmppPeer() || nexthop_str2.empty());
-        assert(peer->IsXmppPeer() != resolve);
-        assert(peer->IsXmppPeer() || sgid_list.empty());
-        assert(peer->IsXmppPeer() || encap_list.empty());
+    // Add a BgpPath that requires resolution.
+    void AddBgpPath(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str) {
+        assert(!bgp_peer->IsXmppPeer());
 
         boost::system::error_code ec;
-        Ip4Prefix prefix = Ip4Prefix::FromString(prefix_str, &ec);
+        PrefixT prefix = PrefixT::FromString(prefix_str, &ec);
         EXPECT_FALSE(ec);
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        request.key.reset(new InetTable::RequestKey(prefix, peer));
+        request.key.reset(new typename TableT::RequestKey(prefix, bgp_peer));
+
+        BgpTable *table = GetTable(instance);
+        BgpAttrSpec attr_spec;
+
+        AddressT nh_addr = AddressT::from_string(nexthop_str, ec);
+        EXPECT_FALSE(ec);
+        BgpAttrNextHop nh_spec(nh_addr);
+        attr_spec.push_back(&nh_spec);
+
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
+        request.data.reset(
+            new BgpTable::RequestData(attr, BgpPath::ResolveNexthop, 0));
+        table->Enqueue(&request);
+    }
+
+    // Add a BgpPath that that can be used to resolve other paths.
+    void AddXmppPath(IPeer *xmpp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str1,
+        int label, const string &nexthop_str2 = string(),
+        vector<uint32_t> sgid_list = vector<uint32_t>(),
+        set<string> encap_list = set<string>()) {
+        assert(xmpp_peer->IsXmppPeer());
+        assert(!nexthop_str1.empty());
+        assert(label);
+
+        boost::system::error_code ec;
+        PrefixT prefix = PrefixT::FromString(prefix_str, &ec);
+        EXPECT_FALSE(ec);
+        DBRequest request;
+        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        request.key.reset(new typename TableT::RequestKey(prefix, xmpp_peer));
 
         BgpTable *table = GetTable(instance);
         int index = table->routing_instance()->index();
@@ -192,13 +246,12 @@ protected:
 
         Ip4Address nh_addr1 = Ip4Address::from_string(nexthop_str1, ec);
         EXPECT_FALSE(ec);
-        BgpAttrNextHop nh_spec(nh_addr1.to_ulong());
+        BgpAttrNextHop nh_spec(nh_addr1);
         attr_spec.push_back(&nh_spec);
 
         BgpAttrSourceRd source_rd_spec(
             RouteDistinguisher(nh_addr1.to_ulong(), index));
-        if (peer->IsXmppPeer())
-            attr_spec.push_back(&source_rd_spec);
+        attr_spec.push_back(&source_rd_spec);
 
         ExtCommunitySpec extcomm_spec;
         for (vector<uint32_t>::iterator it = sgid_list.begin();
@@ -218,28 +271,23 @@ protected:
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
-        InetTable::RequestData::NextHops nexthops;
-        InetTable::RequestData::NextHop nexthop1;
-        nexthop1.flags_ = resolve ? BgpPath::ResolveNexthop : 0;
+        typename TableT::RequestData::NextHops nexthops;
+        typename TableT::RequestData::NextHop nexthop1;
+        nexthop1.flags_ = 0;
         nexthop1.address_ = nh_addr1;
         nexthop1.label_ = label;
-        if (peer->IsXmppPeer()) {
-            nexthop1.source_rd_ =
-                RouteDistinguisher(nh_addr1.to_ulong(), index);
-        }
+        nexthop1.source_rd_ = RouteDistinguisher(nh_addr1.to_ulong(), index);
         nexthops.push_back(nexthop1);
 
-        InetTable::RequestData::NextHop nexthop2;
+        typename TableT::RequestData::NextHop nexthop2;
         if (!nexthop_str2.empty()) {
             Ip4Address nh_addr2 = Ip4Address::from_string(nexthop_str2, ec);
             EXPECT_FALSE(ec);
             nexthop2.flags_ = 0;
             nexthop2.address_ = nh_addr2;
             nexthop2.label_ = label;
-            if (peer->IsXmppPeer()) {
-                nexthop2.source_rd_ =
-                    RouteDistinguisher(nh_addr2.to_ulong(), index);
-            }
+            nexthop2.source_rd_ =
+                RouteDistinguisher(nh_addr2.to_ulong(), index);
             nexthops.push_back(nexthop2);
         }
 
@@ -247,32 +295,42 @@ protected:
         table->Enqueue(&request);
     }
 
-    void AddPathWithSecurityGroups(IPeer *peer, bool resolve,
+    void AddXmppPathWithSecurityGroups(IPeer *xmpp_peer,
         const string &instance, const string &prefix_str,
         const string &nexthop_str, int label, vector<uint32_t> sgid_list) {
-        AddPath(peer, resolve, instance, prefix_str, nexthop_str, label,
+        AddXmppPath(xmpp_peer, instance, prefix_str, nexthop_str, label,
             string(), sgid_list, set<string>());
     }
 
-    void AddPathWithTunnelEncapsulations(IPeer *peer, bool resolve,
+    void AddXmppPathWithTunnelEncapsulations(IPeer *xmpp_peer,
         const string &instance, const string &prefix_str,
         const string &nexthop_str, int label, set<string> encap_list) {
-        AddPath(peer, resolve, instance, prefix_str, nexthop_str, label,
+        AddXmppPath(xmpp_peer, instance, prefix_str, nexthop_str, label,
             string(), vector<uint32_t>(), encap_list);
     }
 
     void DeletePath(IPeer *peer, const string &instance,
         const string &prefix_str) {
         boost::system::error_code ec;
-        Ip4Prefix prefix = Ip4Prefix::FromString(prefix_str, &ec);
+        PrefixT prefix = PrefixT::FromString(prefix_str, &ec);
         EXPECT_FALSE(ec);
 
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_DELETE;
-        request.key.reset(new InetTable::RequestKey(prefix, peer));
+        request.key.reset(new typename TableT::RequestKey(prefix, peer));
 
         BgpTable *table = GetTable(instance);
         table->Enqueue(&request);
+    }
+
+    void DeleteBgpPath(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str) {
+        DeletePath(bgp_peer, instance, prefix_str);
+    }
+
+    void DeleteXmppPath(IPeer *xmpp_peer, const string &instance,
+        const string &prefix_str) {
+        DeletePath(xmpp_peer, instance, prefix_str);
     }
 
     void DisableResolverNexthopRegUnregProcessing(const string &instance) {
@@ -322,15 +380,15 @@ protected:
 
     BgpRoute *RouteLookup(const string &instance_name, const string &prefix) {
         BgpTable *bgp_table = GetTable(instance_name);
-        InetTable *table = dynamic_cast<InetTable *>(bgp_table);
+        TableT *table = dynamic_cast<TableT *>(bgp_table);
         EXPECT_TRUE(table != NULL);
         if (table == NULL) {
             return NULL;
         }
         boost::system::error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
-        typename InetTable::RequestKey key(nlri, NULL);
+        typename TableT::RequestKey key(nlri, NULL);
         BgpRoute *rt = dynamic_cast<BgpRoute *>(table->Find(&key));
         return rt;
     }
@@ -479,50 +537,74 @@ protected:
     BgpServerTestPtr bgp_server_;
     Address::Family family_;
     string ipv6_prefix_;
-    PeerMock *peer1_;
-    PeerMock *peer2_;
+    PeerMock *bgp_peer1_;
+    PeerMock *bgp_peer2_;
     PeerMock *xmpp_peer1_;
     PeerMock *xmpp_peer2_;
 };
 
+// Specialization of GetFamily for INET.
+template<>
+Address::Family PathResolverTest<InetDefinition>::GetFamily() const {
+    return Address::INET;
+}
+
+// Specialization of GetFamily for INET6.
+template<>
+Address::Family PathResolverTest<Inet6Definition>::GetFamily() const {
+    return Address::INET6;
+}
+
+// Instantiate fixture class template for each TypeDefinition.
+typedef ::testing::Types <InetDefinition, Inet6Definition> TypeDefinitionList;
+TYPED_TEST_CASE(PathResolverTest, TypeDefinitionList);
+
 //
 // Add BGP path before XMPP path.
 //
-TEST_F(PathResolverTest, SinglePrefix1) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefix1) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Add BGP path after XMPP path.
 //
-TEST_F(PathResolverTest, SinglePrefix2) {
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+TYPED_TEST(PathResolverTest, SinglePrefix2) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
 }
 
 //
@@ -530,560 +612,615 @@ TEST_F(PathResolverTest, SinglePrefix2) {
 // Delete and add BGP path multiple times when path update list processing is
 // disabled.
 //
-TEST_F(PathResolverTest, SinglePrefixAddDelete) {
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+TYPED_TEST(PathResolverTest, SinglePrefixAddDelete) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
-    DisableResolverPathUpdateProcessing("blue");
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(1, ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    this->DisableResolverPathUpdateProcessing("blue");
 
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    TASK_UTIL_EXPECT_EQ(2, ResolverPathUpdateListSize("blue"));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverPathUpdateListSize("blue"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
 
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    TASK_UTIL_EXPECT_EQ(3, ResolverPathUpdateListSize("blue"));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    TASK_UTIL_EXPECT_EQ(3, this->ResolverPathUpdateListSize("blue"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(3, ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(3, this->ResolverPathUpdateListSize("blue"));
 
-    EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->EnableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
 }
 
 //
 // Change XMPP path label after BGP path has been resolved.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath1) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath1) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
-
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Change XMPP path nexthop after BGP path has been resolved.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath2) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath2) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.2.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.2.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Change XMPP path multiple times when nh update list processing is disabled.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath3) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath3) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    DisableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->DisableResolverNexthopUpdateProcessing("blue");
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10002);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10002);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10003);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10003);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->EnableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10003);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Change and delete XMPP path when nh update list processing is disabled.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath4) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath4) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    DisableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->DisableResolverNexthopUpdateProcessing("blue");
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->EnableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Delete and resurrect XMPP path when nh update list processing is disabled.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath5) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath5) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    DisableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->DisableResolverNexthopUpdateProcessing("blue");
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    TASK_UTIL_EXPECT_EQ(1, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    EnableResolverNexthopUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverNexthopUpdateListSize("blue"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->EnableResolverNexthopUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverNexthopUpdateListSize("blue"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Change XMPP path sgid list.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath6) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath6) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     vector<uint32_t> sgid_list1 = list_of(1)(2)(3)(4);
-    AddPathWithSecurityGroups(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000, sgid_list1);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPathWithSecurityGroups(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, sgid_list1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000, sgid_list1);
 
     vector<uint32_t> sgid_list2 = list_of(3)(4)(5)(6);
-    AddPathWithSecurityGroups(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000, sgid_list2);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPathWithSecurityGroups(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, sgid_list2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000, sgid_list2);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // Change XMPP path encap list.
 //
-TEST_F(PathResolverTest, SinglePrefixChangeXmppPath7) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath7) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
     set<string> encap_list1 = list_of("gre")("udp");
-    AddPathWithTunnelEncapsulations(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000, encap_list1);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPathWithTunnelEncapsulations(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, encap_list1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000, encap_list1);
 
     set<string> encap_list2 = list_of("udp");
-    AddPathWithTunnelEncapsulations(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000, encap_list2);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPathWithTunnelEncapsulations(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, encap_list2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000, encap_list2);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // XMPP path has multiple ECMP nexthops.
 // Change XMPP route from ECMP to non-ECMP and back.
 //
-TEST_F(PathResolverTest, SinglePrefixWithEcmp) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixWithEcmp) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000,
-        this->BuildHostAddress("172.16.2.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000,
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.2.1"), 10000);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.2.1"), 10000);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000,
-        this->BuildHostAddress("172.16.2.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000,
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10000);
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"));
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000,
-        this->BuildHostAddress("172.16.2.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000,
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10000);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
 }
 
 //
 // BGP has multiple paths for same prefix, each with a different nexthop.
 // Add and remove paths for the prefix.
 //
-TEST_F(PathResolverTest, SinglePrefixWithMultipath) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixWithMultipath) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+    PeerMock *xmpp_peer2 = this->xmpp_peer2_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10002);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10002);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10002);
 
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"));
 
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10002);
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10002);
 
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10002);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    DeletePath(xmpp_peer2_, "blue", this->BuildPrefix(peer2_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
 }
 
 //
 // BGP has multiple paths for same prefix, each with a different nexthop.
 // XMPP route for the nexthop is ECMP.
 //
-TEST_F(PathResolverTest, SinglePrefixWithMultipathAndEcmp) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
+TYPED_TEST(PathResolverTest, SinglePrefixWithMultipathAndEcmp) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+    PeerMock *xmpp_peer2 = this->xmpp_peer2_;
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001,
-        this->BuildHostAddress("172.16.2.1"));
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10002,
-        this->BuildHostAddress("172.16.2.2"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.2"), 10002);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.2"), 10002);
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.2.1"), 10001);
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.2.2"), 10002);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.1"), 10001);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.2"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.2"), 10002);
-
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001,
-        this->BuildHostAddress("172.16.2.1"));
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10002,
-        this->BuildHostAddress("172.16.2.2"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.1"), 10001);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.2"), 10002);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.2.2"), 10002);
-
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10002);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
-        this->BuildNextHopAddress("172.16.1.1"), 10001);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001,
         this->BuildNextHopAddress("172.16.2.1"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10002,
+        this->BuildNextHopAddress("172.16.2.2"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.1"), 10001);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10002);
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.2"), 10002);
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.2.1"), 10001);
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.2.2"), 10002);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.1"), 10001);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.2"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.2"), 10002);
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001,
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10002,
+        this->BuildNextHopAddress("172.16.2.2"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.1"), 10001);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.2"), 10002);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.2"), 10002);
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10002);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.2"), 10002);
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.2"));
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10003,
-        this->BuildHostAddress("172.16.2.1"));
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10004,
-        this->BuildHostAddress("172.16.2.2"));
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10003,
+        this->BuildNextHopAddress("172.16.2.1"));
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10004,
+        this->BuildNextHopAddress("172.16.2.2"));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10003);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"), 10003);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"), 10004);
-    VerifyPathAttributes("blue", this->BuildPrefix(1),
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.2"), 10004);
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    DeletePath(xmpp_peer2_, "blue", this->BuildPrefix(peer2_->ToString(), 32));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.1"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.2"));
-    VerifyPathNoExists("blue", this->BuildPrefix(1),
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.2.2"));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
 }
 
 //
 // BGP has multiple prefixes, each with the same nexthop.
 //
-TEST_F(PathResolverTest, MultiplePrefix) {
+TYPED_TEST(PathResolverTest, MultiplePrefix) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddPath(peer1_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeletePath(peer1_, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
     }
 }
 
@@ -1091,58 +1228,62 @@ TEST_F(PathResolverTest, MultiplePrefix) {
 // BGP has multiple prefixes, each with the same nexthop.
 // Change XMPP path multiple times when path update list processing is disabled.
 //
-TEST_F(PathResolverTest, MultiplePrefixChangeXmppPath1) {
+TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath1) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddPath(peer1_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
-    DisableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    this->DisableResolverPathUpdateProcessing("blue");
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
     TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
-        ResolverPathUpdateListSize("blue"));
+        this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10002);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10002);
     TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
-        ResolverPathUpdateListSize("blue"));
+        this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
+    this->EnableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10002);
     }
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeletePath(peer1_, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
     }
 }
 
@@ -1150,167 +1291,190 @@ TEST_F(PathResolverTest, MultiplePrefixChangeXmppPath1) {
 // BGP has multiple prefixes, each with the same nexthop.
 // Change XMPP path and delete it path update list processing is disabled.
 //
-TEST_F(PathResolverTest, MultiplePrefixChangeXmppPath2) {
+TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath2) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddPath(peer1_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
-    DisableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    this->DisableResolverPathUpdateProcessing("blue");
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
-        ResolverPathUpdateListSize("blue"));
+        this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
-        ResolverPathUpdateListSize("blue"));
+        this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, ResolverPathUpdateListSize("blue"));
+    this->EnableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeletePath(peer1_, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
     }
 }
 
 //
 // BGP has 2 paths for all prefixes.
 //
-TEST_F(PathResolverTest, MultiplePrefixWithMultipath) {
+TYPED_TEST(PathResolverTest, MultiplePrefixWithMultipath) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+    PeerMock *xmpp_peer2 = this->xmpp_peer2_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddPath(peer1_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
-        AddPath(peer2_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer2_->ToString()));
+        this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
+        this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer2->ToString()));
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10001);
-    AddPath(xmpp_peer2_, false, "blue",
-        this->BuildPrefix(peer2_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.2"), 10002);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10001);
+    this->AddXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.2"), 10002);
     task_util::WaitForIdle();
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10001);
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.2"), 10002);
     }
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    DeletePath(xmpp_peer2_, "blue", this->BuildPrefix(peer2_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer2, "blue",
+        this->BuildPrefix(bgp_peer2->ToString(), 32));
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.2"));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeletePath(peer1_, "blue", this->BuildPrefix(idx));
-        DeletePath(peer2_, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(idx));
     }
 }
 
 //
 // BGP has multiple prefixes in blue and pink tables, each with same nexthop.
 //
-TEST_F(PathResolverTest, MultipleTableMultiplePrefix) {
+TYPED_TEST(PathResolverTest, MultipleTableMultiplePrefix) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        AddPath(peer1_, true, "blue", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
-        AddPath(peer1_, true, "pink", this->BuildPrefix(idx),
-            this->BuildHostAddress(peer1_->ToString()));
+        this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
+        this->AddBgpPath(bgp_peer1, "pink", this->BuildPrefix(idx),
+            this->BuildHostAddress(bgp_peer1->ToString()));
     }
 
-    AddPath(xmpp_peer1_, false, "blue",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
-    AddPath(xmpp_peer1_, false, "pink",
-        this->BuildPrefix(peer1_->ToString(), 32),
-        this->BuildHostAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "pink",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathAttributes("blue", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
-        VerifyPathAttributes("pink", this->BuildPrefix(idx),
+        this->VerifyPathAttributes("pink", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"), 10000);
     }
 
-    DeletePath(xmpp_peer1_, "blue", this->BuildPrefix(peer1_->ToString(), 32));
-    DeletePath(xmpp_peer1_, "pink", this->BuildPrefix(peer1_->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "pink",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        VerifyPathNoExists("blue", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("blue", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
-        VerifyPathNoExists("pink", this->BuildPrefix(idx),
+        this->VerifyPathNoExists("pink", this->BuildPrefix(idx),
             this->BuildNextHopAddress("172.16.1.1"));
     }
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
-        DeletePath(peer1_, "blue", this->BuildPrefix(idx));
-        DeletePath(peer1_, "pink", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(idx));
+        this->DeleteBgpPath(bgp_peer1, "pink", this->BuildPrefix(idx));
     }
 }
 
 //
 // Delete BGP path before it's nexthop is registered to condition listener.
 //
-TEST_F(PathResolverTest, StopResolutionBeforeRegister) {
-    DisableResolverNexthopRegUnregProcessing("blue");
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
-    EnableResolverNexthopRegUnregProcessing("blue");
+TYPED_TEST(PathResolverTest, StopResolutionBeforeRegister) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+
+    this->DisableResolverNexthopRegUnregProcessing("blue");
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
+    this->EnableResolverNexthopRegUnregProcessing("blue");
 }
 
 //
 // Shutdown server and resolver before all BGP paths are deleted.
 // Deletion does not finish till BGP paths are deleted.
 //
-TEST_F(PathResolverTest, Shutdown1) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
+TYPED_TEST(PathResolverTest, Shutdown1) {
+    BgpServerTestPtr bgp_server = this->bgp_server_;
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
 
-    bgp_server_->Shutdown(false);
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    bgp_server->Shutdown(false);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server_->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(0, bgp_server_->routing_instance_mgr()->count());
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
+    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -1318,24 +1482,28 @@ TEST_F(PathResolverTest, Shutdown1) {
 // Deletion does not finish till BGP paths are deleted and nexthop gets
 // unregistered from condition listener.
 //
-TEST_F(PathResolverTest, Shutdown2) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
+TYPED_TEST(PathResolverTest, Shutdown2) {
+    BgpServerTestPtr bgp_server = this->bgp_server_;
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
 
-    bgp_server_->Shutdown(false);
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    bgp_server->Shutdown(false);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server_->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
 
-    DisableResolverNexthopRegUnregProcessing("blue");
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
+    this->DisableResolverNexthopRegUnregProcessing("blue");
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server_->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
 
-    EnableResolverNexthopRegUnregProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, bgp_server_->routing_instance_mgr()->count());
+    this->EnableResolverNexthopRegUnregProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }
 
 //
@@ -1343,25 +1511,29 @@ TEST_F(PathResolverTest, Shutdown2) {
 // Deletion does not finish till resolver paths are deleted and nexthop
 // gets unregistered from condition listener.
 //
-TEST_F(PathResolverTest, Shutdown3) {
-    AddPath(peer1_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer1_->ToString()));
-    AddPath(peer2_, true, "blue", this->BuildPrefix(1),
-        this->BuildHostAddress(peer2_->ToString()));
+TYPED_TEST(PathResolverTest, Shutdown3) {
+    BgpServerTestPtr bgp_server = this->bgp_server_;
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
 
-    DisableResolverPathUpdateProcessing("blue");
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
 
-    DeletePath(peer1_, "blue", this->BuildPrefix(1));
-    DeletePath(peer2_, "blue", this->BuildPrefix(1));
-    TASK_UTIL_EXPECT_EQ(2, ResolverPathUpdateListSize("blue"));
+    this->DisableResolverPathUpdateProcessing("blue");
 
-    bgp_server_->Shutdown(false);
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
+    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+
+    bgp_server->Shutdown(false);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, bgp_server_->routing_instance_mgr()->count());
-    TASK_UTIL_EXPECT_EQ(2, ResolverPathUpdateListSize("blue"));
+    TASK_UTIL_EXPECT_EQ(1, bgp_server->routing_instance_mgr()->count());
+    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
 
-    EnableResolverPathUpdateProcessing("blue");
-    TASK_UTIL_EXPECT_EQ(0, bgp_server_->routing_instance_mgr()->count());
+    this->EnableResolverPathUpdateProcessing("blue");
+    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }
 
 class TestEnvironment : public ::testing::Environment {
