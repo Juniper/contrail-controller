@@ -290,7 +290,8 @@ static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
 
         if (add) {
             data->static_route_list_.list_.insert
-                (VmInterface::StaticRoute(data->vrf_name_, ip, plen, gw));
+                (VmInterface::StaticRoute(data->vrf_name_, ip, plen, gw,
+                              it->community_attributes.community_attribute));
         }
     }
 }
@@ -2486,7 +2487,8 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
             old_addr != primary_ip_addr_ || vm_ip_gw_addr_ != ip) {
             vm_ip_gw_addr_ = ip;
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
-                     policy_enabled_, ecmp_, vm_ip_gw_addr_, Ip4Address(0));
+                     policy_enabled_, ecmp_, vm_ip_gw_addr_, Ip4Address(0),
+                     CommunityList());
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -2534,8 +2536,8 @@ void VmInterface::UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_upda
             //TODO: change subnet_gw_ip to Ip6Address
             InetUnicastAgentRouteTable::AddLocalVmRoute
                 (peer_.get(), vrf_->GetName(), primary_ip6_addr_, 128, GetUuid(),
-                 vn_->GetName(), label_, sg_id_list, false, path_preference,
-                 vm_ip6_gw_addr_);
+                 vn_->GetName(), label_, sg_id_list, CommunityList(), false,
+                 path_preference, vm_ip6_gw_addr_);
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -2620,8 +2622,8 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
 
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (agent->link_local_peer(), agent->fabric_vrf_name(), mdata_addr_,
-         32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(), true,
-         path_preference, Ip4Address(0));
+         32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(),
+         CommunityList(), true, path_preference, Ip4Address(0));
 }
 
 // Delete meta-data route
@@ -3004,14 +3006,14 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     if (new_ip_addr.is_unspecified() || layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                 mac, this, new_ip_addr,
-                l2_label_, vn_->GetName(), sg_id_list,
+                l2_label_, vn_->GetName(), sg_id_list, CommunityList(),
                 path_preference, ethernet_tag_);
     }
 
     if (new_ip6_addr.is_unspecified() == false && layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                 mac, this, new_ip6_addr,
-                l2_label_, vn_->GetName(), sg_id_list,
+                l2_label_, vn_->GetName(), sg_id_list, CommunityList(),
                 path_preference, ethernet_tag_);
     }
 }
@@ -3068,7 +3070,8 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
                            bool policy, bool ecmp, const IpAddress &gw_ip,
-                           const IpAddress &dependent_rt) {
+                           const IpAddress &dependent_rt,
+                           const CommunityList &communities) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
@@ -3078,7 +3081,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
                                                  dest_vn, label_,
-                                                 sg_id_list, false,
+                                                 sg_id_list, communities, false,
                                                  path_preference, gw_ip);
     return;
 }
@@ -3210,11 +3213,11 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
     if (ip_.is_v4()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), 32,
                             interface->vn()->GetName(), true, ecmp_,
-                            interface->GetGateway(ip_), Ip4Address(0));
+                            interface->GetGateway(ip_), Ip4Address(0), CommunityList());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), 128,
                             interface->vn()->GetName(), true, false,
-                            Ip6Address(), Ip6Address());
+                            Ip6Address(), Ip6Address(), CommunityList());
     }
     installed_ = true;
 }
@@ -3380,7 +3383,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(), 32,
                         vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
-                        GetFixedIp(interface));
+                        GetFixedIp(interface), CommunityList());
         if (table->update_floatingip_cb().empty() == false) {
             table->update_floatingip_cb()(interface, vn_.get(),
                                           floating_ip_.to_v4(), false);
@@ -3388,7 +3391,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
                             vn_->GetName(), true, false, Ip6Address(),
-                            GetFixedIp(interface));
+                            GetFixedIp(interface), CommunityList());
         //TODO:: callback for DNS handling
     }
 
@@ -3526,18 +3529,21 @@ void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
 // StaticRoute routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::StaticRoute::StaticRoute() :
-    ListEntry(), vrf_(""), addr_(), plen_(0), gw_() {
+    ListEntry(), vrf_(""), addr_(), plen_(0), gw_(), communities_() {
 }
 
 VmInterface::StaticRoute::StaticRoute(const StaticRoute &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_), vrf_(rhs.vrf_),
-    addr_(rhs.addr_), plen_(rhs.plen_), gw_(rhs.gw_) {
+    addr_(rhs.addr_), plen_(rhs.plen_), gw_(rhs.gw_),
+    communities_(rhs.communities_) {
 }
 
 VmInterface::StaticRoute::StaticRoute(const std::string &vrf,
                                       const IpAddress &addr,
-                                      uint32_t plen, const IpAddress &gw) :
-    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), gw_(gw) {
+                                      uint32_t plen, const IpAddress &gw,
+                                      const CommunityList &communities) :
+    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), gw_(gw),
+    communities_(communities) {
 }
 
 VmInterface::StaticRoute::~StaticRoute() {
@@ -3591,12 +3597,13 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
                     vrf_, addr_.to_v4(),
                     plen_, gw_.to_v4(), interface->vn_->GetName(),
                     interface->vrf_->table_label(),
-                    sg_id_list);
+                    sg_id_list, communities_);
         } else {
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
                                 interface->policy_enabled(),
-                                ecmp, IpAddress(), interface->primary_ip_addr());
+                                ecmp, IpAddress(), interface->primary_ip_addr(),
+                                communities_);
         }
     }
 
@@ -3769,7 +3776,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         }
         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                             interface->policy_enabled(),
-                            ecmp_, gw_ip_, dependent_rt);
+                            ecmp_, gw_ip_, dependent_rt, CommunityList());
     }
     installed_ = true;
 }
