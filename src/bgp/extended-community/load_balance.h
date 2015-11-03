@@ -40,7 +40,7 @@
  * c: Use l4_protocol ECMP Load-balancing
  * p: Use l4_source_port ECMP Load-balancing
  * P: Use l4_destination_port ECMP Load-balancing
- * B: Use source_bias (instead of ECMP load-balanacing
+ * B: Use source_bias (instead of ECMP load-balancing)
  * R: Reserved
 */
 class LoadBalance {
@@ -110,6 +110,7 @@ public:
         LoadBalanceAttribute(uint32_t value1, uint32_t value2);
         void Encode(autogen::LoadBalanceType &) const;
         bool operator==(const LoadBalanceAttribute &other) const;
+        bool operator!=(const LoadBalanceAttribute &other) const;
     };
 
     LoadBalance();
@@ -119,6 +120,7 @@ public:
     explicit LoadBalance(const BgpPath *path);
 
     bool operator==(const LoadBalance &other) const;
+    bool operator!=(const LoadBalance &other) const;
     uint8_t Type() const { return data_[0]; }
     uint8_t Subtype() const { return data_[1]; }
     const bytes_type &GetExtCommunity() const { return data_; }

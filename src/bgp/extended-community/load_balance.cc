@@ -72,6 +72,11 @@ bool LoadBalance::LoadBalanceAttribute::operator==(
     return value1 == other.value1 && value2 == other.value2;
 }
 
+bool LoadBalance::LoadBalanceAttribute::operator!=(
+        const LoadBalance::LoadBalanceAttribute &other) const {
+    return value1 != other.value1 || value2 != other.value2;
+}
+
 LoadBalance::LoadBalance() {
     LoadBalanceAttribute attr;
     put_value(&data_[0], 4, attr.value1);
@@ -255,6 +260,10 @@ const bool LoadBalance::IsDefault() const {
 
 bool LoadBalance::operator==(const LoadBalance &other) const {
     return ToAttribute() == other.ToAttribute();
+}
+
+bool LoadBalance::operator!=(const LoadBalance &other) const {
+    return ToAttribute() != other.ToAttribute();
 }
 
 void LoadBalance::ShowAttribute(ShowLoadBalance &show_load_balance) const {
