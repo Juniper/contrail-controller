@@ -17,24 +17,24 @@ example_usage = \
  Examples:
  ---------
  Read RBAC group using UUID or FQN
- python rbacutil.py --uuid 'b27c3820-1d5f-4bfd-ba8b-246fefef56b0' read
- python rbacutil.py --name 'default-domain:default-api-access-list' read
+ python rbacutil.py --uuid 'b27c3820-1d5f-4bfd-ba8b-246fefef56b0' --op read
+ python rbacutil.py --name 'default-domain:default-api-access-list' --op read
 
  Create RBAC group using FQN or UUID or parent domain/project
- python rbacutil.py --uuid 696de19995ff4359882afd18bb6dfecf create
- python rbacutil.py --fq_name 'default-domain:my-api-access-list' create
+ python rbacutil.py --uuid 696de19995ff4359882afd18bb6dfecf --op create
+ python rbacutil.py --fq_name 'default-domain:my-api-access-list' --op create
 
  Delete RBAC group using FQN or UUID
- python rbacutil.py --name 'default-domain:foobar' delete
- python rbacutil.py --uuid 71ef050f-3487-47e1-b628-8b0949530bee delete
+ python rbacutil.py --name 'default-domain:foobar' --op delete
+ python rbacutil.py --uuid 71ef050f-3487-47e1-b628-8b0949530bee --op delete
 
  Add rule to existing RBAC group
- python rbacutil.py --uuid <uuid> --rule "* Member:R" add-rule
- python rbacutil.py --uuid <uuid> --rule "useragent-kv *:CRUD" add-rule
+ python rbacutil.py --uuid <uuid> --rule "* Member:R" --op add-rule
+ python rbacutil.py --uuid <uuid> --rule "useragent-kv *:CRUD" --op add-rule
 
  Delete rule from RBAC group - specify rule number or exact rule
- python rbacutil.py --uuid <uuid> --rule 2 del-rule
- python rbacutil.py --uuid <uuid> --rule "useragent-kv *:CRUD" del-rule
+ python rbacutil.py --uuid <uuid> --rule 2 --op del-rule
+ python rbacutil.py --uuid <uuid> --rule "useragent-kv *:CRUD" --op del-rule
 """
 
 def show_rbac_rules(api_access_list_entries):
@@ -232,7 +232,7 @@ if ui:
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
-url = '/rbac'
+url = '/multi-tenancy-with-rbac'
 if vnc_op.args.on or vnc_op.args.off:
     data = {'enabled': vnc_op.args.on}
     try:
