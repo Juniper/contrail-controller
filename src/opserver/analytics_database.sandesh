@@ -22,6 +22,7 @@ struct DatabasePurgeStats {
     3: optional u64                        rows_deleted
     4: optional u64                        duration
     5: string                              purge_status
+    6: list<string>                        purge_status_details
 }
 
 struct DatabasePurgeInfo {

@@ -196,21 +196,26 @@ class AnalyticsDb(object):
 
     def db_purge(self, purge_cutoff, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
+        purge_error_details = []
         if (self._pool == None):
             self.connect_db()
         if not self._pool:
             self._logger.error('Connection to AnalyticsDb has Timed out')
-            return -1
+            purge_error_details.append('Connection to AnalyticsDb has Timed out')
+            return (-1, purge_error_details)
         sysm = self._get_sysm()
         if (sysm == None):
             self._logger.error('Failed to connect SystemManager')
-            return -1
+            purge_error_details.append('Failed to connect SystemManager')
+            return (-1, purge_error_details)
         try:
             table_list = sysm.get_keyspace_column_families(COLLECTOR_KEYSPACE)
         except Exception as e:
             self._logger.error("Exception: Purge_id %s Failed to get "
                 "Analytics Column families %s" % (purge_id, e))
-            return -1
+            purge_error_details.append("Exception: Failed to get "
+                "Analytics Column families %s" % (e))
+            return (-1, purge_error_details)
 
         # delete entries from message table
         msg_table = COLLECTOR_GLOBAL_TABLE
@@ -221,7 +226,9 @@ class AnalyticsDb(object):
         except Exception as e:
             self._logger.error("purge_id %s Failure in fetching "
                 "message table columnfamily %s" % e)
-            return -1
+            purge_error_details.append("Failure in fetching "
+                "message table columnfamily %s" % e)
+            return (-1, purge_error_details)
 
         for table in table_list:
             # purge from index tables
@@ -248,25 +255,33 @@ class AnalyticsDb(object):
                 except Exception as e:
                     self._logger.error("purge_id %s Failure in fetching "
                         "the columnfamily %s" % e)
-                    return -1
+                    purge_error_details.append("Failure in fetching "
+                        "the columnfamily %s" % e)
+                    return (-1, purge_error_details)
                 b = cf.batch()
                 try:
                     # get all columns only in case of one message index table
-                    if (table is MESSAGE_TABLE_SOURCE):
+                    if table == MESSAGE_TABLE_SOURCE:
                         cols_to_fetch = 1000000
                     else:
                         cols_to_fetch = 1
 
                     for key, cols in cf.get_range(column_count=cols_to_fetch):
-                        t2 = key[0]
+                        # key is of type integer for MESSAGE_TABLE_TIMESTAMP.
+                        # For other tables, key is a composite type with
+                        # first element being timestamp (integer).
+                        if table == MESSAGE_TABLE_TIMESTAMP:
+                            t2 = key
+                        else:
+                            t2 = key[0]
                         # each row will have equivalent of 2^23 = 8388608 usecs
                         row_time = (float(t2)*pow(2, RowTimeInBits))
                         if (row_time < purge_time):
                             per_table_deleted +=1
                             total_rows_deleted +=1
-                            if (table is MESSAGE_TABLE_SOURCE):
+                            if table == MESSAGE_TABLE_SOURCE:
                                 # get message table uuids to delete
-                                del_msg_uuids.append(list(cols.values()))
+                                del_msg_uuids.extend(cols.values())
                             try:
                                 b.remove(key)
                             except Exception as e:
@@ -292,24 +307,23 @@ class AnalyticsDb(object):
                         except Exception as e:
                             self._logger.error("Exception: Purge_id %s message table "
                                 "doesnot have uuid %s" % (purge_id, e))
-
-
+                            purge_error_details.append("Exception: Message table "
+                                "doesnot have uuid %s" % (e))
                 except Exception as e:
                     self._logger.error("Exception: Purge_id:%s table:%s "
                             "error: %s" % (purge_id, table, e))
+                    purge_error_details.append("Exception: Table:%s "
+                            "error: %s" % (table, e))
                     continue
-                self._logger.info("Purge_id %s deleted %d rows from table: %s"
-                    % (purge_id, per_table_deleted, table))
+                self._logger.warning("Purge_id %s deleted %d rows from "
+                    "table: %s" % (purge_id, per_table_deleted, table))
 
-        self._logger.info("Purge_id %s deleted %d rows from table: %s"
+        self._logger.warning("Purge_id %s deleted %d rows from table: %s"
             % (purge_id, msg_table_deleted, COLLECTOR_GLOBAL_TABLE))
-        # end deleting all relevant UUIDs from message table
-
-
-        self._logger.info("Purge_id %s total rows deleted: %s"
+        self._logger.warning("Purge_id %s total rows deleted: %s"
             % (purge_id, total_rows_deleted))
-        return total_rows_deleted
-    # end purge_data
+        return (total_rows_deleted, purge_error_details)
+    # end db_purge
 
     def get_dbusage_info(self, rest_api_port):
         """Collects database usage information from all db nodes
