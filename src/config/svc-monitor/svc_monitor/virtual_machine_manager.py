@@ -140,13 +140,13 @@ class VirtualMachineManager(InstanceManager):
             except Exception as e:
                 self.logger.log_error("%s nova delete failed with error %s" %
                     (vm.uuid, str(e)))
-        else:
-            try:
-                self._vnc_lib.virtual_machine_delete(id=vm.uuid)
-            except NoIdError:
-                pass
-            except RefsExistError:
-                self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
+
+        try:
+            self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        except NoIdError:
+            pass
+        except RefsExistError:
+            self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
 
     def check_service(self, si):
         vm_id_list = list(si.virtual_machines)
