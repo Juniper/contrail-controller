@@ -451,14 +451,15 @@ bool FlowEntry::set_pending_recompute(bool value) {
 }
 
 void FlowEntry::set_flow_handle(uint32_t flow_handle, FlowTable* table) {
-    if (flow_handle_ == kInvalidFlowHandle && flow_handle_ != flow_handle) {
-        table->RemoveFromKSyncTree(this);
-        ksync_entry_->set_hash_id(flow_handle);
-        table->AddToKSyncTree(this);
-    }
-
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
+        // Skip ksync index manipulation, for deleted flow entry
+        // as ksync entry is not available for deleted flow
+        if (!deleted_ && flow_handle_ == kInvalidFlowHandle) {
+            table->RemoveFromKSyncTree(this);
+            ksync_entry_->set_hash_id(flow_handle);
+            table->AddToKSyncTree(this);
+        }
         flow_handle_ = flow_handle;
         table->UpdateKSync(this);
     }
