@@ -150,7 +150,7 @@ class VirtualMachineManager(InstanceManager):
         vmi_list = []
         for vmi_id in vm.virtual_machine_interfaces:
             vmi_list.append(vmi_id)
-        self.cleanup_svc_vm_ports(vmi_list, port_delete=False)
+        self.cleanup_svc_vm_ports(vmi_list)
 
         # nova vm delete
         proj_name = vm.proj_fq_name[-1]
@@ -161,13 +161,13 @@ class VirtualMachineManager(InstanceManager):
             except Exception as e:
                 self.logger.log_error("%s nova delete failed with error %s" %
                     (vm.uuid, str(e)))
-        else:
-            try:
-                self._vnc_lib.virtual_machine_delete(id=vm.uuid)
-            except NoIdError:
-                pass
-            except RefsExistError:
-                self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
+
+        try:
+            self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        except NoIdError:
+            pass
+        except RefsExistError:
+            self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
 
     def check_service(self, si):
         vm_id_list = list(si.virtual_machines)

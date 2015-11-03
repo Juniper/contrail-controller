@@ -280,11 +280,11 @@ class InstanceManager(object):
 
         return config_complete
 
-    def cleanup_svc_vm_ports(self, vmi_list, port_delete=True):
+    def cleanup_svc_vm_ports(self, vmi_list):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id, fields = ['instance_ip_back_refs'])
+                    id=vmi_id, fields = ['instance_ip_back_refs', 'interface_route_table_refs'])
             except NoIdError:
                 continue
 
@@ -295,11 +295,17 @@ class InstanceManager(object):
                 except NoIdError:
                     pass
 
-            if port_delete:
+            try:
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+                VirtualMachineInterfaceSM.delete(vmi_id)
+            except (NoIdError, RefsExistError) as e:
+                pass
+
+            for irt in vmi_obj.get_interface_route_table_refs() or []:
                 try:
-                    self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
-                    VirtualMachineInterfaceSM.delete(vmi_id)
-                except (NoIdError, RefsExistError):
+                    self._vnc_lib.interface_route_table_delete(id=irt['uuid'])
+                    InterfaceRouteTableSM.delete(irt['uuid'])
+                except (NoIdError, RefsExistError) as e:
                     pass
 
     def _check_create_netns_vm(self, instance_index, si, st, vm):
