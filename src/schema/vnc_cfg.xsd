@@ -996,6 +996,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='virtual-network' type='xsd:string'/>
         <xsd:element name='ip-address' type='IpAddressType'/>
         <xsd:element name='static-routes' type='RouteTableType' />
+        <xsd:element name='allowed-address-pairs' type="AllowedAddressPairs" />
+        <xsd:element name='service-health-check' type='ServiceHealthCheckType' />
     </xsd:all>
 </xsd:complexType>
 
@@ -1079,6 +1081,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip-secondary" type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('instance-ip-secondary', 'instance-ip') -->
+<xsd:element name="instance-ip-shared" type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('instance-ip-shared', 'instance-ip') -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
@@ -1471,6 +1476,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('service-instance-interface', 'service-instance',
           'virtual-machine-interface', ['ref', 'derived']) -->
 
+<xsd:element name='port-tuple' type='ifmap:IdentityType'/>
+
+<xsd:element name='service-instance-port-tuple'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('service-instance-port-tuple', 'service-instance',
+          'port-tuple', ['has']) -->
+
+<xsd:element name='port-tuple-interface'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('port-tuple-interface', 'virtual-machine-interface',
+          'port-tuple', ['ref']) -->
+
 <xsd:element name="virtual-DNS"        type="ifmap:IdentityType"/>
 <xsd:element name="domain-virtual-DNS"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -1506,6 +1523,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="route" type="RouteType" maxOccurs="unbounded"/>
     </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="HealthCheckProtocolType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="PING"/>
+        <xsd:enumeration value="HTTP"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='ServiceHealthCheckType'>
+    <xsd:sequence>
+        <xsd:element name='enabled' type='xsd:boolean' default='false'/>
+        <xsd:element name='monitor-type' type='HealthCheckProtocolType'/>
+        <xsd:element name='delay' type='xsd:integer'/>
+        <xsd:element name='timeout' type='xsd:integer'/>
+        <xsd:element name='max-retries' type='xsd:integer'/>
+        <xsd:element name='http-method' type='xsd:string'/>
+        <xsd:element name='url-path' type='xsd:string'/>
+        <xsd:element name='expected-codes' type='xsd:string'/>
+    </xsd:sequence>
 </xsd:complexType>
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
