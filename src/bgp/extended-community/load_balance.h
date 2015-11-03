@@ -108,7 +108,7 @@ public:
         };
         LoadBalanceAttribute();
         LoadBalanceAttribute(uint32_t value1, uint32_t value2);
-        void Encode(autogen::LoadBalanceType &) const;
+        void Encode(autogen::LoadBalanceType *lb_type) const;
         bool operator==(const LoadBalanceAttribute &other) const;
         bool operator!=(const LoadBalanceAttribute &other) const;
     };
@@ -116,7 +116,7 @@ public:
     LoadBalance();
     explicit LoadBalance(const bytes_type &data);
     explicit LoadBalance(const LoadBalanceAttribute &attr);
-    explicit LoadBalance(const autogen::LoadBalanceType &item);
+    explicit LoadBalance(const autogen::LoadBalanceType &lb_type);
     explicit LoadBalance(const BgpPath *path);
 
     bool operator==(const LoadBalance &other) const;
@@ -128,9 +128,9 @@ public:
         return get_value(data_.begin(), 8);
     }
     const LoadBalanceAttribute ToAttribute() const;
-    void FillAttribute(LoadBalanceAttribute &attr);
+    void FillAttribute(LoadBalanceAttribute *attr);
     const bool IsDefault() const;
-    void ShowAttribute(ShowLoadBalance &show_load_balance) const;
+    void ShowAttribute(ShowLoadBalance *show_load_balance) const;
     std::string ToString() const;
     void SetL2SourceAddress();
     void SetL2DestinationAddress();

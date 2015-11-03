@@ -91,7 +91,7 @@ private:
                     manager->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
             } else if (ExtCommunity::is_load_balance(*iter)) {
                 LoadBalance load_balance(*iter);
-                load_balance.FillAttribute(load_balance_attribute_);
+                load_balance.FillAttribute(&load_balance_attribute_);
             }
         }
     }
@@ -216,7 +216,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     }
 
     // Encode load balance attribute.
-    load_balance_attribute_.Encode(item.entry.load_balance);
+    load_balance_attribute_.Encode(&item.entry.load_balance);
 
     xml_node node = xitems_.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();

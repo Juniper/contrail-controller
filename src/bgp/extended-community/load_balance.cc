@@ -2,18 +2,20 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <algorithm>
+#include "bgp/extended-community/load_balance.h"
+
 #include <boost/foreach.hpp>
+
+#include <algorithm>
 #include <string>
 #include <vector>
 
-#include "bgp/extended-community/load_balance.h"
-
-using namespace std;
+using std::copy;
+using std::string;
 
 LoadBalance::LoadBalanceAttribute::LoadBalanceAttribute() {
-    value1 = 0; // reset all fields
-    value2 = 0; // reset all fields
+    value1 = 0;  // reset all fields
+    value2 = 0;  // reset all fields
     type = BgpExtendedCommunityType::Opaque;
     sub_type = BgpExtendedCommunityOpaqueSubType::LoadBalance;
 
@@ -40,31 +42,30 @@ LoadBalance::LoadBalanceAttribute::LoadBalanceAttribute(
 }
 
 void LoadBalance::LoadBalanceAttribute::Encode(
-        autogen::LoadBalanceType &item) const {
-
-    item.load_balance_fields.load_balance_field_list.clear();
+        autogen::LoadBalanceType *lb_type) const {
+    lb_type->load_balance_fields.load_balance_field_list.clear();
     if (l2_source_address)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l2-source-address"));
     if (l2_destination_address)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l2-destination-address"));
     if (l3_source_address)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l3-source-address"));
     if (l3_destination_address)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l3-destination-address"));
     if (l4_protocol)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l4-protocol"));
     if (l4_source_port)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l4-source-port"));
     if (l4_destination_port)
-        item.load_balance_fields.load_balance_field_list.push_back(
+        lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l4-destination-port"));
-    item.load_balance_decision = source_bias ? "source-bias" : "field-hash";
+    lb_type->load_balance_decision = source_bias ? "source-bias" : "field-hash";
 }
 
 bool LoadBalance::LoadBalanceAttribute::operator==(
@@ -111,7 +112,7 @@ LoadBalance::LoadBalance(const LoadBalanceAttribute &attr) {
     put_value(&data_[4], 4, attr.value2);
 }
 
-LoadBalance::LoadBalance(const autogen::LoadBalanceType &item) {
+LoadBalance::LoadBalance(const autogen::LoadBalanceType &lb_type) {
     LoadBalanceAttribute attr;
 
     attr.l2_source_address = false;
@@ -123,8 +124,8 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &item) {
     attr.l4_destination_port = false;
 
     for (autogen::LoadBalanceFieldListType::const_iterator it =
-            item.load_balance_fields.begin();
-            it != item.load_balance_fields.end(); ++it) {
+            lb_type.load_balance_fields.begin();
+            it != lb_type.load_balance_fields.end(); ++it) {
         const string s = *it;
         if (s == "l2-source-address") {
             attr.l2_source_address = true;
@@ -156,14 +157,14 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &item) {
         }
     }
 
-    attr.source_bias = item.load_balance_decision == "source-bias";
+    attr.source_bias = lb_type.load_balance_decision == "source-bias";
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::FillAttribute(LoadBalanceAttribute &attr) {
-    attr.value1 = get_value(&data_[0], 4);
-    attr.value2 = get_value(&data_[4], 4);
+void LoadBalance::FillAttribute(LoadBalanceAttribute *attr) {
+    attr->value1 = get_value(&data_[0], 4);
+    attr->value2 = get_value(&data_[4], 4);
 }
 
 const LoadBalance::LoadBalanceAttribute LoadBalance::ToAttribute() const {
@@ -266,32 +267,34 @@ bool LoadBalance::operator!=(const LoadBalance &other) const {
     return ToAttribute() != other.ToAttribute();
 }
 
-void LoadBalance::ShowAttribute(ShowLoadBalance &show_load_balance) const {
+void LoadBalance::ShowAttribute(ShowLoadBalance *show_load_balance) const {
     const LoadBalanceAttribute attr = ToAttribute();
     if (attr.source_bias) {
-        show_load_balance.decision_type = "source-bias";
-        show_load_balance.fields.clear();
+        show_load_balance->decision_type = "source-bias";
+        show_load_balance->fields.clear();
         return;
     }
 
-    show_load_balance.decision_type = "field-hash";
+    show_load_balance->decision_type = "field-hash";
     if (attr.l2_source_address)
-        show_load_balance.fields.push_back("l2-source-address");
+        show_load_balance->fields.push_back("l2-source-address");
     if (attr.l2_destination_address)
-        show_load_balance.fields.push_back("l2-destination-address");
+        show_load_balance->fields.push_back("l2-destination-address");
     if (attr.l3_source_address)
-        show_load_balance.fields.push_back("l3-source-address");
+        show_load_balance->fields.push_back("l3-source-address");
     if (attr.l3_destination_address)
-        show_load_balance.fields.push_back("l3-destination-address");
+        show_load_balance->fields.push_back("l3-destination-address");
     if (attr.l4_protocol)
-        show_load_balance.fields.push_back("l4-protocol");
+        show_load_balance->fields.push_back("l4-protocol");
     if (attr.l4_source_port)
-        show_load_balance.fields.push_back("l4-source-port");
+        show_load_balance->fields.push_back("l4-source-port");
     if (attr.l4_destination_port)
-        show_load_balance.fields.push_back("l4-destination-port");
+        show_load_balance->fields.push_back("l4-destination-port");
 }
 
-std::string LoadBalance::ToString() const {
+string LoadBalance::ToString() const {
     const LoadBalanceAttribute attr = ToAttribute();
-    return attr.source_bias ? "source-bias" : "field-hash";
+    string str("load-balance:");
+    str += attr.source_bias ? "source-bias" : "field-hash";
+    return str;
 }

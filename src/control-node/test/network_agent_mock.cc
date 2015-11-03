@@ -376,7 +376,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
         }
 
         // Encode LoadBalance attribute
-        attributes.loadBalanceAttribute.Encode(rt_entry.entry.load_balance);
+        attributes.loadBalanceAttribute.Encode(&rt_entry.entry.load_balance);
 
         if (nexthops.empty()) {
             autogen::NextHopType item_nexthop;
@@ -439,7 +439,7 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
         }
 
         // Encode LoadBalance attribute
-        attributes.loadBalanceAttribute.Encode(rt_entry.entry.load_balance);
+        attributes.loadBalanceAttribute.Encode(&rt_entry.entry.load_balance);
 
         if (nexthops.empty()) {
             autogen::NextHopType item_nexthop;
