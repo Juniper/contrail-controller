@@ -200,7 +200,9 @@ protected:
 
     // Add a BgpPath that requires resolution.
     void AddBgpPath(IPeer *bgp_peer, const string &instance,
-        const string &prefix_str, const string &nexthop_str) {
+        const string &prefix_str, const string &nexthop_str, uint32_t med = 0,
+        const vector<uint32_t> &comm_list = vector<uint32_t>(),
+        const vector<uint16_t> &as_list = vector<uint16_t>()) {
         assert(!bgp_peer->IsXmppPeer());
 
         boost::system::error_code ec;
@@ -218,10 +220,47 @@ protected:
         BgpAttrNextHop nh_spec(nh_addr);
         attr_spec.push_back(&nh_spec);
 
+        BgpAttrMultiExitDisc med_spec(med);
+        if (med)
+            attr_spec.push_back(&med_spec);
+
+        CommunitySpec comm_spec;
+        if (!comm_list.empty()) {
+            comm_spec.communities = comm_list;
+            attr_spec.push_back(&comm_spec);
+        }
+
+        AsPathSpec aspath_spec;
+        AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+        ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        BOOST_FOREACH(uint16_t asn, as_list) {
+            ps->path_segment.push_back(asn);
+        }
+        aspath_spec.path_segments.push_back(ps);
+        attr_spec.push_back(&aspath_spec);
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
         request.data.reset(
             new BgpTable::RequestData(attr, BgpPath::ResolveNexthop, 0));
         table->Enqueue(&request);
+    }
+
+    void AddBgpPathWithMed(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str, uint32_t med) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, med);
+    }
+
+    void AddBgpPathWithCommunities(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str,
+        const vector<uint32_t> &comm_list) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0, comm_list);
+    }
+
+    void AddBgpPathWithAsList(IPeer *bgp_peer, const string &instance,
+        const string &prefix_str, const string &nexthop_str,
+        const vector<uint16_t> &as_list) {
+        AddBgpPath(bgp_peer, instance, prefix_str, nexthop_str, 0,
+            vector<uint32_t>(), as_list);
     }
 
     // Add a BgpPath that that can be used to resolve other paths.
@@ -464,9 +503,32 @@ protected:
         return LoadBalance();
     }
 
+    vector<uint32_t> GetCommunityListFromPath(const BgpPath *path) {
+        const Community *comm = path->GetAttr()->community();
+        vector<uint32_t> list = comm ? comm->communities() : vector<uint32_t>();
+        sort(list.begin(), list.end());
+        return list;
+    }
+
+    vector<uint16_t> GetAsListFromPath(const BgpPath *path) {
+        vector<uint16_t> list;
+        const AsPath *aspath = path->GetAttr()->as_path();
+        const AsPathSpec &aspath_spec = aspath->path();
+        if (aspath_spec.path_segments.size() != 1)
+            return list;
+        if (aspath_spec.path_segments[0] == NULL)
+            return list;
+        if (aspath_spec.path_segments[0]->path_segment_type !=
+            AsPathSpec::PathSegment::AS_SEQUENCE)
+            return list;
+        list = aspath_spec.path_segments[0]->path_segment;
+        return list;
+    }
+
     bool MatchPathAttributes(const BgpPath *path, const string &path_id,
-        uint32_t label, const vector<uint32_t> sgid_list,
-        const set<string> encap_list, const LoadBalance &lb) {
+        uint32_t label, const vector<uint32_t> &sgid_list,
+        const set<string> &encap_list, const LoadBalance &lb, uint32_t med,
+        const CommunitySpec &comm_spec, const vector<uint16_t> &as_list) {
         const BgpAttr *attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -494,13 +556,25 @@ protected:
             if (path_lb != lb)
                 return false;
         }
+        if (attr->med() != med) {
+            return false;
+        }
+        vector<uint32_t> path_comm_list = GetCommunityListFromPath(path);
+        if (path_comm_list != comm_spec.communities) {
+            return false;
+        }
+        vector<uint16_t> path_as_list = GetAsListFromPath(path);
+        if (path_as_list != as_list) {
+            return false;
+        }
 
         return true;
     }
 
     bool CheckPathAttributes(const string &instance, const string &prefix,
-        const string &path_id, int label, const vector<uint32_t> sgid_list,
-        const set<string> encap_list, const LoadBalance &lb) {
+        const string &path_id, int label, const vector<uint32_t> &sgid_list,
+        const set<string> &encap_list, const LoadBalance &lb, uint32_t med,
+        const CommunitySpec &comm_spec, const vector<uint16_t> &as_list) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -513,7 +587,7 @@ protected:
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
             if (MatchPathAttributes(path, path_id, label, sgid_list,
-                encap_list, lb)) {
+                encap_list, lb, med, comm_spec, as_list)) {
                 return true;
             }
             return false;
@@ -543,26 +617,52 @@ protected:
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance()));
+            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance(),
+            0, CommunitySpec(), vector<uint16_t>()));
     }
 
     void VerifyPathAttributes(const string &instance, const string &prefix,
-        const string &path_id, uint32_t label, const set<string> encap_list) {
+        const string &path_id, uint32_t label, const set<string> &encap_list) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, vector<uint32_t>(), encap_list, LoadBalance()));
+            path_id, label, vector<uint32_t>(), encap_list, LoadBalance(),
+            0, CommunitySpec(), vector<uint16_t>()));
     }
 
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label,
-        const vector<uint32_t> sgid_list) {
+        const vector<uint32_t> &sgid_list) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, sgid_list, set<string>(), LoadBalance()));
+            path_id, label, sgid_list, set<string>(), LoadBalance(),
+            0, CommunitySpec(), vector<uint16_t>()));
     }
 
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label, const LoadBalance &lb) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, vector<uint32_t>(), set<string>(), lb));
+            path_id, label, vector<uint32_t>(), set<string>(), lb,
+            0, CommunitySpec(), vector<uint16_t>()));
+    }
+
+    void VerifyPathAttributes(const string &instance, const string &prefix,
+        const string &path_id, uint32_t label, uint32_t med) {
+        TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
+            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance(),
+            med, CommunitySpec(), vector<uint16_t>()));
+    }
+
+    void VerifyPathAttributes(const string &instance, const string &prefix,
+        const string &path_id, uint32_t label, const CommunitySpec &comm_spec) {
+        TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
+            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance(),
+            0, comm_spec, vector<uint16_t>()));
+    }
+
+    void VerifyPathAttributes(const string &instance, const string &prefix,
+        const string &path_id, uint32_t label,
+        const vector<uint16_t> &as_list) {
+        TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
+            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance(),
+            0, CommunitySpec(), as_list));
     }
 
     void VerifyPathNoExists(const string &instance, const string &prefix,
@@ -686,6 +786,150 @@ TYPED_TEST(PathResolverTest, SinglePrefixAddDelete) {
 
     this->EnableResolverPathUpdateProcessing("blue");
     TASK_UTIL_EXPECT_EQ(0, this->ResolverPathUpdateListSize("blue"));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path med after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, SinglePrefixChangeBgpPath1) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->AddBgpPathWithMed(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), 100);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, 100);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->AddBgpPathWithMed(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), 200);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, 200);
+
+    this->AddBgpPathWithMed(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), 300);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, 300);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path communities after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, SinglePrefixChangeBgpPath2) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    vector<uint32_t> comm_list1 = list_of(0xFFFFA101)(0xFFFFA102)(0xFFFFA103);
+    CommunitySpec comm_spec1;
+    comm_spec1.communities = comm_list1;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, comm_spec1);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    vector<uint32_t> comm_list2 = list_of(0xFFFFA201)(0xFFFFA202)(0xFFFFA203);
+    CommunitySpec comm_spec2;
+    comm_spec2.communities = comm_list2;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, comm_spec2);
+
+    vector<uint32_t> comm_list3 = list_of(0xFFFFA301)(0xFFFFA302)(0xFFFFA303);
+    CommunitySpec comm_spec3;
+    comm_spec3.communities = comm_list3;
+    this->AddBgpPathWithCommunities(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), comm_list3);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, comm_spec3);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Change BGP path aspath after BGP path has been resolved.
+//
+TYPED_TEST(PathResolverTest, SinglePrefixChangeBgpPath3) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    vector<uint16_t> as_list1 = list_of(64512)(64513)(64514);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, as_list1);
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    vector<uint16_t> as_list2 = list_of(64522)(64523)(64524);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, as_list2);
+
+    vector<uint16_t> as_list3 = list_of(64532)(64533)(64534);
+    this->AddBgpPathWithAsList(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()), as_list3);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, as_list3);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->VerifyPathNoExists("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"));
 
