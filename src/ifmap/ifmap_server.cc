@@ -190,8 +190,8 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
           vm_uuid_mapper_(new IFMapVmUuidMapper(db_, this)),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&IFMapServer::ClientWorker, this, _1)),
-          io_service_(io_service),
-          ifmap_manager_(NULL), ifmap_channel_manager_(NULL) {
+          io_service_(io_service), ifmap_manager_(NULL),
+          ifmap_channel_manager_(NULL) {
 }
 
 IFMapServer::~IFMapServer() {
@@ -400,6 +400,7 @@ void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
 
 void IFMapServer::ProcessVmRegAsPending(std::string vm_uuid,
                                         std::string vr_name, bool subscribe) {
+    IFMAP_DEBUG(IFMapServerPendingVmReg, vm_uuid, vr_name, subscribe);
     vm_uuid_mapper_->ProcessVmRegAsPending(vm_uuid, vr_name, subscribe);
 }
 

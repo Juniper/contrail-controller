@@ -35,6 +35,12 @@ systemlog sandesh IFMapServerClientRegUnreg {
     4: u32 client_index
 }
 
+systemlog sandesh IFMapServerPendingVmReg {
+    1: string vm_uuid
+    2: string vr_name
+    3: bool subscribe
+}
+
 systemlog sandesh IFMapTblNotFound {
     1: string error_msg
     2: string table_name
@@ -233,6 +239,12 @@ trace sandesh IFMapServerClientRegUnregTrace {
     2: string client_name
     3: "index"
     4: u32 client_index
+}
+
+trace sandesh IFMapServerPendingVmRegTrace {
+    1: string vm_uuid
+    2: string vr_name
+    3: bool subscribe
 }
 
 trace sandesh IFMapTblNotFoundTrace {
