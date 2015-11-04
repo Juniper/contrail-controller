@@ -67,7 +67,7 @@ from sandesh.analytics_database.constants import PurgeStatusString
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
-from stevedore import hook
+from stevedore import hook, extension
 from partition_handler import PartInfo, UveStreamer, UveCacheProcessor
 
 _ERRORS = {
@@ -562,20 +562,15 @@ class OpServer(object):
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
         self._ALARM_TYPES = {}
-        for uk,uv in UVE_MAP.iteritems():
-            mgr = hook.HookManager(
-                namespace='contrail.analytics.alarms',
-                name=uv,
-                invoke_on_load=True,
-                invoke_args=()
-            )
-            self._ALARM_TYPES[uv] = {}
-            for extn in mgr[uv]:
-                self._logger.info('Loaded extensions for %s: %s,%s doc %s' % \
-                    (uv, extn.name, extn.entry_point_target, extn.obj.__doc__))
-                ty = extn.entry_point_target.rsplit(":",1)[1]
-                self._ALARM_TYPES[uv][ty]  = extn.obj.__doc__
-           
+        listmgrs = extension.ExtensionManager('contrail.analytics.alarms')
+        for elem in listmgrs:
+            if not elem.name in self._ALARM_TYPES:
+                self._ALARM_TYPES[elem.name] = {}
+            self._logger.info('Loaded extensions for %s: %s doc %s' % \
+                (elem.name , elem.entry_point, elem.plugin.__doc__))
+            ty = str(elem.entry_point).rsplit(":",1)[1]
+            self._ALARM_TYPES[elem.name][ty] = elem.plugin.__doc__
+
         for t in _OBJECT_TABLES:
             obj = query_table(
                 name=t, display_name=_OBJECT_TABLES[t].objtable_display_name,
@@ -923,6 +918,13 @@ class OpServer(object):
         if alarmsonly:
             filters['cfilt'] = {'UVEAlarms':set()}
 
+        kfilter = filters.get('kfilt')
+        patterns = None
+        if kfilter is not None:
+            patterns = set()
+            for filt in kfilter:
+                patterns.add(self._uve_server.get_uve_regex(filt))
+
         bottle.response.set_header('Content-Type', 'text/event-stream')
         bottle.response.set_header('Cache-Control', 'no-cache')
         # This is needed to detect when the client hangs up
@@ -931,7 +933,7 @@ class OpServer(object):
         body = gevent.queue.Queue()
         ph = UveStreamer(self._logger, body, rfile, self.get_agp,
             self._args.redis_password,
-            filters['tablefilt'], filters['cfilt'])
+            filters['tablefilt'], filters['cfilt'], patterns)
         ph.set_cleanup_callback(self.cleanup_uve_streamer)
         self.gevs.append(ph)
         ph.start()
@@ -1554,7 +1556,10 @@ class OpServer(object):
         known = set()
         for apiname,rawname in UVE_MAP.iteritems():
             known.add(rawname)
-            ret[apiname] = self._ALARM_TYPES[rawname]
+            if rawname in self._ALARM_TYPES:
+                ret[apiname] = self._ALARM_TYPES[rawname]
+            else:
+                ret[apiname] = {}
         for aname, avalue in self._ALARM_TYPES.iteritems():
             if not aname in known:
                 ret[aname] = avalue
@@ -1658,10 +1663,22 @@ class OpServer(object):
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/uves/'
         uvetype_links = []
-        for uvetype in UVE_MAP:
-            entry = obj_to_dict(LinkObject(uvetype + 's',
-                                base_url + uvetype + 's'))
-            uvetype_links.append(entry)
+        
+        # Show the list of UVE table-types based on actual raw UVE contents 
+        tables = self._uve_server.get_tables()
+        known = set()
+        for apiname,rawname in UVE_MAP.iteritems():
+            if rawname in tables:
+                known.add(rawname)
+                entry = obj_to_dict(LinkObject(apiname + 's',
+                                    base_url + apiname + 's'))
+                uvetype_links.append(entry)
+ 
+        for rawname in tables:
+            if not rawname in known:
+                entry = obj_to_dict(LinkObject(rawname + 's',
+                                    base_url + rawname + 's'))
+                uvetype_links.append(entry)
             
         bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(uvetype_links)

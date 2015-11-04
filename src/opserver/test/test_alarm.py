@@ -128,11 +128,13 @@ class Mock_agp(Mock_base):
         return val
 
 class Mock_usp(object):
-    def __init__(self, partno, logger, cb, pi, rpass, tablefilt, cfilter):
+    def __init__(self, partno, logger, cb, pi, rpass, content,\
+            tablefilt, cfilter, patterns):
         self._cb = cb
         self._partno = partno
         self._pi = pi
         self._started = False
+        self._content = content
 
     def start(self):
         self._started = True
@@ -142,6 +144,9 @@ class Mock_usp(object):
 
     def __call__(self, key, type, value):
         if self._started:
+            if not self._content:
+                if not value is None:
+                    value = {}
             self._cb(self._partno, self._pi, key, type, value) 
 
 # Tests for UveStreamer and UveCache
@@ -157,7 +162,7 @@ class TestUveStreamer(unittest.TestCase, TestChecker):
     def setUp(self):
         self.mock_agp = Mock_agp()
         self.ustr = UveStreamer(logging, None, None, self.mock_agp, None,\
-                None, None, Mock_usp)
+                None, None, None, Mock_usp)
         self.ustr.start()
         self.mock_agp[0] = PartInfo(ip_address = "127.0.0.1", 
                                     acq_time = 666,
@@ -176,7 +181,7 @@ class TestUveStreamer(unittest.TestCase, TestChecker):
         self.assertTrue(self.checker_dict([0], self.ustr._parts))
         self.ustr._parts[0]("ObjectXX:uve1","type1",{"xx": 0})
         self.assertTrue(self.checker_dict(\
-                ["ObjectXX","uve1","type1","xx"],\
+                ["ObjectXX","uve1","type1"],\
                 self.ustr._uvedbcache._uvedb))
         self.assertTrue(self.checker_dict(\
                 ["type1","ObjectXX","uve1"],\
@@ -202,7 +207,7 @@ class TestUveStreamer(unittest.TestCase, TestChecker):
         self.assertTrue(self.checker_dict([0], self.ustr._parts))
         self.ustr._parts[0]("ObjectXX:uve1","type1",{"xx": 0})
         self.assertTrue(self.checker_dict(\
-                ["ObjectXX","uve1","type1","xx"],\
+                ["ObjectXX","uve1","type1"],\
                 self.ustr._uvedbcache._uvedb))
         self.assertTrue(self.checker_dict(\
                 ["type1","ObjectXX","uve1"],\

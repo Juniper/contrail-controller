@@ -50,7 +50,7 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
-from stevedore import hook
+from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
 import discoveryclient.client as client 
@@ -253,11 +253,12 @@ class Controller(object):
         for buf in self.trace_buf:
             self._sandesh.trace_buffer_create(name=buf['name'], size=buf['size'])
 
-        tables = [ "ObjectCollectorInfo",
-                   "ObjectDatabaseInfo",
-                   "ObjectVRouter",
-                   "ObjectBgpRouter",
-                   "ObjectConfigNode" ] 
+        tables = set()
+        mgrlist = extension.ExtensionManager('contrail.analytics.alarms')
+        for elem in mgrlist:
+            tables.add(elem.name)
+        self._logger.error('Found extenstions for %s' % str(tables))
+
         self.mgrs = {}
         self.tab_alarms = {}
         self.ptab_info = {}
