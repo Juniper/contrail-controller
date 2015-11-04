@@ -157,10 +157,10 @@ protected:
         Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
-        Agent::GetInstance()->controller()->Cleanup();
-        client->WaitForIdle();
         WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->
                  DecommissionedPeerListSize() == 0));
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
 
         TcpServerManager::DeleteServer(xs1);
         TcpServerManager::DeleteServer(xs2);
@@ -389,6 +389,15 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
 
     xs6->Shutdown();
     client->WaitForIdle();
+
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
 }
 
 
@@ -536,6 +545,15 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
 
     xs6->Shutdown();
     client->WaitForIdle();
+
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
 }
 
 }
