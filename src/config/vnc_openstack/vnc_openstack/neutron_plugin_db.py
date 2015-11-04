@@ -2211,7 +2211,7 @@ class DBInterface(object):
                     port_obj.del_interface_route_table(intf_route_table_obj)
                     self._vnc_lib.virtual_machine_interface_update(port_obj)
                     self._vnc_lib.interface_route_table_delete(id=rt_ref['uuid'])
-                except vnc_exc.NoIdError:
+                except (NoIdError, RefsExistError) as e:
                     pass
 
     def wait_for_api_server_connection(func):
@@ -3698,7 +3698,7 @@ class DBInterface(object):
         for rt_ref in port_obj.get_interface_route_table_refs() or []:
             try:
                 self._vnc_lib.interface_route_table_delete(id=rt_ref['uuid'])
-            except vnc_exc.NoIdError:
+            except (NoIdError, RefsExistError) as e:
                 pass
 
         # delete instance if this was the last port
