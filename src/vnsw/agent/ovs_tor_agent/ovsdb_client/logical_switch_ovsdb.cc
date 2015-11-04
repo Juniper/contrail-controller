@@ -290,7 +290,13 @@ void LogicalSwitchTable::OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op op,
         LogicalSwitchEntry key(this, ls);
         entry = static_cast<LogicalSwitchEntry *>(Find(&key));
     }
-    if (op == OvsdbClientIdl::OVSDB_DEL) {
+    struct ovsdb_idl_row *l_set =
+        ovsdb_wrapper_mcast_mac_local_physical_locator_set(row);
+    // physical locator set is immutable, multicast row with NULL
+    // physical locator is not valid, and it may not observe further
+    // delete trigger, so trigger delete for row and wait for
+    // locator set to be available
+    if (op == OvsdbClientIdl::OVSDB_DEL || l_set == NULL) {
         // trigger deletion based on the entry for which add was triggered
         OvsdbIdlRowMap::iterator idl_it = idl_row_map_.find(row);
         if (idl_it != idl_row_map_.end()) {
