@@ -224,6 +224,22 @@ class UVEServer(object):
 	    ConnectionState.update(ConnectionType.REDIS_UVE,
 		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
  
+    def get_tables(self):
+        tables = set() 
+        for r_inst in self._redis_uve_map.keys():
+            try:
+                redish = self._redis_inst_get(r_inst)
+                tbs = [elem.split(":",1)[1] for elem in redish.keys("TABLE:*")]
+                tables.update(set(tbs))
+            except Exception as e:
+                self._logger.error("get_tables failed %s for : %s tb %s" \
+                               % (str(e), str(r_inst), traceback.format_exc()))
+                self._redis_inst_down(r_inst)
+            else:
+                self._redis_inst_up(r_inst, redish)
+
+        return tables
+
     def get_uve(self, key, flat, filters=None, base_url=None):
 
         filters = filters or {}
@@ -300,7 +316,22 @@ class UVEServer(object):
 
                         if value[0] == '<':
                             snhdict = xmltodict.parse(value)
-                            if snhdict[attr]['@type'] == 'list':
+                            # TODO: This is a hack for separating external
+                            # bgp routers from control-nodes
+                            if snhdict[attr]['@type'] == 'map':
+                                if typ == 'ContrailConfig' and \
+                                        tab == 'ObjectBgpRouter' and \
+                                        attr == 'elements':
+                                    try:
+                                        elem = OpServerUtils.uve_attr_flatten(\
+                                            snhdict[attr])
+                                        vendor = json.loads(\
+                                            elem['bgp_router_parameters'])["vendor"]
+                                        if vendor != "contrail":
+                                            continue
+                                    except:
+                                        pass
+                            elif snhdict[attr]['@type'] == 'list':
                                 sname = ParallelAggregator.get_list_name(
                                         snhdict[attr])
                                 if snhdict[attr]['list']['@size'] == '0':
@@ -326,20 +357,6 @@ class UVEServer(object):
                                     snhdict[attr]['list'][sname] = alarms
                                     snhdict[attr]['list']['@size'] = \
                                         str(len(alarms))
-                                # TODO: This is a hack for separating external
-                                # bgp routers from control-nodes
-                                elif typ == 'ContrailConfig' and \
-                                        tab == 'ObjectBgpRouter' and \
-                                        attr == 'elements':
-                                    try:
-                                        elem = OpServerUtils.uve_attr_flatten(\
-                                            snhdict[attr])
-                                        vendor = json.loads(\
-                                            elem['bgp_router_parameters'])["vendor"]
-                                        if vendor != "contrail":
-                                            continue
-                                    except:
-                                        pass
                         else:
                             continue
 
