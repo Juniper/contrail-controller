@@ -125,20 +125,35 @@ class TestPolicy(test_case.STTestCase):
         self.assertTrue(ip == None)
 
     @retries(5, hook=retry_exc_handler)
-    def check_service_chain_pbf_rules(self, service_fq_name, vmi_fq_name, macs):
-        vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
-        ri_refs = vmi.get_routing_instance_refs()
-        for ri_ref in ri_refs:
-            sc_name = ri_ref['to']
-            if sc_name == service_fq_name:
-                pbf_rule = ri_ref['attr']
-                self.assertTrue(pbf_rule.service_chain_address != None)
-                self.assertTrue(pbf_rule.vlan_tag != None)
-                self.assertTrue(pbf_rule.direction == 'both')
-                self.assertTrue(pbf_rule.src_mac == macs[0])
-                self.assertTrue(pbf_rule.dst_mac == macs[1])
-                return
-        raise Exception('Service chain pbf rules not found for %s' % service_fq_name)
+    def check_service_chain_pbf_rules(self, vn1, vn2, sc_ri_name, service_name, sc_ip):
+        mac1 = '02:00:00:00:00:01'
+        mac2 = '02:00:00:00:00:02'
+        expected_pbf = PolicyBasedForwardingRuleType(
+            vlan_tag=1, direction='both', service_chain_address=sc_ip)
+        for interface_type in ('left', 'right'):
+            if interface_type == 'left':
+                expected_pbf.src_mac = mac1
+                expected_pbf.dst_mac = mac2
+                vmi_fq_name = ['default-domain', 'default-project',
+                               'default-domain__default-project__%s__1__left__1' %
+                                service_name]
+                service_ri_fq_name = self.get_ri_name(vn1, sc_ri_name)
+            else:
+                expected_pbf.src_mac = mac2
+                expected_pbf.dst_mac = mac1
+                vmi_fq_name = ['default-domain', 'default-project',
+                               'default-domain__default-project__%s__1__right__2' %
+                                service_name]
+                service_ri_fq_name = self.get_ri_name(vni2, sc_ri_name)
+            vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
+            ri_refs = vmi.get_routing_instance_refs()
+            for ri_ref in ri_refs:
+                sc_name = ri_ref['to']
+                if sc_name == service_ri_fq_name:
+                    pbf_rule = ri_ref['attr']
+                    self.assertEqual(pbf_rule, expected_pbf)
+                    return
+            raise Exception('Service chain pbf rules not found for %s' % service_ri_fq_name)
  
     @retries(5, hook=retry_exc_handler)
     def check_service_chain_ip(self, sc_name):
@@ -766,39 +781,29 @@ class TestPolicy(test_case.STTestCase):
         self.check_service_chain_ip(sc_ri_names[1])
         self.check_service_chain_ip(sc_ri_names[2])
 
-        sc_fq_names = [
-                       self.get_ri_name(vn1_obj, sc_ri_names[0]),
-                       self.get_ri_name(vn2_obj, sc_ri_names[0]),
-                       self.get_ri_name(vn1_obj, sc_ri_names[1]),
-                       self.get_ri_name(vn2_obj, sc_ri_names[1]),
-                       self.get_ri_name(vn1_obj, sc_ri_names[2]),
-                       self.get_ri_name(vn2_obj, sc_ri_names[2])
-                      ]
-        vmi_fq_names = [
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys1__1__left__1'],
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys1__1__right__2'],
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys2__1__left__1'],
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys2__1__right__2'],
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys3__1__left__1'],
-                        ['default-domain', 'default-project', 
-                         'default-domain__default-project__test.test_service.TestPolicy.test_multi_service_policys3__1__right__2']
-                       ]
+        vmi_fq_names = [['default-domain', 'default-project',
+                         'default-domain__default-project__%s__1__%s' %
+                         (service_name, if_type)]
+                        for service_name in service_names for if_type in ('left__1', 'right__2')]
 
-        mac1 = '02:00:00:00:00:01'
-        mac2 = '02:00:00:00:00:02'
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0], service_names[0], '10.0.0.252')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1], service_names[1], '10.0.0.251')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
 
-        self.check_service_chain_pbf_rules(sc_fq_names[0], vmi_fq_names[0], [mac1, mac2])
-        self.check_service_chain_pbf_rules(sc_fq_names[1], vmi_fq_names[1], [mac2, mac1])
-        self.check_service_chain_pbf_rules(sc_fq_names[2], vmi_fq_names[2], [mac1, mac2])
-        self.check_service_chain_pbf_rules(sc_fq_names[3], vmi_fq_names[3], [mac2, mac1])
-        self.check_service_chain_pbf_rules(sc_fq_names[4], vmi_fq_names[4], [mac1, mac2])
-        self.check_service_chain_pbf_rules(sc_fq_names[5], vmi_fq_names[5], [mac2, mac1])
+        np.network_policy_entries.policy_rule[0].action_list.apply_service = \
+            np.network_policy_entries.policy_rule[0].action_list.apply_service[:-1]
+        np.set_network_policy_entries(np.network_policy_entries)
+        self._vnc_lib.network_policy_update(np)
 
+        for i in range(0, 5):
+            try:
+                self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
+                gevent.sleep(1)
+            except Exception:
+                break
+
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0], service_names[0], '10.0.0.252')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1], service_names[1], '10.0.0.251')
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn2_obj)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[0]))
@@ -1061,7 +1066,6 @@ class TestPolicy(test_case.STTestCase):
 
     # test service chain configuration while st is restarted
     def test_st_restart_service_chain(self):
-        self.skipTest('Skipping test_st_restart_service_chain')
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -1080,6 +1084,13 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
+        sc = self.wait_to_get_sc()
+        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+                      + service_name)
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
         # stop st and wait for sometime
         test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
