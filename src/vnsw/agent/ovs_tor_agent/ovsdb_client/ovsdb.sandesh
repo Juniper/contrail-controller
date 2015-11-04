@@ -134,7 +134,8 @@ struct OvsdbLogicalSwitchEntry {
     5: bool vxlan_id_available;
     6: i64 ovs_vxlan_id;
     7: string tor_service_node;
-    8: optional string message;
+    8: bool delete_in_progress;
+    9: optional string message;
 }
 
 response sandesh OvsdbLogicalSwitchResp {

@@ -164,6 +164,22 @@ TEST_F(OvsBaseTest, PhysicalLocatorCreateWait) {
                     (ls_table->Find(&key2))) != NULL &&
                 entry->GetState() == KSyncEntry::IN_SYNC));
 
+    hold = new TestTaskHold(TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0);
+
+    // create delete and trigger change on entry to cancel del task.
+    entry->DeleteOvs();
+    EXPECT_TRUE(entry->IsDeleteOvsInProgress());
+    entry->table()->Change(entry);
+    EXPECT_FALSE(entry->IsDeleteOvsInProgress());
+
+    // trigger delete
+    entry->DeleteOvs();
+    EXPECT_TRUE(entry->IsDeleteOvsInProgress());
+    delete hold;
+
+    WAIT_FOR(1000, 10000, (entry->IsDeleteOvsInProgress() == false));
+    WAIT_FOR(1000, 10000, (entry->IsResolved() == true));
+
     // there should not be any more transaction failures
     EXPECT_EQ(txn_failures, tcp_session_->client_idl()->stats().txn_failed);
 
