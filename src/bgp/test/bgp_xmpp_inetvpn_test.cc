@@ -307,7 +307,7 @@ protected:
         if (!sgids.empty() &&
             rt->entry.security_group_list.security_group != sgids)
             return false;
-        if (!(LoadBalance(rt->entry.load_balance) == loadBalance)) {
+        if (LoadBalance(rt->entry.load_balance) != loadBalance) {
             return false;
         }
 

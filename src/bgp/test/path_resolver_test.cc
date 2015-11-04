@@ -9,6 +9,7 @@
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/extended-community/load_balance.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/inet/inet_table.h"
@@ -228,7 +229,8 @@ protected:
         const string &prefix_str, const string &nexthop_str1,
         int label, const string &nexthop_str2 = string(),
         vector<uint32_t> sgid_list = vector<uint32_t>(),
-        set<string> encap_list = set<string>()) {
+        set<string> encap_list = set<string>(),
+        const LoadBalance &lb = LoadBalance()) {
         assert(xmpp_peer->IsXmppPeer());
         assert(!nexthop_str1.empty());
         assert(label);
@@ -266,6 +268,10 @@ protected:
             uint64_t value = encap.GetExtCommunityValue();
             extcomm_spec.communities.push_back(value);
         }
+        if (!lb.IsDefault()) {
+            uint64_t value = lb.GetExtCommunityValue();
+            extcomm_spec.communities.push_back(value);
+        }
         if (!extcomm_spec.communities.empty())
             attr_spec.push_back(&extcomm_spec);
 
@@ -299,7 +305,7 @@ protected:
         const string &instance, const string &prefix_str,
         const string &nexthop_str, int label, vector<uint32_t> sgid_list) {
         AddXmppPath(xmpp_peer, instance, prefix_str, nexthop_str, label,
-            string(), sgid_list, set<string>());
+            string(), sgid_list);
     }
 
     void AddXmppPathWithTunnelEncapsulations(IPeer *xmpp_peer,
@@ -307,6 +313,13 @@ protected:
         const string &nexthop_str, int label, set<string> encap_list) {
         AddXmppPath(xmpp_peer, instance, prefix_str, nexthop_str, label,
             string(), vector<uint32_t>(), encap_list);
+    }
+
+    void AddXmppPathWithLoadBalance(IPeer *xmpp_peer,
+        const string &instance, const string &prefix_str,
+        const string &nexthop_str, int label, const LoadBalance &lb) {
+        AddXmppPath(xmpp_peer, instance, prefix_str, nexthop_str, label,
+            string(), vector<uint32_t>(), set<string>(), lb);
     }
 
     void DeletePath(IPeer *peer, const string &instance,
@@ -438,9 +451,22 @@ protected:
         return list;
     }
 
+    LoadBalance GetLoadBalanceFromPath(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        if (!ext_comm)
+            return LoadBalance();
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_load_balance(comm))
+                continue;
+            return LoadBalance(comm);
+        }
+        return LoadBalance();
+    }
+
     bool MatchPathAttributes(const BgpPath *path, const string &path_id,
         uint32_t label, const vector<uint32_t> sgid_list,
-        const set<string> encap_list) {
+        const set<string> encap_list, const LoadBalance &lb) {
         const BgpAttr *attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -463,13 +489,18 @@ protected:
             if (path_encap_list != encap_list)
                 return false;
         }
+        if (!lb.IsDefault()) {
+            LoadBalance path_lb = GetLoadBalanceFromPath(path);
+            if (path_lb != lb)
+                return false;
+        }
 
         return true;
     }
 
     bool CheckPathAttributes(const string &instance, const string &prefix,
         const string &path_id, int label, const vector<uint32_t> sgid_list,
-        const set<string> encap_list) {
+        const set<string> encap_list, const LoadBalance &lb) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -482,7 +513,7 @@ protected:
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
             if (MatchPathAttributes(path, path_id, label, sgid_list,
-                encap_list)) {
+                encap_list, lb)) {
                 return true;
             }
             return false;
@@ -512,20 +543,26 @@ protected:
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, vector<uint32_t>(), set<string>()));
+            path_id, label, vector<uint32_t>(), set<string>(), LoadBalance()));
     }
 
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label, const set<string> encap_list) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, vector<uint32_t>(), encap_list));
+            path_id, label, vector<uint32_t>(), encap_list, LoadBalance()));
     }
 
     void VerifyPathAttributes(const string &instance, const string &prefix,
         const string &path_id, uint32_t label,
         const vector<uint32_t> sgid_list) {
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
-            path_id, label, sgid_list, set<string>()));
+            path_id, label, sgid_list, set<string>(), LoadBalance()));
+    }
+
+    void VerifyPathAttributes(const string &instance, const string &prefix,
+        const string &path_id, uint32_t label, const LoadBalance &lb) {
+        TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
+            path_id, label, vector<uint32_t>(), set<string>(), lb));
     }
 
     void VerifyPathNoExists(const string &instance, const string &prefix,
@@ -941,6 +978,50 @@ TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath7) {
         this->BuildNextHopAddress("172.16.1.1"), 10000);
     this->VerifyPathAttributes("blue", this->BuildPrefix(1),
         this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+}
+
+//
+// Change XMPP path load balance property.
+//
+TYPED_TEST(PathResolverTest, SinglePrefixChangeXmppPath8) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    LoadBalance::bytes_type data1 = { { BgpExtendedCommunityType::Opaque,
+        BgpExtendedCommunityOpaqueSubType::LoadBalance,
+        0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+    LoadBalance lb1(data1);
+    this->AddXmppPathWithLoadBalance(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, lb1);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, lb1);
+
+    LoadBalance::bytes_type data2 = { { BgpExtendedCommunityType::Opaque,
+        BgpExtendedCommunityOpaqueSubType::LoadBalance,
+        0xaa, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+    LoadBalance lb2(data2);
+    this->AddXmppPathWithLoadBalance(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, lb2);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000, lb2);
 
     this->DeleteXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32));
