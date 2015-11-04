@@ -50,6 +50,8 @@ from logger import ServiceMonitorLogger
 from loadbalancer_agent import LoadbalancerAgent
 from snat_agent import SNATAgent
 
+from novaclient import exceptions as nc_exc
+
 # zookeeper client connection
 _zookeeper_client = None
 
@@ -406,32 +408,29 @@ class SvcMonitor(object):
             if not st:
                 continue
 
-            for vm_id in si.virtual_machines:
+            vm_id_list = list(si.virtual_machines)
+            for vm_id in vm_id_list:
                 vm = VirtualMachineSM.get(vm_id)
                 if vm.virtualization_type:
                     continue
-                nova_vm = self._nova_client.oper('servers', 'get',
-                                                 si.proj_name, id=vm_id)
-                if not nova_vm:
-                    continue
-                if not nova_vm.name.split('__')[-1].isdigit():
+
+                try:
+                    nova_vm = self._nova_client.oper('servers', 'get',
+                        si.proj_name, id=vm_id)
+                except nc_exc.NotFound:
+                    nova_vm = None
+
+                if nova_vm:
+                    vm_name = nova_vm.name
+                    vm.proj_fq_name = nova_vm.name.split('__')[0:2]
+                else:
+                    vm_name = vm.name
+
+                if not vm_name.split('__')[-1].isdigit():
                     continue
 
-                si_obj = ServiceInstance()
-                si_obj.name = si.name
-                si_obj.fq_name = si.fq_name
-                index = int(nova_vm.name.split('__')[-1]) - 1
-                instance_name = self.vm_manager._get_instance_name(
-                    si_obj, index)
-                vm_obj = VirtualMachine()
-                vm_obj.uuid = vm_id
-                vm_obj.fq_name = [vm_id]
-                vm_obj.set_display_name(instance_name + '__' +
-                                        st.virtualization_type)
-                try:
-                    self._vnc_lib.virtual_machine_update(vm_obj)
-                except Exception:
-                    pass
+                vm.virtualization_type = st.virtualization_type
+                self._delete_service_instance(vm)
 
     def launch_services(self):
         for si in ServiceInstanceSM.values():
@@ -591,7 +590,7 @@ class SvcMonitor(object):
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
-                             ((':').join(vm.proj_fq_name), vm.uuid))
+            ((':').join(vm.fq_name), vm.uuid))
 
         try:
             if vm.virtualization_type == svc_info.get_vm_instance_type():
