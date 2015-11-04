@@ -32,11 +32,16 @@ def sse_pack(d):
     return buffer + '\n'
 
 class UveCacheProcessor(object):
-    def __init__(self, logger):
+    def __init__(self, logger, rpass):
         self._logger = logger
+        self._rpass = rpass
         self._partkeys = {}
         self._typekeys = {}
         self._uvedb = {} 
+        self._agp = {}
+
+    def update_agp(self, agp):
+        self._agp = agp
 
     def get_cache_list(self, tables, filters, patterns, keysonly):
         if not tables:
@@ -93,26 +98,59 @@ class UveCacheProcessor(object):
 
     def _get_uve_content(self, table, barekeys, tfilter, ackfilter, keysonly):
         brsp = {}
+        uveparts = {}
         for barekey in barekeys:
-            rsp = {}
-            for tkey,tval in self._uvedb[table][barekey].iteritems():
-                afilter_list = set()
+            part = self._uvedb[table][barekey]["__SOURCE__"]["partition"]
+            if not part in uveparts:
+                uveparts[part] = set()
+            uveparts[part].add(barekey)
+        
+        for pkey,pvalue in uveparts.iteritems():
+            pi = self._agp[pkey]
+            lredis = redis.StrictRedis(
+                    host=pi.ip_address, 
+                    port=pi.port,
+                    password=self._rpass,
+                    db=2)
+            ppe = lredis.pipeline()
+            luves = list(uveparts[pkey])
+            for elem in luves:
                 if len(tfilter) != 0:
-                    if tkey not in tfilter:
-                        continue
-                    else:
-                        afilter_list = tfilter[tkey]
-                if not tval:
-                    continue
-
-                for akey, aval in tval.iteritems():
-                    if len(afilter_list):
-                        if akey not in afilter_list:
+                    ltypes = tfilter.keys()
+                    ppe.hmget("AGPARTVALUES:%s:%d:%s:%s" % \
+                        (pi.instance_id, pkey, table, elem),
+                        *ltypes)
+                else:
+                    ppe.hgetall("AGPARTVALUES:%s:%d:%s:%s" % \
+                        (pi.instance_id, pkey, table, elem))
+            pperes = ppe.execute()
+            for uidx in range(0,len(luves)):
+                uvestruct = {}
+                if len(tfilter) != 0:
+                    for tidx in range(0,len(ltypes)):
+                        if not pperes[uidx][tidx]:
                             continue
-                    if ackfilter is not None and \
-                            tkey == "UVEAlarms" and akey == "alarms":
+                        afilter_list = tfilter[ltypes[tidx]]
+                        ppeval = json.loads(pperes[uidx][tidx])
+                        if len(afilter_list) == 0:
+                            uvestruct[ltypes[tidx]] = ppeval
+                        else:      
+                            for akey, aval in ppeval.iteritems():
+                                if akey not in afilter_list:
+                                    continue
+                                else:
+                                    if not ltypes[tidx] in uvestruct:
+                                        uvestruct[ltypes[tidx]] = {}
+                                    uvestruct[ltypes[tidx]][akey] = aval
+                else:
+                    for tk,tv in pperes[uidx].iteritems():
+                        uvestruct[tk] = json.loads(tv)
+
+                if ackfilter is not None:
+                    if "UVEAlarms" in uvestruct and \
+                            "alarms" in uvestruct["UVEAlarms"]:
                         alarms = []
-                        for alarm in aval:
+                        for alarm in uvestruct["UVEAlarms"]["alarms"]:
                             ack = "false"
                             if "ack" in alarm:
                                 if alarm["ack"]:
@@ -122,21 +160,15 @@ class UveCacheProcessor(object):
                             if ack == ackfilter:
                                 alarms.append(alarm)
                         if not len(alarms):
-                            continue
+                            del uvestruct["UVEAlarms"]
                         else:
-                            if not tkey in rsp:
-                                rsp[tkey] = {}
-                            rsp[tkey][akey] = alarms
-                    else:
-                        if not tkey in rsp:
-                            rsp[tkey] = {}
-                        rsp[tkey][akey] = aval
+                            uvestruct["UVEAlarms"]["alarms"] = alarms
 
-            if len(rsp) != 0: 
-                if keysonly:
-                    brsp[barekey] = None
-                else:
-                    brsp[barekey] = rsp
+                if len(uvestruct) != 0: 
+                    if keysonly:
+                        brsp[luves[uidx]] = None
+                    else:
+                        brsp[luves[uidx]] = uvestruct
         return brsp
       
     def get_cache_uve(self, key, filters):
@@ -212,7 +244,7 @@ class UveCacheProcessor(object):
                 self._typekeys[typ][table].add(barekey)
             self._uvedb[table][barekey]["__SOURCE__"] = \
                     {'instance_id':pi.instance_id, 'ip_address':pi.ip_address, \
-                     'partition':partno} 
+                     'partition':partno}
 
     def clear_partition(self, partno, clear_cb):
 
@@ -239,13 +271,15 @@ class UveCacheProcessor(object):
         self._partkeys[partno] = set()
 
 class UveStreamPart(gevent.Greenlet):
-    def __init__(self, partno, logger, cb, pi, rpass, 
-                tablefilt = None, cfilter = None):
+    def __init__(self, partno, logger, cb, pi, rpass, content = True, 
+                tablefilt = None, cfilter = None, patterns = None):
         gevent.Greenlet.__init__(self)
         self._logger = logger
         self._cb = cb
         self._pi = pi
         self._partno = partno
+        # We need to keep track of UVE contents only for streaming case
+        self._content = content
         self._rpass = rpass
         self._tablefilt = None
         if tablefilt:
@@ -253,6 +287,7 @@ class UveStreamPart(gevent.Greenlet):
         self._cfilter = None
         if cfilter:
             self._cfilter = set(cfilter.keys())
+        self._patterns = patterns
 
     def syncpart(self, redish):
         inst = self._pi.instance_id
@@ -261,20 +296,41 @@ class UveStreamPart(gevent.Greenlet):
         ppe = redish.pipeline()
         lkeys = []
         for key in keys:
+            table, barekey = key.split(":",1)
             if self._tablefilt:
-                table = key.split(":",1)[0]
                 if not table in self._tablefilt:
                     continue
+            if self._patterns:
+                kfilter_match = False
+                for pattern in self._patterns:
+                    if pattern.match(barekey):
+                        kfilter_match = True
+                        break
+                if not kfilter_match:
+                    continue
             lkeys.append(key)
-            ppe.hgetall("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
+            # We need to load full UVE contents for streaming case
+            # For DBCache case, we only need the struct types
+            if self._content:
+                ppe.hgetall("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
+            else:
+                ppe.hkeys("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
         pperes = ppe.execute()
         idx=0
         for res in pperes:
-            for tk,tv in res.iteritems():
-                if self._cfilter:
-                    if not tk in self._cfilter:
-                        continue
-                self._cb(self._partno, self._pi, lkeys[idx], tk, json.loads(tv))
+            if self._content:
+                for tk,tv in res.iteritems():
+                    if self._cfilter:
+                        if not tk in self._cfilter:
+                            continue
+                    self._cb(self._partno, self._pi, lkeys[idx], tk, json.loads(tv))
+            else:
+                for telem in res:
+                    if self._cfilter:
+                        if not telem in self._cfilter:
+                            continue
+                    self._cb(self._partno, self._pi, lkeys[idx], telem, {})
+
             idx += 1
         
     def _run(self):
@@ -303,25 +359,39 @@ class UveStreamPart(gevent.Greenlet):
                         continue
                     else:
                          self._logger.info("AggUVE loading: %s" % str(elems))
-                    ppe = lredis.pipeline()
+                    if self._content:
+                        ppe = lredis.pipeline()
                     lelems = []
                     for elem in elems:
+                        table, barekey = elem["key"].split(":",1)
                         if self._tablefilt:
-                            table = elem["key"].split(":",1)[0]
                             if not table in self._tablefilt:
+                                continue
+                        if self._patterns:
+                            kfilter_match = False
+                            for pattern in self._patterns:
+                                if pattern.match(barekey):
+                                    kfilter_match = True
+                                    break
+                            if not kfilter_match:
                                 continue
                         if elem["type"] and self._cfilter:
                             if not elem["type"] in self._cfilter:
                                 continue
                         lelems.append(elem)
-                        # This UVE was deleted
-                        if elem["type"] is None:
-                            ppe.exists("AGPARTVALUES:%s:%d:%s" % \
-                                (inst, part, elem["key"]))
-                        else:
-                            ppe.hget("AGPARTVALUES:%s:%d:%s" % \
-                                (inst, part, elem["key"]), elem["type"])
-                    pperes = ppe.execute()
+                        if self._content:
+                            # This UVE was deleted
+                            if elem["type"] is None:
+                                ppe.exists("AGPARTVALUES:%s:%d:%s" % \
+                                    (inst, part, elem["key"]))
+                            else:
+                                ppe.hget("AGPARTVALUES:%s:%d:%s" % \
+                                    (inst, part, elem["key"]), elem["type"])
+
+                    # We need to execute this pipeline read only if we are
+                    # keeping track of UVE contents (streaming case)
+                    if self._content:
+                        pperes = ppe.execute()
                     idx = 0
                     for elem in lelems:
 
@@ -330,14 +400,18 @@ class UveStreamPart(gevent.Greenlet):
                         vdata = None
 
                         if not typ is None:
-                            vjson = pperes[idx]
-                            if vjson is None:
-                                vdata = None
+                            if self._content:
+                                vjson = pperes[idx]
+                                if vjson is None:
+                                    vdata = None
+                                else:
+                                    vdata = json.loads(vjson)
                             else:
-                                vdata = json.loads(vjson)
+                                vdata = {}
 
                         self._cb(self._partno, self._pi, key, typ, vdata)
                         idx += 1
+
             except gevent.GreenletExit:
                 break
             except Exception as ex:
@@ -354,7 +428,7 @@ class UveStreamPart(gevent.Greenlet):
 
 class UveStreamer(gevent.Greenlet):
     def __init__(self, logger, q, rfile, agp_cb, rpass,\
-            tablefilt = None, cfilter = None,
+            tablefilt = None, cfilter = None, patterns = None,
             USP_class = UveStreamPart):
         gevent.Greenlet.__init__(self)
         self._logger = logger
@@ -365,10 +439,11 @@ class UveStreamer(gevent.Greenlet):
         self._parts = {}
         self._rpass = rpass
         self._ccb = None
-        self._uvedbcache = UveCacheProcessor(self._logger)
+        self._uvedbcache = UveCacheProcessor(self._logger, rpass)
         self._USP_class = USP_class
         self._tablefilt = tablefilt
         self._cfilter = cfilter
+        self._patterns = patterns
 
     def get_uve(self, key, filters=None):
         return False, self._uvedbcache.get_cache_uve(key, filters)
@@ -390,13 +465,12 @@ class UveStreamer(gevent.Greenlet):
                 dt['value'] = value
             msg = {'event': 'update', 'data':json.dumps(dt)}
             self._q.put(sse_pack(msg))
-            # If this stream is being used for SSE, the cache
-            # does not need to store the contents of "value"
+            # If this stream is being used for SSE, we have the UVE value,
+            # but do not need to report it to the cache
             if not value is None:
                 value = {}
-            self._uvedbcache.store_uve(partition, pi, key, type, value)
-        else:
-            self._uvedbcache.store_uve(partition, pi, key, type, value)
+
+        self._uvedbcache.store_uve(partition, pi, key, type, value)
         
     def set_cleanup_callback(self, cb):
         self._ccb = cb
@@ -435,6 +509,7 @@ class UveStreamer(gevent.Greenlet):
                         self._uvedbcache.clear_partition(elem, self.clear_callback)
                         self.partition_start(elem, newagp[elem])
                 self._agp = copy.deepcopy(newagp)
+                self._uvedbcache.update_agp(self._agp)
             except gevent.GreenletExit:
                 break
         self._logger.error("Stopping UveStreamer")
@@ -449,9 +524,15 @@ class UveStreamer(gevent.Greenlet):
 
     def partition_start(self, partno, pi):
         self._logger.error("Starting agguve part %d using %s" % (partno, pi))
+        # If we are doing streaming, full UVE contents are needed
+        # Otherwise, we only need key/type information for DBCache case
+        if self._q:
+            content = True
+        else:
+            content = False
         self._parts[partno] = self._USP_class(partno, self._logger,
-            self.partition_callback, pi, self._rpass,
-            self._tablefilt, self._cfilter)
+            self.partition_callback, pi, self._rpass, content,
+            self._tablefilt, self._cfilter, self._patterns)
         self._parts[partno].start()
 
     def partition_stop(self, partno):
