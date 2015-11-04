@@ -300,11 +300,29 @@ DBTablePartBase *DBTable::GetTablePartition(const DBEntryBase *entry) {
     return GetTablePartition(id);
 }
 
+// Find DB Entry without taking lock. Calling routine must ensure its
+// running in exclusion with DB task
+DBEntry *DBTable::FindNoLock(const DBEntry *entry) {
+    size_t id = HashToPartition(Hash(entry));
+    DBTablePartition *tbl_partition =
+        static_cast<DBTablePartition *>(GetTablePartition(id));
+    return tbl_partition->FindNoLock(entry);
+}
+
 DBEntry *DBTable::Find(const DBEntry *entry) {
     size_t id = HashToPartition(Hash(entry));
     DBTablePartition *tbl_partition =
         static_cast<DBTablePartition *>(GetTablePartition(id));
     return tbl_partition->Find(entry);
+}
+
+// Find DB Entry without taking lock. Calling routine must ensure its
+// running in exclusion with DB task
+DBEntry *DBTable::FindNoLock(const DBRequestKey *key) {
+    int id = HashToPartition(Hash(key));
+    DBTablePartition *tbl_partition =
+    static_cast<DBTablePartition *>(GetTablePartition(id));
+    return tbl_partition->FindNoLock(key);
 }
 
 DBEntry *DBTable::Find(const DBRequestKey *key) {
