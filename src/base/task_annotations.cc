@@ -24,6 +24,13 @@ void ConcurrencyChecker::Check() {
     assert(id_set_.count(current->GetTaskId()) > 0);
 }
 
+void ConcurrencyChecker::CheckTaskOrMainThread() {
+    Task *current = Task::Running();
+    if (current) {
+        assert(id_set_.count(current->GetTaskId()) > 0);
+    }
+}
+
 void ConcurrencyChecker::CheckIfMainThr() {
     Task *current = Task::Running();
     assert(current == NULL);

@@ -205,6 +205,11 @@ public:
 
     DBEntry *Find(const DBRequestKey *key);
 
+    // Find DB Entry without taking lock. Calling routine must ensure its
+    // running in exclusion with DB task
+    DBEntry *FindNoLock(const DBEntry *entry);
+    DBEntry *FindNoLock(const DBRequestKey *key);
+
     ///////////////////////////////////////////////////////////////
     // Virtual functions from DBTableBase implemented by DBTable
     ///////////////////////////////////////////////////////////////
