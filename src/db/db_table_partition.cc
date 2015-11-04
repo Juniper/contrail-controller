@@ -5,6 +5,7 @@
 #include <tbb/mutex.h>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/time_util.h"
 #include "db/db.h"
 #include "db/db_entry.h"
@@ -125,25 +126,35 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
         table()->RetryDelete();
 }
 
-DBEntry *DBTablePartition::Find(const DBEntry *entry) {
-    tbb::mutex::scoped_lock lock(mutex_);
+DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     Tree::iterator loc = tree_.find(*entry);
     if (loc != tree_.end()) {
         return loc.operator->();
     }
     return NULL;
 }
+DBEntry *DBTablePartition::FindNoLock(const DBEntry *entry) {
+    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowHandler", "Agent::FlowTable");
+    return FindInternal(entry);
+}
 
-DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
+DBEntry *DBTablePartition::Find(const DBEntry *entry) {
     tbb::mutex::scoped_lock lock(mutex_);
+    return FindInternal(entry);
+}
+
+DBEntry *DBTablePartition::FindNoLock(const DBRequestKey *key) {
+    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowHandler", "Agent::FlowTable");
     DBTable *table = static_cast<DBTable *>(parent());
     std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+    return FindInternal(entry_ptr.get());
+}
 
-    Tree::iterator loc = tree_.find(*(entry_ptr.get()));
-    if (loc != tree_.end()) {
-        return loc.operator->();
-    }
-    return NULL;
+DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
+    DBTable *table = static_cast<DBTable *>(parent());
+    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+    tbb::mutex::scoped_lock lock(mutex_);
+    return FindInternal(entry_ptr.get());
 }
 
 DBEntry *DBTablePartition::FindNext(const DBRequestKey *key) {
