@@ -300,18 +300,26 @@ DBTablePartBase *DBTable::GetTablePartition(const DBEntryBase *entry) {
     return GetTablePartition(id);
 }
 
-DBEntry *DBTable::Find(const DBEntry *entry) {
+DBEntry *DBTable::Find(const DBEntry *entry, bool need_lock) {
     size_t id = HashToPartition(Hash(entry));
     DBTablePartition *tbl_partition =
         static_cast<DBTablePartition *>(GetTablePartition(id));
-    return tbl_partition->Find(entry);
+    return tbl_partition->Find(entry, need_lock);
 }
 
-DBEntry *DBTable::Find(const DBRequestKey *key) {
+DBEntry *DBTable::Find(const DBEntry *entry) {
+    return Find(entry, true);
+}
+
+DBEntry *DBTable::Find(const DBRequestKey *key, bool need_lock) {
     int id = HashToPartition(Hash(key));
     DBTablePartition *tbl_partition =
     static_cast<DBTablePartition *>(GetTablePartition(id));
-    return tbl_partition->Find(key);
+    return tbl_partition->Find(key, need_lock);
+}
+
+DBEntry *DBTable::Find(const DBRequestKey *key) {
+    return Find(key, true);
 }
 
 //

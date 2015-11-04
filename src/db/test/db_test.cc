@@ -13,6 +13,7 @@
 #include "db/db_client.h"
 #include "db/db_partition.h"
 #include "db/db_table_walker.h"
+#include "base/time_util.h"
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
@@ -241,6 +242,79 @@ TEST_F(DBTest, SkipDelete) {
 
     // Unregister client
     itbl->Unregister(tid_);
+}
+
+// Find routine tests
+TEST_F(DBTest, Find) {
+    // Create a VLAN
+    DBRequest addReq;
+    addReq.key.reset(new VlanTableReqKey(101));
+    addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
+    addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    itbl->Enqueue(&addReq);
+    task_util::WaitForIdle();
+
+    VlanTableReqKey key(101);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&key) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&key, true) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&key, false) != NULL);
+
+    Vlan entry(101);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&entry) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&entry, true) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&entry, false) != NULL);
+
+    // Delete a VLAN
+    DBRequest delReq;
+    delReq.key.reset(new VlanTableReqKey(101));
+    delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    itbl->Enqueue(&delReq);
+    task_util::WaitForIdle();
+
+    // Clear stats in End
+    adc_notification = 0;
+    del_notification = 0;
+}
+
+// Find routine tests
+TEST_F(DBTest, FindScale) {
+    // Create a VLAN
+    DBRequest addReq;
+    addReq.key.reset(new VlanTableReqKey(101));
+    addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
+    addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    itbl->Enqueue(&addReq);
+    task_util::WaitForIdle();
+
+    uint32_t count = 100*1000;
+    uint64_t start = ClockMonotonicUsec();
+    for (uint32_t  i = 0; i < count; i++) {
+        VlanTableReqKey key(101);
+        assert((static_cast<DBTable *>(itbl))->Find(&key, true) != NULL);
+    }
+    uint64_t delay_with_lock = ClockMonotonicUsec() - start;
+
+    start = ClockMonotonicUsec();
+    for (uint32_t  i = 0; i < count; i++) {
+        VlanTableReqKey key(101);
+        assert((static_cast<DBTable *>(itbl))->Find(&key, false) != NULL);
+    }
+    uint64_t delay_no_lock = ClockMonotonicUsec() - start;
+
+    std::cout << "Find with lock    : " << delay_with_lock << " usec"
+        << " for " << std::endl;
+    std::cout << "Find without lock : " << delay_no_lock << " usec" << std::endl;
+
+    // Delete a VLAN
+    DBRequest delReq;
+    delReq.key.reset(new VlanTableReqKey(101));
+    delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    itbl->Enqueue(&delReq);
+    task_util::WaitForIdle();
+
+    // Clear stats in End
+    adc_notification = 0;
+    del_notification = 0;
 }
 
 void RegisterFactory() {

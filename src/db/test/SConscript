@@ -31,6 +31,9 @@ env.Alias('src/db:db_test', db_test)
 db_base_test = env.UnitTest('db_base_test', ['db_base_test.cc'])
 env.Alias('src/db:db_base_test', db_base_test)
 
+db_find_test = env.UnitTest('db_find_test', ['db_find_test.cc'])
+env.Alias('src/db:db_find_test', db_find_test)
+
 db_graph_test = env.UnitTest('db_graph_test', ['db_graph_test.cc'])
 env.Alias('src/db:db_graph_test', db_graph_test)
 

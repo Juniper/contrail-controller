@@ -99,9 +99,11 @@ public:
 
     // Find DB Entry. Get key from from argument
     DBEntry *Find(const DBEntry *entry);
+    DBEntry *Find(const DBEntry *entry, bool need_lock);
 
     // Find DB Entry. Get key from from argument
     DBEntry *Find(const DBRequestKey *key);
+    DBEntry *Find(const DBRequestKey *key, bool need_lock);
 
     // Find the next in lex order
     DBEntry *FindNext(const DBRequestKey *key);
@@ -110,6 +112,8 @@ public:
     size_t size() const { return tree_.size(); }
 
 private:
+    DBEntry *FindInternal(const DBEntry *entry);
+
     tbb::mutex mutex_;
     Tree tree_;
     DISALLOW_COPY_AND_ASSIGN(DBTablePartition);

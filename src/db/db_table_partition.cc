@@ -125,8 +125,7 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
         table()->RetryDelete();
 }
 
-DBEntry *DBTablePartition::Find(const DBEntry *entry) {
-    tbb::mutex::scoped_lock lock(mutex_);
+DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     Tree::iterator loc = tree_.find(*entry);
     if (loc != tree_.end()) {
         return loc.operator->();
@@ -134,16 +133,33 @@ DBEntry *DBTablePartition::Find(const DBEntry *entry) {
     return NULL;
 }
 
-DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
-    tbb::mutex::scoped_lock lock(mutex_);
+DBEntry *DBTablePartition::Find(const DBEntry *entry, bool need_lock) {
+    if (need_lock) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return FindInternal(entry);
+    } else {
+        return FindInternal(entry);
+    }
+}
+
+DBEntry *DBTablePartition::Find(const DBEntry *entry) {
+    return Find(entry, true);
+}
+
+DBEntry *DBTablePartition::Find(const DBRequestKey *key, bool need_lock) {
     DBTable *table = static_cast<DBTable *>(parent());
     std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
 
-    Tree::iterator loc = tree_.find(*(entry_ptr.get()));
-    if (loc != tree_.end()) {
-        return loc.operator->();
+    if (need_lock) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return FindInternal(entry_ptr.get());
+    } else {
+        return FindInternal(entry_ptr.get());
     }
-    return NULL;
+}
+
+DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
+    return Find(key, true);
 }
 
 DBEntry *DBTablePartition::FindNext(const DBRequestKey *key) {
