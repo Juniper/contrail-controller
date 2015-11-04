@@ -289,11 +289,22 @@ class InstanceManager(object):
                 continue
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
-                try:
-                    self._vnc_lib.instance_ip_delete(id=iip['uuid'])
-                    InstanceIpSM.delete(iip['uuid'])
-                except NoIdError:
-                    pass
+                vip = False
+                iip_cache = InstanceIpSM.locate(iip['uuid'])
+                for port_id in iip_cache.virtual_machine_interfaces:
+                    port = VirtualMachineInterfaceSM.get(port_id)
+                    if port and port.virtual_ip:
+                        vip = True
+                        break
+                if vip:
+                    self._vnc_lib.ref_update('instance-ip', iip['uuid'],
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
+                else:
+                    try:
+                        self._vnc_lib.instance_ip_delete(id=iip['uuid'])
+                        InstanceIpSM.delete(iip['uuid'])
+                    except NoIdError:
+                        pass
 
             if port_delete:
                 try:
