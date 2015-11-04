@@ -573,10 +573,12 @@ class SvcMonitorTest(unittest.TestCase):
         vm = VirtualMachine(name=name)
         if si:
             vm.set_service_instance(si)
+            name = si.name + '__' + '1'
+            instance_name = "__".join(si.fq_name[:-1] + [name])
             if virt_type:
-                name = si.name + '__' + '1'
-                instance_name = "__".join(si.fq_name[:-1] + [name])
                 vm.set_display_name(instance_name + '__' + virt_type)
+            else:
+                vm.set_display_name(instance_name)
         vm_dict = self.obj_to_dict(vm)
         vm_dict['uuid'] = uuid
         vm_obj = VirtualMachine.from_dict(**vm_dict)
@@ -802,7 +804,7 @@ class SvcMonitorTest(unittest.TestCase):
         si_obj = self.add_si('fake-instance', 'fake-instance', st_obj)
         vm_obj = self.add_vm('fake-vm', 'fake-vm', si_obj)
         self._svc_monitor.upgrade()
-        self.vnc_mock.virtual_machine_update.assert_any_call(test_utils.VMObjMatcher(1))
+        self.vnc_mock.virtual_machine_delete.assert_any_call(id=vm_obj.uuid)
 
     def test_svc_monitor_sas(self):
         def db_read(obj_type, uuids):
