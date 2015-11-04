@@ -22,21 +22,29 @@ from vnc_api.vnc_api import *
 from instance_manager import InstanceManager
 from config_db import VirtualMachineSM
 
+from novaclient import exceptions as nc_exc
+
 class VirtualMachineManager(InstanceManager):
 
     def _create_service_vm(self, instance_index, si, st):
         proj_name = si.fq_name[-2]
-        if si.flavor:
-            flavor = self._nc.oper('flavors', 'find', proj_name,
-                                   name=si.flavor)
-        else:
-            flavor = self._nc.oper('flavors', 'find', proj_name, ram=4096)
+        try:
+            if si.flavor:
+                flavor = self._nc.oper('flavors', 'find', proj_name,
+                                       name=si.flavor)
+            else:
+                flavor = self._nc.oper('flavors', 'find', proj_name, ram=4096)
+        except nc_exc.NotFound:
+            flavor = None
         if not flavor:
             self.logger.log_error("Flavor not found %s" %
                 ((':').join(st.fq_name)))
             return None
 
-        image = self._nc.oper('images', 'find', proj_name, name=si.image)
+        try:
+            image = self._nc.oper('images', 'find', proj_name, name=si.image)
+        except nc_exc.NotFound:
+            image = None
         if not image:
             return None
 
@@ -130,26 +138,35 @@ class VirtualMachineManager(InstanceManager):
         self.cleanup_svc_vm_ports(vmi_list)
 
         # nova vm delete
+        nova_vm_deleted = False
         proj_name = vm.proj_fq_name[-1]
-        nova_vm = self._nc.oper('servers', 'get', proj_name, id=vm.uuid)
-        if nova_vm:
-            try:
-                nova_vm.delete()
-            except Exception as e:
-                self.logger.log_error("%s nova delete failed with error %s" %
-                    (vm.uuid, str(e)))
-
         try:
-            self._vnc_lib.virtual_machine_delete(id=vm.uuid)
-        except NoIdError:
-            pass
-        except RefsExistError:
-            self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
+            nova_vm = self._nc.oper('servers', 'get', proj_name, id=vm.uuid)
+            if nova_vm:
+                try:
+                    nova_vm.delete()
+                    nova_vm_deleted = True
+                except Exception as e:
+                    self.logger.log_error("%s nova delete failed with error %s" %
+                        (vm.uuid, str(e)))
+        except nc_exc.NotFound:
+            nova_vm_deleted = True
+
+        if nova_vm_deleted:
+            try:
+                self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+            except NoIdError:
+                pass
+            except RefsExistError:
+                self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
 
     def check_service(self, si):
         vm_id_list = list(si.virtual_machines)
         for vm_id in vm_id_list:
-            vm = self._nc.oper('servers', 'get', si.proj_name, id=vm_id)
+            try:
+                vm = self._nc.oper('servers', 'get', si.proj_name, id=vm_id)
+            except nc_exc.NotFound:
+                vm = None
             if vm and vm.status == 'ERROR':
                 try:
                     vm.delete()
