@@ -1,0 +1,15 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('AnalyticsEnv')
+DatabaseEnv = AnalyticsEnv.Clone()
+
+utils_scripts = [
+    'contrail-cassandra-repair.py',
+]
+
+for utils in utils_scripts:
+    DatabaseEnv.Alias('install', DatabaseEnv.Install(DatabaseEnv['INSTALL_EXAMPLE'], utils))
