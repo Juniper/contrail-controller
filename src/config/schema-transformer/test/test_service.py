@@ -162,38 +162,12 @@ class TestPolicy(test_case.STTestCase):
         ip = cf.get(sc_name)['ip_address']
 
     @retries(5, hook=retry_exc_handler)
-    def check_ri_rt_state_vn_policy(self, fq_name, to_fq_name, expect_to_find):
+    def check_ri_ref_present(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
-        rt_refs = ri.get_route_target_refs()
-        if not rt_refs:
-            print "retrying ... ", test_common.lineno()
-            raise Exception('ri_refs is None for %s' % fq_name)
-
-        found = False
-        for rt_ref in rt_refs:
-            rt_obj = self._vnc_lib.route_target_read(id=rt_ref['uuid'])
-            ri_refs = rt_obj.get_routing_instance_back_refs()
-            for ri_ref in ri_refs:
-                if ri_ref['to'] == to_fq_name:
-                    found = True
-                    break
-            if found == True:
-                break
-        self.assertTrue(found == expect_to_find)
-
-    @retries(5, hook=retry_exc_handler)
-    def check_ri_state_vn_policy(self, fq_name, to_fq_name):
-        ri = self._vnc_lib.routing_instance_read(fq_name)
-        ri_refs = ri.get_routing_instance_refs()
-        if not ri_refs:
-            print "retrying ... ", test_common.lineno()
-            raise Exception('ri_refs is None for %s' % fq_name)
-        found = False
-        for ri_ref in ri_refs:
+        for ri_ref in ri.get_routing_instance_refs() or []:
             if ri_ref['to'] == to_fq_name:
-                found = True
-                break
-        self.assertTrue(found)
+                return
+        raise Exception('ri_ref not found from %s to %s' % fq_name, to_fq_name)
 
     @retries(5, hook=retry_exc_handler)
     def check_ri_refs_are_deleted(self, fq_name):
@@ -231,7 +205,7 @@ class TestPolicy(test_case.STTestCase):
     @retries(5, hook=retry_exc_handler)
     def check_rt_is_deleted(self, name):
         try:
-            self._vnc_lib.route_target_delete(fq_name=[name])
+            self._vnc_lib.route_target_read(fq_name=[name])
             print "retrying ... ", test_common.lineno()
             raise Exception('rt %s still exists' % uuid)
         except NoIdError:
@@ -448,10 +422,10 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn2_obj))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
-                                      self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj),
+                                  self.get_ri_name(vn1_obj))
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -483,10 +457,10 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn2_obj))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
-                                      self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj),
+                                  self.get_ri_name(vn1_obj))
 
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
         np1.set_network_policy_entries(np1.network_policy_entries)
@@ -548,17 +522,17 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn2_obj))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
-                                      self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj),
+                                  self.get_ri_name(vn1_obj))
 
         vn3_obj = VirtualNetwork(vn3_name)
         vn3_obj.set_network_policy(np2, vnp)
         vn3_uuid = self._vnc_lib.virtual_network_create(vn3_obj)
 
-        self.check_ri_state_vn_policy(self.get_ri_name(vn3_obj),
-                                      self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn3_obj),
+                                  self.get_ri_name(vn1_obj))
 
         vn3_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn3_obj)
@@ -607,10 +581,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         si_name = 'default-domain:default-project:' + service_name
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
@@ -631,6 +605,16 @@ class TestPolicy(test_case.STTestCase):
         sci.prefix = ['2000::/16']
         sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
         self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
+
+        vn1_obj.set_multi_policy_service_chains_enabled(True)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        vn1_obj.set_multi_policy_service_chains_enabled(False)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
@@ -711,10 +695,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_names[0]))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_names[2]),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[2]),
+                                  self.get_ri_name(vn2_obj))
 
         si_name = 'default-domain:default-project:test.test_service.TestPolicy.test_multi_service_in_policys3'
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
@@ -769,10 +753,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_names[0]))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_names[-1]),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[-1]),
+                                  self.get_ri_name(vn2_obj))
 
         self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_names[0]),
                                        prefix='10.0.0.0/24')
@@ -1033,10 +1017,10 @@ class TestPolicy(test_case.STTestCase):
         sc = self.wait_to_get_sc()
         sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
                       + service_name)
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         # stop st
         test_common.kill_schema_transformer(self._st_greenlet)
@@ -1087,10 +1071,10 @@ class TestPolicy(test_case.STTestCase):
         sc = self.wait_to_get_sc()
         sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
                       + service_name)
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
         # stop st and wait for sometime
         test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
@@ -1104,10 +1088,10 @@ class TestPolicy(test_case.STTestCase):
         sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
                       + service_name)
 
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         #cleanup
         vn1_obj.del_network_policy(np)
@@ -1263,8 +1247,8 @@ class TestPolicy(test_case.STTestCase):
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
         svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
-        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn1_obj))
-        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn2_obj))
 
         self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
         self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
@@ -1301,17 +1285,17 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
                                        prefix='10.0.0.0/24')
 
         svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
-        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn1_obj))
-        self.check_ri_state_vn_policy(svc_ri_fq_name, self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn1_obj))
+        self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn2_obj))
 
         self.check_acl_match_mirror_to_ip(self.get_ri_name(vn1_obj))
         self.check_acl_match_nets(self.get_ri_name(vn1_obj), ':'.join(vn1_obj.get_fq_name()), ':'.join(vn2_obj.get_fq_name()))
@@ -1712,10 +1696,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         vmi_fq_name = 'default-domain:default-project:default-domain__default-project__test.test_service.TestPolicy.test_fips1__1__left__1'
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name.split(':'))
@@ -1775,10 +1759,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
                                        prefix='10.0.0.0/24')
@@ -1875,10 +1859,10 @@ class TestPolicy(test_case.STTestCase):
 
         sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
         #basic checks
-        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
-                                      self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
-                                      self.get_ri_name(vn2_obj))
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
 
         self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
                                        prefix='10.0.0.0/24')
