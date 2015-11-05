@@ -3,7 +3,6 @@
  */
 
 #include <fstream>
-
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
