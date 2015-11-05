@@ -2202,6 +2202,7 @@ void BgpStressTest::AddRoutingInstance(int instance_id, int ntargets) {
 
     BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_ROUTING_INSTANCE);
     instances_[instance_id] = true;
+    if (d_external_mode_) return;
 
     if (instance_id) {
         ostringstream out;
@@ -2222,7 +2223,6 @@ void BgpStressTest::AddRoutingInstance(vector<int> instance_ids, int ntargets) {
 }
 
 void BgpStressTest::AddRoutingInstances(int ninstances, int ntargets) {
-    if (d_external_mode_) return;
     for (int instance_id = 0; instance_id <= ninstances; ++instance_id) {
         if (instance_id < (int) instances_.size() && instances_[instance_id])
             continue;
