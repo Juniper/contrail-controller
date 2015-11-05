@@ -266,16 +266,25 @@ class FakeCF(object):
 
     @contextlib.contextmanager
     def patch_row(self, key, new_columns=None):
-        orig_cols = self._rows[key]
-        if new_columns is None:
-            # simulates absence of key in cf
-            del self._rows[key]
-        else:
-            self._rows[key] = new_columns
+        if key in self._rows:
+            row_existed = True
+            orig_cols = self._rows[key]
+            if new_columns is None:
+                # simulates absence of key in cf
+                del self._rows[key]
+            else:
+                self._rows[key] = new_columns
+        else: # row didn't exist, create one
+            row_existed = False
+            self.insert(key, new_columns)
+
         try:
             yield
         finally:
-            self._rows[key] = orig_cols
+            if row_existed:
+                self._rows[key] = orig_cols
+            else:
+                del self._rows[key]
     #end patch_row
 # end class FakeCF
 
@@ -941,6 +950,11 @@ def Fake_uuid_to_time(time_uuid_in_db):
     return ts
 # end of Fake_uuid_to_time
 
+class ZnodeStat(object):
+    def __init__(self, ctime):
+        self.ctime = ctime
+# end ZnodeStat
+
 class FakeKazooClient(object):
     class Election(object):
         __init__ = stub
@@ -956,8 +970,9 @@ class FakeKazooClient(object):
 
     def create(self, path, value='', *args, **kwargs):
         if path in self._values:
-            raise ResourceExistsError(path, str(self._values[path]))
-        self._values[path] = (value, time.time()*1000)
+            raise ResourceExistsError(
+                path, str(self._values[path][0]), 'zookeeper')
+        self._values[path] = (value, ZnodeStat(time.time()*1000))
     # end create
 
     def get(self, path):
@@ -994,7 +1009,7 @@ class ZookeeperClientMock(object):
     def alloc_from_str(self, path, value=''):
         self._count = self._count + 1
         zk_val = "%(#)010d" % {'#': self._count}
-        self._values[path + zk_val] = (value, time.time()*1000)
+        self._values[path + zk_val] = (value, ZnodeStat(time.time()*1000))
         return zk_val
     # end alloc_from_str
 
@@ -1027,8 +1042,9 @@ class ZookeeperClientMock(object):
 
     def create_node(self, path, value=''):
         if path in self._values:
-            raise ResourceExistsError(path, str(self._values[path]))
-        self._values[path] = (value, time.time()*1000)
+            raise ResourceExistsError(
+                path, str(self._values[path][0], 'zookeeper'))
+        self._values[path] = (value, ZnodeStat(time.time()*1000))
     # end create_node
 
     def delete_node(self, path, recursive=False):
