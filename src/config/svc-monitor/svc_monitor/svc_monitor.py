@@ -54,6 +54,8 @@ from logger import ServiceMonitorLogger
 from instance_manager import InstanceManager
 from loadbalancer_agent import LoadbalancerAgent
 
+from novaclient import exceptions as nc_exc
+
 # zookeeper client connection
 _zookeeper_client = None
 
@@ -380,14 +382,27 @@ class SvcMonitor(object):
                 vm = VirtualMachineSM.get(vm_id)
                 if vm.virtualization_type:
                     continue
-                nova_vm = self._nova_client.oper('servers', 'get',
-                    si.proj_name, id=vm_id)
+                try:
+                    nova_vm = self._nova_client.oper('servers', 'get',
+                        si.proj_name, id=vm_id)
+                except nc_exc.NotFound:
+                    nova_vm = None
+
                 if nova_vm:
                     vm_name = nova_vm.name
+                    try:
+                        vm.proj_fq_name = nova_vm.name.split('__')[0:2]
+                    except Exception as e:
+                        continue
                 else:
                     vm_name = vm.name
-                if not vm_name.split('__')[-1].isdigit():
+
+                try:
+                    if not vm_name.split('__')[-1].isdigit():
+                        continue
+                except Exception as e:
                     continue
+
                 vm.virtualization_type = st.virtualization_type
                 self._delete_service_instance(vm)
 
