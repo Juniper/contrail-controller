@@ -167,7 +167,7 @@ public:
     static int RouteCount();
     static int VxLanCount();
     static KSyncSockTypeMap *GetKSyncSockTypeMap() { return singleton_; };
-    static void Init(boost::asio::io_service &ios, int count);
+    static void Init(boost::asio::io_service &ios);
     static void Shutdown();
     static vr_flow_entry *FlowMmapAlloc(int size);
     static void FlowMmapFree();

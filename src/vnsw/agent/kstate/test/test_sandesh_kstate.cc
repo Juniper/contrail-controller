@@ -490,7 +490,7 @@ TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {
 
     //verify the response
     EXPECT_LE(4U, type_specific_response_count_);
-    EXPECT_EQ((50U + num_ifs) , num_entries_);
+    WAIT_FOR(100, 100, ((50U + num_ifs) , num_entries_));
 
     //cleanup
     for(int i = 30; i < 80; i++) {
@@ -504,7 +504,7 @@ TEST_F(KStateSandeshTest, NhTest) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ >= 1));
     unsigned int num_nexthops = num_entries_;
     
     //Create 2 vrfs in mock Kernel
