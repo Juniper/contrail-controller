@@ -384,6 +384,7 @@ class SvcMonitor(object):
                     si.proj_name, id=vm_id)
                 if nova_vm:
                     vm_name = nova_vm.name
+                    vm.proj_fq_name = nova_vm.name.split('__')[0:2]
                 else:
                     vm_name = vm.name
                 if not vm_name.split('__')[-1].isdigit():
