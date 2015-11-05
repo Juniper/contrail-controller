@@ -8,6 +8,7 @@
 
 <xsd:include schemaLocation='ietf-l3vpn-schema.xsd'/>
 <xsd:include schemaLocation='smi-base.xsd'/>
+<xsd:include schemaLocation='routing_policy.xsd'/>
 
 <!-- routing-instance: group of customer attachment points with the same
      connectivity policies -->
@@ -19,6 +20,16 @@
     Link('connection', 'routing-instance', 'routing-instance', ['ref']) -->
 <!--#IFMAP-SEMANTICS-IDL 
     Link('instance-target', 'routing-instance', 'route-target', ['ref']) -->
+
+<xsd:complexType name="RoutingPolicyType">
+    <xsd:element name="sequence" type="smi:SequenceType"/>
+</xsd:complexType>
+
+<xsd:element name="routing-instance-routing-policy" type="RoutingPolicyType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('routing-instance-routing-policy',
+          'routing-instance', 'routing-policy', ['ref']) -->
+
 <!--#IFMAP-SEMANTICS-IDL 
     Property('default-ce-protocol', 'routing-instance') -->
 <!--#IFMAP-SEMANTICS-IDL 

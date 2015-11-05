@@ -34,6 +34,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                    := 
  -->
 
+<xsd:include schemaLocation='smi-base.xsd'/>
+
 <!--Common types-->
 
 
@@ -95,13 +97,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!-- ACL type definition -->
 
-<xsd:complexType name="SequenceType">
-    <xsd:all>
-        <xsd:element name="major" type="xsd:integer"/>
-        <xsd:element name="minor" type="xsd:integer"/>
-    </xsd:all>
-</xsd:complexType> 
-
 <xsd:complexType name="TimerType">
     <xsd:all>
         <xsd:element name="start-time" type="xsd:dateTime"/>
@@ -113,7 +108,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="VirtualNetworkPolicyType">
     <xsd:all>
-        <xsd:element name="sequence" type="SequenceType"/>
+        <xsd:element name="sequence" type="smi:SequenceType"/>
         <xsd:element name="timer" type="TimerType"/>
     </xsd:all>
 </xsd:complexType>
@@ -213,7 +208,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PolicyRuleType">
     <xsd:all>
-        <xsd:element name="rule-sequence"    type="SequenceType"/> <!-- dummy till ui etc. remove it -->
+        <xsd:element name="rule-sequence"    type="smi:SequenceType"/> <!-- dummy till ui etc. remove it -->
         <xsd:element name="rule-uuid"        type="xsd:string"/>
         <xsd:element name="direction"        type="DirectionType"/>
         <xsd:element name="protocol"         type="xsd:string"/>

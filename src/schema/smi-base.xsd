@@ -29,4 +29,9 @@
        </xsd:restriction>
      </xsd:simpleType>
 
+     <xsd:complexType name="SequenceType">
+       <xsd:element name="major" type="xsd:integer"/>
+       <xsd:element name="minor" type="xsd:integer"/>
+     </xsd:complexType>
+
 </xsd:schema>
