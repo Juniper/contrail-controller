@@ -95,7 +95,7 @@ void KSyncTest::NetlinkInitTest() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSockTypeMap::Init(io, 1);
+    KSyncSockTypeMap::Init(io);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext
                                                 (flowtable_ksync_obj_.get()));
 

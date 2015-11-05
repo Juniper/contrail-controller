@@ -24,6 +24,7 @@ libksync = env.Library('ksync', SandeshGenSrcs + ['ksync_object.cc'])
 
 # KSync Netlink library
 libksyncnl = env.Library('ksyncnl',
-                    ['ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc'])
+                    ['ksync_tx_queue.cc', 'ksync_netlink.cc', 'ksync_sock.cc',
+                     'ksync_sock_user.cc'])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

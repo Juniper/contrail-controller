@@ -94,7 +94,7 @@ void KSync::NetlinkInit() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
+    KSyncSockNetlink::Init(io, NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                             flowtable_ksync_obj_.get()));
     GenericNetlinkInit();
@@ -296,7 +296,7 @@ void KSyncTcp::TcpInit() {
     boost::asio::ip::address ip;
     ip = agent_->vrouter_server_ip();
     uint32_t port = agent_->vrouter_server_port();
-    KSyncSockTcp::Init(event_mgr, DB::PartitionCount(), ip, port);
+    KSyncSockTcp::Init(event_mgr, ip, port);
     KSyncSock::SetNetlinkFamilyId(24);
 
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(

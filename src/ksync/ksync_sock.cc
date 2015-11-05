@@ -46,7 +46,7 @@ typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
-std::vector<KSyncSock *> KSyncSock::sock_table_;
+std::auto_ptr<KSyncSock> KSyncSock::sock_;
 pid_t KSyncSock::pid_;
 tbb::atomic<bool> KSyncSock::shutdown_;
 
@@ -178,6 +178,7 @@ static void DecodeSandeshMessages(char *buf, uint32_t buf_len,
 // KSyncSock routines
 /////////////////////////////////////////////////////////////////////////////
 KSyncSock::KSyncSock() :
+    send_queue_(this),
     max_bulk_msg_count_(kMaxBulkMsgCount), max_bulk_buf_size_(kMaxBulkMsgSize),
     bulk_seq_no_(-1), tx_count_(0), err_count_(0), read_inline_(true) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -190,12 +191,6 @@ KSyncSock::KSyncSock() :
                                               this, _1));
     }
     task_id = scheduler->GetTaskId("Ksync::AsyncSend");
-    async_send_queue_ =
-        new WorkQueue<IoContext *>(task_id, 0,
-                                   boost::bind(&KSyncSock::SendAsyncImpl, this,
-                                               _1));
-    async_send_queue_->SetExitCallback
-        (boost::bind(&KSyncSock::SendTaskExit, this, _1));
     nl_client_ = (nl_client *)malloc(sizeof(nl_client));
     bzero(nl_client_, sizeof(nl_client));
     rx_buff_ = NULL;
@@ -211,10 +206,6 @@ KSyncSock::~KSyncSock() {
         rx_buff_ = NULL;
     }
 
-    assert(async_send_queue_->Length() == 0);
-    async_send_queue_->Shutdown();
-    delete async_send_queue_;
-
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
         receive_work_queue[i]->Shutdown();
         delete receive_work_queue[i];
@@ -227,46 +218,36 @@ KSyncSock::~KSyncSock() {
 }
 
 void KSyncSock::Shutdown() {
+    sock_->send_queue_.Shutdown();
     shutdown_ = true;
-    STLDeleteValues(&sock_table_);
 }
 
-void KSyncSock::Init(int count) {
-    sock_table_.resize(count);
+void KSyncSock::Init(bool use_work_queue) {
+    sock_->send_queue_.Init(use_work_queue);
     pid_ = getpid();
     shutdown_ = false;
 }
 
 void KSyncSock::Start(bool read_inline) {
-    for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
-         it != sock_table_.end(); ++it) {
-        (*it)->read_inline_ = read_inline;
-        if ((*it)->read_inline_) {
-            continue;
-        }
-        (*it)->async_send_queue_->SetStartRunnerFunc(
-                boost::bind(&KSyncSock::SendAsyncStart, *it));
-        (*it)->rx_buff_ = new char[kBufLen];
-        (*it)->AsyncReceive(boost::asio::buffer((*it)->rx_buff_, kBufLen),
-                            boost::bind(&KSyncSock::ReadHandler, *it,
-                                        placeholders::error,
-                                        placeholders::bytes_transferred));
+    sock_->read_inline_ = read_inline;
+    if (sock_->read_inline_) {
+        return;
     }
+    sock_->rx_buff_ = new char[kBufLen];
+    sock_->AsyncReceive(boost::asio::buffer(sock_->rx_buff_, kBufLen),
+                        boost::bind(&KSyncSock::ReadHandler, sock_.get(),
+                                    placeholders::error,
+                                    placeholders::bytes_transferred));
 }
 
-void KSyncSock::SetSockTableEntry(int i, KSyncSock *sock) {
-    sock_table_[i] = sock;
+void KSyncSock::SetSockTableEntry(KSyncSock *sock) {
+    assert(sock_.get() == NULL);
+    sock_.reset(sock);
 }
 
 void KSyncSock::SetNetlinkFamilyId(int id) {
     vnsw_netlink_family_id_ = id;
-    for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
-         it != sock_table_.end(); it++) {
-        KSyncSock *sock = dynamic_cast<KSyncSock *>(*it);
-        if (sock) {
-            InitNetlink(sock->nl_client_);
-        }
-    }
+    InitNetlink(sock_->nl_client_);
 }
 
 int KSyncSock::AllocSeqNo(bool is_uve) { 
@@ -281,12 +262,12 @@ int KSyncSock::AllocSeqNo(bool is_uve) {
 }
 
 KSyncSock *KSyncSock::Get(DBTablePartBase *partition) {
-    int idx = partition->index();
-    return sock_table_[idx];
+    return sock_.get();
 }
 
 KSyncSock *KSyncSock::Get(int idx) {
-    return sock_table_[idx];
+    assert(idx == 0);
+    return sock_.get();
 }
 
 bool KSyncSock::ValidateAndEnqueue(char *data) {
@@ -344,7 +325,6 @@ bool KSyncSock::ProcessKernelData(char *data) {
         tbb::mutex::scoped_lock lock(mutex_);
         wait_tree_.erase(it);
     }
-    async_send_queue_->MayBeStartRunner();
     delete[] data;
     return true;
 }
@@ -381,14 +361,14 @@ size_t KSyncSock::BlockingSend(char *msg, int msg_len) {
 }
 
 void KSyncSock::GenericSend(IoContext *ioc) {
-    async_send_queue_->Enqueue(ioc);
+    send_queue_.Enqueue(ioc);
 }
 
 void KSyncSock::SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                           KSyncEntry::KSyncEvent event) {
     uint32_t seq = AllocSeqNo(false);
     KSyncIoContext *ioc = new KSyncIoContext(entry, msg_len, msg, seq, event);
-    async_send_queue_->Enqueue(ioc);
+    send_queue_.Enqueue(ioc);
 }
 
 // Write handler registered with boost::asio
@@ -404,7 +384,10 @@ void KSyncSock::WriteHandler(const boost::system::error_code& error,
 }
 
 // End of messages in the work-queue. Send messages pending in bulk context
-void KSyncSock::SendTaskExit(bool done) {
+void KSyncSock::OnEmptyQueue(bool done) {
+    if (bulk_seq_no_ == -1)
+        return;
+    tbb::mutex::scoped_lock lock(mutex_);
     WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
     assert(it != wait_tree_.end());
     KSyncBulkSandeshContext *bulk_context = &it->second;
@@ -511,11 +494,9 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
 KSyncSockNetlink::~KSyncSockNetlink() {
 }
 
-void KSyncSockNetlink::Init(io_service &ios, int count, int protocol) {
-    KSyncSock::Init(count);
-    for (int i = 0; i < count; i++) {
-        KSyncSock::SetSockTableEntry(i, new KSyncSockNetlink(ios, protocol));
-    }
+void KSyncSockNetlink::Init(io_service &ios, int protocol) {
+    KSyncSock::SetSockTableEntry(new KSyncSockNetlink(ios, protocol));
+    KSyncSock::Init(false);
 }
 
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
@@ -612,11 +593,9 @@ KSyncSockUdp::KSyncSockUdp(boost::asio::io_service &ios, int port) :
     server_ep_(ip::address::from_string("127.0.0.1"), port) {
 }
 
-void KSyncSockUdp::Init(io_service &ios, int count, int port) {
-    KSyncSock::Init(count);
-    for (int i = 0; i < count; i++) {
-        KSyncSock::SetSockTableEntry(i, new KSyncSockUdp(ios, port));
-    }
+void KSyncSockUdp::Init(io_service &ios, int port) {
+    KSyncSock::SetSockTableEntry(new KSyncSockUdp(ios, port));
+    KSyncSock::Init(false);
 }
 
 uint32_t KSyncSockUdp::GetSeqno(char *data) {
@@ -692,13 +671,11 @@ KSyncSockTcp::KSyncSockTcp(EventManager *evm,
     Connect(session_, server_ep_);
 }
 
-void KSyncSockTcp::Init(EventManager *evm, int count, ip::address ip_addr,
+void KSyncSockTcp::Init(EventManager *evm, ip::address ip_addr,
                         int port) {
-    KSyncSock::Init(count);
     SetNetlinkFamilyId(10);
-    for (int i = 0; i < count; i++) {
-        KSyncSock::SetSockTableEntry(i, new KSyncSockTcp(evm, ip_addr, port));
-    }
+    KSyncSock::SetSockTableEntry(new KSyncSockTcp(evm, ip_addr, port));
+    KSyncSock::Init(false);
 }
 
 TcpSession* KSyncSockTcp::AllocSession(Socket *socket) {
