@@ -5,19 +5,16 @@
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
-<xsd:include schemaLocation='smi-base.xsd'/>
 <xsd:element name='routing-policy' type='ifmap::IdentityType'/>
 <xsd:element name='routing-policy-entries' type='PolicyStatement'/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('routing-policy-entries', 'routing-policy') -->
 
 <xsd:complexType name='PolicyStatement'> 
-    <xsd:sequence>
-        <xsd:element name='term' type='PolicyTerm' maxOccurs='unbounded'/>
-    </xsd:sequence>
+    <xsd:element name='term' type='PolicyTerm' maxOccurs='unbounded'/>
 </xsd:complexType>
 
-<xsd:simpleType name='ActionType'> 
+<xsd:simpleType name='ActionType'>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="reject"/>
         <xsd:enumeration value="accept"/>
@@ -25,51 +22,48 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name='CommunityListType'>
+    <xsd:element name='community' type='xsd:string' maxOccurs='unbounded'/>
+</xsd:complexType>
+
 <xsd:complexType name="ActionCommunity">
-    <xsd:sequence>
-        <xsd:element name='add' type='xsd:string'/>
-        <xsd:element name='remove' type='xsd:string'/>
-        <xsd:element name='set' type='xsd:string'/>
-    </xsd:sequence>
+    <xsd:element name='add'    type='CommunityListType'/>
+    <xsd:element name='remove' type='CommunityListType'/>
+    <xsd:element name='set'    type='CommunityListType'/>
 </xsd:complexType>
 
 <xsd:complexType name="ActionUpdate">
-    <xsd:sequence>
-        <xsd:element name="community"   type="ActionCommunity"/>
-        <xsd:element name="local-pref"  type="xsd:integer"/>
-    </xsd:sequence>
+    <xsd:element name="community"   type="ActionCommunity"/>
+    <xsd:element name="local-pref"  type="xsd:integer"/>
 </xsd:complexType>
 
 <xsd:complexType name='PolicyAction'>
     <xsd:all>
-        <xsd:element name='update'     type='ActionUpdate'/>        
-        <xsd:element name='action'  type='ActionType'/>        
+        <xsd:element name='update'  type='ActionUpdate'/>
+        <xsd:element name='action'  type='ActionType'/>
     </xsd:all>
 </xsd:complexType>
 
-<xsd:simpleType name="ProtocolType">
-    <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="bgp"/>
-        <xsd:enumeration value="direct"/>
+<xsd:simpleType name='PrefixMatchType'>
+    <xsd:restriction base="xsd:string" default="exact">
+        <xsd:enumeration value="exact"/>
+        <xsd:enumeration value="longer"/>
+        <xsd:enumeration value="orlonger"/>
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name="PolicyMatch">
-    <xsd:sequence>
-        <xsd:element name="as-path"     type="xsd:string"/>
-        <xsd:element name="community"   type="xsd:string"/>
-        <xsd:element name="local-pref"  type="xsd:integer"/>
-        <xsd:element name="neighbor"    type="smi:IpAddress"/>
-        <xsd:element name="prefix"      type="xsd:string"/>
-        <xsd:element name="next-hop"    type="smi:IpAddress"/>
-        <xsd:element name="protocol"    type="ProtocolType"/>
-    </xsd:sequence>
+<xsd:complexType name="PrefixMatch">
+    <xsd:element name="prefix"   type="xsd:string"/>
+    <xsd:element name="type"     type="PrefixMatchType"/>
 </xsd:complexType>
 
-<xsd:complexType name='PolicyTerm'> 
-    <xsd:sequence>
-        <xsd:element name='from' type='PolicyMatch'/>
-        <xsd:element name='then' type='PolicyAction'/> 
-    </xsd:sequence>
+<xsd:complexType name="PolicyMatch">
+    <xsd:element name="community"   type="xsd:string"/>
+    <xsd:element name="prefix"      type="PrefixMatch"/>
+</xsd:complexType>
+
+<xsd:complexType name='PolicyTerm'>
+    <xsd:element name='from' type='PolicyMatch'/>
+    <xsd:element name='then' type='PolicyAction'/>
 </xsd:complexType>
 </xsd:schema>

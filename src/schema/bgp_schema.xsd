@@ -8,6 +8,7 @@
 
 <xsd:include schemaLocation='ietf-l3vpn-schema.xsd'/>
 <xsd:include schemaLocation='smi-base.xsd'/>
+<xsd:include schemaLocation='routing_policy.xsd'/>
 
 <!-- routing-instance: group of customer attachment points with the same
      connectivity policies -->
@@ -19,6 +20,25 @@
     Link('connection', 'routing-instance', 'routing-instance', ['ref']) -->
 <!--#IFMAP-SEMANTICS-IDL 
     Link('instance-target', 'routing-instance', 'route-target', ['ref']) -->
+
+<xsd:complexType name="RoutingPolicyType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Sequence defines the position where the routing policy is inserted
+            into the existing list of policies in the routing-instance
+            It is string representation of floating number.
+            e.g. "1.01" or "0.1"
+            In this above case policy with "0.1" is inserted before "1.01"
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name="sequence" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:element name="routing-instance-routing-policy" type="RoutingPolicyType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('routing-instance-routing-policy',
+          'routing-instance', 'routing-policy', ['ref']) -->
+
 <!--#IFMAP-SEMANTICS-IDL 
     Property('default-ce-protocol', 'routing-instance') -->
 <!--#IFMAP-SEMANTICS-IDL 
