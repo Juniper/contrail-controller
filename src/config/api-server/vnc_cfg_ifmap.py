@@ -62,7 +62,7 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-
+from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace, \
     IfmapTrace
 
@@ -693,7 +693,7 @@ class VncIfmapClient(object):
 
 class VncServerCassandraClient(VncCassandraClient):
     # Useragent datastore keyspace + tables (used by neutron plugin currently)
-    _USERAGENT_KEYSPACE_NAME = 'useragent'
+    _USERAGENT_KEYSPACE_NAME = USERAGENT_KEYSPACE_NAME
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
     @classmethod
