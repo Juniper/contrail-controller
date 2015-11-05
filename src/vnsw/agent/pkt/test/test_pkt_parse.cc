@@ -312,6 +312,11 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
         if (pkt_info->type != PktType::ICMP) {
             ret = false;
         }
+    } else if (proto == IPPROTO_SCTP) {
+        EXPECT_EQ(pkt_info->type, PktType::SCTP);
+        if (pkt_info->type != PktType::SCTP) {
+            ret = false;
+        }
     } else {
         EXPECT_EQ(pkt_info->type, PktType::IP);
         if (pkt_info->type != PktType::IP) {
@@ -426,9 +431,17 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
                                   1, 2));
 
     pkt->Reset();
-    MakeIpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1, -1, true);
+    MakeSctpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
     PktInfo pkt_info4(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info4, pkt.get());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info4, "1.1.1.1", "1.1.1.2", IPPROTO_SCTP,
+                               1, 2));
+
+    pkt->Reset();
+    MakeIpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1, -1, true);
+    PktInfo pkt_info5(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
+    TestPkt(&pkt_info5, pkt.get());
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info1, "1.1.1.1", "1.1.1.2", 1, 0, 0));
     EXPECT_EQ(Agent::GetInstance()->stats()->pkt_fragments_dropped(), 1);
