@@ -1024,6 +1024,16 @@ class VncZkClient(object):
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
+    def get_fq_name_to_uuid_mapping(self, obj_type, fq_name):
+        fq_name_str = ':'.join(fq_name)
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
+                                             fq_name_str)
+        obj_uuid, znode_stat = self._zk_client.read_node(
+            zk_path, include_timestamp=True)
+
+        return obj_uuid, znode_stat.ctime
+    # end get_fq_name_to_uuid_mapping
+
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
         zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
@@ -1145,8 +1155,35 @@ class VncDbClient(object):
         if persist:
             # set the mapping from name to uuid in zk to ensure single creator
             fq_name = obj_dict['fq_name']
-            self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name,
-                                                       str(id))
+            try:
+                self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name,
+                    str(id))
+            except ResourceExistsError as rexist:
+                # see if stale and if so delete stale
+                _, ctime = self._zk_db.get_fq_name_to_uuid_mapping(
+                                       obj_type, fq_name)
+                epoch_msecs = ctime
+                try:
+                    self._cassandra_db.uuid_to_fq_name(str(id))
+                    # not stale
+                    raise ResourceExistsError(fq_name, str(id), 'cassandra')
+                except NoIdError:
+                    lock_msecs = float(time.time()*1000 - epoch_msecs)
+                    stale_msecs_cfg = 1000 * float(
+                        self._api_svr_mgr.get_args().stale_lock_seconds)
+                    if (lock_msecs < stale_msecs_cfg):
+                        # not stale, race in create
+                        raise rexist
+
+                    # stale, release old and create new lock
+                    msg = 'Releasing stale lock(%s sec) for %s %s' \
+                        %(float(lock_msecs)/1000, obj_type, fq_name)
+                    self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+                    self._zk_db.delete_fq_name_to_uuid_mapping(
+                        obj_type, fq_name)
+                    self._zk_db.create_fq_name_to_uuid_mapping(
+                        obj_type, fq_name, str(id))
+        # end do_lock
 
         # set uuid in the perms meta
         mslong, lslong = self._uuid_to_longs(id)

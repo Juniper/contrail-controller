@@ -1205,6 +1205,104 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
 # end class TestVncCfgApiServer
 
+
+class TestStaleLockRemoval(test_case.ApiServerTestCase):
+    STALE_LOCK_SECS = '0.1'
+    def __init__(self, *args, **kwargs):
+        super(TestStaleLockRemoval, self).__init__(*args, **kwargs)
+        self._config_knobs.extend([('DEFAULTS', 'stale_lock_seconds',
+            self.STALE_LOCK_SECS),])
+    # end __init__
+
+    def test_stale_fq_name_lock_removed_on_partial_create(self):
+        # 1. partially create an object i.e zk done, cass 
+        #    cass silently not(simulating process restart).
+        # 2. create same object again, expect RefsExist
+        # 3. wait for stale_lock_seconds and attempt create
+        #    of same object. should succeed.
+        def stub(*args, **kwargs):
+            return (True, '')
+
+        with test_common.flexmocks([
+            (self._api_server._db_conn, 'dbe_create', stub),
+            (self._api_server.get_resource_class('virtual-network'),
+             'post_dbe_create', stub)]):
+            self._create_test_object()
+            with ExpectedException(RefsExistError) as e:
+                self._create_test_object()
+            gevent.sleep(float(self.STALE_LOCK_SECS))
+
+        self._create_test_object()
+    # end test_stale_fq_name_lock_removed_on_partial_create
+
+    def test_stale_fq_name_lock_removed_on_partial_delete(self):
+        # 1. partially delete an object i.e removed from cass
+        #    but not from zk silently (simulating process restart)
+        # 2. create same object again, expect RefsExist
+        # 3. wait for stale_lock_seconds and attempt create
+        #    of same object. should succeed.
+        def stub(*args, **kwargs):
+            return (True, '')
+
+        vn_obj = self._create_test_object()
+        with test_common.flexmocks([
+            (self._api_server._db_conn, 'dbe_release', stub)]):
+            self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+            with ExpectedException(RefsExistError) as e:
+                self._create_test_object()
+            gevent.sleep(float(self.STALE_LOCK_SECS))
+
+        self._create_test_object()
+    # end test_stale_fq_name_lock_removed_on_partial_delete
+
+    def test_stale_fq_name_lock_removed_coverage(self):
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        vn_obj.__dict__['id_perms'] = {}
+        vn_UUID = uuid.uuid4()
+
+        # create zk-node
+        self._api_server._db_conn.set_uuid(
+            obj_type=vn_obj._type,
+            obj_dict=vn_obj.__dict__,
+            id=vn_UUID,
+            do_lock=True)
+
+        # assert we hit the zk-node on re-create
+        with ExpectedException(ResourceExistsError, ".*at zookeeper.*"):
+            self._api_server._db_conn.set_uuid(
+                obj_type=vn_obj._type,
+                obj_dict=vn_obj.__dict__,
+                id=vn_UUID,
+                do_lock=True)
+
+        # create entry in cassandra too and assert
+        # not a stale lock on re-create
+        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        with uuid_cf.patch_row(str(vn_UUID),
+            new_columns={'fq_name':json.dumps(vn_obj.fq_name),
+                         'type':json.dumps(vn_obj._type)}):
+            with ExpectedException(ResourceExistsError, ".*at cassandra.*"):
+                self._api_server._db_conn.set_uuid(
+                    obj_type=vn_obj._type,
+                    obj_dict=vn_obj.__dict__,
+                    id=vn_UUID,
+                    do_lock=True)
+
+            self._api_server._db_conn._cassandra_db.cache_uuid_to_fq_name_del(
+                str(vn_UUID))
+
+        # sleep and re-create and now it should be fine
+        gevent.sleep(float(self.STALE_LOCK_SECS))
+        self._api_server._db_conn.set_uuid(
+            obj_type=vn_obj._type,
+            obj_dict=vn_obj.__dict__,
+            id=vn_UUID,
+            do_lock=True)
+    # end test_stale_fq_name_lock_removed_coverage
+
+# end TestStaleLockRemoval
+
+
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
     def __init__(self, *args, **kwargs):
