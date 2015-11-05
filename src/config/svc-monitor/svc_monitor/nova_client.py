@@ -40,7 +40,7 @@ class ServiceMonitorNovaClient(object):
             self.logger.log_error(
                 "%s %s=%s not found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
-            return None
+            raise
         except nc_exc.NoUniqueMatch:
             self.logger.log_error(
                 "Multiple %s %s=%s found in project %s"
