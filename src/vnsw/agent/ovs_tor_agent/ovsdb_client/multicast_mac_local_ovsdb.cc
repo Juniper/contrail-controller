@@ -223,13 +223,13 @@ void MulticastMacLocalOvsdb::Notify(OvsdbClientIdl::Op op,
         struct ovsdb_idl_row *row) {
     const char *ls_name = ovsdb_wrapper_mcast_mac_local_logical_switch(row);
 
+    LogicalSwitchTable *l_table = client_idl_->logical_switch_table();
+    l_table->OvsdbMcastLocalMacNotify(op, row);
+
     /* ignore if ls_name is not present */
     if (ls_name == NULL) {
         return;
     }
-
-    LogicalSwitchTable *l_table = client_idl_->logical_switch_table();
-    l_table->OvsdbMcastLocalMacNotify(op, row);
 
     std::string ls_name_str(ls_name);
     MulticastMacLocalEntry key(this, ls_name, row);
