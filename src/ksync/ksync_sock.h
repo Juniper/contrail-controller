@@ -19,6 +19,7 @@
 #include <sandesh/common/vns_types.h>
 #include <io/tcp_session.h>
 #include "vr_types.h"
+#include "ksync_tx_queue.h"
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
@@ -149,7 +150,7 @@ typedef boost::intrusive::list<IoContext, KSyncSockNode> IoContextList;
  *   stored in IoContextList
  * - Maps the sanesh response to the right IoContext in the list
  *
- * The KSync entries are bunched from async_send_queue_ WorkQueue. The bunching
+ * The KSync entries are bunched from KSyncTxQueue. The bunching
  * is capped by,
  * - Number of KSync entries
  * - Size of buffer
@@ -208,9 +209,9 @@ public:
     const static unsigned kBufLen = (4*1024);
 
     // Number of messages that can be bunched together
-    const static unsigned kMaxBulkMsgCount = 20;
+    const static unsigned kMaxBulkMsgCount = 1;
     // Max size of buffer that can be bunched together
-    const static unsigned kMaxBulkMsgSize = (3*1024);
+    const static unsigned kMaxBulkMsgSize = (4*1024);
 
     typedef std::map<int, KSyncBulkSandeshContext> WaitTree;
     typedef std::pair<int, KSyncBulkSandeshContext> WaitTreePair;
@@ -236,7 +237,7 @@ public:
     KSyncBulkSandeshContext *LocateBulkContext(uint32_t seqno);
     int SendBulkMessage(KSyncBulkSandeshContext *bulk_context, uint32_t seqno);
     bool TryAddToBulk(KSyncBulkSandeshContext *bulk_context, IoContext *ioc);
-    void SendTaskExit(bool done);
+    void OnEmptyQueue(bool done);
 
     // Start Ksync Asio operations
     static void Start(bool read_inline);
@@ -257,14 +258,14 @@ public:
         agent_sandesh_ctx_ = ctx;
     }
 protected:
-    static void Init(int count);
-    static void SetSockTableEntry(int i, KSyncSock *sock);
+    static void Init(bool use_work_queue);
+    static void SetSockTableEntry(KSyncSock *sock);
     bool ValidateAndEnqueue(char *data);
 
     nl_client *nl_client_;
     // Tree of all KSyncEntries pending ack from Netlink socket
     WaitTree wait_tree_;
-    WorkQueue<IoContext *> *async_send_queue_;
+    KSyncTxQueue send_queue_;
     tbb::mutex mutex_;
     WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
 
@@ -284,6 +285,7 @@ protected:
     uint32_t bulk_msg_count_;
 
 private:
+    friend class KSyncTxQueue;
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
                              HandlerCb cb) = 0;
@@ -319,7 +321,7 @@ private:
     int err_count_;
     bool read_inline_;
 
-    static std::vector<KSyncSock *> sock_table_;
+    static std::auto_ptr<KSyncSock> sock_;
     static pid_t pid_;
     static int vnsw_netlink_family_id_;
     static AgentSandeshContext *agent_sandesh_ctx_;
@@ -347,7 +349,7 @@ public:
 
     static void NetlinkDecoder(char *data, SandeshContext *ctxt);
     static void NetlinkBulkDecoder(char *data, SandeshContext *ctxt, bool more);
-    static void Init(boost::asio::io_service &ios, int count, int protocol);
+    static void Init(boost::asio::io_service &ios, int protocol);
 private:
     boost::asio::netlink::raw::socket sock_;
 };
@@ -369,7 +371,7 @@ public:
     virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
-    static void Init(boost::asio::io_service &ios, int count, int port);
+    static void Init(boost::asio::io_service &ios, int port);
 private:
     boost::asio::ip::udp::socket sock_;
     boost::asio::ip::udp::endpoint server_ep_;
@@ -430,7 +432,7 @@ public:
     }
     void AsyncReadStart();
 
-    static void Init(EventManager *evm, int count,
+    static void Init(EventManager *evm,
                      boost::asio::ip::address ip_addr, int port);
 private:
     EventManager *evm_;

@@ -189,3 +189,7 @@ void TestShutdown() {
     AgentStats::GetInstance()->Shutdown();
     AsioStop();
 }
+
+void TestClient::Shutdown() {
+    agent_init_.reset();
+}

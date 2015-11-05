@@ -6,9 +6,11 @@
 #define ctrlplane_ksync_entry_h 
 
 #include <boost/intrusive_ptr.hpp>
+#include <boost/intrusive/set.hpp>
 #include <tbb/atomic.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
+#include <db/db_entry.h>
 
 #define KSYNC_ERROR(obj, ...)\
 do {\
