@@ -357,7 +357,7 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_load_balance(*it)) {
             LoadBalance load_balance(*it);
             show_path->communities.push_back(load_balance.ToString());
-            load_balance.ShowAttribute(show_path->load_balance);
+            load_balance.ShowAttribute(&show_path->load_balance);
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");

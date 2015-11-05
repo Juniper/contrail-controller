@@ -52,17 +52,17 @@ TEST_F(LoadBalanceTest, Default_1) {
     EXPECT_EQ(0, lba.reserved6);
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("field-hash", item.load_balance_decision);
 
     // Reconstruct load-balance extended community from autogen item and verify
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
-    EXPECT_EQ("field-hash", lb2.ToString());
+    EXPECT_EQ("load-balance:field-hash", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("field-hash", show_load_balance.decision_type);
     EXPECT_EQ(lb_fields, show_load_balance.fields);
 }
@@ -75,6 +75,8 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
             0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
+    EXPECT_NE(lb, LoadBalance());
+    EXPECT_NE(lba, LoadBalance().ToAttribute());
     vector<string> lb_fields = vector<string>();
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lb.Type());
@@ -119,7 +121,7 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("source-bias", item.load_balance_decision);
 
@@ -127,10 +129,10 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
     EXPECT_EQ(data, lb2.GetExtCommunity());
-    EXPECT_EQ("source-bias", lb2.ToString());
+    EXPECT_EQ("load-balance:source-bias", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
     EXPECT_EQ(0, show_load_balance.fields.size());
 }
@@ -143,6 +145,8 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
+    EXPECT_NE(lb, LoadBalance());
+    EXPECT_NE(lba, LoadBalance().ToAttribute());
     vector<string> lb_fields = vector<string>();
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lb.Type());
@@ -172,7 +176,7 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("field-hash", item.load_balance_decision);
 
@@ -180,10 +184,10 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
     EXPECT_EQ(data, lb2.GetExtCommunity());
-    EXPECT_EQ("field-hash", lb2.ToString());
+    EXPECT_EQ("load-balance:field-hash", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("field-hash", show_load_balance.decision_type);
     EXPECT_EQ(0, show_load_balance.fields.size());
 }
@@ -196,6 +200,8 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
             0xaa, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
+    EXPECT_NE(lb, LoadBalance());
+    EXPECT_NE(lba, LoadBalance().ToAttribute());
     vector<string> lb_fields = vector<string>();
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lb.Type());
@@ -236,7 +242,7 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("source-bias", item.load_balance_decision);
 
@@ -244,10 +250,10 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
     EXPECT_EQ(data, lb2.GetExtCommunity());
-    EXPECT_EQ("source-bias", lb2.ToString());
+    EXPECT_EQ("load-balance:source-bias", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
     EXPECT_EQ(0, show_load_balance.fields.size());
 }
@@ -260,6 +266,8 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
             0x54, 0x00, 0x00, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
+    EXPECT_NE(lb, LoadBalance());
+    EXPECT_NE(lba, LoadBalance().ToAttribute());
     vector<string> lb_fields = vector<string>();
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lb.Type());
@@ -298,7 +306,7 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("field-hash", item.load_balance_decision);
 
@@ -306,10 +314,10 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
     EXPECT_EQ(data, lb2.GetExtCommunity());
-    EXPECT_EQ("field-hash", lb2.ToString());
+    EXPECT_EQ("load-balance:field-hash", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("field-hash", show_load_balance.decision_type);
     EXPECT_EQ(lb_fields, show_load_balance.fields);
 }
@@ -381,7 +389,7 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
     EXPECT_EQ(data2, LoadBalance(lba).GetExtCommunity());
 
     autogen::LoadBalanceType item;
-    lba.Encode(item);
+    lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("source-bias", item.load_balance_decision);
 
@@ -389,10 +397,10 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
     LoadBalance lb2 = LoadBalance(item);
     EXPECT_EQ(lba, lb2.ToAttribute());
     EXPECT_EQ(data2, lb2.GetExtCommunity());
-    EXPECT_EQ("source-bias", lb2.ToString());
+    EXPECT_EQ("load-balance:source-bias", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
-    lb2.ShowAttribute(show_load_balance);
+    lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("source-bias", show_load_balance.decision_type);
     EXPECT_EQ(0, show_load_balance.fields.size());
 }
