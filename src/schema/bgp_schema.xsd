@@ -8,7 +8,7 @@
 
 <xsd:include schemaLocation='ietf-l3vpn-schema.xsd'/>
 <xsd:include schemaLocation='smi-base.xsd'/>
-        
+
 <!-- routing-instance: group of customer attachment points with the same
      connectivity policies -->
 <!-- Route Target extended community:"bgp:route-target"  -->
@@ -49,18 +49,16 @@
 </xsd:simpleType>
 
 <xsd:complexType name='BgpRouterParams'>
-    <xsd:sequence>
-        <xsd:element name='vendor' type='xsd:string'/>
-        <xsd:element name='autonomous-system' type='xsd:integer'/>
-        <xsd:element name='identifier' type='smi:IpAddress'/>
-        <xsd:element name='address' type='smi:IpAddress'/>
-        <xsd:element name='port' type='xsd:integer'/>
-        <xsd:element name='hold-time' type='BgpHoldTime' default='90'/>
-        <xsd:element name='address-families' type='AddressFamilies'/>
-        <xsd:element name='auth-data' type='AuthenticationData'/>
-        <xsd:element name='local-autonomous-system' type='xsd:integer'/>
-        <xsd:element name='router-type' type='BgpRouterType'/>
-    </xsd:sequence>
+    <xsd:element name='vendor' type='xsd:string'/>
+    <xsd:element name='autonomous-system' type='xsd:integer'/>
+    <xsd:element name='identifier' type='smi:IpAddress'/>
+    <xsd:element name='address' type='smi:IpAddress'/>
+    <xsd:element name='port' type='xsd:integer'/>
+    <xsd:element name='hold-time' type='BgpHoldTime' default='90'/>
+    <xsd:element name='address-families' type='AddressFamilies'/>
+    <xsd:element name='auth-data' type='AuthenticationData'/>
+    <xsd:element name='local-autonomous-system' type='xsd:integer'/>
+    <xsd:element name='router-type' type='BgpRouterType'/>
 </xsd:complexType>
 
 <xsd:element name='instance-bgp-router'/>
@@ -78,33 +76,63 @@
 	sessions between 2 bgp-routers.
   -->
 <xsd:complexType name='BgpPeeringAttributes'>
-    <xsd:sequence>
-        <xsd:element name='session' type='BgpSession' maxOccurs='unbounded'/>
-    </xsd:sequence>
+    <xsd:element name='session' type='BgpSession' maxOccurs='unbounded'/>
 </xsd:complexType>
 
 <!--
 	When multiple sessions are present, each session must have an unique id.
   -->
 <xsd:complexType name='BgpSession'>
-    <xsd:sequence>
-	<xsd:element name='uuid' type='xsd:string'/>
-	<xsd:element name='attributes' type='BgpSessionAttributes'
-		     maxOccurs='3'/>
-    </xsd:sequence>
+    <xsd:element name='uuid' type='xsd:string'/>
+    <xsd:element name='attributes' type='BgpSessionAttributes' maxOccurs='3'/>
 </xsd:complexType>
 
 <xsd:complexType name='BgpSessionAttributes'>
-    <xsd:sequence>
-	<!-- When the parameters are uni-directional the bgp-router element
-	     specifies to which node the configuration applies. If missing
-	     the attributes apply to both ends of the session.
-	 -->
-        <xsd:element name='bgp-router' type='xsd:string'/>
-	<xsd:element name='address-families' type='AddressFamilies'/>
-	<xsd:element name='auth-data' type='AuthenticationData'/>
-	<!-- Configuration items such as import and export policy -->
-    </xsd:sequence>
+    <xsd:annotation>
+        <xsd:documentation>
+            When the parameters are uni-directional the bgp-router element
+            specifies to which node the configuration applies. If missing
+            the attributes apply to both ends of the session.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='bgp-router' type='xsd:string'/>
+    <xsd:element name='address-families' type='AddressFamilies'/>
+    <xsd:element name='auth-data' type='AuthenticationData'/>
+    <xsd:element name='family-attributes' type='BgpFamilyAttributes' maxOccurs='unbounded'/>
+</xsd:complexType>
+
+<xsd:complexType name='BgpFamilyAttributes'>
+    <xsd:annotation>
+        <xsd:documentation>
+            This type is used to configure per address-family parameters
+            for a BgpSession.
+            * loop-count is the number of times the local bgp-router's AS is
+            allowed in the AS_PATH attribute.
+            * prefix-limit contains the maximum number of prefixes that are
+            allowed to be received on the session.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='address-family' type='AddressFamily'/>
+    <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='1'/>
+    <xsd:element name='prefix-limit' type='BgpPrefixLimit'/>
+</xsd:complexType>
+
+<xsd:simpleType name='BgpAsPathLoopCount'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='1'/>
+         <xsd:maxInclusive value='16'/>
+     </xsd:restriction>
+</xsd:simpleType> 
+
+<xsd:complexType name='BgpPrefixLimit'>
+    <xsd:annotation>
+        <xsd:documentation>
+            This is used to configure the maximum number of received prefixes.
+            More fields to control the behavior can be added in future e.g. if
+            the session should be torn down when the maximum is reached.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='maximum' type='xsd:integer'/>
 </xsd:complexType>
 
 <xsd:simpleType name='AddressFamily'>
@@ -119,9 +147,7 @@
 </xsd:simpleType>
 
 <xsd:complexType name='AddressFamilies'>
-    <xsd:sequence>
-        <xsd:element name='family' type='AddressFamily' maxOccurs='unbounded'/>
-    </xsd:sequence>
+    <xsd:element name='family' type='AddressFamily' maxOccurs='unbounded'/>
 </xsd:complexType>
 
 <xsd:simpleType name="AuthenticationKeyType">
@@ -144,10 +170,7 @@
 
 <xsd:complexType name='AuthenticationData'>
     <xsd:element name="key-type" type="AuthenticationKeyType"/>
-    <xsd:sequence>
-        <xsd:element name='key-items' type='AuthenticationKeyItem'
-                     maxOccurs='2'/>
-    </xsd:sequence>
+    <xsd:element name='key-items' type='AuthenticationKeyItem' maxOccurs='2'/>
 </xsd:complexType>
 
 <xsd:element name='service-chain-information' type='ServiceChainInfo'/>
