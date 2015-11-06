@@ -319,6 +319,7 @@ protected:
         ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
         EXPECT_NE((ShowRouteResp *)NULL, resp);
 
+        cout << "From line number: " << called_from_line << endl;
         EXPECT_EQ(result.size(), resp->get_tables().size());
         size_t retval = next_batch.compare(resp->get_next_batch());
         EXPECT_EQ(retval, 0);
@@ -434,22 +435,22 @@ TEST_F(ShowRouteTest1, SortingTest) {
     task_util::WaitForIdle();
 
     // Add 10 routes in some random order
-    AddInetRoute("1.2.3.26/24", peers_[0], "red");
-    AddInetRoute("1.2.3.4/24", peers_[0], "red");
-    AddInetRoute("1.2.3.27/24", peers_[0], "red");
-    AddInetRoute("1.2.3.3/24", peers_[0], "red");
-    AddInetRoute("1.2.3.4/16", peers_[0], "red");
-    AddInetRoute("1.2.3.43/24", peers_[0], "red");
-    AddInetRoute("1.2.3.26/25", peers_[0], "red");
-    AddInetRoute("1.2.3.26/26", peers_[0], "red");
-    AddInetRoute("1.2.3.26/28", peers_[0], "red");
-    AddInetRoute("1.2.3.48/8", peers_[0], "red");
+    AddInetRoute("1.2.3.0/24", peers_[0], "red");
+    AddInetRoute("1.2.3.16/28", peers_[0], "red");
+    AddInetRoute("24.0.0.0/8", peers_[0], "red");
+    AddInetRoute("1.2.0.0/16", peers_[0], "red");
+    AddInetRoute("1.2.3.32/28", peers_[0], "red");
+    AddInetRoute("1.2.4.0/24", peers_[0], "red");
+    AddInetRoute("12.0.0.0/8", peers_[0], "red");
+    AddInetRoute("1.2.3.48/28", peers_[0], "red");
+    AddInetRoute("1.2.5.0/24", peers_[0], "red");
+    AddInetRoute("4.0.0.0/8", peers_[0], "red");
 
     // Sort the routes added above in an array. We will compare this list with
     // the received list to check if the routes are properly sorted.
-    string sorted_list[] = {"1.2.3.3/24", "1.2.3.4/16",
-            "1.2.3.4/24", "1.2.3.26/24", "1.2.3.26/25", "1.2.3.26/26",
-            "1.2.3.26/28", "1.2.3.27/24", "1.2.3.43/24", "1.2.3.48/8"};
+    string sorted_list[] = {"1.2.0.0/16", "1.2.3.0/24",
+            "1.2.3.16/28", "1.2.3.32/28", "1.2.3.48/28", "1.2.4.0/24",
+            "1.2.5.0/24", "4.0.0.0/8", "12.0.0.0/8", "24.0.0.0/8"};
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = a_.get();
@@ -467,16 +468,16 @@ TEST_F(ShowRouteTest1, SortingTest) {
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
     size_t rem_count = 9;
-    DeleteInetRoute("1.2.3.26/24", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.4/24", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.27/24", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.3/24", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.4/16", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.43/24", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.26/25", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.26/26", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.26/28", peers_[0], rem_count--, "red");
-    DeleteInetRoute("1.2.3.48/8", peers_[0], rem_count, "red");
+    DeleteInetRoute("1.2.3.0/24", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.3.16/28", peers_[0], rem_count--, "red");
+    DeleteInetRoute("24.0.0.0/8", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.0.0/16", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.3.32/28", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.4.0/24", peers_[0], rem_count--, "red");
+    DeleteInetRoute("12.0.0.0/8", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.3.48/28", peers_[0], rem_count--, "red");
+    DeleteInetRoute("1.2.5.0/24", peers_[0], rem_count--, "red");
+    DeleteInetRoute("4.0.0.0/8", peers_[0], rem_count, "red");
     EXPECT_EQ(rem_count, 0);
 }
 
@@ -1289,7 +1290,7 @@ protected:
 TEST_F(ShowRouteTest3, PageLimit1) {
 
     // Add kMaxCount routes.
-    std::string plen = "/24";
+    std::string plen = "/32";
     in_addr src;
     int ip1 = 0x01020000;
     for (int i = 0; i < 100; ++i) {
@@ -1325,7 +1326,7 @@ TEST_F(ShowRouteTest3, PageLimit1) {
 TEST_F(ShowRouteTest3, PageLimit2) {
 
     // Add (< kMaxCount) routes
-    std::string plen = "/24";
+    std::string plen = "/32";
     std::string ip = "1.2.3.";
     for (int host = 0; host < 50; ++host) {
         std::ostringstream repr;
@@ -1357,7 +1358,7 @@ TEST_F(ShowRouteTest3, PageLimit3) {
 
     // Add equal number of routes in blue and red so that their total is
     // kMaxCount.
-    std::string plen = "/24";
+    std::string plen = "/32";
     std::string ip = "1.2.3.";
     for (int host = 0; host < 50; ++host) {
         std::ostringstream repr;
@@ -1391,7 +1392,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
 
     // Add equal number of routes in blue and red so that their total is
     // greater than kMaxCount.
-    std::string plen = "/24";
+    std::string plen = "/32";
     std::string ip = "1.2.3.";
     for (int host = 0; host < 90; ++host) {
         std::ostringstream repr;
@@ -1429,7 +1430,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     show_req = new ShowRouteReq;
     result = list_of(90)(10);
-    next_batch = "||||||red||red.inet.0||1.2.3.10/24||80||false";
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     show_req->set_count(180);
@@ -1490,7 +1491,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // greater than kMaxCount i.e. 80 each in blue and red.
     // Total 80 - 2 subnets, 10.10.1 and 10.10.2, each with 40 addresses.
     std::string ip = "10.10.";
-    std::string plen = "/24";
+    std::string plen = "/32";
     for (int subnet = 1; subnet < 3; ++subnet) {
         for (int host = 0; host < 40; ++host) {
             std::ostringstream repr;
@@ -1557,7 +1558,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
-    show_req->set_prefix("10.10.1.5/24");
+    show_req->set_prefix("10.10.1.5/32");
     validate_done_ = false;
     show_req->HandleRequest();
     show_req->Release();
@@ -1817,7 +1818,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
 
 TEST_F(ShowRouteTest3, PageLimit6) {
 
-    std::string plen = "/24";
+    std::string plen = "/32";
     std::string ip = "1.2.3.";
     for (int host = 0; host < 100; ++host) {
         std::ostringstream repr;
@@ -1936,7 +1937,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
 TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
 
     // Add 400 routes and read them in 4 batches of 100 routes each.
-    std::string plen = "/24";
+    std::string plen = "/32";
     in_addr src;
     int ip1 = 0x01020000;
     for (int i = 0; i < 400; ++i) {
@@ -1949,7 +1950,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     // i.e. 100 entries
     ShowRouteReq *show_req = new ShowRouteReq;
     vector<int> result = list_of(100);
-    string next_batch = "||||||red||red.inet.0||1.2.0.100/24||300||false";
+    string next_batch = "||||||red||red.inet.0||1.2.0.100/32||300||false";
     show_req->set_count(400);
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1963,10 +1964,10 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req = new ShowRouteReq;
     show_req->set_start_routing_instance("red");
     show_req->set_start_routing_table("red.inet.0");
-    show_req->set_start_prefix("1.2.0.100/24");
+    show_req->set_start_prefix("1.2.0.100/32");
     show_req->set_count(300);
     show_req->set_longer_match(false);
-    next_batch = "||||||red||red.inet.0||1.2.0.200/24||200||false";
+    next_batch = "||||||red||red.inet.0||1.2.0.200/32||200||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     validate_done_ = false;
@@ -1979,10 +1980,10 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req = new ShowRouteReq;
     show_req->set_start_routing_instance("red");
     show_req->set_start_routing_table("red.inet.0");
-    show_req->set_start_prefix("1.2.0.200/24");
+    show_req->set_start_prefix("1.2.0.200/32");
     show_req->set_count(200);
     show_req->set_longer_match(false);
-    next_batch = "||||||red||red.inet.0||1.2.1.44/24||100||false";
+    next_batch = "||||||red||red.inet.0||1.2.1.44/32||100||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     validate_done_ = false;
@@ -1995,7 +1996,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req = new ShowRouteReq;
     show_req->set_start_routing_instance("red");
     show_req->set_start_routing_table("red.inet.0");
-    show_req->set_start_prefix("1.2.1.44/24");
+    show_req->set_start_prefix("1.2.1.44/32");
     show_req->set_count(100);
     show_req->set_longer_match(false);
     next_batch = "";

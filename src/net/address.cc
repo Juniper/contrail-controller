@@ -120,6 +120,8 @@ static int CountDots(const string &str) {
     return count;
 }
 
+// Return the IP address part as it is i.e. 1.2.3.4/24 will return 1.2.3.4 and
+// 24.
 boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
                                          int *plen) {
     size_t pos = str.find('/');
@@ -127,6 +129,9 @@ boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
         return make_error_code(boost::system::errc::invalid_argument);
     }
     *plen = atoi(str.c_str() + pos + 1);
+    if ((*plen < 0) || (*plen > Address::kMaxV4PrefixLen)) {
+        return make_error_code(boost::system::errc::invalid_argument);
+    }
     
     string addrstr = str.substr(0, pos);
     int dots = CountDots(addrstr);
@@ -134,11 +139,26 @@ boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
         addrstr.append(".0");
         dots++;
     }
+
     boost::system::error_code err;
     *addr = Ip4Address::from_string(addrstr, err);
     return err;
 }
 
+// Return the bitwise and of IP and mask.
+boost::system::error_code Ip4SubnetParse(const string &str, Ip4Address *addr,
+                                         int *plen) {
+    Ip4Address address;
+    boost::system::error_code err;
+    err = Ip4PrefixParse(str, &address, plen);
+    if (!err) {
+        *addr = Address::GetIp4SubnetAddress(address, *plen);
+    }
+    return err;
+}
+
+// Return the IP address part as it is i.e. 2001:db8:85a3:aaaa::b:c:d/64 will
+// return 2001:db8:85a3:aaaa::b:c:d and 64.
 boost::system::error_code Inet6PrefixParse(const string &str, Ip6Address *addr,
                                            int *plen) {
     size_t pos = str.find('/');
@@ -153,6 +173,18 @@ boost::system::error_code Inet6PrefixParse(const string &str, Ip6Address *addr,
     string addrstr = str.substr(0, pos);
     boost::system::error_code err;
     *addr = Ip6Address::from_string(addrstr, err);
+    return err;
+}
+
+// Return the bitwise and of IP and mask.
+boost::system::error_code Inet6SubnetParse(const string &str, Ip6Address *addr,
+                                           int *plen) {
+    Ip6Address address;
+    boost::system::error_code err;
+    err = Inet6PrefixParse(str, &address, plen);
+    if (!err) {
+        *addr = Address::GetIp6SubnetAddress(address, *plen);
+    }
     return err;
 }
 

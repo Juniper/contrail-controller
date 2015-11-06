@@ -100,7 +100,7 @@ Inet6VpnPrefix Inet6VpnPrefix::FromString(const string &str,
     }
 
     string ip6pstr(str, pos + 1);
-    boost::system::error_code pfxerr = Inet6PrefixParse(ip6pstr, &prefix.addr_,
+    boost::system::error_code pfxerr = Inet6SubnetParse(ip6pstr, &prefix.addr_,
                                                         &prefix.prefixlen_);
     if (errorp != NULL) {
         *errorp = pfxerr;
