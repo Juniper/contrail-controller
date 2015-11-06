@@ -506,6 +506,14 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
     return entry;
 }
 
+AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRoute *key) {
+    AgentRoute *entry = static_cast<AgentRoute *>(Find(key));
+    if (entry && entry->IsDeleted()) {
+        return NULL;
+    }
+    return entry;
+}
+
 const std::string &AgentRouteTable::vrf_name() const {
     return vrf_entry_->GetName();
 }

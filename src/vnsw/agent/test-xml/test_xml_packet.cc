@@ -362,9 +362,6 @@ bool AgentUtXmlPktParseValidate::Validate(PktHandler::PktModuleName type,
     if (type == PktHandler::INVALID)
         return true;
 
-    if (pkt_.IsL3Mode() != info->l3_forwarding)
-        return false;
-
     if (info->ip_saddr != Ip4Address::from_string(pkt_.sip_) &&
         (info->ip_saddr != Ip6Address::from_string(pkt_.sip_)))
         return false;
