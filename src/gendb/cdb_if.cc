@@ -1133,16 +1133,10 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0 ||
-                DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
-                CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " << 
-                    (*cfinfo->cfdef_.get()).id);
-                cf_def.__set_id((*cfinfo->cfdef_.get()).id);
-                CDBIF_BEGIN_TRY {
-                    std::string ret;
-                    client_->system_update_column_family(ret, cf_def);
-                } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, false, false,
-                    false, err_type, op)
+            // for SQL-like schema change is fine
+            if (DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
+                CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " <<
+                    (*cfinfo->cfdef_.get()).id << " schema changed...");
             }
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
@@ -1198,16 +1192,10 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            if (((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) ||
-                DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
-                CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " << 
-                    (*cfinfo->cfdef_.get()).id);
-                cf_def.__set_id((*cfinfo->cfdef_.get()).id);
-                CDBIF_BEGIN_TRY {
-                    std::string ret;
-                    client_->system_update_column_family(ret, cf_def);
-                } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, false, false,
-                    false, err_type, op)
+            // for NoSQL schema change cannot be supported
+            if (DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
+                CDBIF_LOG_ERR_RETURN_FALSE("CFName: " << cf.cfname_ << " ID: " <<
+                    (*cfinfo->cfdef_.get()).id << " schema changed...");
             }
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
