@@ -79,6 +79,33 @@ private:
     AuthenticationKeyChain key_chain_;
 };
 
+//
+// Per address family configuration for a BGP neighbor.
+//
+struct BgpFamilyAttributesConfig {
+    BgpFamilyAttributesConfig(const std::string &family)
+        : family(family), loop_count(0), prefix_limit(0) {
+    }
+
+    std::string family;
+    uint8_t loop_count;
+    uint32_t prefix_limit;
+};
+
+//
+// Comparator for BgpFamilyAttributesConfig.
+//
+struct BgpFamilyAttributesConfigCompare {
+    int operator()(const BgpFamilyAttributesConfig lhs,
+                   const BgpFamilyAttributesConfig rhs) const {
+        KEY_COMPARE(lhs.family, rhs.family);
+        KEY_COMPARE(lhs.loop_count, rhs.loop_count);
+        KEY_COMPARE(lhs.prefix_limit, rhs.prefix_limit);
+        return 0;
+    }
+};
+
+//
 // The configuration associated with a BGP neighbor.
 //
 // BgpNeighborConfig represents a single session between the local bgp-router
@@ -102,6 +129,8 @@ private:
 class BgpNeighborConfig {
 public:
     typedef std::vector<std::string> AddressFamilyList;
+    typedef std::vector<BgpFamilyAttributesConfig> FamilyAttributesList;
+
     enum Type {
         UNSPECIFIED,
         IBGP,
@@ -163,12 +192,15 @@ public:
         auth_data_ = in_auth_data;
     }
 
-    const AddressFamilyList &address_families() const {
-        return address_families_;
+    AddressFamilyList GetAddressFamilies() const;
+
+    const FamilyAttributesList &family_attributes_list() const {
+        return family_attributes_list_;
     }
 
-    void set_address_families(const AddressFamilyList &address_families) {
-        address_families_ = address_families;
+    void set_family_attributes_list(
+        const FamilyAttributesList &family_attributes_list) {
+        family_attributes_list_ = family_attributes_list;
     }
 
     uint64_t last_change_at() const { return last_change_at_; }
@@ -197,7 +229,7 @@ private:
     uint32_t local_identifier_;
     mutable uint64_t last_change_at_;
     AuthenticationData auth_data_;
-    AddressFamilyList address_families_;
+    FamilyAttributesList family_attributes_list_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };

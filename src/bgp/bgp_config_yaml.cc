@@ -349,7 +349,7 @@ static bool ParseBgpGroupNeighborCommon(
 
     if (node["address-families"]) {
         YAML::Node families = node["address-families"];
-        BgpNeighborConfig::AddressFamilyList list;
+        BgpNeighborConfig::FamilyAttributesList list;
         for (YAML::const_iterator iter = families.begin();
              iter != families.end(); ++iter) {
             string family;
@@ -363,9 +363,10 @@ static bool ParseBgpGroupNeighborCommon(
                 *error_msg = "Invalid address family value: " + family;
                 return false;
             }
-            list.push_back(family);
+            BgpFamilyAttributesConfig family_config(family);
+            list.push_back(family_config);
         }
-        neighbor->set_address_families(list);
+        neighbor->set_family_attributes_list(list);
     }
     return true;
 }

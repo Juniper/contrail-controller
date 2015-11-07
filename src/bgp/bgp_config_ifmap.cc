@@ -90,6 +90,54 @@ static void BuildKeyChain(BgpNeighborConfig *neighbor,
 }
 
 //
+// Build list of BgpFamilyAttributesConfig elements from the list of address
+// families. This is provided for backward compatibility with configurations
+// that represent each family with a simple string.
+//
+static void BuildFamilyAttributesList(BgpNeighborConfig *neighbor,
+    const BgpNeighborConfig::AddressFamilyList &family_list) {
+    BgpNeighborConfig::FamilyAttributesList family_attributes_list;
+    BOOST_FOREACH(const string &family, family_list) {
+        BgpFamilyAttributesConfig family_attributes(family);
+        family_attributes_list.push_back(family_attributes);
+    }
+
+    neighbor->set_family_attributes_list(family_attributes_list);
+}
+
+//
+// Build list of BgpFamilyAttributesConfig elements from BgpFamilyAttributes
+// list in BgpSessionAttributes.
+//
+// Implement backward compatibility by also adding BgpFamilyAttributesConfig
+// elements for families that are not in BgpFamilyAttributes list but are in
+// the address_families list.
+//
+static void BuildFamilyAttributesList(BgpNeighborConfig *neighbor,
+    const autogen::BgpSessionAttributes *attributes) {
+    set<string> family_set;
+    BgpNeighborConfig::FamilyAttributesList family_attributes_list;
+    BOOST_FOREACH(const autogen::BgpFamilyAttributes &family_config,
+        attributes->family_attributes) {
+        BgpFamilyAttributesConfig family_attributes(
+            family_config.address_family);
+        family_attributes.loop_count = family_config.loop_count;
+        family_attributes.prefix_limit = family_config.prefix_limit.maximum;
+        family_attributes_list.push_back(family_attributes);
+        family_set.insert(family_config.address_family);
+    }
+
+    BOOST_FOREACH(const string &family, attributes->address_families.family) {
+        if (family_set.find(family) != family_set.end())
+            continue;
+        BgpFamilyAttributesConfig family_attributes(family);
+        family_attributes_list.push_back(family_attributes);
+    }
+
+    neighbor->set_family_attributes_list(family_attributes_list);
+}
+
+//
 // Set the autogen::BgpSessionAttributes for this BgpNeighborConfig.
 //
 // The autogen::BgpSession will have up to 3 session attributes - one that
@@ -120,7 +168,7 @@ static void NeighborSetSessionAttributes(
         attributes = local;
     }
     if (attributes != NULL) {
-        neighbor->set_address_families(attributes->address_families.family);
+        BuildFamilyAttributesList(neighbor, attributes);
         BuildKeyChain(neighbor, attributes->auth_data);
     }
 }
@@ -191,8 +239,8 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
             neighbor->set_local_as(params.autonomous_system);
         }
 
-        if (neighbor->address_families().empty()) {
-            neighbor->set_address_families(params.address_families.family);
+        if (neighbor->family_attributes_list().empty()) {
+            BuildFamilyAttributesList(neighbor, params.address_families.family);
         }
         if (neighbor->auth_data().Empty()) {
             const autogen::BgpRouterParams &lp = local_router->parameters();
@@ -200,8 +248,8 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         }
     }
 
-    if (neighbor->address_families().empty()) {
-        neighbor->set_address_families(default_addr_family_list);
+    if (neighbor->family_attributes_list().empty()) {
+        BuildFamilyAttributesList(neighbor, default_addr_family_list);
     }
 
     return neighbor;
@@ -745,7 +793,7 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families(), neighbor->AuthKeyTypeToString(),
+        neighbor->GetAddressFamilies(), neighbor->AuthKeyTypeToString(),
         neighbor->AuthKeysToString());
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
@@ -766,7 +814,7 @@ void BgpIfmapInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families(), neighbor->AuthKeyTypeToString(),
+        neighbor->GetAddressFamilies(), neighbor->AuthKeyTypeToString(),
         neighbor->AuthKeysToString());
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }

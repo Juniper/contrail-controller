@@ -35,6 +35,7 @@ public:
         ENET = 10,
         EVPN = 11,
         ERMVPN = 12,
+        NUM_FAMILIES
     };
 
     Address();

@@ -404,7 +404,7 @@ public:
             session.set_uuid(neighbor->uuid());
             vector<ShowBgpSessionAttributesConfig> attribute_list;
             ShowBgpSessionAttributesConfig attribute;
-            attribute.set_address_families(neighbor->address_families());
+            attribute.set_address_families(neighbor->GetAddressFamilies());
             attribute_list.push_back(attribute);
             session.set_attributes(attribute_list);
             session_list.push_back(session);
@@ -462,7 +462,7 @@ public:
             Ip4Address peerid(ntohl(neighbor->peer_identifier()));
             nbr.set_identifier(peerid.to_string());
             nbr.set_address(neighbor->peer_address().to_string());
-            nbr.set_address_families(neighbor->address_families());
+            nbr.set_address_families(neighbor->GetAddressFamilies());
             nbr.set_last_change_at(
                 UTCUsecToString(neighbor->last_change_at()));
             nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());

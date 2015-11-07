@@ -250,6 +250,15 @@ private:
     BgpPeer *peer_;
 };
 
+//
+// Constructor for BgpPeerFamilyAttributes.
+//
+BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
+    const BgpFamilyAttributesConfig &family_config) {
+    loop_count = family_config.loop_count;
+    prefix_limit = family_config.prefix_limit;
+}
+
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
     inc_rx_end_of_rib();
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
@@ -352,7 +361,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_as_(config->peer_as()),
           local_bgp_id_(config->local_identifier()),
           peer_bgp_id_(0),
-          configured_families_(config->address_families()),
           peer_type_((config->peer_as() == config->local_as()) ?
                          BgpProto::IBGP : BgpProto::EBGP),
           policy_((config->peer_as() == config->local_as()) ?
@@ -375,13 +383,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
 
     refcount_ = 0;
     primary_path_count_ = 0;
-    sort(configured_families_.begin(), configured_families_.end());
-    BOOST_FOREACH(string family, configured_families_) {
-        Address::Family fmly = Address::FamilyFromString(family);
-        assert(fmly != Address::UNSPEC);
-        family_.insert(fmly);
-    }
+
     ProcessAuthKeyChainConfig(config);
+    ProcessFamilyAttributesConfig(config);
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
@@ -390,14 +394,14 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_local_asn(local_as_);
     peer_info.set_peer_asn(peer_as_);
     peer_info.set_local_id(local_bgp_id_);
-    if (!config->address_families().empty())
-        peer_info.set_configured_families(config->address_families());
+    peer_info.set_configured_families(config->GetAddressFamilies());
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
     BGPPeerInfo::Send(peer_info);
 }
 
 BgpPeer::~BgpPeer() {
     assert(GetRefCount() == 0);
+    STLDeleteValues(&family_attributes_list_);
     ClearListenSocketAuthKey();
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
@@ -505,6 +509,34 @@ void BgpPeer::LogInstallAuthKeys(const std::string &oper,
                  BGP_PEER_DIR_NA, logstr);
 }
 
+//
+// Process family attributes configuration and update the family attributes
+// list.
+//
+// Return true is there's a change, false otherwise.
+//
+bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
+    FamilyAttributesList family_attributes_list(Address::NUM_FAMILIES);
+    BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
+        config->family_attributes_list()) {
+        Address::Family family =
+            Address::FamilyFromString(family_config.family);
+        assert(family != Address::UNSPEC);
+        BgpPeerFamilyAttributes *family_attributes =
+            new BgpPeerFamilyAttributes(family_config);
+        family_attributes_list[family] = family_attributes;
+    }
+
+    int ret = STLSortedCompare(
+        family_attributes_list.begin(), family_attributes_list.end(),
+        family_attributes_list_.begin(), family_attributes_list_.end(),
+        BgpPeerFamilyAttributesCompare());
+    STLDeleteValues(&family_attributes_list_);
+    family_attributes_list_ = family_attributes_list;
+    configured_families_ = config->GetAddressFamilies();
+    return (ret != 0);
+}
+
 void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (IsDeleted())
         return;
@@ -513,41 +545,30 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
 
     // During peer deletion, configuration gets completely deleted. In that
     // case, there is no need to update the rest and flap the peer.
-    if (!config_) return;
-
-    AddressFamilyList new_families;
-    configured_families_ = config->address_families();
-    sort(configured_families_.begin(), configured_families_.end());
-    BOOST_FOREACH(string family, configured_families_) {
-        Address::Family fmly = Address::FamilyFromString(family);
-        assert(fmly != Address::UNSPEC);
-        new_families.insert(fmly);
-    }
+    if (!config_)
+        return;
 
     bool clear_session = false;
-
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
 
     // Check if there is any change in the peer address.
+    // If the peer address is changing, remove the key for the older address.
+    // Update with the new peer address and then process the key chain info
+    // for the new peer below.
     BgpPeerKey key(config);
     if (peer_key_ != key) {
-        // If the peer address is changing, remove the key for the older
-        // address. Update with the new peer address and then process the
-        // keychain info for the new peer below.
         ClearListenSocketAuthKey();
         peer_key_ = key;
         peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
         clear_session = true;
     }
-
     ProcessAuthKeyChainConfig(config);
 
     // Check if there is any change in the configured address families.
-    if (family_ != new_families) {
-        family_ = new_families;
+    if (ProcessFamilyAttributesConfig(config)) {
         clear_session = true;
-        peer_info.set_configured_families(config->address_families());
+        peer_info.set_configured_families(configured_families_);
     }
 
     BgpProto::BgpPeerType old_type = PeerType();
@@ -966,7 +987,10 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     peer_info.set_families(families);
 
     negotiated_families_.clear();
-    BOOST_FOREACH(Address::Family family, family_) {
+    for (int idx = Address::UNSPEC; idx < Address::NUM_FAMILIES; ++idx) {
+        if (!family_attributes_list_[idx])
+            continue;
+        Address::Family family = static_cast<Address::Family>(idx);
         uint16_t afi;
         uint8_t safi;
         tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);

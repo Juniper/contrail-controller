@@ -3,8 +3,11 @@
  */
 #include "bgp/bgp_config.h"
 
+#include <boost/foreach.hpp>
+
 #include "base/string_util.h"
 #include "base/time_util.h"
+#include "base/util.h"
 
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
@@ -156,7 +159,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     local_as_ = rhs.local_as_;
     local_identifier_ = rhs.local_identifier_;
     auth_data_ = rhs.auth_data_;
-    address_families_ = rhs.address_families_;
+    family_attributes_list_ = rhs.family_attributes_list_;
 }
 
 int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
@@ -172,8 +175,20 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(local_as_, rhs.local_as_);
     KEY_COMPARE(local_identifier_, rhs.local_identifier_);
     KEY_COMPARE(auth_data_, rhs.auth_data_);
-    KEY_COMPARE(address_families_, rhs.address_families_);
-    return 0;
+    return STLSortedCompare(
+        family_attributes_list_.begin(), family_attributes_list_.end(),
+        rhs.family_attributes_list_.begin(), rhs.family_attributes_list_.end(),
+        BgpFamilyAttributesConfigCompare());
+}
+
+BgpNeighborConfig::AddressFamilyList BgpNeighborConfig::GetAddressFamilies(
+    ) const {
+    BgpNeighborConfig::AddressFamilyList family_list;
+    BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
+        family_attributes_list_) {
+        family_list.push_back(family_config.family);
+    }
+    return family_list;
 }
 
 std::string BgpNeighborConfig::AuthKeyTypeToString() const {

@@ -36,6 +36,34 @@ class BgpPeerInfo;
 class BgpNeighborResp;
 class BgpSandeshContext;
 
+//
+// This contains per address family attributes.
+// A BgpPeer contains a vector of pointers to this structure, with an entry
+// for each value in Address::Family i.e. the vector can be indexed using a
+// Address::Family value.
+//
+struct BgpPeerFamilyAttributes {
+    BgpPeerFamilyAttributes(const BgpFamilyAttributesConfig &family_config);
+    uint8_t loop_count;
+    uint32_t prefix_limit;
+};
+
+//
+// Comparator for BgpPeerFamilyAttributes.
+//
+struct BgpPeerFamilyAttributesCompare {
+    int operator()(const BgpPeerFamilyAttributes *lhs,
+                   const BgpPeerFamilyAttributes *rhs) const {
+        if (lhs && rhs) {
+            KEY_COMPARE(lhs->loop_count, rhs->loop_count);
+            KEY_COMPARE(lhs->prefix_limit, rhs->prefix_limit);
+        } else {
+            KEY_COMPARE(lhs, rhs);
+        }
+        return 0;
+    }
+};
+
 // A BGP peer along with its session and state machine.
 class BgpPeer : public IPeer {
 public:
@@ -125,16 +153,12 @@ public:
     virtual uint32_t bgp_identifier() const;
     std::string bgp_identifier_string() const;
 
-    const AddressFamilyList &families() const {
-        return family_;
-    }
-
-    void AddFamily(Address::Family family) {
-        family_.insert(family);
+    const std::vector<std::string> &configured_families() const {
+        return configured_families_;
     }
 
     bool LookupFamily(Address::Family family) {
-        return (family_.find(family) != family_.end());
+        return (family_attributes_list_[family] != NULL);
     }
 
     bool IsFamilyNegotiated(Address::Family family);
@@ -260,6 +284,8 @@ private:
     class PeerClose;
     class PeerStats;
 
+    typedef std::vector<BgpPeerFamilyAttributes *> FamilyAttributesList;
+
     void KeepaliveTimerErrorHandler(std::string error_name,
                                     std::string error_message);
     virtual void StartKeepaliveTimerUnlocked();
@@ -289,6 +315,8 @@ private:
                             const AuthenticationKey &auth_key, KeyType key_type);
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
     void ResetInuseAuthKeyInfo();
+
+    bool ProcessFamilyAttributesConfig(const BgpNeighborConfig *config);
 
     void PostCloseRelease();
     void CustomClose();
@@ -341,7 +369,7 @@ private:
     as_t peer_as_;
     uint32_t local_bgp_id_;     // network order
     uint32_t peer_bgp_id_;      // network order
-    AddressFamilyList family_;
+    FamilyAttributesList family_attributes_list_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
     BgpProto::BgpPeerType peer_type_;
