@@ -28,6 +28,7 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/physical_device_vn.h>
 #include <oper/global_vrouter.h>
+#include <oper/agent_route_resync.h>
 #include <filter/acl.h>
 #include "net/address_util.h"
 
@@ -90,7 +91,8 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     AgentOperDBEntry(), agent_(agent), uuid_(id), vxlan_id_(0), vnid_(0),
     bridging_(true), layer3_forwarding_(true), admin_state_(true),
     table_label_(0), enable_rpf_(true), flood_unknown_unicast_(false),
-    old_vxlan_id_(0), forwarding_mode_(Agent::L2_L3) {
+    old_vxlan_id_(0), forwarding_mode_(Agent::L2_L3),
+    route_resync_walker_(new AgentRouteResync(agent)) {
 }
 
 VnEntry::~VnEntry() {
@@ -231,6 +233,12 @@ bool VnEntry::Resync() {
     return ret;
 }
 
+void VnEntry::ResyncRoutes() {
+    if (vrf_.get() == NULL)
+        return;
+    route_resync_walker_.get()->UpdateRoutesInVrf(vrf_.get());
+}
+
 bool VnTable::GetLayer3ForwardingConfig
 (Agent::ForwardingMode forwarding_mode) const {
     if (forwarding_mode == Agent::L2) {
@@ -264,7 +272,14 @@ bool VnTable::EvaluateForwardingMode(VnEntry *vn) {
             vn->set_bridging(bridging);
             ret |= true;
         }
+        //Evaluate IPAMs
+        if (!vn->layer3_forwarding()) {
+            DeleteAllIpamRoutes(vn);
+        } else {
+            AddAllIpamRoutes(vn);
+        }
     }
+
     return ret;
 }
 
@@ -374,12 +389,63 @@ bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
+bool VnTable::ForwardingModeChangeHandler(bool old_layer3_forwarding,
+                                          bool old_bridging,
+                                          bool *resync_routes,
+                                          VnData *data,
+                                          VnEntry *vn)
+{
+    bool ret = false;
+    if (vn->layer3_forwarding_ != data->layer3_forwarding_) {
+        vn->layer3_forwarding_ = data->layer3_forwarding_;
+        *resync_routes = true;
+        ret = true;
+    }
+
+    if (vn->bridging_ != data->bridging_) {
+        vn->bridging_ = data->bridging_;
+        *resync_routes = true;
+        ret = true;
+    }
+
+    if (vn->layer3_forwarding_ && old_layer3_forwarding) {
+        //Evaluate IPAM change only if there is no change in
+        //layer3_forwarding.
+        if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
+            vn->ipam_ = data->ipam_;
+            ret = true;
+        }
+    } else {
+        if (vn->layer3_forwarding_) {
+            //layer3_forwarding has been enabled.
+            //Add all new ipam routes.
+            vn->ipam_ = data->ipam_;
+            if (!old_layer3_forwarding) {
+                AddAllIpamRoutes(vn);
+                ret = true;
+            }
+        } else {
+            //layer3_forwarding has been disabled.
+            //Delete all new ipam routes.
+            if (old_layer3_forwarding) {
+                DeleteAllIpamRoutes(vn);
+                ret = true;
+            }
+            vn->ipam_ = data->ipam_;
+        }
+    }
+    return ret;
+}
+
 bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     VnEntry *vn = static_cast<VnEntry *>(entry);
     VnData *data = static_cast<VnData *>(req->data.get());
     VrfEntry *old_vrf = vn->vrf_.get();
+    bool old_layer3_forwarding = vn->layer3_forwarding_;
+    bool old_bridging = vn->bridging_;
     bool rebake_vxlan = false;
+    bool resync_routes = false;
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
@@ -417,34 +483,19 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
-    if (vn->layer3_forwarding_ != data->layer3_forwarding_) {
-        vn->layer3_forwarding_ = data->layer3_forwarding_;
-        ret = true;
-    }
-
     if (vn->admin_state_ != data->admin_state_) {
         vn->admin_state_ = data->admin_state_;
         ret = true;
     }
 
-    //Ignore IPAM changes if layer3 is not enabled
-    if (!vn->layer3_forwarding_) {
-        data->ipam_.clear();
-        data->vn_ipam_data_.clear();
-    }
-
-    if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
-        vn->ipam_ = data->ipam_;
-        ret = true;
-    }
+    ret |= ForwardingModeChangeHandler(old_layer3_forwarding,
+                                       old_bridging,
+                                       &resync_routes,
+                                       data,
+                                       vn);
 
     if (vn->vn_ipam_data_ != data->vn_ipam_data_) {
         vn->vn_ipam_data_ = data->vn_ipam_data_;
-        ret = true;
-    }
-
-    if (vn->bridging_ != data->bridging_) {
-        vn->bridging_ = data->bridging_;
         ret = true;
     }
 
@@ -482,6 +533,10 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     if (rebake_vxlan) {
         ret |= RebakeVxlan(vn, false);
+    }
+
+    if (resync_routes) {
+        vn->ResyncRoutes();
     }
 
     return ret;
@@ -988,6 +1043,13 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
 
     std::sort(new_ipam.begin(), new_ipam.end());
     return change;
+}
+
+void VnTable::AddAllIpamRoutes(VnEntry *vn) {
+    std::vector<VnIpam> &ipam = vn->ipam_;
+    for (unsigned int i = 0; i < ipam.size(); ++i) {
+        AddIPAMRoutes(vn, ipam[i]);
+    }
 }
 
 void VnTable::DeleteAllIpamRoutes(VnEntry *vn) {
