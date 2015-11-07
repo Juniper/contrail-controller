@@ -64,6 +64,7 @@ def parse_args(args_str):
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
         'max_requests': 1024,
+        'stale_lock_seconds': '5', # lock but no resource past this => stale
     }
     # ssl options
     secopts = {
@@ -250,6 +251,8 @@ def parse_args(args_str):
     parser.add_argument(
         "--max_requests", type=int,
         help="Maximum number of concurrent requests served by api server")
+    parser.add_argument("--stale_lock_seconds",
+            help="Time after which lock without resource is stale, default 60")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
