@@ -13,6 +13,7 @@
 #include "db/db_client.h"
 #include "db/db_partition.h"
 #include "db/db_table_walker.h"
+#include "base/time_util.h"
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
@@ -241,6 +242,37 @@ TEST_F(DBTest, SkipDelete) {
 
     // Unregister client
     itbl->Unregister(tid_);
+}
+
+// Find routine tests
+TEST_F(DBTest, Find) {
+    // Create a VLAN
+    DBRequest addReq;
+    addReq.key.reset(new VlanTableReqKey(101));
+    addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
+    addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    itbl->Enqueue(&addReq);
+    task_util::WaitForIdle();
+
+    ConcurrencyScope scope("db::DBTable");
+    VlanTableReqKey key(101);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&key) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->FindNoLock(&key) != NULL);
+
+    Vlan entry(101);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->Find(&entry) != NULL);
+    EXPECT_TRUE((static_cast<DBTable *>(itbl))->FindNoLock(&entry) != NULL);
+
+    // Delete a VLAN
+    DBRequest delReq;
+    delReq.key.reset(new VlanTableReqKey(101));
+    delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    itbl->Enqueue(&delReq);
+    task_util::WaitForIdle();
+
+    // Clear stats in End
+    adc_notification = 0;
+    del_notification = 0;
 }
 
 void RegisterFactory() {
