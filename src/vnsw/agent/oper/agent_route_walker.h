@@ -101,6 +101,10 @@ public:
     virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data);
     bool AreAllWalksDone() const;
     Agent *agent() const {return agent_;}
+    void set_walkable_route_tables(uint32_t walkable_route_tables) {
+        walkable_route_tables_ = walkable_route_tables;
+    }
+    uint32_t walkable_route_tables() const {return walkable_route_tables_;}
 
 private:
     void StartVrfWalkInternal();
@@ -133,6 +137,7 @@ private:
     //which makes sure that walk-done and cancel walk do not get executed in
     //parallel. Both these calls modify walkid.
     WorkQueue<boost::shared_ptr<AgentRouteWalkerQueueEntry> > work_queue_;
+    uint32_t walkable_route_tables_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);
 };
 
