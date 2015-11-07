@@ -265,9 +265,13 @@ class FakeCF(object):
     # end send
 
     @contextlib.contextmanager
-    def patch_row(self, key, new_columns):
+    def patch_row(self, key, new_columns=None):
         orig_cols = self._rows[key]
-        self._rows[key] = new_columns
+        if new_columns is None:
+            # simulates absence of key in cf
+            del self._rows[key]
+        else:
+            self._rows[key] = new_columns
         try:
             yield
         finally:

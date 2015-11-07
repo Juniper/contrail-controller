@@ -92,8 +92,12 @@ class TestGetHostPrefixes(testtools.TestCase):
                  apply_subnet_host_routes=False):
             pass
 
-        DBInterface.__init__ = db_fake_init
-        dbiface = DBInterface("","","","","")
-        host_route_dict = dbiface._port_get_host_prefixes(self.hostroutes,
+        orig_init = DBInterface.__init__
+        try:
+            DBInterface.__init__ = db_fake_init
+            dbiface = DBInterface("","","","","")
+            host_route_dict = dbiface._port_get_host_prefixes(self.hostroutes,
                                                           _SUBNET_CIDR)
-        self.assertEqual(host_route_dict, self.expected)
+            self.assertEqual(host_route_dict, self.expected)
+        finally:
+            DBInterface.__init__ = orig_init
