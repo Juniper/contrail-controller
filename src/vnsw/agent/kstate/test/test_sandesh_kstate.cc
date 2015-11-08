@@ -40,7 +40,7 @@ public:
     }
     void FlowSetUp() {
         unsigned int vn_count = 0;
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -1080,7 +1080,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     EXPECT_TRUE((fe != NULL));
 
@@ -1096,7 +1096,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
 
     //Delete a flow
     DeleteFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
 
     //Fetch a deleted flow using kstate
     ClearCount();
@@ -1136,7 +1136,7 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
         CreateFlow(flow, 2);
     }
     EXPECT_EQ((total_flows * 2), 
-            Agent::GetInstance()->pkt()->flow_table()->Size());
+            Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
 
     //Fetch all the flows using index as -1
     ClearCount();

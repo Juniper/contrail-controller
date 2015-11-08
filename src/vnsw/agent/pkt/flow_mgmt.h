@@ -936,7 +936,7 @@ public:
     typedef std::map<FlowEntryPtr, FlowEntryInfo, FlowEntryRefCmp>
         FlowEntryTree;
 
-    FlowMgmtManager(Agent *agent, FlowTable *flow_table);
+    FlowMgmtManager(Agent *agent);
     virtual ~FlowMgmtManager() { }
 
     void Init();
@@ -954,7 +954,6 @@ public:
     }
 
     Agent *agent() const { return agent_; }
-    FlowTable *flow_table() const { return flow_table_; }
     void AddEvent(FlowEntry *low);
     void DeleteEvent(FlowEntry *flow);
     void FlowIndexUpdateEvent(FlowEntry *flow);
@@ -995,7 +994,6 @@ private:
                                const int last_count);
 
     Agent *agent_;
-    FlowTable *flow_table_;
     AclFlowMgmtTree acl_flow_mgmt_tree_;
     InterfaceFlowMgmtTree interface_flow_mgmt_tree_;
     VnFlowMgmtTree vn_flow_mgmt_tree_;

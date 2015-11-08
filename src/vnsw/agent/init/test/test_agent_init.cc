@@ -80,6 +80,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dns_port_2(), 12999);
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
+    EXPECT_EQ(param.flow_thread_count(), 2);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -124,7 +125,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 19;
+    int argc = 21;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -138,6 +139,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
+        (char *) "--DEFAULT.flow_thread_count",     (char *)"3",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -156,7 +158,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-
+    EXPECT_EQ(param.flow_thread_count(), 3);
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {

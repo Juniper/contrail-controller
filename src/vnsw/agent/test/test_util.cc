@@ -2296,7 +2296,7 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     key.protocol = IPPROTO_ICMP;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *fe = agent->pkt()->flow_table()->Find(key);
+    FlowEntry *fe = agent->pkt()->get_flow_proto()->Find(key);
     if (fe == NULL) {
         LOG(DEBUG, "Flow not found");
         return false;
@@ -2747,13 +2747,14 @@ void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id,
 }
 
 void FlushFlowTable() {
-    Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
+    Agent::GetInstance()->pkt()->get_flow_proto()->FlushFlows();
     TestClient::WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
 }
 
 static bool FlowDeleteTrigger(FlowKey key) {
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
     if (table->Find(key) == NULL) {
         return true;
     }
@@ -2765,7 +2766,6 @@ static bool FlowDeleteTrigger(FlowKey key) {
 bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport, int nh_id) {
 
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -2780,7 +2780,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    if (table->Find(key) == NULL) {
+    if (Agent::GetInstance()->pkt()->get_flow_proto()->Find(key) == NULL) {
         return false;
     }
 
@@ -2794,7 +2794,6 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
 
 bool FlowFail(int vrf_id, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, int nh_id) {
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
     key.src_addr = IpAddress::from_string(sip);
@@ -2804,7 +2803,7 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *fe = table->Find(key);
+    FlowEntry *fe = Agent::GetInstance()->pkt()->get_flow_proto()->Find(key);
     if (fe == NULL) {
         return true;
     }
@@ -2832,7 +2831,6 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 const char *nat_dip, uint16_t nat_sport, int16_t nat_dport,
                 int nh_id, int nat_nh_id) {
 
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -2847,6 +2845,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
     if (entry == NULL) {
@@ -2909,7 +2909,6 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
 
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
                    uint16_t sport, uint16_t dport, int nh_id) {
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
     key.src_addr = IpAddress::from_string(sip);
@@ -2919,8 +2918,7 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *entry = table->Find(key);
-    return entry;
+    return Agent::GetInstance()->pkt()->get_flow_proto()->Find(key);
 }
 
 FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
@@ -2931,7 +2929,6 @@ FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id, int nh_id, int reverse_nh_id) {
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
     key.src_addr = Ip4Address::from_string(sip);
@@ -2941,7 +2938,7 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *entry = table->Find(key);
+    FlowEntry *entry = Agent::GetInstance()->pkt()->get_flow_proto()->Find(key);
     EXPECT_TRUE(entry != NULL);
     if (entry == NULL) {
         return false;
@@ -3006,7 +3003,6 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              std::string svn, std::string dvn, uint32_t hash_id, int nh_id,
              int rev_nh_id) {
 
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -3021,6 +3017,8 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
     if (entry == NULL) {
@@ -3103,7 +3101,6 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     bool ret = FlowGet(vrf_name, sip, dip, proto, sport, dport, rflow,
                        svn, dvn, hash_id, nh_id, rev_nh_id);
 
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -3118,7 +3115,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *entry = table->Find(key);
+    FlowEntry *entry = Agent::GetInstance()->pkt()->get_flow_proto()->Find(key);
     EXPECT_TRUE(entry != NULL);
     if (entry == NULL) {
         return false;
@@ -3144,7 +3141,6 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
                     const char *dip, uint8_t proto, uint16_t sport,
                     uint16_t dport, uint64_t pkts, uint64_t bytes, int nh_id) {
     Agent *agent = Agent::GetInstance();
-    FlowTable *table = agent->pkt()->flow_table();
     VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -3159,7 +3155,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    FlowEntry *fe = table->Find(key);
+    FlowEntry *fe = agent->pkt()->get_flow_proto()->Find(key);
     EXPECT_TRUE(fe != NULL);
     if (fe == NULL) {
         return false;
@@ -3182,7 +3178,6 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport,
               int fwd_nh_id, int rev_nh_id) {
 
-    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -3197,6 +3192,8 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
     if (entry == NULL) {

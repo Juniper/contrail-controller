@@ -39,25 +39,26 @@ static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 class FlowRpfTest : public ::testing::Test {
 public:
     FlowRpfTest() : peer_(NULL), agent_(Agent::GetInstance()) {
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
 
     bool FlowTableWait(size_t count) {
         int i = 1000;
         while (i > 0) {
             i--;
-            if (agent()->pkt()->flow_table()->Size() == count) {
+            if (get_flow_proto()->FlowCount() == count) {
                 break;
             }
             client->WaitForIdle();
             usleep(1);
         }
-        return (agent()->pkt()->flow_table()->Size() == count);
+        return (get_flow_proto()->FlowCount() == count);
     }
 
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     }
 
     static void TestTearDown() {
@@ -79,7 +80,7 @@ public:
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 3, 1);
@@ -137,17 +138,19 @@ protected:
     }
 
     Agent *agent() {return agent_;}
+    FlowProto *get_flow_proto() const { return flow_proto_; }
 
 private:
     static bool ksync_init_;
     BgpPeer *peer_;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 bool FlowRpfTest::ksync_init_;
 
 TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     TestFlow flow[] = {
         {
@@ -180,7 +183,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
 }
 
 TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     IpamInfo ipam_info[] = {
         {"11.1.1.0", 24, "11.1.1.200", true},
@@ -225,7 +228,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
 // interface so all the packets coming from flow0 interface will be dropped in
 // vrouter, with error invalid source.
 TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     TestFlow flow[] = {
         {
@@ -265,7 +268,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
 //Disable RPF on a VN and verify that
 //rpf check is disabled
 TEST_F(FlowRpfTest, FlowDisableRpf) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DisableRpf("vn5", 5);
 
     TestFlow flow[] = {
@@ -290,7 +293,7 @@ TEST_F(FlowRpfTest, FlowDisableRpf) {
 //Change the rpf enable field in VN
 //Verify that RPF is disabled on flow
 TEST_F(FlowRpfTest, FlowEnableDisableRpf) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     EnableRpf("vn5", 5);
     TestFlow flow[] = {
         {
@@ -326,7 +329,7 @@ TEST_F(FlowRpfTest, FlowEnableDisableRpf) {
 //rpf on the VN from where floating IP is enabled
 //Verify rpf check is disabled
 TEST_F(FlowRpfTest, FipDisableRpf) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     AddVn("default-project:vn2", 2);
     AddVrf("default-project:vn2:vn2", 2);

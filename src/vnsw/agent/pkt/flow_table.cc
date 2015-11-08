@@ -53,15 +53,13 @@ boost::uuids::random_generator FlowTable::rand_gen_;
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
-FlowTable::FlowTable(Agent *agent) : 
+FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     agent_(agent),
+    table_index_(table_index),
     flow_entry_map_(),
     linklocal_flow_count_(),
     request_queue_(agent_->task_scheduler()->GetTaskId(kTaskName), 1,
                    boost::bind(&FlowTable::RequestHandler, this, _1)) {
-    max_vm_flows_ = (uint32_t)
-        (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-         agent->params()->max_vm_flows()) / 100;
 }
 
 FlowTable::~FlowTable() {
@@ -76,11 +74,8 @@ void FlowTable::Init() {
 }
 
 void FlowTable::InitDone() {
-    max_vm_flows_ = (uint32_t)
-        (agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-         agent_->params()->max_vm_flows()) / 100;
     flow_index_tree_.resize(
-        agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count(),
+        agent_->ksync()->ksync_flow_memory()->flow_table_entries_count(),
         NULL);
 }
 
@@ -597,16 +592,6 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe) {
     agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe);
 }
 
-void FlowTable::VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
-                               uint32_t *out_count) {
-    *in_count = 0;
-    *out_count = 0;
-    if (vn == NULL)
-        return;
-
-    agent_->pkt()->flow_mgmt_manager()->VnFlowCounters(vn, in_count, out_count);
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Flow revluation routines. Processing will vary based on DBEntry type
 /////////////////////////////////////////////////////////////////////////////
@@ -1038,7 +1023,7 @@ void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
     }
 
     InsertByIndex(flow_handle, fe);
-    fe->set_flow_handle(flow_handle, this);
+    fe->set_flow_handle(flow_handle);
 }
 
 /////////////////////////////////////////////////////////////////////////////

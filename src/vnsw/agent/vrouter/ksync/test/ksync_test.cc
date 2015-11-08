@@ -47,12 +47,12 @@ KSyncTest::~KSyncTest() {
 
 void KSyncTest::Init(bool create_vhost) {
     interface_ksync_obj_.get()->InitTest();
-    flowtable_ksync_obj_.get()->InitTest();
+    ksync_flow_memory_.get()->InitTest();
     NetlinkInitTest();
 }
 
 void KSyncTest::Shutdown() {
-    flowtable_ksync_obj_.get()->Shutdown();
+    ksync_flow_memory_.get()->Shutdown();
     NetlinkShutdownTest();
 }
 
@@ -97,7 +97,7 @@ void KSyncTest::NetlinkInitTest() {
 
     KSyncSockTypeMap::Init(io);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext
-                                                (flowtable_ksync_obj_.get()));
+                                                (ksync_flow_memory_.get()));
 
     GenericNetlinkInitTest();
     KSyncSock::Start(agent_->ksync_sync_mode());

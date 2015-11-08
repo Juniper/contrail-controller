@@ -38,9 +38,9 @@ class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
 
-    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable):
+    PktFlowInfo(Agent *a, boost::shared_ptr<PktInfo> info, FlowTable *ftable) :
         l3_flow(info->l3_forwarding), family(info->family), pkt(info),
-        flow_table(ftable),
+        flow_table(ftable), agent(a),
         flow_source_vrf(-1), flow_dest_vrf(-1), nat_done(false),
         nat_ip_saddr(), nat_ip_daddr(), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
@@ -104,7 +104,8 @@ public:
     bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
-    FlowTable *flow_table;
+    FlowTable           *flow_table;
+    Agent               *agent;
 
     uint32_t            flow_source_vrf;
     uint32_t            flow_dest_vrf;

@@ -261,8 +261,8 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
 void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
                                          uint64_t &diff_bytes,
                                          uint64_t &diff_packets) {
-    FlowTableKSyncObject *ksync_obj = agent_uve_->agent()->ksync()->
-                                         flowtable_ksync_obj();
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+                                         ksync_flow_memory();
     diff_bytes = 0;
     diff_packets = 0;
     if (!info) {
@@ -286,10 +286,12 @@ void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
-    agent_uve_->agent()->pkt()->flow_table()->
-        FlowEvent(FlowTableRequest::DELETE_FLOW, NULL, key, rev);
+    FlowTable *flow_table =
+        agent_uve_->agent()->pkt()->get_flow_proto()->GetFlowTable(key);
+    flow_table->FlowEvent(FlowTableRequest::DELETE_FLOW, NULL, key, rev);
 }
 
+// FIXME : Handle multiple tables
 bool FlowStatsCollector::Run() {
     FlowEntryTree::iterator it;
     FlowExportInfo *rev_info = NULL;
@@ -298,7 +300,7 @@ bool FlowStatsCollector::Run() {
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
     Agent *agent = agent_uve_->agent();
-    FlowTable *flow_obj = agent->pkt()->flow_table();
+    FlowTable *flow_obj = agent->pkt()->flow_table(0);
     FlowKey key;
 
     run_counter_++;
@@ -310,7 +312,8 @@ bool FlowStatsCollector::Run() {
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
     }
-    FlowTableKSyncObject *ksync_obj = agent->ksync()->flowtable_ksync_obj();
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+                                         ksync_flow_memory();
 
     while (it != flow_tree_.end()) {
         key = it->first;

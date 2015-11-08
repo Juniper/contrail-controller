@@ -53,7 +53,8 @@ KSync::KSync(Agent *agent)
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       interface_scanner_(new InterfaceKScan(agent)),
-      vnsw_interface_listner_(new VnswInterfaceListener(agent)) {
+      vnsw_interface_listner_(new VnswInterfaceListener(agent)),
+      ksync_flow_memory_(new KSyncFlowMemory(this)) {
 }
 
 KSync::~KSync() {
@@ -82,10 +83,11 @@ void KSync::Init(bool create_vhost) {
     }
     interface_ksync_obj_.get()->Init();
     flowtable_ksync_obj_.get()->Init();
+    ksync_flow_memory_.get()->Init();
 }
 
 void KSync::InitFlowMem() {
-    flowtable_ksync_obj_.get()->InitFlowMem();
+    ksync_flow_memory_.get()->InitFlowMem();
 }
 
 void KSync::NetlinkInit() {
@@ -95,8 +97,8 @@ void KSync::NetlinkInit() {
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockNetlink::Init(io, NETLINK_GENERIC);
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
-                                            flowtable_ksync_obj_.get()));
+    KSyncSock::SetAgentSandeshContext
+        (new KSyncSandeshContext(ksync_flow_memory_.get()));
     GenericNetlinkInit();
 }
 
@@ -260,6 +262,7 @@ void KSync::Shutdown() {
     nh_ksync_obj_.reset(NULL);
     mpls_ksync_obj_.reset(NULL);
     flowtable_ksync_obj_.reset(NULL);
+    ksync_flow_memory_.reset(NULL);
     mirror_ksync_obj_.reset(NULL);
     vrf_assign_ksync_obj_.reset(NULL);
     vxlan_ksync_obj_.reset(NULL);
@@ -286,7 +289,7 @@ KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
 }
 
 void KSyncTcp::InitFlowMem() {
-    flowtable_ksync_obj_.get()->MapSharedMemory();
+    ksync_flow_memory_.get()->MapSharedMemory();
 }
 
 void KSyncTcp::TcpInit() {
@@ -299,8 +302,8 @@ void KSyncTcp::TcpInit() {
     KSyncSockTcp::Init(event_mgr, ip, port);
     KSyncSock::SetNetlinkFamilyId(24);
 
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
-                                          flowtable_ksync_obj_.get()));
+    KSyncSock::SetAgentSandeshContext
+        (new KSyncSandeshContext(ksync_flow_memory_.get()));
     KSyncSockTcp *sock = static_cast<KSyncSockTcp *>(KSyncSock::Get(0));
     while (sock->connect_complete() == false) {
         sleep(1);
@@ -319,4 +322,5 @@ void KSyncTcp::Init(bool create_vhost) {
     sock->AsyncReadStart();
     interface_ksync_obj_.get()->Init();
     flowtable_ksync_obj_.get()->Init();
+    ksync_flow_memory_.get()->Init();
 }

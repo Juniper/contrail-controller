@@ -138,7 +138,7 @@ public:
     typedef std::map<int, LinkLocalFlowInfo> LinkLocalFlowInfoMap;
     typedef std::pair<int, LinkLocalFlowInfo> LinkLocalFlowInfoPair;
 
-    FlowTable(Agent *agent);
+    FlowTable(Agent *agent, uint16_t table_index);
     virtual ~FlowTable();
 
     void Init();
@@ -159,13 +159,9 @@ public:
                        const FlowEntry *old_flow) const;
 
     // VM/VN flow info routines
-    uint32_t max_vm_flows() const { return max_vm_flows_; }
-    void set_max_vm_flows(uint32_t num_flows) { max_vm_flows_ = num_flows; }
     uint32_t VmFlowCount(const VmEntry *vm);
     uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
 
-    void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
-                        uint32_t *out_count);
     // Accessor routines
     Agent *agent() const { return agent_; }
     size_t Size() { return flow_entry_map_.size(); }
@@ -259,10 +255,10 @@ private:
              FlowEntry *new_rflow, bool update);
     bool RequestHandler(const FlowTableRequest &req);
     Agent *agent_;
+    uint16_t table_index_;
     FlowEntryMap flow_entry_map_;
 
     VmFlowTree vm_flow_tree_;
-    uint32_t max_vm_flows_;     // maximum flow count allowed per vm
     uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
     WorkQueue<FlowTableRequest> request_queue_;
     FlowIndexTree flow_index_tree_;

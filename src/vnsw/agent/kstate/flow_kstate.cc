@@ -137,7 +137,7 @@ bool FlowKState::Run() {
     const vr_flow_entry *k_flow;
     KFlowResp *resp;
 
-    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
+    KSyncFlowMemory *ksync_obj = agent_->ksync()->ksync_flow_memory();
 
     if (flow_idx_ != -1) {
         k_flow = ksync_obj->GetKernelFlowEntry(flow_idx_, false);

@@ -15,6 +15,8 @@
 #include <vrouter/ksync/interface_scan.h>
 #include "vnswif_listener.h"
 
+class KSyncFlowMemory;
+
 class KSync {
 public:
     KSync(Agent *agent);
@@ -48,6 +50,9 @@ public:
     VnswInterfaceListener *vnsw_interface_listner() const  {
         return vnsw_interface_listner_.get();
     }
+    KSyncFlowMemory *ksync_flow_memory() const  {
+        return ksync_flow_memory_.get();
+    }
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
@@ -60,6 +65,7 @@ protected:
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
     boost::scoped_ptr<InterfaceKScan> interface_scanner_;
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
+    boost::scoped_ptr<KSyncFlowMemory> ksync_flow_memory_;
     virtual void InitFlowMem();
     void VRouterInterfaceSnapshot();
     void ResetVRouter(bool run_sync_mode);

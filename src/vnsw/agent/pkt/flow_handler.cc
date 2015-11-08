@@ -58,7 +58,8 @@ bool FlowHandler::IsL3ModeFlow() const {
 bool FlowHandler::Run() {
     PktControlInfo in;
     PktControlInfo out;
-    PktFlowInfo info(pkt_info_, agent_->pkt()->flow_table());
+    PktFlowInfo info(agent_, pkt_info_,
+                     flow_proto_->GetTable(flow_table_index_));
     std::auto_ptr<FlowTaskMsg> ipc;
 
     if (pkt_info_->type == PktType::MESSAGE) {

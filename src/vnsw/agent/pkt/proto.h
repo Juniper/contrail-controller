@@ -15,8 +15,6 @@ class Proto {
 public:
     Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
           boost::asio::io_service &io);
-    Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
-          boost::asio::io_service &io, uint32_t workq_iterations);
     virtual ~Proto();
 
     virtual bool Validate(PktInfo *msg) { return true; }
