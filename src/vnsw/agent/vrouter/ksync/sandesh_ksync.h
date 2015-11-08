@@ -13,12 +13,14 @@
 #include "ksync/ksync_sock.h"
 #include <vrouter/ksync/flowtable_ksync.h>
 
+class KSyncFlowMemory;
+
 /* Sandesh Context used for processing vr_response and vr_flow_req
  * which is in response to Sandesh Adds/Deletes
  */
 class KSyncSandeshContext : public AgentSandeshContext {
 public:
-    KSyncSandeshContext(FlowTableKSyncObject *obj) : flow_ksync_(obj) { 
+    KSyncSandeshContext(KSyncFlowMemory *obj) : flow_ksync_(obj) {
         Reset(); 
     }
 
@@ -58,7 +60,7 @@ public:
         context_marker_ = -1;
     }
 private:
-    FlowTableKSyncObject *flow_ksync_;
+    KSyncFlowMemory *flow_ksync_;
     int response_code_;
     int context_marker_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSandeshContext);

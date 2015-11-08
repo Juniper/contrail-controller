@@ -261,8 +261,8 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
 void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
                                          uint64_t &diff_bytes,
                                          uint64_t &diff_packets) {
-    FlowTableKSyncObject *ksync_obj = agent_uve_->agent()->ksync()->
-                                         flowtable_ksync_obj();
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+                                         ksync_flow_memory();
     diff_bytes = 0;
     diff_packets = 0;
     if (!info) {
@@ -310,7 +310,8 @@ bool FlowStatsCollector::Run() {
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
     }
-    FlowTableKSyncObject *ksync_obj = agent->ksync()->flowtable_ksync_obj();
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+                                         ksync_flow_memory();
 
     while (it != flow_tree_.end()) {
         key = it->first;

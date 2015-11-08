@@ -60,7 +60,7 @@ FlowTable::FlowTable(Agent *agent) :
     request_queue_(agent_->task_scheduler()->GetTaskId(kTaskName), 1,
                    boost::bind(&FlowTable::RequestHandler, this, _1)) {
     max_vm_flows_ = (uint32_t)
-        (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
+        (agent->ksync()->ksync_flow_memory()->flow_table_entries_count() *
          agent->params()->max_vm_flows()) / 100;
 }
 
@@ -76,11 +76,8 @@ void FlowTable::Init() {
 }
 
 void FlowTable::InitDone() {
-    max_vm_flows_ = (uint32_t)
-        (agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-         agent_->params()->max_vm_flows()) / 100;
     flow_index_tree_.resize(
-        agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count(),
+        agent_->ksync()->ksync_flow_memory()->flow_table_entries_count(),
         NULL);
 }
 

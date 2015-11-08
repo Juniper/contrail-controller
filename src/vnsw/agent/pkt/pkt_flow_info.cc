@@ -1574,8 +1574,8 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     std::ostringstream ostr;
     ostr << "ECMP Resolve for flow index " << flow_index;
     PKTFLOW_TRACE(Err,ostr.str());
-    FlowTableKSyncObject *obj = 
-        flow_table->agent()->ksync()->flowtable_ksync_obj();
+    KSyncFlowMemory *obj = 
+        flow_table->agent()->ksync()->ksync_flow_memory();
 
     FlowKey key;
     if (!obj->GetFlowKey(flow_index, &key)) {
