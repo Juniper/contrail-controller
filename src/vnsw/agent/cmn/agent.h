@@ -206,6 +206,8 @@ public:
     static const uint32_t kMaxOtherOpenFds = 64;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
+    // default number of threads for flow setup
+    static const uint32_t kDefaultFlowThreadCount = 1;
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -824,6 +826,8 @@ public:
     uint32_t flow_table_size() const { return flow_table_size_; }
     void set_flow_table_size(uint32_t count) { flow_table_size_ = count; }
 
+    uint16_t flow_thread_count() const { return flow_thread_count_; }
+
     bool init_done() const { return init_done_; }
     void set_init_done(bool done) { init_done_ = done; }
 
@@ -1066,6 +1070,7 @@ private:
 
     // Flow information
     uint32_t flow_table_size_;
+    uint16_t flow_thread_count_;
 
     // OVSDB client ptr
     OVSDB::OvsdbClient *ovsdb_client_;

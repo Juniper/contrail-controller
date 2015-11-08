@@ -18,9 +18,9 @@
 
 SandeshTraceBufferPtr PacketTraceBuf(SandeshTraceBufferCreate("Packet", 1000));
 
-PktModule::PktModule(Agent *agent) 
-    : agent_(agent), control_interface_(NULL), pkt_handler_(NULL),
-    flow_table_(NULL), flow_proto_(NULL),
+PktModule::PktModule(Agent *agent) :
+    agent_(agent), control_interface_(NULL),
+    pkt_handler_(NULL), flow_proto_(NULL),
     packet_buffer_manager_(new PacketBufferManager(this)) {
 }
 
@@ -36,9 +36,6 @@ void PktModule::Init(bool run_with_vrouter) {
         control_interface_->Init(pkt_handler_.get());
     }
 
-    flow_table_.reset(new FlowTable(agent_));
-    flow_table_->Init();
-
     flow_proto_.reset(new FlowProto(agent_, io));
     flow_proto_->Init();
 
@@ -47,7 +44,7 @@ void PktModule::Init(bool run_with_vrouter) {
 }
 
 void PktModule::InitDone() {
-    flow_table_->InitDone();
+    flow_proto_->InitDone();
 }
 
 void PktModule::set_control_interface(ControlInterface *intf) {
@@ -57,9 +54,6 @@ void PktModule::set_control_interface(ControlInterface *intf) {
 void PktModule::Shutdown() {
     flow_proto_->Shutdown();
     flow_proto_.reset(NULL);
-
-    flow_table_->Shutdown();
-    flow_table_.reset(NULL);
 
     control_interface_->Shutdown();
     control_interface_ = NULL;
@@ -73,7 +67,7 @@ void PktModule::IoShutdown() {
 }
 
 void PktModule::FlushFlows() {
-    flow_table_->DeleteAll();
+    flow_proto_->FlushFlows();
 }
 
 void PktModule::CreateInterfaces() {
@@ -88,4 +82,8 @@ void PktModule::CreateInterfaces() {
     PacketInterface::Create(agent_->interface_table(),
                             control_interface_->Name(),
                             transport);
+}
+
+FlowTable *PktModule::flow_table() const {
+    return flow_proto_->GetTable(0);
 }

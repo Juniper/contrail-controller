@@ -28,7 +28,7 @@ public:
 
     Agent *agent() const { return agent_; }
     PktHandler *pkt_handler() const { return pkt_handler_.get(); }
-    FlowTable *flow_table() const { return flow_table_.get(); }
+    FlowTable *flow_table() const;
     PacketBufferManager *packet_buffer_manager() const {
         return packet_buffer_manager_.get();
     }
@@ -46,7 +46,6 @@ private:
     Agent *agent_;
     ControlInterface *control_interface_;
     boost::scoped_ptr<PktHandler> pkt_handler_;
-    boost::scoped_ptr<FlowTable> flow_table_;
     boost::scoped_ptr<FlowProto> flow_proto_;
     boost::scoped_ptr<PacketBufferManager> packet_buffer_manager_;
     boost::scoped_ptr<FlowMgmtManager> flow_mgmt_manager_;

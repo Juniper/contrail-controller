@@ -16,8 +16,9 @@ class PktFlowInfo;
 class FlowHandler : public ProtoHandler {
 public:
     FlowHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                boost::asio::io_service &io)
-              : ProtoHandler(agent, info, io) {}
+                boost::asio::io_service &io, FlowProto *proto) :
+        ProtoHandler(agent, info, io), flow_proto_(proto) {
+    }
     virtual ~FlowHandler() {}
 
     bool Run();
@@ -29,6 +30,7 @@ public:
     bool IsL3ModeFlow() const;
 
 private:
+    FlowProto *flow_proto_;
 };
 
 #endif // vnsw_agent_flow_handler_hpp
