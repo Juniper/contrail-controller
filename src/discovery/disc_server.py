@@ -865,8 +865,7 @@ class DiscoveryServer():
         if not entry:
             bottle.abort(405, 'Unknown service')
 
-        entry['admin_state'] = 'down'
-        self._db_conn.update_service(service_type, service_id, entry)
+        self._db_conn.delete_service(entry)
 
         self.syslog('delete service=%s, sid=%s, info=%s'
                     % (service_type, service_id, entry))
