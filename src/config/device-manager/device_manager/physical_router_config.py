@@ -69,7 +69,7 @@ class PushConfigState(object):
     #end get_push_delay_max
 
     @classmethod
-    def get_push_delay_enable(cls, value):
+    def get_push_delay_enable(cls):
         return cls.PUSH_DELAY_ENABLE
     #end get_push_delay_enable
 
