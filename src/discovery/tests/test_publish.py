@@ -301,3 +301,32 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         entry = response['services'][0]
         self.assertEqual(entry['admin_state'], 'down')
         self.assertEqual(entry['oper_state'], 'up')
+
+    def test_un_publish_json(self):
+        service_type = 'foobar'
+        payload = {
+            '%s' % service_type: { "ip-addr" : "1.1.1.1", "port"    : "1234" }
+        }
+        puburl = '/publish/test_discovery'
+        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 1)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+
+        # unpublish (service-id:service-type)
+        puburl = '/service/test_discovery:foobar'
+        (code, msg) = self._http_delete(puburl, json.dumps({}))
+        self.assertEqual(code, 200)
+
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 0)
