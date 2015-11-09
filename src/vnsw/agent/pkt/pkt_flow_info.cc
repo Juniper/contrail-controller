@@ -1430,7 +1430,8 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowTableRequest::Event event = FlowTableRequest::ADD_FLOW;
-    if (pkt->type == PktType::MESSAGE) {
+    if (pkt->type == PktType::MESSAGE &&
+        pkt->agent_hdr.cmd != AgentHdr::TRAP_FLOW_MISS) {
         event = FlowTableRequest::UPDATE_FLOW;
     }
 
