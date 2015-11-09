@@ -125,7 +125,7 @@ public:
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
-    typedef std::map<uint32_t, FlowEntry *> FlowIndexTree;
+    typedef std::vector<FlowEntryPtr> FlowIndexTree;
 
     struct LinkLocalFlowInfo {
         uint32_t flow_index;
@@ -222,7 +222,7 @@ public:
     void DeleteVrouterEvictedFlow(FlowEntry *flow);
     void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
     void EvictVrouterFlow(FlowEntry *fe, uint32_t flow_index);
-    void UpdateKSync(FlowEntry *flow);
+    void UpdateKSync(FlowEntry *flow, bool update);
 
     // Flow Table request queue events
     void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow,

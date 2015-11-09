@@ -115,7 +115,7 @@ KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
     } else {
         entry = Alloc(key, KSyncEntry::kInvalidIndex);
     }
-    assert(tree_.insert(*entry).second == true);
+    tree_.insert(*entry);
     intrusive_ptr_add_ref(entry);
     return entry;
 }
