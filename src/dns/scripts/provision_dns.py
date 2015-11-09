@@ -7,6 +7,7 @@ import json
 import copy
 import re
 import sys
+import socket
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
@@ -50,6 +51,15 @@ class DnsProvisioner(object):
                 return False;
         return True
     #end is_valid_ipv4_address
+
+    @staticmethod
+    def is_valid_ipv6_address(address):
+        try:
+            socket.inet_pton(socket.AF_INET6, address)
+        except socket.error:  # not a valid address
+            return False
+        return True
+    #end is_valid_ipv6_address
 
     def add_virtual_dns(self, name, domain_name, dns_domain, dyn_updates, rec_order,
                         ttl, next_vdns, fip_record, external_visible, reverse_resolution):

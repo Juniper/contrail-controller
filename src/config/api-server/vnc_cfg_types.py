@@ -9,6 +9,7 @@
 
 import json
 import re
+import socket
 
 import cfgm_common
 import netaddr
@@ -816,6 +817,15 @@ class VirtualDnsServer(VirtualDnsServerGen):
     # end is_valid_ipv4_address
 
     @classmethod
+    def is_valid_ipv6_address(cls, address):
+        try:
+            socket.inet_pton(socket.AF_INET6, address)
+        except socket.error:
+            return False
+        return True
+    # end is_valid_ipv6_address
+
+    @classmethod
     def validate_dns_server(cls, obj_dict, db_conn):
         if 'fq_name' in obj_dict:
             virtual_dns = obj_dict['fq_name'][1]
@@ -911,7 +921,7 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     @classmethod
     def validate_dns_record(cls, obj_dict, db_conn):
         rec_data = obj_dict['virtual_DNS_record_data']
-        rec_types = ["a", "cname", "ptr", "ns"]
+        rec_types = ["a", "cname", "ptr", "ns", "mx", "aaaa"]
         rec_type = str(rec_data['record_type']).lower()
         if not rec_type in rec_types:
             return (False, (403, "Invalid record type"))
@@ -939,6 +949,9 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
         if rec_type == "a":
             if not VirtualDnsServer.is_valid_ipv4_address(rec_value):
                 return (False, (403, "Invalid IP address"))
+        elif rec_type == "aaaa":
+            if not VirtualDnsServer.is_valid_ipv6_address(rec_value):
+                return (False, (403, "Invalid IPv6 address"))
         elif rec_type == "cname" or rec_type == "ptr" or rec_type == "mx":
             if not VirtualDnsServer.is_valid_dns_name(rec_value):
                 return (
