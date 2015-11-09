@@ -168,6 +168,9 @@ static void NeighborSetSessionAttributes(
         attributes = local;
     }
     if (attributes != NULL) {
+        if (attributes->hold_time) {
+            neighbor->set_hold_time(attributes->hold_time);
+        }
         BuildFamilyAttributesList(neighbor, attributes);
         BuildKeyChain(neighbor, attributes->auth_data);
     }

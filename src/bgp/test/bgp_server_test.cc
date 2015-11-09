@@ -160,7 +160,9 @@ protected:
                 vector<string> families1 = vector<string>(),
                 vector<string> families2 = vector<string>(),
                 uint16_t hold_time1 = StateMachine::kHoldTime,
-                uint16_t hold_time2 = StateMachine::kHoldTime);
+                uint16_t hold_time2 = StateMachine::kHoldTime,
+                uint16_t nbr_hold_time1 = 0,
+                uint16_t nbr_hold_time2 = 0);
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
                 uint16_t as_num1, uint16_t as_num2,
@@ -216,6 +218,7 @@ protected:
                         string bgp_identifier1, string bgp_identifier2,
                         vector<string> families1, vector<string> families2,
                         uint16_t hold_time1, uint16_t hold_time2,
+                        uint16_t nbr_hold_time1, uint16_t nbr_hold_time2,
                         bool delete_config,
                         vector<ConfigUTAuthKeyItem> auth_keys =
                                 vector<ConfigUTAuthKeyItem>());
@@ -266,6 +269,7 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         string bgp_identifier1, string bgp_identifier2,
         vector<string> families1, vector<string> families2,
         uint16_t hold_time1, uint16_t hold_time2,
+        uint16_t nbr_hold_time1, uint16_t nbr_hold_time2,
         bool delete_config, vector<ConfigUTAuthKeyItem> auth_keys) {
     ostringstream config;
 
@@ -307,6 +311,8 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
 
     for (int i = 0; i < peer_count; i++) {
         config << "<session to='B'>";
+        if (nbr_hold_time1)
+            config << "<hold-time>" << nbr_hold_time1 << "</hold-time>";
         config << "<address-families>";
         for (vector<string>::const_iterator it = families2.begin();
              it != families2.end(); ++it) {
@@ -351,6 +357,8 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
 
     for (int i = 0; i < peer_count; i++) {
         config << "<session to='A'>";
+        if (nbr_hold_time2)
+            config << "<hold-time>" << nbr_hold_time2 << "</hold-time>";
         config << "<address-families>";
         for (vector<string>::const_iterator it = families1.begin();
              it != families1.end(); ++it) {
@@ -380,7 +388,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
                                  families1, families2,
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 delete_config);
+                                 0, 0, delete_config);
     server->Configure(config);
     task_util::WaitForIdle();
 }
@@ -398,7 +406,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
                                  families1, families2,
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 delete_config, auth_keys);
+                                 0, 0, delete_config, auth_keys);
     server->Configure(config);
     task_util::WaitForIdle();
 }
@@ -417,7 +425,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  families1, families2,
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 false, auth_keys);
+                                 0, 0, false, auth_keys);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
@@ -430,7 +438,8 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
         vector<string> families1, vector<string> families2,
-        uint16_t hold_time1, uint16_t hold_time2) {
+        uint16_t hold_time1, uint16_t hold_time2,
+        uint16_t nbr_hold_time1, uint16_t nbr_hold_time2) {
     string config = GetConfigStr(peer_count, port_a, port_b,
                                  as_num1, as_num2,
                                  as_num1, as_num2,
@@ -438,6 +447,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  bgp_identifier1, bgp_identifier2,
                                  families1, families2,
                                  hold_time1, hold_time2,
+                                 nbr_hold_time1, nbr_hold_time2,
                                  false);
     a_->Configure(config);
     task_util::WaitForIdle();
@@ -456,7 +466,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  vector<string>(), vector<string>(),
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 false);
+                                 0, 0, false);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
@@ -1546,7 +1556,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                "192.168.0.10", "192.168.0.11",
                families_a, families_b,
                StateMachine::kHoldTime, StateMachine::kHoldTime,
-               true);
+               0, 0, true);
     b_->Configure(config);
 
     for (int j = 0; j < peer_count; j++) {
@@ -1904,6 +1914,80 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
                    "127.0.0.1", "127.0.0.1",
                    "192.168.0.10", "192.168.0.11",
                    families_a, families_b,
+                   10 * idx, 90);
+        VerifyPeers(peer_count);
+
+        // Established sessions should keep using the old hold time value.
+        for (int j = 0; j < peer_count; j++) {
+            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+            BgpPeer *peer_a =
+                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
+            const StateMachine *sm_a = GetPeerStateMachine(peer_a);
+            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_a->hold_time());
+
+            BgpPeer *peer_b =
+                b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
+            const StateMachine *sm_b = GetPeerStateMachine(peer_b);
+            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_b->hold_time());
+        }
+
+        // Clear all the sessions by setting peers to admin down on A.
+        for (int j = 0; j < peer_count; j++) {
+            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+            BgpPeer *peer_a =
+                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
+            peer_a->SetAdminState(true);
+            task_util::WaitForIdle();
+            peer_a->SetAdminState(false);
+        }
+
+        VerifyPeers(peer_count);
+
+        // Re-established sessions should use the updated hold time value.
+        for (int j = 0; j < peer_count; j++) {
+            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+            BgpPeer *peer_a =
+                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
+            const StateMachine *sm_a = GetPeerStateMachine(peer_a);
+            TASK_UTIL_EXPECT_EQ(10 * idx, sm_a->hold_time());
+
+            BgpPeer *peer_b =
+                b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
+            const StateMachine *sm_b = GetPeerStateMachine(peer_b);
+            TASK_UTIL_EXPECT_EQ(10 * idx, sm_b->hold_time());
+        }
+    }
+}
+
+TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b,
+               StateMachine::kHoldTime, StateMachine::kHoldTime,
+               10, 10);
+    VerifyPeers(peer_count);
+
+    for (int idx = 2; idx <= 9; ++idx) {
+
+        // Change the hold time and apply the new configuration.
+        SetupPeers(peer_count, a_->session_manager()->GetPort(),
+                   b_->session_manager()->GetPort(), false,
+                   BgpConfigManager::kDefaultAutonomousSystem,
+                   BgpConfigManager::kDefaultAutonomousSystem,
+                   "127.0.0.1", "127.0.0.1",
+                   "192.168.0.10", "192.168.0.11",
+                   families_a, families_b,
+                   StateMachine::kHoldTime, StateMachine::kHoldTime,
                    10 * idx, 90);
         VerifyPeers(peer_count);
 

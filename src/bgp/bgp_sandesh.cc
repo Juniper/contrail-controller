@@ -463,6 +463,7 @@ public:
             nbr.set_identifier(peerid.to_string());
             nbr.set_address(neighbor->peer_address().to_string());
             nbr.set_address_families(neighbor->GetAddressFamilies());
+            nbr.set_hold_time(neighbor->hold_time());
             nbr.set_last_change_at(
                 UTCUsecToString(neighbor->last_change_at()));
             nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());

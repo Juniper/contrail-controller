@@ -357,6 +357,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           membership_req_pending_(0),
           defer_close_(false),
           vpn_tables_registered_(false),
+          hold_time_(config->hold_time()),
           local_as_(config->local_as()),
           peer_as_(config->peer_as()),
           local_bgp_id_(config->local_identifier()),
@@ -577,6 +578,8 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         peer_info.set_local_asn(local_as_);
         clear_session = true;
     }
+
+    hold_time_ = config->hold_time();
 
     if (peer_as_ != config->peer_as()) {
         peer_as_ = config->peer_as();

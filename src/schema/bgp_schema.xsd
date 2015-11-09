@@ -93,9 +93,12 @@
             When the parameters are uni-directional the bgp-router element
             specifies to which node the configuration applies. If missing
             the attributes apply to both ends of the session.
+            A non-zero hold-time overrides the hold-time inherited from the
+            bgp-router configuration.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:element name='bgp-router' type='xsd:string'/>
+    <xsd:element name='hold-time' type='BgpHoldTime' default='0'/>
     <xsd:element name='address-families' type='AddressFamilies'/>
     <xsd:element name='auth-data' type='AuthenticationData'/>
     <xsd:element name='family-attributes' type='BgpFamilyAttributes' maxOccurs='unbounded'/>

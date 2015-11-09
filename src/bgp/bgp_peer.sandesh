@@ -440,6 +440,7 @@ struct ShowBgpNeighborConfig {
     4: i32 autonomous_system;
     5: string identifier;
     6: string address;
+    14: i32 hold_time;
     10: string last_change_at;
     11: optional string auth_type;
     12: optional list<string> auth_keys;
