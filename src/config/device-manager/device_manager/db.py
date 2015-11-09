@@ -19,6 +19,7 @@ import socket
 import gevent
 from gevent import queue
 from cfgm_common.vnc_cassandra import VncCassandraClient
+from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 
 class BgpRouterDM(DBBase):
     _dict = {}
@@ -944,7 +945,7 @@ class RoutingInstanceDM(DBBase):
 # end RoutingInstanceDM
 
 class DMCassandraDB(VncCassandraClient):
-    _KEYSPACE = 'dm_keyspace'
+    _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     dm_cassandra_instance = None
 
