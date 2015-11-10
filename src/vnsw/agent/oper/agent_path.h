@@ -123,8 +123,14 @@ public:
     }
 
     bool IsDependentRt(void) const {
-        if (dependent_ip_ != Ip4Address(0)) {
-            return true;
+        if (dependent_ip_.is_v4()) {
+            if (dependent_ip_ != Ip4Address(0)) {
+                return true;
+            }
+        } else if (dependent_ip_.is_v6()) {
+            if (!dependent_ip_.is_unspecified()) {
+                return true;
+            }
         }
         return false;
     }

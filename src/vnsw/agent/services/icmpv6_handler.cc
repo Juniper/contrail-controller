@@ -12,7 +12,16 @@
 #include "services/services_types.h"
 #include <services/services_init.h>
 #include <services/icmpv6_proto.h>
+#include <oper/route_common.h>
+#include <oper/operdb_init.h>
+#include <oper/path_preference.h>
 #include <oper/vn.h>
+
+boost::system::error_code ec;
+const Ip6Address Icmpv6Handler::kSolicitedNodeIpPrefix =
+    Ip6Address::from_string("FF02:0:0:0:0:1:FF00::", ec);
+const Ip6Address Icmpv6Handler::kSolicitedNodeIpSuffixMask =
+    Ip6Address::from_string("0:0:0:0:0:0:FF:FFFF", ec);
 
 Icmpv6Handler::Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
                              boost::asio::io_service &io)
@@ -86,6 +95,34 @@ bool Icmpv6Handler::Run() {
             ICMPV6_TRACE(Trace, "Ignoring Echo request with wrong cksum");
             break;
 
+        case ND_NEIGHBOR_ADVERT:
+            icmpv6_proto->IncrementStatsNeighborAdvert();
+            if (CheckPacket()) {
+                nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
+                boost::array<uint8_t, 16> bytes;
+                for (int i = 0; i < 16; i++) {
+                    bytes[i] = icmp->nd_na_target.s6_addr[i];
+                }
+                Ip6Address addr(bytes);
+                uint16_t offset = sizeof(nd_neighbor_advert);
+                nd_opt_hdr *opt = (nd_opt_hdr *) (((uint8_t *)icmp) + offset);
+                if (opt->nd_opt_type != ND_OPT_TARGET_LINKADDR) {
+                    ICMPV6_TRACE(Trace, "Ignoring Neighbor Advert with no"
+                                 "Target Link-layer address option");
+                    return true;
+                }
+
+                uint8_t *buf = (((uint8_t *)icmp) + offset + 2);
+                MacAddress mac(buf);
+
+                //Enqueue a request to trigger state machine
+                agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(addr, 128, itf->id(),
+                                       itf->vrf()->vrf_id(), mac);
+                return true;
+            }
+            ICMPV6_TRACE(Trace, "Ignoring Neighbor Solicit with wrong cksum");
+            break;
         default:
             break;
     }
@@ -226,4 +263,87 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
     Send(ifindex, vrfindex, command, PktHandler::ICMPV6);
+}
+
+uint16_t Icmpv6Handler::FillNeighborSolicit(uint8_t *buf,
+                                            const Ip6Address &target,
+                                            uint8_t *sip, uint8_t *dip) {
+    nd_neighbor_solicit *icmp = (nd_neighbor_solicit *)buf;
+    icmp->nd_ns_type = ND_NEIGHBOR_SOLICIT;
+    icmp->nd_ns_code = 0;
+    icmp->nd_ns_cksum = 0;
+    icmp->nd_ns_reserved = 0;
+    memcpy(icmp->nd_ns_target.s6_addr, target.to_bytes().data(), 16);
+    uint16_t offset = sizeof(nd_neighbor_solicit);
+
+    // add source linklayer address information
+    nd_opt_hdr *src_linklayer_addr = (nd_opt_hdr *)(buf + offset);
+    src_linklayer_addr->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
+    src_linklayer_addr->nd_opt_len = 1;
+    //XXX instead of ETHER_ADDR_LEN, actual buffer size should be given
+    //to preven buffer overrun.
+    agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
+
+    offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
+
+    icmp->nd_ns_cksum = Icmpv6Csum(sip, dip, (icmp6_hdr *)icmp, offset);
+    return offset;
+}
+
+void Icmpv6Handler::Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src) {
+    for (int i = 0; i < 16; i++) {
+        dst[i] &= src[i];
+    }
+}
+
+void Icmpv6Handler::Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src) {
+    for (int i = 0; i < 16; i++) {
+        dst[i] |= src[i];
+    }
+}
+
+void Icmpv6Handler::SolicitedMulticastIpAndMac(const Ip6Address &dip,
+                                               uint8_t *ip, MacAddress &mac) {
+    /* A solicited-node multicast address is formed by taking the low-order
+     * 24 bits of an address (unicast or anycast) and appending those bits to
+     * the prefix FF02:0:0:0:0:1:FF00::/104 */
+
+    /* Copy the higher order 104 bits of solicited node multicast IP */
+    memcpy(ip, kSolicitedNodeIpPrefix.to_bytes().data(), 16);
+
+    uint8_t ip_bytes[16], suffix_mask_bytes[16];
+    memcpy(ip_bytes, dip.to_bytes().data(), 16);
+    memcpy(suffix_mask_bytes, kSolicitedNodeIpSuffixMask.to_bytes().data(), 16);
+    /* Extract lower order 24 bits of Destination IP */
+    Ipv6Lower24BitsExtract(ip_bytes, suffix_mask_bytes);
+
+    /* Build the solicited node multicast address by joining upper order 104
+     * bits of FF02:0:0:0:0:1:FF00::/104 with lower 24 bits of destination IP*/
+    Ipv6AddressBitwiseOr(ip, ip_bytes);
+
+    /* The ethernet address for IPv6 multicast address is 0x33-33-mm-mm-mm-mm,
+     * where mm-mm-mm-mm is a direct mapping of the last 32 bits of the
+     * IPv6 multicast address */
+    mac[0] = mac[1] = 0x33;
+    mac[2] = ip[12];
+    mac[3] = ip[13];
+    mac[4] = ip[14];
+    mac[5] = ip[15];
+}
+
+void Icmpv6Handler::SendNeighborSolicit(const Ip6Address &sip,
+                                        const Ip6Address &dip, uint32_t itf,
+                                        uint32_t vrf) {
+    pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
+    pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
+    icmp_ = pkt_info_->transp.icmp6 =
+            (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) +
+                          sizeof(ip6_hdr));
+    uint8_t solicited_mcast_ip[16], source_ip[16];
+    MacAddress dmac;
+    memcpy(source_ip, sip.to_bytes().data(), sizeof(source_ip));
+    SolicitedMulticastIpAndMac(dip, solicited_mcast_ip, dmac);
+    uint16_t len = FillNeighborSolicit((uint8_t *)icmp_, dip, source_ip,
+                                       solicited_mcast_ip);
+    SendIcmpv6Response(itf, vrf, source_ip, solicited_mcast_ip, dmac, len);
 }

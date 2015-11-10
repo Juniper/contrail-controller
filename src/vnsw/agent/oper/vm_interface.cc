@@ -57,7 +57,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     do_dhcp_relay_(false), vm_name_(),
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(true),
     layer3_forwarding_(true), flood_unknown_unicast_(false),
-    mac_set_(false), ecmp_(false),
+    mac_set_(false), ecmp_(false), ecmp6_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -90,8 +90,9 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
     bridging_(true), layer3_forwarding_(true),
     flood_unknown_unicast_(false), mac_set_(false),
-    ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
-    parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+    ecmp_(false), ecmp6_(false), tx_vlan_id_(tx_vlan_id),
+    rx_vlan_id_(rx_vlan_id), parent_(parent),
+    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), device_type_(device_type),
@@ -315,7 +316,10 @@ static void BuildAllowedAddressPairRouteList(VirtualMachineInterface *cfg,
          it != cfg->allowed_address_pairs().end(); ++it) {
         boost::system::error_code ec;
         int plen = it->ip.ip_prefix_len;
-        Ip4Address ip = Ip4Address::from_string(it->ip.ip_prefix, ec);
+        IpAddress ip = Ip4Address::from_string(it->ip.ip_prefix, ec);
+        if (ec.value() != 0) {
+            ip = Ip6Address::from_string(it->ip.ip_prefix, ec);
+        }
         if (ec.value() != 0) {
             continue;
         }
@@ -435,9 +439,9 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
                 data->ip6_addr_ = addr.to_v6();
             }
             if (ip->mode() == "active-active") {
-                data->ecmp_ = true;
+                data->ecmp6_ = true;
             } else {
-                data->ecmp_ = false;
+                data->ecmp6_ = false;
             }
         }
     }
@@ -1190,8 +1194,6 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false);
         UpdateServiceVlan(force_update, policy_change);
-        UpdateAllowedAddressPair(force_update, policy_change, false,
-                                 false, false);
         UpdateVrfAssignRule();
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
@@ -1200,6 +1202,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         UpdateIpv6InstanceIp(force_update, policy_change, false, old_ethernet_tag);
     }
     UpdateStaticRoute(force_update, policy_change);
+    UpdateAllowedAddressPair(force_update, policy_change, false, false, false);
 }
 
 void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
@@ -1486,7 +1489,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-    dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
+    ecmp6_(false), dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -1758,7 +1761,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (nova_ip6_addr_ != Ip6Address() &&
             data->vrf_name_ != Agent::NullString()) {
         new_ipv6_list.insert(
-            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp_, true));
+            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true));
     }
 
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
@@ -1769,6 +1772,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (data->addr_ != Ip4Address(0) && ecmp_ != data->ecmp_) {
         ecmp_ = data->ecmp_;
+        *ecmp_changed = true;
+    }
+
+    if (!data->ip6_addr_.is_unspecified() && ecmp6_ != data->ecmp6_) {
+        ecmp6_ = data->ecmp6_;
         *ecmp_changed = true;
     }
 
@@ -2445,8 +2453,13 @@ void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
     }
 }
 
-Ip4Address VmInterface::GetGateway(const IpAddress &vm_ip) const {
-    Ip4Address ip(0);
+IpAddress VmInterface::GetGateway(const IpAddress &vm_ip) const {
+    IpAddress ip;
+    if (vm_ip.is_v4()) {
+        ip = Ip4Address(0);
+    } else if (vm_ip.is_v6()) {
+        ip = Ip6Address();
+    }
     if (vn_.get() == NULL) {
         return ip;
     }
@@ -2458,8 +2471,11 @@ Ip4Address VmInterface::GetGateway(const IpAddress &vm_ip) const {
         ipam = vn_->GetIpam(subnet_);
     }
 
-    if (ipam && ipam->default_gw.is_v4()) {
-        ip = ipam->default_gw.to_v4();
+    if (ipam) {
+        if ((vm_ip.is_v4() && ipam->default_gw.is_v4()) ||
+            (vm_ip.is_v6() && ipam->default_gw.is_v6())) {
+            return ipam->default_gw;
+        }
     }
     return ip;
 }
@@ -2469,7 +2485,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
                                          bool policy_change,
                                          VrfEntry * old_vrf,
                                          const Ip4Address &old_addr) {
-    Ip4Address ip = GetGateway(primary_ip_addr_);
+    Ip4Address ip = GetGateway(primary_ip_addr_).to_v4();
 
     // If interface was already active earlier and there is no force_update or
     // policy_change, return
@@ -2739,6 +2755,13 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change
        allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
+        /* V4 AAP entries should be enabled only if ipv4_active_ is true
+         * V6 AAP entries should be enabled only if ipv6_active_ is true
+         */
+        if ((!ipv4_active_ && prev->addr_.is_v4()) ||
+            (!ipv6_active_ && prev->addr_.is_v6())) {
+            continue;
+        }
         if (prev->del_pending_) {
             prev->L2DeActivate(this);
             prev->DeActivate(this);
@@ -3213,8 +3236,8 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
                             interface->GetGateway(ip_), Ip4Address(0));
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), 128,
-                            interface->vn()->GetName(), true, false,
-                            Ip6Address(), Ip6Address());
+                            interface->vn()->GetName(), true, ecmp_,
+                            interface->GetGateway(ip_), Ip6Address());
     }
     installed_ = true;
 }
@@ -3311,6 +3334,9 @@ void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
 
 void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
                                          const InstanceIp *rhs) {
+    if (lhs->ecmp_ != rhs->ecmp_) {
+        lhs->ecmp_ = rhs->ecmp_;
+    }
 }
 
 void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
@@ -3387,8 +3413,8 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         }
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
-                            vn_->GetName(), true, false, Ip6Address(),
-                            GetFixedIp(interface));
+                            vn_->GetName(), true, interface->ecmp6(),
+                            Ip6Address(), GetFixedIp(interface));
         //TODO:: callback for DNS handling
     }
 
@@ -3568,7 +3594,6 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
 void VmInterface::StaticRoute::Activate(VmInterface *interface,
                                         bool force_update,
                                         bool policy_change) const {
-    bool ecmp = false;
     if (installed_ && force_update == false && policy_change == false)
         return;
 
@@ -3580,9 +3605,6 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
         InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
                                                     vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
-        if (addr_.is_v4()) {
-            ecmp = interface->ecmp();
-        }
         Ip4Address gw_ip(0);
         if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
             SecurityGroupList sg_id_list;
@@ -3593,10 +3615,19 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
                     interface->vrf_->table_label(),
                     sg_id_list);
         } else {
+            IpAddress dependent_ip;
+            bool ecmp = false;
+            if (addr_.is_v4()) {
+                dependent_ip = interface->primary_ip_addr();
+                ecmp = interface->ecmp();
+            } else if (addr_.is_v6()) {
+                dependent_ip = interface->primary_ip6_addr();
+                ecmp = interface->ecmp6();
+            }
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
                                 interface->policy_enabled(),
-                                ecmp, IpAddress(), interface->primary_ip_addr());
+                                ecmp, IpAddress(), dependent_ip);
         }
     }
 
@@ -3626,8 +3657,9 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 //Allowed addresss pair route
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
-    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), mac_(),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this), gw_ip_(0) {
+    ListEntry(), vrf_(""), addr_(), plen_(0), ecmp_(false), mac_(),
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this),
+    gw_ip_() {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
@@ -3639,7 +3671,7 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
-                                                    const Ip4Address &addr,
+                                                    const IpAddress &addr,
                                                     uint32_t plen, bool ecmp,
                                                     const MacAddress &mac) :
     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
@@ -3702,16 +3734,28 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
     }
 
     if (l2_entry_installed_ == false || force_update || policy_change) {
-        Ip4Address dependent_rt = Ip4Address(0);
+        IpAddress dependent_rt;
+        Ip4Address v4ip(0);
+        Ip6Address v6ip;
+        if (addr_.is_v4()) {
+            dependent_rt = v4ip;
+            v4ip = addr_.to_v4();
+        } else if (addr_.is_v6()) {
+            dependent_rt = v6ip;
+            v6ip = addr_.to_v6();
+        }
         if (ecmp_ == true) {
-            dependent_rt = interface->primary_ip_addr();
+            if (addr_.is_v4()) {
+                dependent_rt = interface->primary_ip_addr();
+            } else if (addr_.is_v6()) {
+                dependent_rt = interface->primary_ip6_addr();
+            }
         }
 
         interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
-                               interface->vrf(), addr_, Ip6Address(),
-                               ethernet_tag_, old_layer3_forwarding,
-                               policy_change, addr_, Ip6Address(), mac_,
-                               dependent_rt);
+                               interface->vrf(), v4ip, v6ip, ethernet_tag_,
+                               old_layer3_forwarding, policy_change, v4ip, v6ip,
+                               mac_, dependent_rt);
         ethernet_tag_ = interface->ethernet_tag();
         //If layer3 forwarding is disabled
         //  * IP + mac allowed address pair should not be published
@@ -3734,8 +3778,15 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
         return;
     }
 
-    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), addr_,
-                                      Ip6Address(), ethernet_tag_, mac_);
+    Ip4Address v4ip(0);
+    Ip6Address v6ip;
+    if (addr_.is_v4()) {
+        v4ip = addr_.to_v4();
+    } else if (addr_.is_v6()) {
+        v6ip = addr_.to_v6();
+    }
+    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), v4ip,
+                                      v6ip, ethernet_tag_, mac_);
     l2_entry_installed_ = false;
     vrf_ref_ = NULL;
 }
@@ -3744,9 +3795,9 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                                bool force_update,
                                                bool policy_change) const {
     const VnIpam *ipam = interface->vn_->GetIpam(addr_);
-    Ip4Address ip(0);
+    IpAddress ip;
     if (ipam) {
-        ip = ipam->default_gw.to_v4();
+        ip = ipam->default_gw;
     }
 
     if (installed_ && force_update == false && policy_change == false &&
@@ -3763,9 +3814,19 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                                     vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || gw_ip_ != ip) {
         gw_ip_ = ip;
-        Ip4Address dependent_rt = Ip4Address(0);
+        IpAddress dependent_rt;
         if (ecmp_ == true) {
-            dependent_rt = interface->primary_ip_addr();
+            if (addr_.is_v4()) {
+                dependent_rt = interface->primary_ip_addr();
+            } else if (addr_.is_v6()) {
+                dependent_rt = interface->primary_ip6_addr();
+            }
+        } else {
+            if (addr_.is_v4()) {
+                dependent_rt = Ip4Address(0);
+            } else if (addr_.is_v6()) {
+                dependent_rt = Ip6Address();
+            }
         }
         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                             interface->policy_enabled(),

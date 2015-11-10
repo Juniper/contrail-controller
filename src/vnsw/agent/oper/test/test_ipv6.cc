@@ -324,7 +324,7 @@ TEST_F(Ipv6Test, IntfStaticRoute_2) {
     EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
                 static_route[1].plen_));
     EXPECT_FALSE(RouteFindV6("vrf1", static_route6[0].addr_,
-                static_route6[0].plen_));
+                 static_route6[0].plen_));
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
