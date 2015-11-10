@@ -1359,20 +1359,25 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
 
     const AgentRoute *rt = NULL;
     IpAddress sip = pkt->ip_saddr;
-    if (pkt->family == Address::INET) {
+    if (pkt->family == Address::INET ||
+        pkt->family == Address::INET6) {
         if (l3_flow) {
             rt = in->rt_;
         } else if (in->vrf_) {
-            rt = FlowEntry::GetUcRoute(in->vrf_, sip.to_v4());
+            rt = FlowEntry::GetUcRoute(in->vrf_, sip);
         }
-    } else if (pkt->family == Address::INET6) {
-        //TODO:: Handle Ipv6 changes
     }
     // Generate event if route was waiting for traffic
     if (rt && rt->WaitForTraffic()) {
-        flow_table->agent()->oper_db()->route_preference_module()->
-            EnqueueTrafficSeen(sip.to_v4(), 32, in->intf_->id(), pkt->vrf,
-                               pkt->smac);
+        if (pkt->family == Address::INET) {
+            flow_table->agent()->oper_db()->route_preference_module()->
+                EnqueueTrafficSeen(sip, 32, in->intf_->id(), pkt->vrf,
+                                   pkt->smac);
+        } else if (pkt->family == Address::INET6) {
+            flow_table->agent()->oper_db()->route_preference_module()->
+                EnqueueTrafficSeen(sip, 128, in->intf_->id(), pkt->vrf,
+                                   pkt->smac);
+        }
     }
 }
 

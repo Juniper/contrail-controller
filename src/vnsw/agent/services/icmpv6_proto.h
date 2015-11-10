@@ -28,8 +28,9 @@ public:
     struct Icmpv6Stats {
         Icmpv6Stats() { Reset(); }
         void Reset() {
-            icmpv6_router_solicit_ = icmpv6_router_advert_ =
-                icmpv6_ping_request_ = icmpv6_ping_response_ = icmpv6_drop_ = 0;
+            icmpv6_router_solicit_ = icmpv6_router_advert_ = 0;
+            icmpv6_ping_request_ = icmpv6_ping_response_ = icmpv6_drop_ = 0;
+            icmpv6_neighbor_solicit_ = icmpv6_neighbor_advert_ = 0;
         }
 
         uint32_t icmpv6_router_solicit_;
@@ -37,6 +38,8 @@ public:
         uint32_t icmpv6_ping_request_;
         uint32_t icmpv6_ping_response_;
         uint32_t icmpv6_drop_;
+        uint32_t icmpv6_neighbor_solicit_;
+        uint32_t icmpv6_neighbor_advert_;
     };
 
     void Shutdown();
@@ -44,7 +47,7 @@ public:
     virtual ~Icmpv6Proto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    void VrfNotify(DBEntryBase *entry);
+    void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void VnNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
 
@@ -55,19 +58,74 @@ public:
     void IncrementStatsPingRequest() { stats_.icmpv6_ping_request_++; }
     void IncrementStatsPingResponse() { stats_.icmpv6_ping_response_++; }
     void IncrementStatsDrop() { stats_.icmpv6_drop_++; }
+    void IncrementStatsNeighborSolicit() { stats_.icmpv6_neighbor_solicit_++; }
+    void IncrementStatsNeighborAdvert() { stats_.icmpv6_neighbor_advert_++; }
     const Icmpv6Stats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
+    void ValidateAndClearVrfState(VrfEntry *vrf);
 
 private:
     Timer *timer_;
     Icmpv6Stats stats_;
     VmInterfaceSet vm_interfaces_;
-    // handler to send router advertisement upon timer expiry
-    boost::scoped_ptr<Icmpv6Handler> routing_advert_handler_;
+    // handler to send router advertisements and neighbor solicits
+    boost::scoped_ptr<Icmpv6Handler> icmpv6_handler_;
     DBTableBase::ListenerId vn_table_listener_id_;
     DBTableBase::ListenerId vrf_table_listener_id_;
     DBTableBase::ListenerId interface_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(Icmpv6Proto);
 };
 
+class Icmpv6VrfState : public DBState {
+public:
+    Icmpv6VrfState(Agent *agent, Icmpv6Proto *proto, VrfEntry *vrf,
+                   AgentRouteTable *table);
+    ~Icmpv6VrfState();
+    Agent *agent() const { return agent_; }
+    Icmpv6Proto * icmp_proto() const { return icmp_proto_; }
+    void set_route_table_listener_id(const DBTableBase::ListenerId &id) {
+        route_table_listener_id_ = id;
+    }
+    bool default_routes_added() const { return default_routes_added_; }
+    void set_default_routes_added(bool value) { default_routes_added_ = value; }
+
+    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+    void ManagedDelete() { deleted_ = true;}
+    void Delete();
+    bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
+    void WalkDone(DBTableBase *partition, Icmpv6VrfState *state);
+
+private:
+    Agent *agent_;
+    Icmpv6Proto *icmp_proto_;
+    VrfEntry *vrf_;
+    AgentRouteTable *rt_table_;
+    DBTableBase::ListenerId route_table_listener_id_;
+    LifetimeRef<Icmpv6VrfState> table_delete_ref_;
+    bool deleted_;
+    bool default_routes_added_;
+    DISALLOW_COPY_AND_ASSIGN(Icmpv6VrfState);
+};
+
+class Icmpv6RouteState : public DBState {
+public:
+    static const uint32_t kMaxRetry = 10;
+    static const uint32_t kTimeout = 1000;
+    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
+
+    Icmpv6RouteState(Icmpv6VrfState *vrf_state, uint32_t vrf_id,
+                     IpAddress vm_ip_addr, uint8_t plen);
+    ~Icmpv6RouteState();
+    bool SendNeighborSolicit();
+    void SendNeighborSolicitForAllIntf(const InetUnicastRouteEntry *route);
+    void StartTimer();
+private:
+    Icmpv6VrfState *vrf_state_;
+    Timer *ns_req_timer_;
+    uint32_t vrf_id_;
+    IpAddress vm_ip_;
+    uint8_t plen_;
+    IpAddress gw_ip_;
+    WaitForTrafficIntfMap wait_for_traffic_map_;
+};
 #endif // vnsw_agent_icmpv6_proto_h
