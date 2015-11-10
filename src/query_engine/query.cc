@@ -19,6 +19,7 @@
 #include "stats_query.h"
 #include <base/connection_info.h>
 #include "utils.h"
+#include <database/cassandra/thrift/thrift_if.h>
 
 using std::map;
 using std::string;
@@ -875,7 +876,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         int total_batches, const std::string& cassandra_user,
         const std::string& cassandra_password):
         QueryUnit(NULL, this),
-        dbif_(GenDb::GenDbIf::GenDbIfImpl(
+        dbif_(new ThriftIf(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
             cassandra_ips, cassandra_ports, "QueryEngine", true,
             cassandra_user, cassandra_password)),
@@ -995,7 +996,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_password, int max_tasks, int max_slice, 
             const std::string & cassandra_user,
             const std::string & cassandra_password) :
-        dbif_(GenDb::GenDbIf::GenDbIfImpl( 
+        dbif_(new ThriftIf(
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ips, cassandra_ports, "QueryEngine", true,
             cassandra_user, cassandra_password)),

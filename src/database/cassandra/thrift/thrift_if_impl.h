@@ -2,32 +2,28 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __CDB_IF_H__
-#define __CDB_IF_H__
+#ifndef DATABASE_CASSANDRA_THRIFT_THRIFT_IF_IMPL_H_
+#define DATABASE_CASSANDRA_THRIFT_THRIFT_IF_IMPL_H_
 
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 
-#include <protocol/TBinaryProtocol.h>
-#include <transport/TSocketPool.h>
-#include <transport/TTransportUtils.h>
-#include "gen-cpp/Cassandra.h"
+#include <database/cassandra/thrift/gen-cpp/Cassandra.h>
 
 #include <base/queue_task.h>
-#include "gendb_if.h"
-#include "gendb_statistics.h"
+#include <database/gendb_if.h>
+#include <database/gendb_statistics.h>
 
-class CdbIf : public GenDb::GenDbIf {
-public:
-    CdbIf(DbErrorHandler, const std::vector<std::string>&,
+class ThriftIfImpl {
+ public:
+    ThriftIfImpl(GenDb::GenDbIf::DbErrorHandler,
+        const std::vector<std::string>&,
         const std::vector<int>&, std::string name,
         bool only_sync, const std::string& cassandra_user,
         const std::string& cassandra_password);
-    CdbIf();
-    ~CdbIf();
+    ThriftIfImpl();
+    virtual ~ThriftIfImpl();
     // Init/Uninit
     virtual bool Db_Init(const std::string& task_id, int task_instance);
     virtual void Db_Uninit(const std::string& task_id, int task_instance);
@@ -41,13 +37,13 @@ public:
     virtual bool Db_AddSetTablespace(const std::string& tablespace,
         const std::string& replication_factor = "1");
     virtual bool Db_FindTablespace(const std::string& tablespace);
-    // Column family 
+    // Column family
     virtual bool Db_AddColumnfamily(const GenDb::NewCf& cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf& cf);
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
     virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
-    // Read 
+    // Read
     virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey);
     virtual bool Db_GetMultiRow(GenDb::ColListVec& ret,
@@ -58,7 +54,7 @@ public:
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;
     virtual void Db_SetQueueWaterMark(bool high, size_t queue_count,
-        DbQueueWaterMarkCb cb);
+        GenDb::GenDbIf::DbQueueWaterMarkCb cb);
     virtual void Db_ResetQueueWaterMarks();
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
@@ -67,107 +63,56 @@ public:
     virtual std::string Db_GetHost() const;
     virtual int Db_GetPort() const;
 
-private:
-    friend class CdbIfTest;
+ private:
+    friend class ThriftIfTest;
     class InitTask;
     class CleanupTask;
-
-    typedef boost::function<std::string(const GenDb::DbDataValue&)>
-        DbEncodeCompositeFunc;
-    typedef boost::function<GenDb::DbDataValue(const char *input, int &used)>
-        DbDecodeCompositeFunc;
-    typedef boost::function<std::string(const GenDb::DbDataValue&)>
-        DbEncodeNonCompositeFunc;
-    typedef boost::function<GenDb::DbDataValue(const std::string&)>
-        DbDecodeNonCompositeFunc;
-
-    struct CdbIfTypeInfo {
-        CdbIfTypeInfo(std::string cassandra_type,
-            DbEncodeCompositeFunc encode_composite_fn,
-            DbDecodeCompositeFunc decode_composite_fn,
-            DbEncodeNonCompositeFunc encode_non_composite_fn,
-            DbDecodeNonCompositeFunc decode_non_composite_fn) :
-            cassandra_type_("org.apache.cassandra.db.marshal." + cassandra_type),
-            encode_composite_fn_(encode_composite_fn),
-            decode_composite_fn_(decode_composite_fn),
-            encode_non_composite_fn_(encode_non_composite_fn),
-            decode_non_composite_fn_(decode_non_composite_fn) {
+    struct ThriftIfCfInfo {
+        ThriftIfCfInfo() {
         }
-
-        std::string cassandra_type_;
-        DbEncodeCompositeFunc encode_composite_fn_;
-        DbDecodeCompositeFunc decode_composite_fn_;
-        DbEncodeNonCompositeFunc encode_non_composite_fn_;
-        DbDecodeNonCompositeFunc decode_non_composite_fn_;
-    };
-    typedef boost::unordered_map<GenDb::DbDataType::type, CdbIfTypeInfo>
-        CdbIfTypeMapDef;
-    static CdbIfTypeMapDef CdbIfTypeMap;
-
-    struct CdbIfCfInfo {
-        CdbIfCfInfo() {
-        }
-        CdbIfCfInfo(org::apache::cassandra::CfDef *cfdef) {
+        ThriftIfCfInfo(org::apache::cassandra::CfDef *cfdef) {
             cfdef_.reset(cfdef);
         }
-        CdbIfCfInfo(org::apache::cassandra::CfDef *cfdef, GenDb::NewCf *cf) {
+        ThriftIfCfInfo(org::apache::cassandra::CfDef *cfdef, GenDb::NewCf *cf) {
             cfdef_.reset(cfdef);
             cf_.reset(cf);
         }
-        ~CdbIfCfInfo() {
+        ~ThriftIfCfInfo() {
         }
         std::auto_ptr<org::apache::cassandra::CfDef> cfdef_;
         std::auto_ptr<GenDb::NewCf> cf_;
     };
-    typedef boost::ptr_unordered_map<std::string, CdbIfCfInfo> CdbIfCfListType;
-    CdbIfCfListType CdbIfCfList;
+    typedef boost::ptr_unordered_map<std::string, ThriftIfCfInfo> ThriftIfCfListType;
+    ThriftIfCfListType ThriftIfCfList;
 
-    struct CdbIfColList {
+    struct ThriftIfColList {
         GenDb::ColList *gendb_cl;
     };
 
-    // Encode and decode
-    bool DbDataTypeVecToCompositeType(std::string& res,
-        const std::vector<GenDb::DbDataType::type>& db_type);
-    bool DbDataValueFromType(GenDb::DbDataValue& res,
-        const GenDb::DbDataType::type& type, const std::string& input);
-    bool DbDataValueFromType(GenDb::DbDataValue&, const std::string&,
-        const std::string&);
-    bool DbDataValueFromString(GenDb::DbDataValue&, const std::string&,
-        const std::string&, const std::string&);
-    bool DbDataValueToStringNonComposite(std::string&,
-        const GenDb::DbDataValue&);
-    bool DbDataValueVecToString(std::string&, bool composite,
-        const GenDb::DbDataValueVec&);
-    bool ConstructDbDataValueKey(std::string&, const GenDb::NewCf *,
-        const GenDb::DbDataValueVec&);
-    bool ConstructDbDataValueColumnName(std::string&, const GenDb::NewCf *,
-        const GenDb::DbDataValueVec&);
-    bool ConstructDbDataValueColumnValue(std::string&, const GenDb::NewCf *,
-        const GenDb::DbDataValueVec&);
-    bool DbDataValueVecFromString(GenDb::DbDataValueVec&,
-        const GenDb::DbDataTypeVec&, const std::string&);
-    bool ColListFromColumnOrSuper(GenDb::ColList&,
-        std::vector<org::apache::cassandra::ColumnOrSuperColumn>&,
-        const std::string&);
     // Init/Uninit
     bool Db_IsInitDone() const;
     // Column family
     bool Db_Columnfamily_present(const std::string& cfname);
-    bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
+    bool Db_GetColumnfamily(ThriftIfCfInfo **info, const std::string& cfname);
     bool Db_FindColumnfamily(const std::string& cfname);
     // Column
-    bool Db_AsyncAddColumn(CdbIfColList &cl);
-    bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
+    bool Db_AsyncAddColumn(ThriftIfColList &cl);
+    bool Db_AsyncAddColumnLocked(ThriftIfColList &cl);
     void Db_BatchAddColumn(bool done);
     bool DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
                               org::apache::cassandra::CfDef *newcfdef);
+    // Encode and decode
+    bool DbDataValueFromString(GenDb::DbDataValue&, const std::string&,
+        const std::string&, const std::string&);
+    bool ColListFromColumnOrSuper(GenDb::ColList&,
+        std::vector<org::apache::cassandra::ColumnOrSuperColumn>&,
+        const std::string&);
     // Read
     static const int kMaxQueryRows = 50;
 
     // Statistics
-    struct CdbIfStats {
-        CdbIfStats() {
+    struct ThriftIfStats {
+        ThriftIfStats() {
         }
         struct Errors {
             Errors() {
@@ -189,21 +134,21 @@ private:
             tbb::atomic<uint64_t> read_column_fails;
         };
         enum ErrorType {
-            CDBIF_STATS_ERR_NO_ERROR,
-            CDBIF_STATS_ERR_WRITE_TABLESPACE,
-            CDBIF_STATS_ERR_READ_TABLESPACE,
-            CDBIF_STATS_ERR_WRITE_COLUMN_FAMILY,
-            CDBIF_STATS_ERR_READ_COLUMN_FAMILY,
-            CDBIF_STATS_ERR_WRITE_COLUMN,
-            CDBIF_STATS_ERR_WRITE_BATCH_COLUMN,
-            CDBIF_STATS_ERR_READ_COLUMN,
+            THRIFTIF_STATS_ERR_NO_ERROR,
+            THRIFTIF_STATS_ERR_WRITE_TABLESPACE,
+            THRIFTIF_STATS_ERR_READ_TABLESPACE,
+            THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY,
+            THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY,
+            THRIFTIF_STATS_ERR_WRITE_COLUMN,
+            THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN,
+            THRIFTIF_STATS_ERR_READ_COLUMN,
         };
         enum CfOp {
-            CDBIF_STATS_CF_OP_NONE,
-            CDBIF_STATS_CF_OP_WRITE,
-            CDBIF_STATS_CF_OP_WRITE_FAIL,
-            CDBIF_STATS_CF_OP_READ,
-            CDBIF_STATS_CF_OP_READ_FAIL,
+            THRIFTIF_STATS_CF_OP_NONE,
+            THRIFTIF_STATS_CF_OP_WRITE,
+            THRIFTIF_STATS_CF_OP_WRITE_FAIL,
+            THRIFTIF_STATS_CF_OP_READ,
+            THRIFTIF_STATS_CF_OP_READ_FAIL,
         };
         void IncrementErrors(ErrorType type);
         void UpdateCf(const std::string &cf_name, bool write, bool fail);
@@ -213,25 +158,25 @@ private:
         Errors odb_errors_;
     };
 
-    friend CdbIfStats::Errors operator+(const CdbIfStats::Errors &a,
-        const CdbIfStats::Errors &b);
-    friend CdbIfStats::Errors operator-(const CdbIfStats::Errors &a,
-        const CdbIfStats::Errors &b);
+    friend ThriftIfStats::Errors operator+(const ThriftIfStats::Errors &a,
+        const ThriftIfStats::Errors &b);
+    friend ThriftIfStats::Errors operator-(const ThriftIfStats::Errors &a,
+        const ThriftIfStats::Errors &b);
 
-    void UpdateCfStats(CdbIfStats::CfOp op, const std::string &cf_name);
+    void UpdateCfStats(ThriftIfStats::CfOp op, const std::string &cf_name);
     void UpdateCfWriteStats(const std::string &cf_name);
     void UpdateCfWriteFailStats(const std::string &cf_name);
     void UpdateCfReadStats(const std::string &cf_name);
     void UpdateCfReadFailStats(const std::string &cf_name);
 
     static const size_t kQueueSize = 200 * 1024 * 1024; // 200 MB
-    typedef WorkQueue<CdbIfColList> CdbIfQueue;
-    friend class WorkQueue<CdbIfColList>;
-    typedef boost::tuple<bool, size_t, DbQueueWaterMarkCb>
+    typedef WorkQueue<ThriftIfColList> ThriftIfQueue;
+    friend class WorkQueue<ThriftIfColList>;
+    typedef boost::tuple<bool, size_t, GenDb::GenDbIf::DbQueueWaterMarkCb>
         DbQueueWaterMarkInfo;
-    void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+    void Db_SetQueueWaterMarkInternal(ThriftIfQueue *queue,
         const std::vector<DbQueueWaterMarkInfo> &vwmi);
-    void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+    void Db_SetQueueWaterMarkInternal(ThriftIfQueue *queue,
         const DbQueueWaterMarkInfo &wmi);
     bool set_keepalive();
 
@@ -239,14 +184,12 @@ private:
     boost::shared_ptr<apache::thrift::transport::TTransport> transport_;
     boost::shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
     boost::scoped_ptr<org::apache::cassandra::CassandraClient> client_;
-    DbErrorHandler errhandler_;
+    GenDb::GenDbIf::DbErrorHandler errhandler_;
     tbb::atomic<bool> db_init_done_;
     std::string tablespace_;
-    boost::scoped_ptr<CdbIfQueue> cdbq_;
+    boost::scoped_ptr<ThriftIfQueue> q_;
     std::string name_;
-    std::string cassandra_user_;
-    std::string cassandra_password_;
-    mutable tbb::mutex cdbq_mutex_;
+    mutable tbb::mutex q_mutex_;
     InitTask *init_task_;
     CleanupTask *cleanup_task_;
     bool only_sync_;
@@ -258,8 +201,10 @@ private:
     typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
     CassandraMutationMap mutation_map_;
     mutable tbb::mutex smutex_;
-    CdbIfStats stats_;
-    std::vector<DbQueueWaterMarkInfo> cdbq_wm_info_;
+    ThriftIfStats stats_;
+    std::vector<DbQueueWaterMarkInfo> q_wm_info_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
     // Connection timeout to a server (before moving to next server)
     static const int connectionTimeout = 3000;
     static const int keepaliveIdleSec = 15;
@@ -268,30 +213,38 @@ private:
     static const int tcpUserTimeoutMs = 30000;
 };
 
-CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
-    const CdbIf::CdbIfStats::Errors &b);
-CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
-    const CdbIf::CdbIfStats::Errors &b);
+ThriftIfImpl::ThriftIfStats::Errors operator+(
+    const ThriftIfImpl::ThriftIfStats::Errors &a,
+    const ThriftIfImpl::ThriftIfStats::Errors &b);
+ThriftIfImpl::ThriftIfStats::Errors operator-(
+    const ThriftIfImpl::ThriftIfStats::Errors &a,
+    const ThriftIfImpl::ThriftIfStats::Errors &b);
 
 template<>
-size_t CdbIf::CdbIfQueue::AtomicIncrementQueueCount(
-    CdbIf::CdbIfColList *entry);
+size_t ThriftIfImpl::ThriftIfQueue::AtomicIncrementQueueCount(
+    ThriftIfImpl::ThriftIfColList *entry);
 
 template<>
-size_t CdbIf::CdbIfQueue::AtomicDecrementQueueCount(
-    CdbIf::CdbIfColList *entry);
+size_t ThriftIfImpl::ThriftIfQueue::AtomicDecrementQueueCount(
+    ThriftIfImpl::ThriftIfColList *entry);
 
 template<>
-struct WorkQueueDelete<CdbIf::CdbIfColList> {
+struct WorkQueueDelete<ThriftIfImpl::ThriftIfColList> {
     template <typename QueueT>
     void operator()(QueueT &q, bool delete_entry) {
-        CdbIf::CdbIfColList colList;
-        while (q.try_pop(colList)) {    
+        ThriftIfImpl::ThriftIfColList colList;
+        while (q.try_pop(colList)) {
             delete colList.gendb_cl;
             colList.gendb_cl = NULL;
         }
     }
 };
+
+// Encode and decode
+bool DbDataValueVecToString(std::string& res, bool composite,
+    const GenDb::DbDataValueVec& input);
+bool DbDataValueVecFromString(GenDb::DbDataValueVec& res,
+    const GenDb::DbDataTypeVec& typevec, const std::string& input);
 
 // Composite
 std::string DbEncodeStringComposite(const GenDb::DbDataValue &value);
@@ -317,4 +270,4 @@ template <typename T> std::string DbEncodeIntegerNonComposite(
 template <typename T> GenDb::DbDataValue DbDecodeIntegerNonComposite(
     const std::string &input);
 
-#endif // __CDB_IF_H__
+#endif // DATABASE_CASSANDRA_THRIFT_THRIFT_IF_IMPL_H_

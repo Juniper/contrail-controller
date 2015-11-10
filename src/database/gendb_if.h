@@ -2,26 +2,23 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __GENDB_IF_H__
-#define __GENDB_IF_H__
+#ifndef DATABASE_GENDB_IF_H_
+#define DATABASE_GENDB_IF_H_
 
-//#include <stdint.h>
 #include <string>
 #include <vector>
 #include <map>
 #include <boost/function.hpp>
-//#include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid.hpp>
-//#include <boost/uuid/uuid_generators.hpp>
 #include <boost/variant.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/scoped_ptr.hpp>
-#include "gendb_types.h"
+#include <database/gendb_types.h>
 
 namespace GenDb {
 
 /* New stuff */
-typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t, 
+typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
     boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
@@ -32,7 +29,7 @@ enum DbDataValueType {
     DB_VALUE_UINT8 = 5,
     DB_VALUE_UINT16 = 6,
     DB_VALUE_DOUBLE = 7,
-};    
+};
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
@@ -105,7 +102,7 @@ struct NewCol {
         value(new DbDataValueVec(1, v)), ttl(ttl) {}
 
     NewCol(const NewCol &rhs) :
-        cftype_(rhs.cftype_), name(new DbDataValueVec(*rhs.name)), 
+        cftype_(rhs.cftype_), name(new DbDataValueVec(*rhs.name)),
         value(new DbDataValueVec(*rhs.value)), ttl(rhs.ttl) {}
 
     bool operator==(const NewCol &rhs) const {
@@ -166,7 +163,7 @@ public:
     virtual void Db_UninitUnlocked(const std::string& task_id,
         int task_instance) = 0;
     virtual void Db_SetInitDone(bool init_done) = 0;
-    // Tablespace 
+    // Tablespace
     virtual bool Db_AddTablespace(const std::string& tablespace,
         const std::string& replication_factor) = 0;
     virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
@@ -197,15 +194,8 @@ public:
     // Connection
     virtual std::string Db_GetHost() const = 0;
     virtual int Db_GetPort() const = 0;
-
-    static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports,
-        std::string name, bool only_sync,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password);
 };
 
 } // namespace GenDb
 
-#endif // __GENDB_IF_H__
+#endif // DATABASE_GENDB_IF_H_

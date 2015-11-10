@@ -68,7 +68,7 @@
 #include <list>
 #include "../analytics/redis_connection.h"
 #include "base/work_pipeline.h"
-#include "gendb_if.h"
+#include "database/gendb_if.h"
 #include "../analytics/viz_message.h"
 #include "json_parse.h"
 #include "QEOpServerProxy.h"
