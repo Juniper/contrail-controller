@@ -2,14 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "cdb_if.h"
+#include <database/cassandra/thrift/thrift_if.h>
 
-class CdbIfMock : public CdbIf {
+class ThriftIfMock : public ThriftIf {
 public:
-    CdbIfMock() :
-        CdbIf() {
+    ThriftIfMock() :
+        ThriftIf() {
     }
-    ~CdbIfMock() {}
+    ~ThriftIfMock() {}
 
     bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
         return Db_AddColumnProxy(cl.get());

@@ -9,15 +9,15 @@
 #include "testing/gunit.h"
 
 #include "base/logging.h"
-#include "../cdb_if.h"
+#include "../thrift_if_impl.h"
 
 using namespace GenDb;
 
-class CdbIfTest : public ::testing::Test {
+class ThriftIfTest : public ::testing::Test {
 protected:
-    CdbIfTest() {
+    ThriftIfTest() {
     }
-    ~CdbIfTest() {
+    ~ThriftIfTest() {
     }
     virtual void SetUp() {
     }
@@ -29,12 +29,12 @@ protected:
     }
     void UpdateErrorsWriteTablespace() {
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_WRITE_TABLESPACE);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
     }
     void UpdateStatsCfWrite(const std::string &cfname) {
         stats_.UpdateCf(cfname, true, false);
     }
-    void UpdateStatsAll(const std::string &cfname) { 
+    void UpdateStatsAll(const std::string &cfname) {
         // Write success
         stats_.UpdateCf(cfname, true, false);
         // Write fail
@@ -45,34 +45,25 @@ protected:
         stats_.UpdateCf(cfname, false, true);
         // Increment errors of each type
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_WRITE_TABLESPACE);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_READ_TABLESPACE);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN_FAMILY);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_WRITE_BATCH_COLUMN);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN);
         stats_.IncrementErrors(
-            CdbIf::CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN);
+            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN);
     }
-    bool DbDataValueVecFromString(GenDb::DbDataValueVec& output,
-        const GenDb::DbDataTypeVec& typevec, const std::string& input) {
-        return dbif_.DbDataValueVecFromString(output, typevec, input);
-    }
-    bool DbDataValueVecToString(std::string& output, bool composite,
-        const GenDb::DbDataValueVec& input) {
-        return dbif_.DbDataValueVecToString(output, composite, input);
-    }
- 
-    CdbIf dbif_;
-    CdbIf::CdbIfStats stats_;
+
+    ThriftIfImpl::ThriftIfStats stats_;
 };
 
-TEST_F(CdbIfTest, EncodeDecodeString) {
+TEST_F(ThriftIfTest, EncodeDecodeString) {
     std::vector<std::string> strings = boost::assign::list_of
         ("Test String1")
         ("")
@@ -90,7 +81,7 @@ TEST_F(CdbIfTest, EncodeDecodeString) {
             t_composite_dec = boost::get<std::string>(
                 composite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 composite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_composite_dec, str);
@@ -104,7 +95,7 @@ TEST_F(CdbIfTest, EncodeDecodeString) {
             t_ncomposite_dec = boost::get<std::string>(
                 ncomposite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 ncomposite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_ncomposite_dec, str);
@@ -132,7 +123,7 @@ TEST_F(CdbIfTest, EncodeDecodeString) {
     EXPECT_EQ(t_ncomposite_dec, "");
 }
 
-TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
+TEST_F(ThriftIfTest, TestEncodeDecodeDouble) {
     std::vector<double> integers = boost::assign::list_of
         (std::numeric_limits<double>::min())
         (std::numeric_limits<double>::max())
@@ -145,7 +136,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
         std::string composite_enc(
             DbEncodeDoubleComposite(integer));
         int offset;
-        DbDataValue composite_dec( 
+        DbDataValue composite_dec(
             DbDecodeDoubleComposite(
                 composite_enc.c_str(), offset));
         EXPECT_EQ(offset, composite_enc.size());
@@ -154,7 +145,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
             t_composite_dec = boost::get<double>(
                 composite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 composite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_composite_dec, integer);
@@ -168,7 +159,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
             t_ncomposite_dec = boost::get<double>(
                 ncomposite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 ncomposite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_ncomposite_dec, integer);
@@ -180,7 +171,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
     std::string composite_enc(
         DbEncodeDoubleComposite(val));
     int offset;
-    DbDataValue composite_dec( 
+    DbDataValue composite_dec(
         DbDecodeDoubleComposite(
             composite_enc.c_str(), offset));
     EXPECT_EQ(offset, composite_enc.size());
@@ -197,7 +188,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
     EXPECT_EQ(t_ncomposite_dec, 0);
 }
 
-TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
+TEST_F(ThriftIfTest, TestEncodeDecodeUUID) {
     boost::uuids::random_generator gen;
     std::vector<boost::uuids::uuid> integers = boost::assign::list_of
         (boost::uuids::nil_uuid())
@@ -209,7 +200,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
         std::string composite_enc(
             DbEncodeUUIDComposite(integer));
         int offset;
-        DbDataValue composite_dec( 
+        DbDataValue composite_dec(
             DbDecodeUUIDComposite(
                 composite_enc.c_str(), offset));
         EXPECT_EQ(offset, composite_enc.size());
@@ -218,7 +209,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
             t_composite_dec = boost::get<boost::uuids::uuid>(
                 composite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 composite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_composite_dec, integer);
@@ -232,7 +223,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
             t_ncomposite_dec = boost::get<boost::uuids::uuid>(
                 ncomposite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 ncomposite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_ncomposite_dec, integer);
@@ -245,7 +236,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
     std::string composite_enc(
         DbEncodeUUIDComposite(val));
     int offset;
-    DbDataValue composite_dec( 
+    DbDataValue composite_dec(
         DbDecodeUUIDComposite(
             composite_enc.c_str(), offset));
     EXPECT_EQ(offset, composite_enc.size());
@@ -276,7 +267,7 @@ void TestEncodeDecodeInteger() {
         std::string composite_enc(
             DbEncodeIntegerComposite<NumberType>(integer));
         int offset;
-        DbDataValue composite_dec( 
+        DbDataValue composite_dec(
             DbDecodeIntegerComposite<NumberType>(
                 composite_enc.c_str(), offset));
         EXPECT_EQ(offset, composite_enc.size());
@@ -285,7 +276,7 @@ void TestEncodeDecodeInteger() {
             t_composite_dec = boost::get<NumberType>(
                 composite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 composite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_composite_dec, integer);
@@ -299,7 +290,7 @@ void TestEncodeDecodeInteger() {
             t_ncomposite_dec = boost::get<NumberType>(
                 ncomposite_dec);
         } catch (boost::bad_get& ex) {
-            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " << 
+            LOG(ERROR, __func__ << ":" << __LINE__ << ": Invalid value: " <<
                 ncomposite_dec.which() << ": " << ex.what());
         }
         EXPECT_EQ(t_ncomposite_dec, integer);
@@ -312,7 +303,7 @@ void TestEncodeDecodeInteger() {
     std::string composite_enc(
         DbEncodeIntegerComposite<NumberType>(val));
     int offset;
-    DbDataValue composite_dec( 
+    DbDataValue composite_dec(
         DbDecodeIntegerComposite<NumberType>(
             composite_enc.c_str(), offset));
     EXPECT_EQ(offset, composite_enc.size());
@@ -329,23 +320,23 @@ void TestEncodeDecodeInteger() {
     EXPECT_EQ(t_ncomposite_dec, std::numeric_limits<NumberType>::max());
 }
 
-TEST_F(CdbIfTest, EncodeDecodeU8) {
+TEST_F(ThriftIfTest, EncodeDecodeU8) {
     TestEncodeDecodeInteger<uint8_t>();
 }
 
-TEST_F(CdbIfTest, EncodeDecodeU16) {
+TEST_F(ThriftIfTest, EncodeDecodeU16) {
     TestEncodeDecodeInteger<uint16_t>();
 }
 
-TEST_F(CdbIfTest, EncodeDecodeU32) {
+TEST_F(ThriftIfTest, EncodeDecodeU32) {
     TestEncodeDecodeInteger<uint32_t>();
 }
 
-TEST_F(CdbIfTest, EncodeDecodeU64) {
+TEST_F(ThriftIfTest, EncodeDecodeU64) {
     TestEncodeDecodeInteger<uint64_t>();
 }
 
-TEST_F(CdbIfTest, EncodeDecodeCompositeVector) {
+TEST_F(ThriftIfTest, EncodeDecodeCompositeVector) {
     uint32_t T1(6979602);
     GenDb::DbDataValueVec col_name;
     col_name.reserve(2);
@@ -364,7 +355,7 @@ TEST_F(CdbIfTest, EncodeDecodeCompositeVector) {
     ASSERT_EQ(T1, t1);
 }
 
-TEST_F(CdbIfTest, Stats) {
+TEST_F(ThriftIfTest, Stats) {
     // Update Cf stats
     const std::string cfname("FakeColumnFamily");
     UpdateStatsAll(cfname);
@@ -405,7 +396,7 @@ TEST_F(CdbIfTest, Stats) {
     vdbti.clear();
     GenDb::DbErrors edbe_diffs;
     edbe_diffs.set_write_tablespace_fails(1);
-    EXPECT_EQ(edbe_diffs, adbe_diffs); 
+    EXPECT_EQ(edbe_diffs, adbe_diffs);
 }
 
 int main(int argc, char **argv) {

@@ -8,7 +8,7 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include "viz_constants.h"
-#include "gendb_constants.h"
+#include <database/gendb_constants.h>
 
 std::vector<GenDb::NewCf> vizd_tables;
 std::vector<GenDb::NewCf> vizd_flow_tables;

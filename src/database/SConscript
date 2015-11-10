@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+DbEnv = BuildEnv.Clone()
+
+gen_files = DbEnv.SandeshGenCpp('gendb.sandesh')
+gen_srcs = DbEnv.ExtractCpp(gen_files)
+
+local_srcs = ['gendb_if.cc',
+              'gendb_statistics.cc'
+             ]
+srcs = gen_srcs + local_srcs
+
+DbEnv.Append(CPPPATH = [ DbEnv['TOP'],
+                         DbEnv['TOP'] + '/database'
+                       ])
+libgendb = DbEnv.Library('gendb', source = srcs)
+DbEnv.Install(DbEnv['TOP_LIB'], libgendb)
+
+subdirs = ['test',
+           'cassandra',
+          ]
+for dir in subdirs:
+    DbEnv.SConscript(dir + '/SConscript', exports='DbEnv', duplicate=0)
