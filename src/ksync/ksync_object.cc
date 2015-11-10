@@ -1368,7 +1368,9 @@ KSyncObjectManager *KSyncObjectManager::Init() {
 }
 
 void KSyncObjectManager::Shutdown() {
-    delete singleton_;
+    if (singleton_) {
+        delete singleton_;
+    }
     singleton_ = NULL;
 }
 

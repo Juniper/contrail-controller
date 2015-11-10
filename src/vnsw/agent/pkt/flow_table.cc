@@ -891,7 +891,8 @@ void FlowEntry::UpdateKSync(FlowTable* table) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector *fec = table->agent()->flow_stats_collector();
+        FlowStatsCollector *fec = table->agent()->flow_stats_manager()->
+                                      default_flow_stats_collector();
         fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
@@ -1018,6 +1019,9 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
 
     ResyncAFlow(flow);
     AddFlowInfo(flow);
+
+    agent_->flow_stats_manager()->AddEvent(flow);
+    agent_->flow_stats_manager()->AddEvent(rflow);
 }
 
 bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
@@ -1700,6 +1704,9 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time)
 
     agent_->stats()->incr_flow_aged();
     agent_->stats()->UpdateFlowDelMinMaxStats(time);
+
+    //enqueue a request to delete flow from aging tree
+    agent_->flow_stats_manager()->DeleteEvent(fe);
 }
 
 bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
@@ -1744,7 +1751,8 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 
 void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
 {
-    FlowStatsCollector *fec = agent_->flow_stats_collector();
+    FlowStatsCollector *fec = agent_->flow_stats_manager()->
+                                  default_flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -3630,19 +3638,32 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     }
 }
 
+bool FlowTable::FlowDelete(FlowKey key) {
+    Delete(key, true);
+    return true;
+}
+
+void FlowTable::DeleteEnqueue(FlowEntry *fp) {
+    delete_queue_->Enqueue(fp->key_);
+}
+
 FlowTable::FlowTable(Agent *agent) : 
     agent_(agent), flow_entry_map_(), acl_flow_tree_(),
     linklocal_flow_count_(), acl_listener_id_(),
     intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
     vrf_listener_id_(), nh_listener_(NULL),
     inet4_route_key_(NULL, Ip4Address(), 32, false),
-    inet6_route_key_(NULL, Ip6Address(), 128, false) {
+    inet6_route_key_(NULL, Ip6Address(), 128, false),
+    delete_queue_(new WorkQueue<FlowKey>(
+                    TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"), 0,
+                                boost::bind(&FlowTable::FlowDelete, this, _1))) {
     max_vm_flows_ = (uint32_t)
         (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
          agent->params()->max_vm_flows()) / 100;
 }
 
 FlowTable::~FlowTable() {
+    delete_queue_->Shutdown();
 }
 
 void FlowTable::Shutdown() {
