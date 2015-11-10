@@ -8,7 +8,7 @@
 
 include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
-include "gendb/gendb.sandesh"
+include "database/gendb.sandesh"
 
 struct SandeshStats {
     1: string                              message_type

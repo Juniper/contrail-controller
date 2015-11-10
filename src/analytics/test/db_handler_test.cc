@@ -15,7 +15,7 @@
 #include "../viz_types.h"
 #include "../viz_constants.h"
 #include "../db_handler.h"
-#include "cdb_if_mock.h"
+#include "thrift_if_mock.h"
 #include "../vizd_table_desc.h"
 #include "sandesh/common/flow_types.h"
 
@@ -37,7 +37,7 @@ class DbHandlerTest : public ::testing::Test {
 public:
     DbHandlerTest() :
         builder_(SandeshXMLMessageTestBuilder::GetInstance()),
-        dbif_mock_(new CdbIfMock()),
+        dbif_mock_(new ThriftIfMock()),
         db_handler_(new DbHandler(dbif_mock_, ttl_map)) {
     }
 
@@ -51,7 +51,7 @@ public:
     virtual void TearDown() {
     }
 
-    CdbIfMock *dbif_mock() {
+    ThriftIfMock *dbif_mock() {
         return dbif_mock_;
     }
 
@@ -111,7 +111,7 @@ private:
     }
 
     EventManager evm_;
-    CdbIfMock *dbif_mock_;
+    ThriftIfMock *dbif_mock_;
     DbHandler *db_handler_;
 };
 

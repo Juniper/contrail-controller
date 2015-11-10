@@ -30,11 +30,12 @@
 #include <sandesh/sandesh_message_builder.h>
 #include <discovery/client/discovery_client.h>
 #include <discovery_client_stats_types.h>
+#include <database/cassandra/thrift/thrift_if.h>
 
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
-#include "gendb_types.h"
+//#include "gendb_types.h"
 
 using std::string;
 using std::map;
@@ -330,7 +331,7 @@ void Collector::TestDatabaseConnection() {
     boost::scoped_ptr<GenDb::GenDbIf> testdbif_; // for testing db connection
 
     // try to instantiate a new dbif instance for testing db connection
-    testdbif_.reset( GenDb::GenDbIf::GenDbIfImpl(
+    testdbif_.reset(new ThriftIf(
         boost::bind(&Collector::TestDbConnErrHandler, this),
         cassandra_ips_, cassandra_ports_, db_handler_->GetName(), true,
         cassandra_user_, cassandra_password_));

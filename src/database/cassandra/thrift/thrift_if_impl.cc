@@ -7,15 +7,21 @@
 #include <boost/pointer_cast.hpp>
 #include <boost/foreach.hpp>
 
+#include <sys/socket.h>
+#include <errno.h>
+#include <string.h>
+
 #include <base/parse_object.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 
-#include "cdb_if.h"
-#include <sys/socket.h>
-#include <errno.h>
-#include <string.h>
+#include <protocol/TBinaryProtocol.h>
+#include <transport/TSocketPool.h>
+#include <transport/TTransportUtils.h>
+#include <database/cassandra/thrift/gen-cpp/Cassandra.h>
+
+#include <database/cassandra/thrift/thrift_if_impl.h>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -24,14 +30,21 @@ using namespace ::org::apache::cassandra;
 namespace cassandra = ::org::apache::cassandra;
 using namespace GenDb;
 
-#define CDBIF_LOG_ERR_RETURN_FALSE(_Msg)                                  \
+#define THRIFTIF_LOG_ERR_RETURN_FALSE(_Msg)                               \
     do {                                                                  \
         LOG(ERROR, name_ << ": " << __func__ << ":" << __FILE__ << ":" << \
             __LINE__ << ": " << _Msg);                                    \
         return false;                                                     \
-    } while (false)    
+    } while (false)
 
-#define CDBIF_LOG(_Level, _Msg)                                           \
+#define THRIFTIF_LOG_ERR_RETURN_FALSE_STATIC(_Msg)                        \
+    do {                                                                  \
+        LOG(ERROR,  __func__ << ":" << __FILE__ << ":" << __LINE__ << ": "\
+            << _Msg);                                                     \
+        return false;                                                     \
+    } while (false)
+
+#define THRIFTIF_LOG(_Level, _Msg)                                        \
     do {                                                                  \
         if (LoggingDisabled()) break;                                     \
         log4cplus::Logger logger = log4cplus::Logger::getRoot();          \
@@ -39,19 +52,19 @@ using namespace GenDb;
             __FILE__ << ":" << __LINE__ << ": " << _Msg);                 \
     } while (false)
 
-#define CDBIF_LOG_ERR(_Msg)                                               \
+#define THRIFTIF_LOG_ERR(_Msg)                                            \
     do {                                                                  \
         LOG(ERROR, name_ << ": " << __func__ << ":" << __FILE__ << ":" << \
             __LINE__ << ": " << _Msg);                                    \
     } while (false)
 
-#define CDBIF_LOG_ERR_STATIC(_Msg)                                        \
+#define THRIFTIF_LOG_ERR_STATIC(_Msg)                                     \
     do {                                                                  \
         LOG(ERROR, __func__ << ":" << __FILE__ << ":" << __LINE__ << ": " \
             << _Msg);                                                     \
     } while (false)
 
-#define CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE(cond)                         \
+#define THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE(cond)                      \
     do {                                                                  \
         if (!(cond)) {                                                    \
             LOG(ERROR, name_ << ": " << __func__ << ":" << __FILE__ <<    \
@@ -60,7 +73,16 @@ using namespace GenDb;
         }                                                                 \
     } while (false)
 
-#define CDBIF_EXPECT_TRUE(cond)                                           \
+#define THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE_STATIC(cond)               \
+    do {                                                                  \
+        if (!(cond)) {                                                    \
+            LOG(ERROR, __func__ << ":" << __FILE__ <<                     \
+                ":" << __LINE__ << ": (" << #cond << ") FALSE");          \
+            return false;                                                 \
+        }                                                                 \
+    } while (false)
+
+#define THRIFTIF_EXPECT_TRUE(cond)                                        \
     do {                                                                  \
         if (!(cond)) {                                                    \
             LOG(ERROR, name_ << ": " << __func__ << ":" << __FILE__ <<    \
@@ -68,8 +90,8 @@ using namespace GenDb;
         }                                                                 \
     } while (false)
 
-#define CDBIF_BEGIN_TRY try
-#define CDBIF_END_TRY_LOG_INTERNAL(msg, ignore_eexist, no_log_not_found,   \
+#define THRIFTIF_BEGIN_TRY try
+#define THRIFTIF_END_TRY_LOG_INTERNAL(msg, ignore_eexist, no_log_not_found,\
     invoke_hdlr, err_type, cf_op)                                          \
     catch (NotFoundException &tx) {                                        \
         stats_.IncrementErrors(err_type);                                  \
@@ -77,14 +99,14 @@ using namespace GenDb;
         std::ostringstream ostr;                                           \
         ostr << msg << ": NotFoundException: " << tx.what();               \
         if (!(no_log_not_found)) {                                         \
-            CDBIF_LOG_ERR(ostr.str());                                     \
+            THRIFTIF_LOG_ERR(ostr.str());                                  \
         }                                                                  \
     } catch (SchemaDisagreementException &tx) {                            \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": SchemaDisagreementException: " << tx.what();     \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (InvalidRequestException &tx) {                                \
         if (ignore_eexist) {                                               \
             size_t eexist = tx.why.find(                                   \
@@ -94,33 +116,33 @@ using namespace GenDb;
                 UpdateCfStats(cf_op, msg);                                 \
                 std::ostringstream ostr;                                   \
                 ostr << msg << ": InvalidRequestException: " << tx.why;    \
-                CDBIF_LOG_ERR(ostr.str());                                 \
+                THRIFTIF_LOG_ERR(ostr.str());                              \
             }                                                              \
         } else {                                                           \
             stats_.IncrementErrors(err_type);                              \
             UpdateCfStats(cf_op, msg);                                     \
             std::ostringstream ostr;                                       \
             ostr << msg << ": InvalidRequestException: " << tx.why;        \
-            CDBIF_LOG_ERR(ostr.str());                                     \
+            THRIFTIF_LOG_ERR(ostr.str());                                  \
         }                                                                  \
     } catch (UnavailableException& ue) {                                   \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": UnavailableException: " << ue.what();            \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TimedOutException& te) {                                      \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TimedOutException: " << te.what();               \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TApplicationException &tx) {                                  \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TApplicationException: " << tx.what();           \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TTransportException &tx) {                                    \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
@@ -129,16 +151,16 @@ using namespace GenDb;
         }                                                                  \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TTransportException: " << tx.what();             \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TException &tx) {                                             \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TException: " << tx.what();                      \
-        CDBIF_LOG_ERR(ostr.str());                                         \
+        THRIFTIF_LOG_ERR(ostr.str());                                      \
     }
 
-#define CDBIF_END_TRY_RETURN_FALSE_INTERNAL(msg, ignore_eexist,            \
+#define THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(msg, ignore_eexist,         \
     no_log_not_found, invoke_hdlr, err_type, cf_op)                        \
     catch (NotFoundException &tx) {                                        \
         stats_.IncrementErrors(err_type);                                  \
@@ -146,7 +168,7 @@ using namespace GenDb;
         std::ostringstream ostr;                                           \
         ostr << msg << ": NotFoundException: " << tx.what();               \
         if (!(no_log_not_found)) {                                         \
-            CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                        \
+            THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                     \
         } else {                                                           \
             return false;                                                  \
         }                                                                  \
@@ -155,7 +177,7 @@ using namespace GenDb;
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": SchemaDisagreementException: " << tx.what();     \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (InvalidRequestException &tx) {                                \
         if (ignore_eexist) {                                               \
             size_t eexist = tx.why.find(                                   \
@@ -165,39 +187,39 @@ using namespace GenDb;
                 UpdateCfStats(cf_op, msg);                                 \
                 std::ostringstream ostr;                                   \
                 ostr << msg << ": InvalidRequestException: " << tx.why;    \
-                CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                    \
+                THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                 \
             }                                                              \
         } else {                                                           \
             stats_.IncrementErrors(err_type);                              \
             UpdateCfStats(cf_op, msg);                                     \
             std::ostringstream ostr;                                       \
             ostr << msg << ": InvalidRequestException: " << tx.why;        \
-            CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                        \
+            THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                     \
         }                                                                  \
     } catch (UnavailableException& ue) {                                   \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": UnavailableException: " << ue.what();            \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TimedOutException& te) {                                      \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TimedOutException: " << te.what();               \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TApplicationException &tx) {                                  \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TApplicationException: " << tx.what();           \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (AuthenticationException &tx) {                                \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": Authentication Exception: " << tx.what();        \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     }  catch (TTransportException &tx) {                                   \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
@@ -206,24 +228,24 @@ using namespace GenDb;
         }                                                                  \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TTransportException: " << tx.what();             \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TException &tx) {                                             \
         stats_.IncrementErrors(err_type);                                  \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TException: " << tx.what();                      \
-        CDBIF_LOG_ERR_RETURN_FALSE(ostr.str());                            \
+        THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     }
 
-#define CDBIF_END_TRY_RETURN_FALSE(msg)                                    \
-    CDBIF_END_TRY_RETURN_FALSE_INTERNAL(msg, false, false, false,          \
-        CdbIfStats::CDBIF_STATS_ERR_NO_ERROR,                              \
-        CdbIfStats::CDBIF_STATS_CF_OP_NONE)
+#define THRIFTIF_END_TRY_RETURN_FALSE(msg)                                    \
+    THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(msg, false, false, false,          \
+        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,                           \
+        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
 
-#define CDBIF_END_TRY_LOG(msg)                                             \
-    CDBIF_END_TRY_LOG_INTERNAL(msg, false, false, false,                   \
-        CdbIfStats::CDBIF_STATS_ERR_NO_ERROR,                              \
-        CdbIfStats::CDBIF_STATS_CF_OP_NONE)
+#define THRIFTIF_END_TRY_LOG(msg)                                             \
+    THRIFTIF_END_TRY_LOG_INTERNAL(msg, false, false, false,                   \
+        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,                           \
+        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
 
 //
 // Types supported by Cassandra are the following, but we use only a subset for
@@ -255,13 +277,13 @@ std::string DbEncodeStringComposite(const GenDb::DbDataValue &value) {
     try {
         input = boost::get<std::string>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     int input_size = input.size();
     uint8_t *data = (uint8_t *)malloc(input_size+3);
     if (data == NULL) {
-        CDBIF_LOG_ERR_STATIC("Allocation (size=" << (input_size+3) <<
+        THRIFTIF_LOG_ERR_STATIC("Allocation (size=" << (input_size+3) <<
             ") FAILED");
         return "";
     }
@@ -293,7 +315,7 @@ std::string DbEncodeUUIDComposite(const GenDb::DbDataValue &value) {
     try {
         u = boost::get<boost::uuids::uuid>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     uint8_t data[32];
@@ -328,7 +350,7 @@ std::string DbEncodeDoubleComposite(const GenDb::DbDataValue &value) {
     try {
         input = boost::get<double>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     int size = sizeof(double);
@@ -386,7 +408,7 @@ std::string DbEncodeIntegerComposite(const GenDb::DbDataValue &value) {
     try {
         input = boost::get<T>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     return DbEncodeIntegerCompositeInternal(input);
@@ -416,7 +438,7 @@ std::string DbEncodeStringNonComposite(const GenDb::DbDataValue &value) {
     try {
         output = boost::get<std::string>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     return output;
@@ -432,7 +454,7 @@ std::string DbEncodeUUIDNonComposite(const GenDb::DbDataValue &value) {
     try {
         u = boost::get<boost::uuids::uuid>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     std::string u_s(u.size(), 0);
@@ -452,7 +474,7 @@ std::string DbEncodeDoubleNonComposite(const GenDb::DbDataValue &value) {
     try {
         temp = boost::get<double>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     uint8_t data[16];
@@ -474,7 +496,7 @@ std::string DbEncodeIntegerNonComposite(
     try {
         temp = boost::get<T>(value);
     } catch (boost::bad_get &ex) {
-        CDBIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
+        THRIFTIF_LOG_ERR_STATIC("Extract type " << value.which() << " FAILED: " <<
             ex.what());
     }
     uint8_t data[16];
@@ -503,438 +525,108 @@ GenDb::DbDataValue DbDecodeIntegerNonComposite(
     return ((T)output);
 }
 
-CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
+//
+// Encode / Decode Type Map
+//
+typedef boost::function<std::string(const GenDb::DbDataValue&)>
+    DbEncodeCompositeFunc;
+typedef boost::function<GenDb::DbDataValue(const char *input, int &used)>
+    DbDecodeCompositeFunc;
+typedef boost::function<std::string(const GenDb::DbDataValue&)>
+    DbEncodeNonCompositeFunc;
+typedef boost::function<GenDb::DbDataValue(const std::string&)>
+    DbDecodeNonCompositeFunc;
+
+struct ThriftIfTypeInfo {
+    ThriftIfTypeInfo(std::string cassandra_type,
+                     DbEncodeCompositeFunc encode_composite_fn,
+                     DbDecodeCompositeFunc decode_composite_fn,
+                     DbEncodeNonCompositeFunc encode_non_composite_fn,
+                     DbDecodeNonCompositeFunc decode_non_composite_fn) :
+        cassandra_type_("org.apache.cassandra.db.marshal." + cassandra_type),
+        encode_composite_fn_(encode_composite_fn),
+        decode_composite_fn_(decode_composite_fn),
+        encode_non_composite_fn_(encode_non_composite_fn),
+        decode_non_composite_fn_(decode_non_composite_fn) {
+    }
+
+    std::string cassandra_type_;
+    DbEncodeCompositeFunc encode_composite_fn_;
+    DbDecodeCompositeFunc decode_composite_fn_;
+    DbEncodeNonCompositeFunc encode_non_composite_fn_;
+    DbDecodeNonCompositeFunc decode_non_composite_fn_;
+};
+
+typedef boost::unordered_map<GenDb::DbDataType::type, ThriftIfTypeInfo>
+    ThriftIfTypeMapDef;
+
+static ThriftIfTypeMapDef ThriftIfTypeMap =
     boost::assign::map_list_of
-        (GenDb::DbDataType::AsciiType, 
-             CdbIf::CdbIfTypeInfo("AsciiType",
-                 DbEncodeStringComposite, 
+        (GenDb::DbDataType::AsciiType,
+             ThriftIfTypeInfo("AsciiType",
+                 DbEncodeStringComposite,
                  DbDecodeStringComposite,
                  DbEncodeStringNonComposite,
                  DbDecodeStringNonComposite))
         (GenDb::DbDataType::LexicalUUIDType,
-            CdbIf::CdbIfTypeInfo("LexicalUUIDType",
+            ThriftIfTypeInfo("LexicalUUIDType",
                 DbEncodeUUIDComposite,
                 DbDecodeUUIDComposite,
                 DbEncodeUUIDNonComposite,
                 DbDecodeUUIDNonComposite))
         (GenDb::DbDataType::TimeUUIDType,
-            CdbIf::CdbIfTypeInfo("TimeUUIDType",
+            ThriftIfTypeInfo("TimeUUIDType",
                 DbEncodeUUIDComposite,
                 DbDecodeUUIDComposite,
                 DbEncodeUUIDNonComposite,
                 DbDecodeUUIDNonComposite))
         (GenDb::DbDataType::Unsigned8Type,
-            CdbIf::CdbIfTypeInfo("IntegerType",
+            ThriftIfTypeInfo("IntegerType",
                 DbEncodeIntegerComposite<uint8_t>,
                 DbDecodeIntegerComposite<uint8_t>,
                 DbEncodeIntegerNonComposite<uint8_t>,
                 DbDecodeIntegerNonComposite<uint8_t>))
         (GenDb::DbDataType::Unsigned16Type,
-            CdbIf::CdbIfTypeInfo("IntegerType",
+            ThriftIfTypeInfo("IntegerType",
                 DbEncodeIntegerComposite<uint16_t>,
                 DbDecodeIntegerComposite<uint16_t>,
                 DbEncodeIntegerNonComposite<uint16_t>,
                 DbDecodeIntegerNonComposite<uint16_t>))
         (GenDb::DbDataType::Unsigned32Type,
-            CdbIf::CdbIfTypeInfo("IntegerType",
+            ThriftIfTypeInfo("IntegerType",
                 DbEncodeIntegerComposite<uint32_t>,
                 DbDecodeIntegerComposite<uint32_t>,
                 DbEncodeIntegerNonComposite<uint32_t>,
                 DbDecodeIntegerNonComposite<uint32_t>))
         (GenDb::DbDataType::Unsigned64Type,
-            CdbIf::CdbIfTypeInfo("IntegerType",
+            ThriftIfTypeInfo("IntegerType",
                 DbEncodeIntegerComposite<uint64_t>,
                 DbDecodeIntegerComposite<uint64_t>,
                 DbEncodeIntegerNonComposite<uint64_t>,
                 DbDecodeIntegerNonComposite<uint64_t>))
         (GenDb::DbDataType::DoubleType,
-            CdbIf::CdbIfTypeInfo("DoubleType",
+            ThriftIfTypeInfo("DoubleType",
                 DbEncodeDoubleComposite,
                 DbDecodeDoubleComposite,
                 DbEncodeDoubleNonComposite,
                 DbDecodeDoubleNonComposite))
         (GenDb::DbDataType::UTF8Type,
-            CdbIf::CdbIfTypeInfo("UTF8Type",
+            ThriftIfTypeInfo("UTF8Type",
                 DbEncodeStringComposite,
                 DbDecodeStringComposite,
                 DbEncodeStringNonComposite,
                 DbDecodeStringNonComposite));
 
-class CdbIf::CleanupTask : public Task {
-public:
-    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif) :
-        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
-             task_instance),
-        cdbif_(cdbif) {
-    }
-
-    virtual bool Run() {
-        tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
-        // Return if cleanup was cancelled
-        if (cdbif_->cleanup_task_ == NULL) {
-            return true;
-        }
-        if (cdbif_->cdbq_.get() != NULL) {
-            cdbif_->cdbq_->Shutdown();
-            cdbif_->cdbq_.reset();
-        }
-        cdbif_->cleanup_task_ = NULL;
-        return true;
-    }
-
-private:
-    CdbIf *cdbif_;
-};
-
-class CdbIf::InitTask : public Task {
-public:
-    InitTask(std::string task_id, int task_instance, CdbIf *cdbif) :
-        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
-             task_instance),
-        task_id_(task_id),
-        task_instance_(task_instance),
-        cdbif_(cdbif) {
-    }
-
-    virtual bool Run() {
-        tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
-        if (cdbif_->cdbq_.get() != NULL) {
-            cdbif_->cdbq_->Shutdown();
-        }
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        cdbif_->cdbq_.reset(new CdbIfQueue(
-            scheduler->GetTaskId(task_id_), cdbif_->task_instance_,
-            boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1),
-            CdbIf::kQueueSize));
-        cdbif_->cdbq_->SetStartRunnerFunc(
-            boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
-        cdbif_->cdbq_->SetExitCallback(boost::bind(&CdbIf::Db_BatchAddColumn,
-            cdbif_, _1));
-        cdbif_->Db_SetQueueWaterMarkInternal(cdbif_->cdbq_.get(),
-            cdbif_->cdbq_wm_info_);
-        if (cdbif_->cleanup_task_) {
-            scheduler->Cancel(cdbif_->cleanup_task_);
-            cdbif_->cleanup_task_ = NULL;
-        }
-        cdbif_->init_task_ = NULL;
-        return true;
-    }
-
-private:
-    std::string task_id_;
-    int task_instance_;
-    CdbIf *cdbif_;
-};
-
-CdbIf::CdbIf(DbErrorHandler errhandler,
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports,
-        std::string name, bool only_sync, const std::string& cassandra_user,
-        const std::string& cassandra_password) :
-    socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
-    transport_(new TFramedTransport(socket_)),
-    protocol_(new TBinaryProtocol(transport_)),
-    client_(new CassandraClient(protocol_)),
-    errhandler_(errhandler),
-    name_(name),
-    init_task_(NULL),
-    cleanup_task_(NULL),
-    only_sync_(only_sync),
-    task_instance_(-1),
-    prev_task_instance_(-1),
-    task_instance_initialized_(false),
-    cassandra_user_(cassandra_user),
-    cassandra_password_(cassandra_password) {
-
-    // reduce connection timeout
-    boost::shared_ptr<TSocket> tsocket = 
-        boost::dynamic_pointer_cast<TSocket>(socket_);
-    tsocket->setConnTimeout(connectionTimeout);
-
-    db_init_done_ = false;
-}
-
-CdbIf::CdbIf() : 
-    init_task_(NULL), 
-    cleanup_task_(NULL),
-    only_sync_(false), 
-    task_instance_(-1),
-    prev_task_instance_(-1),
-    task_instance_initialized_(false) {
-    db_init_done_ = false;
-}
-
-CdbIf::~CdbIf() {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    if (transport_) {
-        transport_->close();
-    }
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    if (init_task_) {
-        scheduler->Cancel(init_task_);
-        init_task_ = NULL;
-    }
-    if (cleanup_task_) {
-        scheduler->Cancel(cleanup_task_);
-        cleanup_task_ = NULL;
-    }
-}
-
-bool CdbIf::Db_IsInitDone() const {
-    return db_init_done_;
-}
-
-void CdbIf::Db_SetInitDone(bool init_done) {
-    db_init_done_ = init_done;
-}
-
-bool CdbIf::Db_Init(const std::string& task_id, int task_instance) {
-    std::ostringstream ostr;
-    ostr << task_id << ":" << task_instance;
-    std::string errstr(ostr.str());
-
-    CDBIF_BEGIN_TRY {
-        transport_->open();
-    } CDBIF_END_TRY_RETURN_FALSE(errstr)
-
-    if(!set_keepalive()) {
-       return false;
-    }
-
-    //Connect with passwd
-    if (!cassandra_user_.empty() && !cassandra_password_.empty()) {
-        std::map<std::string, std::string> creds;
-        creds.insert(std::pair<std::string,
-                         std::string>("username",cassandra_user_));
-        creds.insert(std::pair<std::string,
-                         std::string>("password",cassandra_password_));
-        AuthenticationRequest authRequest;
-        authRequest.__set_credentials(creds);
-        ostr << "Authentication failed";
-        std::string errstr1(ostr.str());
-        CDBIF_BEGIN_TRY {
-            client_->login(authRequest);
-        } CDBIF_END_TRY_RETURN_FALSE(errstr1)
-    }
-    if (only_sync_) {
-        return true;
-    }
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    // Initialize task instance
-    if (!task_instance_initialized_) {
-        task_instance_ = task_instance;
-        task_instance_initialized_ = true;
-    }
-    if (!init_task_) {
-        // Start init task with previous task instance to ensure
-        // task exclusion with dequeue and exit callback task
-        // when calling shutdown
-        prev_task_instance_ = task_instance_;
-        task_instance_ = task_instance;
-        init_task_ = new InitTask(task_id, prev_task_instance_, this);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(init_task_);
-        CDBIF_LOG(INFO, "Initialization Task Created: " <<
-            prev_task_instance_ << " -> " << task_instance_);
-    } else {
-        prev_task_instance_ = task_instance_;
-        task_instance_ = task_instance;
-        CDBIF_LOG(INFO, "Initialization Task Present: " <<
-            prev_task_instance_ << " -> " << task_instance_);
-    }
-    return true;
-}
-
-void CdbIf::Db_UninitUnlocked(const std::string& task_id, int task_instance) {
-    std::ostringstream ostr;
-    ostr << task_id << ":" << task_instance;
-    std::string errstr(ostr.str());
-    CDBIF_BEGIN_TRY {
-        transport_->close();
-    } CDBIF_END_TRY_LOG(errstr)
-    if (only_sync_) {
-        return;
-    }
-    if (!cleanup_task_) {
-        cleanup_task_ = new CleanupTask(task_id, task_instance, this);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(cleanup_task_);
-    }
-}
-
-void CdbIf::Db_Uninit(const std::string& task_id, int task_instance) {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    Db_UninitUnlocked(task_id, task_instance);
-}
-
-std::string CdbIf::Db_GetHost() const {
-    boost::shared_ptr<TSocket> tsocket = 
-        boost::dynamic_pointer_cast<TSocket>(socket_);
-    return tsocket->getHost();
-}
-
-int CdbIf::Db_GetPort() const {
-    boost::shared_ptr<TSocket> tsocket = 
-        boost::dynamic_pointer_cast<TSocket>(socket_);
-    return tsocket->getPort();
-}
-
-void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-    const DbQueueWaterMarkInfo &wmi) {
-    WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
-    if (wmi.get<0>()) {
-        queue->SetHighWaterMark(wm);
-    } else {
-        queue->SetLowWaterMark(wm);
-    }
-}
-
-void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-    const std::vector<DbQueueWaterMarkInfo> &vwmi) {
-    BOOST_FOREACH(const DbQueueWaterMarkInfo &wmi, vwmi) {
-        Db_SetQueueWaterMarkInternal(queue, wmi);
-    }
-}
-
-void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
-                                 DbQueueWaterMarkCb cb) {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    DbQueueWaterMarkInfo wm(high, queue_count, cb);
-    cdbq_wm_info_.push_back(wm);
-    if (cdbq_.get() == NULL) {
-        return;
-    }
-    Db_SetQueueWaterMarkInternal(cdbq_.get(), wm);
-}
-
-void CdbIf::Db_ResetQueueWaterMarks() {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    cdbq_wm_info_.clear();
-    if (cdbq_.get() != NULL) {
-        cdbq_->ResetHighWaterMark();
-        cdbq_->ResetLowWaterMark();
-    }
-}
-
-bool CdbIf::Db_AddTablespace(const std::string& tablespace,
-    const std::string& replication_factor) {
-    if (!Db_FindTablespace(tablespace)) {
-        KsDef ks_def;
-        ks_def.__set_name(tablespace);
-        ks_def.__set_strategy_class("SimpleStrategy");
-        std::map<std::string, std::string> strat_options;
-        strat_options.insert(std::pair<std::string,
-            std::string>("replication_factor", replication_factor));
-        ks_def.__set_strategy_options(strat_options);
-
-        CDBIF_BEGIN_TRY {
-            std::string retval;
-            client_->system_add_keyspace(retval, ks_def);
-        } CDBIF_END_TRY_RETURN_FALSE(tablespace)
-
-        return true;
-    }
-    return true;
-}
-
-bool CdbIf::Db_SetTablespace(const std::string& tablespace) {
-    if (!Db_FindTablespace(tablespace)) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Tablespace: " << tablespace << 
-            "NOT FOUND");
-    }
-    CDBIF_BEGIN_TRY {
-        client_->set_keyspace(tablespace);
-        tablespace_ = tablespace;
-    } CDBIF_END_TRY_RETURN_FALSE(tablespace)
-
-    KsDef retval;
-    CDBIF_BEGIN_TRY {
-        client_->describe_keyspace(retval, tablespace);
-    } CDBIF_END_TRY_RETURN_FALSE(tablespace)
-
-    std::vector<CfDef>::const_iterator iter;
-    for (iter = retval.cf_defs.begin(); iter != retval.cf_defs.end(); iter++) {
-        std::string name = (*iter).name;
-        CfDef *cfdef = new CfDef;
-        *cfdef = *iter;
-        CdbIfCfList.insert(name, new CdbIfCfInfo(cfdef));
-    }
-    return true;
-}
-
-bool CdbIf::Db_AddSetTablespace(const std::string& tablespace,
-    const std::string& replication_factor) {
-    if (!Db_AddTablespace(tablespace, replication_factor)) {
-        stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_WRITE_TABLESPACE);
-        return false;
-    }
-    if (!Db_SetTablespace(tablespace)) {
-        stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_READ_TABLESPACE);
-        return false;
-    }
-    return true;
-}
-
-bool CdbIf::Db_FindTablespace(const std::string& tablespace) {
-    CDBIF_BEGIN_TRY {
-        KsDef retval;
-        client_->describe_keyspace(retval, tablespace);
-    } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(tablespace, false, true, false,
-        CdbIfStats::CDBIF_STATS_ERR_NO_ERROR,
-        CdbIfStats::CDBIF_STATS_CF_OP_NONE)
-    return true;
-}
-
-bool CdbIf::Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname) {
-    CdbIfCfListType::iterator it;
-    if ((it = CdbIfCfList.find(cfname)) != CdbIfCfList.end()) {
-        *info = it->second;
-        return true;
-    }
-    return false;
-}
-
-bool CdbIf::Db_UseColumnfamily(const GenDb::NewCf& cf) {
-    if (Db_FindColumnfamily(cf.cfname_)) {
-        return true;
-    }
-    CdbIfCfInfo *cfinfo;
-    if (!Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-        stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY);
-        UpdateCfReadFailStats(cf.cfname_);
-        return false;
-    }
-    cfinfo->cf_.reset(new GenDb::NewCf(cf));
-    return true;
-}
-
-bool CdbIf::Db_FindColumnfamily(const std::string& cfname) {
-    CdbIfCfListType::iterator it;
-    if ((it = CdbIfCfList.find(cfname)) != CdbIfCfList.end() &&
-            (it->second->cf_.get())) {
-        return true;
-    }
-    return false;
-}
-
-bool CdbIf::Db_Columnfamily_present(const std::string& cfname) {
-    CdbIfCfListType::iterator it;
-    if ((it = CdbIfCfList.find(cfname)) != CdbIfCfList.end()) {
-        return true;
-    }
-    return false;
-}
-
-bool CdbIf::DbDataTypeVecToCompositeType(std::string& res,
+//
+// Encode / Decode Functions
+//
+static bool DbDataTypeVecToCompositeType(std::string& res,
     const GenDb::DbDataTypeVec& db_type) {
     if (db_type.size() == 0) {
         return false;
     } else if (db_type.size() == 1) {
-        CdbIfTypeMapDef::iterator it;
-        if ((it = CdbIfTypeMap.find(db_type.front())) == CdbIfTypeMap.end())
+        ThriftIfTypeMapDef::iterator it;
+        if ((it = ThriftIfTypeMap.find(db_type.front())) == ThriftIfTypeMap.end())
             return false;
 
         res = it->second.cassandra_type_;
@@ -942,16 +634,15 @@ bool CdbIf::DbDataTypeVecToCompositeType(std::string& res,
     } else {
         res = "org.apache.cassandra.db.marshal.CompositeType(";
         std::vector<GenDb::DbDataType::type>::const_iterator it = db_type.begin();
-        CdbIfTypeMapDef::iterator jt;
-
-        if ((jt = CdbIfTypeMap.find(*it)) == CdbIfTypeMap.end())
+        ThriftIfTypeMapDef::iterator jt;
+        if ((jt = ThriftIfTypeMap.find(*it)) == ThriftIfTypeMap.end())
             return false;
         res.append(jt->second.cassandra_type_);
 
         it++;
         for (; it != db_type.end(); it++) {
             res.append(",");
-            if ((jt = CdbIfTypeMap.find(*it)) == CdbIfTypeMap.end())
+            if ((jt = ThriftIfTypeMap.find(*it)) == ThriftIfTypeMap.end())
                 return false;
             res.append(jt->second.cassandra_type_);
         }
@@ -960,44 +651,18 @@ bool CdbIf::DbDataTypeVecToCompositeType(std::string& res,
     }
 }
 
-bool CdbIf::DbDataValueFromType(GenDb::DbDataValue& res,
+static bool DbDataValueFromType(GenDb::DbDataValue& res,
     const GenDb::DbDataType::type& type, const std::string& input) {
-    CdbIfTypeMapDef::iterator it = CdbIfTypeMap.find(type);
-
-    if (it == CdbIfTypeMap.end()) {
-        return false;
+    ThriftIfTypeMapDef::iterator it = ThriftIfTypeMap.find(type);
+    if (it == ThriftIfTypeMap.end()) {
+	return false;
     }
     res = it->second.decode_non_composite_fn_(input);
-
     return true;
 }
 
-bool CdbIf::DbDataValueFromString(GenDb::DbDataValue& res,
-    const std::string& cfname, const std::string& col_name,
-    const std::string& input) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !((cf = info->cf_.get()))) {
-        return false;
-    }
-    NewCf::SqlColumnMap::iterator it;
-    if ((it = cf->cfcolumns_.find(col_name)) == cf->cfcolumns_.end()) {
-        return false;
-    }
-    CdbIfTypeMapDef::iterator jt = CdbIfTypeMap.find(it->second);
-
-    if (jt == CdbIfTypeMap.end()) {
-        return false;
-    }
-    res = jt->second.decode_non_composite_fn_(input);
-
-    return true;
-}
-
-bool CdbIf::DbDataValueToStringNonComposite(std::string& res,
-        const GenDb::DbDataValue& value) {
+static bool DbDataValueToStringNonComposite(std::string& res,
+    const GenDb::DbDataValue& value) {
     switch (value.which()) {
     case DB_VALUE_STRING:
         res = DbEncodeStringNonComposite(value);
@@ -1026,10 +691,10 @@ bool CdbIf::DbDataValueToStringNonComposite(std::string& res,
         break;
     }
     return true;
-};    
+};
 
-bool CdbIf::DbDataValueVecToString(std::string& res, bool composite,
-        const GenDb::DbDataValueVec& input) {
+bool DbDataValueVecToString(std::string& res, bool composite,
+    const GenDb::DbDataValueVec& input) {
     if (!composite) {
         if (input.size() == 1) {
             return DbDataValueToStringNonComposite(res, input[0]);
@@ -1066,17 +731,16 @@ bool CdbIf::DbDataValueVecToString(std::string& res, bool composite,
             assert(0);
             break;
         }
-    }    
+    }
     return true;
 }
 
-bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
-        const GenDb::DbDataTypeVec& typevec,
-        const std::string& input) {
+bool DbDataValueVecFromString(GenDb::DbDataValueVec& res,
+    const GenDb::DbDataTypeVec& typevec, const std::string& input) {
     if (typevec.size() == 1) {
         GenDb::DbDataValue res1;
         if (!DbDataValueFromType(res1, typevec[0], input)) {
-            CDBIF_LOG_ERR_RETURN_FALSE("Extract type " << typevec[0] 
+            THRIFTIF_LOG_ERR_RETURN_FALSE_STATIC("Extract type " << typevec[0]
                 << " from " << input << " FAILED");
         }
         res.push_back(res1);
@@ -1087,13 +751,13 @@ bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
         for (GenDb::DbDataTypeVec::const_iterator it = typevec.begin();
                 it != typevec.end(); it++) {
             const GenDb::DbDataType::type &type(*it);
-            CdbIfTypeMapDef::iterator jt = CdbIfTypeMap.find(type);
-            if (jt == CdbIfTypeMap.end()) {
-                CDBIF_LOG_ERR("Unknown type " << type);
+            ThriftIfTypeMapDef::iterator jt = ThriftIfTypeMap.find(type);
+            if (jt == ThriftIfTypeMap.end()) {
+                THRIFTIF_LOG_ERR_STATIC("Unknown type " << type);
                 continue;
             }
             int elem_use;
-            CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE(used < str_size);
+            THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE_STATIC(used < str_size);
             GenDb::DbDataValue val(jt->second.decode_composite_fn_(data+used,
                 elem_use));
             used += elem_use;
@@ -1103,32 +767,421 @@ bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
     return true;
 }
 
-bool CdbIf::ConstructDbDataValueKey(std::string& res, const GenDb::NewCf *cf,
+static bool ConstructDbDataValueKey(std::string& res, const GenDb::NewCf *cf,
     const GenDb::DbDataValueVec& rowkey) {
     bool composite = cf->key_validation_class.size() == 1 ? false : true;
     return DbDataValueVecToString(res, composite, rowkey);
 }
 
-bool CdbIf::ConstructDbDataValueColumnName(std::string& res,
+static bool ConstructDbDataValueColumnName(std::string& res,
     const GenDb::NewCf *cf, const GenDb::DbDataValueVec& name) {
     bool composite = cf->comparator_type.size() == 1 ? false : true;
     return DbDataValueVecToString(res, composite, name);
 }
 
-bool CdbIf::ConstructDbDataValueColumnValue(std::string& res,
-    const GenDb::NewCf *cf, const GenDb::DbDataValueVec& value) {
-    bool composite = cf->default_validation_class.size() == 1 ? false : true;
-    return DbDataValueVecToString(res, composite, value);
+//
+// ThriftIfImpl
+//
+class ThriftIfImpl::CleanupTask : public Task {
+public:
+    CleanupTask(std::string task_id, int task_instance, ThriftIfImpl *if_impl) :
+        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
+             task_instance),
+        if_impl_(if_impl) {
+    }
+
+    virtual bool Run() {
+        tbb::mutex::scoped_lock lock(if_impl_->q_mutex_);
+        // Return if cleanup was cancelled
+        if (if_impl_->cleanup_task_ == NULL) {
+            return true;
+        }
+        if (if_impl_->q_.get() != NULL) {
+            if_impl_->q_->Shutdown();
+            if_impl_->q_.reset();
+        }
+        if_impl_->cleanup_task_ = NULL;
+        return true;
+    }
+
+private:
+    ThriftIfImpl *if_impl_;
+};
+
+class ThriftIfImpl::InitTask : public Task {
+public:
+    InitTask(std::string task_id, int task_instance, ThriftIfImpl *if_impl) :
+        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
+             task_instance),
+        task_id_(task_id),
+        task_instance_(task_instance),
+        if_impl_(if_impl) {
+    }
+
+    virtual bool Run() {
+        tbb::mutex::scoped_lock lock(if_impl_->q_mutex_);
+        if (if_impl_->q_.get() != NULL) {
+            if_impl_->q_->Shutdown();
+        }
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        if_impl_->q_.reset(new ThriftIfQueue(
+            scheduler->GetTaskId(task_id_), if_impl_->task_instance_,
+            boost::bind(&ThriftIfImpl::Db_AsyncAddColumn, if_impl_, _1),
+            ThriftIfImpl::kQueueSize));
+        if_impl_->q_->SetStartRunnerFunc(
+            boost::bind(&ThriftIfImpl::Db_IsInitDone, if_impl_));
+        if_impl_->q_->SetExitCallback(boost::bind(
+            &ThriftIfImpl::Db_BatchAddColumn, if_impl_, _1));
+        if_impl_->Db_SetQueueWaterMarkInternal(if_impl_->q_.get(),
+            if_impl_->q_wm_info_);
+        if (if_impl_->cleanup_task_) {
+            scheduler->Cancel(if_impl_->cleanup_task_);
+            if_impl_->cleanup_task_ = NULL;
+        }
+        if_impl_->init_task_ = NULL;
+        return true;
+    }
+
+private:
+    std::string task_id_;
+    int task_instance_;
+    ThriftIfImpl *if_impl_;
+};
+
+ThriftIfImpl::ThriftIfImpl(GenDb::GenDbIf::DbErrorHandler errhandler,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports,
+        std::string name, bool only_sync, const std::string& cassandra_user,
+        const std::string& cassandra_password) :
+    socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
+    transport_(new TFramedTransport(socket_)),
+    protocol_(new TBinaryProtocol(transport_)),
+    client_(new CassandraClient(protocol_)),
+    errhandler_(errhandler),
+    name_(name),
+    init_task_(NULL),
+    cleanup_task_(NULL),
+    only_sync_(only_sync),
+    task_instance_(-1),
+    prev_task_instance_(-1),
+    task_instance_initialized_(false),
+    cassandra_user_(cassandra_user),
+    cassandra_password_(cassandra_password) {
+    // reduce connection timeout
+    boost::shared_ptr<TSocket> tsocket =
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    tsocket->setConnTimeout(connectionTimeout);
+
+    db_init_done_ = false;
 }
 
-bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
+ThriftIfImpl::ThriftIfImpl() :
+    init_task_(NULL),
+    cleanup_task_(NULL),
+    only_sync_(false),
+    task_instance_(-1),
+    prev_task_instance_(-1),
+    task_instance_initialized_(false) {
+    db_init_done_ = false;
+}
+
+ThriftIfImpl::~ThriftIfImpl() {
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    if (transport_) {
+        transport_->close();
+    }
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    if (init_task_) {
+        scheduler->Cancel(init_task_);
+        init_task_ = NULL;
+    }
+    if (cleanup_task_) {
+        scheduler->Cancel(cleanup_task_);
+        cleanup_task_ = NULL;
+    }
+}
+
+bool ThriftIfImpl::Db_IsInitDone() const {
+    return db_init_done_;
+}
+
+void ThriftIfImpl::Db_SetInitDone(bool init_done) {
+    db_init_done_ = init_done;
+}
+
+bool ThriftIfImpl::Db_Init(const std::string& task_id, int task_instance) {
+    std::ostringstream ostr;
+    ostr << task_id << ":" << task_instance;
+    std::string errstr(ostr.str());
+
+    THRIFTIF_BEGIN_TRY {
+        transport_->open();
+    } THRIFTIF_END_TRY_RETURN_FALSE(errstr)
+
+    if (!set_keepalive()) {
+       return false;
+    }
+
+    //Connect with passwd
+    if (!cassandra_user_.empty() && !cassandra_password_.empty()) {
+        std::map<std::string, std::string> creds;
+        creds.insert(std::pair<std::string,
+                         std::string>("username",cassandra_user_));
+        creds.insert(std::pair<std::string,
+                         std::string>("password",cassandra_password_));
+        AuthenticationRequest authRequest;
+        authRequest.__set_credentials(creds);
+        ostr << "Authentication failed";
+        std::string errstr1(ostr.str());
+        THRIFTIF_BEGIN_TRY {
+            client_->login(authRequest);
+        } THRIFTIF_END_TRY_RETURN_FALSE(errstr1)
+    }
+    if (only_sync_) {
+        return true;
+    }
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    // Initialize task instance
+    if (!task_instance_initialized_) {
+        task_instance_ = task_instance;
+        task_instance_initialized_ = true;
+    }
+    if (!init_task_) {
+        // Start init task with previous task instance to ensure
+        // task exclusion with dequeue and exit callback task
+        // when calling shutdown
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        init_task_ = new InitTask(task_id, prev_task_instance_, this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(init_task_);
+        THRIFTIF_LOG(INFO, "Initialization Task Created: " <<
+            prev_task_instance_ << " -> " << task_instance_);
+    } else {
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        THRIFTIF_LOG(INFO, "Initialization Task Present: " <<
+            prev_task_instance_ << " -> " << task_instance_);
+    }
+    return true;
+}
+
+void ThriftIfImpl::Db_UninitUnlocked(const std::string& task_id, int task_instance) {
+    std::ostringstream ostr;
+    ostr << task_id << ":" << task_instance;
+    std::string errstr(ostr.str());
+    THRIFTIF_BEGIN_TRY {
+        transport_->close();
+    } THRIFTIF_END_TRY_LOG(errstr)
+    if (only_sync_) {
+        return;
+    }
+    if (!cleanup_task_) {
+        cleanup_task_ = new CleanupTask(task_id, task_instance, this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(cleanup_task_);
+    }
+}
+
+void ThriftIfImpl::Db_Uninit(const std::string& task_id, int task_instance) {
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    Db_UninitUnlocked(task_id, task_instance);
+}
+
+std::string ThriftIfImpl::Db_GetHost() const {
+    boost::shared_ptr<TSocket> tsocket =
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getHost();
+}
+
+int ThriftIfImpl::Db_GetPort() const {
+    boost::shared_ptr<TSocket> tsocket =
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getPort();
+}
+
+void ThriftIfImpl::Db_SetQueueWaterMarkInternal(ThriftIfQueue *queue,
+    const DbQueueWaterMarkInfo &wmi) {
+    WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
+    if (wmi.get<0>()) {
+        queue->SetHighWaterMark(wm);
+    } else {
+        queue->SetLowWaterMark(wm);
+    }
+}
+
+void ThriftIfImpl::Db_SetQueueWaterMarkInternal(ThriftIfQueue *queue,
+    const std::vector<DbQueueWaterMarkInfo> &vwmi) {
+    BOOST_FOREACH(const DbQueueWaterMarkInfo &wmi, vwmi) {
+        Db_SetQueueWaterMarkInternal(queue, wmi);
+    }
+}
+
+void ThriftIfImpl::Db_SetQueueWaterMark(bool high, size_t queue_count,
+                                 GenDb::GenDbIf::DbQueueWaterMarkCb cb) {
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    DbQueueWaterMarkInfo wm(high, queue_count, cb);
+    q_wm_info_.push_back(wm);
+    if (q_.get() == NULL) {
+        return;
+    }
+    Db_SetQueueWaterMarkInternal(q_.get(), wm);
+}
+
+void ThriftIfImpl::Db_ResetQueueWaterMarks() {
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    q_wm_info_.clear();
+    if (q_.get() != NULL) {
+        q_->ResetHighWaterMark();
+        q_->ResetLowWaterMark();
+    }
+}
+
+bool ThriftIfImpl::Db_AddTablespace(const std::string& tablespace,
+    const std::string& replication_factor) {
+    if (!Db_FindTablespace(tablespace)) {
+        KsDef ks_def;
+        ks_def.__set_name(tablespace);
+        ks_def.__set_strategy_class("SimpleStrategy");
+        std::map<std::string, std::string> strat_options;
+        strat_options.insert(std::pair<std::string,
+            std::string>("replication_factor", replication_factor));
+        ks_def.__set_strategy_options(strat_options);
+
+        THRIFTIF_BEGIN_TRY {
+            std::string retval;
+            client_->system_add_keyspace(retval, ks_def);
+        } THRIFTIF_END_TRY_RETURN_FALSE(tablespace)
+
+        return true;
+    }
+    return true;
+}
+
+bool ThriftIfImpl::Db_SetTablespace(const std::string& tablespace) {
+    if (!Db_FindTablespace(tablespace)) {
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Tablespace: " << tablespace <<
+            "NOT FOUND");
+    }
+    THRIFTIF_BEGIN_TRY {
+        client_->set_keyspace(tablespace);
+        tablespace_ = tablespace;
+    } THRIFTIF_END_TRY_RETURN_FALSE(tablespace)
+
+    KsDef retval;
+    THRIFTIF_BEGIN_TRY {
+        client_->describe_keyspace(retval, tablespace);
+    } THRIFTIF_END_TRY_RETURN_FALSE(tablespace)
+
+    std::vector<CfDef>::const_iterator iter;
+    for (iter = retval.cf_defs.begin(); iter != retval.cf_defs.end(); iter++) {
+        std::string name = (*iter).name;
+        CfDef *cfdef = new CfDef;
+        *cfdef = *iter;
+        ThriftIfCfList.insert(name, new ThriftIfCfInfo(cfdef));
+    }
+    return true;
+}
+
+bool ThriftIfImpl::Db_AddSetTablespace(const std::string& tablespace,
+    const std::string& replication_factor) {
+    if (!Db_AddTablespace(tablespace, replication_factor)) {
+        stats_.IncrementErrors(
+            ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
+        return false;
+    }
+    if (!Db_SetTablespace(tablespace)) {
+        stats_.IncrementErrors(
+            ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE);
+        return false;
+    }
+    return true;
+}
+
+bool ThriftIfImpl::Db_FindTablespace(const std::string& tablespace) {
+    THRIFTIF_BEGIN_TRY {
+        KsDef retval;
+        client_->describe_keyspace(retval, tablespace);
+    } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(tablespace, false, true, false,
+        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,
+        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
+    return true;
+}
+
+bool ThriftIfImpl::Db_GetColumnfamily(ThriftIfCfInfo **info, const std::string& cfname) {
+    ThriftIfCfListType::iterator it;
+    if ((it = ThriftIfCfList.find(cfname)) != ThriftIfCfList.end()) {
+        *info = it->second;
+        return true;
+    }
+    return false;
+}
+
+bool ThriftIfImpl::Db_UseColumnfamily(const GenDb::NewCf& cf) {
     if (Db_FindColumnfamily(cf.cfname_)) {
         return true;
     }
-    CdbIfStats::ErrorType err_type(
-        CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN_FAMILY);
-    CdbIfStats::CfOp op(
-         CdbIfStats::CDBIF_STATS_CF_OP_WRITE_FAIL);
+    ThriftIfCfInfo *cfinfo;
+    if (!Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
+        stats_.IncrementErrors(
+            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
+        UpdateCfReadFailStats(cf.cfname_);
+        return false;
+    }
+    cfinfo->cf_.reset(new GenDb::NewCf(cf));
+    return true;
+}
+
+bool ThriftIfImpl::Db_FindColumnfamily(const std::string& cfname) {
+    ThriftIfCfListType::iterator it;
+    if ((it = ThriftIfCfList.find(cfname)) != ThriftIfCfList.end() &&
+            (it->second->cf_.get())) {
+        return true;
+    }
+    return false;
+}
+
+bool ThriftIfImpl::Db_Columnfamily_present(const std::string& cfname) {
+    ThriftIfCfListType::iterator it;
+    if ((it = ThriftIfCfList.find(cfname)) != ThriftIfCfList.end()) {
+        return true;
+    }
+    return false;
+}
+
+bool ThriftIfImpl::DbDataValueFromString(GenDb::DbDataValue& res,
+    const std::string& cfname, const std::string& col_name,
+    const std::string& input) {
+    ThriftIfCfInfo *info;
+    GenDb::NewCf *cf;
+
+    if (!Db_GetColumnfamily(&info, cfname) ||
+            !((cf = info->cf_.get()))) {
+        return false;
+    }
+    NewCf::SqlColumnMap::iterator it;
+    if ((it = cf->cfcolumns_.find(col_name)) == cf->cfcolumns_.end()) {
+        return false;
+    }
+    ThriftIfTypeMapDef::iterator jt = ThriftIfTypeMap.find(it->second);
+
+    if (jt == ThriftIfTypeMap.end()) {
+        return false;
+    }
+    res = jt->second.decode_non_composite_fn_(input);
+
+    return true;
+}
+
+
+bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
+    if (Db_FindColumnfamily(cf.cfname_)) {
+        return true;
+    }
+    ThriftIfStats::ErrorType err_type(
+        ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY);
+    ThriftIfStats::CfOp op(
+         ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE_FAIL);
     if (cf.cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
         cassandra::CfDef cf_def;
         cf_def.__set_keyspace(tablespace_);
@@ -1141,7 +1194,7 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
             cf.key_validation_class)) {
             stats_.IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
-            CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << 
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": KeyValidate encode FAILED");
         }
         cf_def.__set_key_validation_class(key_valid_class);
@@ -1149,13 +1202,13 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         cassandra::ColumnDef col_def;
         std::vector<cassandra::ColumnDef> col_vec;
         GenDb::NewCf::SqlColumnMap::const_iterator it;
-        CdbIfTypeMapDef::iterator jt;
+        ThriftIfTypeMapDef::iterator jt;
         for (it = cf.cfcolumns_.begin(); it != cf.cfcolumns_.end(); it++) {
             col_def.__set_name(it->first);
-            if ((jt = CdbIfTypeMap.find(it->second)) == CdbIfTypeMap.end()) {
+            if ((jt = ThriftIfTypeMap.find(it->second)) == ThriftIfTypeMap.end()) {
                 stats_.IncrementErrors(err_type);
                 UpdateCfStats(op, cf.cfname_);
-                CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " << 
+                THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " <<
                     it->second);
             }
             col_def.__set_validation_class(jt->second.cassandra_type_);
@@ -1163,25 +1216,25 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         }
         cf_def.__set_column_metadata(col_vec);
 
-        CdbIfCfInfo *cfinfo;
+        ThriftIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
             // for SQL-like schema change is fine
             if (DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
-                CDBIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " <<
+                THRIFTIF_LOG(DEBUG, "CFName: " << cf.cfname_ << " ID: " <<
                     (*cfinfo->cfdef_.get()).id << " schema changed...");
             }
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
-            CDBIF_BEGIN_TRY {
+            THRIFTIF_BEGIN_TRY {
                 std::string ret;
                 client_->system_add_column_family(ret, cf_def);
-            } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, true, false,
+            } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, true, false,
                   false, err_type, op)
 
             CfDef *cfdef_n = new CfDef;
             *cfdef_n = cf_def;
             std::string cfname_n = cf.cfname_;
-            CdbIfCfList.insert(cfname_n, new CdbIfCfInfo(cfdef_n,
+            ThriftIfCfList.insert(cfname_n, new ThriftIfCfInfo(cfdef_n,
                 new GenDb::NewCf(cf)));
         }
     } else if (cf.cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
@@ -1197,7 +1250,7 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
             cf.key_validation_class)) {
             stats_.IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
-            CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << 
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": KeyValidate encode FAILED");
         }
         cf_def.__set_key_validation_class(key_valid_class);
@@ -1207,7 +1260,7 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
             cf.comparator_type)) {
             stats_.IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
-            CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << 
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                ": Comparator encode FAILED");
         }
         cf_def.__set_comparator_type(comparator_type);
@@ -1217,42 +1270,42 @@ bool CdbIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
             cf.default_validation_class)) {
             stats_.IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
-            CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << 
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": Validate encode FAILED");
         }
         cf_def.__set_default_validation_class(default_validation_class);
 
-        CdbIfCfInfo *cfinfo;
+        ThriftIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
             // for NoSQL schema change cannot be supported
             if (DB_IsCfSchemaChanged(cfinfo->cfdef_.get(), &cf_def)) {
-                CDBIF_LOG_ERR_RETURN_FALSE("CFName: " << cf.cfname_ << " ID: " <<
+                THRIFTIF_LOG_ERR_RETURN_FALSE("CFName: " << cf.cfname_ << " ID: " <<
                     (*cfinfo->cfdef_.get()).id << " schema changed...");
             }
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
-            CDBIF_BEGIN_TRY {
+            THRIFTIF_BEGIN_TRY {
                 std::string ret;
                 client_->system_add_column_family(ret, cf_def);
-            } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, true, false,
+            } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cf.cfname_, true, false,
                 false, err_type, op)
 
             CfDef *cfdef_n = new CfDef;
             *cfdef_n = cf_def;
             std::string cfname_n = cf.cfname_;
-            CdbIfCfList.insert(cfname_n, new CdbIfCfInfo(cfdef_n,
+            ThriftIfCfList.insert(cfname_n, new ThriftIfCfInfo(cfdef_n,
                 new GenDb::NewCf(cf)));
         }
     } else {
         stats_.IncrementErrors(err_type);
         UpdateCfStats(op, cf.cfname_);
-        CDBIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " <<
-            cf.cftype_); 
+        THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " <<
+            cf.cftype_);
     }
     return true;
 }
 
-bool CdbIf::DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
+bool ThriftIfImpl::DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
                                  org::apache::cassandra::CfDef *newcfdef) {
     if (cfdef->key_validation_class != newcfdef->key_validation_class) {
         return true;
@@ -1293,12 +1346,12 @@ bool CdbIf::DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
     return false;
 }
 
-bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
+bool ThriftIfImpl::Db_AsyncAddColumn(ThriftIfColList &cl) {
     GenDb::ColList *new_colp(cl.gendb_cl);
     if (new_colp == NULL) {
         stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN);
-        CDBIF_LOG_ERR("No Column Information");
+            ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
+        THRIFTIF_LOG_ERR("No Column Information");
         return true;
     }
     uint64_t ts(UTCTimestampUsec());
@@ -1312,7 +1365,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
         cmm_it = mutation_map_.insert(
             std::pair<std::string, CFMutationMap>(key_value,
                 CFMutationMap())).first;
-    } 
+    }
     CFMutationMap &cf_mutation_map(cmm_it->second);
     // Does the column family exist in the column family mutation map ?
     CFMutationMap::iterator cfmm_it = cf_mutation_map.find(cfname);
@@ -1331,9 +1384,9 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
         cassandra::Column c;
 
         if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
-            CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE((it->name->size() == 1) && 
+            THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE((it->name->size() == 1) &&
                                            (it->value->size() == 1));
-            CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE(
+            THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE(
                 cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
             cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
             // Column Name
@@ -1341,7 +1394,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
             try {
                 col_name = boost::get<std::string>(it->name->at(0));
             } catch (boost::bad_get& ex) {
-                CDBIF_LOG_ERR(cfname << "Column Name FAILED " << ex.what());
+                THRIFTIF_LOG_ERR(cfname << "Column Name FAILED " << ex.what());
             }
             c.__set_name(col_name);
             // Column Value
@@ -1357,7 +1410,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
             mutation.__set_column_or_supercolumn(c_or_sc);
             mutations.push_back(mutation);
         } else if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
-            CDBIF_EXPECT_TRUE_ELSE_RETURN_FALSE(
+            THRIFTIF_EXPECT_TRUE_ELSE_RETURN_FALSE(
                 cftype != GenDb::NewCf::COLUMN_FAMILY_SQL);
             cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
             // Column Name
@@ -1379,9 +1432,9 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
             mutations.push_back(mutation);
         } else {
             stats_.IncrementErrors(
-                CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN);
+                ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
             UpdateCfWriteFailStats(cfname);
-            CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": Invalid CFtype: " << 
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": Invalid CFtype: " <<
                 it->cftype_);
         }
     }
@@ -1393,30 +1446,30 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
     return true;
 }
 
-void CdbIf::Db_BatchAddColumn(bool done) {
-    CDBIF_BEGIN_TRY {
+void ThriftIfImpl::Db_BatchAddColumn(bool done) {
+    THRIFTIF_BEGIN_TRY {
         client_->batch_mutate(mutation_map_,
             org::apache::cassandra::ConsistencyLevel::ONE);
-    } CDBIF_END_TRY_LOG_INTERNAL(integerToString(mutation_map_.size()),
-          false, false, true, CdbIfStats::CDBIF_STATS_ERR_WRITE_BATCH_COLUMN,
-          CdbIfStats::CDBIF_STATS_CF_OP_NONE)
+    } THRIFTIF_END_TRY_LOG_INTERNAL(integerToString(mutation_map_.size()),
+          false, false, true, ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN,
+          ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
     mutation_map_.clear();
 }
 
-bool CdbIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    if (!Db_IsInitDone() || !cdbq_.get()) {
+bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    tbb::mutex::scoped_lock lock(q_mutex_);
+    if (!Db_IsInitDone() || !q_.get()) {
         UpdateCfWriteFailStats(cl->cfname_);
         return false;
     }
-    CdbIfColList qentry;
+    ThriftIfColList qentry;
     qentry.gendb_cl = cl.release();
-    cdbq_->Enqueue(qentry);
+    q_->Enqueue(qentry);
     return true;
 }
 
-bool CdbIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
-    CdbIfColList qentry;
+bool ThriftIfImpl::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+    ThriftIfColList qentry;
     std::string cfname(cl->cfname_);
     qentry.gendb_cl = cl.release();
     bool success = Db_AsyncAddColumn(qentry);
@@ -1428,13 +1481,13 @@ bool CdbIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     return true;
 }
 
-bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
+bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
         std::vector<cassandra::ColumnOrSuperColumn>& result,
         const std::string& cfname) {
-    CdbIfCfInfo *info;
+    ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND"); 
+        THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
     if (cf->cftype_ == NewCf::COLUMN_FAMILY_SQL) {
         NewColVec& columns = ret.columns_;
@@ -1443,7 +1496,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
             GenDb::DbDataValue res;
             if (!DbDataValueFromString(res, cfname, citer->column.name,
                 citer->column.value)) {
-                CDBIF_LOG_ERR(cfname << ": " << citer->column.name << 
+                THRIFTIF_LOG_ERR(cfname << ": " << citer->column.name <<
                     " Decode FAILED");
                 continue;
             }
@@ -1455,15 +1508,15 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
         std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             std::auto_ptr<GenDb::DbDataValueVec> name(new GenDb::DbDataValueVec);
-            if (!DbDataValueVecFromString(*name, cf->comparator_type, 
+            if (!DbDataValueVecFromString(*name, cf->comparator_type,
                 citer->column.name)) {
-                CDBIF_LOG_ERR(cfname << ": Column Name Decode FAILED");
+                THRIFTIF_LOG_ERR(cfname << ": Column Name Decode FAILED");
                 continue;
             }
             std::auto_ptr<GenDb::DbDataValueVec> value(new GenDb::DbDataValueVec);
             if (!DbDataValueVecFromString(*value, cf->default_validation_class,
                     citer->column.value)) {
-                CDBIF_LOG_ERR(cfname << ": Column Value Decode FAILED");
+                THRIFTIF_LOG_ERR(cfname << ": Column Value Decode FAILED");
                 continue;
             }
             GenDb::NewCol *col(new GenDb::NewCol(name.release(), value.release(), 0));
@@ -1473,20 +1526,20 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
     return true;
 }
 
-bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
+bool ThriftIfImpl::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
         const DbDataValueVec& rowkey) {
-    CdbIfCfInfo *info;
+    ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
         stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY);
+            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
         UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND"); 
+        THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
     std::string key;
     if (!ConstructDbDataValueKey(key, cf, rowkey)) {
         UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": Key encode FAILED");
+        THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": Key encode FAILED");
     }
     // Slicer has start_column and end_column as null string, which
     // means return all columns
@@ -1496,12 +1549,12 @@ bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
     cassandra::ColumnParent cparent;
     cparent.column_family.assign(cfname);
     std::vector<cassandra::ColumnOrSuperColumn> result;
-    CDBIF_BEGIN_TRY {
+    THRIFTIF_BEGIN_TRY {
         client_->get_slice(result, key, cparent, slicep,
             ConsistencyLevel::ONE);
-    } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
-        CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN,
-        CdbIfStats::CDBIF_STATS_CF_OP_READ_FAIL)
+    } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
+        ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN,
+        ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL)
     bool success = ColListFromColumnOrSuper(ret, result, cfname);
     if (success) {
         UpdateCfReadStats(cfname);
@@ -1511,16 +1564,16 @@ bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
     return success;
 }
 
-bool CdbIf::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
+bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
     const std::vector<DbDataValueVec>& rowkeys,
     GenDb::ColumnNameRange *crange_ptr) {
-    CdbIfCfInfo *info;
+    ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
         stats_.IncrementErrors(
-            CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY);
+            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
         UpdateCfReadFailStats(cfname);
-        CDBIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND"); 
+        THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
     // Populate column name range slice
     cassandra::SliceRange slicer;
@@ -1531,21 +1584,21 @@ bool CdbIf::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
         if (!ConstructDbDataValueColumnName(start_string, cf,
             crange_ptr->start_)) {
             UpdateCfReadFailStats(cfname);
-            CDBIF_LOG_ERR_RETURN_FALSE(cfname <<
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cfname <<
                 ": Column Name Range Start encode FAILED");
         }
         std::string finish_string;
         if (!ConstructDbDataValueColumnName(finish_string, cf,
             crange_ptr->finish_)) {
             UpdateCfReadFailStats(cfname);
-            CDBIF_LOG_ERR_RETURN_FALSE(cfname <<
+            THRIFTIF_LOG_ERR_RETURN_FALSE(cfname <<
                 ": Column Name Range Finish encode FAILED");
         }
         slicer.__set_start(start_string);
         slicer.__set_finish(finish_string);
         slicer.__set_count(crange_ptr->count);
     }
-    // If column range is not specified, slicer has start_column and 
+    // If column range is not specified, slicer has start_column and
     // end_column as null string, which means return all columns
     slicep.__set_slice_range(slicer);
     cassandra::ColumnParent cparent;
@@ -1554,47 +1607,47 @@ bool CdbIf::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
     std::vector<DbDataValueVec>::const_iterator it = rowkeys.begin();
     while (it != rowkeys.end())  {
         std::vector<std::string> keys;
-        for (int i = 0; (it != rowkeys.end()) && (i <= kMaxQueryRows); 
+        for (int i = 0; (it != rowkeys.end()) && (i <= kMaxQueryRows);
                 it++, i++) {
             std::string key;
             if (!ConstructDbDataValueKey(key, cf, *it)) {
                 UpdateCfReadFailStats(cfname);
-                CDBIF_LOG_ERR_RETURN_FALSE(cfname << "(" << i << 
+                THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << "(" << i <<
                     "): Key encode FAILED");
             }
             keys.push_back(key);
         }
         std::map<std::string, std::vector<ColumnOrSuperColumn> > ret_c;
-        CDBIF_BEGIN_TRY {
+        THRIFTIF_BEGIN_TRY {
             client_->multiget_slice(ret_c, keys, cparent, slicep, ConsistencyLevel::ONE);
-        } CDBIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
-            CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN,
-            CdbIfStats::CDBIF_STATS_CF_OP_READ_FAIL)
+        } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
+            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN,
+            ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL)
         // Update stats
         UpdateCfReadStats(cfname);
         // Convert result
-        for (std::map<std::string, 
+        for (std::map<std::string,
                  std::vector<ColumnOrSuperColumn> >::iterator it = ret_c.begin();
              it != ret_c.end(); it++) {
             std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
             if (!DbDataValueVecFromString(col_list->rowkey_,
                 cf->key_validation_class, it->first)) {
-                CDBIF_LOG_ERR(cfname << ": Key decode FAILED");
+                THRIFTIF_LOG_ERR(cfname << ": Key decode FAILED");
                 continue;
             }
             if (!ColListFromColumnOrSuper(*col_list, it->second, cfname)) {
-                CDBIF_LOG_ERR(cfname << ": Column decode FAILED");
-            } 
+                THRIFTIF_LOG_ERR(cfname << ": Column decode FAILED");
+            }
             ret.push_back(col_list);
         }
     } // while loop
     return true;
 }
 
-bool CdbIf::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) const {
-    if (cdbq_.get() != NULL) {
-        *queue_count = cdbq_->Length();
-        *enqueues = cdbq_->NumEnqueues();
+bool ThriftIfImpl::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) const {
+    if (q_.get() != NULL) {
+        *queue_count = q_->Length();
+        *enqueues = q_->NumEnqueues();
     } else {
         *queue_count = 0;
         *enqueues = 0;
@@ -1602,47 +1655,47 @@ bool CdbIf::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) const {
     return true;
 }
 
-bool CdbIf::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
+bool ThriftIfImpl::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.Get(vdbti, dbe);
     return true;
 }
-       
-void CdbIf::UpdateCfWriteStats(const std::string &cf_name) {
+
+void ThriftIfImpl::UpdateCfWriteStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.UpdateCf(cf_name, true, false);
 }
 
-void CdbIf::UpdateCfWriteFailStats(const std::string &cf_name) {
+void ThriftIfImpl::UpdateCfWriteFailStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.UpdateCf(cf_name, true, true);
 }
 
-void CdbIf::UpdateCfReadStats(const std::string &cf_name) {
+void ThriftIfImpl::UpdateCfReadStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.UpdateCf(cf_name, false, false);
 }
 
-void CdbIf::UpdateCfReadFailStats(const std::string &cf_name) {
+void ThriftIfImpl::UpdateCfReadFailStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.UpdateCf(cf_name, false, true);
 }
 
-void CdbIf::UpdateCfStats(CdbIf::CdbIfStats::CfOp op,
+void ThriftIfImpl::UpdateCfStats(ThriftIfImpl::ThriftIfStats::CfOp op,
     const std::string &cf_name) {
     switch (op) {
-    case CdbIfStats::CDBIF_STATS_CF_OP_NONE:
+    case ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE:
         break;
-    case CdbIfStats::CDBIF_STATS_CF_OP_WRITE:
+    case ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE:
         UpdateCfWriteStats(cf_name);
         break;
-    case CdbIfStats::CDBIF_STATS_CF_OP_WRITE_FAIL:
+    case ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE_FAIL:
         UpdateCfWriteFailStats(cf_name);
         break;
-    case CdbIfStats::CDBIF_STATS_CF_OP_READ:
+    case ThriftIfStats::THRIFTIF_STATS_CF_OP_READ:
         UpdateCfReadStats(cf_name);
         break;
-    case CdbIfStats::CDBIF_STATS_CF_OP_READ_FAIL:
+    case ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL:
         UpdateCfReadFailStats(cf_name);
         break;
     default:
@@ -1650,33 +1703,33 @@ void CdbIf::UpdateCfStats(CdbIf::CdbIfStats::CfOp op,
     }
 }
 
-// CdbIfStats
-void CdbIf::CdbIfStats::UpdateCf(const std::string &cfname, bool write,
+// ThriftIfStats
+void ThriftIfImpl::ThriftIfStats::UpdateCf(const std::string &cfname, bool write,
     bool fail) {
     cf_stats_.Update(cfname, write, fail);
 }
 
-void CdbIf::CdbIfStats::IncrementErrors(CdbIf::CdbIfStats::ErrorType type) {
+void ThriftIfImpl::ThriftIfStats::IncrementErrors(ThriftIfImpl::ThriftIfStats::ErrorType type) {
     switch (type) {
-    case CdbIfStats::CDBIF_STATS_ERR_WRITE_TABLESPACE:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE:
         db_errors_.write_tablespace_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_READ_TABLESPACE:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE:
         db_errors_.read_tablespace_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN_FAMILY:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY:
         db_errors_.write_column_family_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN_FAMILY:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY:
         db_errors_.read_column_family_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_WRITE_COLUMN:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN:
         db_errors_.write_column_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_WRITE_BATCH_COLUMN:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN:
         db_errors_.write_batch_column_fails++;
         break;
-    case CdbIfStats::CDBIF_STATS_ERR_READ_COLUMN:
+    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN:
         db_errors_.read_column_fails++;
         break;
     default:
@@ -1684,23 +1737,23 @@ void CdbIf::CdbIfStats::IncrementErrors(CdbIf::CdbIfStats::ErrorType type) {
     }
 }
 
-void CdbIf::CdbIfStats::Get(std::vector<DbTableInfo> *vdbti,
+void ThriftIfImpl::ThriftIfStats::Get(std::vector<DbTableInfo> *vdbti,
     DbErrors *dbe) {
     // Get diff cfstats
     cf_stats_.Get(vdbti);
     // Subtract old from new
-    CdbIf::CdbIfStats::Errors derrors(db_errors_ - odb_errors_);
+    ThriftIfImpl::ThriftIfStats::Errors derrors(db_errors_ - odb_errors_);
     // Update old
     odb_errors_ = db_errors_;
-    // Populate from diff 
+    // Populate from diff
     derrors.Get(dbe);
 }
 
 // Errors
-CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
-    const CdbIf::CdbIfStats::Errors &b) {
-    CdbIf::CdbIfStats::Errors sum;
-    sum.write_tablespace_fails = a.write_tablespace_fails + 
+ThriftIfImpl::ThriftIfStats::Errors operator+(const ThriftIfImpl::ThriftIfStats::Errors &a,
+    const ThriftIfImpl::ThriftIfStats::Errors &b) {
+    ThriftIfImpl::ThriftIfStats::Errors sum;
+    sum.write_tablespace_fails = a.write_tablespace_fails +
         b.write_tablespace_fails;
     sum.read_tablespace_fails = a.read_tablespace_fails +
         b.read_tablespace_fails;
@@ -1715,9 +1768,9 @@ CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
     return sum;
 }
 
-CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
-    const CdbIf::CdbIfStats::Errors &b) {
-    CdbIf::CdbIfStats::Errors diff;
+ThriftIfImpl::ThriftIfStats::Errors operator-(const ThriftIfImpl::ThriftIfStats::Errors &a,
+    const ThriftIfImpl::ThriftIfStats::Errors &b) {
+    ThriftIfImpl::ThriftIfStats::Errors diff;
     diff.write_tablespace_fails = a.write_tablespace_fails -
         b.write_tablespace_fails;
     diff.read_tablespace_fails = a.read_tablespace_fails -
@@ -1733,7 +1786,7 @@ CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
     return diff;
 }
 
-void CdbIf::CdbIfStats::Errors::Get(DbErrors *db_errors) const {
+void ThriftIfImpl::ThriftIfStats::Errors::Get(DbErrors *db_errors) const {
     db_errors->set_write_tablespace_fails(write_tablespace_fails);
     db_errors->set_read_tablespace_fails(read_tablespace_fails);
     db_errors->set_write_table_fails(write_column_family_fails);
@@ -1744,22 +1797,22 @@ void CdbIf::CdbIfStats::Errors::Get(DbErrors *db_errors) const {
 }
 
 template<>
-size_t CdbIf::CdbIfQueue::AtomicIncrementQueueCount(
-    CdbIf::CdbIfColList *colList) {
+size_t ThriftIfImpl::ThriftIfQueue::AtomicIncrementQueueCount(
+    ThriftIfImpl::ThriftIfColList *colList) {
     GenDb::ColList *gcolList(colList->gendb_cl);
     size_t size(gcolList->GetSize());
     return count_.fetch_and_add(size) + size;
 }
 
 template<>
-size_t CdbIf::CdbIfQueue::AtomicDecrementQueueCount(
-    CdbIf::CdbIfColList *colList) {
+size_t ThriftIfImpl::ThriftIfQueue::AtomicDecrementQueueCount(
+    ThriftIfImpl::ThriftIfColList *colList) {
     GenDb::ColList *gcolList(colList->gendb_cl);
     size_t size(gcolList->GetSize());
     return count_.fetch_and_add(0-size) - size;
 }
 
-bool CdbIf::set_keepalive() {
+bool ThriftIfImpl::set_keepalive() {
 
     int keepalive_idle_sec = keepaliveIdleSec;
     int keepalive_intvl_sec = keepaliveIntvlSec;
@@ -1774,14 +1827,14 @@ bool CdbIf::set_keepalive() {
     int socket_fd = tsocket->getSocketFD();
     if (setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, &optval,
                    sizeof(int)) < 0) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set SO_KEEPALIVE option on"
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Cannot set SO_KEEPALIVE option on"
                                    "listen socket (" << strerror(errno) << ")");
     }
 #ifdef TCP_KEEPIDLE
     //Set the KEEPALIVE IDLE time
     if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPIDLE, &keepalive_idle_sec,
                    sizeof(keepalive_idle_sec)) < 0) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPIDLE option on"
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPIDLE option on"
                                    "listen socket (" << strerror(errno) << ")");
     }
 #endif
@@ -1789,7 +1842,7 @@ bool CdbIf::set_keepalive() {
     //Set the KEEPALIVE INTERVAL time between probes
     if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPINTVL, &keepalive_intvl_sec,
                    sizeof(keepalive_intvl_sec)) < 0) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
                                    "listen socket (" << strerror(errno) << ")");
     }
 #endif
@@ -1797,7 +1850,7 @@ bool CdbIf::set_keepalive() {
     //Set the KEEPALIVE PROBE COUNT
     if (setsockopt(socket_fd, SOL_TCP, TCP_KEEPCNT, &keepalive_probe_count,
                    sizeof(keepalive_probe_count)) < 0) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_KEEPINTVL option on"
                                    "listen socket (" << strerror(errno) << ")");
     }
 #endif
@@ -1805,10 +1858,9 @@ bool CdbIf::set_keepalive() {
     //Set TCP_USER_TIMEOUT so pending data on sockets
     if (setsockopt(socket_fd, SOL_TCP, TCP_USER_TIMEOUT, &tcp_user_timeout_ms,
                    sizeof(tcp_user_timeout_ms)) < 0) {
-        CDBIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_USER_TIMEOUT_MS option on"
+        THRIFTIF_LOG_ERR_RETURN_FALSE("Cannot set TCP_USER_TIMEOUT_MS option on"
                                    "listen socket (" << strerror(errno) << ")");
     }
 #endif
     return true;
 }
-

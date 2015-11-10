@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('DbEnv')
+env = DbEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: env['TOP'] + '/' + x, list)
+
+libs = ['gendb', 'base', 'gunit']
+env.Prepend(LIBS = libs)
+libpaths = ['base']
+env.Append(LIBPATH = [MapBuildDir(libpaths)])
+
+gendb_if_test = env.UnitTest('gendb_if_test',
+                             ['gendb_if_test.cc'])
+
+test_suite = [ gendb_if_test ]
+test = env.TestSuite('gendb_test_suite', test_suite)
+env.Alias('controller/src/database/gendb:test', test)
+
+flaky_test_suite = []
+flaky_test = env.TestSuite('gendb_flaky_test_suite', flaky_test_suite)
+env.Alias('controller/src/gendb:flaky-test', flaky_test)

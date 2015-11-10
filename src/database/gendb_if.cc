@@ -3,21 +3,9 @@
  */
 
 #include <boost/foreach.hpp>
-
-#include "gendb_if.h"
-#include "cdb_if.h"
+#include <database/gendb_if.h>
 
 using namespace GenDb;
-
-GenDbIf *GenDbIf::GenDbIfImpl(GenDbIf::DbErrorHandler hdlr,
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports,
-        std::string name, bool only_sync,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password ) {
-    return (new CdbIf(hdlr, cassandra_ips, cassandra_ports,
-        name, only_sync, cassandra_user, cassandra_password));
-}
 
 size_t NewCol::GetSize() const {
     DbDataValueTypeSizeVisitor size_visitor;
