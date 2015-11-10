@@ -138,6 +138,7 @@ std::vector<std::string> AuthenticationData::KeysToStringDetail() const {
 
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
+          admin_down_(false),
           peer_as_(0),
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
@@ -151,6 +152,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     instance_name_ = rhs.instance_name_;
     group_name_ = rhs.group_name_;
     type_ = rhs.type_;
+    admin_down_ = rhs.admin_down_;
     peer_as_ = rhs.peer_as_;
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
@@ -167,6 +169,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(uuid_, rhs.uuid_);
     KEY_COMPARE(instance_name_, rhs.instance_name_);
     KEY_COMPARE(type_, rhs.type_);
+    KEY_COMPARE(admin_down_, rhs.admin_down_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);
@@ -202,6 +205,7 @@ std::vector<std::string> BgpNeighborConfig::AuthKeysToString() const {
 
 BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
         : instance_name_(instance_name),
+          admin_down_(false),
           autonomous_system_(0), 
           local_autonomous_system_(0),
           identifier_(0), 
@@ -212,6 +216,7 @@ BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
 
 int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
     KEY_COMPARE(instance_name_, rhs.instance_name_);
+    KEY_COMPARE(admin_down_, rhs.admin_down_);
     KEY_COMPARE(autonomous_system_, rhs.autonomous_system_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(port_, rhs.port_);

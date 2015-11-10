@@ -11,6 +11,7 @@ struct BgpRouterState {
    27: optional string router_id;
    28: optional u32 local_asn;
    29: optional u32 global_asn;
+   30: optional bool admin_down
     2: optional bool deleted
     3: optional u64 uptime;
     7: optional u32 output_queue_depth;

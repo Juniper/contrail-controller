@@ -121,6 +121,8 @@ systemlog sandesh BgpConfigInstanceUpdateLog {
 trace sandesh BgpConfigNeighborCreateTrace {
     1: "Neighbor";
     2: string name;
+    16: "AdminDown";
+    17: bool admin_down;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -139,6 +141,8 @@ trace sandesh BgpConfigNeighborCreateTrace {
 systemlog sandesh BgpConfigNeighborCreateLog {
     1: "Neighbor";
     2: string name;
+    16: "AdminDown";
+    17: bool admin_down;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -167,6 +171,8 @@ systemlog sandesh BgpConfigNeighborDeleteLog {
 trace sandesh BgpConfigNeighborUpdateTrace {
     1: "Neighbor";
     2: string name;
+    16: "AdminDown";
+    17: bool admin_down;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -185,6 +191,8 @@ trace sandesh BgpConfigNeighborUpdateTrace {
 systemlog sandesh BgpConfigNeighborUpdateLog {
     1: "Neighbor";
     2: string name;
+    16: "AdminDown";
+    17: bool admin_down;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -233,6 +241,8 @@ systemlog sandesh BgpConfigPeeringUpdateLog {
 trace sandesh BgpConfigProtocolCreateTrace {
     1: "Routing Instance";
     2: string name;
+    13: "AdminDown";
+    14: bool admin_down;
     3: "Local AS";
     4: i32 as_number;
     5: "Router ID";
@@ -248,6 +258,8 @@ trace sandesh BgpConfigProtocolCreateTrace {
 systemlog sandesh BgpConfigProtocolCreateLog {
     1: "Routing Instance";
     2: string name;
+    13: "AdminDown";
+    14: bool admin_down;
     3: "Local AS";
     4: i32 as_number;
     5: "Router ID";
@@ -273,6 +285,8 @@ systemlog sandesh BgpConfigProtocolDeleteLog {
 trace sandesh BgpConfigProtocolUpdateTrace {
     1: "Routing Instance";
     2: string name;
+    13: "AdminDown";
+    14: bool admin_down;
     3: "Local AS";
     4: i32 as_number;
     5: "Router ID";
@@ -288,6 +302,8 @@ trace sandesh BgpConfigProtocolUpdateTrace {
 systemlog sandesh BgpConfigProtocolUpdateLog {
     1: "Routing Instance";
     2: string name;
+    13: "AdminDown";
+    14: bool admin_down;
     3: "Local AS";
     4: i32 as_number;
     5: "Router ID";

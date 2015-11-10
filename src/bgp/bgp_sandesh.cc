@@ -455,6 +455,7 @@ public:
             ShowBgpNeighborConfig nbr;
             nbr.set_instance_name(neighbor->instance_name());
             nbr.set_name(neighbor->name());
+            nbr.set_admin_down(neighbor->admin_down());
             Ip4Address localid(ntohl(neighbor->local_identifier()));
             nbr.set_local_identifier(localid.to_string());
             nbr.set_local_as(neighbor->local_as());

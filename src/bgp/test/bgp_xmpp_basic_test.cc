@@ -48,6 +48,26 @@ static const char *bgp_config_template = "\
 </config>\
 ";
 
+static const char *bgp_admin_down_config_template = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <admin-down>true</admin-down>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 static const char *bgp_unconfig = "\
 <delete>\
     <bgp-router name=\'X\'>\
@@ -584,6 +604,87 @@ TEST_P(BgpXmppBasicParamTest, NoSelfBgpConfiguration2) {
     Configure(bgp_config_template, 64512, 64512);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, BgpAdminDown1) {
+    Configure(bgp_admin_down_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+    TASK_UTIL_EXPECT_TRUE(bs_x_->admin_down());
+
+    CreateAgents();
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) > server_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c + 3);
+
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
+
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, BgpAdminDown2) {
+    CreateAgents();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    Configure(bgp_admin_down_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+    TASK_UTIL_EXPECT_TRUE(bs_x_->admin_down());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c + 3);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) > server_flap_a + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c + 3);
+
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
+
+    Configure(bgp_config_template, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+    TASK_UTIL_EXPECT_FALSE(bs_x_->admin_down());
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());

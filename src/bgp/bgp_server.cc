@@ -22,6 +22,8 @@
 
 using boost::system::error_code;
 using process::ConnectionState;
+using std::boolalpha;
+using std::noboolalpha;
 using std::string;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
@@ -66,11 +68,30 @@ public:
         uint32_t config_autonomous_system = 0;
         uint32_t config_local_autonomous_system = 0;
         uint16_t config_hold_time = 0;
+        bool config_admin_down = false;
         if (config) {
+            config_admin_down = config->admin_down();
             config_identifier = config->identifier();
             config_autonomous_system = config->autonomous_system();
             config_local_autonomous_system = config->local_autonomous_system();
             config_hold_time = config->hold_time();
+        }
+
+        if (server_->admin_down_ != config_admin_down) {
+            SandeshLevel::type log_level;
+            if (server_->admin_down_) {
+                log_level = SandeshLevel::SYS_DEBUG;
+            } else {
+                log_level = SandeshLevel::SYS_NOTICE;
+            }
+            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Admin Down from " <<
+                        boolalpha << server_->admin_down_ << noboolalpha <<
+                        " to " <<
+                        boolalpha << config_admin_down << noboolalpha);
+            server_->admin_down_ = config_admin_down;
+            if (server_->admin_down_)
+                server_->NotifyAdminDown();
         }
 
         Ip4Address identifier(ntohl(config_identifier));
@@ -240,7 +261,8 @@ bool BgpServer::IsReadyForDeletion() {
 }
 
 BgpServer::BgpServer(EventManager *evm)
-    : autonomous_system_(0),
+    : admin_down_(false),
+      autonomous_system_(0),
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
@@ -415,6 +437,52 @@ void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
         BgpPeerKey key = BgpPeerKey();
         while (BgpPeer *peer = rit->peer_manager()->NextPeer(key)) {
             fn(peer);
+        }
+    }
+}
+
+int BgpServer::RegisterAdminDownCallback(AdminDownCb callback) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    size_t i = admin_down_bmap_.find_first();
+    if (i == admin_down_bmap_.npos) {
+        i = admin_down_listeners_.size();
+        admin_down_listeners_.push_back(callback);
+    } else {
+        admin_down_bmap_.reset(i);
+        if (admin_down_bmap_.none()) {
+            admin_down_bmap_.clear();
+        }
+        admin_down_listeners_[i] = callback;
+    }
+    return i;
+}
+
+void BgpServer::UnregisterAdminDownCallback(int listener) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    admin_down_listeners_[listener] = NULL;
+    if ((size_t) listener == admin_down_listeners_.size() - 1) {
+        while (!admin_down_listeners_.empty() &&
+            admin_down_listeners_.back() == NULL) {
+            admin_down_listeners_.pop_back();
+        }
+        if (admin_down_bmap_.size() > admin_down_listeners_.size()) {
+            admin_down_bmap_.resize(admin_down_listeners_.size());
+        }
+    } else {
+        if ((size_t) listener >= admin_down_bmap_.size()) {
+            admin_down_bmap_.resize(listener + 1);
+        }
+        admin_down_bmap_.set(listener);
+    }
+}
+
+void BgpServer::NotifyAdminDown() {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    for (AdminDownListenersList::iterator iter = admin_down_listeners_.begin();
+         iter != admin_down_listeners_.end(); ++iter) {
+        if (*iter != NULL) {
+            AdminDownCb cb = *iter;
+            (cb)();
         }
     }
 }

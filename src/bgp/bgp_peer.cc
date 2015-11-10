@@ -352,7 +352,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex())),
           send_ready_(true),
-          admin_down_(false),
+          admin_down_(config->admin_down()),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
@@ -390,8 +390,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
-    peer_info.set_peer_type(PeerType() == BgpProto::IBGP ?
-                            "internal" : "external");
+    peer_info.set_admin_down(admin_down_);
+    peer_info.set_peer_type(
+        PeerType() == BgpProto::IBGP ? "internal" : "external");
     peer_info.set_local_asn(local_as_);
     peer_info.set_peer_asn(peer_as_);
     peer_info.set_local_id(local_bgp_id_);
@@ -413,7 +414,8 @@ BgpPeer::~BgpPeer() {
 }
 
 void BgpPeer::Initialize() {
-    state_machine_->Initialize();
+    if (!admin_down_)
+        state_machine_->Initialize();
 }
 
 void BgpPeer::BindLocalEndpoint(BgpSession *session) {
@@ -552,6 +554,11 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     bool clear_session = false;
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
+
+    if (admin_down_ != config->admin_down()) {
+        SetAdminState(config->admin_down());
+        peer_info.set_admin_down(admin_down_);
+    }
 
     // Check if there is any change in the peer address.
     // If the peer address is changing, remove the key for the older address.
@@ -1579,6 +1586,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     nbr.set_peer(peer_basename_);
     nbr.set_deleted(IsDeleted());
     nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
+    nbr.set_admin_down(admin_down_);
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_peer_id(bgp_identifier_string());
     nbr.set_peer_asn(peer_as());

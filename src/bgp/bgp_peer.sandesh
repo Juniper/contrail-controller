@@ -43,6 +43,7 @@ struct BgpNeighborResp {
     1: string peer (link="BgpNeighborReq"); // Peer name
     36: bool deleted;           // Deletion in progress
     43: string deleted_at;
+    47: bool admin_down;
     2: string peer_address (link="BgpNeighborReq");
     25: string peer_id;
     3: u32 peer_asn;
@@ -434,6 +435,7 @@ struct ShowBgpPeeringConfig {
 struct ShowBgpNeighborConfig {
     1: string instance_name;
     2: string name;
+    13: bool admin_down;
     8: string local_identifier;
     9: i32 local_as;
     3: string vendor;
@@ -456,7 +458,8 @@ request sandesh ShowBgpNeighborConfigReq {
 
 struct BgpPeerInfoData {
     1: string name (key="ObjectBgpPeer"); // RoutingInstance:RemoteEnd:LocalEnd
-    2: optional bool                deleted
+    2: optional bool deleted
+    23: optional bool admin_down
     3: optional string peer_type;         // internal/external
     20: optional string peer_address;
     4: optional u32 local_asn;

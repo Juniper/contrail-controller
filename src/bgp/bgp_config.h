@@ -159,7 +159,10 @@ public:
 
     Type peer_type() const { return type_; }
     void set_peer_type(Type type) { type_ = type; }
- 
+
+    bool admin_down() const { return admin_down_; }
+    void set_admin_down(bool admin_down) { admin_down_ = admin_down; }
+
     uint32_t peer_as() const { return peer_as_; }
     void set_peer_as(uint32_t peer_as) { peer_as_ = peer_as; }
 
@@ -220,6 +223,7 @@ private:
     std::string instance_name_;
     std::string group_name_;
     Type type_;
+    bool admin_down_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
@@ -339,8 +343,12 @@ public:
 
     int CompareTo(const BgpProtocolConfig &rhs) const;
 
+    bool admin_down() const { return admin_down_; }
+    void set_admin_down(bool admin_down) { admin_down_ = admin_down; }
+
     uint32_t identifier() const { return identifier_; }
     void set_identifier(uint32_t identifier) { identifier_ = identifier; }
+
     uint32_t autonomous_system() const { return autonomous_system_; }
     void set_autonomous_system(uint32_t autonomous_system) {
         autonomous_system_ = autonomous_system;
@@ -364,6 +372,7 @@ public:
 
 private:
     std::string instance_name_;
+    bool admin_down_;
     uint32_t autonomous_system_;
     uint32_t local_autonomous_system_;
     uint32_t identifier_;
