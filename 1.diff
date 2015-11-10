@@ -1,0 +1,1992 @@
+commit 6ec1e7c4e5c15956ea250bdf8899af441ee50242
+Author: Ashok Singh <ashoksr@juniper.net>
+Date:   Tue Nov 10 05:45:08 2015 -0800
+
+    Allowed address pair changes for IPv6
+    
+    (1)Listen for V6 Route notifications and send Neighbor solicit message to V6 Vms when they are spawned.
+    (2)Handle Neighbor advertisement replies from VM and update the path preference.
+    (3)Also update path preference on flow trap event.
+    (4)Handle Active-active mode configuration (both at instance-ip level and allowed-address-pair level) and
+       update the ecmp flag and dependent routes
+    (5)Add statistics for Neighbor solicit and Neighbor Advertisement and expose these via introspect.
+    (6)Added UT
+    
+    Change-Id: I5b99cba7c3c7ebbaa35a2ad61e90f31be3af6e41
+    Partial-Bug:1502336
+
+diff --git a/src/vnsw/agent/oper/agent_path.h b/src/vnsw/agent/oper/agent_path.h
+index 7b7c11a..1892769 100644
+--- a/src/vnsw/agent/oper/agent_path.h
++++ b/src/vnsw/agent/oper/agent_path.h
+@@ -123,8 +123,14 @@ public:
+     }
+ 
+     bool IsDependentRt(void) const {
+-        if (dependent_ip_ != Ip4Address(0)) {
+-            return true;
++        if (dependent_ip_.is_v4()) {
++            if (dependent_ip_ != Ip4Address(0)) {
++                return true;
++            }
++        } else if (dependent_ip_.is_v6()) {
++            if (!dependent_ip_.is_unspecified()) {
++                return true;
++            }
+         }
+         return false;
+     }
+diff --git a/src/vnsw/agent/oper/path_preference.cc b/src/vnsw/agent/oper/path_preference.cc
+index 07f82e3..baaa08a 100644
+--- a/src/vnsw/agent/oper/path_preference.cc
++++ b/src/vnsw/agent/oper/path_preference.cc
+@@ -434,6 +434,8 @@ void PathPreferenceSM::EnqueuePathChange() {
+         table = rt_->vrf()->GetEvpnRouteTable();
+     } else if (rt_->GetTableType() == Agent::INET4_UNICAST) {
+         table = rt_->vrf()->GetInet4UnicastRouteTable();
++    } else if (rt_->GetTableType() == Agent::INET6_UNICAST) {
++        table = rt_->vrf()->GetInet6UnicastRouteTable();
+     }
+ 
+     if (table) {
+@@ -654,6 +656,8 @@ PathPreferenceState::GetRouteListenerId(const VrfEntry* vrf,
+         rt_id = vrf_state->evpn_rt_id_;
+     } else if (rt_->GetTableType() == Agent::INET4_UNICAST) {
+         rt_id = vrf_state->uc_rt_id_;
++    } else if (rt_->GetTableType() == Agent::INET6_UNICAST) {
++        rt_id = vrf_state->uc6_rt_id_;
+     } else {
+         return false;
+     }
+@@ -667,17 +671,27 @@ PathPreferenceState::GetDependentPath(const AgentPath *path) const {
+     if (path->path_preference().IsDependentRt() == false) {
+         return NULL;
+     }
++    uint32_t plen = 32;
++    if (path->path_preference().dependent_ip().is_v6()) {
++        plen = 128;
++    }
+ 
+     InetUnicastRouteKey key(path->peer(), path->path_preference().vrf(),
+-                            path->path_preference().dependent_ip(), 32);
++                            path->path_preference().dependent_ip(), plen);
+     const VrfEntry *vrf =
+         agent_->vrf_table()->FindVrfFromName(path->path_preference().vrf());
+     if (!vrf) {
+         return NULL;
+     }
+ 
+-    AgentRouteTable *table = static_cast<AgentRouteTable *>(
++    AgentRouteTable *table = NULL;
++    if (path->path_preference().dependent_ip().is_v4()) {
++        table = static_cast<AgentRouteTable *>(
+                                  vrf->GetInet4UnicastRouteTable());
++    } else if (path->path_preference().dependent_ip().is_v6()) {
++        table = static_cast<AgentRouteTable *>(
++                                 vrf->GetInet6UnicastRouteTable());
++    }
+     AgentRoute *rt = static_cast<AgentRoute *>(table->Find(&key));
+     if (rt == NULL) {
+         return NULL;
+@@ -930,15 +944,25 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
+     }
+ 
+     InetUnicastRouteKey rt_key(NULL, vrf->GetName(), event.ip_, event.plen_);
+-    const InetUnicastRouteEntry *rt =
+-        static_cast<const InetUnicastRouteEntry *>(
+-        vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
++    const InetUnicastRouteEntry *rt = NULL;
++    if (event.ip_.is_v4()) {
++        rt = static_cast<const InetUnicastRouteEntry *>(
++            vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
++    } else if(event.ip_.is_v6()) {
++        rt = static_cast<const InetUnicastRouteEntry *>(
++            vrf->GetInet6UnicastRouteTable()->FindActiveEntry(&rt_key));
++    }
+     if (!rt) {
+         return true;
+     }
+ 
+-    cpath_preference = static_cast<const PathPreferenceState *>(
+-        rt->GetState(vrf->GetInet4UnicastRouteTable(), state->uc_rt_id_));
++    if (event.ip_.is_v4()) {
++        cpath_preference = static_cast<const PathPreferenceState *>(
++            rt->GetState(vrf->GetInet4UnicastRouteTable(), state->uc_rt_id_));
++    } else if(event.ip_.is_v6()) {
++        cpath_preference = static_cast<const PathPreferenceState *>(
++            rt->GetState(vrf->GetInet6UnicastRouteTable(), state->uc6_rt_id_));
++    }
+     if (!cpath_preference) {
+         return true;
+     }
+@@ -963,7 +987,7 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
+     return true;
+ }
+ 
+-void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
++void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
+                                               uint32_t interface_index,
+                                               uint32_t vrf_index,
+                                               const MacAddress &mac) {
+@@ -1002,7 +1026,7 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
+     if (rt) {
+         path = rt->FindPath(vm_intf->peer());
+     }
+-    if (evpn_path) {
++    if (evpn_rt) {
+         evpn_path = evpn_rt->FindPath(vm_intf->peer());
+     }
+ 
+@@ -1021,7 +1045,7 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
+ }
+ 
+ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
+-                                      DBEntryBase *e) {
++                                     DBEntryBase *e) {
+    const VrfEntry *vrf = static_cast<const VrfEntry *>(e);
+    PathPreferenceVrfState *vrf_state =
+        static_cast<PathPreferenceVrfState *>(e->GetState(partition->parent(),
+@@ -1047,9 +1071,15 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
+                                        vrf->GetEvpnRouteTable());
+    evpn_rt_listener->Init();
+ 
+-   vrf_state =
+-       new PathPreferenceVrfState(uc_rt_listener->id(),
+-                                  evpn_rt_listener->id());
++   PathPreferenceRouteListener *uc6_rt_listener =
++       new PathPreferenceRouteListener(agent_,
++                                       vrf->GetInet6UnicastRouteTable());
++   uc6_rt_listener->Init();
++
++   vrf_state = new PathPreferenceVrfState(uc_rt_listener->id(),
++                                          evpn_rt_listener->id(),
++                                          uc6_rt_listener->id());
++
+    e->SetState(partition->parent(), vrf_id_, vrf_state);
+    return;
+ }
+diff --git a/src/vnsw/agent/oper/path_preference.h b/src/vnsw/agent/oper/path_preference.h
+index c70e26d..99d7ac5 100644
+--- a/src/vnsw/agent/oper/path_preference.h
++++ b/src/vnsw/agent/oper/path_preference.h
+@@ -166,10 +166,12 @@ private:
+ 
+ struct PathPreferenceVrfState: public DBState {
+     PathPreferenceVrfState(DBTableBase::ListenerId uc_rt_id,
+-                           DBTableBase::ListenerId evpn_rt_id):
+-        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id) {}
++                           DBTableBase::ListenerId evpn_rt_id,
++                           DBTableBase::ListenerId uc6_rt_id):
++        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id), uc6_rt_id_(uc6_rt_id) {}
+     DBTableBase::ListenerId uc_rt_id_;
+     DBTableBase::ListenerId evpn_rt_id_;
++    DBTableBase::ListenerId uc6_rt_id_;
+ };
+ 
+ struct PathPreferenceRouteListener : public DBState {
+@@ -209,7 +211,7 @@ public:
+     void Shutdown();
+     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
+     void IntfNotify(DBTablePartBase *partition, DBEntryBase *e);
+-    void EnqueueTrafficSeen(Ip4Address ip_, uint32_t plen,
++    void EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
+                             uint32_t interface_index, uint32_t vrf_index,
+                             const MacAddress &mac);
+     bool DequeueEvent(PathPreferenceEventContainer e);
+diff --git a/src/vnsw/agent/oper/test/SConscript b/src/vnsw/agent/oper/test/SConscript
+index 630869b..716d85a 100644
+--- a/src/vnsw/agent/oper/test/SConscript
++++ b/src/vnsw/agent/oper/test/SConscript
+@@ -34,6 +34,7 @@ test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
+ test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
+                                              oper_flaky_test_suite)
+ test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
++test_aap6 = AgentEnv.MakeTestCmd(env, 'test_aap6', oper_test_suite)
+ test_ipv6 = AgentEnv.MakeTestCmd(env, 'test_ipv6', oper_test_suite)
+ test_oper_xml = AgentEnv.MakeTestCmdSrc(env, 'test_oper_xml',
+                                         [
+diff --git a/src/vnsw/agent/oper/test/test_aap.cc b/src/vnsw/agent/oper/test/test_aap.cc
+index da88842..a70f219 100644
+--- a/src/vnsw/agent/oper/test/test_aap.cc
++++ b/src/vnsw/agent/oper/test/test_aap.cc
+@@ -124,21 +124,6 @@ public:
+     }
+ 
+ 
+-    void AddStaticPreference(std::string intf_name, int intf_id,
+-                             uint32_t value) {
+-        std::ostringstream buf;
+-        buf << "<virtual-machine-interface-properties>";
+-        buf << "<local-preference>";
+-        buf << value;
+-        buf << "</local-preference>";
+-        buf << "</virtual-machine-interface-properties>";
+-        char cbuf[10000];
+-        strcpy(cbuf, buf.str().c_str());
+-        AddNode("virtual-machine-interface", intf_name.c_str(),
+-                intf_id, cbuf);
+-        client->WaitForIdle();
+-    }
+-
+     void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
+         std::ostringstream buf;
+         buf << "<virtual-machine-interface-properties>";
+diff --git a/src/vnsw/agent/oper/test/test_aap6.cc b/src/vnsw/agent/oper/test/test_aap6.cc
+new file mode 100644
+index 0000000..3bbd95c
+--- /dev/null
++++ b/src/vnsw/agent/oper/test/test_aap6.cc
+@@ -0,0 +1,634 @@
++/*
++ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
++ */
++
++#include "base/os.h"
++
++#include "testing/gunit.h"
++
++#include <base/logging.h>
++#include <io/event_manager.h>
++#include <tbb/task.h>
++#include <base/task.h>
++
++#include <cmn/agent_cmn.h>
++
++#include "cfg/cfg_init.h"
++#include "cfg/cfg_interface.h"
++#include "oper/operdb_init.h"
++#include "controller/controller_init.h"
++#include "pkt/pkt_init.h"
++#include "services/services_init.h"
++#include "vrouter/ksync/ksync_init.h"
++#include "oper/interface_common.h"
++#include "oper/nexthop.h"
++#include "route/route.h"
++#include "oper/vrf.h"
++#include "oper/mpls.h"
++#include "oper/vm.h"
++#include "oper/vn.h"
++#include "oper/path_preference.h"
++#include "filter/acl.h"
++#include "test_cmn_util.h"
++#include "vr_types.h"
++#include <controller/controller_export.h>
++#include <ksync/ksync_sock_user.h>
++#include <boost/assign/list_of.hpp>
++
++using namespace boost::assign;
++
++MacAddress zero_mac;
++
++void RouterIdDepInit(Agent *agent) {
++}
++
++struct PortInfo input[] = {
++    {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
++};
++
++class TestAap6 : public ::testing::Test {
++public:
++    TestAap6() {
++        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
++    }
++
++    ~TestAap6() {
++        DeleteBgpPeer(peer_);
++    }
++    uint32_t Ip2PrefixLen(IpAddress addr) {
++        uint32_t plen = 0;
++        if (addr.is_v4()) {
++            plen = 32;
++        } else if (addr.is_v6()) {
++            plen = 128;
++        }
++        return plen;
++
++    }
++    void AddAap(std::string intf_name, int intf_id,
++            std::vector<IpAddress> aap_list) {
++        std::ostringstream buf;
++        buf << "<virtual-machine-interface-allowed-address-pairs>";
++        std::vector<IpAddress>::iterator it = aap_list.begin();
++        while (it != aap_list.end()) {
++            uint32_t plen = Ip2PrefixLen(*it);
++            buf << "<allowed-address-pair>";
++            buf << "<ip>";
++            buf << "<ip-prefix>" << it->to_string()<<"</ip-prefix>";
++            buf << "<ip-prefix-len>"<< plen << "</ip-prefix-len>";
++            buf << "</ip>";
++            buf << "<mac><mac-address>" << "00:00:00:00:00:00"
++                << "</mac-address></mac>";
++            buf << "<flag>" << "act-stby" << "</flag>";
++            buf << "</allowed-address-pair>";
++            it++;
++        }
++        buf << "</virtual-machine-interface-allowed-address-pairs>";
++        char cbuf[10000];
++        strcpy(cbuf, buf.str().c_str());
++        AddNode("virtual-machine-interface", intf_name.c_str(),
++                intf_id, cbuf);
++        client->WaitForIdle();
++    }
++
++    void AddAap(std::string intf_name, int intf_id, IpAddress ip,
++                const std::string &mac) {
++        std::ostringstream buf;
++        uint32_t plen = Ip2PrefixLen(ip);
++        buf << "<virtual-machine-interface-allowed-address-pairs>";
++        buf << "<allowed-address-pair>";
++        buf << "<ip>";
++        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
++        buf << "<ip-prefix-len>"<< plen << "</ip-prefix-len>";
++        buf << "</ip>";
++        buf << "<mac>" << mac << "</mac>";
++        buf << "<flag>" << "act-stby" << "</flag>";
++        buf << "</allowed-address-pair>";
++        buf << "</virtual-machine-interface-allowed-address-pairs>";
++        char cbuf[10000];
++        strcpy(cbuf, buf.str().c_str());
++        AddNode("virtual-machine-interface", intf_name.c_str(),
++                intf_id, cbuf);
++        client->WaitForIdle();
++    }
++
++    void AddEcmpAap(std::string intf_name, int intf_id, IpAddress ip) {
++        std::ostringstream buf;
++        uint32_t plen = Ip2PrefixLen(ip);
++        buf << "<virtual-machine-interface-allowed-address-pairs>";
++        buf << "<allowed-address-pair>";
++        buf << "<ip>";
++        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
++        buf << "<ip-prefix-len>"<< plen << "</ip-prefix-len>";
++        buf << "</ip>";
++        buf << "<mac><mac-address>" << "00:00:00:00:00:00"
++            << "</mac-address></mac>";
++        buf << "<address-mode>" << "active-active" << "</address-mode>";
++        buf << "</allowed-address-pair>";
++        buf << "</virtual-machine-interface-allowed-address-pairs>";
++        char cbuf[10000];
++        strcpy(cbuf, buf.str().c_str());
++        AddNode("virtual-machine-interface", intf_name.c_str(),
++                intf_id, cbuf);
++        client->WaitForIdle();
++    }
++
++    virtual void SetUp() {
++        CreateVmportEnv(input, 1);
++        client->WaitForIdle();
++        EXPECT_TRUE(VmPortActive(1));
++    }
++
++    virtual void TearDown() {
++        DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
++        client->WaitForIdle();
++        EXPECT_FALSE(VmPortFindRetDel(1));
++        EXPECT_FALSE(VrfFind("vrf1", true));
++        client->WaitForIdle();
++    }
++protected:
++    Peer *peer_;
++};
++
++//Add and delete allowed address pair route
++TEST_F(TestAap6, AddDel_1) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++    v.clear();
++    AddAap("intf1", 1, v);
++    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
++}
++
++TEST_F(TestAap6, AddDel_2) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    DelLink("virtual-machine-interface-routing-instance", "intf1",
++            "routing-instance", "vrf1");
++    client->WaitForIdle();
++    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
++
++    AddLink("virtual-machine-interface-routing-instance", "intf1",
++            "routing-instance", "vrf1");
++    client->WaitForIdle();
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++}
++
++TEST_F(TestAap6, Update) {
++    Ip6Address ip1 = Ip6Address::from_string("fd10::10");
++    Ip6Address ip2 = Ip6Address::from_string("fd11::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip1);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip1, 128));
++
++    v.push_back(ip2);
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip1, 128));
++    EXPECT_TRUE(RouteFindV6("vrf1", ip2, 128));
++
++    v.clear();
++    AddAap("intf1", 1, v);
++    EXPECT_FALSE(RouteFindV6("vrf1", ip1, 128));
++    EXPECT_FALSE(RouteFindV6("vrf1", ip2, 128));
++}
++
++//Check if subnet gateway for allowed address pair route gets set properly
++TEST_F(TestAap6, SubnetGw) {
++    Ip6Address ip1 = Ip6Address::from_string("fd10::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip1);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip1, 128));
++
++    IpamInfo ipam_info[] = {
++        {"fd10::", 120, "fd10::200", true},
++    };
++    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
++    client->WaitForIdle();
++
++    Ip6Address subnet_gw_ip = Ip6Address::from_string("fd10::200");
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip1, 128);
++    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
++
++    DelIPAM("vn1", "vdns1");
++    client->WaitForIdle();
++
++    v.clear();
++    AddAap("intf1", 1, v);
++    EXPECT_FALSE(RouteFindV6("vrf1", ip1, 128));
++}
++
++//When both IP and mac are given in config, verify that routes get added to
++//both V6 table and EVPN table.
++TEST_F(TestAap6, EvpnRoute) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    MacAddress mac("0a:0b:0c:0d:0e:0f");
++
++    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
++    AddAap("intf1", 1, ip, mac.ToString());
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
++    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
++
++    AddAap("intf1", 1, Ip6Address(), zero_mac.ToString());
++    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
++    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
++    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
++}
++
++//Just add a local path, verify that sequence no gets initialized to 0
++TEST_F(TestAap6, StateMachine_1) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->GetActivePath();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //cleanup
++    v.clear();
++    AddAap("intf1", 1, v);
++    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
++}
++
++//Add a remote path with same preference and verify that local path
++//moves to wait for traffic state
++TEST_F(TestAap6, StateMachine_2) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    std::vector<IpAddress> v;
++    v.push_back(ip);
++
++    AddAap("intf1", 1, v);
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    //On addition of AAP config, verify that the initial state of the path for
++    //VMI peer is set to the following
++    //--Preference as LOW, sequence as 0 and wait_for_traffic as TRUE.
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //Enqueue traffic seen
++    Agent::GetInstance()->oper_db()->route_preference_module()->
++        EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
++                           MacAddress::FromString(vm_intf->vm_mac()));
++    client->WaitForIdle();
++
++    //After seeing traffic, verify that path for VMI peer is updated as follows
++    //--Preference as HIGH, sequence as 1 and wait_for_traffic as FALSE.
++    EXPECT_TRUE(path->path_preference().sequence() == 1);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //cleanup
++    v.clear();
++    AddAap("intf1", 1, v);
++    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
++}
++
++TEST_F(TestAap6, StateMachine_3) {
++    Ip6Address ip = Ip6Address::from_string("fd10::10");
++    MacAddress mac("0a:0b:0c:0d:0e:0f");
++
++    AddAap("intf1", 1, ip, mac.ToString());
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
++
++    //Add a remote path with same preference and higher sequence number
++    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
++    PathPreference path_preference(1, PathPreference::LOW, false, false);
++    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
++    Inet6TunnelRouteAdd(peer_, "vrf1", ip, 128, server_ip, bmap,
++                        16, "vn1", SecurityGroupList(), path_preference);
++    client->WaitForIdle();
++
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, ip, 0);
++
++    //Verify that paths for unicast and evpn routes for VMI peer are set to
++    //default values
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    path = evpn_rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //Enqueue traffic
++    Agent::GetInstance()->oper_db()->route_preference_module()->
++        EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
++                           mac);
++    client->WaitForIdle();
++
++    //Verify that paths for unicast and evpn routes for VMI peer are updated
++    //after traffic is seen.
++    path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 2);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    path = evpn_rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 1);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //cleanup
++    AddAap("intf1", 1, Ip6Address(), zero_mac.ToString());
++
++    //Remove the remote route added.
++    InetUnicastAgentRouteTable *rt_table =
++        Agent::GetInstance()->vrf_table()->GetInet6UnicastRouteTable("vrf1");
++    rt_table->DeleteReq(peer_, "vrf1", ip, 128,
++                        new ControllerVmRoute(static_cast<BgpPeer *>(peer_)));
++    client->WaitForIdle();
++    WAIT_FOR(1000, 1, (RouteFindV6("vrf1", ip, 128) == false));
++    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
++}
++
++//Verify that dependent static route gets high preference, when traffic is seen
++//on interface native IP. (UT for path_preference module. Not an AAP UT)
++TEST_F(TestAap6, StateMachine_4) {
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++    //Add a static route
++    struct TestIp6Prefix static_route[] = {
++        { Ip6Address::from_string("fd11::2"), 120}
++    };
++
++    AddInterfaceRouteTableV6("static_route", 1, static_route, 1);
++    AddLink("virtual-machine-interface", "intf1",
++            "interface-route-table", "static_route");
++    client->WaitForIdle();
++
++    //Verify static IP route and its path preference attributes
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", static_route[0].addr_,
++                                           static_route[0].plen_);
++    EXPECT_TRUE(rt != NULL);
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //Enqueue traffic on native IP
++    Agent::GetInstance()->oper_db()->route_preference_module()->
++        EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
++                           MacAddress::FromString(vm_intf->vm_mac()));
++    client->WaitForIdle();
++
++    //Verify that static IP route's path_preference attributes are updated on
++    //seeing traffic on interface's native IP
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //Cleanup
++    DelLink("virtual-machine-interface", "intf1",
++            "interface-route-table", "static_route");
++    client->WaitForIdle();
++    rt = RouteGetV6("vrf1", static_route[0].addr_, static_route[0].plen_);
++    EXPECT_TRUE(rt == NULL);
++}
++
++//Upon transition of instance IP address from active-backup to active-active,
++//Verify that path preference becomes high (This does not have any AAP config)
++TEST_F(TestAap6, StateMachine_5) {
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    //Verify path attributes for native-IP
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    AddActiveActiveInstanceIp("instance1", 1, "fd10::2");
++    client->WaitForIdle();
++    //After instance-ip is configured for "active-active" mode, verify that
++    //path preference attributes are updated (ecmp = true, pref = HIGH,
++    //wait_for_traffic=false)
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == true);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //Enqueue traffic seen
++    Agent::GetInstance()->oper_db()->route_preference_module()->
++        EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
++                           MacAddress::FromString(vm_intf->vm_mac()));
++    client->WaitForIdle();
++
++    //Verify that there no changes in path attributes, because wait_for_traffic
++    //is false.
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == true);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++}
++
++//Upon transition of instance IP address from active-backup to active-active,
++//verify that path preference of dependent static routes, becomes high
++TEST_F(TestAap6, StateMachine_6) {
++    //Add a static route
++    struct TestIp6Prefix static_route[] = {
++        { Ip6Address::from_string("fd11::2"), 120}
++    };
++
++    AddInterfaceRouteTableV6("static_route", 1, static_route, 1);
++    AddLink("virtual-machine-interface", "intf1",
++            "interface-route-table", "static_route");
++    client->WaitForIdle();
++
++    //Verify static IP route and its path preference attributes
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", static_route[0].addr_,
++                                           static_route[0].plen_);
++    EXPECT_TRUE(rt != NULL);
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    AddActiveActiveInstanceIp("instance1", 1, "fd10::2");
++    client->WaitForIdle();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == true);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    AddInstanceIp("instance1", 1, "fd10::2");
++    client->WaitForIdle();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //Cleanup
++    DelLink("virtual-machine-interface", "intf1",
++            "interface-route-table", "static_route");
++    client->WaitForIdle();
++    rt = RouteGetV6("vrf1", static_route[0].addr_, static_route[0].plen_);
++    EXPECT_TRUE(rt == NULL);
++}
++
++//Verify that static preference is populated
++TEST_F(TestAap6, StateMachine_10) {
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->GetActivePath();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++    EXPECT_TRUE(path->path_preference().static_preference() == false);
++
++    AddStaticPreference("intf1", 1, 200);
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++    EXPECT_TRUE(path->path_preference().static_preference() == true);
++
++    //Delete static interface property
++    AddNode("virtual-machine-interface", "intf1", 1, "");
++    client->WaitForIdle();
++    EXPECT_TRUE(path->path_preference().static_preference() == false);
++}
++
++//Verify that preference value change is reflected with
++//static preference change
++TEST_F(TestAap6, StaticMachine_11) {
++    AddStaticPreference("intf1", 1, 100);
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->GetActivePath();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++    EXPECT_TRUE(path->path_preference().static_preference() == true);
++
++    AddStaticPreference("intf1", 1, 200);
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++    EXPECT_TRUE(path->path_preference().static_preference() == true);
++
++    AddStaticPreference("intf1", 1, 100);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++
++    //Delete static interface property
++    AddNode("virtual-machine-interface", "intf1", 1, "");
++    client->WaitForIdle();
++    EXPECT_TRUE(path->path_preference().static_preference() == false);
++}
++
++//Verify that static preference is not populated
++//when preference value is set to 0
++TEST_F(TestAap6, StateMachine_12) {
++    AddStaticPreference("intf1", 1, 0);
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
++
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip, 128);
++    const AgentPath *path = rt->GetActivePath();
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++    EXPECT_TRUE(path->path_preference().static_preference() == false);
++}
++
++//When traffic is seen on native IP ensure that preference is updated even for
++//AAP IP (when address mode is active-active)
++TEST_F(TestAap6, StateMachine_16) {
++    //Add AAP-IP with active-active mode
++    Ip6Address aap_ip = Ip6Address::from_string("fd10::10");
++    AddEcmpAap("intf1", 1, aap_ip);
++    EXPECT_TRUE(RouteFindV6("vrf1", aap_ip, 128));
++
++    //Verify that ecmp is set to true on AAP IP route's path, when active-active
++    //mode is configured.
++    VmInterface *vm_intf = VmInterfaceGet(1);
++    InetUnicastRouteEntry *rt = RouteGetV6("vrf1", aap_ip, 128);
++    const AgentPath *path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
++    EXPECT_TRUE(path->path_preference().ecmp() == true);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
++
++    //Enqueue traffic seen for native IP
++    Ip6Address ip = Ip6Address::from_string("fd10::2");
++    Agent::GetInstance()->oper_db()->route_preference_module()->
++        EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
++                           MacAddress::FromString(vm_intf->vm_mac()));
++    client->WaitForIdle();
++
++    //Verify preference for AAP IP path is increased and wait_for_traffic is
++    //set to false
++    EXPECT_TRUE(path->path_preference().sequence() == 0);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == true);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //Verify that preference and wait_for_traffic fields for native IP are also
++    //updated
++    rt = RouteGetV6("vrf1", ip, 128);
++    path = rt->FindPath(vm_intf->peer());
++    EXPECT_TRUE(path->path_preference().sequence() == 1);
++    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
++    EXPECT_TRUE(path->path_preference().ecmp() == false);
++    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
++
++    //cleanup
++    AddAap("intf1", 1, Ip6Address(), zero_mac.ToString());
++    WAIT_FOR(1000, 1, (RouteFindV6("vrf1", aap_ip, 128) == false));
++}
++
++int main(int argc, char *argv[]) {
++    GETUSERARGS();
++    client = TestInit(init_file, ksync_init);
++    int ret = RUN_ALL_TESTS();
++    TestShutdown();
++    return ret;
++}
+diff --git a/src/vnsw/agent/oper/test/test_ipv6.cc b/src/vnsw/agent/oper/test/test_ipv6.cc
+index ab1717d..32bda13 100644
+--- a/src/vnsw/agent/oper/test/test_ipv6.cc
++++ b/src/vnsw/agent/oper/test/test_ipv6.cc
+@@ -324,7 +324,7 @@ TEST_F(Ipv6Test, IntfStaticRoute_2) {
+     EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                 static_route[1].plen_));
+     EXPECT_FALSE(RouteFindV6("vrf1", static_route6[0].addr_,
+-                static_route6[0].plen_));
++                 static_route6[0].plen_));
+ 
+     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
+     client->WaitForIdle();
+diff --git a/src/vnsw/agent/oper/vm_interface.cc b/src/vnsw/agent/oper/vm_interface.cc
+index e6e6aea..7f3922d 100644
+--- a/src/vnsw/agent/oper/vm_interface.cc
++++ b/src/vnsw/agent/oper/vm_interface.cc
+@@ -57,7 +57,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
+     do_dhcp_relay_(false), vm_name_(),
+     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(true),
+     layer3_forwarding_(true), flood_unknown_unicast_(false),
+-    mac_set_(false), ecmp_(false),
++    mac_set_(false), ecmp_(false), ecmp6_(false),
+     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
+     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
+@@ -90,8 +90,9 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
+     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
+     bridging_(true), layer3_forwarding_(true),
+     flood_unknown_unicast_(false), mac_set_(false),
+-    ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
+-    parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
++    ecmp_(false), ecmp6_(false), tx_vlan_id_(tx_vlan_id),
++    rx_vlan_id_(rx_vlan_id), parent_(parent),
++    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
+     allowed_address_pair_list_(), vrf_assign_rule_list_(),
+     vrf_assign_acl_(NULL), device_type_(device_type),
+@@ -315,7 +316,10 @@ static void BuildAllowedAddressPairRouteList(VirtualMachineInterface *cfg,
+          it != cfg->allowed_address_pairs().end(); ++it) {
+         boost::system::error_code ec;
+         int plen = it->ip.ip_prefix_len;
+-        Ip4Address ip = Ip4Address::from_string(it->ip.ip_prefix, ec);
++        IpAddress ip = Ip4Address::from_string(it->ip.ip_prefix, ec);
++        if (ec.value() != 0) {
++            ip = Ip6Address::from_string(it->ip.ip_prefix, ec);
++        }
+         if (ec.value() != 0) {
+             continue;
+         }
+@@ -435,9 +439,9 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
+                 data->ip6_addr_ = addr.to_v6();
+             }
+             if (ip->mode() == "active-active") {
+-                data->ecmp_ = true;
++                data->ecmp6_ = true;
+             } else {
+-                data->ecmp_ = false;
++                data->ecmp6_ = false;
+             }
+         }
+     }
+@@ -1190,8 +1194,6 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
+         UpdateMetadataRoute(old_ipv4_active, old_vrf);
+         UpdateFloatingIp(force_update, policy_change, false);
+         UpdateServiceVlan(force_update, policy_change);
+-        UpdateAllowedAddressPair(force_update, policy_change, false,
+-                                 false, false);
+         UpdateVrfAssignRule();
+         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
+                            old_vrf, old_subnet, old_subnet_plen);
+@@ -1200,6 +1202,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
+         UpdateIpv6InstanceIp(force_update, policy_change, false, old_ethernet_tag);
+     }
+     UpdateStaticRoute(force_update, policy_change);
++    UpdateAllowedAddressPair(force_update, policy_change, false, false, false);
+ }
+ 
+ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
+@@ -1486,7 +1489,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
+     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
+     fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
+     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
+-    dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
++    ecmp6_(false), dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
+     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+     mirror_direction_(Interface::UNKNOWN), sg_list_(),
+     floating_ip_list_(), service_vlan_list_(), static_route_list_(),
+@@ -1758,7 +1761,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
+     if (nova_ip6_addr_ != Ip6Address() &&
+             data->vrf_name_ != Agent::NullString()) {
+         new_ipv6_list.insert(
+-            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp_, true));
++            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true));
+     }
+ 
+     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
+@@ -1772,6 +1775,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
+         *ecmp_changed = true;
+     }
+ 
++    if (!data->ip6_addr_.is_unspecified() && ecmp6_ != data->ecmp6_) {
++        ecmp6_ = data->ecmp6_;
++        *ecmp_changed = true;
++    }
++
+     if (data->device_type_ !=  VmInterface::DEVICE_TYPE_INVALID &&
+         device_type_ != data->device_type_) {
+         device_type_= data->device_type_;
+@@ -2445,8 +2453,13 @@ void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
+     }
+ }
+ 
+-Ip4Address VmInterface::GetGateway(const IpAddress &vm_ip) const {
+-    Ip4Address ip(0);
++IpAddress VmInterface::GetGateway(const IpAddress &vm_ip) const {
++    IpAddress ip;
++    if (vm_ip.is_v4()) {
++        ip = Ip4Address(0);
++    } else if (vm_ip.is_v6()) {
++        ip = Ip6Address();
++    }
+     if (vn_.get() == NULL) {
+         return ip;
+     }
+@@ -2458,8 +2471,11 @@ Ip4Address VmInterface::GetGateway(const IpAddress &vm_ip) const {
+         ipam = vn_->GetIpam(subnet_);
+     }
+ 
+-    if (ipam && ipam->default_gw.is_v4()) {
+-        ip = ipam->default_gw.to_v4();
++    if (ipam) {
++        if ((vm_ip.is_v4() && ipam->default_gw.is_v4()) ||
++            (vm_ip.is_v6() && ipam->default_gw.is_v6())) {
++            return ipam->default_gw;
++        }
+     }
+     return ip;
+ }
+@@ -2469,7 +2485,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
+                                          bool policy_change,
+                                          VrfEntry * old_vrf,
+                                          const Ip4Address &old_addr) {
+-    Ip4Address ip = GetGateway(primary_ip_addr_);
++    Ip4Address ip = GetGateway(primary_ip_addr_).to_v4();
+ 
+     // If interface was already active earlier and there is no force_update or
+     // policy_change, return
+@@ -2739,6 +2755,13 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change
+        allowed_address_pair_list_.list_.begin();
+     while (it != allowed_address_pair_list_.list_.end()) {
+         AllowedAddressPairSet::iterator prev = it++;
++        /* V4 AAP entries should be enabled only if ipv4_active_ is true
++         * V6 AAP entries should be enabled only if ipv6_active_ is true
++         */
++        if ((!ipv4_active_ && prev->addr_.is_v4()) ||
++            (!ipv6_active_ && prev->addr_.is_v6())) {
++            continue;
++        }
+         if (prev->del_pending_) {
+             prev->L2DeActivate(this);
+             prev->DeActivate(this);
+@@ -3213,8 +3236,8 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
+                             interface->GetGateway(ip_), Ip4Address(0));
+     } else if (ip_.is_v6()) {
+         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), 128,
+-                            interface->vn()->GetName(), true, false,
+-                            Ip6Address(), Ip6Address());
++                            interface->vn()->GetName(), true, ecmp_,
++                            interface->GetGateway(ip_), Ip6Address());
+     }
+     installed_ = true;
+ }
+@@ -3311,6 +3334,9 @@ void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
+ 
+ void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
+                                          const InstanceIp *rhs) {
++    if (lhs->ecmp_ != rhs->ecmp_) {
++        lhs->ecmp_ = rhs->ecmp_;
++    }
+ }
+ 
+ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
+@@ -3387,8 +3413,8 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
+         }
+     } else if (floating_ip_.is_v6()) {
+         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
+-                            vn_->GetName(), true, false, Ip6Address(),
+-                            GetFixedIp(interface));
++                            vn_->GetName(), true, interface->ecmp6(),
++                            Ip6Address(), GetFixedIp(interface));
+         //TODO:: callback for DNS handling
+     }
+ 
+@@ -3568,7 +3594,6 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
+ void VmInterface::StaticRoute::Activate(VmInterface *interface,
+                                         bool force_update,
+                                         bool policy_change) const {
+-    bool ecmp = false;
+     if (installed_ && force_update == false && policy_change == false)
+         return;
+ 
+@@ -3580,9 +3605,6 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
+         InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+                                                     vrf_, addr_, plen_);
+     } else if (installed_ == false || force_update) {
+-        if (addr_.is_v4()) {
+-            ecmp = interface->ecmp();
+-        }
+         Ip4Address gw_ip(0);
+         if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
+             SecurityGroupList sg_id_list;
+@@ -3593,10 +3615,19 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
+                     interface->vrf_->table_label(),
+                     sg_id_list);
+         } else {
++            IpAddress dependent_ip;
++            bool ecmp = false;
++            if (addr_.is_v4()) {
++                dependent_ip = interface->primary_ip_addr();
++                ecmp = interface->ecmp();
++            } else if (addr_.is_v6()) {
++                dependent_ip = interface->primary_ip6_addr();
++                ecmp = interface->ecmp6();
++            }
+             interface->AddRoute(vrf_, addr_, plen_,
+                                 interface->vn_->GetName(),
+                                 interface->policy_enabled(),
+-                                ecmp, IpAddress(), interface->primary_ip_addr());
++                                ecmp, IpAddress(), dependent_ip);
+         }
+     }
+ 
+@@ -3626,8 +3657,9 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
+ //Allowed addresss pair route
+ ///////////////////////////////////////////////////////////////////////////////
+ VmInterface::AllowedAddressPair::AllowedAddressPair() :
+-    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), mac_(),
+-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this), gw_ip_(0) {
++    ListEntry(), vrf_(""), addr_(), plen_(0), ecmp_(false), mac_(),
++    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this),
++    gw_ip_() {
+ }
+ 
+ VmInterface::AllowedAddressPair::AllowedAddressPair(
+@@ -3639,7 +3671,7 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(
+ }
+ 
+ VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
+-                                                    const Ip4Address &addr,
++                                                    const IpAddress &addr,
+                                                     uint32_t plen, bool ecmp,
+                                                     const MacAddress &mac) :
+     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
+@@ -3702,16 +3734,28 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
+     }
+ 
+     if (l2_entry_installed_ == false || force_update || policy_change) {
+-        Ip4Address dependent_rt = Ip4Address(0);
++        IpAddress dependent_rt;
++        Ip4Address v4ip(0);
++        Ip6Address v6ip;
++        if (addr_.is_v4()) {
++            dependent_rt = v4ip;
++            v4ip = addr_.to_v4();
++        } else if (addr_.is_v6()) {
++            dependent_rt = v6ip;
++            v6ip = addr_.to_v6();
++        }
+         if (ecmp_ == true) {
+-            dependent_rt = interface->primary_ip_addr();
++            if (addr_.is_v4()) {
++                dependent_rt = interface->primary_ip_addr();
++            } else if (addr_.is_v6()) {
++                dependent_rt = interface->primary_ip6_addr();
++            }
+         }
+ 
+         interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
+-                               interface->vrf(), addr_, Ip6Address(),
+-                               ethernet_tag_, old_layer3_forwarding,
+-                               policy_change, addr_, Ip6Address(), mac_,
+-                               dependent_rt);
++                               interface->vrf(), v4ip, v6ip, ethernet_tag_,
++                               old_layer3_forwarding, policy_change, v4ip, v6ip,
++                               mac_, dependent_rt);
+         ethernet_tag_ = interface->ethernet_tag();
+         //If layer3 forwarding is disabled
+         //  * IP + mac allowed address pair should not be published
+@@ -3734,8 +3778,15 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
+         return;
+     }
+ 
+-    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), addr_,
+-                                      Ip6Address(), ethernet_tag_, mac_);
++    Ip4Address v4ip(0);
++    Ip6Address v6ip;
++    if (addr_.is_v4()) {
++        v4ip = addr_.to_v4();
++    } else if (addr_.is_v6()) {
++        v6ip = addr_.to_v6();
++    }
++    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), v4ip,
++                                      v6ip, ethernet_tag_, mac_);
+     l2_entry_installed_ = false;
+     vrf_ref_ = NULL;
+ }
+@@ -3744,9 +3795,9 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
+                                                bool force_update,
+                                                bool policy_change) const {
+     const VnIpam *ipam = interface->vn_->GetIpam(addr_);
+-    Ip4Address ip(0);
++    IpAddress ip;
+     if (ipam) {
+-        ip = ipam->default_gw.to_v4();
++        ip = ipam->default_gw;
+     }
+ 
+     if (installed_ && force_update == false && policy_change == false &&
+@@ -3763,9 +3814,19 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
+                                                     vrf_, addr_, plen_);
+     } else if (installed_ == false || force_update || gw_ip_ != ip) {
+         gw_ip_ = ip;
+-        Ip4Address dependent_rt = Ip4Address(0);
++        IpAddress dependent_rt;
+         if (ecmp_ == true) {
+-            dependent_rt = interface->primary_ip_addr();
++            if (addr_.is_v4()) {
++                dependent_rt = interface->primary_ip_addr();
++            } else if (addr_.is_v6()) {
++                dependent_rt = interface->primary_ip6_addr();
++            }
++        } else {
++            if (addr_.is_v4()) {
++                dependent_rt = Ip4Address(0);
++            } else if (addr_.is_v6()) {
++                dependent_rt = Ip6Address();
++            }
+         }
+         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                             interface->policy_enabled(),
+diff --git a/src/vnsw/agent/oper/vm_interface.h b/src/vnsw/agent/oper/vm_interface.h
+index 4658280..ad08929 100644
+--- a/src/vnsw/agent/oper/vm_interface.h
++++ b/src/vnsw/agent/oper/vm_interface.h
+@@ -212,7 +212,7 @@ public:
+     struct AllowedAddressPair : ListEntry {
+         AllowedAddressPair();
+         AllowedAddressPair(const AllowedAddressPair &rhs);
+-        AllowedAddressPair(const std::string &vrf, const Ip4Address &addr,
++        AllowedAddressPair(const std::string &vrf, const IpAddress &addr,
+                            uint32_t plen, bool ecmp, const MacAddress &mac);
+         virtual ~AllowedAddressPair();
+ 
+@@ -228,14 +228,14 @@ public:
+         void L2DeActivate(VmInterface *interface) const;
+ 
+         mutable std::string vrf_;
+-        Ip4Address  addr_;
++        IpAddress   addr_;
+         uint32_t    plen_;
+         bool        ecmp_;
+         MacAddress  mac_;
+         mutable bool        l2_entry_installed_;
+         mutable uint32_t    ethernet_tag_;
+         mutable VrfEntryRef vrf_ref_;
+-        mutable Ip4Address  gw_ip_;
++        mutable IpAddress  gw_ip_;
+     };
+     typedef std::set<AllowedAddressPair, AllowedAddressPair>
+         AllowedAddressPairSet;
+@@ -340,7 +340,7 @@ public:
+         }
+ 
+         const IpAddress ip_;
+-        bool ecmp_;
++        mutable bool ecmp_;
+         mutable bool l2_installed_;
+         const Ip4Address gw_ip_;
+         mutable bool old_ecmp_;
+@@ -425,6 +425,7 @@ public:
+     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
+     const Interface *parent() const { return parent_.get(); }
+     bool ecmp() const { return ecmp_;}
++    bool ecmp6() const { return ecmp6_;}
+     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
+     uint8_t configurer() const {return configurer_;}
+     bool IsConfigurerSet(VmInterface::Configurer type);
+@@ -543,7 +544,7 @@ public:
+     bool GetIpamDhcpOptions(
+             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
+     const Peer *peer() const;
+-    Ip4Address GetGateway(const IpAddress &ip) const;
++    IpAddress GetGateway(const IpAddress &ip) const;
+     void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+                                 VrfEntry *vrf,
+                                 const Ip4Address &old_addr,
+@@ -734,6 +735,7 @@ private:
+     bool flood_unknown_unicast_;
+     bool mac_set_;
+     bool ecmp_;
++    bool ecmp6_;
+     // VLAN Tag and the parent interface when VLAN is enabled
+     uint16_t tx_vlan_id_;
+     uint16_t rx_vlan_id_;
+@@ -896,6 +898,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
+     bool mirror_enable_;
+     //Is interface in active-active mode or active-backup mode
+     bool ecmp_;
++    bool ecmp6_;
+     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
+     bool admin_state_;
+     std::string analyzer_name_;
+diff --git a/src/vnsw/agent/pkt/pkt_flow_info.cc b/src/vnsw/agent/pkt/pkt_flow_info.cc
+index d079906..d34210c 100644
+--- a/src/vnsw/agent/pkt/pkt_flow_info.cc
++++ b/src/vnsw/agent/pkt/pkt_flow_info.cc
+@@ -1359,20 +1359,25 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
+ 
+     const AgentRoute *rt = NULL;
+     IpAddress sip = pkt->ip_saddr;
+-    if (pkt->family == Address::INET) {
++    if (pkt->family == Address::INET ||
++        pkt->family == Address::INET6) {
+         if (l3_flow) {
+             rt = in->rt_;
+         } else if (in->vrf_) {
+-            rt = FlowEntry::GetUcRoute(in->vrf_, sip.to_v4());
++            rt = FlowEntry::GetUcRoute(in->vrf_, sip);
+         }
+-    } else if (pkt->family == Address::INET6) {
+-        //TODO:: Handle Ipv6 changes
+     }
+     // Generate event if route was waiting for traffic
+     if (rt && rt->WaitForTraffic()) {
+-        flow_table->agent()->oper_db()->route_preference_module()->
+-            EnqueueTrafficSeen(sip.to_v4(), 32, in->intf_->id(), pkt->vrf,
+-                               pkt->smac);
++        if (pkt->family == Address::INET) {
++            flow_table->agent()->oper_db()->route_preference_module()->
++                EnqueueTrafficSeen(sip, 32, in->intf_->id(), pkt->vrf,
++                                   pkt->smac);
++        } else if (pkt->family == Address::INET6) {
++            flow_table->agent()->oper_db()->route_preference_module()->
++                EnqueueTrafficSeen(sip, 128, in->intf_->id(), pkt->vrf,
++                                   pkt->smac);
++        }
+     }
+ }
+ 
+diff --git a/src/vnsw/agent/services/arp_entry.cc b/src/vnsw/agent/services/arp_entry.cc
+index 9dd4a20..257eb80 100644
+--- a/src/vnsw/agent/services/arp_entry.cc
++++ b/src/vnsw/agent/services/arp_entry.cc
+@@ -172,7 +172,7 @@ void ArpEntry::SendArpRequest() {
+     MacAddress smac;
+     if (interface_->type() == Interface::VM_INTERFACE) {
+         const VmInterface *vmi = static_cast<const VmInterface *>(interface_);
+-        ip = vmi->GetGateway(Ip4Address(key_.ip));
++        ip = vmi->GetGateway(Ip4Address(key_.ip)).to_v4();
+         vrf_id = nh_vrf_->vrf_id();
+         if (vmi->parent()) {
+             intf_id = vmi->id();
+diff --git a/src/vnsw/agent/services/arp_proto.h b/src/vnsw/agent/services/arp_proto.h
+index 308834e..f265f8d 100644
+--- a/src/vnsw/agent/services/arp_proto.h
++++ b/src/vnsw/agent/services/arp_proto.h
+@@ -163,7 +163,6 @@ private:
+     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+     void NextHopNotify(DBEntryBase *entry);
+     void InterfaceNotify(DBEntryBase *entry);
+-    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
+                     const Interface* itf);
+     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
+@@ -178,7 +177,6 @@ private:
+     DBTableBase::ListenerId vrf_table_listener_id_;
+     DBTableBase::ListenerId interface_table_listener_id_;
+     DBTableBase::ListenerId nexthop_table_listener_id_;
+-    std::map<std::string, DBTableBase::ListenerId> route_table_listener_;
+     InterfaceArpMap interface_arp_map_;
+ 
+     uint16_t max_retries_;
+@@ -194,7 +192,6 @@ public:
+                 AgentRouteTable *table);
+     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+     void ManagedDelete() { deleted = true;}
+-    void SendArpRequestForVm(InetUnicastRouteEntry *route);
+     void Delete();
+     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
+     void WalkDone(DBTableBase *partition, ArpVrfState *state);
+diff --git a/src/vnsw/agent/services/icmpv6_handler.cc b/src/vnsw/agent/services/icmpv6_handler.cc
+index 27920f8..832c4b3 100644
+--- a/src/vnsw/agent/services/icmpv6_handler.cc
++++ b/src/vnsw/agent/services/icmpv6_handler.cc
+@@ -12,8 +12,17 @@
+ #include "services/services_types.h"
+ #include <services/services_init.h>
+ #include <services/icmpv6_proto.h>
++#include <oper/route_common.h>
++#include <oper/operdb_init.h>
++#include <oper/path_preference.h>
+ #include <oper/vn.h>
+ 
++boost::system::error_code ec;
++const Ip6Address Icmpv6Handler::kSolicitedNodeIpPrefix =
++    Ip6Address::from_string("FF02:0:0:0:0:1:FF00::", ec);
++const Ip6Address Icmpv6Handler::kSolicitedNodeIpSuffixMask =
++    Ip6Address::from_string("0:0:0:0:0:0:FF:FFFF", ec);
++
+ Icmpv6Handler::Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                              boost::asio::io_service &io)
+     : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp6) {
+@@ -86,6 +95,34 @@ bool Icmpv6Handler::Run() {
+             ICMPV6_TRACE(Trace, "Ignoring Echo request with wrong cksum");
+             break;
+ 
++        case ND_NEIGHBOR_ADVERT:
++            icmpv6_proto->IncrementStatsNeighborAdvert();
++            if (CheckPacket()) {
++                nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
++                boost::array<uint8_t, 16> bytes;
++                for (int i = 0; i < 16; i++) {
++                    bytes[i] = icmp->nd_na_target.s6_addr[i];
++                }
++                Ip6Address addr(bytes);
++                uint16_t offset = sizeof(nd_neighbor_advert);
++                nd_opt_hdr *opt = (nd_opt_hdr *) (((uint8_t *)icmp) + offset);
++                if (opt->nd_opt_type != ND_OPT_TARGET_LINKADDR) {
++                    ICMPV6_TRACE(Trace, "Ignoring Neighbor Advert with no"
++                                 "Target Link-layer address option");
++                    return true;
++                }
++
++                uint8_t *buf = (((uint8_t *)icmp) + offset + 2);
++                MacAddress mac(buf);
++
++                //Enqueue a request to trigger state machine
++                agent()->oper_db()->route_preference_module()->
++                    EnqueueTrafficSeen(addr, 128, itf->id(),
++                                       itf->vrf()->vrf_id(), mac);
++                return true;
++            }
++            ICMPV6_TRACE(Trace, "Ignoring Neighbor Solicit with wrong cksum");
++            break;
+         default:
+             break;
+     }
+@@ -227,3 +264,86 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
+         (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+     Send(ifindex, vrfindex, command, PktHandler::ICMPV6);
+ }
++
++uint16_t Icmpv6Handler::FillNeighborSolicit(uint8_t *buf,
++                                            const Ip6Address &target,
++                                            uint8_t *sip, uint8_t *dip) {
++    nd_neighbor_solicit *icmp = (nd_neighbor_solicit *)buf;
++    icmp->nd_ns_type = ND_NEIGHBOR_SOLICIT;
++    icmp->nd_ns_code = 0;
++    icmp->nd_ns_cksum = 0;
++    icmp->nd_ns_reserved = 0;
++    memcpy(icmp->nd_ns_target.s6_addr, target.to_bytes().data(), 16);
++    uint16_t offset = sizeof(nd_neighbor_solicit);
++
++    // add source linklayer address information
++    nd_opt_hdr *src_linklayer_addr = (nd_opt_hdr *)(buf + offset);
++    src_linklayer_addr->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
++    src_linklayer_addr->nd_opt_len = 1;
++    //XXX instead of ETHER_ADDR_LEN, actual buffer size should be given
++    //to preven buffer overrun.
++    agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
++
++    offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
++
++    icmp->nd_ns_cksum = Icmpv6Csum(sip, dip, (icmp6_hdr *)icmp, offset);
++    return offset;
++}
++
++void Icmpv6Handler::Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src) {
++    for (int i = 0; i < 16; i++) {
++        dst[i] &= src[i];
++    }
++}
++
++void Icmpv6Handler::Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src) {
++    for (int i = 0; i < 16; i++) {
++        dst[i] |= src[i];
++    }
++}
++
++void Icmpv6Handler::SolicitedMulticastIpAndMac(const Ip6Address &dip,
++                                               uint8_t *ip, MacAddress &mac) {
++    /* A solicited-node multicast address is formed by taking the low-order
++     * 24 bits of an address (unicast or anycast) and appending those bits to
++     * the prefix FF02:0:0:0:0:1:FF00::/104 */
++
++    /* Copy the higher order 104 bits of solicited node multicast IP */
++    memcpy(ip, kSolicitedNodeIpPrefix.to_bytes().data(), 16);
++
++    uint8_t ip_bytes[16], suffix_mask_bytes[16];
++    memcpy(ip_bytes, dip.to_bytes().data(), 16);
++    memcpy(suffix_mask_bytes, kSolicitedNodeIpSuffixMask.to_bytes().data(), 16);
++    /* Extract lower order 24 bits of Destination IP */
++    Ipv6Lower24BitsExtract(ip_bytes, suffix_mask_bytes);
++
++    /* Build the solicited node multicast address by joining upper order 104
++     * bits of FF02:0:0:0:0:1:FF00::/104 with lower 24 bits of destination IP*/
++    Ipv6AddressBitwiseOr(ip, ip_bytes);
++
++    /* The ethernet address for IPv6 multicast address is 0x33-33-mm-mm-mm-mm,
++     * where mm-mm-mm-mm is a direct mapping of the last 32 bits of the
++     * IPv6 multicast address */
++    mac[0] = mac[1] = 0x33;
++    mac[2] = ip[12];
++    mac[3] = ip[13];
++    mac[4] = ip[14];
++    mac[5] = ip[15];
++}
++
++void Icmpv6Handler::SendNeighborSolicit(const Ip6Address &sip,
++                                        const Ip6Address &dip, uint32_t itf,
++                                        uint32_t vrf) {
++    pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
++    pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
++    icmp_ = pkt_info_->transp.icmp6 =
++            (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) +
++                          sizeof(ip6_hdr));
++    uint8_t solicited_mcast_ip[16], source_ip[16];
++    MacAddress dmac;
++    memcpy(source_ip, sip.to_bytes().data(), sizeof(source_ip));
++    SolicitedMulticastIpAndMac(dip, solicited_mcast_ip, dmac);
++    uint16_t len = FillNeighborSolicit((uint8_t *)icmp_, dip, source_ip,
++                                       solicited_mcast_ip);
++    SendIcmpv6Response(itf, vrf, source_ip, solicited_mcast_ip, dmac, len);
++}
+diff --git a/src/vnsw/agent/services/icmpv6_handler.h b/src/vnsw/agent/services/icmpv6_handler.h
+index 9e14d20..088a8e9 100644
+--- a/src/vnsw/agent/services/icmpv6_handler.h
++++ b/src/vnsw/agent/services/icmpv6_handler.h
+@@ -12,12 +12,16 @@
+ // ICMPv6 protocol handler
+ class Icmpv6Handler : public ProtoHandler {
+ public:
++    static const Ip6Address kSolicitedNodeIpPrefix;
++    static const Ip6Address kSolicitedNodeIpSuffixMask;
+     Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                   boost::asio::io_service &io);
+     virtual ~Icmpv6Handler();
+ 
+     bool Run();
+     bool RouterAdvertisement(Icmpv6Proto *proto);
++    void SendNeighborSolicit(const Ip6Address &sip, const Ip6Address &dip,
++                             uint32_t itf, uint32_t vrf);
+ 
+ private:
+     bool CheckPacket();
+@@ -32,6 +36,12 @@ private:
+     void SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
+                             uint8_t *src_ip, uint8_t *dest_ip,
+                             const MacAddress &dest_mac, uint16_t len);
++    void SolicitedMulticastIpAndMac(const Ip6Address &dip, uint8_t *ip,
++                                    MacAddress &mac);
++    uint16_t FillNeighborSolicit(uint8_t *buf, const Ip6Address &target,
++                                 uint8_t *sip, uint8_t *dip);
++    void Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src);
++    void Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src);
+ 
+     icmp6_hdr *icmp_;
+     uint16_t icmp_len_;
+diff --git a/src/vnsw/agent/services/icmpv6_proto.cc b/src/vnsw/agent/services/icmpv6_proto.cc
+index eaebebc..5563a76 100644
+--- a/src/vnsw/agent/services/icmpv6_proto.cc
++++ b/src/vnsw/agent/services/icmpv6_proto.cc
+@@ -13,20 +13,20 @@ Icmpv6Proto::Icmpv6Proto(Agent *agent, boost::asio::io_service &io) :
+     vn_table_listener_id_ = agent->vn_table()->Register(
+                              boost::bind(&Icmpv6Proto::VnNotify, this, _2));
+     vrf_table_listener_id_ = agent->vrf_table()->Register(
+-                             boost::bind(&Icmpv6Proto::VrfNotify, this, _2));
++                             boost::bind(&Icmpv6Proto::VrfNotify, this, _1, _2));
+     interface_listener_id_ = agent->interface_table()->Register(
+                              boost::bind(&Icmpv6Proto::InterfaceNotify,
+                                          this, _2));
+ 
+     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(PktHandler::ICMPV6, NULL));
+-    routing_advert_handler_.reset(new Icmpv6Handler(agent, pkt_info, io));
++    icmpv6_handler_.reset(new Icmpv6Handler(agent, pkt_info, io));
+ 
+     timer_ = TimerManager::CreateTimer(io, "Icmpv6Timer",
+              TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+              PktHandler::ICMPV6);
+     timer_->Start(kRouterAdvertTimeout,
+                   boost::bind(&Icmpv6Handler::RouterAdvertisement,
+-                              routing_advert_handler_.get(), this));
++                              icmpv6_handler_.get(), this));
+ }
+ 
+ Icmpv6Proto::~Icmpv6Proto() {
+@@ -56,13 +56,13 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
+         return;
+ 
+     if (vn->layer3_forwarding()) {
+-        if (vrf->GetState(vrf->get_table_partition()->parent(),
+-                          vrf_table_listener_id_))
++        Icmpv6VrfState *state = static_cast<Icmpv6VrfState *>(vrf->GetState(
++                             vrf->get_table_partition()->parent(),
++                             vrf_table_listener_id_));
++        assert(state != NULL);
++        if (state->default_routes_added()) {
+             return;
+-
+-        DBState *state = new DBState();
+-        vrf->SetState(vrf->get_table_partition()->parent(),
+-                      vrf_table_listener_id_, state);
++        }
+ 
+         boost::system::error_code ec;
+         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
+@@ -80,23 +80,19 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
+             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                                                              addr, 128,
+                                                              vn->GetName());
++        state->set_default_routes_added(true);
+     }
+ }
+ 
+-void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
++void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
+     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+     if (vrf->GetName() == agent_->fabric_vrf_name())
+         return;
+ 
+-    if (entry->IsDeleted()) {
+-        DBState *state = vrf->GetState(vrf->get_table_partition()->parent(),
+-                                       vrf_table_listener_id_);
+-        if (!state)
+-            return;
+-        vrf->ClearState(vrf->get_table_partition()->parent(),
+-                        vrf_table_listener_id_);
+-        delete state;
+-
++    Icmpv6VrfState *state = static_cast<Icmpv6VrfState *>(vrf->GetState(
++                             vrf->get_table_partition()->parent(),
++                             vrf_table_listener_id_));
++    if (state && entry->IsDeleted()) {
+         boost::system::error_code ec;
+         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
+         // enqueue delete request on fabric VRF
+@@ -107,6 +103,15 @@ void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
+         agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+                                                         vrf->GetName(),
+                                                         addr, 128, NULL);
++        state->set_default_routes_added(false);
++        state->Delete();
++    }
++    if (!state){
++        state = new Icmpv6VrfState(agent_, this, vrf,
++                                   vrf->GetInet6UnicastRouteTable());
++        state->set_route_table_listener_id(vrf->GetInet6UnicastRouteTable()->
++            Register(boost::bind(&Icmpv6VrfState::RouteUpdate, state, _1, _2)));
++        entry->SetState(part->parent(), vrf_table_listener_id_, state);
+     }
+ }
+ 
+@@ -121,3 +126,185 @@ void Icmpv6Proto::InterfaceNotify(DBEntryBase *entry) {
+     else
+         vm_interfaces_.insert(vm_interface);
+ }
++
++void Icmpv6Proto::ValidateAndClearVrfState(VrfEntry *vrf) {
++    if (!vrf->IsDeleted())
++        return;
++
++    DBState *state = static_cast<DBState *>
++        (vrf->GetState(vrf->get_table_partition()->parent(),
++                       vrf_table_listener_id_));
++    if (state) {
++        vrf->ClearState(vrf->get_table_partition()->parent(),
++                        vrf_table_listener_id_);
++    }
++}
++
++void Icmpv6VrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
++    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
++
++    Icmpv6RouteState *state = static_cast<Icmpv6RouteState *>
++        (entry->GetState(part->parent(), route_table_listener_id_));
++
++    if (entry->IsDeleted() || deleted_) {
++        if (state) {
++            entry->ClearState(part->parent(), route_table_listener_id_);
++            delete state;
++        }
++        return;
++    }
++
++    if (!state) {
++        state = new Icmpv6RouteState(this, route->vrf_id(), route->addr(),
++                                     route->plen());
++        entry->SetState(part->parent(), route_table_listener_id_, state);
++    }
++
++    //Check if there is a local VM path, if yes send a
++    //Neighbor Solicit request, to trigger route preference state machine
++    if (state && route->vrf()->GetName() != agent_->fabric_vrf_name()) {
++        state->SendNeighborSolicitForAllIntf(route);
++    }
++}
++
++bool Icmpv6VrfState::DeleteRouteState(DBTablePartBase *part, DBEntryBase *ent) {
++    RouteUpdate(part, ent);
++    return true;
++}
++
++void Icmpv6VrfState::Delete() {
++    deleted_ = true;
++    DBTableWalker *walker = agent_->db()->GetWalker();
++    walker->WalkTable(rt_table_, NULL,
++            boost::bind(&Icmpv6VrfState::DeleteRouteState, this, _1, _2),
++            boost::bind(&Icmpv6VrfState::WalkDone, this, _1, this));
++}
++
++void Icmpv6VrfState::WalkDone(DBTableBase *partition, Icmpv6VrfState *state) {
++    icmp_proto_->ValidateAndClearVrfState(vrf_);
++    rt_table_->Unregister(route_table_listener_id_);
++    table_delete_ref_.Reset(NULL);
++    delete state;
++}
++
++Icmpv6VrfState::Icmpv6VrfState(Agent *agent_ptr, Icmpv6Proto *proto,
++                               VrfEntry *vrf_entry, AgentRouteTable *table):
++    agent_(agent_ptr), icmp_proto_(proto), vrf_(vrf_entry), rt_table_(table),
++    route_table_listener_id_(DBTableBase::kInvalidId),
++    table_delete_ref_(this, table->deleter()), deleted_(false),
++    default_routes_added_(false) {
++}
++
++Icmpv6VrfState::~Icmpv6VrfState() {
++}
++
++Icmpv6RouteState::Icmpv6RouteState(Icmpv6VrfState *vrf_state, uint32_t vrf_id,
++                                   IpAddress ip, uint8_t plen) :
++    vrf_state_(vrf_state), ns_req_timer_(NULL), vrf_id_(vrf_id), vm_ip_(ip),
++    plen_(plen) {
++}
++
++Icmpv6RouteState::~Icmpv6RouteState() {
++    if (ns_req_timer_) {
++        ns_req_timer_->Cancel();
++        TimerManager::DeleteTimer(ns_req_timer_);
++    }
++}
++
++bool Icmpv6RouteState::SendNeighborSolicit() {
++    if (wait_for_traffic_map_.size() == 0) {
++        return false;
++    }
++
++    bool ret = false;
++    boost::shared_ptr<PktInfo> pkt(new PktInfo(vrf_state_->agent(),
++                                               ICMP_PKT_SIZE,
++                                               PktHandler::ICMPV6, 0));
++    Icmpv6Handler handler(vrf_state_->agent(), pkt,
++                         *(vrf_state_->agent()->event_manager()->io_service()));
++
++    WaitForTrafficIntfMap::iterator it = wait_for_traffic_map_.begin();
++    for (;it != wait_for_traffic_map_.end(); it++) {
++        if (it->second >= kMaxRetry) {
++            continue;
++        }
++
++        const VmInterface *vm_intf = static_cast<const VmInterface *>(
++             vrf_state_->agent()->interface_table()->FindInterface(it->first));
++        if (!vm_intf) {
++            continue;
++        }
++        it->second++;
++        handler.SendNeighborSolicit(gw_ip_.to_v6(), vm_ip_.to_v6(), it->first,
++                                    vrf_id_);
++        vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit();
++        ret = true;
++    }
++    return ret;
++}
++
++void Icmpv6RouteState::StartTimer() {
++    if (ns_req_timer_ == NULL) {
++        ns_req_timer_ = TimerManager::CreateTimer(
++                *(vrf_state_->agent()->event_manager()->io_service()),
++                "Neighbor Solicit Request timer for VM",
++                TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
++                PktHandler::ICMPV6);
++    }
++    ns_req_timer_->Start(kTimeout,
++                         boost::bind(&Icmpv6RouteState::SendNeighborSolicit,
++                                     this));
++}
++
++//Send Neighbor Solicit request on interface in Active-BackUp mode
++//So that preference of route can be incremented if the VM replies with
++//Neighbor Advertisement
++void Icmpv6RouteState::SendNeighborSolicitForAllIntf
++    (const InetUnicastRouteEntry *route) {
++    WaitForTrafficIntfMap new_wait_for_traffic_map;
++    for (Route::PathList::const_iterator it = route->GetPathList().begin();
++            it != route->GetPathList().end(); it++) {
++        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
++        if (path->peer() &&
++            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
++            if (path->subnet_gw_ip().is_unspecified() ||
++                !path->subnet_gw_ip().is_v6()) {
++                continue;
++            }
++            const NextHop *nh = path->ComputeNextHop(vrf_state_->agent());
++            if (nh->GetType() != NextHop::INTERFACE) {
++                continue;
++            }
++
++            const InterfaceNH *intf_nh =
++                static_cast<const  InterfaceNH *>(nh);
++            const Interface *intf =
++                static_cast<const Interface *>(intf_nh->GetInterface());
++            if (intf->type() != Interface::VM_INTERFACE) {
++                //Ignore non vm interface nexthop
++                continue;
++            }
++            gw_ip_ = path->subnet_gw_ip();
++            uint32_t intf_id = intf->id();
++            bool wait_for_traffic = path->path_preference().wait_for_traffic();
++            //Build new list of interfaces in active state
++            if (wait_for_traffic == true) {
++                WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
++                    wait_for_traffic_map_.find(intf_id);
++                if (wait_for_traffic_it == wait_for_traffic_map_.end()) {
++                    new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
++                } else {
++                    new_wait_for_traffic_map.insert(std::make_pair(intf_id,
++                        wait_for_traffic_it->second));
++                }
++            }
++        }
++    }
++
++
++    wait_for_traffic_map_ = new_wait_for_traffic_map;
++    if (wait_for_traffic_map_.size() > 0) {
++        SendNeighborSolicit();
++        StartTimer();
++    }
++}
+diff --git a/src/vnsw/agent/services/icmpv6_proto.h b/src/vnsw/agent/services/icmpv6_proto.h
+index 9196847..b76819d 100644
+--- a/src/vnsw/agent/services/icmpv6_proto.h
++++ b/src/vnsw/agent/services/icmpv6_proto.h
+@@ -28,8 +28,9 @@ public:
+     struct Icmpv6Stats {
+         Icmpv6Stats() { Reset(); }
+         void Reset() {
+-            icmpv6_router_solicit_ = icmpv6_router_advert_ =
+-                icmpv6_ping_request_ = icmpv6_ping_response_ = icmpv6_drop_ = 0;
++            icmpv6_router_solicit_ = icmpv6_router_advert_ = 0;
++            icmpv6_ping_request_ = icmpv6_ping_response_ = icmpv6_drop_ = 0;
++            icmpv6_neighbor_solicit_ = icmpv6_neighbor_advert_ = 0;
+         }
+ 
+         uint32_t icmpv6_router_solicit_;
+@@ -37,6 +38,8 @@ public:
+         uint32_t icmpv6_ping_request_;
+         uint32_t icmpv6_ping_response_;
+         uint32_t icmpv6_drop_;
++        uint32_t icmpv6_neighbor_solicit_;
++        uint32_t icmpv6_neighbor_advert_;
+     };
+ 
+     void Shutdown();
+@@ -44,7 +47,7 @@ public:
+     virtual ~Icmpv6Proto();
+     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                     boost::asio::io_service &io);
+-    void VrfNotify(DBEntryBase *entry);
++    void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+     void VnNotify(DBEntryBase *entry);
+     void InterfaceNotify(DBEntryBase *entry);
+ 
+@@ -55,19 +58,74 @@ public:
+     void IncrementStatsPingRequest() { stats_.icmpv6_ping_request_++; }
+     void IncrementStatsPingResponse() { stats_.icmpv6_ping_response_++; }
+     void IncrementStatsDrop() { stats_.icmpv6_drop_++; }
++    void IncrementStatsNeighborSolicit() { stats_.icmpv6_neighbor_solicit_++; }
++    void IncrementStatsNeighborAdvert() { stats_.icmpv6_neighbor_advert_++; }
+     const Icmpv6Stats &GetStats() const { return stats_; }
+     void ClearStats() { stats_.Reset(); }
++    void ValidateAndClearVrfState(VrfEntry *vrf);
+ 
+ private:
+     Timer *timer_;
+     Icmpv6Stats stats_;
+     VmInterfaceSet vm_interfaces_;
+-    // handler to send router advertisement upon timer expiry
+-    boost::scoped_ptr<Icmpv6Handler> routing_advert_handler_;
++    // handler to send router advertisements and neighbor solicits
++    boost::scoped_ptr<Icmpv6Handler> icmpv6_handler_;
+     DBTableBase::ListenerId vn_table_listener_id_;
+     DBTableBase::ListenerId vrf_table_listener_id_;
+     DBTableBase::ListenerId interface_listener_id_;
+     DISALLOW_COPY_AND_ASSIGN(Icmpv6Proto);
+ };
+ 
++class Icmpv6VrfState : public DBState {
++public:
++    Icmpv6VrfState(Agent *agent, Icmpv6Proto *proto, VrfEntry *vrf,
++                   AgentRouteTable *table);
++    ~Icmpv6VrfState();
++    Agent *agent() const { return agent_; }
++    Icmpv6Proto * icmp_proto() const { return icmp_proto_; }
++    void set_route_table_listener_id(const DBTableBase::ListenerId &id) {
++        route_table_listener_id_ = id;
++    }
++    bool default_routes_added() const { return default_routes_added_; }
++    void set_default_routes_added(bool value) { default_routes_added_ = value; }
++
++    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
++    void ManagedDelete() { deleted_ = true;}
++    void Delete();
++    bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
++    void WalkDone(DBTableBase *partition, Icmpv6VrfState *state);
++
++private:
++    Agent *agent_;
++    Icmpv6Proto *icmp_proto_;
++    VrfEntry *vrf_;
++    AgentRouteTable *rt_table_;
++    DBTableBase::ListenerId route_table_listener_id_;
++    LifetimeRef<Icmpv6VrfState> table_delete_ref_;
++    bool deleted_;
++    bool default_routes_added_;
++    DISALLOW_COPY_AND_ASSIGN(Icmpv6VrfState);
++};
++
++class Icmpv6RouteState : public DBState {
++public:
++    static const uint32_t kMaxRetry = 20;
++    static const uint32_t kTimeout = 1000;
++    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
++
++    Icmpv6RouteState(Icmpv6VrfState *vrf_state, uint32_t vrf_id,
++                     IpAddress vm_ip_addr, uint8_t plen);
++    ~Icmpv6RouteState();
++    bool SendNeighborSolicit();
++    void SendNeighborSolicitForAllIntf(const InetUnicastRouteEntry *route);
++    void StartTimer();
++private:
++    Icmpv6VrfState *vrf_state_;
++    Timer *ns_req_timer_;
++    uint32_t vrf_id_;
++    IpAddress vm_ip_;
++    uint8_t plen_;
++    IpAddress gw_ip_;
++    WaitForTrafficIntfMap wait_for_traffic_map_;
++};
+ #endif // vnsw_agent_icmpv6_proto_h
+diff --git a/src/vnsw/agent/services/services.sandesh b/src/vnsw/agent/services/services.sandesh
+index 9b33a7a..909a485 100644
+--- a/src/vnsw/agent/services/services.sandesh
++++ b/src/vnsw/agent/services/services.sandesh
+@@ -141,6 +141,8 @@ response sandesh Icmpv6Stats {
+     3: i32 icmpv6_ping_request;
+     4: i32 icmpv6_ping_response;
+     5: i32 icmpv6_drop;
++    6: i32 icmpv6_neighbor_solicit;
++    7: i32 icmpv6_neighbor_advert;
+ }
+ 
+ response sandesh MetadataResponse {
+diff --git a/src/vnsw/agent/services/services_sandesh.cc b/src/vnsw/agent/services/services_sandesh.cc
+index b0f76ea..3efe025 100644
+--- a/src/vnsw/agent/services/services_sandesh.cc
++++ b/src/vnsw/agent/services/services_sandesh.cc
+@@ -247,6 +247,8 @@ void ServicesSandesh::Icmpv6StatsSandesh(std::string ctxt, bool more) {
+     icmp->set_icmpv6_ping_request(istats.icmpv6_ping_request_);
+     icmp->set_icmpv6_ping_response(istats.icmpv6_ping_response_);
+     icmp->set_icmpv6_drop(istats.icmpv6_drop_);
++    icmp->set_icmpv6_neighbor_solicit(istats.icmpv6_neighbor_solicit_);
++    icmp->set_icmpv6_neighbor_advert(istats.icmpv6_neighbor_advert_);
+     icmp->set_context(ctxt);
+     icmp->set_more(more);
+     icmp->Response();
+diff --git a/src/vnsw/agent/test/test_cmn_util.h b/src/vnsw/agent/test/test_cmn_util.h
+index c11bff9..39cb8cb 100644
+--- a/src/vnsw/agent/test/test_cmn_util.h
++++ b/src/vnsw/agent/test/test_cmn_util.h
+@@ -473,4 +473,5 @@ bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Addres
+                          const PathPreference &path_preference);
+ void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
+ void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
++void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
+ #endif // vnsw_agent_test_cmn_util_h
+diff --git a/src/vnsw/agent/test/test_util.cc b/src/vnsw/agent/test/test_util.cc
+index 51fac20..8a1d5fc 100644
+--- a/src/vnsw/agent/test/test_util.cc
++++ b/src/vnsw/agent/test/test_util.cc
+@@ -3715,3 +3715,18 @@ void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate) {
+                 (agent->physical_device_vn_table()->Find(&key, true) == NULL));
+     }
+ }
++
++void AddStaticPreference(std::string intf_name, int intf_id,
++                         uint32_t value) {
++    std::ostringstream buf;
++    buf << "<virtual-machine-interface-properties>";
++    buf << "<local-preference>";
++    buf << value;
++    buf << "</local-preference>";
++    buf << "</virtual-machine-interface-properties>";
++    char cbuf[10000];
++    strcpy(cbuf, buf.str().c_str());
++    AddNode("virtual-machine-interface", intf_name.c_str(),
++            intf_id, cbuf);
++    client->WaitForIdle();
++}
