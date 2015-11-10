@@ -5,12 +5,12 @@
 #include "gmock/gmock.h"
 
 #include "query.h"
-#include "analytics/test/cdb_if_mock.h"
+#include "analytics/test/thrift_if_mock.h"
 
 class AnalyticsQueryMock : public AnalyticsQuery {
 public:
     AnalyticsQueryMock() : 
-        AnalyticsQuery(std::string(""), new CdbIfMock(),
+        AnalyticsQuery(std::string(""), new ThriftIfMock(),
                        std::map<std::string, std::string>(),
                        TtlMap(), int(0), int(0)) {
     }

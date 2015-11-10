@@ -30,7 +30,6 @@
 #include "viz_types.h"
 #include "analytics_types.h"
 #include "generator.h"
-#include "Thrift.h"
 #include <base/misc_utils.h>
 #include <analytics/buildinfo.h>
 #include <discovery/client/discovery_client.h>
