@@ -150,7 +150,7 @@ class InstanceManager(object):
         if iipv6_obj:
             self._link_and_update_iip_for_family(si, vmi_obj, iipv6_obj)
 
-    def _link_fip_to_vmi(self, si, vmi_obj, fip_id):
+    def _link_fip_to_vmi(self, vmi_obj, fip_id):
         fip = FloatingIpSM.get(fip_id)
         if fip:
             self._vnc_lib.ref_update('floating-ip', fip_id,
@@ -347,6 +347,18 @@ class InstanceManager(object):
                         InstanceIpSM.delete(iip['uuid'])
                     except NoIdError:
                         pass
+
+            for fip in vmi_obj.get_floating_ip_back_refs() or []:
+                vip = False
+                fip_cache = FloatingIpSM.locate(fip['uuid'])
+                for port_id in fip_cache.virtual_machine_interfaces:
+                    port = VirtualMachineInterfaceSM.get(port_id)
+                    if port and port.virtual_ip:
+                        vip = True
+                        break
+                if vip:
+                    self._vnc_lib.ref_update('floating-ip', fip['uuid'],
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
 
             try:
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
@@ -555,7 +567,7 @@ class InstanceManager(object):
 
         # link vmi to fip
         if 'fip-id' in nic:
-            self._link_fip_to_vmi(si, vmi_obj, nic['fip-id'])
+            self._link_fip_to_vmi(vmi_obj, nic['fip-id'])
 
         return vmi_obj
 
@@ -717,3 +729,40 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
         if fip_updated:
             self._vnc_lib.floating_ip_update(fip_obj)
+
+    def check_recreate_vip_iip(self, si):
+       pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+       if not pool:
+           return
+       vip = VirtualIpSM.get(pool.virtual_ip)
+       if not vip:
+           return
+       vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
+       if not vmi:
+           return
+       iip = InstanceIpSM.get(vmi.instance_ip)
+       if iip:
+           return
+
+       # vip iip deleted; recover by recreating
+       try:
+           vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
+       except Exceptions as e:
+           return
+       try:
+           vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
+       except Exceptions as e:
+           return
+
+       iip_obj = InstanceIp(name=vip.uuid, instance_ip_address=vip.params['address'])
+       iip_obj.add_virtual_network(vn_obj)
+       iip_obj.add_virtual_machine_interface(vmi_obj)
+       try:
+           self._vnc_lib.instance_ip_create(iip_obj)
+           InstanceIpSM.locate(iip_obj.uuid)
+           self.logger.log_notice("VIP instance IP create %s successful" % vip.params['address'])
+       except Exception as e:
+           self.logger.log_error("VIP Instance IP create failed with error %s" % str(e))
+           pass
+
+       return

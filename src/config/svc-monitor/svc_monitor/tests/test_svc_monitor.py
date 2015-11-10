@@ -801,6 +801,7 @@ class SvcMonitorTest(unittest.TestCase):
         st_obj = self.add_st('fake-template', 'fake-template')
         st = config_db.ServiceTemplateSM.get('fake-template')
         st.virtualization_type = 'virtual-machine'
+        st.params = {'service_type': 'firewall'}
         si_obj = self.add_si('fake-instance', 'fake-instance', st_obj)
         vm_obj = self.add_vm('fake-vm', 'fake-vm', si_obj)
         self._svc_monitor.upgrade()
