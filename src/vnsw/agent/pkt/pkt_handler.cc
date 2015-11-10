@@ -101,7 +101,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Compute L2/L3 forwarding mode for packet
-    ComputeForwardingMode(pkt_info);
+    ComputeForwardingMode(pkt_info, intf);
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
@@ -213,7 +213,8 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
 // - Packet uses L3 label
 // - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
 // Else forwarding mode is L2
-void PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
+void PktHandler::ComputeForwardingMode(PktInfo *pkt_info,
+                                       const Interface *intf) const {
     if (pkt_info->l3_label) {
         pkt_info->l3_forwarding = true;
         return;

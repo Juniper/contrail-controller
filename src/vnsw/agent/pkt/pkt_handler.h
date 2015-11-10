@@ -307,7 +307,8 @@ private:
     int ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt);
     int ParseVxlan(PktInfo *pkt_info, uint8_t *pkt);
     int ParseUdp(PktInfo *pkt_info, uint8_t *pkt);
-    void ComputeForwardingMode(PktInfo *pkt_info) const;
+    void ComputeForwardingMode(PktInfo *pkt_info,
+                               const Interface *intf) const;
 
     void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
     bool IgnoreFragmentedPacket(PktInfo *pkt_info);
