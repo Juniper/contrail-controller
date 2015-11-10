@@ -407,6 +407,8 @@ class SvcMonitor(object):
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
+            if st.params['service_type'] == 'loadbalancer':
+                self.netns_manager.check_recreate_vip_iip(si)
 
             vm_id_list = list(si.virtual_machines)
             for vm_id in vm_id_list:
