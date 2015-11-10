@@ -256,9 +256,9 @@ bool Dhcpv6Handler::Run() {
         return true;
     }
     vm_itf_ = static_cast<VmInterface *>(itf);
-    if (!vm_itf_->layer3_forwarding()) {
+    if (!vm_itf_->dhcp_enable_config()) {
         dhcp_proto->IncrStatsError();
-        DHCPV6_TRACE(Error, "DHCP request on VM port with disabled ip service: "
+        DHCPV6_TRACE(Error, "DHCP request on VM port with dhcp services disabled: "
                      << GetInterfaceIndex());
         return true;
     }
@@ -466,7 +466,7 @@ void Dhcpv6Handler::FillDhcpInfo(Ip6Address &addr, int plen,
 bool Dhcpv6Handler::FindLeaseData() {
     Ip6Address ip = vm_itf_->primary_ip6_addr();
     FindDomainName(ip);
-    if (vm_itf_->ipv6_active()) {
+    if (vm_itf_->IsActive()) {
         if (vm_itf_->fabric_port()) {
             // TODO
             agent()->dhcpv6_proto()->IncrStatsError();

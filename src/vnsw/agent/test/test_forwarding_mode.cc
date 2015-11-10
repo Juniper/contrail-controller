@@ -366,7 +366,7 @@ protected:
 
         //L2 route present
         WAIT_FOR(1000, 100,
-                 (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == false));
+                 (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
         //L3 route present
         WAIT_FOR(1000, 100,
                  (RouteFind(vrf_name_, local_vm_ip4_, 32) == true));
@@ -409,7 +409,7 @@ protected:
             EXPECT_TRUE(VmPortActive(input, 0) == false);
         } else if (type == "l3") {
             WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true)); //v4 active
-            EXPECT_TRUE(VmPortL2Active(input, 0) == false);
+            EXPECT_TRUE(VmPortL2Active(input, 0) == true);
         }
     }
 
