@@ -153,7 +153,7 @@ def run_coverage(env, target, source):
                '/opserver/test/analytics_test_intermediate.info ' + \
                Dir('#').abspath + '/controller/src/analytics/* ' + \
                Dir('#').abspath + '/controller/src/query_engine/* ' + \
-               Dir('#').abspath + '/controller/src/gendb/* ' + \
+               Dir('#').abspath + '/controller/src/database/* ' + \
                ' -o ' + Dir(env['TOP']).abspath + \
                '/opserver/test/analytics_test.info'
     os.system(lcov_run)
@@ -257,6 +257,7 @@ if OpEnv['OPT'] == 'coverage':
     OpEnv.Depends(run_coverage_cmd, 'analytics-test')
     OpEnv.Depends(run_coverage_cmd, 'qe-test')
     OpEnv.Depends(run_coverage_cmd, 'gendb_test_suite')
+    OpEnv.Depends(run_coverage_cmd, 'thriftif_test_suite')
     OpEnv.Depends(run_test_cmd, clean_coverage_cmd[0].name)
     OpEnv.AlwaysBuild(run_coverage_cmd)
     test_cmd = run_coverage_cmd

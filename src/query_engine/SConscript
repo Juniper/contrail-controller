@@ -14,8 +14,8 @@ env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/base/sandesh/',
                      ])
 
-env.Prepend(LIBS=[  'gendb',
-                    'cdb',
+env.Prepend(LIBS=[  'cassandra_thrift',
+                    'gendb',
                     'cpuinfo',
                     'ds',
                     'io',
@@ -48,8 +48,7 @@ def MapBuildDir(list):
 def SrcBuildDir(x):
     return '#/' + Dir('.').path + '/../' + x;
 
-libs = MapBuildDir([ 'gendb',
-        'cdb',
+libs = MapBuildDir([
         'xml',
         'base',
         'io',
@@ -59,12 +58,12 @@ libs = MapBuildDir([ 'gendb',
         'sandesh'])
 
 env.Append(LIBPATH=libs)
-env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('cdb'), SrcBuildDir('discovery/client'),
-    SrcBuildDir('gendb'), SrcBuildDir('io'), SrcBuildDir('sandesh')])
+env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('discovery/client'),
+    SrcBuildDir('io'), SrcBuildDir('sandesh')])
 
-includes = MapBuildDir(['gendb', 'cdb', 'analytics', 'query_engine'])
+includes = MapBuildDir(['analytics', 'query_engine'])
 env.Append(CPPPATH = includes)
-env.Append(CPPPATH = ['#/src/gendb', '#/src/analytics', '#/build/include/thrift'])
+env.Append(CPPPATH = ['#/src/analytics', '#/build/include/thrift'])
 
 RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.cc')
 
@@ -97,8 +96,8 @@ buildinfo_dep_libs = [
     '../../lib/libthrift.a', 
     '../base/libbase.a',
     '../base/libcpuinfo.a',
-    '../cdb/libcdb.a',
-    '../gendb/libgendb.a',
+    '../../lib/libcassandra_thrift.a',
+    '../../lib/libgendb.a',
     '../io/libio.a',
 ]
 
