@@ -26,6 +26,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
+from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     UVEAlarms, UVEAlarmInfo, AlarmElement
 from sandesh.analytics.ttypes import *
@@ -253,7 +254,8 @@ class Controller(object):
                                       ['opserver.sandesh', 'sandesh'],
                                       host_ip=self._conf.host_ip(),
                                       discovery_client=self.disc,
-                                      connect_to_collector = is_collector)
+                                      connect_to_collector = is_collector,
+                                      alarm_ack_callback=self.alarm_ack_callback)
         if test_logger is not None:
             self._logger = test_logger
         else:
@@ -846,6 +848,7 @@ class Controller(object):
                     uai2 = copy.deepcopy(uai)
                     uai2.timestamp = 0
                     uai2.token = ""
+                    uai2.ack = False
                     # This type was present earlier, but is now gone
                     if not new_uve_alarms.has_key(nm):
                         del_types.append(nm)
@@ -1192,6 +1195,42 @@ class Controller(object):
                 mr = True
             resp.response(req.context(), mr)
             np = np + 1
+
+    def alarm_ack_callback(self, alarm_req):
+        '''
+        Callback function for sandesh alarm acknowledge request.
+        This method is passed as a parameter in the init_generator().
+        Upon receiving the SandeshAlarmAckRequest, the corresponding
+        handler defined in the sandesh library would invoke this callback.
+        This function returns one of the response codes defined in
+        SandeshAlarmAckResponseCode.
+        '''
+        self._logger.debug('Alarm acknowledge request callback: %s' %
+                           str(alarm_req))
+        table = alarm_req.table
+        uname = alarm_req.table+':'+alarm_req.name
+        atype = alarm_req.type
+        try:
+            alarm_type = self.tab_alarms[table][uname][atype]
+        except KeyError:
+            return SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT
+        else:
+            # Either the timestamp sent by the client is invalid or
+            # the alarm is updated.
+            if alarm_type.timestamp != alarm_req.timestamp:
+                return SandeshAlarmAckResponseCode.INVALID_ALARM_REQUEST
+            # If the alarm was already acknowledged, just return SUCCESS.
+            if alarm_type.ack:
+                return SandeshAlarmAckResponseCode.SUCCESS
+            # All sanity checks passed. Acknowledge the alarm.
+            alarm_type.ack = True
+            alarm = copy.deepcopy(self.tab_alarms[table][uname])
+            alarm_data = UVEAlarms(name=alarm_req.name, alarms=alarm.values())
+            alarm_sandesh = AlarmTrace(data=alarm_data, table=table,
+                                       sandesh=self._sandesh)
+            alarm_sandesh.send(sandesh=self._sandesh)
+            return SandeshAlarmAckResponseCode.SUCCESS
+    # end alarm_ack_callback
 
     def disc_cb_coll(self, clist):
         '''

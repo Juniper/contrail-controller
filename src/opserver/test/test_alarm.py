@@ -5,8 +5,10 @@
 #
 
 import gevent
+from gevent import monkey; monkey.patch_all()
 import json
 import signal
+import copy
 import logging
 import mock
 import unittest
@@ -15,6 +17,11 @@ from utils.util import retry
 from collections import namedtuple
 from kafka.common import OffsetAndMessage,Message
 
+from pysandesh.util import UTCTimestampUsec
+from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
+    SandeshAlarmAckResponseCode
+from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
+    AlarmElement, UVEAlarmInfo, UVEAlarms
 from opserver.uveserver import UVEServer
 from opserver.partition_handler import PartitionHandler, UveStreamProc, \
     UveStreamer, UveStreamPart, PartInfo
@@ -266,6 +273,31 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def tearDown(self):
         self._agtask.kill()
 
+    @staticmethod
+    def create_test_alarm_info(alarm_type):
+        elems = []
+        elems.append(AlarmElement('state != UP', 'state = DOWN'))
+        alarm_info = UVEAlarmInfo(type=alarm_type, severity=1,
+                                  timestamp=UTCTimestampUsec(),
+                                  token="dummytoken",
+                                  description=elems, ack=False)
+        return alarm_info
+    # end create_test_alarm_info
+
+    def add_test_alarm(self, table, name, atype):
+        if not self._ag.tab_alarms.has_key(table):
+            self._ag.tab_alarms[table] = {}
+        key = table+':'+name
+        if not self._ag.tab_alarms[table].has_key(key):
+            self._ag.tab_alarms[table][key] = {}
+        self._ag.tab_alarms[table][key][atype] = \
+            TestAlarmGen.create_test_alarm_info(atype)
+    # end add_test_alarm
+
+    def get_test_alarm(self, table, name, atype):
+        key = table+':'+name
+        return self._ag.tab_alarms[table][key][atype]
+    # end get_test_alarm
 
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
@@ -407,6 +439,127 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         del m_get_uve["ObjectXX:uve1"]
         self._ag.disc_cb_coll([{"ip-address":"127.0.0.5","pid":0}])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info, False))
+
+    @mock.patch('opserver.alarmgen.AlarmTrace', autospec=True)
+    def test_03_alarm_ack_callback(self, MockAlarmTrace):
+        self._ag.tab_alarms = {}
+        self.add_test_alarm('table1', 'name1', 'type1')
+        self.add_test_alarm('table1', 'name1', 'type2')
+        tab_alarms_copy = copy.deepcopy(self._ag.tab_alarms)
+
+        TestCase = namedtuple('TestCase', ['name', 'input', 'output'])
+        TestInput = namedtuple('TestInput', ['alarm_ack_req'])
+        TestOutput = namedtuple('TestOutput', ['return_code', 'alarm_send',
+                                               'ack_values'])
+
+        tests = [
+            TestCase(
+                name='case 1: Invalid "table"',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='invalid_table',
+                        name='name1', type='type1',
+                        timestamp=UTCTimestampUsec())),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT,
+                    alarm_send=False, ack_values=None)
+            ),
+            TestCase(
+                name='case 2: Invalid "name"',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='invalid_name', type='type1',
+                        timestamp=UTCTimestampUsec())),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT,
+                    alarm_send=False, ack_values=None)
+            ),
+            TestCase(
+                name='case 3: Invalid "type"',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='name1', type='invalid_type',
+                        timestamp=UTCTimestampUsec())),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT,
+                    alarm_send=False, ack_values=None)
+            ),
+            TestCase(
+                name='case 4: Invalid "timestamp"',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='name1', type='type1',
+                        timestamp=UTCTimestampUsec())),
+                output=TestOutput(
+                    return_code=\
+                        SandeshAlarmAckResponseCode.INVALID_ALARM_REQUEST,
+                    alarm_send=False, ack_values=None)
+            ),
+            TestCase(
+                name='case 5: Valid ack request',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='name1', type='type2',
+                        timestamp=self.get_test_alarm(
+                            'table1', 'name1', 'type2').timestamp)),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.SUCCESS,
+                    alarm_send=True, ack_values={'type1':False, 'type2':True})
+            ),
+            TestCase(
+                name='case 6: Duplicate ack request',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='name1', type='type2',
+                        timestamp=self.get_test_alarm(
+                            'table1', 'name1', 'type2').timestamp)),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.SUCCESS,
+                    alarm_send=False, ack_values=None)
+            ),
+            TestCase(
+                name='case 7: Valid ack request - different alarm type',
+                input=TestInput(
+                    alarm_ack_req=SandeshAlarmAckRequest(table='table1',
+                        name='name1', type='type1',
+                        timestamp=self.get_test_alarm(
+                            'table1', 'name1', 'type1').timestamp)),
+                output=TestOutput(
+                    return_code=SandeshAlarmAckResponseCode.SUCCESS,
+                    alarm_send=True, ack_values={'type1':True, 'type2':True})
+            )
+        ]
+
+        for case in tests:
+            logging.info('=== Test %s ===' % (case.name))
+            return_code = self._ag.alarm_ack_callback(case.input.alarm_ack_req)
+            # verify return code
+            self.assertEqual(case.output.return_code, return_code)
+            table = case.input.alarm_ack_req.table
+            name = case.input.alarm_ack_req.name
+            if case.output.alarm_send is True:
+                # verify alarm ack message is sent
+                uvekey = table+':'+name
+                for atype, alarm in tab_alarms_copy[table][uvekey].iteritems():
+                    if atype in case.output.ack_values:
+                        alarm.ack = case.output.ack_values[atype]
+                alarms = copy.deepcopy(tab_alarms_copy[table][uvekey])
+                alarm_data = UVEAlarms(name=name, alarms=alarms.values())
+                MockAlarmTrace.assert_called_once_with(data=alarm_data,
+                    table=table, sandesh=self._ag._sandesh)
+                MockAlarmTrace().send.assert_called_once_with(
+                    sandesh=self._ag._sandesh)
+                MockAlarmTrace.reset_mock()
+            else:
+                self.assertFalse(MockAlarmTrace.called)
+            # verify the alarm table after every call to alarm_ack_callback.
+            # verify that ack field is set in the alarm table upon
+            # successful acknowledgement and the table is untouched in case
+            # of failure.
+            self.assertEqual(tab_alarms_copy, self._ag.tab_alarms)
+    # end test_03_alarm_ack_callback
+
+# end class TestAlarmGen
+
 
 def _term_handler(*_):
     raise IntSignal()
