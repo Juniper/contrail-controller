@@ -43,13 +43,6 @@ struct CommunitySpec : public BgpAttribute {
 
 class Community {
 public:
-    enum WellKnownCommunity {
-        AcceptOwn = 0xFFFF0001,
-        NoExport = 0xFFFFFF01,
-        NoAdvertise = 0xFFFFFF02,
-        NoExportSubconfed = 0xFFFFFF03,
-    };
-
     explicit Community(CommunityDB *comm_db)
         : comm_db_(comm_db) {
         refcount_ = 0;
