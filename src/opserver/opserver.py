@@ -1698,6 +1698,13 @@ class OpServer(object):
             return bottle.HTTPError(_ERRORS[errno.EINVAL],
                 'Alarm acknowledge request does not contain the fields '
                 '{%s}' % (', '.join(alarm_ack_fields - bottle_req_fields)))
+        try:
+            table = UVE_MAP[bottle.request.json['table']]
+        except KeyError:
+            # If the table name is not present in the UVE_MAP, then
+            # send the raw table name to the generator.
+            table = bottle.request.json['table']
+
         # Decode generator ip, introspect port and timestamp from the
         # the token field.
         try:
@@ -1716,7 +1723,7 @@ class OpServer(object):
                                                        token['http_port'])
         try:
             res = generator_introspect.send_alarm_ack_request(
-                bottle.request.json['table'], bottle.request.json['name'],
+                table, bottle.request.json['name'],
                 bottle.request.json['type'], token['timestamp'])
         except Exception as e:
             self._logger.error('Alarm Ack Request: Introspect request failed')
