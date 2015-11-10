@@ -107,8 +107,9 @@ class GeneratorFixture(fixtures.Fixture):
         flow.packets = flow_pkts
         if first_sample:
             action = flow.action
+            drop_reason = flow.drop_reason
         else:
-            action = None
+            action = drop_reason = None
         flow_data = FlowDataIpv4(
             flowuuid=flow.flowuuid, direction_ing=flow.direction_ing,
             sourcevn=flow.sourcevn, destvn=flow.destvn,
@@ -119,7 +120,8 @@ class GeneratorFixture(fixtures.Fixture):
             diff_packets=flow.diff_packets, action=action,
             sg_rule_uuid=flow.sg_rule_uuid,
             nw_ace_uuid=flow.nw_ace_uuid,
-            vmi_uuid=flow.vmi_uuid)
+            vmi_uuid=flow.vmi_uuid,
+            drop_reason=drop_reason)
         flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
@@ -166,7 +168,8 @@ class GeneratorFixture(fixtures.Fixture):
                                            action='drop',
                                            sg_rule_uuid=str(uuid.uuid1()),
                                            nw_ace_uuid=str(uuid.uuid1()),
-                                           vmi_uuid=self.flow_vmi_uuid))
+                                           vmi_uuid=self.flow_vmi_uuid,
+                                           drop_reason='Reason'+str(i)))
             self.egress_flows[i].samples = []
             self._logger.info(str(self.egress_flows[i]))
         
