@@ -27,8 +27,7 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE, \
-    RepairNeededKeyspaces
+    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
@@ -203,11 +202,9 @@ class DatabaseEventManager(EventManager):
     # end database_periodic
 
     def cassandra_repair(self):
-        for keyspace in RepairNeededKeyspaces:
-            repair_file_name = '/var/log/cassandra/repair-' + keyspace + '.log'
-            with open(repair_file_name, "a") as repair_file:
-                subprocess.Popen(["nodetool", "repair", "-pr", keyspace],
-                                 stdout=repair_file, stderr=repair_file)
+        subprocess.Popen(["contrail-cassandra-repair",
+                         "--log-file", "/var/log/cassandra/repair.log",
+                         "--debug"])
     #end cassandra_repair
 
     def send_disk_usage_info(self):
