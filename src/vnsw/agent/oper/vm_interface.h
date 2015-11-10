@@ -212,7 +212,7 @@ public:
     struct AllowedAddressPair : ListEntry {
         AllowedAddressPair();
         AllowedAddressPair(const AllowedAddressPair &rhs);
-        AllowedAddressPair(const std::string &vrf, const Ip4Address &addr,
+        AllowedAddressPair(const std::string &vrf, const IpAddress &addr,
                            uint32_t plen, bool ecmp, const MacAddress &mac);
         virtual ~AllowedAddressPair();
 
@@ -228,14 +228,14 @@ public:
         void L2DeActivate(VmInterface *interface) const;
 
         mutable std::string vrf_;
-        Ip4Address  addr_;
+        IpAddress   addr_;
         uint32_t    plen_;
         bool        ecmp_;
         MacAddress  mac_;
         mutable bool        l2_entry_installed_;
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
-        mutable Ip4Address  gw_ip_;
+        mutable IpAddress  gw_ip_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -340,7 +340,7 @@ public:
         }
 
         const IpAddress ip_;
-        bool ecmp_;
+        mutable bool ecmp_;
         mutable bool l2_installed_;
         const Ip4Address gw_ip_;
         mutable bool old_ecmp_;
@@ -425,6 +425,7 @@ public:
     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
+    bool ecmp6() const { return ecmp6_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
     uint8_t configurer() const {return configurer_;}
     bool IsConfigurerSet(VmInterface::Configurer type);
@@ -543,7 +544,7 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
-    Ip4Address GetGateway(const IpAddress &ip) const;
+    IpAddress GetGateway(const IpAddress &ip) const;
     void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
@@ -734,6 +735,7 @@ private:
     bool flood_unknown_unicast_;
     bool mac_set_;
     bool ecmp_;
+    bool ecmp6_;
     // VLAN Tag and the parent interface when VLAN is enabled
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
@@ -896,6 +898,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool mirror_enable_;
     //Is interface in active-active mode or active-backup mode
     bool ecmp_;
+    bool ecmp6_;
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     bool admin_state_;
     std::string analyzer_name_;

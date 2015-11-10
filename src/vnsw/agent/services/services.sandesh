@@ -141,6 +141,8 @@ response sandesh Icmpv6Stats {
     3: i32 icmpv6_ping_request;
     4: i32 icmpv6_ping_response;
     5: i32 icmpv6_drop;
+    6: i32 icmpv6_neighbor_solicit;
+    7: i32 icmpv6_neighbor_advert;
 }
 
 response sandesh MetadataResponse {
