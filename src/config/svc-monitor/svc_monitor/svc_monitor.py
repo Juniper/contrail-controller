@@ -200,7 +200,7 @@ class SvcMonitor(object):
     # end _connect_rabbit
 
     def config_log(self, msg, level):
-        self.logger.log(msg)
+        self.logger.log(msg, level)
 
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
@@ -387,6 +387,8 @@ class SvcMonitor(object):
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
+            if st.params['service_type'] == 'loadbalancer':
+                self.netns_manager.check_recreate_vip_iip(si)
 
             vm_id_list = list(si.virtual_machines)
             for vm_id in vm_id_list:
@@ -659,6 +661,9 @@ class SvcMonitor(object):
                     vm = VirtualMachineSM.locate(uuid)
                 except NoIdError:
                     self.logger.log_error("db entry missing for virtual machine %s" % uuid)
+                    continue
+                except Exception:
+                    self.logger.log_error("db entry corrupt for virtual machine %s" % uuid)
                     continue
                 if vm.service_instance:
                     continue

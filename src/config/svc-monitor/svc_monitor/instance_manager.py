@@ -107,6 +107,12 @@ class InstanceManager(object):
         InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
 
+    def _link_fip_to_vmi(self, vmi_obj, fip_id):
+        fip = FloatingIpSM.get(fip_id)
+        if fip:
+            self._vnc_lib.ref_update('floating-ip', fip_id,
+                'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
+
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
         if not static_routes:
@@ -173,8 +179,12 @@ class InstanceManager(object):
             id_perms = IdPermsType(enable=True, user_visible=user_visible)
             vn_obj.set_id_perms(id_perms)
         domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        try:
+            ipam_fq_name = [domain_name, project_name, 'default-network-ipam']
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        except NoIdError:
+            ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
+            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
         pfx_len = int(cidr[1])
@@ -271,8 +281,13 @@ class InstanceManager(object):
             elif (itf_type == svc_info.get_right_if_str() and
                     (st.params.get('service_type') ==
                      svc_info.get_lb_service_type())):
-                iip_id, vn_id = self._get_vip_vmi_iip(si)
-                nic['iip-id'] = iip_id
+                vmi = self._get_vip_vmi(si)
+                if vmi:
+                    if vmi.instance_ip:
+                        nic['iip-id'] = vmi.instance_ip
+                    if vmi.floating_ip:
+                        nic['fip-id'] = vmi.floating_ip
+                    vn_id = vmi.virtual_network
                 user_visible = False
             elif not vn_fq_str or vn_fq_str == '':
                 vn_id = self._check_create_service_vn(itf_type, si)
@@ -311,7 +326,7 @@ class InstanceManager(object):
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
                 vip = False
-                iip_cache = InstanceIpSM.locate(iip['uuid'])
+                iip_cache = InstanceIpSM.get(iip['uuid'])
                 for port_id in iip_cache.virtual_machine_interfaces:
                     port = VirtualMachineInterfaceSM.get(port_id)
                     if port and port.virtual_ip:
@@ -326,6 +341,18 @@ class InstanceManager(object):
                         InstanceIpSM.delete(iip['uuid'])
                     except NoIdError:
                         pass
+
+            for fip in vmi_obj.get_floating_ip_back_refs() or []:
+                vip = False
+                fip_cache = FloatingIpSM.get(fip['uuid'])
+                for port_id in fip_cache.virtual_machine_interfaces:
+                    port = VirtualMachineInterfaceSM.get(port_id)
+                    if port and port.virtual_ip:
+                        vip = True
+                        break
+                if vip:
+                    self._vnc_lib.ref_update('floating-ip', fip['uuid'],
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
 
             try:
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
@@ -506,6 +533,10 @@ class InstanceManager(object):
             iip_obj.add_virtual_machine_interface(vmi_obj)
             self._vnc_lib.instance_ip_update(iip_obj)
 
+        # link vmi to fip
+        if 'fip-id' in nic:
+            self._link_fip_to_vmi(vmi_obj, nic['fip-id'])
+
         return vmi_obj
 
     def _associate_vrouter(self, si, vm):
@@ -659,23 +690,20 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
         return vn_id
 
-    def _get_vip_vmi_iip(self, si):
+    def _get_vip_vmi(self, si):
         if not si.loadbalancer_pool:
-            return None, None
+            return None
 
         pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
         if not pool.virtual_ip:
-            return None, None
+            return None
 
         vip = VirtualIpSM.get(pool.virtual_ip)
         if not vip.virtual_machine_interface:
-            return None, None
+            return None
 
         vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
-        if not vmi.instance_ip or not vmi.virtual_network:
-            return None, None
-
-        return vmi.instance_ip, vmi.virtual_network
+        return vmi
 
     def add_fip_to_vip_vmi(self, vmi, fip):
         iip = InstanceIpSM.get(vmi.instance_ip)
@@ -708,3 +736,40 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
         if fip_updated:
             self._vnc_lib.floating_ip_update(fip_obj)
+
+    def check_recreate_vip_iip(self, si):
+       pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+       if not pool:
+           return
+       vip = VirtualIpSM.get(pool.virtual_ip)
+       if not vip:
+           return
+       vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
+       if not vmi:
+           return
+       iip = InstanceIpSM.get(vmi.instance_ip)
+       if iip:
+           return
+
+       # vip iip deleted; recover by recreating
+       try:
+           vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
+       except Exceptions as e:
+           return
+       try:
+           vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
+       except Exceptions as e:
+           return
+
+       iip_obj = InstanceIp(name=vip.uuid, instance_ip_address=vip.params['address'])
+       iip_obj.add_virtual_network(vn_obj)
+       iip_obj.add_virtual_machine_interface(vmi_obj)
+       try:
+           self._vnc_lib.instance_ip_create(iip_obj)
+           InstanceIpSM.locate(iip_obj.uuid)
+           self.logger.log_notice("VIP instance IP create %s successful" % vip.params['address'])
+       except Exception as e:
+           self.logger.log_error("VIP Instance IP create failed with error %s" % str(e))
+           pass
+
+       return
