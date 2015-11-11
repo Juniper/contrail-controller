@@ -1339,8 +1339,13 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
 }
 
 void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
-                                          bool old_l2_active,
+                                          bool old_active,
                                           bool old_dhcp_enable) {
+    if (!IsActive()) {
+        DeleteMacVmBinding(old_vrf);
+        return;
+    }
+
     //Update DHCP and DNS flag in Interface Class.
     if (dhcp_enable_) {
         dhcp_enabled_ = true;
@@ -1350,17 +1355,7 @@ void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
         dns_enabled_ = false;
     }
 
-    if (L2Deactivated(old_l2_active)) {
-        DeleteMacVmBinding(old_vrf);
-        return;
-    }
-
-    //Interface has been activated or
-    //dhcp toggled for already activated interface
-    if (L2Activated(old_l2_active) ||
-        (l2_active_ && (old_dhcp_enable != dhcp_enable_))) {
-        UpdateMacVmBinding();
-    }
+    UpdateMacVmBinding();
 }
 
 // Apply the latest configuration
@@ -1589,12 +1584,6 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         bool val = vn ? vn->layer3_forwarding() : false;
         if (layer3_forwarding_ != val) {
             layer3_forwarding_ = val;
-            ret = true;
-        }
-
-        bool bridging_val = vn ? vn->bridging() : false;
-        if (bridging_ != bridging_val) {
-            bridging_ = bridging_val;
             ret = true;
         }
 
@@ -2023,11 +2012,6 @@ bool VmInterfaceGlobalVrouterData::OnResync(const InterfaceTable *table,
                                             bool *force_update) const {
     bool ret = false;
 
-    if (bridging_ != vmi->bridging_) {
-        vmi->bridging_ = bridging_;
-        *force_update = true;
-        ret = true;
-    }
     if (layer3_forwarding_ != vmi->layer3_forwarding_) {
         vmi->layer3_forwarding_ = layer3_forwarding_;
         *force_update = true;
