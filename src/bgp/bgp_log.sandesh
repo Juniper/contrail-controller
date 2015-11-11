@@ -123,6 +123,8 @@ trace sandesh BgpConfigNeighborCreateTrace {
     2: string name;
     16: "AdminDown";
     17: bool admin_down;
+    18: "Passive";
+    19: bool passive;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -143,6 +145,8 @@ systemlog sandesh BgpConfigNeighborCreateLog {
     2: string name;
     16: "AdminDown";
     17: bool admin_down;
+    18: "Passive";
+    19: bool passive;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -173,6 +177,8 @@ trace sandesh BgpConfigNeighborUpdateTrace {
     2: string name;
     16: "AdminDown";
     17: bool admin_down;
+    18: "Passive";
+    19: bool passive;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";
@@ -193,6 +199,8 @@ systemlog sandesh BgpConfigNeighborUpdateLog {
     2: string name;
     16: "AdminDown";
     17: bool admin_down;
+    18: "Passive";
+    19: bool passive;
     9: "Local Identifier";
     10: string local_identifier;
     11: "Local AS";

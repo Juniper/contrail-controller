@@ -353,6 +353,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                    GetIndex())),
           send_ready_(true),
           admin_down_(config->admin_down()),
+          passive_(config->passive()),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
@@ -391,6 +392,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_admin_down(admin_down_);
+    peer_info.set_passive(passive_);
     peer_info.set_peer_type(
         PeerType() == BgpProto::IBGP ? "internal" : "external");
     peer_info.set_local_asn(local_as_);
@@ -558,6 +560,12 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (admin_down_ != config->admin_down()) {
         SetAdminState(config->admin_down());
         peer_info.set_admin_down(admin_down_);
+    }
+
+    if (passive_ != config->passive()) {
+        passive_ = config->passive();
+        peer_info.set_passive(passive_);
+        clear_session = true;
     }
 
     // Check if there is any change in the peer address.
@@ -1587,6 +1595,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     nbr.set_deleted(IsDeleted());
     nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     nbr.set_admin_down(admin_down_);
+    nbr.set_passive(passive_);
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_peer_id(bgp_identifier_string());
     nbr.set_peer_asn(peer_as());

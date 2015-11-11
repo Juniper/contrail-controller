@@ -139,6 +139,7 @@ std::vector<std::string> AuthenticationData::KeysToStringDetail() const {
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           admin_down_(false),
+          passive_(false),
           peer_as_(0),
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
@@ -153,6 +154,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     group_name_ = rhs.group_name_;
     type_ = rhs.type_;
     admin_down_ = rhs.admin_down_;
+    passive_ = rhs.passive_;
     peer_as_ = rhs.peer_as_;
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
@@ -170,6 +172,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(instance_name_, rhs.instance_name_);
     KEY_COMPARE(type_, rhs.type_);
     KEY_COMPARE(admin_down_, rhs.admin_down_);
+    KEY_COMPARE(passive_, rhs.passive_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);
