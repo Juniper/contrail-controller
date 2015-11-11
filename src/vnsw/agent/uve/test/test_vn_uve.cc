@@ -53,6 +53,8 @@ class UveVnUveTest : public ::testing::Test {
 public:
     UveVnUveTest() : util_() {
         peer_ = CreateBgpPeer("127.0.0.1", "Bgp Peer");
+        agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     virtual ~UveVnUveTest() {
         DeleteBgpPeer(peer_);
@@ -82,7 +84,7 @@ public:
         return false;
     }
     void FlowSetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -106,7 +108,7 @@ public:
         client->WaitForIdle(3);
         WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
         WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
 
     void AclAdd(int id) {
@@ -122,6 +124,8 @@ public:
 
     TestUveUtil util_;
     BgpPeer *peer_;
+    Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(UveVnUveTest, VnAddDel_1) {
@@ -553,13 +557,13 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, flow_proto_->FlowCount());
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    flow_proto_->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
 
@@ -573,8 +577,7 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     EXPECT_EQ(4U, uve1->get_egress_flow_count());
 
     DeleteFlow(flow, 1);
-    WAIT_FOR(1000, 1000,
-             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
+    WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 2U)));
     vnut->SendVnStats(false);
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
     EXPECT_EQ(2U, uve1->get_egress_flow_count());
@@ -633,7 +636,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    flow_proto_->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -651,8 +654,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
 
     //Delete a flow
     DeleteFlow(flow, 1);
-    WAIT_FOR(1000, 1000,
-             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
+    WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 2U)));
 
     //Trigger VN UVE send
     vnut->SendVnStats(false);
@@ -1083,7 +1085,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, flow_proto_->FlowCount());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -1182,7 +1184,7 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, flow_proto_->FlowCount());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();

@@ -395,9 +395,12 @@ void Shutdown() {
 }
 
 class SgTest : public ::testing::Test {
+public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
 
         const VmInterface *port = GetVmPort(1);
         EXPECT_EQ(port->sg_list().list_.size(), 0U);
@@ -413,7 +416,7 @@ class SgTest : public ::testing::Test {
         char acl_name[1024];
         uint16_t max_len = sizeof(acl_name) - 1;
 
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         strncpy(acl_name, "sg_acl1", max_len);
         strncat(acl_name, "egress-access-control-list", max_len);
@@ -430,6 +433,9 @@ class SgTest : public ::testing::Test {
         const VmInterface *port = GetVmPort(1);
         EXPECT_EQ(port->sg_list().list_.size(), 0U);
     }
+
+    Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,

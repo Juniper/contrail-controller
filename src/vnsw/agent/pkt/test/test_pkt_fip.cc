@@ -20,16 +20,19 @@ class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, (0U == agent_->pkt()->flow_table()->Size()));
+        WAIT_FOR(1000, 100, (flow_proto_->FlowCount()));
     }
 
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, (0U == agent_->pkt()->flow_table()->Size()));
+        WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
     }
 
+    Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 struct PortInfo input1[] = {
@@ -736,7 +739,7 @@ TEST_F(FlowTest, VmToServer_1) {
 TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
     SecurityGroupList sg_id_list;
     ComponentNHKeyList comp_nh_list;
     int remote_server_ip = 0x0A0A0A0A;
@@ -767,14 +770,14 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
                 CompositeNH::kInvalidComponentNHIdx);
     }
 
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     // send reverse packet from Server to VM
     TxTcpPacket(vhost->id(), vhost_addr,
                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                 80, 10000, false);
     sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
-    EXPECT_EQ(3U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(3U, flow_proto_->FlowCount());
 
     FlowDelete(vnet[1]->vrf()->GetName(), "169.254.169.254", vnet_addr[1],
                IPPROTO_TCP, 80, 10000, vnet[1]->flow_key_nh()->id());
@@ -787,8 +790,7 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
                   Ip4Address::from_string("0.0.0.0"), 0, NULL);
     client->WaitForIdle();
     client->WaitForIdle();
-    WAIT_FOR(1000, 100,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 // Validate destination virtual-network name in flow-table
@@ -936,26 +938,25 @@ TEST_F(FlowTest, FipFabricToVm_1) {
 
 // NAT Flow aging
 TEST_F(FlowTest, FlowAging_1) {
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Trigger to Age the flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     usleep(AGE_TIME*2);
     //Trigger to Age the flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in flow-stats and aging time is up
-    WAIT_FOR(1000, 1000,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 1000, (0U == flow_proto_->FlowCount()));
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1, 1);
     client->WaitForIdle();
@@ -963,13 +964,13 @@ TEST_F(FlowTest, FlowAging_1) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 10, 20, false, 3);
     client->WaitForIdle();
-    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(6U, flow_proto_->FlowCount());
 
     // Trigger aging cycle
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
-    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(6U, flow_proto_->FlowCount());
 
     //Trigger flow-aging
     usleep(AGE_TIME*2);
@@ -978,8 +979,7 @@ TEST_F(FlowTest, FlowAging_1) {
 
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 // Duplicate Nat-Flow test 
@@ -1020,8 +1020,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     EXPECT_FALSE(vnet[1]->HasFloatingIp(Address::INET));
 
     // Deleting floating-ip will remove associated flows also
-    WAIT_FOR(1000, 1000,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 1000, (0U == flow_proto_->FlowCount()));
 
     //Send the traffic again (to convert Nat-flow to Non-Nat flow)
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -1051,8 +1050,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -1117,13 +1115,12 @@ TEST_F(FlowTest, NonNat2Nat) {
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    WAIT_FOR(1000, 100,
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 // Two floating-IPs for a given interface. Negative test-case
 TEST_F(FlowTest, TwoFloatingIp) {
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
 
     //Create a Nat Flow
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -1138,7 +1135,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
                    vnet[3]->flow_key_nh()->id()) == false) {
         EXPECT_STREQ("", "Error quering flow");
     }
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     const VmInterface::FloatingIpList list = vnet[1]->floating_ip_list();
     EXPECT_EQ(1U, list.list_.size());
@@ -1162,7 +1159,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
         EXPECT_STREQ("", "Error quering flow");
     }
 
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Send traffic in reverse direction for the second floating IP
     TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
@@ -1188,8 +1185,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 100, 
-             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 
     //Delete the second floating IP created by this test-case
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
@@ -1325,7 +1321,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //client->EnqueueFlowFlush();
     //client->WaitForIdle();
@@ -1334,7 +1330,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 }
 
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
@@ -1351,14 +1347,14 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
@@ -1378,14 +1374,14 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
@@ -1405,7 +1401,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     FlowEntry *fe = FlowGet(vnet[1]->id(), "2.1.1.1", "2.1.1.100", 1, 0, 0,
             vnet[1]->flow_key_nh()->id());
@@ -1416,7 +1412,7 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
@@ -1431,7 +1427,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
@@ -1453,7 +1449,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
@@ -1498,7 +1494,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("vrf1")->vrf_id());
@@ -1517,7 +1513,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 30, NULL);
     vnet_table[2]->DeleteReq(bgp_peer_, "default-project:vn2:vn2", addr, 32, NULL);
     client->WaitForIdle();
-    WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 3000, (0U == flow_proto_->FlowCount()));
 }
 
 TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
@@ -1529,7 +1525,7 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
@@ -1546,7 +1542,7 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 30, NULL);
     vnet_table[2]->DeleteReq(bgp_peer_, "default-project:vn2:vn2", addr, 32, NULL);
     client->WaitForIdle();
-    WAIT_FOR(1000, 3000, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 3000, (0U == flow_proto_->FlowCount()));
 }
 
 TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
@@ -1554,7 +1550,7 @@ TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
@@ -1577,7 +1573,7 @@ TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1",
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
@@ -1589,7 +1585,7 @@ TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
 
     // since fip2 route should be preffered removing association of fip3 should
     // not remove flow entries.
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     fe = FlowGet(vnet[1]->id(), vnet_addr[1], "20.1.1.1", IPPROTO_UDP, 10, 20,
             vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
@@ -1605,7 +1601,7 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.99", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "2.1.1.99",
                             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
@@ -1628,7 +1624,7 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT_with_fixed_ip) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.99", 10, 20, 1, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     FlowEntry *fe = FlowGet(vnet[1]->id(), vnet_addr[1], "2.1.1.99",
                             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());

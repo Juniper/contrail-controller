@@ -32,9 +32,15 @@ public:
     FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                    boost::asio::io_service &io);
     bool Enqueue(boost::shared_ptr<PktInfo> msg);
+
+    FlowEntry *Find(const FlowKey &key) const;
     uint16_t FlowTableIndex(uint16_t sport, uint16_t dport) const;
     FlowTable *GetTable(uint16_t index) const;
+    FlowTable *GetFlowTable(const FlowKey &key) const;
+    uint32_t FlowCount() const;
 
+    void VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
+                        uint32_t *out_count);
 private:
     std::vector<FlowWorkQueue *> flow_work_queue_list_;
     std::vector<FlowTable *> flow_table_list_;

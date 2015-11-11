@@ -89,7 +89,8 @@ public:
 protected:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        flow_proto_ = agent_->pkt()->get_flow_proto();
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         CreateVmportFIpEnv(input, 2);
         CreateVmportFIpEnv(input1, 2);
         CreateVmportFIpEnv(input2, 2);
@@ -138,9 +139,10 @@ protected:
         EXPECT_FALSE(VmPortFindRetDel(4));
         EXPECT_FALSE(VmPortFindRetDel(5));
         EXPECT_FALSE(VmPortFindRetDel(6));
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 //Add an VRF translate ACL to send all ssh traffic to "2.1.1.1"

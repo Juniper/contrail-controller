@@ -39,7 +39,7 @@ void PktModule::Init(bool run_with_vrouter) {
     flow_proto_.reset(new FlowProto(agent_, io));
     flow_proto_->Init();
 
-    flow_mgmt_manager_.reset(new FlowMgmtManager(agent_, flow_table()));
+    flow_mgmt_manager_.reset(new FlowMgmtManager(agent_));
     flow_mgmt_manager_->Init();
 }
 
@@ -84,6 +84,6 @@ void PktModule::CreateInterfaces() {
                             transport);
 }
 
-FlowTable *PktModule::flow_table() const {
-    return flow_proto_->GetTable(0);
+FlowTable *PktModule::flow_table(uint16_t index) const {
+    return flow_proto_->GetTable(index);
 }

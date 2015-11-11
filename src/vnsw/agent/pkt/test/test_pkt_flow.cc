@@ -101,6 +101,7 @@ static void FlowStatsTimerStartStop (bool stop) {
 class FlowTest : public ::testing::Test {
 public:
     FlowTest() : peer_(NULL), agent_(Agent::GetInstance()) {
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
         vhost = static_cast<InetInterface *>(Agent::GetInstance()->
                 interface_table()->FindActiveEntry(key.get()));
@@ -110,19 +111,19 @@ public:
         int i = 1000;
         while (i > 0) {
             i--;
-            if (agent()->pkt()->flow_table()->Size() == count) {
+            if (get_flow_proto()->FlowCount() == count) {
                 break;
             }
             client->WaitForIdle();
             usleep(1);
         }
-        return (agent()->pkt()->flow_table()->Size() == count);
+        return (get_flow_proto()->FlowCount() == count);
     }
 
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -165,18 +166,16 @@ public:
     }
 
     static void RunFlowAudit() {
-        FlowTableKSyncObject *ksync_obj = 
-            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
-        ksync_obj->AuditProcess();
-        ksync_obj->AuditProcess();
+        KSync *ksync_obj = Agent::GetInstance()->ksync();
+        ksync_obj->ksync_flow_memory()->AuditProcess();
+        ksync_obj->ksync_flow_memory()->AuditProcess();
     }
 
     static bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip, 
                              const char *dip, int proto, int sport, int dport,
                              int nh_id) {
-        FlowTableKSyncObject *ksync_obj = 
-            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
-        if (hash_id >= ksync_obj->flow_table_entries_count()) {
+        KSync *ksync_obj = Agent::GetInstance()->ksync();
+        if (hash_id >= ksync_obj->ksync_flow_memory()->flow_table_entries_count()) {
             return false;
         }
         if (ksync_init_) {
@@ -207,10 +206,8 @@ public:
         if (ksync_init_) {
             return;
         }
-        FlowTableKSyncObject *ksync_obj = 
-            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
-
-        for (size_t count = 0; count < ksync_obj->flow_table_entries_count();
+        KSync *ksync_obj = Agent::GetInstance()->ksync();
+        for (size_t count = 0; count < ksync_obj->ksync_flow_memory()->flow_table_entries_count();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
             vr_flow->fe_action = VR_FLOW_ACTION_DROP;
@@ -225,9 +222,11 @@ public:
     static void FlowAdd(int hash_id, int vrf, const char *sip, const char *dip,
                         int proto, int sport, int dport, const char *nat_sip,
                         const char *nat_dip, int nat_vrf) {
-        boost::shared_ptr<PktInfo> pkt_1(new PktInfo(Agent::GetInstance(),
+        Agent *agent = Agent::GetInstance();
+        boost::shared_ptr<PktInfo> pkt_1(new PktInfo(agent,
                                                      100, PktHandler::FLOW, 0));
-        PktFlowInfo flow_info_1(pkt_1, Agent::GetInstance()->pkt()->flow_table());
+        PktFlowInfo flow_info_1(agent, pkt_1,
+                                agent->pkt()->get_flow_proto()->GetTable(0));
         PktFlowInfo *flow_info = &flow_info_1;
         MatchPolicy policy;
         string svn = "svn";
@@ -268,7 +267,6 @@ public:
         PktControlInfo out;
 
         flow_info->Add(pkt, &in, &out);
-        //agent()->pkt()->flow_table()->Add(pkt, flow_info);
         client->WaitForIdle();
     }
     
@@ -560,7 +558,7 @@ public:
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 3, 1);
@@ -675,11 +673,14 @@ protected:
     }
 
     Agent *agent() {return agent_;}
+    FlowProto *get_flow_proto() const { return flow_proto_; }
 
 private:
     static bool ksync_init_;
     BgpPeer *peer_;
+public:
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 bool FlowTest::ksync_init_;
@@ -724,7 +725,7 @@ TEST_F(FlowTest, FlowAdd_1) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
 
     FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
     Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
@@ -748,7 +749,7 @@ TEST_F(FlowTest, FlowAdd_1) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
 }
@@ -756,7 +757,7 @@ TEST_F(FlowTest, FlowAdd_1) {
 //Egress flow test (IP fabric to VMPort - Same VN)
 //Flow creation using GRE packets
 TEST_F(FlowTest, FlowAdd_2) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
@@ -812,13 +813,13 @@ TEST_F(FlowTest, FlowAdd_2) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -878,14 +879,14 @@ TEST_F(FlowTest, FlowAdd_3) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -944,14 +945,14 @@ TEST_F(FlowTest, FlowAdd_4) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -975,24 +976,24 @@ TEST_F(FlowTest, FlowAdd_5) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Send duplicate flow creation request
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = flow[0].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -1023,13 +1024,13 @@ TEST_F(FlowTest, FlowAdd_6) {
 
 
     CreateFlow(fwd_flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = fwd_flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -1038,12 +1039,12 @@ TEST_F(FlowTest, FlowAdd_6) {
     //Send request for reverse flow again
     CreateFlow(rev_flow, 1);
     //Send request for forward flow again 
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = fwd_flow[0].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 }
@@ -1064,14 +1065,14 @@ TEST_F(FlowTest, FlowIndexChange) {
         }
     };
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(1);
     EXPECT_TRUE(((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) == VR_FLOW_FLAG_ACTIVE));
 
     /* Change Index for flow. */
     CreateFlow(flow_new, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     /* verify the entry on hash id 1 being deleted */
     EXPECT_TRUE(((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != VR_FLOW_FLAG_ACTIVE));
@@ -1146,7 +1147,7 @@ TEST_F(FlowTest, FlowAge_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     client->WaitForIdle();
 
@@ -1157,7 +1158,7 @@ TEST_F(FlowTest, FlowAge_1) {
     //of difference in stats between oper flow and Kernel flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Update reverse-flow stats to postpone aging of forward-flow
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
@@ -1169,7 +1170,7 @@ TEST_F(FlowTest, FlowAge_1) {
 
     //Verify that forward-flow is not removed even though it is eligible to be removed
     //because reverse-flow is not aged
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     // Sleep for age-time
     usleep(tmp_age_time + 10);
@@ -1179,7 +1180,7 @@ TEST_F(FlowTest, FlowAge_1) {
     client->WaitForIdle();
 
     //Verify that both flows get removed after reverse-flow ages
-    WAIT_FOR(100, 1, (0U == agent()->pkt()->flow_table()->Size()));
+    WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
 
     //Restore flow aging time
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
@@ -1218,7 +1219,7 @@ TEST_F(FlowTest, FlowAge_3) {
 
     FlowStatsTimerStartStop(true);
     CreateFlow(flow, 4);
-    EXPECT_EQ(8U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(8U, get_flow_proto()->FlowCount());
     FlowStatsTimerStartStop(false);
 
     // Flow entries are created with #pkts = 1. 
@@ -1229,8 +1230,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == agent()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     // Delete of 2 linked flows
     CreateFlow(flow, 2);
@@ -1241,8 +1242,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == agent()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     // Delete 2 out of 4 linked entries
     CreateFlow(flow, 2);
@@ -1253,8 +1254,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (2U == agent()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 1000, (2U == get_flow_proto()->FlowCount()));
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     EXPECT_TRUE(FlowGet(1, vm1_ip, vm2_ip, 1, 0, 0, false, -1, -1,
                         GetFlowKeyNH(input[0].intf_id)));
     EXPECT_TRUE(FlowGet(1, vm2_ip, vm1_ip, 1, 0, 0, false, -1, -1,
@@ -1263,8 +1264,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == agent()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Restore flow aging time
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
@@ -1295,7 +1296,7 @@ TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
         CreateFlow(flow, 2);
     }
     EXPECT_EQ((total_flows * 2), 
-            agent()->pkt()->flow_table()->Size());
+            get_flow_proto()->FlowCount());
     //Set the flow age time to 200 milliseconds
     agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
@@ -1309,8 +1310,8 @@ TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
         WAIT_FOR(5000, 1000, (agent()->flow_stats_collector()->run_counter_ >= (passes * 2)));
         client->WaitForIdle(2);
 
-    WAIT_FOR(5000, 500, (0U == agent()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    WAIT_FOR(5000, 500, (0U == get_flow_proto()->FlowCount()));
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Restore flow aging time
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
@@ -1341,7 +1342,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 0, 0, 
                         false, -1, -1, GetFlowKeyNH(input[0].intf_id)));
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm5_ip,
@@ -1353,7 +1354,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 
     //Restore flow aging time
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
@@ -1467,7 +1468,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 
@@ -1564,7 +1565,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 TEST_F(FlowTest, NatFlowAdd_1) {
@@ -1677,7 +1678,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
                                       GetFlowKeyNH(input3[0].intf_id)) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNonNat_2) {
@@ -1716,7 +1717,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_1) {
@@ -1750,7 +1751,7 @@ TEST_F(FlowTest, NatAddOldNat_1) {
  
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_2) {
@@ -1784,7 +1785,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_3) {
@@ -1819,7 +1820,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
     DeleteFlow(nat_flow, 1);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
 
 //Create same Nat flow with different flow handles
@@ -1865,7 +1866,7 @@ TEST_F(FlowTest, FlowAudit) {
     FlowStatsTimerStartStop(false);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
     KFlowPurgeHold();
 
     string vrf_name =
@@ -1893,7 +1894,7 @@ TEST_F(FlowTest, FlowAudit) {
     agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
     agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
     KFlowPurgeHold();
 }
@@ -2041,7 +2042,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
 }
 
 TEST_F(FlowTest, Flow_with_encap_change) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
@@ -2132,7 +2133,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
 
 TEST_F(FlowTest, Flow_return_error) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
@@ -2229,7 +2230,7 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
 
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const FlowEntry *rev_fe = fe->reverse_flow_entry();
@@ -2244,7 +2245,7 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(3U, in_count);
     EXPECT_EQ(3U, out_count);
 
@@ -2253,7 +2254,7 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
 }
 
 TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
@@ -2287,7 +2288,7 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
 
 TEST_F(FlowTest, Flow_entry_reuse) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
@@ -2357,7 +2358,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
 
     CreateFlow(nat_flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
     uint16_t linklocal_src_port = fe->linklocal_src_port();
 
@@ -2375,7 +2376,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
                         IPPROTO_TCP, 3000, linklocal_port,
                         GetFlowKeyNH(input[0].intf_id)) != NULL);
     
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                         fabric_port, linklocal_src_port,
                         vhost->flow_key_nh()->id()) != NULL);
@@ -2425,7 +2426,7 @@ TEST_F(FlowTest, LinkLocalFlow_loopback_1) {
 
     CreateFlow(nat_flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     EXPECT_TRUE(FlowGet(0, vhost_ip_addr, mdata_ip.c_str(), IPPROTO_TCP,
                         fabric_port, 3000,
@@ -2520,7 +2521,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
     FlowStatsTimerStartStop(true);
     CreateFlow(nat_flow, 3);
     client->WaitForIdle();
-    EXPECT_EQ(6, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(6, get_flow_proto()->FlowCount());
     uint16_t linklocal_src_port[3];
     for (uint32_t i = 0; i < 3; i++) {
         const FlowEntry *fe = nat_flow[i].pkt_.FlowFetch();
@@ -2611,7 +2612,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     FlowStatsTimerStartStop(true);
     CreateFlow(nat_flow, 4);
     client->WaitForIdle();
-    EXPECT_EQ(8, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(8, get_flow_proto()->FlowCount());
     uint16_t linklocal_src_port[4];
     for (uint32_t i = 0; i < 4; i++) {
         const FlowEntry *fe = nat_flow[i].pkt_.FlowFetch();
@@ -2666,8 +2667,8 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
 // Check that flow limit per VM works
 TEST_F(FlowTest, FlowLimit_1) {
     Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
-    uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
-    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
+    uint32_t vm_flows = agent_->max_vm_flows();
+    agent_->set_max_vm_flows(3);
 
     /* Add Local VM route of vrf3 to vrf5 */
     CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
@@ -2713,7 +2714,7 @@ TEST_F(FlowTest, FlowLimit_1) {
     CreateFlow(flow, 4);
     client->WaitForIdle();
     int nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, get_flow_proto()->FlowCount());
     FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
                             IPPROTO_TCP, 300, 200, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
@@ -2726,14 +2727,14 @@ TEST_F(FlowTest, FlowLimit_1) {
     DeleteRoute("vrf3", vm1_ip);
     client->WaitForIdle();
     client->WaitForIdle();
-    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
+    agent_->set_max_vm_flows(vm_flows);
 }
 
 // Check that flow limit per VM doesnt include the short flows in the system
 TEST_F(FlowTest, FlowLimit_2) {
     Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
-    uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
-    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
+    uint32_t vm_flows = agent_->max_vm_flows();
+    agent_->set_max_vm_flows(3);
 
     TestFlow short_flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
@@ -2747,7 +2748,7 @@ TEST_F(FlowTest, FlowLimit_2) {
     };
     FlowStatsTimerStartStop(true);
     CreateFlow(short_flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     int nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
     FlowEntry *fe = FlowGet(1, vm1_ip, "115.115.115.115", 1,
                             0, 0, nh_id);
@@ -2798,7 +2799,7 @@ TEST_F(FlowTest, FlowLimit_2) {
     FlowStatsTimerStartStop(true);
     CreateFlow(flow, 4);
     client->WaitForIdle();
-    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(6U, get_flow_proto()->FlowCount());
 
     nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
     fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
@@ -2819,11 +2820,11 @@ TEST_F(FlowTest, FlowLimit_2) {
     DeleteRoute("vrf3", vm1_ip);
     client->WaitForIdle();
     client->WaitForIdle();
-    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
+    agent_->set_max_vm_flows(vm_flows);
 }
 
 TEST_F(FlowTest, Flow_introspect_delete_all) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
@@ -2865,7 +2866,7 @@ TEST_F(FlowTest, Flow_Source_Vn_1) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 }
 
 /* Create flow for a VN which has ACL attached to it.
@@ -2893,7 +2894,7 @@ TEST_F(FlowTest, FlowPolicyUuid_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -2905,7 +2906,7 @@ TEST_F(FlowTest, FlowPolicyUuid_1) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 }
 
 TEST_F(FlowTest, FlowPolicyUuid_2) {
@@ -2933,7 +2934,7 @@ TEST_F(FlowTest, FlowPolicyUuid_2) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -2944,7 +2945,7 @@ TEST_F(FlowTest, FlowPolicyUuid_2) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-network", "vn6", "access-control-list", "acl4");
     FlowTeardown();
     DelNode("access-control-list", "acl4");
@@ -2982,7 +2983,7 @@ TEST_F(FlowTest, FlowPolicyUuid_3) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -2994,7 +2995,7 @@ TEST_F(FlowTest, FlowPolicyUuid_3) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3037,7 +3038,7 @@ TEST_F(FlowTest, FlowPolicyUuid_4) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3048,7 +3049,7 @@ TEST_F(FlowTest, FlowPolicyUuid_4) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3098,7 +3099,7 @@ TEST_F(FlowTest, FlowPolicyUuid_5) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3110,7 +3111,7 @@ TEST_F(FlowTest, FlowPolicyUuid_5) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3153,7 +3154,7 @@ TEST_F(FlowTest, FlowPolicyUuid_6) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3164,7 +3165,7 @@ TEST_F(FlowTest, FlowPolicyUuid_6) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3206,7 +3207,7 @@ TEST_F(FlowTest, FlowPolicyUuid_7) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3218,7 +3219,7 @@ TEST_F(FlowTest, FlowPolicyUuid_7) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3268,7 +3269,7 @@ TEST_F(FlowTest, FlowPolicyUuid_8) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3279,7 +3280,7 @@ TEST_F(FlowTest, FlowPolicyUuid_8) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3338,7 +3339,7 @@ TEST_F(FlowTest, DISABLED_FlowPolicyUuid_9) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3349,7 +3350,7 @@ TEST_F(FlowTest, DISABLED_FlowPolicyUuid_9) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
 
     strncpy(acl_name, "sg_acl1", max_len);
@@ -3404,7 +3405,7 @@ TEST_F(FlowTest, FlowPolicyUuid_10) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3415,7 +3416,7 @@ TEST_F(FlowTest, FlowPolicyUuid_10) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
     DelLink("virtual-machine-interface", "flow6", "security-group", "sg_i");
 
@@ -3472,7 +3473,7 @@ TEST_F(FlowTest, FlowPolicyUuid_11) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3483,7 +3484,7 @@ TEST_F(FlowTest, FlowPolicyUuid_11) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
     DelLink("virtual-machine-interface", "flow6", "security-group", "sg_i");
 
@@ -3532,7 +3533,7 @@ TEST_F(FlowTest, FlowPolicyUuid_12) {
     TxTcpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1, 2, true, 10);
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
@@ -3544,7 +3545,7 @@ TEST_F(FlowTest, FlowPolicyUuid_12) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
     DelLink("virtual-machine-interface", "flow6", "security-group", "sg_i");
 
@@ -3597,7 +3598,7 @@ TEST_F(FlowTest, FlowPolicyUuid_13) {
     TxTcpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1, 2, true, 10);
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
@@ -3610,7 +3611,7 @@ TEST_F(FlowTest, FlowPolicyUuid_13) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
     DelLink("virtual-machine-interface", "flow6", "security-group", "sg_e2");
 
@@ -3670,7 +3671,7 @@ TEST_F(FlowTest, FlowPolicyUuid_14) {
     TxTcpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1, 2, true, 10);
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
@@ -3683,7 +3684,7 @@ TEST_F(FlowTest, FlowPolicyUuid_14) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
     DelLink("virtual-machine-interface", "flow6", "security-group", "sg_e2");
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg_i2");
@@ -3743,7 +3744,7 @@ TEST_F(FlowTest, FlowPolicyUuid_15) {
 
     CreateFlow(nat_flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
     const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::LINKLOCAL_FLOW),
                  fe->nw_ace_uuid().c_str());
@@ -3780,7 +3781,7 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const FlowEntry *rev_fe = fe->reverse_flow_entry();
@@ -3899,7 +3900,7 @@ TEST_F(FlowTest, FlowPolicyLogAction_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
 
     //Verify the network policy uuid
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
@@ -3921,7 +3922,7 @@ TEST_F(FlowTest, FlowPolicyLogAction_1) {
     //cleanup
     FlushFlowTable();
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     DelLink("virtual-network", "vn6", "access-control-list", "acl4");
     FlowTeardown();
     DelNode("access-control-list", "acl4");

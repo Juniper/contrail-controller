@@ -56,7 +56,7 @@ void AgentStatsReq::HandleRequest() const {
         pkt->Response();
 
         FlowStatsResp *flow = new FlowStatsResp();
-        flow->set_flow_active(agent->pkt()->flow_table()->Size());
+        flow->set_flow_active(stats->FlowCount());
         flow->set_flow_created(stats->flow_created());
         flow->set_flow_aged(stats->flow_aged());
         flow->set_flow_drop_due_to_max_limit
@@ -64,7 +64,7 @@ void AgentStatsReq::HandleRequest() const {
         flow->set_flow_drop_due_to_linklocal_limit
             (stats->flow_drop_due_to_linklocal_limit());
         flow->set_flow_max_system_flows(agent->flow_table_size());
-        flow->set_flow_max_vm_flows(agent->pkt()->flow_table()->max_vm_flows());
+        flow->set_flow_max_vm_flows(agent->max_vm_flows());
         flow->set_flow_export_msg_drops
             (agent->flow_stats_collector()->flow_export_msg_drops());
         flow->set_context(context());
@@ -186,4 +186,14 @@ void AgentStats::ResetFlowDelMinMaxStats(uint64_t time) {
     max_flow_deletes_per_second_ = kInvalidFlowCount;
     min_flow_deletes_per_second_ = kInvalidFlowCount;
     prev_flow_delete_time_ = time;
+}
+
+void AgentStats::RegisterFlowCountFn(FlowCountFn cb) {
+    flow_count_fn_ = cb;
+}
+
+uint32_t AgentStats::FlowCount() const {
+    if (flow_count_fn_.empty())
+        return 0;
+    return flow_count_fn_();
 }

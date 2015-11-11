@@ -110,7 +110,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    uint64_t active_flow_count = agent_->pkt()->flow_table()->Size();
+    uint64_t active_flow_count = agent_->pkt()->get_flow_proto()->FlowCount();
     if (prev_stats_.get_active_flows() != active_flow_count || first) {
         stats.set_active_flows(active_flow_count);
         prev_stats_.set_active_flows(active_flow_count);

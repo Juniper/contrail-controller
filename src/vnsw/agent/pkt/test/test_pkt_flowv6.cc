@@ -51,7 +51,7 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent()->pkt()->get_flow_proto()->FlowCount());
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -100,7 +100,7 @@ public:
     Agent *agent() {return agent_;}
 
     virtual void SetUp() {
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent()->pkt()->get_flow_proto()->FlowCount());
         hash_id = 1;
         client->Reset();
         CreateV6VmportEnv(input, 3, 1);
@@ -197,13 +197,13 @@ TEST_F(FlowTestV6, FlowAdd_1) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent()->pkt()->get_flow_proto()->FlowCount());
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
 }
@@ -211,7 +211,7 @@ TEST_F(FlowTestV6, FlowAdd_1) {
 //Egress flow test (IP fabric to VMPort - Same VN)
 //Flow creation using GRE packets
 TEST_F(FlowTestV6, FlowAdd_2) {
-    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, agent()->pkt()->get_flow_proto()->FlowCount());
 
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
@@ -269,13 +269,13 @@ TEST_F(FlowTestV6, FlowAdd_2) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent()->pkt()->get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -334,14 +334,14 @@ TEST_F(FlowTestV6, FlowAdd_3) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -402,14 +402,14 @@ TEST_F(FlowTestV6, FlowAdd_4) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -433,24 +433,24 @@ TEST_F(FlowTestV6, FlowAdd_5) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent()->pkt()->get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Send duplicate flow creation request
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent()->pkt()->get_flow_proto()->FlowCount());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = flow[0].pkt_.FlowFetch();
     vn = fe->data().vn_entry.get();
-    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent()->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 }

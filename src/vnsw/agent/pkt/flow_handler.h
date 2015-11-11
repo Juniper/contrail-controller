@@ -16,8 +16,9 @@ class PktFlowInfo;
 class FlowHandler : public ProtoHandler {
 public:
     FlowHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                boost::asio::io_service &io, FlowProto *proto) :
-        ProtoHandler(agent, info, io), flow_proto_(proto) {
+                boost::asio::io_service &io, FlowProto *proto, uint16_t index) :
+                ProtoHandler(agent, info, io), flow_proto_(proto),
+                flow_table_index_(index) {
     }
     virtual ~FlowHandler() {}
 
@@ -31,6 +32,7 @@ public:
 
 private:
     FlowProto *flow_proto_;
+    uint16_t flow_table_index_;
 };
 
 #endif // vnsw_agent_flow_handler_hpp

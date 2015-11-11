@@ -63,6 +63,8 @@ VmInterface *flow0, *flow1;
 class UveVrouterUveTest : public ::testing::Test {
 public:
     UveVrouterUveTest() : util_(), agent_(Agent::GetInstance()) {
+        agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     static void TestSetup() {
     }
@@ -72,7 +74,7 @@ public:
         scheduler->Enqueue(task);
     }
     void FlowSetUp() {
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -97,7 +99,7 @@ public:
         client->PortDelNotifyWait(2);
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
 
     bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap, 
@@ -287,6 +289,7 @@ public:
     }
     TestUveUtil util_;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(UveVrouterUveTest, VmAddDel) {
@@ -935,9 +938,9 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
         }
     };
 
-    EXPECT_EQ(0, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(0, flow_proto_->FlowCount());
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, flow_proto_->FlowCount());
 
     u->vrouter_stats_collector()->run_counter_ = 0;
     util_.EnqueueVRouterStatsCollectorTask(1);
@@ -975,7 +978,7 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     u->vrouter_stats_collector()->run_counter_ = 0;
     vr->clear_count();
     CreateFlow(flow2, 2);
-    EXPECT_EQ(8U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(8U, flow_proto_->FlowCount());
 
     util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
@@ -1155,9 +1158,9 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
     vr->set_prev_flow_setup_rate_export_time(t);
 
     //Create Flows
-    EXPECT_EQ(0, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(0, flow_proto_->FlowCount());
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, flow_proto_->FlowCount());
 
     //Trigger framing and send of UVE message
     vr->SendVrouterMsg();
@@ -1184,7 +1187,7 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
     };
 
     CreateFlow(flow2, 1);
-    EXPECT_EQ(6U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(6U, flow_proto_->FlowCount());
 
     //Trigger framing and send of UVE message
     vr->SendVrouterMsg();
@@ -1200,7 +1203,7 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
 
     //Delete flows and verify delete rate
     DeleteFlow(flow2, 1);
-    WAIT_FOR(1000, 1000, ((agent_->pkt()->flow_table()->Size() == 4U)));
+    WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 4U)));
 
     //Trigger framing and send of UVE message
     vr->SendVrouterMsg();

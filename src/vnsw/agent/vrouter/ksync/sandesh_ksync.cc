@@ -53,7 +53,6 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
 }
 
 void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
-    FlowTable *table = flow_ksync_->ksync()->agent()->pkt()->flow_table();
     assert(r->get_fr_op() == flow_op::FLOW_TABLE_GET || 
            r->get_fr_op() == flow_op::FLOW_SET);
 
@@ -64,16 +63,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();
-        int family = (r->get_fr_family() == AF_INET)? Address::INET :
-            Address::INET6;
-        IpAddress sip, dip;
-        VectorToIp(r->get_fr_flow_ip(), family, &sip, &dip);
-        FlowKey key(r->get_fr_flow_nh_id(), sip, dip,
-                    r->get_fr_flow_proto(),
-                    ntohs(r->get_fr_flow_sport()),
-                    ntohs(r->get_fr_flow_dport()));
-        FlowEntry *entry = table->Find(key);
+        const FlowTableKSyncEntry *ksync_entry =
+            dynamic_cast<const FlowTableKSyncEntry *>(ioc->GetKSyncEntry());
+        if (ksync_entry == NULL) {
+            assert(0);
+        }
 
+        FlowEntry *entry = ksync_entry->flow_entry().get();
         if (GetErrno() == EBADF) {
             string op;
             if (r->get_fr_flags() != 0) {
@@ -82,12 +78,18 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                 op = "Delete";
             }
 
+            int family = (r->get_fr_family() == AF_INET)? Address::INET :
+                Address::INET6;
+            IpAddress sip, dip;
+            VectorToIp(r->get_fr_flow_ip(), family, &sip, &dip);
             LOG(ERROR, "Error Flow entry op = " << op
-                       << " nh = " << (int) key.nh
-                       << " src = " << sip.to_string() << ":" << key.src_port
-                       << " dst = " << dip.to_string() << ":" << key.dst_port
-                       << " proto = " << (int)key.protocol
-                       << " flow_handle = " << (int) r->get_fr_index());
+                << " nh = " << (int) r->get_fr_flow_nh_id()
+                << " src = " << sip.to_string() << ":"
+                << ntohs(r->get_fr_flow_sport())
+                << " dst = " << dip.to_string()
+                << ntohs(r->get_fr_flow_dport())
+                << " proto = " << (int)r->get_fr_flow_proto()
+                << " flow_handle = " << (int) r->get_fr_index());
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
                 entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
             }
@@ -115,6 +117,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                 }
             }
 
+            FlowTable *table = entry->flow_table();
             bool update_rev_flow = false;
             if ((int)entry->flow_handle() != r->get_fr_index()) {
                 update_rev_flow = true;

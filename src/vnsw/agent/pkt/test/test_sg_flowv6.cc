@@ -382,8 +382,7 @@ public:
         char acl_name[1024];
         uint16_t max_len = sizeof(acl_name) - 1;
 
-        WAIT_FOR(100, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size()
-                    == 0U));
+        WAIT_FOR(100, 1000, (proto_->FlowCount() == 0U));
         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         client->WaitForIdle();
         strncpy(acl_name, "sg_acl1", max_len);
@@ -400,6 +399,14 @@ public:
 
         WAIT_FOR(100, 1000, (vnet[1]->sg_list().list_.size() == 0U));
     }
+
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        proto_ = agent_->pkt()->get_flow_proto();
+    }
+
+    Agent *agent_;
+    FlowProto *proto_;
 };
 
 bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,

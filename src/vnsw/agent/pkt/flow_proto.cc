@@ -2,6 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 #include "pkt/flow_proto.h"
+#include <init/agent_param.h>
+#include <pkt/flow_mgmt.h>
+#include <cmn/agent_stats.h>
 
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kFlowHandlerTask.c_str(), PktHandler::FLOW, io) {
@@ -10,7 +13,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     uint16_t table_count = agent->flow_thread_count();
     assert(table_count >= kMinTableCount && table_count <= kMaxTableCount);
     for (uint8_t i = 0; i < table_count; i++) {
-        flow_table_list_.push_back(new FlowTable(agent_));
+        flow_table_list_.push_back(new FlowTable(agent_, i));
     }
 
     TaskScheduler *scheduler = agent_->task_scheduler();
@@ -28,6 +31,8 @@ FlowProto::~FlowProto() {
 }
 
 void FlowProto::Init() {
+    agent_->stats()->RegisterFlowCountFn(boost::bind(&FlowProto::FlowCount,
+                                                     this));
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
         flow_table_list_[i]->Init();
     }
@@ -50,7 +55,8 @@ void FlowProto::Shutdown() {
 
 FlowHandler *FlowProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                           boost::asio::io_service &io) {
-    return new FlowHandler(agent(), info, io, this);
+    uint32_t index = FlowTableIndex(info->sport, info->dport);
+    return new FlowHandler(agent(), info, io, this, index);
 }
 
 bool FlowProto::Validate(PktInfo *msg) {
@@ -67,6 +73,11 @@ bool FlowProto::Validate(PktInfo *msg) {
 
 uint16_t FlowProto::FlowTableIndex(uint16_t sport, uint16_t dport) const {
     return (sport ^ dport) % (flow_work_queue_list_.size());
+}
+
+FlowTable *FlowProto::GetFlowTable(const FlowKey &key) const {
+    uint16_t index = FlowTableIndex(key.src_port, key.dst_port);
+    return flow_table_list_[index];
 }
 
 bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
@@ -90,4 +101,26 @@ void FlowProto::FlushFlows() {
 
 FlowTable *FlowProto::GetTable(uint16_t index) const {
     return flow_table_list_[index];
+}
+
+uint32_t FlowProto::FlowCount() const {
+    uint32_t count = 0;
+    for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
+        count += flow_table_list_[i]->Size();
+    }
+    return count;
+}
+
+void FlowProto::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
+                               uint32_t *out_count) {
+    *in_count = 0;
+    *out_count = 0;
+    if (vn == NULL)
+        return;
+
+    agent_->pkt()->flow_mgmt_manager()->VnFlowCounters(vn, in_count, out_count);
+}
+
+FlowEntry *FlowProto::Find(const FlowKey &key) const {
+    return GetFlowTable(key)->Find(key);
 }

@@ -35,6 +35,7 @@ struct PortInfo input4[] = {
 class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         //                 -<vnet2, vrf2>----<vnet5,vrf3>
         // <vnet1, vrf1>----<vnet3, vrf2>----<vnet6,vrf3>----<vnet8, vrf4>
         //                 -<vnet4, vrf2>----<vnet7,vrf3>
@@ -153,7 +154,9 @@ class EcmpTest : public ::testing::Test {
         EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
         EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
     }
+
 public:
+    FlowProto *get_flow_proto() const { return flow_proto_; }
     uint32_t GetServiceVlanNH(uint32_t intf_id, std::string vrf_name) const {
         const VmInterface *vm_intf = VmInterfaceGet(intf_id);
         const VrfEntry *vrf = VrfGet(vrf_name.c_str());
@@ -241,6 +244,7 @@ public:
     uint32_t mpls_label_3;
     Peer *bgp_peer;
     Agent *agent_;
+    FlowProto *flow_proto_;
     AgentXmppChannel *channel;
 };
 
@@ -604,8 +608,7 @@ TEST_F(EcmpTest, EcmpTest_10) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf2", "9.1.1.1", 32);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
-                         flow_table()->Size() == 0));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
 }
 
@@ -704,7 +707,7 @@ TEST_F(EcmpTest, EcmpTest_11) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn3:vn3", "9.1.1.1", 32);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
 }
 
@@ -791,7 +794,7 @@ TEST_F(EcmpTest, EcmpTest_12) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, VrfFind("default-project:vn10:vn10", true) == false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
@@ -902,7 +905,7 @@ TEST_F(EcmpTest, EcmpTest_13) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, VrfFind("default-project:vn10:vn10", true) == false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
@@ -985,7 +988,7 @@ TEST_F(EcmpTest, EcmpTest_14) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, VrfFind("default-project:vn10:vn10", true) == false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
@@ -1042,7 +1045,7 @@ TEST_F(EcmpTest, EcmpTest_15) {
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
@@ -1124,8 +1127,7 @@ TEST_F(EcmpTest, EcmpTest_16) {
     DelVrf("vrf9");
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 1000, 
-             Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    WAIT_FOR(1000, 1000, get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
@@ -1315,7 +1317,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
     DeleteVmportEnv(input1, 3, true);
     DeleteVmportEnv(input2, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
 }
@@ -1359,7 +1361,7 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf10", "11.1.1.0", 24);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf10"));
 }
 
@@ -1501,8 +1503,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 1000,
-            (Agent::GetInstance()->pkt()->flow_table()->Size() == 0));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
@@ -1649,8 +1650,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
-                          flow_table()->Size() == 0));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf11"));
@@ -1805,7 +1805,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     DelVrf("service-vrf1");
     client->WaitForIdle();
     //Make sure all flows are also deleted
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -2044,8 +2044,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    WAIT_FOR(10000, 1000, (Agent::GetInstance()->pkt()->
-                          flow_table()->Size() == 0));
+    WAIT_FOR(10000, 1000, (get_flow_proto()->FlowCount() == 0));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
@@ -2143,7 +2142,7 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
             "virtual-machine-interface", "vnet13");
     DeleteVmportEnv(input2, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     DelVrf("service-vrf1");
@@ -2234,7 +2233,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     DeleteVmportEnv(input2, 1, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
 }
@@ -2337,8 +2336,7 @@ TEST_F(EcmpTest, VgwFlag) {
                ip, 0, new ControllerVmRoute(bgp_peer));
     InetInterface::DeleteReq(agent->interface_table(), "vgw1");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
-                flow_table()->Size() == 0));
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
 int main(int argc, char *argv[]) {

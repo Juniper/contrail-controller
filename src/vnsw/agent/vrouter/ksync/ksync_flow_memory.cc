@@ -23,6 +23,7 @@
 #include <services/services_init.h>
 #include <uve/stats_collector.h>
 #include <services/icmp_error_proto.h>
+#include <pkt/flow_proto.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
@@ -235,15 +236,16 @@ bool KSyncFlowMemory::AuditProcess() {
                         vflow_entry->fe_key.flow_proto,
                         ntohs(vflow_entry->fe_key.flow_sport),
                         ntohs(vflow_entry->fe_key.flow_dport));
-            FlowEntry *flow_p = ksync_->agent()->pkt()->flow_table()->
-                                Find(key);
+            FlowTable *flow_table =
+                ksync_->agent()->pkt()->get_flow_proto()->GetFlowTable(key);
+            FlowEntry *flow_p = flow_table->Find(key);
             if (flow_p == NULL) {
                 /* Create Short flow only for non-existing flows. */
-                FlowEntryPtr flow(flow_p->Allocate(key));
+                FlowEntryPtr flow(flow_p->Allocate(key, flow_table));
                 flow->InitAuditFlow(flow_idx);
                 AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                             "entry to short flow");
-                ksync_->agent()->pkt()->flow_table()->Add(flow.get(), NULL);
+                flow_table->Add(flow.get(), NULL);
             }
 
         }

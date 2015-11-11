@@ -29,6 +29,7 @@ class FlowStatsTest : public ::testing::Test {
 public:
     FlowStatsTest() : response_count_(0), type_specific_response_count_(0), 
     num_entries_(0), agent_(Agent::GetInstance()) {
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     void FlowParamsResponse(Sandesh *sandesh) {
         response_count_++;
@@ -88,7 +89,7 @@ public:
         assert(flow1);
 
         /* verify that there are no existing Flows */
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
     void FlowTeardown() {
         client->Reset();
@@ -103,6 +104,7 @@ public:
     uint32_t type_specific_response_count_;
     uint32_t num_entries_;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(FlowStatsTest, SandeshFlowParams) {
@@ -129,7 +131,7 @@ TEST_F(FlowStatsTest, SandeshFlowEntries) {
 
     CreateFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
@@ -145,7 +147,7 @@ TEST_F(FlowStatsTest, SandeshFlowEntries) {
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
     FlowTeardown();
 }
 
@@ -165,7 +167,7 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
 
     CreateFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
@@ -187,7 +189,7 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
     WAIT_FOR(1000, 1000, (col->Size() == 0));
     FlowTeardown();
 }
