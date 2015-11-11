@@ -524,6 +524,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
         }
 
         /* Send publish unconditionally */
+        resp->pub_sent_++;
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
                                serviceName, resp->publish_msg_);
         SendHttpPostMessage(resp->publish_hdr_, serviceName,
