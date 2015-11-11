@@ -307,7 +307,7 @@ class ZookeeperClient(object):
             current_value = self.read_node(path)
             if current_value == value:
                 return True;
-            raise ResourceExistsError(path, str(current_value))
+            raise ResourceExistsError(path, str(current_value), 'zookeeper')
     # end create_node
 
     def delete_node(self, path, recursive=False):

@@ -1039,7 +1039,10 @@ class VncZkClient(object):
         fq_name_str = ':'.join(fq_name)
         zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
-        return self._zk_client.read_node(zk_path, include_timestamp=True)
+        obj_uuid, znode_stat = self._zk_client.read_node(
+            zk_path, include_timestamp=True)
+
+        return obj_uuid, znode_stat.ctime
     # end get_fq_name_to_uuid_mapping
 
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
@@ -1168,12 +1171,13 @@ class VncDbClient(object):
                     str(id))
             except ResourceExistsError as rexist:
                 # see if stale and if so delete stale
-                _, epoch_msecs = self._zk_db.get_fq_name_to_uuid_mapping(
+                _, ctime = self._zk_db.get_fq_name_to_uuid_mapping(
                                        obj_type, fq_name)
+                epoch_msecs = ctime
                 try:
-                    self._cassandra_db.uuid_to_fq_name(id)
+                    self._cassandra_db.uuid_to_fq_name(str(id))
                     # not stale
-                    raise
+                    raise ResourceExistsError(fq_name, str(id), 'cassandra')
                 except NoIdError:
                     lock_msecs = float(time.time()*1000 - epoch_msecs)
                     stale_msecs_cfg = 1000 * float(

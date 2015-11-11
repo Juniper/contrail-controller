@@ -65,14 +65,20 @@ class MaxRabbitPendingError(VncError):
 # end class MaxRabbitPendingError
 
 class ResourceExistsError(VncError):
-    def __init__(self, eexists_fq_name, eexists_id):
+    def __init__(self, eexists_fq_name, eexists_id, location=None):
         self._eexists_fq_name = eexists_fq_name
         self._eexists_id = eexists_id
+        self._eexists_location = location
     # end __init__
 
     def __str__(self):
-        return 'FQ Name: %s exists already with ID: %s' \
-            % (self._eexists_fq_name, self._eexists_id)
+        if self._eexists_location:
+            return 'FQ Name: %s exists already with ID: %s at %s' \
+                % (self._eexists_fq_name, self._eexists_id,
+                   self._eexists_location)
+        else:
+            return 'FQ Name: %s exists already with ID: %s' \
+                % (self._eexists_fq_name, self._eexists_id)
     # end __str__
 # end class ResourceExistsError
 
