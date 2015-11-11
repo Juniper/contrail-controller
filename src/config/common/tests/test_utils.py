@@ -421,6 +421,7 @@ class FakeIfmapClient(object):
         subscribe_item = etree.Element('resultItem')
         subscribe_item.extend(deepcopy(upd_root))
         from_name = escape(upd_root[0].attrib['name'])
+        to_name = None
         if not from_name in cls._graph:
             cls._graph[from_name] = {'ident': upd_root[0], 'links': {}}
 
@@ -436,10 +437,6 @@ class FakeIfmapClient(object):
             link_info = {'meta': upd_root[2], 'other': upd_root[1]}
             cls._graph[from_name]['links'][link_key] = link_info
 
-            # reverse mapping only for strong refs
-            # currently refs from same type to each other is weak ref
-            from_type = from_name.split(':')[1]
-            to_type = to_name.split(':')[1]
             if not to_name in cls._graph:
                 cls._graph[to_name] = {'ident': upd_root[1], 'links': {}}
             link_key = '%s %s' % (meta_name, from_name)
@@ -451,12 +448,13 @@ class FakeIfmapClient(object):
 
         subscribe_result = etree.Element('updateResult')
         subscribe_result.append(subscribe_item)
-        return subscribe_result
+        return subscribe_result, (from_name, to_name)
     # end _update_publish
 
     @classmethod
     def _delete_publish(cls, del_root):
         from_name = escape(del_root[0].attrib['name'])
+        to_name = None
         if 'filter' in del_root.attrib:
             meta_name = del_root.attrib['filter']
             if len(del_root) == 1:
@@ -500,13 +498,11 @@ class FakeIfmapClient(object):
                 subscribe_item.append(to_ident_elem)
             subscribe_item.append(deepcopy(link_info['meta']))
             subscribe_result.append(subscribe_item)
+            meta_name = re.sub(
+                "{.*}", "contrail:", link_info['meta'][0].tag)
             if 'other' in link_info:
                 other_name = escape(link_info['other'].attrib['name'])
-                meta_name = re.sub(
-                    "{.*}", "contrail:", link_info['meta'][0].tag)
                 rev_link_key = '%s %s' % (meta_name, from_name)
-                from_type = from_name.split(':')[1]
-                other_type = other_name.split(':')[1]
                 if other_name in cls._graph:
                     del cls._graph[other_name]['links'][rev_link_key]
                     if not cls._graph[other_name]['links']:
@@ -522,7 +518,7 @@ class FakeIfmapClient(object):
             subscribe_item.extend(deepcopy(del_root))
             subscribe_result.append(subscribe_item)
 
-        return subscribe_result
+        return subscribe_result, (from_name, to_name)
     # end _delete_publish
 
     @staticmethod
@@ -534,22 +530,32 @@ class FakeIfmapClient(object):
             pub_env = pub_env.encode('utf-8')
             env_root = etree.fromstring(pub_env)
             poll_result = etree.Element('pollResult')
+            _items = []
             for pub_root in env_root[0]:
                 #            pub_root = env_root[0][0]
                 if pub_root.tag == 'update':
-                    subscribe_result = cls._update_publish(pub_root)
+                    subscribe_result, info = cls._update_publish(pub_root)
+                    _items.append(('update', subscribe_result, info))
                 elif pub_root.tag == 'delete':
-                    subscribe_result = cls._delete_publish(pub_root)
+                    subscribe_result, info = cls._delete_publish(pub_root)
+                    _items.append(('delete', subscribe_result, info))
                 else:
                     raise Exception(
                         "Unknown ifmap publish: %s"
                         % (etree.tostring(pub_root)))
                 poll_result.append(subscribe_result)
 
-            cls._published_messages.append(poll_result)
             for sl in cls._subscribe_lists:
                 if sl is not None:
                     sl.put(poll_result)
+
+            for (oper, result, info) in _items:
+                if oper == 'update':
+                    cls._published_messages.append((result, info))
+                else:
+                    cls._published_messages = [
+                        (r,i) for (r, i) in cls._published_messages
+                        if (i != info and i != info [::-1])]
             result = etree.Element('publishReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
@@ -610,8 +616,10 @@ class FakeIfmapClient(object):
         elif method == 'subscribe':
             session_id = int(body._SubscribeRequest__session_id)
             subscriber_queue = Queue.Queue()
-            for msg in cls._published_messages:
-                subscriber_queue.put(msg)
+            poll_result = etree.Element('pollResult')
+            for result_item,_ in cls._published_messages:
+                poll_result.append(result_item)
+            subscriber_queue.put(poll_result)
             cls._subscribe_lists[session_id] = subscriber_queue
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
