@@ -438,12 +438,16 @@ const string SVC_MONITOR_KEYSPACE_NAME = "svc_monitor_keyspace"
 const string SCHEMA_KEYSPACE_NAME = "to_bgp_keyspace"
 const string API_SERVER_KEYSPACE_NAME = "config_db_uuid"
 const string DISCOVERY_SERVER_KEYSPACE_NAME = "DISCOVERY_SERVER"
+const string USERAGENT_KEYSPACE_NAME = "useragent"
+const string DEVICE_MANAGER_KEYSPACE_NAME = "dm_keyspace"
 
 const list<string> RepairNeededKeyspaces = [
     API_SERVER_KEYSPACE_NAME,
     SCHEMA_KEYSPACE_NAME,
     SVC_MONITOR_KEYSPACE_NAME,
     DISCOVERY_SERVER_KEYSPACE_NAME,
+    USERAGENT_KEYSPACE_NAME,
+    DEVICE_MANAGER_KEYSPACE_NAME,
 ]
 
 // Set to default of 10 days
