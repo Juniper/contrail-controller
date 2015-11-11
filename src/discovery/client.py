@@ -109,7 +109,7 @@ class Subscribe(object):
         while not connected:
             try:
                 r = requests.post(
-                    self.url, data=self.post_body, headers=self._headers)
+                    self.url, data=self.post_body, headers=self._headers, timeout=5)
                 if r.status_code != 200:
                     self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
                     if not conn_state_updated:
@@ -125,7 +125,7 @@ class Subscribe(object):
                     gevent.sleep(2)
                 else:
                     connected = True
-            except requests.exceptions.ConnectionError:
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 # discovery server down or restarting?
                 self.syslog('discovery server down or restarting?')
                 if not conn_state_updated:
@@ -251,7 +251,7 @@ class DiscoveryClient(object):
         while True:
             try:
                 r = requests.post(
-                    self.puburl, data=json.dumps(payload), headers=self._headers)
+                    self.puburl, data=json.dumps(payload), headers=self._headers, timeout=5)
                 if r.status_code == 200:
                     break
                 if not conn_state_updated:
@@ -263,7 +263,7 @@ class DiscoveryClient(object):
                             self._server_port)],
                         message = 'Publish Error - Status Code ' + 
                             str(r.status_code))
-            except requests.exceptions.ConnectionError:
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 if not conn_state_updated:
                     conn_state_updated = True
                     ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
