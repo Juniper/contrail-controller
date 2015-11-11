@@ -163,6 +163,9 @@ public:
     bool admin_down() const { return admin_down_; }
     void set_admin_down(bool admin_down) { admin_down_ = admin_down; }
 
+    bool passive() const { return passive_; }
+    void set_passive(bool passive) { passive_ = passive; }
+
     uint32_t peer_as() const { return peer_as_; }
     void set_peer_as(uint32_t peer_as) { peer_as_ = peer_as; }
 
@@ -224,6 +227,7 @@ private:
     std::string group_name_;
     Type type_;
     bool admin_down_;
+    bool passive_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
