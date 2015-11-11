@@ -177,7 +177,6 @@ void intrusive_ptr_release(FlowEntry *fe) {
                 table->flow_entry_map_.find(fe->key());
             assert(it != table->flow_entry_map_.end());
             table->flow_entry_map_.erase(it);
-            table->DeleteByIndex(fe->flow_handle(), fe);
         }
         delete fe;
     }
@@ -461,7 +460,7 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle, FlowTable* table) {
             table->AddToKSyncTree(this);
         }
         flow_handle_ = flow_handle;
-        table->UpdateKSync(this);
+        table->UpdateKSync(this, true);
     }
 }
 

@@ -1209,7 +1209,6 @@ TEST_F(StatsTestMock, FlowTcpResetFlow) {
     client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
-#endif
 
 TEST_F(StatsTestMock, FlowSyncFlow) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
@@ -1295,7 +1294,7 @@ TEST_F(StatsTestMock, FlowTcpResetFlow) {
     client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
-
+#endif
 
 int main(int argc, char *argv[]) {
     int ret = 0;

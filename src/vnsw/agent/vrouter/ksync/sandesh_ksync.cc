@@ -124,7 +124,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 
             FlowEntry *rev_flow = entry->reverse_flow_entry();
             if (rev_flow && update_rev_flow) {
-                table->UpdateKSync(rev_flow);
+                bool update = true;
+                table->UpdateKSync(rev_flow, update);
             }
         }
     } else {
