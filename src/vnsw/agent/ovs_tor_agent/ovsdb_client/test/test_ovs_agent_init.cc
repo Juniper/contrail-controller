@@ -253,6 +253,8 @@ void TestOvsAgentInit::set_use_ssl(bool use_ssl) {
 void TestOvsAgentInit::KSyncShutdown() {
     if (ovsdb_client_.get())
         ovsdb_client_->shutdown();
+    KSyncTest *ksync = static_cast<KSyncTest *>(client->agent()->ksync());
+    ksync->Shutdown();
 }
 
 void LoadAndRun(const std::string &file_name) {
