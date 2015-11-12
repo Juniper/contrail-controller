@@ -127,6 +127,18 @@ def fill_keystone_opts(obj, conf_sections):
     except ConfigParser.NoOptionError:
         obj._user_domain_name = 'Default'
 
+    try:
+        # Get the project_domain_name for keystone v3
+        obj._project_domain_name = conf_sections.get('KEYSTONE', 'project_domain_name')
+    except ConfigParser.NoOptionError:
+        obj._project_domain_name = None
+
+    try:
+        # Get the project_name for keystone v3
+        obj._project_name = conf_sections.get('KEYSTONE', 'project_name')
+    except ConfigParser.NoOptionError:
+        obj._project_name = obj._admin_tenant
+
 def _create_default_security_group(vnc_lib, proj_obj):
     def _get_rule(ingress, sg, prefix, ethertype):
         sgr_uuid = str(uuid.uuid4())
@@ -368,6 +380,14 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                else:
                   self._ks =  keystonev3.Client(token=self._admin_token,
                                                 endpoint=self._auth_url)
+            elif self._project_domain_name:
+                self._ks = keystonev3.Client(user_domain_name=self._user_domain_name,
+                                             username=self._auth_user,
+                                             password=self._auth_passwd,
+                                             project_domain_name=self._project_domain_name,
+                                             project_name=self._project_name,
+                                             auth_url=self._auth_url,
+                                             insecure=self._insecure)
             else:
                if self._insecure:
                   self._ks = keystonev3.Client(user_domain_name=self._user_domain_name,
@@ -639,6 +659,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             try:
                 retry = self._resync_all_domains()
                 if retry:
+                    gevent.sleep(60)
                     continue
             except Exception as e:
                 self._ks = None
@@ -649,6 +670,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             try:
                 retry = self._resync_all_projects()
                 if retry:
+                    gevent.sleep(60)
                     continue
             except Exception as e:
                 self._ks = None
