@@ -144,6 +144,7 @@ BgpNeighborConfig::BgpNeighborConfig()
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
           hold_time_(0),
+          loop_count_(0),
           local_as_(0),
           local_identifier_(0),
           last_change_at_(UTCTimestampUsec()) {
@@ -160,6 +161,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     address_ = rhs.address_;
     port_ = rhs.port_;
     hold_time_ = rhs.hold_time_;
+    loop_count_ = rhs.loop_count_;
     local_as_ = rhs.local_as_;
     local_identifier_ = rhs.local_identifier_;
     auth_data_ = rhs.auth_data_;
@@ -178,6 +180,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(address_, rhs.address_);
     KEY_COMPARE(port_, rhs.port_);
     KEY_COMPARE(hold_time_, rhs.hold_time_);
+    KEY_COMPARE(loop_count_, rhs.loop_count_);
     KEY_COMPARE(local_as_, rhs.local_as_);
     KEY_COMPARE(local_identifier_, rhs.local_identifier_);
     KEY_COMPARE(auth_data_, rhs.auth_data_);

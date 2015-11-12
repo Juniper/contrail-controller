@@ -254,8 +254,13 @@ private:
 // Constructor for BgpPeerFamilyAttributes.
 //
 BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
+    const BgpNeighborConfig *config,
     const BgpFamilyAttributesConfig &family_config) {
-    loop_count = family_config.loop_count;
+    if (family_config.loop_count) {
+        loop_count = family_config.loop_count;
+    } else {
+        loop_count = config->loop_count();
+    }
     prefix_limit = family_config.prefix_limit;
 }
 
@@ -528,7 +533,7 @@ bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
             Address::FamilyFromString(family_config.family);
         assert(family != Address::UNSPEC);
         BgpPeerFamilyAttributes *family_attributes =
-            new BgpPeerFamilyAttributes(family_config);
+            new BgpPeerFamilyAttributes(config, family_config);
         family_attributes_list[family] = family_attributes;
     }
 
@@ -1103,30 +1108,36 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
     }
 }
 
-void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
-    BgpAttrPtr attr = server_->attr_db()->Locate(msg->path_attributes);
-    // Check as path loop and neighbor-as
-    const BgpAttr *path_attr = attr.get();
+uint32_t BgpPeer::GetPathFlags(Address::Family family,
+    const BgpAttr *attr) const {
     uint32_t flags = 0;
-
-    if (path_attr->as_path() != NULL) {
-        // Check whether neighbor has appended its AS to the AS_PATH
-        if ((PeerType() == BgpProto::EBGP) &&
-            (!path_attr->as_path()->path().AsLeftMostMatch(peer_as()))) {
-            flags |= BgpPath::NoNeighborAs;
-        }
-
-        // Check for AS_PATH loop
-        if (path_attr->as_path()->path().AsPathLoop(local_as_)) {
-            flags |= BgpPath::AsPathLooped;
-        }
-    }
 
     // Check for OriginatorId loop in case we are an RR client.
     if (peer_type_ == BgpProto::IBGP &&
-        path_attr->originator_id().to_ulong() == ntohl(local_bgp_id_)) {
+        attr->originator_id().to_ulong() == ntohl(local_bgp_id_)) {
         flags |= BgpPath::OriginatorIdLooped;
     }
+
+    if (!attr->as_path())
+        return flags;
+
+    // Check whether neighbor has appended its AS to the AS_PATH.
+    if ((PeerType() == BgpProto::EBGP) &&
+        (!attr->as_path()->path().AsLeftMostMatch(peer_as()))) {
+        flags |= BgpPath::NoNeighborAs;
+    }
+
+    // Check for AS_PATH loop.
+    uint8_t max_loop_count = family_attributes_list_[family]->loop_count;
+    if (attr->as_path()->path().AsPathLoop(local_as_, max_loop_count)) {
+        flags |= BgpPath::AsPathLooped;
+    }
+
+    return flags;
+}
+
+void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
+    BgpAttrPtr attr = server_->attr_db()->Locate(msg->path_attributes);
 
     uint32_t reach_count = 0, unreach_count = 0;
     RoutingInstance *instance = GetRoutingInstance();
@@ -1159,6 +1170,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             table->Enqueue(&req);
         }
 
+        uint32_t flags = GetPathFlags(Address::INET, attr.get());
         reach_count += msg->nlri.size();
         for (vector<BgpProtoPrefix *>::const_iterator it = msg->nlri.begin();
              it != msg->nlri.end(); ++it) {
@@ -1214,8 +1226,11 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             return;
         }
 
-        if ((*ait)->code == BgpAttribute::MPReachNlri)
+        uint32_t flags = 0;
+        if ((*ait)->code == BgpAttribute::MPReachNlri) {
+            flags = GetPathFlags(family, attr.get());
             attr = GetMpNlriNexthop(nlri, attr);
+        }
 
         switch (family) {
         case Address::INET:
@@ -1605,6 +1620,23 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     resp.set_tx_socket_stats(peer_socket_stats);
 }
 
+void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
+    vector<ShowBgpNeighborFamily> show_family_attributes_list;
+    for (int idx = Address::UNSPEC; idx < Address::NUM_FAMILIES; ++idx) {
+        if (!family_attributes_list_[idx])
+            continue;
+        ShowBgpNeighborFamily show_family_attributes;
+        show_family_attributes.family =
+            Address::FamilyToString(static_cast<Address::Family>(idx));
+        show_family_attributes.loop_count =
+            family_attributes_list_[idx]->loop_count;
+        show_family_attributes.prefix_limit =
+            family_attributes_list_[idx]->prefix_limit;
+        show_family_attributes_list.push_back(show_family_attributes);
+    }
+    nbr->set_family_attributes_list(show_family_attributes_list);
+}
+
 void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
         vector<BgpNeighborResp> *nbr_list, bool summary) const {
     BgpNeighborResp nbr;
@@ -1637,6 +1669,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     nbr.set_configured_address_families(configured_families_);
     nbr.set_negotiated_address_families(negotiated_families_);
     nbr.set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
+    FillBgpNeighborFamilyAttributes(&nbr);
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
     PeerRibMembershipManager *mgr = server_->membership_mgr();
     mgr->FillPeerMembershipInfo(this, &nbr);

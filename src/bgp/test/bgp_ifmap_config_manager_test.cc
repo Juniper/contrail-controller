@@ -218,6 +218,7 @@ static void ValidateShowNeighborResponse(
         LOG(DEBUG, "  AS:         " << resp_neighbor.get_autonomous_system());
         LOG(DEBUG, "  Identifier: " << resp_neighbor.get_identifier());
         LOG(DEBUG, "  Address:    " << resp_neighbor.get_address());
+        LOG(DEBUG, "  Log:        " << resp_neighbor.log());
     }
     LOG(DEBUG, "************************************************************");
 
@@ -618,6 +619,58 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighborsDelete) {
     task_util::WaitForIdle();
 
     EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpIfmapConfigManagerTest, MasterNeighborAttributes) {
+    string content_a = FileRead(
+        "controller/src/bgp/testdata/config_test_35a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(
+        1, config_manager_->NeighborCount(BgpConfigManager::kMasterInstance));
+    const BgpNeighborConfig *config1 = config_manager_->FindNeighbor(
+        BgpConfigManager::kMasterInstance, "remote:100");
+    EXPECT_EQ(2, config1->family_attributes_list().size());
+    BOOST_FOREACH(const BgpFamilyAttributesConfig &family_config,
+        config1->family_attributes_list()) {
+        if (family_config.family == "inet") {
+            EXPECT_EQ(2, family_config.loop_count);
+        } else if (family_config.family == "inet-vpn") {
+            EXPECT_EQ(4, family_config.loop_count);
+        } else {
+            EXPECT_TRUE(false);
+        }
+    }
+
+    string content_b = FileRead(
+        "controller/src/bgp/testdata/config_test_35b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    const BgpNeighborConfig *config2 = config_manager_->FindNeighbor(
+        BgpConfigManager::kMasterInstance, "remote:100");
+    EXPECT_EQ(2, config2->family_attributes_list().size());
+    BOOST_FOREACH(const BgpFamilyAttributesConfig &family_config,
+        config2->family_attributes_list()) {
+        if (family_config.family == "inet") {
+            EXPECT_EQ(4, family_config.loop_count);
+        } else if (family_config.family == "inet-vpn") {
+            EXPECT_EQ(2, family_config.loop_count);
+        } else {
+            EXPECT_TRUE(false);
+        }
+    }
+
+    boost::replace_all(content_b, "<config>", "<delete>");
+    boost::replace_all(content_b, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
 
     TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());

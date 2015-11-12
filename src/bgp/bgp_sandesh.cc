@@ -466,12 +466,24 @@ public:
             nbr.set_address(neighbor->peer_address().to_string());
             nbr.set_address_families(neighbor->GetAddressFamilies());
             nbr.set_hold_time(neighbor->hold_time());
+            nbr.set_loop_count(neighbor->loop_count());
             nbr.set_last_change_at(
                 UTCUsecToString(neighbor->last_change_at()));
             nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());
             if (bsc->test_mode()) {
                 nbr.set_auth_keys(neighbor->auth_data().KeysToStringDetail());
             }
+
+            vector<ShowBgpNeighborFamilyConfig> family_attributes_list;
+            BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
+                neighbor->family_attributes_list()) {
+                ShowBgpNeighborFamilyConfig family_attributes;
+                family_attributes.family = family_config.family;
+                family_attributes.loop_count = family_config.loop_count;
+                family_attributes.prefix_limit = family_config.prefix_limit;
+                family_attributes_list.push_back(family_attributes);
+            }
+            nbr.set_family_attributes_list(family_attributes_list);
 
             nbr_list.push_back(nbr);
         }

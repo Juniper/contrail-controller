@@ -158,6 +158,112 @@ TEST_F(BgpAttrTest, AsPathLeftMost4) {
     EXPECT_EQ(64512, spec.AsLeftMost());
 }
 
+TEST_F(BgpAttrTest, AsPathLoop1) {
+    AsPathSpec spec;
+    EXPECT_FALSE(spec.AsPathLoop(64512, 0));
+}
+
+TEST_F(BgpAttrTest, AsPathLoop2) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    EXPECT_FALSE(spec.AsPathLoop(64512, 0));
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    EXPECT_FALSE(spec.AsPathLoop(64512, 0));
+}
+
+TEST_F(BgpAttrTest, AsPathLoop3) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps->path_segment.push_back(64512);
+    ps->path_segment.push_back(64513);
+    ps->path_segment.push_back(64514);
+    EXPECT_TRUE(spec.AsPathLoop(64512, 0));
+    EXPECT_TRUE(spec.AsPathLoop(64513, 0));
+    EXPECT_TRUE(spec.AsPathLoop(64514, 0));
+
+    EXPECT_FALSE(spec.AsPathLoop(64511, 0));
+    EXPECT_FALSE(spec.AsPathLoop(64515, 0));
+
+    EXPECT_FALSE(spec.AsPathLoop(64511, 1));
+    EXPECT_FALSE(spec.AsPathLoop(64512, 1));
+    EXPECT_FALSE(spec.AsPathLoop(64513, 1));
+    EXPECT_FALSE(spec.AsPathLoop(64514, 1));
+    EXPECT_FALSE(spec.AsPathLoop(64515, 1));
+}
+
+TEST_F(BgpAttrTest, AsPathLoop4) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps);
+
+    vector<AsPathSpec::PathSegment::PathSegmentType> segment_type_list = list_of
+        (AsPathSpec::PathSegment::AS_SET)
+        (AsPathSpec::PathSegment::AS_SEQUENCE);
+    BOOST_FOREACH(AsPathSpec::PathSegment::PathSegmentType segment_type,
+        segment_type_list) {
+        ps->path_segment_type = segment_type;
+
+        ps->path_segment.clear();
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64513);
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64514);
+        ps->path_segment.push_back(64512);
+        EXPECT_TRUE(spec.AsPathLoop(64512, 0));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 1));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 2));
+        EXPECT_FALSE(spec.AsPathLoop(64512, 3));
+
+        ps->path_segment.clear();
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64513);
+        ps->path_segment.push_back(64513);
+        EXPECT_TRUE(spec.AsPathLoop(64512, 0));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 1));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 2));
+        EXPECT_FALSE(spec.AsPathLoop(64512, 3));
+
+        ps->path_segment.clear();
+        ps->path_segment.push_back(64513);
+        ps->path_segment.push_back(64513);
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64512);
+        ps->path_segment.push_back(64512);
+        EXPECT_TRUE(spec.AsPathLoop(64512, 0));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 1));
+        EXPECT_TRUE(spec.AsPathLoop(64512, 2));
+        EXPECT_FALSE(spec.AsPathLoop(64512, 3));
+    }
+}
+
+TEST_F(BgpAttrTest, AsPathLoop5) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps1);
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps1->path_segment.push_back(64511);
+    ps1->path_segment.push_back(64513);
+    ps1->path_segment.push_back(64515);
+
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps2);
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64512);
+
+    EXPECT_TRUE(spec.AsPathLoop(64512, 0));
+    EXPECT_TRUE(spec.AsPathLoop(64512, 1));
+    EXPECT_TRUE(spec.AsPathLoop(64512, 2));
+    EXPECT_FALSE(spec.AsPathLoop(64512, 3));
+}
+
 TEST_F(BgpAttrTest, AsPathCompare_Sequence) {
     AsPathSpec spec1;
     AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;

@@ -31,28 +31,18 @@ class BgpUpdateRxTest : public ::testing::Test {
 protected:
     BgpUpdateRxTest()
         : server_(&evm_),
-          instance_config_(BgpConfigManager::kMasterInstance),
+          master_(NULL),
           peer_(NULL),
           rib1_(NULL), rib2_(NULL),
           tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId) {
         ConcurrencyScope scope("bgp::Config");
+        BgpInstanceConfig instance_config(BgpConfigManager::kMasterInstance);
         boost::system::error_code ec;
         local_identifier_ = Ip4Address::from_string("10.1.1.1", ec);
-        RoutingInstance *instance =
-                server_.routing_instance_mgr()->CreateRoutingInstance(
-                    &instance_config_);
-        config_.set_name("test-peer");
-        config_.set_instance_name(BgpConfigManager::kMasterInstance);
-        config_.set_local_identifier(htonl(local_identifier_.to_ulong()));
-        config_.set_local_as(64512);
-        config_.set_peer_as(64512);
-        BgpNeighborConfig::FamilyAttributesList family_attributes_list;
-        family_attributes_list.push_back(BgpFamilyAttributesConfig("inet"));
-        family_attributes_list.push_back(BgpFamilyAttributesConfig("inet-vpn"));
-        config_.set_family_attributes_list(family_attributes_list);
-        rib1_ = instance->GetTable(Address::INET);
-        rib2_ = instance->GetTable(Address::INETVPN);
-        peer_ = instance->peer_manager()->PeerLocate(&server_, &config_);
+        master_ = server_.routing_instance_mgr()->CreateRoutingInstance(
+            &instance_config);
+        rib1_ = master_->GetTable(Address::INET);
+        rib2_ = master_->GetTable(Address::INETVPN);
         adc_notification_ = 0;
         del_notification_ = 0;
     }
@@ -86,14 +76,33 @@ protected:
             adc_notification_++;
     }
 
+    void CreatePeer(uint32_t local_as = 64512, uint32_t peer_as = 64512,
+        uint8_t loop_count = 0) {
+        ConcurrencyScope scope("bgp::Config");
+        BgpNeighborConfig nbr_config;
+        nbr_config.set_name("test-peer");
+        nbr_config.set_instance_name(BgpConfigManager::kMasterInstance);
+        nbr_config.set_local_identifier(htonl(local_identifier_.to_ulong()));
+        nbr_config.set_local_as(local_as);
+        nbr_config.set_peer_as(peer_as);
+        nbr_config.set_loop_count(loop_count);
+
+        BgpNeighborConfig::FamilyAttributesList family_attributes_list;
+        BgpFamilyAttributesConfig family_attributes1("inet");
+        family_attributes_list.push_back(family_attributes1);
+        BgpFamilyAttributesConfig family_attributes2("inet-vpn");
+        family_attributes_list.push_back(family_attributes2);
+        nbr_config.set_family_attributes_list(family_attributes_list);
+        peer_ = master_->peer_manager()->PeerLocate(&server_, &nbr_config);
+    }
+
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;
 
     EventManager evm_;
     BgpServer server_;
     Ip4Address local_identifier_;
-    BgpInstanceConfig instance_config_;
-    BgpNeighborConfig config_;
+    RoutingInstance *master_;
     BgpPeer *peer_;
 
     BgpTable *rib1_;
@@ -104,6 +113,7 @@ protected:
 };
 
 TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
+    CreatePeer();
     adc_notification_ = 0;
     del_notification_ = 0;
 
@@ -248,12 +258,13 @@ TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
 }
 
 // Parameterize originator id to be same vs. different.
-class BgpUpdateRxParamTest:
+class BgpUpdateRxParamTest1:
     public BgpUpdateRxTest,
     public ::testing::WithParamInterface<bool> {
 };
 
-TEST_P(BgpUpdateRxParamTest, OriginatorIdLoop) {
+TEST_P(BgpUpdateRxParamTest1, OriginatorIdLoop) {
+    CreatePeer();
     EXPECT_EQ(rib2_, server_.database()->FindTable("bgp.l3vpn.0"));
 
     BgpProto::OpenMessage open;
@@ -325,7 +336,88 @@ TEST_P(BgpUpdateRxParamTest, OriginatorIdLoop) {
     peer_->ResetCapabilities();
 }
 
-INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest, ::testing::Bool());
+// Parameterize loop count.
+class BgpUpdateRxParamTest2:
+    public BgpUpdateRxTest,
+    public ::testing::WithParamInterface<uint8_t> {
+};
+
+TEST_P(BgpUpdateRxParamTest2, AsPathLoop) {
+    CreatePeer(64512, 64513, GetParam());
+    EXPECT_EQ(rib2_, server_.database()->FindTable("bgp.l3vpn.0"));
+
+    BgpProto::OpenMessage open;
+    uint8_t capc[] = {0, 1, 0, 128};
+    BgpProto::OpenMessage::Capability *cap =
+        new BgpProto::OpenMessage::Capability(
+            BgpProto::OpenMessage::Capability::MpExtension, capc, 4);
+    BgpProto::OpenMessage::OptParam *opt = new BgpProto::OpenMessage::OptParam;
+    opt->capabilities.push_back(cap);
+    open.opt_params.push_back(opt);
+    peer_->SetCapabilities(&open);
+
+    // Advertise the prefix.
+    BgpProto::Update update;
+    InetVpnPrefix iv_prefix(InetVpnPrefix::FromString("2:20:192.168.24.0/24"));
+    BgpAttrOrigin *origin = new BgpAttrOrigin(BgpAttrOrigin::INCOMPLETE);
+    update.path_attributes.push_back(origin);
+    BgpAttrNextHop *nexthop = new BgpAttrNextHop(0xabcdef01);
+    update.path_attributes.push_back(nexthop);
+    AsPathSpec *path_spec = new AsPathSpec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps->path_segment.push_back(64512);
+    ps->path_segment.push_back(64514);
+    ps->path_segment.push_back(64512);
+    path_spec->path_segments.push_back(ps);
+    update.path_attributes.push_back(path_spec);
+    uint32_t identifier = local_identifier_.to_ulong();
+
+    BgpMpNlri *mp_nlri = new BgpMpNlri;
+    BgpProtoPrefix *bpp = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp);
+    mp_nlri->code = BgpAttribute::MPReachNlri;
+    mp_nlri->afi = 1;
+    mp_nlri->safi = 128;
+    uint8_t nh[12] = {0,0,0,0,0,0,0,0,192,168,1,1};
+    mp_nlri->nexthop.assign(&nh[0], &nh[12]);
+    mp_nlri->nlri.push_back(bpp);
+    update.path_attributes.push_back(mp_nlri);
+
+    peer_->ProcessUpdate(&update);
+    task_util::WaitForIdle();
+    InetVpnTable::RequestKey key(iv_prefix, peer_);
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) != NULL);
+    BgpRoute *rt = static_cast<BgpRoute *>(rib2_->Find(&key));
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    const BgpPath *path = rt->BestPath();
+    if (GetParam() < 2) {
+        EXPECT_TRUE((path->GetFlags() & BgpPath::AsPathLooped) != 0);
+    } else {
+        EXPECT_TRUE((path->GetFlags() & BgpPath::AsPathLooped) == 0);
+    }
+
+    // Withdraw the prefix.
+    BgpProto::Update withdraw;
+    BgpMpNlri *mp_nlri2 = new BgpMpNlri;
+    BgpProtoPrefix *bpp2 = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp2);
+    mp_nlri2->code = BgpAttribute::MPUnreachNlri;
+    mp_nlri2->afi = 1;
+    mp_nlri2->safi = 128;
+    mp_nlri2->nlri.push_back(bpp2);
+    withdraw.path_attributes.push_back(mp_nlri2);
+
+    peer_->ProcessUpdate(&withdraw);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) == NULL);
+
+    peer_->ResetCapabilities();
+}
+
+INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest1, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest2,
+    ::testing::Values(0, 1, 2, 3));
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
