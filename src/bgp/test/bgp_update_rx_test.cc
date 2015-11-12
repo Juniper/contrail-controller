@@ -46,8 +46,10 @@ protected:
         config_.set_local_identifier(htonl(local_identifier_.to_ulong()));
         config_.set_local_as(64512);
         config_.set_peer_as(64512);
-        config_.set_address_families(
-            boost::assign::list_of("inet")("inet-vpn"));
+        BgpNeighborConfig::FamilyAttributesList family_attributes_list;
+        family_attributes_list.push_back(BgpFamilyAttributesConfig("inet"));
+        family_attributes_list.push_back(BgpFamilyAttributesConfig("inet-vpn"));
+        config_.set_family_attributes_list(family_attributes_list);
         rib1_ = instance->GetTable(Address::INET);
         rib2_ = instance->GetTable(Address::INETVPN);
         peer_ = instance->peer_manager()->PeerLocate(&server_, &config_);
