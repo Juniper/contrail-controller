@@ -136,7 +136,9 @@ void SslSession::SslHandShakeCallback(SslHandShakeCallbackHandler cb,
         session->SetSslHandShakeFailure();
     }
 
-    cb(session, error);
+    if (session->socket() != NULL && !(session->IsClosed())) {
+        cb(session, error);
+    }
 }
 
 void SslSession::TriggerSslHandShakeInternal(SslSessionPtr session, SslHandShakeCallbackHandler cb) {
