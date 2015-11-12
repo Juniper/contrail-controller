@@ -183,7 +183,8 @@ public:
         StaticRoute();
         StaticRoute(const StaticRoute &rhs);
         StaticRoute(const std::string &vrf, const IpAddress &addr,
-                    uint32_t plen, const IpAddress &gw);
+                    uint32_t plen, const IpAddress &gw,
+                    const CommunityList &communities);
         virtual ~StaticRoute();
 
         bool operator() (const StaticRoute &lhs, const StaticRoute &rhs) const;
@@ -196,6 +197,7 @@ public:
         IpAddress  addr_;
         uint32_t    plen_;
         IpAddress  gw_;
+        CommunityList communities_;
     };
     typedef std::set<StaticRoute, StaticRoute> StaticRouteSet;
 
@@ -575,7 +577,8 @@ private:
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
                   bool ecmp, const IpAddress &gw_ip,
-                  const IpAddress &dependent_ip);
+                  const IpAddress &dependent_ip,
+                  const CommunityList &communties);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
     void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,

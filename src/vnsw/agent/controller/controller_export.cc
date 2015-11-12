@@ -45,6 +45,9 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
     if (sg_list_ != path->sg_list())
         return true;
 
+    if (communities_ != path->communities())
+        return true;
+
     if (path_preference_ != path->path_preference())
         return true;
 
@@ -56,6 +59,7 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
     label_ = path->GetActiveLabel();
     vn_ = path->dest_vn_name();
     sg_list_ = path->sg_list();
+    communities_ = path->communities();
     tunnel_type_ = path->tunnel_type();
     path_preference_ = path->path_preference();
 }
@@ -172,7 +176,8 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route),
                         path->NexthopIp(table->agent()), state->vn_,
-                        state->label_, path->GetTunnelBmap(), &path->sg_list(),
+                        state->label_, path->GetTunnelBmap(),
+                        &path->sg_list(), &path->communities(),
                         type, state->path_preference_);
         }
     } else {
@@ -181,7 +186,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     static_cast<AgentRoute *>(route), state->vn_, 
                     (state->tunnel_type_ == TunnelType::VXLAN ?
                      state->label_ : 0),
-                    TunnelType::AllType(), NULL,
+                    TunnelType::AllType(), NULL, NULL,
                     type, state->path_preference_);
             state->exported_ = false;
         }
@@ -406,7 +411,7 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
              active_path->NexthopIp(agent),
              route->dest_vn_name(), state->label_,
              TunnelType::GetTunnelBmap(state->tunnel_type_),
-             &sg, state->destination_,
+             &sg, NULL, state->destination_,
              state->source_, PathPreference());
     }
 }

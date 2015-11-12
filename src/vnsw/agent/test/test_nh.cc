@@ -1794,7 +1794,8 @@ TEST_F(CfgTest, EcmpNH_17) {
     agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
             MakeUuid(1), "vn1", intf->label(),
-            SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+            SecurityGroupList(), CommunityList(), false, PathPreference(),
+            Ip4Address(0));
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
@@ -2438,7 +2439,8 @@ TEST_F(CfgTest, EcmpNH_18) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
                 MakeUuid(1), "vn1", vm_intf->label(),
-                SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+                SecurityGroupList(), CommunityList(), false, PathPreference(),
+                Ip4Address(0));
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 
