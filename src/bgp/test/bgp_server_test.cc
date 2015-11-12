@@ -2550,32 +2550,6 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
                    10 * idx, 90);
         VerifyPeers(peer_count);
 
-        // Established sessions should keep using the old hold time value.
-        for (int j = 0; j < peer_count; j++) {
-            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-            BgpPeer *peer_a =
-                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            const StateMachine *sm_a = GetPeerStateMachine(peer_a);
-            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_a->hold_time());
-
-            BgpPeer *peer_b =
-                b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            const StateMachine *sm_b = GetPeerStateMachine(peer_b);
-            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_b->hold_time());
-        }
-
-        // Clear all the sessions by setting peers to admin down on A.
-        for (int j = 0; j < peer_count; j++) {
-            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-            BgpPeer *peer_a =
-                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            peer_a->SetAdminState(true);
-            task_util::WaitForIdle();
-            peer_a->SetAdminState(false);
-        }
-
-        VerifyPeers(peer_count);
-
         // Re-established sessions should use the updated hold time value.
         for (int j = 0; j < peer_count; j++) {
             string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2622,32 +2596,6 @@ TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
                    families_a, families_b,
                    StateMachine::kHoldTime, StateMachine::kHoldTime,
                    10 * idx, 90);
-        VerifyPeers(peer_count);
-
-        // Established sessions should keep using the old hold time value.
-        for (int j = 0; j < peer_count; j++) {
-            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-            BgpPeer *peer_a =
-                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            const StateMachine *sm_a = GetPeerStateMachine(peer_a);
-            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_a->hold_time());
-
-            BgpPeer *peer_b =
-                b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            const StateMachine *sm_b = GetPeerStateMachine(peer_b);
-            TASK_UTIL_EXPECT_EQ(10 * (idx - 1), sm_b->hold_time());
-        }
-
-        // Clear all the sessions by setting peers to admin down on A.
-        for (int j = 0; j < peer_count; j++) {
-            string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-            BgpPeer *peer_a =
-                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid);
-            peer_a->SetAdminState(true);
-            task_util::WaitForIdle();
-            peer_a->SetAdminState(false);
-        }
-
         VerifyPeers(peer_count);
 
         // Re-established sessions should use the updated hold time value.

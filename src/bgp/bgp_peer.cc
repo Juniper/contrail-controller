@@ -596,7 +596,11 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
-    hold_time_ = config->hold_time();
+    if (hold_time_ != config->hold_time()) {
+        hold_time_ = config->hold_time();
+        peer_info.set_hold_time(hold_time_);
+        clear_session = true;
+    }
 
     if (peer_as_ != config->peer_as()) {
         peer_as_ = config->peer_as();
