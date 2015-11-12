@@ -44,7 +44,9 @@ void KSyncLinuxVxlan::Init() {
 
 static void Execute(const string &str) {
     cout << str << endl;
-    system(str.c_str());
+    if (system(str.c_str()) < 0) {
+        LOG(ERROR, "Error executing command : " << str);
+    }
 }
 
 /****************************************************************************

@@ -139,7 +139,9 @@ private:
                 flow_data.set_bytes(old_bytes + new_bytes);
                 flow_data.set_diff_packets(new_packets);
                 flow_data.set_diff_bytes(new_bytes);
-                FLOW_DATA_IPV4_OBJECT_SEND(flow_data);
+                std::vector<FlowDataIpv4> v;
+                v.push_back(flow_data);
+                FLOW_DATA_IPV4_OBJECT_SEND(v);
                 lflow_cnt++;
                 mgen_->flow_counter_++;
                 if (lflow_cnt == mgen_->num_flows_in_iteration_) {
