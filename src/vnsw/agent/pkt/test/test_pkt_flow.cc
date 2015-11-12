@@ -131,8 +131,8 @@ public:
         agent()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent()->local_peer(), vrf, addr, 32,
                                intf->GetUuid(), intf->vn()->GetName(), label,
-                               SecurityGroupList(), false, PathPreference(),
-                               Ip4Address(0));
+                               SecurityGroupList(), CommunityList(), false,
+                               PathPreference(), Ip4Address(0));
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

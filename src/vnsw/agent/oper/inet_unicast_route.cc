@@ -802,6 +802,12 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
         path->set_sg_list(sg_list_);
     }
 
+    CommunityList path_communities;
+    path_communities = path->communities();
+    if (path_communities != communities_) {
+        path->set_communities(communities_);
+    }
+
     //Reset to new gateway route, no nexthop for indirect route
     path->set_gw_ip(gw_ip_);
     path->ResetDependantRoute(rt);
@@ -1099,6 +1105,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const string &vn_name,
                                                uint32_t label,
                                                const SecurityGroupList &sg_list,
+                                               const CommunityList &communities,
                                                bool force_policy,
                                                const PathPreference
                                                &path_preference,
@@ -1107,7 +1114,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
                                     vn_name, InterfaceNHFlags::INET4, sg_list,
-                                    path_preference, subnet_gw_ip);
+                                    communities, path_preference, subnet_gw_ip);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1135,6 +1142,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const string &vn_name,
                                             uint32_t label,
                                             const SecurityGroupList &sg_list,
+                                            const CommunityList &communities,
                                             bool force_policy,
                                             const PathPreference
                                             &path_preference,
@@ -1145,7 +1153,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
-                                    InterfaceNHFlags::INET4, sg_list,
+                                    InterfaceNHFlags::INET4, sg_list, communities,
                                     path_preference, subnet_gw_ip));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
@@ -1400,12 +1408,14 @@ static void AddGatewayRouteInternal(const Peer *peer,
                                     const Ip4Address &dst_addr, uint8_t plen,
                                     const Ip4Address &gw_ip,
                                     const string &vn_name, uint32_t label,
-                                    const SecurityGroupList &sg_list) {
+                                    const SecurityGroupList &sg_list,
+                                    const CommunityList &communities) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req->key.reset(new InetUnicastRouteKey(peer,
                                            vrf_name, dst_addr, plen));
     req->data.reset(new Inet4UnicastGatewayRoute(gw_ip, vrf_name,
-                                                 vn_name, label, sg_list));
+                                                 vn_name, label, sg_list,
+                                                 communities));
 }
 
 void InetUnicastAgentRouteTable::AddGatewayRoute(const Peer *peer,
@@ -1416,10 +1426,12 @@ void InetUnicastAgentRouteTable::AddGatewayRoute(const Peer *peer,
                                                  const string &vn_name,
                                                  uint32_t label,
                                                  const SecurityGroupList
-                                                 &sg_list) {
+                                                 &sg_list,
+                                                 const CommunityList
+                                                 &communities) {
     DBRequest req;
     AddGatewayRouteInternal(peer, &req, vrf_name, dst_addr, plen, gw_ip, vn_name,
-                            label, sg_list);
+                            label, sg_list, communities);
     Inet4UnicastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
@@ -1432,10 +1444,12 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
                                                const string &vn_name,
                                                uint32_t label,
                                                const SecurityGroupList
-                                               &sg_list) {
+                                               &sg_list,
+                                               const CommunityList
+                                               &communities) {
     DBRequest req;
     AddGatewayRouteInternal(peer, &req, vrf_name, dst_addr, plen, gw_ip,
-                            vn_name, label, sg_list);
+                            vn_name, label, sg_list, communities);
     Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 

@@ -593,6 +593,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
+    CommunityList path_communities;
 
     //TODO Based on key table type pick up interface
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_.uuid_, "");
@@ -646,6 +647,12 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
         path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    path_communities = path->communities();
+    if (path_communities != communities_) {
+        path->set_communities(communities_);
         ret = true;
     }
 

@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/foreach.hpp>
+
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
@@ -1751,6 +1753,36 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
     AddNode("interface-route-table", name, id, buff);
 }
 
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
+                            int count, const char *nexthop,
+                            const std::vector<std::string> &communities) {
+    std::ostringstream o_str;
+
+    for (int i = 0; i < count; i++) {
+        o_str << "<route>\n"
+              << "<prefix>\n" << rt->addr_.to_string()
+              << "/" << rt->plen_ << " \n"  << "</prefix>\n";
+        if (nexthop) {
+            o_str << "<next-hop>" << nexthop << "</next-hop>\n";
+        }
+        o_str << "<next-hop-type>\" \"</next-hop-type>\n";
+        o_str << "<community-attributes>\n";
+        BOOST_FOREACH(string community, communities) {
+            o_str << "<community-attribute>" 
+                  << community 
+                  << "</community-attribute>\n";
+        }
+        o_str << "</community-attributes>\n";
+        o_str << "</route>\n";
+        rt++;
+    }
+
+    char buff[10240];
+    sprintf(buff, "<interface-route-table-routes>\n"
+                  "%s"
+                  "</interface-route-table-routes>\n", o_str.str().c_str());
+    AddNode("interface-route-table", name, id, buff);
+}
 
 void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *rt,
                               int count) {

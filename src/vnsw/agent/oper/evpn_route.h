@@ -58,6 +58,7 @@ public:
                          const IpAddress &ip, uint32_t label,
                          const std::string &vn_name,
                          const SecurityGroupList &sg_id_list,
+                         const CommunityList &communities,
                          const PathPreference &path_pref,
                          uint32_t ethernet_tag);
     static void ResyncVmRoute(const Peer *peer,

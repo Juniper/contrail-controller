@@ -109,12 +109,14 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn2:vn2", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference(), Ip4Address(0));
+                               CommunityList(), false,
+                               PathPreference(), Ip4Address(0));
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference(), Ip4Address(0));
+                               CommunityList(), false,
+                               PathPreference(), Ip4Address(0));
         client->WaitForIdle();
     }
 
@@ -191,7 +193,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "true");
     TestFlow flow[] = {
@@ -419,7 +422,8 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
@@ -444,7 +448,7 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
         AddLocalVmRouteReq(agent_->local_peer(),
                 "default-project:vn3:vn3", ip2, 32, MakeUuid(7),
                 "default-project:vn1", 16, SecurityGroupList(),
-                false, PathPreference(), Ip4Address(0));
+                CommunityList(), false, PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     TestFlow flow[] = {
@@ -489,7 +493,8 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     AddVrf("vrf9");
@@ -551,7 +556,8 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp2) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn1", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     AddAddressVrfAssignAcl("intf7", 7, "4.1.1.0", "2.1.1.0", 6, 1, 65535,
@@ -607,7 +613,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
@@ -647,7 +654,8 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
-                           false, PathPreference(), Ip4Address(0));
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,

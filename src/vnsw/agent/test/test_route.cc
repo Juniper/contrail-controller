@@ -179,7 +179,7 @@ protected:
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddGatewayRouteReq
             (Agent::GetInstance()->local_peer(),
              vrf_name, ip, plen, server, "", MplsTable::kInvalidLabel,
-             SecurityGroupList());
+             SecurityGroupList(), CommunityList());
 
         client->WaitForIdle();
     }
@@ -1053,6 +1053,7 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
                                                             MakeUuid(1), "Test",
                                                             10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
@@ -1098,6 +1099,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
@@ -1106,6 +1108,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
@@ -1120,6 +1123,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
@@ -1159,6 +1163,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
@@ -1173,6 +1178,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
+                                                            CommunityList(),
                                                             false,
                                                             PathPreference(),
                                                             Ip4Address(0));
