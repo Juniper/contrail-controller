@@ -31,13 +31,18 @@ class AddVirtualDnsRecord(object):
             if not DnsProvisioner.is_valid_ipv4_address(self._args.rec_data):
                print 'Invalid Ipv4 address ', self._args.rec_data
                return
+        elif self._args.rec_type == 'AAAA':
+            vstr = self._args.rec_name
+            if not DnsProvisioner.is_valid_ipv6_address(self._args.rec_data):
+               print 'Invalid Ipv6 address ', self._args.rec_data
+               return
         elif self._args.rec_type == 'PTR':
             vstr = self._args.rec_data
             if not rec_name.endswith('.in-addr.arpa'): 
                 if not DnsProvisioner.is_valid_ipv4_address(rec_name):
                     print 'Invalid PTR record name ', self._args.rec_name
                     return
-        elif self._args.rec_type == 'NS' or self._args.rec_type == 'CNAME':
+        elif self._args.rec_type == 'NS' or self._args.rec_type == 'MX' or self._args.rec_type == 'CNAME':
             vstr = self._args.rec_name
 
 
