@@ -554,12 +554,14 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         return;
 
     bool clear_session = false;
+    bool admin_down_changed = false;
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
 
     if (admin_down_ != config->admin_down()) {
         SetAdminState(config->admin_down());
         peer_info.set_admin_down(admin_down_);
+        admin_down_changed = true;
     }
 
     if (passive_ != config->passive()) {
@@ -583,8 +585,8 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
 
     // Check if there is any change in the configured address families.
     if (ProcessFamilyAttributesConfig(config)) {
-        clear_session = true;
         peer_info.set_configured_families(configured_families_);
+        clear_session = true;
     }
 
     BgpProto::BgpPeerType old_type = PeerType();
@@ -620,12 +622,19 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
-    if (clear_session) {
+    // Note that the state machine would have been stopped via SetAdminDown
+    // if admin down was set to true above.  Further, it's not necessary to
+    // clear the peer if it's already admin down.
+    if (!admin_down_changed && !admin_down_ && clear_session) {
         BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA,
                      "Session cleared due to configuration change");
-        BGPPeerInfo::Send(peer_info);
         Clear(BgpProto::Notification::OtherConfigChange);
+    }
+
+    // Send the UVE as appropriate.
+    if (admin_down_changed || clear_session) {
+        BGPPeerInfo::Send(peer_info);
     }
 }
 
@@ -765,9 +774,13 @@ BgpSession *BgpPeer::CreateSession() {
 }
 
 void BgpPeer::SetAdminState(bool down) {
-    if (admin_down_ != down) {
-        admin_down_ = down;
-        state_machine_->SetAdminState(down);
+    if (admin_down_ == down)
+        return;
+    admin_down_ = down;
+    state_machine_->SetAdminState(down);
+    if (admin_down_) {
+        BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Session cleared due to admin down");
     }
 }
 
