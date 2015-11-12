@@ -20,6 +20,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>
+#include <database/cassandra/thrift/thrift_if.h>
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
@@ -57,7 +58,7 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_password) :
     name_(name),
     drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
-        dbif_.reset(GenDb::GenDbIf::GenDbIfImpl(err_handler,
+        dbif_.reset(new ThriftIf(err_handler,
           cassandra_ips, cassandra_ports, name, false,
           cassandra_user, cassandra_password));
 

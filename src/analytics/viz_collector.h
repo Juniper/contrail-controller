@@ -15,7 +15,6 @@
 #include "base/contrail_ports.h"
 
 #include "collector.h"
-#include "Thrift.h"
 #include "OpServerProxy.h"
 #include "viz_constants.h"
 #include "syslog_collector.h"

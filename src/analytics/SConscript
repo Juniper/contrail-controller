@@ -23,6 +23,7 @@ AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
                                '/usr/include/librdkafka',
                                AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
                                AnalyticsEnv['TOP'] + '/io',
+                               AnalyticsEnv['TOP'] + '/database',
                                AnalyticsEnv['TOP'],
                               ])
 AnalyticsEnv.Append(LIBS=['boost_python', python])
@@ -38,9 +39,9 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'http',
         'http_parser',
         'curl',
-        'gendb',
+        'cassandra_thrift',
         'thrift',
-        'cdb',
+        'gendb',
         'ruleparser',
         'xml',
         'process_info',
@@ -62,8 +63,6 @@ if sys.platform != 'darwin':
     AnalyticsEnv.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['sandesh',
-        'gendb',
-        'cdb',
         'analytics/ruleparser',
         'discovery/client',
         'http/client',
@@ -74,9 +73,8 @@ libs = MapBuildDir(['sandesh',
 libs.extend('/usr/lib/')
 AnalyticsEnv.Append(LIBPATH=libs)
 
-includes = MapBuildDir(['http/client', 'discovery/client', 'gendb', 'cdb', 'analytics'])
-AnalyticsEnv.Append(CPPPATH = ['#controller/src/gendb',
-                               '#/build/include/thrift',
+includes = MapBuildDir(['http/client', 'discovery/client', 'analytics'])
+AnalyticsEnv.Append(CPPPATH = [
                                includes,
                                AnalyticsEnv['TOP'],
                                AnalyticsEnv['TOP'] + '/base/sandesh/'])
@@ -116,7 +114,7 @@ else:
     AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
 
 buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
-                      '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a',
+                      '../../lib/libcurl.a', '../../lib/libgendb.a', '../../lib/libthrift.a', '../../lib/libcassandra_thrift.a',
                       '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a',
                       '../../lib/libsandeshvns.a', '../../lib/libpugixml.a', '../../lib/libhiredis.a',
                       '../../lib/libboost_program_options.a', '../../lib/libboost_system.a',
