@@ -147,6 +147,7 @@ public:
     void Delete(uint32_t vxlan_id);
 
     VxLanId *Find(uint32_t vxlan_id);
+    VxLanId *FindNoLock(uint32_t vxlan_id);
     VxLanId *Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
                     const std::string &vrf, bool flood_unknown_unicast);
     VxLanId *Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn);

@@ -506,8 +506,26 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
     return entry;
 }
 
+AgentRoute *AgentRouteTable::FindActiveEntryNoLock(const AgentRouteKey *key) {
+    DBTable *table = static_cast<DBTable *>(this);
+    AgentRoute *entry = static_cast<AgentRoute *>(table->FindNoLock(key));
+    if (entry && entry->IsDeleted()) {
+        return NULL;
+    }
+    return entry;
+}
+
 AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRoute *key) {
     AgentRoute *entry = static_cast<AgentRoute *>(Find(key));
+    if (entry && entry->IsDeleted()) {
+        return NULL;
+    }
+    return entry;
+}
+
+AgentRoute *AgentRouteTable::FindActiveEntryNoLock(const AgentRoute *key) {
+    DBTable *table = static_cast<DBTable *>(this);
+    AgentRoute *entry = static_cast<AgentRoute *>(table->FindNoLock(key));
     if (entry && entry->IsDeleted()) {
         return NULL;
     }

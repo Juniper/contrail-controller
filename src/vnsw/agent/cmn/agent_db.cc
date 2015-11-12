@@ -38,8 +38,24 @@ void AgentDBTable::NotifyEntry(DBEntryBase *e) {
     tpart->Notify(e);
 }
 
+AgentDBEntry *AgentDBTable::FindActiveEntryNoLock(const DBEntry *key) {
+    AgentDBEntry *entry = static_cast<AgentDBEntry *> (FindNoLock(key));
+    if (entry && (entry->IsActive() == false)) {
+        return NULL;
+    }
+    return entry;
+}
+
 AgentDBEntry *AgentDBTable::FindActiveEntry(const DBEntry *key) {
     AgentDBEntry *entry = static_cast<AgentDBEntry *> (Find(key));
+    if (entry && (entry->IsActive() == false)) {
+        return NULL;
+    }
+    return entry;
+}
+
+AgentDBEntry *AgentDBTable::FindActiveEntryNoLock(const DBRequestKey *key) {
+    AgentDBEntry *entry = static_cast<AgentDBEntry *>(FindNoLock(key));
     if (entry && (entry->IsActive() == false)) {
         return NULL;
     }

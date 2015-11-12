@@ -156,7 +156,9 @@ public:
     uint32_t vrf_id() const {return vrf_id_;}
     VrfEntry *vrf_entry() const;
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
+    AgentRoute *FindActiveEntryNoLock(const AgentRouteKey *key);
     AgentRoute *FindActiveEntry(const AgentRoute *key);
+    AgentRoute *FindActiveEntryNoLock(const AgentRoute *key);
 
     // Set VRF for the route-table
     void SetVrf(VrfEntry * vrf);

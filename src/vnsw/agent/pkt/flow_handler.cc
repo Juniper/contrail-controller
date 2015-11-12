@@ -39,7 +39,7 @@ bool FlowHandler::IsL3ModeFlow() const {
     BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
     AgentRoute *rt = static_cast<AgentRoute *>
-        (l2_table->FindRoute(pkt_info_->dmac));
+        (l2_table->FindRouteNoLock(pkt_info_->dmac));
     if (rt == NULL) {
         return false;
     }

@@ -399,7 +399,7 @@ AgentRoute *FlowEntry::GetL2Route(const VrfEntry *vrf,
                                   const MacAddress &mac) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
-    return table->FindRoute(mac);
+    return table->FindRouteNoLock(mac);
 }
 
 AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
