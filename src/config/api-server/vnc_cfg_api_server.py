@@ -1284,7 +1284,7 @@ class VncApiServer(VncApiServerGen):
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
                     self._db_conn.set_uuid(obj_type, obj_dict,
                                            uuid.UUID(obj_uuid),
-                                           persist=False)
+                                           do_lock=False)
 
             # TODO remove this when the generator will be adapted to
             # be consistent with the post method
