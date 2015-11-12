@@ -88,7 +88,7 @@ public:
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
-    InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
+    InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key)const;
     bool UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id);
 
     LifetimeActor *deleter();

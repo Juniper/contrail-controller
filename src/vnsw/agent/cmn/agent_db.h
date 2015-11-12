@@ -200,7 +200,9 @@ public:
 
     DBTableBase::ListenerId GetRefListenerId() const {return ref_listener_id_;};
     AgentDBEntry *FindActiveEntry(const DBEntry *key);
+    AgentDBEntry *FindActiveEntryNoLock(const DBEntry *key);
     AgentDBEntry *FindActiveEntry(const DBRequestKey *key);
+    AgentDBEntry *FindActiveEntryNoLock(const DBRequestKey *key);
     AgentDBEntry *Find(const DBEntry *key, bool ret_del);
     AgentDBEntry *Find(const DBRequestKey *key, bool ret_del);
     virtual bool CanNotify(IFMapNode *dbe) {

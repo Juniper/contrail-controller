@@ -81,6 +81,7 @@ public:
                          const VmInterface *vm_intf);
     const VmInterface *FindVmFromDhcpBinding(const MacAddress &mac);
     BridgeRouteEntry *FindRoute(const MacAddress &mac);
+    BridgeRouteEntry *FindRouteNoLock(const MacAddress &mac);
 
 private:
     DBTableWalker::WalkId walkid_;
