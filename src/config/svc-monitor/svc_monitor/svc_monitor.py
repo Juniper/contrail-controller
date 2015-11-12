@@ -1046,7 +1046,7 @@ def parse_args(args_str):
     ksauthproto=ksopts.get('auth_protocol')
     if kscertfile and kskeyfile and kscafile \
     and ksauthproto == 'https':
-        certs=[self._kscertfile, self._kskeyfile, self._kscafile]
+        certs=[kscertfile, kskeyfile, kscafile]
         SvcMonitor._kscertbundle=utils.getCertKeyCaBundle(SvcMonitor._DEFAULT_KS_CERT_BUNDLE,certs)
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
