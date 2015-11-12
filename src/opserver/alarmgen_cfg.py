@@ -19,7 +19,6 @@ contrail-alarm-gen  --log_level SYS_DEBUG
                     --log_file <stdout>
                     --use_syslog
                     --syslog_facility LOG_USER
-                    --collectors  127.0.0.1:8086
                     --disc_server_ip 127.0.0.1
                     --disc_server_port 5998
                     --worker_id 0
@@ -52,7 +51,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
         defaults = {
             'host_ip'           : '127.0.0.1',
-            'collectors'        : ['127.0.0.1:8086'],
+            'collectors'        : [],
             'kafka_broker_list' : ['127.0.0.1:9092'],
             'log_local'         : False,
             'log_level'         : SandeshLevel.SYS_DEBUG,
