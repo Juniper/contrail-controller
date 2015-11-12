@@ -57,7 +57,7 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_user,
         const std::string& cassandra_password) :
     name_(name),
-    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
+    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map), field_cache_t2_(0) {
         dbif_.reset(new ThriftIf(err_handler,
           cassandra_ips, cassandra_ports, name, false,
           cassandra_user, cassandra_password));
@@ -68,7 +68,7 @@ DbHandler::DbHandler(EventManager *evm,
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
-    ttl_map_(ttl_map) {
+    ttl_map_(ttl_map), field_cache_t2_(0) {
 }
 
 DbHandler::~DbHandler() {
@@ -561,12 +561,15 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
         //Insert only if sandesh type is a SYSTEM LOG or SYSLOG
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
         int ttl = GetTtl(TtlType::GLOBAL_TTL);
-        FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":Messagetype", message_type, header.get_Timestamp(), ttl);
-        FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":ModuleId", header.get_Module(), header.get_Timestamp(), ttl);
-        FieldNamesTableInsert(g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":Source", header.get_Source(), header.get_Timestamp(), ttl);
+        FieldNamesTableInsert(header.get_Timestamp(),
+            g_viz_constants.COLLECTOR_GLOBAL_TABLE,
+            ":Messagetype", message_type, ttl);
+        FieldNamesTableInsert(header.get_Timestamp(),
+            g_viz_constants.COLLECTOR_GLOBAL_TABLE,
+            ":ModuleId", header.get_Module(), ttl);
+        FieldNamesTableInsert(header.get_Timestamp(),
+            g_viz_constants.COLLECTOR_GLOBAL_TABLE,
+            ":Source", header.get_Source(), ttl);
     }
 }
 
@@ -574,20 +577,47 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
  * This function takes field name and field value as arguments and inserts
  * into the FieldNames stats table
  */
-void DbHandler::FieldNamesTableInsert(const std::string& table_prefix, 
-    const std::string& field_name, const std::string& field_val, 
-    uint64_t timestamp, int ttl) {
+void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
+    const std::string& table_prefix, 
+    const std::string& field_name, const std::string& field_val, int ttl) {
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags before inserting
      * to the StatTableInsert
      */
+    uint32_t temp_u32 = timestamp >> g_viz_constants.RowTimeInBits;
+    std::string table_name(table_prefix);
+    table_name.append(field_name);
+
+    /* Check if fieldname and value were already seen in this T2
+       We only need to record them if they have NOT been seen yet */
+    bool record = false;
+    std::string fc_entry(table_name);
+    fc_entry.append(":");
+    fc_entry.append(field_val);
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        if (temp_u32 > field_cache_t2_) {
+            field_cache_set_.clear();
+            field_cache_t2_ = temp_u32;
+        }
+        if (temp_u32 == field_cache_t2_) {
+            if (field_cache_set_.find(fc_entry) == field_cache_set_.end()) {
+                field_cache_set_.insert(fc_entry);
+                record = true;
+            }
+        } else {
+            /* This is an old time-stamp */
+            record = true;
+        }
+    }
+
+    if (!record) return;
+
     DbHandler::TagMap tmap;
     DbHandler::AttribMap amap;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
-    std::string table_name(table_prefix);
-    table_name.append(field_name);
     pv = table_name;
     tmap.insert(make_pair("name", make_pair(pv, amap)));
     attribs.insert(make_pair(string("name"), pv));
@@ -682,11 +712,14 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         const SandeshHeader &header(vmsgp->msg->GetHeader());
         const std::string &message_type(vmsgp->msg->GetMessageType());
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
-        FieldNamesTableInsert(table, ":Objecttype", objectkey_str, timestamp, ttl);
-        FieldNamesTableInsert(table, ":Messagetype", message_type, timestamp, ttl);
-        FieldNamesTableInsert(table, ":ModuleId", header.get_Module(),
-            timestamp, ttl);
-        FieldNamesTableInsert(table, ":Source", header.get_Source(), timestamp, ttl);
+        FieldNamesTableInsert(timestamp,
+                table, ":ObjectId", objectkey_str, ttl);
+        FieldNamesTableInsert(timestamp,
+                table, ":Messagetype", message_type, ttl);
+        FieldNamesTableInsert(timestamp,
+                table, ":ModuleId", header.get_Module(), ttl);
+        FieldNamesTableInsert(timestamp,
+                table, ":Source", header.get_Source(), ttl);
     }
 }
 
@@ -944,6 +977,16 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
         pair<string,DbHandler::Var> ptag;
         ptag.first = it->first;
         ptag.second = it->second.first;
+
+        /* Record in the fieldNames table if we have a string tag,
+           and if we are not recording a fieldNames stats entry itself */
+        if ((ptag.second.type == DbHandler::STRING) &&
+                (statName.compare("FieldNames") != 0)) {
+            FieldNamesTableInsert(ts, std::string("StatTable.") +
+                    statName + "." + statAttr,
+                    std::string(":") + ptag.first, ptag.second.str, ttl);
+        }
+
         if (it->second.second.empty()) {
             pair<string,DbHandler::Var> stag;
             StatTableWrite(temp_u32, statName, statAttr,
@@ -1004,7 +1047,8 @@ boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffff-fff
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
-    FlowValueArray &fvalues, GenDb::NewColVec& columns, const TtlMap& ttl_map) {
+    FlowValueArray &fvalues, GenDb::NewColVec& columns, const TtlMap& ttl_map,
+    boost::function<void (const std::string&,const std::string&,int)> fncb) {
     int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
     columns.reserve(frvt.size());
     for (std::vector<FlowRecordFields::type>::const_iterator it = frvt.begin();
@@ -1014,6 +1058,13 @@ static void PopulateFlowRecordTableColumns(
             GenDb::NewCol *col(new GenDb::NewCol(
                 g_viz_constants.FlowRecordNames[(*it)], db_value, ttl));
             columns.push_back(col);
+            if ((*it==FlowRecordFields::FLOWREC_VROUTER)||
+                (*it==FlowRecordFields::FLOWREC_SOURCEVN)||
+                (*it==FlowRecordFields::FLOWREC_DESTVN)) {
+                std::string sval = boost::get<std::string>(db_value);
+                fncb(std::string(":")+g_viz_constants.FlowRecordNames[(*it)],
+                     sval, ttl);
+            }
         }
     }
 }
@@ -1028,12 +1079,13 @@ static void PopulateFlowRecordTableRowKey(
 }
 
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
-    GenDb::GenDbIf *dbif, const TtlMap& ttl_map) {
+    GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
+    boost::function<void (const std::string&,const std::string&,int)> fncb) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
-        colList->columns_, ttl_map);
+        colList->columns_, ttl_map, fncb);
     return dbif->Db_AddColumn(colList);
 }
 
@@ -1082,13 +1134,21 @@ static const std::string& FlowIndexTable2String(FlowIndexTableType ttype) {
  
 static void PopulateFlowIndexTableColumnValues(
     const std::vector<FlowRecordFields::type> &frvt,
-    FlowValueArray &fvalues, GenDb::DbDataValueVec &cvalues) {
+    FlowValueArray &fvalues, GenDb::DbDataValueVec &cvalues, int ttl,
+    boost::function<void (const std::string&,const std::string&,int)> fncb) {
     cvalues.reserve(frvt.size());
     for (std::vector<FlowRecordFields::type>::const_iterator it = frvt.begin();
          it != frvt.end(); it++) {
         GenDb::DbDataValue &db_value(fvalues[(*it)]);
         if (db_value.which() != GenDb::DB_VALUE_BLANK) {
             cvalues.push_back(db_value);
+            if ((*it==FlowRecordFields::FLOWREC_VROUTER)||
+                (*it==FlowRecordFields::FLOWREC_SOURCEVN)||
+                (*it==FlowRecordFields::FLOWREC_DESTVN)) {
+                std::string sval = boost::get<std::string>(db_value);
+                fncb(std::string(":")+g_viz_constants.FlowRecordNames[(*it)],
+                     sval, ttl);
+            }
         }
     }
 }
@@ -1152,14 +1212,16 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
 
 static bool PopulateFlowIndexTables(FlowValueArray &fvalues, 
     uint32_t &T2, uint32_t &T1, uint8_t partition_no,
-    GenDb::GenDbIf *dbif, const TtlMap& ttl_map) {
+    GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
+    boost::function<void (const std::string&,const std::string&,int)> fncb) {
     // Populate row key and column values (same for all flow index
     // tables)
     GenDb::DbDataValueVec rkey;
     PopulateFlowIndexTableRowKey(fvalues, T2, partition_no, rkey);
     GenDb::DbDataValueVec cvalues;
+    int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
     PopulateFlowIndexTableColumnValues(FlowIndexTableColumnValues, fvalues,
-        cvalues);
+        cvalues, ttl, fncb);
     // Populate the Flow Index Tables
     for (int tid = FLOW_INDEX_TABLE_MIN;
          tid < FLOW_INDEX_TABLE_MAX_PLUS_1; ++tid) {
@@ -1286,7 +1348,12 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     // Partition no
     uint8_t partition_no = 0;
     // Populate Flow Record Table
-    if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_)) {
+    
+    boost::function<void (const std::string&,const std::string&,int)> fncb =
+            boost::bind(&DbHandler::FieldNamesTableInsert,
+            this, timestamp, g_viz_constants.FLOW_TABLE, _1,_2,_3);
+    if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_,
+            fncb)) {
         DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     GenDb::DbDataValue &diff_bytes(
@@ -1295,10 +1362,13 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
         flow_entry_values[FlowRecordFields::FLOWREC_DIFF_PACKETS]);
     // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     // FLOWREC_DIFF_PACKETS are present
+    boost::function<void (const std::string&,const std::string&,int)> fncb2 =
+            boost::bind(&DbHandler::FieldNamesTableInsert,
+            this, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1,_2,_3);
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
-                dbif_.get(), ttl_map_)) {
+                dbif_.get(), ttl_map_, fncb2)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }

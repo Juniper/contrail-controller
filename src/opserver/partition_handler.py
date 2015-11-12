@@ -111,7 +111,7 @@ class UveCacheProcessor(object):
                     host=pi.ip_address, 
                     port=pi.port,
                     password=self._rpass,
-                    db=2)
+                    db=7)
             ppe = lredis.pipeline()
             luves = list(uveparts[pkey])
             for elem in luves:
@@ -342,7 +342,7 @@ class UveStreamPart(gevent.Greenlet):
                         host=self._pi.ip_address,
                         port=self._pi.port,
                         password=self._rpass,
-                        db=2)
+                        db=7)
                 pb = lredis.pubsub()
                 inst = self._pi.instance_id
                 part = self._partno
@@ -657,6 +657,9 @@ class UveStreamProc(PartitionHandler):
         self._acq_time = UTCTimestampUsec() 
         self._rport = rport
 
+    def reset_acq_time(self):
+        self._acq_time = UTCTimestampUsec()
+
     def acq_time(self):
         return self._acq_time
 
@@ -672,13 +675,6 @@ class UveStreamProc(PartitionHandler):
         if len(chg_res):
             self.start_partition(chg_res)
         self.disc_rset = newset
-        if self._disc:
-            data = { 'instance-id' : self._aginst,
-                     'partition' : str(self._partno),
-                     'ip-address': self._host_ip, 
-                     'acq-time': str(self._acq_time),
-                     'port':str(self._rport)}
-            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         
     def stop_partition(self, kcoll=None):
         clist = []
@@ -722,6 +718,13 @@ class UveStreamProc(PartitionHandler):
         ''' This function loads the initial UVE database.
             for the partition
         '''
+        if self._disc:
+            data = { 'instance-id' : self._aginst,
+                     'partition' : str(self._partno),
+                     'ip-address': self._host_ip, 
+                     'acq-time': str(self._acq_time),
+                     'port':str(self._rport)}
+            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         self._logger.error("Starting part %d collectors %s" % \
                 (self._partno, str(cbdb.keys())))
         uves  = {}

@@ -104,9 +104,9 @@ public:
         const boost::uuids::uuid& unm, const std::string keyword);
     virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
-    void FieldNamesTableInsert(const std::string& table_name,
-        const std::string& field_name, const std::string& field_val,
-        uint64_t timestamp, int ttl);
+    void FieldNamesTableInsert(uint64_t timestamp,
+        const std::string& table_name,
+        const std::string& field_name, const std::string& field_val, int ttl);
     void GetRuleMap(RuleMap& rulemap);
 
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
@@ -175,7 +175,9 @@ private:
     GenDb::DbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
-
+    uint32_t field_cache_t2_;
+    std::set<std::string> field_cache_set_;
+ 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 

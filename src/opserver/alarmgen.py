@@ -218,6 +218,25 @@ class Controller(object):
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
+
+        self.disc = None
+        self._libpart_name = self._hostname + ":" + self._instance_id
+        self._libpart = None
+        self._partset = set()
+        if self._conf.discovery()['server']:
+            self._max_out_rows = 20
+            data = {
+                'ip-address': self._hostname ,
+                'port': self._instance_id
+            }
+            self.disc = client.DiscoveryClient(
+                self._conf.discovery()['server'],
+                self._conf.discovery()['port'],
+                ModuleNames[Module.ALARM_GENERATOR])
+            print("Disc Publish to %s : %s"
+                          % (str(self._conf.discovery()), str(data)))
+            self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
+
         is_collector = True
         if test_logger is not None:
             is_collector = False
@@ -233,6 +252,7 @@ class Controller(object):
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],
                                       host_ip=self._conf.host_ip(),
+                                      discovery_client=self.disc,
                                       connect_to_collector = is_collector)
         if test_logger is not None:
             self._logger = test_logger
@@ -287,28 +307,8 @@ class Controller(object):
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
-        self._workers = {}
-        self._uvestats = {}
-        self._uveq = {}
-        self._uveqf = {}
-
-        self.disc = None
-        self._libpart_name = self._hostname + ":" + self._instance_id
-        self._libpart = None
-        self._partset = set()
-        if self._conf.discovery()['server']:
-            data = {
-                'ip-address': self._hostname ,
-                'port': self._instance_id
-            }
-            self.disc = client.DiscoveryClient(
-                self._conf.discovery()['server'],
-                self._conf.discovery()['port'],
-                ModuleNames[Module.ALARM_GENERATOR])
-            self._logger.info("Disc Publish to %s : %s"
-                          % (str(self._conf.discovery()), str(data)))
-            self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
-        else:
+        if not self.disc:
+            self._max_out_rows = 2
             # If there is no discovery service, use fixed redis_uve list
             redis_uve_list = []
             try:
@@ -317,12 +317,17 @@ class Controller(object):
                     redis_elem = (redis_ip_port[0], int(redis_ip_port[1]),0)
                     redis_uve_list.append(redis_elem)
             except Exception as e:
-                self._logger.error('Failed to parse redis_uve_list: %s' % e)
+                print('Failed to parse redis_uve_list: %s' % e)
             else:
                 self._us.update_redis_uve_list(redis_uve_list)
 
             # If there is no discovery service, use fixed alarmgen list
             self._libpart = self.start_libpart(self._conf.alarmgen_list())
+
+        self._workers = {}
+        self._uvestats = {}
+        self._uveq = {}
+        self._uveqf = {}
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
@@ -446,6 +451,21 @@ class Controller(object):
 
         return disc_instances, coll_delete, chg_res            
 
+    def clear_agg_uve(self, redish, inst, part, acq_time):
+	self._logger.error("Agg %s reset part %d, acq %d" % \
+		(inst, part, acq_time))
+	ppe2 = redish.pipeline()
+	ppe2.hdel("AGPARTS:%s" % inst, part)
+	ppe2.smembers("AGPARTKEYS:%s:%d" % (inst, part))
+	pperes2 = ppe2.execute()
+	ppe3 = redish.pipeline()
+	# Remove all contents for this AG-Partition
+	for elem in pperes2[-1]:
+	    ppe3.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, elem))
+	ppe3.delete("AGPARTKEYS:%s:%d" % (inst, part))
+	ppe3.hset("AGPARTS:%s" % inst, part, acq_time)
+	pperes3 = ppe3.execute()
+
     def send_agg_uve(self, redish, inst, part, acq_time, rows):
         """ 
         This function writes aggregated UVEs to redis
@@ -456,6 +476,8 @@ class Controller(object):
 
         The key and typename information is also published on a redis channel
         """
+        if not redish:
+            assert() 
         old_acq_time = redish.hget("AGPARTS:%s" % inst, part)
         if old_acq_time is None:
             self._logger.error("Agg %s part %d new" % (inst, part))
@@ -465,17 +487,7 @@ class Controller(object):
             if int(old_acq_time) != acq_time:
                 self._logger.error("Agg %s stale info part %d, acqs %d,%d" % \
                         (inst, part, int(old_acq_time), acq_time))
-                ppe2 = redish.pipeline()
-                ppe2.hdel("AGPARTS:%s" % inst, part)
-                ppe2.smembers("AGPARTKEYS:%s:%d" % (inst, part))
-                pperes2 = ppe2.execute()
-                ppe3 = redish.pipeline()
-                # Remove all contents for this AG-Partition
-                for elem in pperes2[-1]:
-                    ppe3.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, elem))
-                ppe3.delete("AGPARTKEYS:%s:%d" % (inst, part))
-                ppe3.hset("AGPARTS:%s" % inst, part, acq_time)
-                pperes3 = ppe3.execute()
+                self.clear_agg_uve(self, redish, inst, part, acq_time)
 
         pub_list = []        
         ppe = redish.pipeline()
@@ -486,15 +498,18 @@ class Controller(object):
             key = row.key
             pub_list.append({"key":key,"type":typ})
             if typ is None:
+                self._logger.debug("Agg remove part %d, key %s" % (part,key))
                 # The entire contents of the UVE should be removed
                 ppe.srem("AGPARTKEYS:%s:%d" % (inst, part), key)
                 ppe.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
             else:
                 if row.val is None:
+                    self._logger.debug("Agg remove part %d, key %s, type %s" % (part,key,typ))
                     # Remove the given struct from the UVE
                     ppe.hdel("AGPARTVALUES:%s:%d:%s" % (inst, part, key), typ)
                     check_keys.add(key)
                 else:
+                    self._logger.debug("Agg update part %d, key %s, type %s" % (part,key,typ))
                     ppe.sadd("AGPARTKEYS:%s:%d" % (inst, part), key)
                     ppe.hset("AGPARTVALUES:%s:%d:%s" % (inst, part, key),
                         typ, vjson)
@@ -526,6 +541,7 @@ class Controller(object):
         redish.publish('AGPARTPUB:%s:%d' % (inst, part), json.dumps(pub_list))
 
         if retry:
+            self._logger.error("Agg unexpected rows %s" % str(rows))
             assert()
         
     def run_uve_processing(self):
@@ -538,10 +554,6 @@ class Controller(object):
         set should not grow in an unbounded manner (like a queue can)
         """
 
-        if self.disc:
-            max_out_rows = 20
-        else:
-            max_out_rows = 2
         lredis = None
         while True:
             for part in self._uveqf.keys():
@@ -551,42 +563,55 @@ class Controller(object):
                 del self._uveqf[part]
                 if part in self._uveq:
                     del self._uveq[part]
-            prev = time.time()
-            gevs = {}
-            pendingset = {}
-            for part in self._uveq.keys():
-                if not len(self._uveq[part]):
-                    continue
-                self._logger.info("UVE Process for %d" % part)
+            try:
+                if lredis is None:
+                    lredis = redis.StrictRedis(
+                            host="127.0.0.1",
+                            port=self._conf.redis_server_port(),
+                            password=self._conf.redis_password(),
+                            db=7)
+                    self._logger.error("Connected to Redis for Agg")
+                    lredis.ping()
+                    for pp in self._workers.keys():
+                        self._workers[pp].reset_acq_time()
+                        self._workers[pp].kill(\
+                                RuntimeError('UVE Proc failed'),
+                                block=False)
+                        self.clear_agg_uve(lredis,
+                            self._instance_id,
+                            pp,
+                            self._workers[pp].acq_time())
+                        self.stop_uve_partition(pp)
+                    for part in self._uveqf.keys():
+                        del self._uveq[part]
+                prev = time.time()
+                gevs = {}
+                pendingset = {}
+                for part in self._uveq.keys():
+                    if not len(self._uveq[part]):
+                        continue
+                    self._logger.info("UVE Process for %d" % part)
 
-                # Allow the partition handlers to queue new UVEs without
-                # interfering with the work of processing the current UVEs
-                pendingset[part] = copy.deepcopy(self._uveq[part])
-                self._uveq[part] = {}
+                    # Allow the partition handlers to queue new UVEs without
+                    # interfering with the work of processing the current UVEs
+                    pendingset[part] = copy.deepcopy(self._uveq[part])
+                    self._uveq[part] = {}
 
-                gevs[part] = gevent.spawn(self.handle_uve_notif,part,\
-                    pendingset[part])
-            if len(gevs):
-                gevent.joinall(gevs.values())
-                for part in gevs.keys():
-                    # If UVE processing failed, requeue the working set
-                    outp = gevs[part].get()
-                    if outp is None:
-                        self._logger.error("UVE Process failed for %d" % part)
-                        self.handle_uve_notifq(part, pendingset[part])
-                    elif not part in self._workers:
-                        self._logger.error(
-                                "Part %d is gone, cannot process UVEs" % part)
-                    else:
-                        acq_time = self._workers[part].acq_time()
-                        try:
-                            if lredis is None:
-                                lredis = redis.StrictRedis(
-                                        host="127.0.0.1",
-                                        port=self._conf.redis_server_port(),
-                                        password=self._conf.redis_password(),
-                                        db=2)
-                  
+                    gevs[part] = gevent.spawn(self.handle_uve_notif,part,\
+                        pendingset[part])
+                if len(gevs):
+                    gevent.joinall(gevs.values())
+                    for part in gevs.keys():
+                        # If UVE processing failed, requeue the working set
+                        outp = gevs[part].get()
+                        if outp is None:
+                            self._logger.error("UVE Process failed for %d" % part)
+                            self.handle_uve_notifq(part, pendingset[part])
+                        elif not part in self._workers:
+                            self._logger.error(
+                                    "Part %d is gone, cannot process UVEs" % part)
+                        else:
+                            acq_time = self._workers[part].acq_time()
                             if len(outp):
                                 rows = []
                                 for ku,vu in outp.iteritems():
@@ -594,7 +619,7 @@ class Controller(object):
                                         # This message has no type!
                                         # Its used to indicate a delete of the entire UVE
                                         rows.append(OutputRow(key=ku, typ=None, val=None))
-                                        if len(rows) >= max_out_rows:
+                                        if len(rows) >= self._max_out_rows:
                                             self.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
@@ -604,7 +629,7 @@ class Controller(object):
                                         continue
                                     for kt,vt in vu.iteritems():
                                         rows.append(OutputRow(key=ku, typ=kt, val=vt))
-                                        if len(rows) >= max_out_rows:
+                                        if len(rows) >= self._max_out_rows:
                                             self.send_agg_uve(lredis,
                                                 self._instance_id,
                                                 part,
@@ -620,16 +645,14 @@ class Controller(object):
                                         rows)
                                     rows[:] = []
 
-                        except Exception as ex:
-                            template = "Exception {0} in uve proc. Arguments:\n{1!r}"
-                            messag = template.format(type(ex).__name__, ex.args)
-                            self._logger.error("%s : traceback %s" % \
-                                              (messag, traceback.format_exc()))
-                            lredis = None
-                            # We need to requeue
-                            self.handle_uve_notifq(part, pendingset[part])
-                            gevent.sleep(1)
-                            
+            except Exception as ex:
+                template = "Exception {0} in uve proc. Arguments:\n{1!r}"
+                messag = template.format(type(ex).__name__, ex.args)
+                self._logger.error("%s : traceback %s" % \
+                                  (messag, traceback.format_exc()))
+                lredis = None
+                gevent.sleep(1)
+                        
             curr = time.time()
             if (curr - prev) < 0.5:
                 gevent.sleep(0.5 - (curr - prev))

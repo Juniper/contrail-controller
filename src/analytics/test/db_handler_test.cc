@@ -424,18 +424,6 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
       }
 
       {
-        boost::uuids::uuid unm_allf = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
-        DbDataValueVec *colname(new DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back("ObjectTableInsertTest:Objecttype");
-        colname->push_back("");
-        colname->push_back((uint32_t)0);
-        colname->push_back(unm_allf);
-        DbDataValueVec *colvalue(new DbDataValueVec(1,""));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, 0));
-
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back((uint8_t)0);
@@ -452,18 +440,6 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
       }
 
       {
-        boost::uuids::uuid unm_allf = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
-        DbDataValueVec *colname(new DbDataValueVec);
-        colname->reserve(4);
-        colname->push_back(hdr.get_Source());
-        colname->push_back("");
-        colname->push_back((uint32_t)0);
-        colname->push_back(unm_allf);
-        DbDataValueVec *colvalue(new DbDataValueVec(1,""));
-        boost::ptr_vector<GenDb::NewCol> expected_vector =
-            boost::assign::ptr_list_of<GenDb::NewCol> 
-            (GenDb::NewCol(colname, colvalue, 0));
-
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back((uint8_t)0);
@@ -492,7 +468,6 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     hdr.set_Source("127.0.0.1");
     std::string messagetype("");
     std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > > flow_msgs;
-
     // Flow sandesh with single flow sample
     {
         std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowDataIpv4></flowdata></FlowDataIpv4Object>";
@@ -548,6 +523,38 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         flowdata_list.push_back(flow_data2);
         flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
     }
+    // FieldNames will be call 7 times each for FlowTable and FlowSeriesTable
+    // This dataset has 3 unique svn, 3 unique dvn, and a single vrouter
+    {
+	GenDb::DbDataValueVec rowkey;
+	rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+	rowkey.push_back((uint8_t)0);
+	rowkey.push_back("FieldNames");
+	rowkey.push_back("fields");
+	rowkey.push_back("name");
+	EXPECT_CALL(*dbif_mock(),
+		Db_AddColumnProxy(
+		    Pointee(
+			AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
+			    Field(&GenDb::ColList::rowkey_, rowkey),_))))
+	    .Times(14)
+	    .WillRepeatedly(Return(true));
+    }
+    {
+	GenDb::DbDataValueVec rowkey;
+	rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+	rowkey.push_back((uint8_t)0);
+	rowkey.push_back("FieldNames");
+	rowkey.push_back("fields");
+	rowkey.push_back("Source");
+	EXPECT_CALL(*dbif_mock(),
+		Db_AddColumnProxy(
+		    Pointee(
+			AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
+			    Field(&GenDb::ColList::rowkey_, rowkey),_))))
+	    .Times(14)
+	    .WillRepeatedly(Return(true));
+    }
 
     std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > >::
         const_iterator fit;
@@ -560,7 +567,6 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         std::vector<FlowDataIpv4>::const_iterator dit;
         for (dit = fit->second.begin(); dit != fit->second.end(); dit++) {
             boost::uuids::uuid flowu = StringToUuid(dit->get_flowuuid());
-
             // set expectations for FLOW_TABLE
             {
                 GenDb::DbDataValueVec rowkey;
