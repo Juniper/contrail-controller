@@ -76,7 +76,6 @@ def main(args_str=' '.join(sys.argv[1:])):
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
         config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
-        default['collectors'] = ['127.0.0.1:8086']
     elif (node_type == 'contrail-config'):
         config_file = '/etc/contrail/contrail-config-nodemgr.conf'
     elif (node_type == 'contrail-control'):
