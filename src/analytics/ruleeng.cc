@@ -559,6 +559,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         return false;
     }
 
+    map<string,string> emap, vmap;
     if (deleted) {
         if (!osp_->UVEDelete(object.name(), source, node_type, module, 
                              instance_id, key, seq, is_alarm)) {
@@ -571,7 +572,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
         osp_->UVENotif(object.name(), 
-            source, node_type, module, instance_id, table, barekey, deleted);
+            source, node_type, module, instance_id, table, barekey, emap ,deleted);
         return true;
     }
 
@@ -585,6 +586,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         if (strcmp(tempstr, "")) {
             continue;
         }
+        vmap.insert(make_pair(node.name(), ostr.str()));
         tempstr = node.attribute("aggtype").value();
         if (strcmp(tempstr, "")) {
             agg = std::string(tempstr);
@@ -636,8 +638,13 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     }
 
     // Publish on the Kafka bus that this UVE has changed
-    osp_->UVENotif(object.name(), 
-        source, node_type, module, instance_id, table, barekey, deleted);
+    if (!strcmp(object.name(), "UVEAlarms")) {
+        osp_->UVENotif(object.name(), 
+            source, node_type, module, instance_id, table, barekey, vmap, deleted);
+    } else {
+        osp_->UVENotif(object.name(), 
+            source, node_type, module, instance_id, table, barekey, emap, deleted);
+    }
     return true;
 }
 

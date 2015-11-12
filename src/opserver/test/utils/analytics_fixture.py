@@ -261,8 +261,9 @@ class AlarmGen(object):
                          "contrail-alarm-gen", ["http"],
                          args, None, False)
         self.http_port = ports["http"]
-        for part in range(0,self.partitions):
-            assert(self.analytics_fixture.set_alarmgen_partition(part,1) == 'true')
+        if self.http_port: 
+            for part in range(0,self.partitions):
+                self.analytics_fixture.set_alarmgen_partition(part,1)
         return self.verify_setup()
     # end start
 
@@ -2227,7 +2228,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time='-1m',
                              end_time='now',
                              select_fields=['fields.value'],
-                             where_clause = 'name=ObjectVNTable:Objecttype')
+                             where_clause = 'name=ObjectVNTable:ObjectId')
         self.logger.info(str(res))
 	#Verify that 2 different n/w are present vn0 and vn1
 	assert(len(res)==2)
@@ -2583,15 +2584,22 @@ class AnalyticsFixture(fixtures.Fixture):
                 try:
                     line = pipein.readline()[:-1]
                     port = int(line)
-                    self.logger.info("Found %s_port %d" % (k, port))
+                    self.logger.info("Found %s_port %d for %s" % (k, port, modname))
                     tries = -1
                 except Exception as e:
-                    self.logger.info("No %s_port found" % k)
+                    self.logger.info("No %s_port found for %s" % (k, modname))
                     gevent.sleep(1)
                     tries = tries - 1
             pipein.close()
             os.unlink(pipe_name)
             pmap[k] = port
+            if not instance.poll() is None:
+                (p_out, p_err) = instance.communicate()
+                rcode = instance.returncode
+                self.logger.info('%s returned %d at startup!' % (modname,rcode))
+                self.logger.info('%s terminated stdout: %s' % (modname, p_out))
+                self.logger.info('%s terminated stderr: %s' % (modname, p_err))
+
         return pmap, instance
 
     @staticmethod
