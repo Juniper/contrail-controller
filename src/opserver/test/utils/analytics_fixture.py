@@ -2227,7 +2227,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time='-1m',
                              end_time='now',
                              select_fields=['fields.value'],
-                             where_clause = 'name=ObjectVNTable:Objecttype')
+                             where_clause = 'name=ObjectVNTable:ObjectId')
         self.logger.info(str(res))
 	#Verify that 2 different n/w are present vn0 and vn1
 	assert(len(res)==2)
