@@ -125,6 +125,7 @@ void intrusive_ptr_add_ref(const PhysicalDeviceVn *p);
 
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
+typedef std::vector<std::string> CommunityList;
 
 class AgentDBTable;
 class InterfaceTable;

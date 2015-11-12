@@ -318,7 +318,8 @@ static void RestoreInetConfig(Agent *agent) {
     table->AddGatewayRouteReq(agent->local_peer(), agent->fabric_vrf_name(),
                            Ip4Address(0), 0, param->vhost_gw(),
                            agent->fabric_vrf_name(),
-                           MplsTable::kInvalidLabel, SecurityGroupList());
+                           MplsTable::kInvalidLabel, SecurityGroupList(),
+                           CommunityList());
     client->WaitForIdle();
 }
 

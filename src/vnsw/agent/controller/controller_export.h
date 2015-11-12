@@ -26,6 +26,7 @@ public:
         uint32_t label_;
         std::string vn_;
         SecurityGroupList sg_list_;
+        CommunityList communities_;
         TunnelType::Type tunnel_type_;
         PathPreference path_preference_;
         //destination and source are valid for tunnel NH.

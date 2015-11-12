@@ -245,6 +245,7 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                                                uint64_t sequence_number,
                                                const AgentXmppChannel *channel) :
     LocalVmRoute(intf, mpls_label, vxlan_id, force_policy, vn_name, flags, sg_list,
+                 CommunityList(),
                  path_preference, Ip4Address(0)),
     sequence_number_(sequence_number), channel_(channel) { }
 

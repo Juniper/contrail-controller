@@ -62,7 +62,7 @@ public:
         rt_table->AddLocalVmRouteReq(agent()->local_peer(), vrf, addr,
                                      128, intf->GetUuid(),
                                      intf->vn()->GetName(), label,
-                                     SecurityGroupList(), false,
+                                     SecurityGroupList(), CommunityList(), false,
                                      PathPreference(),
                                      Ip6Address());
         client->WaitForIdle();
