@@ -39,6 +39,7 @@ import discoveryclient.client as discovery_client
 
 # sandesh
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
@@ -75,6 +76,7 @@ class DiscoveryServer():
             'throttle_subs':0,
             '503': 0,
             'count_lb': 0,
+            'api_dsa': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -85,6 +87,9 @@ class DiscoveryServer():
         self._pipe_start_app = None
 
         bottle.route('/', 'GET', self.homepage_http_get)
+
+        # external api
+        bottle.route('/api/dsa', 'PUT', self.api_ext_dsa)
 
         # heartbeat
         bottle.route('/heartbeat', 'POST', self.api_heartbeat)
@@ -211,6 +216,10 @@ class DiscoveryServer():
             self.create_sub_data(client_id, service_type)
     # end __init__
 
+    def config_log(self, msg, level):
+        self._sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
+                                   msg)
+
     def create_sub_data(self, client_id, service_type):
         if not client_id in self._sub_data:
             self._sub_data[client_id] = {}
@@ -281,13 +290,8 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        cred = None
-        if 'cassandra' in self.cassandra_config.keys():
-            cred = {'username':self.cassandra_config['cassandra']['cassandra_user'],'password':self.cassandra_config['cassandra']['cassandra_password']}
         self._db_conn = DiscoveryCassandraClient("discovery",
-            self._args.cassandra_server_list, reset_config,
-            self._args.cass_max_retries,
-            self._args.cass_timeout, cred)
+            self._args.cassandra_server_list, self.config_log, reset_config)
     # end _db_connect
 
     def cleanup(self):
@@ -602,7 +606,10 @@ class DiscoveryServer():
 
         # handle query for all publishers
         if count == 0:
-            r = [entry['info'] for entry in pubs_active]
+            for entry in pubs_active:
+                r_dict = entry['info'].copy()
+                r_dict['@publisher-id'] = entry['service_id']
+                r.append(r_dict)
             response = {'ttl': ttl, service_type: r}
             if 'application/xml' in ctype:
                 response = xmltodict.unparse({'response': response})
@@ -624,7 +631,8 @@ class DiscoveryServer():
                     if policy == 'fixed' and entry is None and entry2:
                         self._db_conn.delete_service(entry2)
                     continue
-                result = entry['info']
+                result = entry['info'].copy()
+                result['@publisher-id'] = entry['service_id']
                 self._db_conn.insert_client(
                     service_type, service_id, client_id, result, ttl)
                 r.append(result)
@@ -645,7 +653,8 @@ class DiscoveryServer():
 
         # take first 'count' publishers
         for entry in pubs[:min(count, len(pubs))]:
-            result = entry['info']
+            result = entry['info'].copy()
+            result['@publisher-id'] = entry['service_id']
             r.append(result)
 
             self.syslog(' assign service=%s, info=%s' %
@@ -1035,6 +1044,12 @@ class DiscoveryServer():
             rsp += '    </tr>\n'
         return rsp
     # end show_stats
+
+    def api_ext_dsa(self):
+        rsp = ''
+        self._debug['api_dsa'] += 1
+        return rsp
+
 
 # end class DiscoveryServer
 
