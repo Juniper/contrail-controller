@@ -34,6 +34,8 @@ class InterfaceKSyncObject;
 
 class InterfaceKSyncEntry : public KSyncNetlinkDBEntry {
 public:
+    static const int kDefaultInterfaceMsgSize = 2048;
+
     InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                         const InterfaceKSyncEntry *entry, uint32_t index);
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
@@ -68,6 +70,8 @@ public:
     bool dhcp_enable() const {return dhcp_enable_;}
     bool layer3_forwarding() const {return layer3_forwarding_;}
     bool bridging() const {return bridging_;}
+
+    int MsgLen() { return kDefaultInterfaceMsgSize; }
 
 private:
     friend class InterfaceKSyncObject;
