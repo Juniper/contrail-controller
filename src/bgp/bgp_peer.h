@@ -146,6 +146,7 @@ public:
     void clear_session();
     BgpSession *session();
 
+    uint16_t hold_time() const { return hold_time_; }
     as_t local_as() const { return local_as_; }
     as_t peer_as() const { return peer_as_; }
 
@@ -365,6 +366,7 @@ private:
     bool defer_close_;
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
+    uint16_t hold_time_;
     as_t local_as_;
     as_t peer_as_;
     uint32_t local_bgp_id_;     // network order

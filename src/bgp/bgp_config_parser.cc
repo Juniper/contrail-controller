@@ -254,6 +254,7 @@ static void RemovePeeringLinks(const string &instance,
 static bool ParseSession(const string &identifier, const xml_node &node,
                          SessionMap *sessions) {
     autogen::BgpSessionAttributes attr;
+    attr.Clear();
     xml_attribute to = node.attribute("to");
     assert(to);
     assert(attr.XmlParse(node));

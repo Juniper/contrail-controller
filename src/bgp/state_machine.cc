@@ -1651,7 +1651,11 @@ int StateMachine::GetConfiguredHoldTime() const {
         return env_hold_time;
     }
 
-    // Use the configured hold-time if available.
+    // Use the configured hold-time from peer if available.
+    if (peer_ && peer_->hold_time())
+        return peer_->hold_time();
+
+    // Use the configured hold-time from server if available.
     if (peer_ && peer_->server()->hold_time())
         return peer_->server()->hold_time();
 
