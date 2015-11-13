@@ -49,6 +49,7 @@ class VrfOvsdbObject;
 class VnOvsdbObject;
 class OvsdbEntryBase;
 class ConnectionStateTable;
+class OvsdbResourceVxLanIdTable;
 
 class OvsdbClientIdl;
 typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
@@ -156,6 +157,7 @@ public:
     MulticastMacLocalOvsdb *multicast_mac_local_ovsdb();
     VrfOvsdbObject *vrf_ovsdb();
     VnOvsdbObject *vn_ovsdb();
+    OvsdbResourceVxLanIdTable *vxlan_table();
 
     // Used by Test case
     bool IsKeepAliveTimerActive();
@@ -214,6 +216,7 @@ private:
     std::auto_ptr<MulticastMacLocalOvsdb> multicast_mac_local_ovsdb_;
     std::auto_ptr<VrfOvsdbObject> vrf_ovsdb_;
     std::auto_ptr<VnOvsdbObject> vn_ovsdb_;
+    std::auto_ptr<OvsdbResourceVxLanIdTable> vxlan_table_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientIdl);
 };
 };  // namespace OVSDB
