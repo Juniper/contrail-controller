@@ -1392,6 +1392,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='ServiceTemplateType'> 
     <xsd:sequence>
+        <xsd:element name="version" type='xsd:integer' default='1'/>
         <xsd:element name='service-mode' type='ServiceModeType'/>
         <xsd:element name='service-type' type='ServiceType'/>
         <xsd:element name='image-name' type='xsd:string'/>
