@@ -27,9 +27,10 @@ class VerificationGenerator(IntrospectUtilBase):
     #end get_collector_connection_status
 
     def get_uve(self, tname):
-        path = 'Snh_SandeshUVECacheReq?x=%s' % (tname)
+        path = 'Snh_SandeshUVECacheReq'
+        query = {'x':tname}
         xpath = './/' + tname
-        p = self.dict_get(path)
+        p = self.dict_get(path, query)
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_uve
 #end class VerificationGenerator

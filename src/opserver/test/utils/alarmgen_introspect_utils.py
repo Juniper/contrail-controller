@@ -27,9 +27,10 @@ class VerificationAlarmGen(IntrospectUtilBase):
         {'partition': '3', 'enabled': 'true', 'uves': [{'collector': '127.0.0.1:6379', 'uves': [{'uves': ['ObjectGeneratorInfo:a6s40:Analytics:contrail-query-engine:0', 'ObjectGeneratorInfo:a6s40:Config:contrail-config-nodemgr:0', 'ObjectGeneratorInfo:a6s40:Analytics:contrail-topology:0', 'ObjectCollectorInfo:a6s40', 'ObjectGeneratorInfo:a6s40:Compute:contrail-vrouter-nodemgr:0', 'ObjectGeneratorInfo:a6s40:Analytics:contrail-analytics-nodemgr:0'], 'generator': 'a6s40:Analytics:contrail-collector:0'}, {'uves': ['ObjectGeneratorInfo:a6s40:Compute:contrail-vrouter-nodemgr:0', 'ObjectVRouter:a6s40'], 'generator': 'a6s40:Compute:contrail-vrouter-nodemgr:0'}, {'uves': ['ObjectGeneratorInfo:a6s40:Config:contrail-config-nodemgr:0'], 'generator': 'a6s40:Config:contrail-config-nodemgr:0'}, {'uves': ['ObjectCollectorInfo:a6s40', 'ObjectGeneratorInfo:a6s40:Analytics:contrail-analytics-nodemgr:0'], 'generator': 'a6s40:Analytics:contrail-analytics-nodemgr:0'}, {'uves': ['ObjectGeneratorInfo:a6s40:Analytics:contrail-query-engine:0', 'ObjectCollectorInfo:a6s40'], 'generator': 'a6s40:Analytics:contrail-query-engine:0'}, {'uves': ['ObjectCollectorInfo:a6s40'], 'generator': 'a6s40:Analytics:contrail-alarm-gen:0'}, {'uves': ['ObjectCollectorInfo:a6s40'], 'generator': 'a6s40:Analytics:contrail-analytics-api:0'}, {'uves': ['ObjectBgpPeer:default-domain:default-project:ip-fabric:__default__:a6s40:default-domain:default-project:ip-fabric:__default__:mx1'], 'generator': 'a6s40:Control:contrail-control:0'}, {'uves': ['ObjectVRouter:a6s40'], 'generator': 'a6s40:Compute:contrail-vrouter-agent:0'}]}]}
         >>>
         '''
-        path = 'Snh_PartitionStatusReq?partition=%d' % partno
+        path = 'Snh_PartitionStatusReq'
+        query = {'partition':partno}
         xpath = '/PartitionStatusResp'
-        p = self.dict_get(path)
+        p = self.dict_get(path, query)
         return EtreeToDict(xpath).get_all_entry(p)
 
     def get_PartitionOwnership(self, partno, status):
@@ -46,8 +47,9 @@ class VerificationAlarmGen(IntrospectUtilBase):
         >>> print xx
         {'table': 'ObjectCollectorInfo', 'uves': [{'alarms': [{'ack': 'false', 'type': 'ProcessStatus', 'description': [{'value': "{u'process_name': u'contrail-topology', u'process_state': u'PROCESS_STATE_STOPPED', u'last_stop_time': u'1423614955674319', u'start_count': 1, u'core_file_list': [], u'last_start_time': u'1423605696935359', u'stop_count': 1, u'last_exit_time': None, u'exit_count': 0}", 'rule': 'NodeStatus.process_info[].process_state != PROCESS_STATE_RUNNING'}]}], 'name': 'ObjectCollectorInfo:a6s40'}]}
         '''
-        path = 'Snh_UVETableAlarmReq?table=%s' % table
+        path = 'Snh_UVETableAlarmReq'
+        query = {'table':table}
         xpath = '/UVETableAlarmResp'
-        p = self.dict_get(path)
+        p = self.dict_get(path, query)
         return EtreeToDict(xpath).get_all_entry(p)
 #end class VerificationAlarmGen
