@@ -248,7 +248,7 @@ class PhysicalRouterDM(DBBaseDM):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
-            if vn.forwarding_mode != 'l2_l3':  # dont need irb ip, gateway ip
+            if vn.get_forwarding_mode() != 'l2_l3':  # dont need irb ip, gateway ip
                 continue
             for subnet_prefix in vn.gateways.keys():
                 new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
@@ -608,14 +608,14 @@ class PhysicalRouterDM(DBBaseDM):
                             continue
                         import_set |= ri2.export_targets
 
-                    if vn_obj.forwarding_mode in ['l2', 'l2_l3']:
+                    if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
                         irb_ips = None
-                        if vn_obj.forwarding_mode == 'l2_l3':
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
                             irb_ips = vn_irb_ip_map.get(vn_id, [])
                         self.config_manager.add_routing_instance(
                             vrf_name_l2,
                             True,
-                            vn_obj.forwarding_mode == 'l2_l3',
+                            vn_obj.get_forwarding_mode() == 'l2_l3',
                             import_set,
                             export_set,
                             vn_obj.get_prefixes(),
@@ -626,7 +626,7 @@ class PhysicalRouterDM(DBBaseDM):
                             None,
                             vn_obj.vn_network_id)
 
-                    if vn_obj.forwarding_mode in ['l3', 'l2_l3']:
+                    if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
                         interfaces = [
                             JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
@@ -634,7 +634,7 @@ class PhysicalRouterDM(DBBaseDM):
                         self.config_manager.add_routing_instance(
                             vrf_name_l3,
                             False,
-                            vn_obj.forwarding_mode == 'l2_l3',
+                            vn_obj.get_forwarding_mode() == 'l2_l3',
                             import_set,
                             export_set,
                             vn_obj.get_prefixes(),
@@ -752,6 +752,7 @@ class GlobalVRouterConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'global_vrouter_config'
     global_vxlan_id_mode = None
+    global_forwarding_mode = None
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -762,10 +763,15 @@ class GlobalVRouterConfigDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         new_global_vxlan_id_mode = obj.get('vxlan_network_identifier_mode')
+        new_global_forwarding_mode = obj.get('forwarding_mode')
         if (GlobalVRouterConfigDM.global_vxlan_id_mode !=
-                new_global_vxlan_id_mode):
+                new_global_vxlan_id_mode or
+            GlobalVRouterConfigDM.global_forwarding_mode !=
+                new_global_forwarding_mode):
             GlobalVRouterConfigDM.global_vxlan_id_mode = \
                 new_global_vxlan_id_mode
+            GlobalVRouterConfigDM.global_forwarding_mode = \
+                new_global_forwarding_mode
             self.update_physical_routers()
     # end update
 
@@ -1071,7 +1077,7 @@ class VirtualNetworkDM(DBBaseDM):
             self.router_external = False
         self.vn_network_id = obj.get('virtual_network_network_id')
         self.set_vxlan_vni(obj)
-        self.forwarding_mode = self.get_forwarding_mode(obj)
+        self.set_forwarding_mode(obj)
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
         self.virtual_machine_interfaces = set(
@@ -1123,12 +1129,22 @@ class VirtualNetworkDM(DBBaseDM):
                 pass
     # end set_vxlan_vni
 
-    def get_forwarding_mode(self, obj):
-        default_mode = 'l2_l3'
-        prop = obj.get('virtual_network_properties')
-        if prop:
-            return prop.get('forwarding_mode', default_mode)
-        return default_mode
+    def set_forwarding_mode(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.forwarding_mode = None
+        try:
+            prop = obj['virtual_network_properties']
+            if prop['forwarding_mode'] is not None:
+                self.forwarding_mode = prop['forwarding_mode']
+        except KeyError:
+            pass
+    # end set_forwarding_mode
+
+    def get_forwarding_mode(self):
+        if not self.forwarding_mode:
+            return GlobalVRouterConfigDM.global_forwarding_mode or 'l2_l3'
+        return self.forwarding_mode
     # end get_forwarding_mode
 
     def update_instance_ip_map(self):
