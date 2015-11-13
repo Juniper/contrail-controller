@@ -224,6 +224,9 @@ class DiscoveryClient(object):
         self._subs = []
     # end __init__
 
+    def set_myip(self, ip):
+        self._myip = ip
+ 
     def set_sandesh(self, sandesh):
         self._sandesh = sandesh
     # end set_sandesh
