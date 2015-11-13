@@ -1273,6 +1273,7 @@ class VncApiServer(object):
         self.get_resource_class('physical-interface').generate_default_instance = False
         self.get_resource_class('logical-interface').generate_default_instance = False
         self.get_resource_class('api-access-list').generate_default_instance = False
+        self.get_resource_class('dsa-rule').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -2123,6 +2124,7 @@ class VncApiServer(object):
         self._create_singleton_entry(
             RoutingInstance('default-virtual-network',
                 routing_instance_is_default=True))
+        self._create_singleton_entry(DiscoveryServiceAssignment())
 
         self._db_conn.db_resync()
         try:

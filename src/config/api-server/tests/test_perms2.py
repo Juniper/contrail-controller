@@ -301,7 +301,7 @@ class MyVncApi(VncApi):
 
 # This is needed for VncApi._authenticate invocation from within Api server.
 # We don't have access to user information so we hard code admin credentials.
-def ks_admin_authenticate(response=None, headers=None):
+def ks_admin_authenticate(self, response=None, headers=None):
     rval = token_from_user_info('admin', 'admin', 'default-domain', 'admin')
     new_headers = {}
     new_headers['X-AUTH-TOKEN'] = rval
@@ -314,7 +314,7 @@ class TestPermissions(test_case.ApiServerTestCase):
 
     def setUp(self):
         extra_mocks = [(keystone.Client,
-                            '__new__', test_utils.get_keystone_client),
+                            '__new__', test_utils.FakeKeystoneClient),
                        (vnc_api.vnc_api.VncApi,
                             '_authenticate',  ks_admin_authenticate),
                        (auth_token, 'AuthProtocol',
