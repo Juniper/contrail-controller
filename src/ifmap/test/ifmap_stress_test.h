@@ -96,6 +96,7 @@ public:
     EvLogSz_t GetEventLogSize() const { return event_log_.size(); }
     int max_events() { return max_events_; }
     int events_executed() { return events_executed_; }
+    void LogEvent(IFMapSTEventMgr::EventType event);
 
 private:
     void ReadEventsFile(const IFMapSTOptions &config_options);
@@ -180,7 +181,8 @@ class IFMapStressTest : public ::testing::Test {
 protected:
     static const std::string kXMPP_CLIENT_PREFIX;
     static const uint64_t kUUID_MSLONG = 1361480977053469917;
-    static const uint64_t kUUID_LSLONG = 1324108391580000000;
+    // 1324108391240433664 = 0x12602d9100000000
+    static const uint64_t kUUID_LSLONG = 1324108391240433664;
     static const std::string kDefaultXmppServerName;
     static const int kMAX_LOG_NUM_EVENTS = 100000; // events in circular buffer
     static const uint32_t kNUM_EVENTS_BEFORE_SLEEP = 100;
@@ -200,7 +202,7 @@ protected:
     IFMapStressTest();
     void SetUp();
     void TearDown();
-    void WaitForIdle();
+    void WaitForIdle(int wait_seconds = 0);
     std::string XmppClientNameCreate(int id);
     void CreateXmppClients();
     void DeleteXmppClients();
@@ -224,6 +226,7 @@ protected:
     void VerifyConfig();
     void VerifyNodes();
     bool ConnectedToXmppServer(const std::string &client_name);
+    uint64_t GetUuidLsLong(int client_id, int vm_id);
 
     template<typename SetType>
     SetType PickRandomElement(const std::set<SetType> &client_set);

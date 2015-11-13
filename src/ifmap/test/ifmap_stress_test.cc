@@ -271,6 +271,11 @@ bool IFMapSTEventMgr::EventAvailable() const {
     return (events_executed_ < max_events_ ? true : false);
 }
 
+void IFMapSTEventMgr::LogEvent(IFMapSTEventMgr::EventType event) {
+    string event_log = "Event " + EventToString(event);
+    event_log_.push_back(event_log);
+}
+
 IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
     EventType event;
     assert(EventAvailable());
@@ -293,8 +298,7 @@ IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
     }
     ++events_executed_;
 
-    string event_log = "Event " + EventToString(event);
-    event_log_.push_back(event_log);
+    LogEvent(event);
 
     return event;
 }
@@ -312,8 +316,10 @@ void IFMapStressTest::Log(string log_string) {
     log_buffer_.push_back(log_string);
 }
 
-void IFMapStressTest::WaitForIdle() {
-    if (config_options_.wait_for_idle_time()) {
+void IFMapStressTest::WaitForIdle(int wait_seconds) {
+    if (wait_seconds) {
+        task_util::WaitForIdle(wait_seconds);
+    } else if (config_options_.wait_for_idle_time()) {
         usleep(10);
         task_util::WaitForIdle(config_options_.wait_for_idle_time());
     }
@@ -764,6 +770,12 @@ int IFMapStressTest::GetVmIdToDeleteNode(int client_id) {
     return vm_id;
 }
 
+// Take 0x12602d9100000000 and insert client-id in bits 16-32 and vm_id in bits
+// 0-31.
+uint64_t IFMapStressTest::GetUuidLsLong(int client_id, int vm_id) {
+    return kUUID_LSLONG | (client_id << 16) | vm_id;
+}
+
 void IFMapStressTest::VirtualMachineNodeAdd() {
     int client_id = (std::rand() % config_options_.num_xmpp_clients());
     assert(client_id < config_options_.num_xmpp_clients());
@@ -779,7 +791,7 @@ void IFMapStressTest::VirtualMachineNodeAdd() {
     // Add 2 properties to the VM: uuid and display-name.
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     prop1->uuid.uuid_mslong = kUUID_MSLONG;
-    prop1->uuid.uuid_lslong = kUUID_LSLONG + client_id + vm_id;
+    prop1->uuid.uuid_lslong = GetUuidLsLong(client_id, vm_id);
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine", vm_name, 0,
                                      "id-perms", prop1);
     autogen::VirtualMachine::StringProperty *prop2 =
@@ -819,7 +831,7 @@ void IFMapStressTest::VirtualMachineNodeDelete() {
     // Remove all the properties that were added during node add.
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     prop1->uuid.uuid_mslong = kUUID_MSLONG;
-    prop1->uuid.uuid_lslong = kUUID_LSLONG + client_id + vm_id;
+    prop1->uuid.uuid_lslong = GetUuidLsLong(client_id, vm_id);
     ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine", vm_name, 0,
                                         "id-perms", prop1);
     autogen::VirtualMachine::StringProperty *prop2 =
@@ -992,10 +1004,7 @@ void IFMapStressTest::VirtualMachineSubscribe() {
 
     int vm_id = GetVmIdToSubscribe(client_id);
     string vm_name = VirtualMachineNameCreate(client_id, vm_id);
-
-    TASK_UTIL_EXPECT_FALSE(client->HasAddedVm(vm_name));
     xmpp_clients_.at(client_id)->SendVmConfigSubscribe(vm_name);
-    TASK_UTIL_EXPECT_TRUE(client->HasAddedVm(vm_name));
     client_counters_.at(client_id).incr_vm_subscribes();
     Log("VM-sub " + vm_name + ", client id " + integerToString(client_id)
         + ", vm_count " + integerToString(client->VmCount()));
@@ -1020,12 +1029,9 @@ void IFMapStressTest::VirtualMachineUnsubscribe() {
 
     int vm_id = GetVmIdToUnsubscribe(client_id);
     string vm_name = VirtualMachineNameCreate(client_id, vm_id);
-
-    TASK_UTIL_EXPECT_TRUE(client->HasAddedVm(vm_name));
     xmpp_clients_.at(client_id)->SendVmConfigUnsubscribe(vm_name);
-    TASK_UTIL_EXPECT_FALSE(client->HasAddedVm(vm_name));
     client_counters_.at(client_id).incr_vm_unsubscribes();
-    Log("VM-sub " + vm_name + ", client id " + integerToString(client_id)
+    Log("VM-unsub " + vm_name + ", client id " + integerToString(client_id)
         + ", vm_count " + integerToString(client->VmCount()));
 }
 
@@ -1120,7 +1126,7 @@ TEST_F(IFMapStressTest, TestEventCreate) {
     TASK_UTIL_EXPECT_EQ(event_generator_.GetEventLogSize(), count);
 }
 
-TEST_F(IFMapStressTest, xxx) {
+TEST_F(IFMapStressTest, EventsWithSleep) {
     IFMapSTEventMgr::EventType event;
     cout << "List of events:" << endl;
     uint32_t event_count = 0;
@@ -1137,6 +1143,33 @@ TEST_F(IFMapStressTest, xxx) {
     }
     TASK_UTIL_EXPECT_EQ((int)event_generator_.GetEventLogSize(),
                         event_generator_.max_events());
+    Log("Processed " + integerToString(event_generator_.GetEventLogSize())
+        + " events");
+}
+
+// Trigger a vm-sub followed by a vm-unsub with no vm-node-add.
+TEST_F(IFMapStressTest, VmSubUnsubWithoutNode) {
+    uint32_t max_events = event_generator_.max_events();
+    uint32_t event_count = 0;
+    uint32_t rounds = 0;
+    while (event_count < max_events) {
+        EvCb callback = GetCallback(IFMapSTEventMgr::XMPP_READY);
+        callback();
+        event_generator_.LogEvent(IFMapSTEventMgr::XMPP_READY);
+        callback = GetCallback(IFMapSTEventMgr::VR_SUB);
+        callback();
+        event_generator_.LogEvent(IFMapSTEventMgr::VR_SUB);
+        callback = GetCallback(IFMapSTEventMgr::VM_SUB);
+        callback();
+        event_generator_.LogEvent(IFMapSTEventMgr::VM_SUB);
+        callback = GetCallback(IFMapSTEventMgr::VM_UNSUB);
+        callback();
+        event_generator_.LogEvent(IFMapSTEventMgr::VM_UNSUB);
+        TimeToSleep(++rounds, 25, 100000);
+        event_count += 4;
+    }
+    WaitForIdle(300);
+    TASK_UTIL_EXPECT_EQ(event_generator_.GetEventLogSize(), event_count);
     Log("Processed " + integerToString(event_generator_.GetEventLogSize())
         + " events");
 }

@@ -88,6 +88,10 @@ void IFMapXmppClientMock::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     recv_buffer_ += ss.str();
 }
 
+void IFMapXmppClientMock::WriteReadyCb(const boost::system::error_code &ec) {
+    return;
+}
+
 void IFMapXmppClientMock::SendDocument(const pugi::xml_document &xdoc) {
     ostringstream oss;
     xdoc.save(oss);
@@ -97,7 +101,8 @@ void IFMapXmppClientMock::SendDocument(const pugi::xml_document &xdoc) {
     assert(channel);
     if (channel->GetPeerState() == xmps::READY) {
         channel->Send(reinterpret_cast<const uint8_t *>(msg.data()),
-                      msg.length(), xmps::CONFIG, NULL);
+            msg.length(), xmps::CONFIG,
+            boost::bind(&IFMapXmppClientMock::WriteReadyCb, this, _1));
     }
 }
 
