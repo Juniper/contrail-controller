@@ -48,7 +48,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         for i in range(3):
             client_type = 'test-discovery'
             pub_id = 'test_discovery-%d' % i
-            pub_data = '%s-%d' % ('foobar', i)
+            pub_data = {'data': '%s-%d' % ('foobar', i)}
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
@@ -87,7 +87,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # start one more publisher
         pub_id = 'test_discovery-3'
-        pub_data = 'foobar-3'
+        pub_data = {'data' : 'foobar-3'}
         disc = client.DiscoveryClient(
                     self._disc_server_ip, self._disc_server_port,
                     client_type, pub_id)
@@ -148,7 +148,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         for i in range(3):
             client_type = 'test-discovery'
             pub_id = 'test_discovery-%d' % i
-            pub_data = '%s-%d' % ('collector', i)
+            pub_data = {'data': '%s-%d' % ('collector', i)}
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
@@ -192,7 +192,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # start one more publisher
         pub_id = 'test_discovery-3'
-        pub_data = 'collector-3'
+        pub_data = {'data': 'collector-3'}
         pub_url = '/service/%s' % pub_id
         disc = client.DiscoveryClient(
                     self._disc_server_ip, self._disc_server_port,
