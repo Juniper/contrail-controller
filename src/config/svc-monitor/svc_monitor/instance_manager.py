@@ -150,7 +150,7 @@ class InstanceManager(object):
         if iipv6_obj:
             self._link_and_update_iip_for_family(si, vmi_obj, iipv6_obj)
 
-    def _link_fip_to_vmi(self, si, vmi_obj, fip_id):
+    def _link_fip_to_vmi(self, vmi_obj, fip_id):
         fip = FloatingIpSM.get(fip_id)
         if fip:
             self._vnc_lib.ref_update('floating-ip', fip_id,
@@ -347,6 +347,18 @@ class InstanceManager(object):
                         InstanceIpSM.delete(iip['uuid'])
                     except NoIdError:
                         pass
+
+            for fip in vmi_obj.get_floating_ip_back_refs() or []:
+                vip = False
+                fip_cache = FloatingIpSM.locate(fip['uuid'])
+                for port_id in fip_cache.virtual_machine_interfaces:
+                    port = VirtualMachineInterfaceSM.get(port_id)
+                    if port and port.virtual_ip:
+                        vip = True
+                        break
+                if vip:
+                    self._vnc_lib.ref_update('floating-ip', fip['uuid'],
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
 
             try:
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
@@ -555,7 +567,7 @@ class InstanceManager(object):
 
         # link vmi to fip
         if 'fip-id' in nic:
-            self._link_fip_to_vmi(si, vmi_obj, nic['fip-id'])
+            self._link_fip_to_vmi(vmi_obj, nic['fip-id'])
 
         return vmi_obj
 
