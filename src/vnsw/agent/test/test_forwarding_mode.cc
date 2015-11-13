@@ -157,8 +157,14 @@ protected:
         client->WaitForIdle();
         WAIT_FOR(1000, 1000, (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) ==
                  false));
-        agent_->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name,
-                                                        ip_addr, 32, NULL);
+        if (bgp_peer) {
+            agent_->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name,
+                                                  ip_addr, 32,
+                                                  (new ControllerVmRoute(bgp_peer)));
+        } else {
+            agent_->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name,
+                                                            ip_addr, 32, NULL);
+        }
         client->WaitForIdle();
     }
 
@@ -276,6 +282,19 @@ protected:
                     != MacAddress());
         EXPECT_FALSE(remote_l2_ksync->proxy_arp());
         EXPECT_FALSE(remote_l2_ksync->flood());
+        //repeat same for subnet.
+        InetUnicastRouteEntry* subnet_rt = RouteGet("vrf1",
+                                                    Ip4Address::from_string("1.1.1.0"),
+                                                    24);
+        std::auto_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
+                                                                  subnet_rt));
+        EXPECT_FALSE(vrf1_obj->RouteNeedsMacBinding(subnet_rt));
+        ksync1->BuildArpFlags(subnet_rt, subnet_rt->GetActivePath(),
+                              MacAddress());
+        EXPECT_FALSE(ksync1->proxy_arp());
+        EXPECT_TRUE(ksync1->flood());
+        EXPECT_TRUE(ksync1->mac() == MacAddress::FromString("00:00:00:00:00:00"));
+
         VerifyVmInterfaceDhcp();
     }
 
@@ -345,7 +364,11 @@ protected:
         EXPECT_TRUE(vrf1_obj->RouteNeedsMacBinding(remote_vm_rt));
         EXPECT_FALSE(remote_l2_ksync->proxy_arp());
         EXPECT_FALSE(remote_l2_ksync->flood());
-
+        //repeat same for subnet.
+        InetUnicastRouteEntry* subnet_rt = RouteGet("vrf1",
+                                                    Ip4Address::from_string("1.1.1.0"),
+                                                    24);
+        EXPECT_TRUE(subnet_rt == NULL);
         //interface validation
         VerifyVmInterfaceDhcp();
     }
@@ -397,6 +420,19 @@ protected:
         EXPECT_TRUE(ksync->proxy_arp());
         EXPECT_FALSE(ksync->flood());
         EXPECT_TRUE(ksync->mac() == MacAddress::FromString("00:00:00:00:00:00"));
+        //repeat same for subnet.
+        InetUnicastRouteEntry* subnet_rt = RouteGet("vrf1",
+                                                    Ip4Address::from_string("1.1.1.0"),
+                                                    24);
+        std::auto_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
+                                                                  subnet_rt));
+        EXPECT_FALSE(vrf1_obj->RouteNeedsMacBinding(subnet_rt));
+        ksync1->BuildArpFlags(subnet_rt, subnet_rt->GetActivePath(),
+                              MacAddress());
+        EXPECT_TRUE(ksync1->proxy_arp());
+        EXPECT_FALSE(ksync1->flood());
+        EXPECT_TRUE(ksync1->mac() == MacAddress::FromString("00:00:00:00:00:00"));
+
         VerifyVmInterfaceDhcp();
     }
 
