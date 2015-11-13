@@ -134,6 +134,7 @@ public:
     const BgpIfmapInstanceConfig *instance() { return instance_; }
 
     const BgpProtocolConfig *protocol_config() const { return &data_; }
+
 private:
     BgpIfmapInstanceConfig *instance_;
     IFMapNodeProxy node_proxy_;

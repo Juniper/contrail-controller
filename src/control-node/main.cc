@@ -287,6 +287,13 @@ bool ControlNodeInfoLogger(BgpServer *server,
     CpuLoadData::FillCpuInfo(cpu_load_info, false);
     state.set_name(server->localname());
 
+    uint32_t admin_down = server->admin_down();
+    if (admin_down != prev_state.get_admin_down() || first) {
+        state.set_admin_down(admin_down);
+        prev_state.set_admin_down(admin_down);
+        change = true;
+    }
+
     string router_id = server->bgp_identifier_string();
     if (router_id != prev_state.get_router_id() || first) {
         state.set_router_id(router_id);
@@ -480,6 +487,9 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     } else if (!bgp_server->HasSelfConfiguration()) {
         state = ProcessState::NON_FUNCTIONAL;
         message = "No BGP configuration for self";
+    } else if (bgp_server->admin_down()) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "BGP is administratively down";
     }
 }
 
@@ -491,6 +501,10 @@ static bool ControlNodeReEvalPublishCb(const BgpServer *bgp_server,
     }
     if (!bgp_server->HasSelfConfiguration()) {
         message = "No BGP configuration for self";
+        return false;
+    }
+    if (bgp_server->admin_down()) {
+        message = "BGP is administratively down";
         return false;
     }
     message = "OK";

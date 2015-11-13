@@ -170,6 +170,14 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
         return true;
     }
 
+    // Ignore if this server is being held administratively down.
+    if (server_->admin_down()) {
+        session->SendNotification(BgpProto::Notification::Cease,
+                                  BgpProto::Notification::AdminShutdown);
+        DeleteSession(session);
+        return true;
+    }
+
     // Ignore if this peer is not configured or is being deleted.
     if (peer == NULL || peer->deleter()->IsDeleted()) {
         session->SendNotification(BgpProto::Notification::Cease,

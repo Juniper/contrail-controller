@@ -46,6 +46,7 @@ class SchedulingGroupManager;
 
 class BgpServer {
 public:
+    typedef boost::function<void()> AdminDownCb;
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
@@ -134,6 +135,7 @@ public:
 
     DB *database() { return &db_; }
     const std::string &localname() const;
+    bool admin_down() const { return admin_down_; }
     as_t autonomous_system() const { return autonomous_system_; }
     as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
@@ -177,6 +179,9 @@ public:
     void increment_message_build_error() const { ++message_build_error_; }
     uint64_t message_build_error() const { return message_build_error_; }
 
+    int RegisterAdminDownCallback(AdminDownCb callback);
+    void UnregisterAdminDownCallback(int listener);
+    void NotifyAdminDown();
     int RegisterASNUpdateCallback(ASNUpdateCb callback);
     void UnregisterASNUpdateCallback(int listener);
     void NotifyASNUpdate(as_t old_asn, as_t old_local_asn);
@@ -196,6 +201,7 @@ private:
     friend class BgpServerTest;
     friend class BgpServerUnitTest;
     typedef std::map<std::string, BgpPeer *> BgpPeerList;
+    typedef std::vector<AdminDownCb> AdminDownListenersList;
     typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
     typedef std::vector<IdentifierUpdateCb> IdentifierUpdateListenersList;
 
@@ -203,6 +209,9 @@ private:
 
     // base config variables
     tbb::spin_rw_mutex rw_mutex_;
+    bool admin_down_;
+    AdminDownListenersList admin_down_listeners_;
+    boost::dynamic_bitset<> admin_down_bmap_;  // free list.
     as_t autonomous_system_;
     as_t local_autonomous_system_;
     ASNUpdateListenersList asn_listeners_;

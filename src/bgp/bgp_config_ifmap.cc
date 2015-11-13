@@ -168,6 +168,9 @@ static void NeighborSetSessionAttributes(
         attributes = local;
     }
     if (attributes != NULL) {
+        if (attributes->admin_down) {
+            neighbor->set_admin_down(true);
+        }
         if (attributes->hold_time) {
             neighbor->set_hold_time(attributes->hold_time);
         }
@@ -199,6 +202,9 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     // Store a copy of the remote bgp-router's autogen::BgpRouterParams and
     // derive the autogen::BgpSessionAttributes for the session.
     const autogen::BgpRouterParams &params = remote_router->parameters();
+    if (params.admin_down) {
+        neighbor->set_admin_down(true);
+    }
     if (params.local_autonomous_system) {
         neighbor->set_peer_as(params.local_autonomous_system);
     } else {
@@ -232,6 +238,9 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     const BgpIfmapProtocolConfig *protocol = instance->protocol_config();
     if (protocol && protocol->bgp_router()) {
         const autogen::BgpRouterParams &params = protocol->router_params();
+        if (params.admin_down) {
+            neighbor->set_admin_down(true);
+        }
         Ip4Address localid = Ip4Address::from_string(params.identifier, err);
         if (err == 0) {
             neighbor->set_local_identifier(IpAddressToBgpIdentifier(localid));
@@ -464,6 +473,7 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
                                     const autogen::BgpRouter *router) {
     bgp_router_.reset(router);
     const autogen::BgpRouterParams &params = router->parameters();
+    data_.set_admin_down(params.admin_down);
     data_.set_autonomous_system(params.autonomous_system);
     data_.set_local_autonomous_system(params.local_autonomous_system);
     boost::system::error_code err;
@@ -793,6 +803,7 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
     BGP_CONFIG_LOG_NEIGHBOR(
         Create, manager->server(), neighbor, SandeshLevel::SYS_DEBUG,
         BGP_LOG_FLAG_ALL,
+        neighbor->admin_down(),
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
@@ -814,6 +825,7 @@ void BgpIfmapInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
     BGP_CONFIG_LOG_NEIGHBOR(
         Update, manager->server(), neighbor,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->admin_down(),
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
@@ -1147,6 +1159,7 @@ void BgpIfmapConfigManager::DefaultConfig() {
     BGP_CONFIG_LOG_PROTOCOL(
         Create, server(), protocol,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        protocol->router_params().admin_down,
         protocol->router_params().autonomous_system,
         protocol->router_params().identifier,
         protocol->router_params().address,
@@ -1340,6 +1353,7 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     if (event == BgpConfigManager::CFG_ADD) {
         BGP_CONFIG_LOG_PROTOCOL(Create, server(), protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            protocol->router_params().admin_down,
             protocol->router_params().autonomous_system,
             protocol->router_params().identifier,
             protocol->router_params().address,
@@ -1348,6 +1362,7 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     } else {
         BGP_CONFIG_LOG_PROTOCOL(Update, server(), protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            protocol->router_params().admin_down,
             protocol->router_params().autonomous_system,
             protocol->router_params().identifier,
             protocol->router_params().address,

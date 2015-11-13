@@ -2262,6 +2262,9 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
                boost::bind(&BgpXmppChannelManager::XmppHandleChannelEvent,
                            this, _1, _2));
     }
+    admin_down_listener_id_ =
+        server->RegisterAdminDownCallback(boost::bind(
+            &BgpXmppChannelManager::AdminDownCallback, this));
     asn_listener_id_ =
         server->RegisterASNUpdateCallback(boost::bind(
             &BgpXmppChannelManager::ASNUpdateCallback, this, _1, _2));
@@ -2283,6 +2286,7 @@ BgpXmppChannelManager::~BgpXmppChannelManager() {
     }
 
     queue_.Shutdown();
+    bgp_server_->UnregisterAdminDownCallback(admin_down_listener_id_);
     bgp_server_->UnregisterASNUpdateCallback(asn_listener_id_);
     bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
@@ -2297,6 +2301,10 @@ void BgpXmppChannelManager::SetQueueDisable(bool disabled) {
 
 size_t BgpXmppChannelManager::GetQueueSize() const {
     return queue_.Length();
+}
+
+void BgpXmppChannelManager::AdminDownCallback() {
+    xmpp_server_->ClearAllConnections();
 }
 
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
@@ -2376,6 +2384,13 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                              SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
                              BGP_PEER_DIR_IN,
                              "No BGP configuration for self - closing channel");
+                channel->Close();
+            }
+            if (bgp_server_->admin_down()) {
+                BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
+                             SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
+                             BGP_PEER_DIR_IN,
+                             "BGP is administratively down - closing channel");
                 channel->Close();
             }
         } else {

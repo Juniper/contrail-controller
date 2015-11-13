@@ -282,6 +282,7 @@ public:
     void SetQueueDisable(bool disabled);
     size_t GetQueueSize() const;
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void AdminDownCallback();
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
 
@@ -312,6 +313,7 @@ private:
     XmppChannelMap channel_map_;
     XmppChannelNameMap channel_name_map_;
     int id_;
+    int admin_down_listener_id_;
     int asn_listener_id_;
     int identifier_listener_id_;
     uint32_t closing_count_;
