@@ -2,7 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import urllib2
+import urllib, urllib2
 import xmltodict
 import json
 import requests
@@ -45,18 +45,21 @@ class IntrospectUtilBase (object):
         self._force_refresh = force
         return self.get_force_refresh()
 
-    def _mk_url_str(self, path):
+    def _mk_url_str(self, path, query):
         if path:
+            query_str = ''
+            if query:
+                query_str = '?'+urllib.urlencode(query)
             if path.startswith('http:'):
-                return path
-            return "http://%s:%d/%s" % (self._ip, self._port, path)
+                return path+query_str
+            return "http://%s:%d/%s%s" % (self._ip, self._port, path, query_str)
 
-    def dict_get(self, path='', drv=None):
+    def dict_get(self, path='', query=None, drv=None):
         try:
             if path:
                 if drv is not None:
-                    return drv().load(self._mk_url_str(path))
-                return self._drv.load(self._mk_url_str(path))
+                    return drv().load(self._mk_url_str(path, query))
+                return self._drv.load(self._mk_url_str(path, query))
         except urllib2.HTTPError:
             return None
     # end dict_get

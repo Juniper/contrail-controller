@@ -16,11 +16,11 @@ class GeneratorIntrospectUtil(IntrospectUtilBase):
     # end __init__
 
     def send_alarm_ack_request(self, table, name, alarm_type, timestamp):
-        path = 'Snh_SandeshAlarmAckRequest?' \
-            'table=%s&name=%s&type=%s&timestamp=%d' % \
-            (table, name, alarm_type, timestamp)
+        path = 'Snh_SandeshAlarmAckRequest'
+        query = {'table':table, 'name':name, 'type':alarm_type,
+                 'timestamp':timestamp}
         xpath = '/SandeshAlarmAckResponse'
-        res = self.dict_get(path)
+        res = self.dict_get(path, query)
         return EtreeToDict(xpath).get_all_entry(res)
     # end send_alarm_ack_request
 
