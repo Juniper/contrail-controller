@@ -65,7 +65,7 @@ void PhysicalLocatorTable::OvsdbNotify(OvsdbClientIdl::Op op,
     PhysicalLocatorEntry *entry =
         static_cast<PhysicalLocatorEntry *>(Find(&key));
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        if (entry != NULL && IsActiveEntry(entry)) {
+        if (entry != NULL && entry->IsActive()) {
             OVSDB_TRACE(Trace, "Delete received for Physical Locator " +
                     entry->dip_);
             Delete(entry);
@@ -74,7 +74,7 @@ void PhysicalLocatorTable::OvsdbNotify(OvsdbClientIdl::Op op,
         if (entry == NULL) {
             entry = static_cast<PhysicalLocatorEntry *>(Create(&key));
             entry->ovs_entry_ = row;
-        } else if (!IsActiveEntry(entry)) {
+        } else if (!entry->IsActive()) {
             entry->ovs_entry_ = row;
             // Activate entry by triggering change
             Change(entry);

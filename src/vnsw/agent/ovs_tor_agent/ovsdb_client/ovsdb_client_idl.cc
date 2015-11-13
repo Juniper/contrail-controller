@@ -28,6 +28,7 @@ extern "C" {
 #include <vm_interface_ksync.h>
 #include <vn_ovsdb.h>
 #include <vrf_ovsdb.h>
+#include <ovsdb_resource_vxlan_id.h>
 
 SandeshTraceBufferPtr OvsdbTraceBuf(SandeshTraceBufferCreate("Ovsdb", 5000));
 SandeshTraceBufferPtr OvsdbSMTraceBuf(SandeshTraceBufferCreate("Ovsdb SM", 5000));
@@ -51,6 +52,7 @@ using OVSDB::MulticastMacLocalOvsdb;
 using OVSDB::VrfOvsdbObject;
 using OVSDB::VnOvsdbObject;
 using OVSDB::ConnectionStateTable;
+using OVSDB::OvsdbResourceVxLanIdTable;
 
 namespace OVSDB {
 void ovsdb_wrapper_idl_callback(void *idl_base, int op,
@@ -152,6 +154,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
         callback_[i] = NULL;
     }
     route_peer_.reset(manager->Allocate(session_->remote_ip()));
+    vxlan_table_.reset(new OvsdbResourceVxLanIdTable());
     vm_interface_table_.reset(new VMInterfaceKSyncObject(this,
             (DBTable *)agent->interface_table()));
     physical_switch_table_.reset(new PhysicalSwitchTable(this));
@@ -377,6 +380,10 @@ VrfOvsdbObject *OvsdbClientIdl::vrf_ovsdb() {
 
 VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
     return vn_ovsdb_.get();
+}
+
+OvsdbResourceVxLanIdTable *OvsdbClientIdl::vxlan_table() {
+    return vxlan_table_.get();
 }
 
 bool OvsdbClientIdl::IsKeepAliveTimerActive() {

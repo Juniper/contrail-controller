@@ -22,7 +22,6 @@ public:
     OvsdbObject(OvsdbClientIdl *idl);
     virtual ~OvsdbObject();
 
-    bool IsActiveEntry(KSyncEntry *entry);
     KSyncEntry *FindActiveEntry(KSyncEntry *key);
     // Trigger delete of object table
     void DeleteTable(void);
