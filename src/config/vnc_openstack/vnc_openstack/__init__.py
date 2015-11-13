@@ -47,6 +47,19 @@ DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
 
 RETRIES_BEFORE_LOG = 100
 
+def fill_discovery_opts(obj, conf_sections):
+    try:
+        obj._disc_server_ip = conf_sections.get('DEFAULTS', 'disc_server_ip')
+        obj._disc_server_port = conf_sections.get('DEFAULTS', 'disc_server_port')
+        obj._disc_server_dsa_api = conf_sections.get('DEFAULTS', 'disc_server_dsa_api')
+        if obj._disc_server_dsa_api[0] == '/':
+            obj._disc_server_dsa_api = obj._disc_server_dsa_api[1:]
+        obj._disc_server_dsa_api_url = "http://%s:%s/%s" % (
+            obj._disc_server_ip, obj._disc_server_port, obj._disc_server_dsa_api)
+        obj._disc_api_headers = { 'Content-type': 'application/json' }
+    except ConfigParser.NoOptionError:
+        obj.__disc_server_dsa_api_url = None
+
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
     obj._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
@@ -739,6 +752,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
         fill_keystone_opts(self, conf_sections)
+        fill_discovery_opts(self, conf_sections)
 
         self._vnc_lib = None
         self._openstack_drv = openstack_driver
@@ -928,6 +942,31 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 self._vnc_lib.kv_delete(subnet_uuid)
                 self._vnc_lib.kv_delete(subnet_name)
     # end post_virtual_network_delete
+
+    def post_dsa_rule_create(self, obj_dict):
+        if self._disc_server_dsa_api_url is None:
+            return
+        body = { 'op':'create', 'obj_type': 'dsa_rule' }
+        requests.put(self._disc_server_dsa_api_url, data=json.dumps(body),
+                         headers=self._disc_api_headers)
+    # end
+
+    def post_dsa_rule_delete(self, obj_uuid, obj_dict):
+        if self._disc_server_dsa_api_url is None:
+            return
+        body = { 'op':'delete', 'obj_type': 'dsa_rule' }
+        requests.put(self._disc_server_dsa_api_url, data=json.dumps(body),
+                         headers=self._disc_api_headers)
+    # end
+
+    def post_dsa_rule_update(self, obj_uuid, obj_dict, old_dict):
+        if self._disc_server_dsa_api_url is None:
+            return
+        body = {
+            'op':'update', 'obj_type': 'dsa_rule' }
+        requests.put(self._disc_server_dsa_api_url, data=json.dumps(body),
+                         headers=self._disc_api_headers)
+    # end
 
 # end class ResourceApiDriver
 

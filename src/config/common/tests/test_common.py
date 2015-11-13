@@ -47,6 +47,8 @@ def lineno():
 sys.path.insert(0, '../../../../build/production/api-lib/vnc_api')
 sys.path.insert(0, '../../../../distro/openstack/')
 sys.path.append('../../../../build/production/config/api-server/vnc_cfg_api_server')
+sys.path.append("../config/api-server/vnc_cfg_api_server")
+sys.path.insert(0, '../../../../build/production/discovery/discovery')
 
 try:
     import vnc_cfg_api_server
@@ -76,6 +78,13 @@ try:
         from device_manager import device_manager
 except ImportError:
     device_manager = 'device_manager could not be imported'
+
+try:
+    from discovery import disc_server
+    if not hasattr(disc_server, 'main'):
+        from disc_server import disc_server
+except ImportError:
+    disc_server = 'disc_server could not be imported'
 
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
@@ -128,6 +137,33 @@ def generate_logconf_file_contents():
     return cfg_parser
 # end generate_logconf_file_contents
 
+def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_sections):
+    args_str = ""
+    args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
+    args_str = args_str + "--listen_port %s " % (listen_port)
+    args_str = args_str + "--http_server_port %s " % (http_server_port)
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--ttl_min 30 "
+    args_str = args_str + "--ttl_max 60 "
+    args_str = args_str + "--log_local "
+    args_str = args_str + "--log_file discovery_server_%s.log " % test_id
+
+    import cgitb
+    cgitb.enable(format='text')
+
+    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+        cfg_parser = generate_conf_file_contents(conf_sections)
+        cfg_parser.write(conf)
+        conf.flush()
+
+        cfg_parser = generate_logconf_file_contents()
+        cfg_parser.write(logconf)
+        logconf.flush()
+
+        args_str = args_str + "--conf_file %s " %(conf.name)
+        disc_server.main(args_str)
+#end launch_disc_server
+
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
     args_str = ""
@@ -178,6 +214,9 @@ def kill_schema_transformer(glet):
     glet.kill()
     to_bgp.transformer.reset()
 
+def kill_disc_server(glet):
+    glet.kill()
+
 def launch_schema_transformer(test_id, api_server_ip, api_server_port):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
@@ -222,38 +261,23 @@ def setup_extra_flexmock(mocks):
         flexmock(cls, **kwargs)
 # end setup_extra_flexmock
 
-def setup_common_flexmock():
-    flexmock(cfgm_common.vnc_cpu_info.CpuInfo, __init__=stub)
-    flexmock(novaclient.client, Client=FakeNovaClient.initialize)
-    flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
-             call=FakeIfmapClient.call,
-             call_async_result=FakeIfmapClient.call_async_result)
+def setup_mocks(mod_attr_val_list):
+    # use setattr instead of flexmock because flexmocks are torndown
+    # after every test in stopTest whereas these mocks are needed across
+    # all tests in class
+    orig_mod_attr_val_list = []
+    for mod, attr, val in mod_attr_val_list:
+        orig_mod_attr_val_list.append(
+            (mod, attr, getattr(mod, attr)))
+        setattr(mod, attr, val)
 
-    flexmock(pycassa.system_manager.Connection, __init__=stub)
-    flexmock(pycassa.system_manager.SystemManager, create_keyspace=stub,
-             create_column_family=stub)
-    flexmock(pycassa.ConnectionPool, __init__=stub)
-    flexmock(pycassa.ColumnFamily, __new__=FakeCF)
-    flexmock(pycassa.util, convert_uuid_to_time=Fake_uuid_to_time)
+    return orig_mod_attr_val_list
+#end setup_mocks
 
-    flexmock(disc_client.DiscoveryClient, __init__=stub)
-    flexmock(disc_client.DiscoveryClient, publish_obj=stub)
-    flexmock(disc_client.DiscoveryClient, publish=stub)
-    flexmock(disc_client.DiscoveryClient, subscribe=stub)
-    flexmock(disc_client.DiscoveryClient, syslog=stub)
-    flexmock(disc_client.DiscoveryClient, def_pub=stub)
-    flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
-    flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
-
-    flexmock(kombu.Connection, __new__=FakeKombu.Connection)
-    flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
-    flexmock(kombu.Queue, __new__=FakeKombu.Queue)
-    flexmock(kombu.Consumer, __new__=FakeKombu.Consumer)
-    flexmock(kombu.Producer, __new__=FakeKombu.Producer)
-
-    flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
-    #flexmock(VncApiStatsLog, __new__=FakeVncApiStatsLog)
-#end setup_common_flexmock
+def teardown_mocks(mod_attr_val_list):
+    for mod, attr, val in mod_attr_val_list:
+        setattr(mod, attr, val)
+# end teardown_mocks
 
 @contextlib.contextmanager
 def patch(target_obj, target_method_name, patched):
@@ -273,12 +297,49 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     _HTTP_HEADERS =  {
         'Content-type': 'application/json; charset="UTF-8"',
     }
+
+    mocks = [
+        (cfgm_common.vnc_cpu_info.CpuInfo, '__init__',stub),
+        (novaclient.client, 'Client',FakeNovaClient.initialize),
+
+        (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
+        (ifmap_client.client, 'call', FakeIfmapClient.call),
+        (ifmap_client.client, 'call_async_result', FakeIfmapClient.call_async_result),
+
+        (pycassa.system_manager.Connection, '__init__',stub),
+        (pycassa.system_manager.SystemManager, 'create_keyspace',stub),
+        (pycassa.system_manager.SystemManager, 'create_column_family',stub),
+        (pycassa.ConnectionPool, '__init__',stub),
+        (pycassa.ColumnFamily, '__new__',FakeCF),
+        (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
+
+        (disc_client.DiscoveryClient, '__init__',stub),
+        (disc_client.DiscoveryClient, 'publish_obj',stub),
+        (disc_client.DiscoveryClient, 'publish',stub),
+        (disc_client.DiscoveryClient, 'subscribe',stub),
+        (disc_client.DiscoveryClient, 'syslog',stub),
+        (disc_client.DiscoveryClient, 'def_pub',stub),
+
+        (kazoo.client.KazooClient, '__new__',FakeKazooClient),
+        (kazoo.handlers.gevent.SequentialGeventHandler, '__init__',stub),
+
+        (kombu.Connection, '__new__',FakeKombu.Connection),
+        (kombu.Exchange, '__new__',FakeKombu.Exchange),
+        (kombu.Queue, '__new__',FakeKombu.Queue),
+        (kombu.Consumer, '__new__',FakeKombu.Consumer),
+        (kombu.Producer, '__new__',FakeKombu.Producer),
+
+        (VncApiConfigLog, '__new__',FakeApiConfigLog),
+        #(VncApiStatsLog, '__new__',FakeVncApiStatsLog)
+    ]
+
     def __init__(self, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
         self._assert_till_max_tries = 30
         self._config_knobs = [
             ('DEFAULTS', '', ''),
             ]
+
         super(TestCase, self).__init__(*args, **kwargs)
         self.addOnException(self._add_detailed_traceback)
 
@@ -407,9 +468,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
-        setup_common_flexmock()
-        if extra_mocks:
-            setup_extra_flexmock(extra_mocks)
+        setup_mocks(self.mocks + (extra_mocks or []))
         if extra_config_knobs:
             self._config_knobs.extend(extra_config_knobs)
 
