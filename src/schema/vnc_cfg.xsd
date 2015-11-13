@@ -1390,6 +1390,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='ServiceTemplateType'> 
     <xsd:sequence>
+        <xsd:element name="version" type='xsd:integer' default='1'>
+          <xsd:annotation>
+            <xsd:documentation>
+              Version 1: Service is automatically launched, monitored and deleted
+              Version 2: User creates all objects and manages the 
+                         launch/monitoring/deletion of service. Example: heat template
+            </xsd:documentation>
+          </xsd:annotation>
+        </xsd:element>
         <xsd:element name='service-mode' type='ServiceModeType'/>
         <xsd:element name='service-type' type='ServiceType'/>
         <xsd:element name='image-name' type='xsd:string'/>
