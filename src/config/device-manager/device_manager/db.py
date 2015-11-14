@@ -21,6 +21,7 @@ from gevent import queue
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from netaddr import IPAddress
 from cfgm_common.zkclient import IndexAllocator
+from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 
 
 class DBBaseDM(DBBase):
@@ -1274,7 +1275,7 @@ class ServiceInstanceDM(DBBaseDM):
 
 
 class DMCassandraDB(VncCassandraClient):
-    _KEYSPACE = 'dm_keyspace'
+    _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
