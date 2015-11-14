@@ -14,6 +14,8 @@
 using namespace boost::uuids;
 using namespace std;
 
+class AgentRouteResync;
+
 namespace autogen {
     class NetworkIpam;
     class VirtualDns;
@@ -176,6 +178,7 @@ public:
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
+    void ResyncRoutes();
 
 private:
     friend class VnTable;
@@ -200,6 +203,7 @@ private:
     bool flood_unknown_unicast_;
     uint32_t old_vxlan_id_;
     Agent::ForwardingMode forwarding_mode_;
+    boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -250,6 +254,11 @@ public:
     bool EvaluateForwardingMode(VnEntry *vn);
     bool GetLayer3ForwardingConfig(Agent::ForwardingMode forwarding_mode) const;
     bool GetBridgingConfig(Agent::ForwardingMode forwarding_mode) const;
+    bool ForwardingModeChangeHandler(bool old_layer3_forwarding,
+                                     bool old_bridging,
+                                     bool *resync_routes,
+                                     VnData *data,
+                                     VnEntry *vn);
 
 private:
     static VnTable *vn_table_;
@@ -259,6 +268,7 @@ private:
                          const IpAddress &new_address, VnEntry *vn);
     void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
+    void AddAllIpamRoutes(VnEntry *vn);
     void DeleteAllIpamRoutes(VnEntry *vn);
     void AddSubnetRoute(VnEntry *vn, VnIpam &ipam);
     void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);

@@ -29,6 +29,7 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
          table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         route_walkid_[table_type].clear();
+        walkable_route_tables_ |= (1 << table_type);
     }
 }
 
@@ -177,6 +178,8 @@ void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
+        if (!(walkable_route_tables_ & (1 << table_type)))
+            continue;
         table = static_cast<AgentRouteTable *>
             (vrf->GetRouteTable(table_type));
         if (table == NULL) {
