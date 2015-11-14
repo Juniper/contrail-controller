@@ -45,6 +45,11 @@ class DBBase(object):
             for i in cls._dict.items():
                 yield i
         # end items
+
+        def __contains__(cls, item):
+            # check for 'item in cls'
+            return item in cls._dict
+        # end __contains__
     # end __metaclass__
 
     @classmethod

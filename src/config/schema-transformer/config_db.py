@@ -13,7 +13,7 @@ sys.setdefaultencoding('UTF8')
 import copy
 import uuid
 
-import re
+import itertools
 import cfgm_common as common
 from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import *
@@ -183,6 +183,9 @@ class GlobalSystemConfigST(DBBaseST):
 class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
+
+    def me(self, name):
+        return name in (self.name, 'any')
 
     def __init__(self, name, obj=None, acl_dict=None):
         self.obj = obj or self.read_vnc_obj(fq_name=name)
@@ -430,23 +433,54 @@ class VirtualNetworkST(DBBaseST):
         vn2.uve_send()
     # end delete_ri_connection
 
-    def add_service_chain(self, remote_vn, left_vn, right_vn, direction,
-                          sp_list, dp_list, proto, service_list):
-        service_chain_list = self.service_chains.setdefault(remote_vn, [])
-        service_chain = ServiceChain.find_or_create(left_vn, right_vn,
-                                         direction, sp_list, dp_list, proto,
-                                         service_list)
-        if service_chain.service_list != service_list:
-            if service_chain.created:
-                service_chain.destroy()
-                service_chain.service_list = service_list
-                service_chain.create()
+    def add_service_chain(self, svn, dvn, proto, prule):
+        if self.me(dvn):
+            remote_vn = svn
+        elif self.me(svn):
+            remote_vn = dvn
+        else:
+            return {}
+        if self.name == remote_vn:
+            self._logger.error("Service chain source and dest vn are same: %s",
+                               self.name)
+            return None
+        if remote_vn == 'any':
+            remote_vns = self.get_vns_in_project()
+        else:
+            remote_vns = [remote_vn]
+        service_chain_ris = {}
+        for remote_vn in remote_vns:
+            if remote_vn not in VirtualNetworkST:
+                self._logger.error("Network %s not found while apply service "
+                                   "chain to network %s", remote_vn, self.name)
+                continue
+            services = prule.action_list.apply_service
+            service_chain_list = self.service_chains.setdefault(remote_vn, [])
+            if self.me(dvn):
+                service_chain = ServiceChain.find_or_create(
+                    remote_vn, self.name, prule.direction, prule.src_ports,
+                    prule.dst_ports, proto, services)
+                service_chain_ris[remote_vn] = (
+                    None, self.get_service_name(service_chain.name,
+                                                services[-1]))
             else:
-                service_chain.service_list = service_list
+                service_chain = ServiceChain.find_or_create(
+                    self.name, remote_vn, prule.direction, prule.src_ports,
+                    prule.dst_ports, proto, services)
+                service_chain_ris[remote_vn] = (
+                    self.get_service_name(service_chain.name, services[0]),
+                    None)
+            if service_chain.service_list != services:
+                if service_chain.created:
+                    service_chain.destroy()
+                    service_chain.service_list = list(services)
+                    service_chain.create()
+                else:
+                    service_chain.service_list = list(services)
 
-        if service_chain not in service_chain_list:
-            service_chain_list.append(service_chain)
-        return service_chain.name
+            if service_chain not in service_chain_list:
+                service_chain_list.append(service_chain)
+        return service_chain_ris
     # end add_service_chain
 
     def get_vns_in_project(self):
@@ -840,6 +874,21 @@ class VirtualNetworkST(DBBaseST):
         return _PROTO_STR_TO_NUM.get(pproto.lower())
     # end protocol_policy_to_acl
 
+    def address_list_policy_to_acl(self, addr):
+        if addr.network_policy:
+            pol = NetworkPolicyST.get(addr.network_policy)
+            if not pol:
+                self._logger.error(
+                    "Policy %s not found while applying policy "
+                    "to network %s", addr.network_policy,
+                    self.name)
+                return []
+            return [AddressType(virtual_network=x)
+                    for x in pol.virtual_networks]
+        else:
+            return [addr]
+    # end address_list_policy_to_acl
+
     def policy_to_acl_rule(self, prule, dynamic):
         result_acl_rule_list = AclRuleListST(dynamic=dynamic)
         saddr_list = prule.src_addresses
@@ -850,7 +899,7 @@ class VirtualNetworkST(DBBaseST):
 
         arule_proto = self.protocol_policy_to_acl(prule.protocol)
         if arule_proto is None:
-            # TODO log unknown protocol
+            self._logger.error("Unknown protocol %s" % prule.protocol)
             return result_acl_rule_list
 
         if prule.action_list is None:
@@ -875,9 +924,9 @@ class VirtualNetworkST(DBBaseST):
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
-                if dvn in [self.name, 'any']:
+                if self.me(dvn):
                     remote_network_name = svn
-                elif svn in [self.name, 'any']:
+                elif self.me(svn):
                     remote_network_name = dvn
                 elif not dvn and dpol:
                     dp_obj = NetworkPolicyST.get(dpol)
@@ -896,7 +945,7 @@ class VirtualNetworkST(DBBaseST):
                     sp_obj = NetworkPolicyST.get(spol)
                     if self.name in sp_obj.virtual_networks:
                         remote_network_name = dvn
-                        daddr_match.network_policy = None
+                        saddr_match.network_policy = None
                         saddr_match.virtual_network = self.name
                     else:
                         self._logger.error(
@@ -918,94 +967,56 @@ class VirtualNetworkST(DBBaseST):
                                        self.name, svn, dvn)
                     continue
 
-                service_list = None
-                if prule.action_list.apply_service != []:
-                    if remote_network_name == self.name:
-                        self._logger.error("Service chain source and dest "
-                                           "vn are same: %s", self.name)
+                action = prule.action_list
+                if action.mirror_to and action.mirror_to.analyzer_name:
+                    if self.me(svn) or self.me(dvn):
+                        self.process_analyzer(action)
+
+                sa_list = self.address_list_policy_to_acl(saddr_match)
+                da_list = self.address_list_policy_to_acl(daddr_match)
+
+                service_ris = {}
+                service_list = prule.action_list.apply_service
+                if service_list:
+                    service_ris = self.add_service_chain(svn, dvn, arule_proto,
+                                                         prule)
+                    if not service_ris:
                         continue
-                    remote_vn = VirtualNetworkST.get(remote_network_name)
-                    if remote_vn is None:
-                        self._logger.error(
-                            "Network %s not found while apply service chain "
-                            "to network %s", remote_network_name, self.name)
-                        continue
-                    service_list = copy.deepcopy(
-                        prule.action_list.apply_service)
-                    sc_name = self.add_service_chain(remote_network_name, svn,
-                        dvn, prule.direction, sp_list, dp_list, arule_proto,
-                        service_list)
+                    if self.me(svn):
+                        da_list = [AddressType(virtual_network=x)
+                                   for x in service_ris]
+                    elif self.me(dvn):
+                        sa_list = [AddressType(virtual_network=x)
+                                   for x in service_ris]
 
-                for sp in sp_list:
-                    for dp in dp_list:
-                        action = copy.deepcopy(prule.action_list)
-                        if (service_list and svn in [self.name, 'any']):
-                            service_ri = self.get_service_name(sc_name,
-                                                               service_list[0])
-                            action.set_assign_routing_instance(service_ri)
-                        else:
-                            action.assign_routing_instance = None
+                for sp, dp, sa, da in itertools.product(sp_list, dp_list,
+                                                        sa_list, da_list):
+                    acl = self.add_acl_rule(
+                        sa, sp, da, dp, arule_proto, rule_uuid,
+                        prule.action_list, prule.direction,
+                        service_ris.get(da, [None])[0])
+                    result_acl_rule_list.append(acl)
+                    if ((prule.direction == "<>") and
+                        (sa != da or sp != dp)):
+                        acl = self.add_acl_rule(
+                            da, dp, sa, sp, arule_proto, rule_uuid,
+                            prule.action_list, prule.direction,
+                            service_ris.get(sa, [None, None])[1])
 
-                        if action.mirror_to and action.mirror_to.analyzer_name:
-                            if ((svn in [self.name, 'any']) or
-                                    (dvn in [self.name, 'any'])):
-                                self.process_analyzer(action)
-
-                        if saddr_match.network_policy:
-                            pol = NetworkPolicyST.get(saddr_match.network_policy)
-                            if not pol:
-                                self._logger.error(
-                                    "Policy %s not found while applying policy "
-                                    "to network %s", saddr_match.network_policy,
-                                    self.name)
-                                continue
-                            sa_list = [AddressType(virtual_network=x)
-                                       for x in pol.virtual_networks]
-                        else:
-                            sa_list = [saddr_match]
-
-                        if daddr_match.network_policy:
-                            pol = NetworkPolicyST.get(daddr_match.network_policy)
-                            if not pol:
-                                self._logger.error(
-                                    "Policy %s not found while applying policy "
-                                    "to network %s", daddr_match.network_policy,
-                                    self.name)
-                                continue
-                            da_list = [AddressType(virtual_network=x)
-                                       for x in pol.virtual_networks]
-                        else:
-                            da_list = [daddr_match]
-
-                        for sa in sa_list:
-                            for da in da_list:
-                                match = MatchConditionType(arule_proto,
-                                                           sa, sp,
-                                                           da, dp)
-                                acl = AclRuleType(match, action, rule_uuid)
-                                result_acl_rule_list.append(acl)
-                                if ((prule.direction == "<>") and
-                                    (sa != da or sp != dp)):
-                                    rmatch = MatchConditionType(arule_proto,
-                                                                da, dp,
-                                                                sa, sp)
-                                    raction = copy.deepcopy(action)
-                                    if (service_list and dvn in [self.name, 'any']):
-                                        service_ri = self.get_service_name(
-                                            sc_name, service_list[-1])
-                                        raction.set_assign_routing_instance(
-                                            service_ri)
-                                    else:
-                                        raction.assign_routing_instance = None
-
-                                    acl = AclRuleType(rmatch, raction, rule_uuid)
-                                    result_acl_rule_list.append(acl)
-                    # end for dp
-                # end for sp
+                        result_acl_rule_list.append(acl)
+                # end for sp, dp
             # end for daddr
         # end for saddr
         return result_acl_rule_list
     # end policy_to_acl_rule
+
+    def add_acl_rule(self, sa, sp, da, dp, proto, rule_uuid, action, direction,
+                     service_ri):
+        action_list = copy.deepcopy(action)
+        action_list.set_assign_routing_instance(service_ri)
+        match = MatchConditionType(proto, sa, sp, da, dp)
+        acl = AclRuleType(match, action_list, rule_uuid)
+        return acl
 
     def update_pnf_presence(self):
         has_pnf = False
@@ -1057,9 +1068,9 @@ class VirtualNetworkST(DBBaseST):
                     if action.simple_action == 'deny':
                         continue
                     connected_network = None
-                    if (match.dst_address.virtual_network in [self.name, "any"]):
+                    if self.me(match.dst_address.virtual_network):
                         connected_network = match.src_address.virtual_network
-                    elif (match.src_address.virtual_network in [self.name, "any"]):
+                    elif self.me(match.src_address.virtual_network):
                         connected_network = match.dst_address.virtual_network
                     if action.apply_service:
                         # if a service was applied, the ACL should have a
@@ -2013,14 +2024,14 @@ class ServiceChain(DBBaseST):
     # end init
 
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
-                 protocol, service_list):
+                 protocol, services):
         self.name = name
         self.left_vn = left_vn
         self.right_vn = right_vn
         self.direction = direction
         self.sp_list = sp_list
         self.dp_list = dp_list
-        self.service_list = service_list
+        self.service_list = list(services)
 
         self.protocol = protocol
         self.created = False
