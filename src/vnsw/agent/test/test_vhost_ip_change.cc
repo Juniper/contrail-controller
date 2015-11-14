@@ -23,7 +23,7 @@ bool IpChangeTest::ksync_init_;
 TEST_F(IpChangeTest, vhost_ip_change) {
     if (ksync_init_) {
         client->WaitForIdle();
-        system("ip addr add 27.0.0.1/24 dev vhost0");
+        EXPECT_GE(system("ip addr add 27.0.0.1/24 dev vhost0"), 0);
         client->WaitForIdle();
         sleep(1);
         client->WaitForIdle();
@@ -32,7 +32,7 @@ TEST_F(IpChangeTest, vhost_ip_change) {
         EXPECT_TRUE(VhostRecvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
         EXPECT_TRUE(RouterIdMatch(addr));
 
-        system("ip addr add 49.0.0.1/24 dev vhost0");
+        EXPECT_GE(system("ip addr add 49.0.0.1/24 dev vhost0"), 0);
         client->WaitForIdle();
         sleep(1);
         client->WaitForIdle();
@@ -41,8 +41,8 @@ TEST_F(IpChangeTest, vhost_ip_change) {
         EXPECT_TRUE(VhostRecvRouteFind(Agent::GetInstance()->fabric_vrf_name(), addr, 32));
         EXPECT_TRUE(RouterIdMatch(addr));
 
-        system("ip addr del 49.0.0.1/24 dev vhost0");
-        system("ip addr del 27.0.0.1/24 dev vhost0");
+        EXPECT_GE(system("ip addr del 49.0.0.1/24 dev vhost0"), 0);
+        EXPECT_GE(system("ip addr del 27.0.0.1/24 dev vhost0"), 0);
     }
 }
 
