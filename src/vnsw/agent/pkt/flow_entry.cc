@@ -579,10 +579,6 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
     }
 
     const NextHop *nh = rt->GetActiveNextHop();
-    if (key_.family != Address::INET) {
-        //TODO:IPV6
-        return false;
-    }
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
