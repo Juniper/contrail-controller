@@ -166,10 +166,12 @@ private:
 
 struct PathPreferenceVrfState: public DBState {
     PathPreferenceVrfState(DBTableBase::ListenerId uc_rt_id,
-                           DBTableBase::ListenerId evpn_rt_id):
-        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id) {}
+                           DBTableBase::ListenerId evpn_rt_id,
+                           DBTableBase::ListenerId uc6_rt_id):
+        uc_rt_id_(uc_rt_id), evpn_rt_id_(evpn_rt_id), uc6_rt_id_(uc6_rt_id) {}
     DBTableBase::ListenerId uc_rt_id_;
     DBTableBase::ListenerId evpn_rt_id_;
+    DBTableBase::ListenerId uc6_rt_id_;
 };
 
 struct PathPreferenceRouteListener : public DBState {
@@ -209,7 +211,7 @@ public:
     void Shutdown();
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void EnqueueTrafficSeen(Ip4Address ip_, uint32_t plen,
+    void EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
                             uint32_t interface_index, uint32_t vrf_index,
                             const MacAddress &mac);
     bool DequeueEvent(PathPreferenceEventContainer e);

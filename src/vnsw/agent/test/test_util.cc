@@ -3715,3 +3715,18 @@ void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate) {
                 (agent->physical_device_vn_table()->Find(&key, true) == NULL));
     }
 }
+
+void AddStaticPreference(std::string intf_name, int intf_id,
+                         uint32_t value) {
+    std::ostringstream buf;
+    buf << "<virtual-machine-interface-properties>";
+    buf << "<local-preference>";
+    buf << value;
+    buf << "</local-preference>";
+    buf << "</virtual-machine-interface-properties>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-machine-interface", intf_name.c_str(),
+            intf_id, cbuf);
+    client->WaitForIdle();
+}

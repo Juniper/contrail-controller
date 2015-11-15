@@ -12,12 +12,18 @@
 // ICMPv6 protocol handler
 class Icmpv6Handler : public ProtoHandler {
 public:
+    static const boost::array<uint8_t, 16> kPrefix;
+    static const boost::array<uint8_t, 16> kSuffix;
+    static const Ip6Address kSolicitedNodeIpPrefix;
+    static const Ip6Address kSolicitedNodeIpSuffixMask;
     Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
                   boost::asio::io_service &io);
     virtual ~Icmpv6Handler();
 
     bool Run();
     bool RouterAdvertisement(Icmpv6Proto *proto);
+    void SendNeighborSolicit(const Ip6Address &sip, const Ip6Address &dip,
+                             uint32_t itf, uint32_t vrf);
 
 private:
     bool CheckPacket();
@@ -32,6 +38,12 @@ private:
     void SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
                             uint8_t *src_ip, uint8_t *dest_ip,
                             const MacAddress &dest_mac, uint16_t len);
+    void SolicitedMulticastIpAndMac(const Ip6Address &dip, uint8_t *ip,
+                                    MacAddress &mac);
+    uint16_t FillNeighborSolicit(uint8_t *buf, const Ip6Address &target,
+                                 uint8_t *sip, uint8_t *dip);
+    void Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src);
+    void Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src);
 
     icmp6_hdr *icmp_;
     uint16_t icmp_len_;

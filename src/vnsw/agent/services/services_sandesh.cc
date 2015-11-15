@@ -247,6 +247,8 @@ void ServicesSandesh::Icmpv6StatsSandesh(std::string ctxt, bool more) {
     icmp->set_icmpv6_ping_request(istats.icmpv6_ping_request_);
     icmp->set_icmpv6_ping_response(istats.icmpv6_ping_response_);
     icmp->set_icmpv6_drop(istats.icmpv6_drop_);
+    icmp->set_icmpv6_neighbor_solicit(istats.icmpv6_neighbor_solicit_);
+    icmp->set_icmpv6_neighbor_advert(istats.icmpv6_neighbor_advert_);
     icmp->set_context(ctxt);
     icmp->set_more(more);
     icmp->Response();

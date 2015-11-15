@@ -163,7 +163,6 @@ private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void NextHopNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
-    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
                     const Interface* itf);
     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
@@ -178,7 +177,6 @@ private:
     DBTableBase::ListenerId vrf_table_listener_id_;
     DBTableBase::ListenerId interface_table_listener_id_;
     DBTableBase::ListenerId nexthop_table_listener_id_;
-    std::map<std::string, DBTableBase::ListenerId> route_table_listener_;
     InterfaceArpMap interface_arp_map_;
 
     uint16_t max_retries_;
@@ -194,7 +192,6 @@ public:
                 AgentRouteTable *table);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void ManagedDelete() { deleted = true;}
-    void SendArpRequestForVm(InetUnicastRouteEntry *route);
     void Delete();
     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
     void WalkDone(DBTableBase *partition, ArpVrfState *state);
