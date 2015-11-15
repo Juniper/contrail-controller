@@ -96,11 +96,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- ACL type definition -->
 
 <xsd:complexType name="SequenceType">
-    <xsd:all>
-        <xsd:element name="major" type="xsd:integer"/>
-        <xsd:element name="minor" type="xsd:integer"/>
-    </xsd:all>
-</xsd:complexType> 
+    <xsd:element name="major" type="xsd:integer"/>
+    <xsd:element name="minor" type="xsd:integer"/>
+</xsd:complexType>
 
 <xsd:complexType name="TimerType">
     <xsd:all>
