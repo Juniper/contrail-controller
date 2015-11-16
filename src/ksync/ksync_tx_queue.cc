@@ -2,7 +2,6 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 #include <sys/eventfd.h>
-#include <pthread.h>
 #include <algorithm>
 #include <vector>
 #include <set>
@@ -12,6 +11,25 @@
 
 #include "ksync_object.h"
 #include "ksync_sock.h"
+
+static bool ksync_tx_queue_task_done_ = false;
+class KSyncTxQueueTask : public Task {
+public:
+    KSyncTxQueueTask(TaskScheduler *scheduler, KSyncTxQueue *queue) :
+        Task(scheduler->GetTaskId("Ksync::KSyncTxQueue"), 0), queue_(queue) {
+    }
+    ~KSyncTxQueueTask() {
+        ksync_tx_queue_task_done_ = true;
+    }
+
+    bool Run() {
+        queue_->Run();
+        return true;
+    }
+
+private:
+    KSyncTxQueue *queue_;
+};
 
 KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
     work_queue_(NULL),
@@ -27,16 +45,10 @@ KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
 KSyncTxQueue::~KSyncTxQueue() {
 }
 
-static void *KSyncIoRun(void *arg) {
-    KSyncTxQueue *queue = (KSyncTxQueue *)(arg);
-    queue->Run();
-    return NULL;
-}
-
 void KSyncTxQueue::Init(bool use_work_queue) {
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
     if (use_work_queue) {
         assert(work_queue_ == NULL);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
         work_queue_ = new WorkQueue<IoContext *>
             (scheduler->GetTaskId("Ksync::AsyncSend"), 0,
              boost::bind(&KSyncSock::SendAsyncImpl, sock_, _1));
@@ -46,13 +58,8 @@ void KSyncTxQueue::Init(bool use_work_queue) {
     }
     assert((event_fd_ = eventfd(0, (FD_CLOEXEC | EFD_SEMAPHORE))) >= 0);
 
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    int ret = pthread_create(&event_thread_, &attr, KSyncIoRun, this);
-    if (ret != 0) {
-        LOG(ERROR, "pthread_create error : " <<  strerror(ret) );
-        assert(0);
-    }
+    KSyncTxQueueTask *task = new KSyncTxQueueTask(scheduler, this);
+    scheduler->Enqueue(task);
 }
 
 void KSyncTxQueue::Shutdown() {
@@ -70,7 +77,10 @@ void KSyncTxQueue::Shutdown() {
     while (queue_len_ != 0) {
         usleep(1);
     }
-    pthread_join(event_thread_, NULL);
+
+    while(ksync_tx_queue_task_done_ != true) {
+        usleep(1);
+    }
     close(event_fd_);
 }
 
