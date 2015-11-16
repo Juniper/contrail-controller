@@ -203,6 +203,7 @@ public:
                             const uuid &intf_uuid, const string &vn_name,
                             uint32_t label,
                             const SecurityGroupList &sg_list,
+                            const CommunityList &communities,
                             bool force_policy,
                             const PathPreference &path_preference,
                             const IpAddress &subnet_gw_ip);
@@ -211,6 +212,7 @@ public:
                                 const uuid &intf_uuid, const string &vn_name,
                                 uint32_t label,
                                 const SecurityGroupList &sg_list,
+                                const CommunityList &communities,
                                 bool force_policy,
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_gw_ip);
@@ -293,13 +295,15 @@ public:
                                 const Ip4Address &dst_addr,uint8_t plen,
                                 const Ip4Address &gw_ip,
                                 const std::string &vn_name, uint32_t label,
-                                const SecurityGroupList &sg_list);
+                                const SecurityGroupList &sg_list,
+                                const CommunityList &communities);
     static void AddGatewayRouteReq(const Peer *peer,
                                    const string &vrf_name,
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name, uint32_t label,
-                                   const SecurityGroupList &sg_list);
+                                   const SecurityGroupList &sg_list,
+                                   const CommunityList &communities);
     void AddIpamSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                             uint8_t plen, const std::string &vn_name);
     void AddInterfaceRouteReq(Agent *agent, const Peer *peer,

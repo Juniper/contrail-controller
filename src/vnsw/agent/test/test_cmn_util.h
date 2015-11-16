@@ -374,6 +374,9 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
                            int count);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
                            int count, const char *nexthop);
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
+                           int count, const char *nexthop, 
+                           const std::vector<std::string> &communities);
 void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *addr,
                               int count);
 void ShutdownAgentController(Agent *agent);

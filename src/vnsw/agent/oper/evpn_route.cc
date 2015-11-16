@@ -210,7 +210,8 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           intf->vxlan_id(), false,
                                           vn_name,
                                           InterfaceNHFlags::BRIDGE,
-                                          sg_id_list, path_pref,
+                                          sg_id_list, CommunityList(),
+                                          path_pref,
                                           IpAddress());
     data->set_tunnel_bmap(TunnelType::AllType());
 

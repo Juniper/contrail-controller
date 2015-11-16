@@ -168,6 +168,7 @@ public:
     virtual bool IsLess(const AgentPath &right) const;
 
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    const CommunityList &communities() const {return communities_;}
     const std::string &dest_vn_name() const {return dest_vn_name_;}
     uint32_t GetActiveLabel() const;
     NextHop *nexthop() const;
@@ -199,7 +200,9 @@ public:
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
     void set_tunnel_type(TunnelType::Type type) {tunnel_type_ = type;}
     void set_sg_list(const SecurityGroupList &sg) {sg_list_ = sg;}
+    void set_communities(const CommunityList &communities) {communities_ = communities;}
     void clear_sg_list() { sg_list_.clear(); }
+    void clear_communities() { communities_.clear(); }
     void set_tunnel_dest(const Ip4Address &tunnel_dest) {
         tunnel_dest_ = tunnel_dest;
     }
@@ -282,6 +285,7 @@ private:
     //     Use nexthop with policy irrespective of interface configuration
     bool force_policy_;
     SecurityGroupList sg_list_;
+    CommunityList communities_;
 
     // tunnel destination address
     Ip4Address tunnel_dest_;
@@ -426,12 +430,14 @@ public:
     LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label,
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
+                 const CommunityList &communities,
                  const PathPreference &path_preference,
                  const IpAddress &subnet_gw_ip) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(false), sync_route_(false),
-        flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()),
+        flags_(flags), sg_list_(sg_list), communities_(communities),
+        tunnel_bmap_(TunnelType::MplsType()),
         path_preference_(path_preference), subnet_gw_ip_(subnet_gw_ip) {
     }
     virtual ~LocalVmRoute() { }
@@ -439,6 +445,7 @@ public:
     virtual std::string ToString() const {return "local VM";}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
+    const CommunityList &communities() const {return communities_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
     const PathPreference& path_preference() const { return path_preference_;}
@@ -459,6 +466,7 @@ private:
     bool sync_route_;
     uint8_t flags_;
     SecurityGroupList sg_list_;
+    CommunityList communities_;
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
     IpAddress subnet_gw_ip_;
@@ -655,9 +663,10 @@ public:
     Inet4UnicastGatewayRoute(const Ip4Address &gw_ip,
                              const std::string &vrf_name,
                              const std::string &vn_name,
-                             uint32_t label, const SecurityGroupList &sg) :
+                             uint32_t label, const SecurityGroupList &sg,
+                             const CommunityList &communities) :
         AgentRouteData(false), gw_ip_(gw_ip), vrf_name_(vrf_name),
-        vn_name_(vn_name), mpls_label_(label), sg_list_(sg) {
+        vn_name_(vn_name), mpls_label_(label), sg_list_(sg), communities_(communities) {
     }
     virtual ~Inet4UnicastGatewayRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
@@ -670,6 +679,7 @@ private:
     std::string vn_name_;
     uint32_t mpls_label_;
     const SecurityGroupList sg_list_;
+    const CommunityList communities_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastGatewayRoute);
 };
 
