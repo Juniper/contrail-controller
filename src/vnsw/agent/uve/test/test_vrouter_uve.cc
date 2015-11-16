@@ -610,7 +610,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     VrouterStatsAgent &uve = vr->prev_stats();
     vr->set_bandwidth_count(0);
     vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_1min_usage(empty_list);
+    uve.set_phy_if_band(empty_list);
 
     PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
@@ -635,8 +635,8 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
-    EXPECT_EQ(0, uve.get_phy_if_1min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 0, 0));
+    EXPECT_EQ(0, uve.get_phy_if_band().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 0, 0));
 
     //Update the stats object
     stats->speed = 1;
@@ -659,8 +659,8 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     }
 
     EXPECT_EQ(2, vr->bandwidth_count());
-    EXPECT_EQ(1U, uve.get_phy_if_1min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 13, 100));
+    EXPECT_EQ(1U, uve.get_phy_if_band().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 13, 100));
     vr->clear_count();
 
     //cleanup
