@@ -1203,6 +1203,22 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(len(read_vn_objs), Equals(0))
     # end test_list_lib_api
 
+    def test_id_perms_uuid_update_should_fail(self):
+        vn_obj = self._create_test_object()
+        # read in id-perms
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        orig_id_perms = copy.deepcopy(vn_obj.id_perms)
+        wrong_id_perms = copy.deepcopy(vn_obj.id_perms)
+        wrong_id_perms.uuid.uuid_mslong += 1
+        wrong_id_perms.uuid.uuid_lslong += 1
+        vn_obj.set_id_perms(wrong_id_perms)
+        self._vnc_lib.virtual_network_update(vn_obj)
+        read_id_perms = self._vnc_lib.virtual_network_read(id=vn_obj.uuid).id_perms
+        self.assertEqual(read_id_perms.uuid.uuid_mslong,
+                         orig_id_perms.uuid.uuid_mslong)
+        self.assertEqual(read_id_perms.uuid.uuid_lslong,
+                         orig_id_perms.uuid.uuid_lslong)
+    # end test_id_perms_uuid_update_should_fail
 # end class TestVncCfgApiServer
 
 
