@@ -39,4 +39,9 @@ discovery_client_test_suite = [
 test = env.TestSuite('discovery-client-test', discovery_client_test_suite)
 env.Alias('controller/src/discovery:test', test)
 
+flaky_discovery_client_test_suite = []
+
+flaky_test = env.TestSuite('discovery-client-flaky-test', flaky_discovery_client_test_suite)
+env.Alias('controller/src/discovery:flaky-test', flaky_test)
+
 Return('discovery_client_test_suite')
