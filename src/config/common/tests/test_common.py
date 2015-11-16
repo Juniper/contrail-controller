@@ -473,7 +473,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn1, vn2, si_name, auto_policy, **kwargs):
+    def _create_service(self, vn1_name, vn2_name, si_name, auto_policy, **kwargs):
         sti = [ServiceTemplateInterfaceType(
             'left'), ServiceTemplateInterfaceType('right')]
         st_prop = ServiceTemplateType(
@@ -487,8 +487,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib.service_template_create(service_template)
         scale_out = ServiceScaleOutType()
         if kwargs.get('service_mode') == 'in-network':
-            if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
-                       ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
+            if_list = [ServiceInstanceInterfaceType(virtual_network=vn1_name),
+                       ServiceInstanceInterfaceType(virtual_network=vn2_name)]
             si_props = ServiceInstanceType(
                 auto_policy=auto_policy, interface_list=if_list,
                 scale_out=scale_out)
@@ -505,16 +505,21 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def create_network_policy(self, vn1, vn2, service_list=None, mirror_service=None,
                               auto_policy=False, **kwargs):
-        addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
-        addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
+        vn1_name = vn1 if isinstance(vn1, basestring) else vn1.get_fq_name_str()
+        vn2_name = vn2 if isinstance(vn2, basestring) else vn2.get_fq_name_str()
+        addr1 = AddressType(virtual_network=vn1_name)
+        addr2 = AddressType(virtual_network=vn2_name)
         port = PortType(-1, 0)
         service_name_list = []
         si_list = service_list or []
         if service_list:
             for service in si_list:
-                service_name_list.append(self._create_service(vn1, vn2, service, auto_policy, **kwargs))
+                service_name_list.append(self._create_service(
+                    vn1_name, vn2_name, service, auto_policy, **kwargs))
         if mirror_service:
-            mirror_si = self._create_service(vn1, vn2, mirror_service, False, service_mode='transparent', service_type='analyzer')
+            mirror_si = self._create_service(
+		vn1_name, vn2_name, mirror_service, False,
+                service_mode='transparent', service_type='analyzer')
         action_list = ActionListType()
         if mirror_service:
             mirror = MirrorActionType(analyzer_name=mirror_si)

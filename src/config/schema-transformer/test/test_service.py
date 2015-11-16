@@ -26,7 +26,8 @@ def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
 
 
-def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,), hook=None):
+def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
+            hook=retry_exc_handler):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
@@ -51,7 +52,7 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,), hook=None):
 
 class TestPolicy(test_case.STTestCase):
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_ri_asn(self, fq_name, rt_target):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -63,7 +64,7 @@ class TestPolicy(test_case.STTestCase):
                 return
         raise Exception('rt_target %s not found in ri %s' % (rt_target, fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_bgp_asn(self, fq_name, asn):
         router = self._vnc_lib.bgp_router_read(fq_name)
         params = router.get_bgp_router_parameters()
@@ -72,7 +73,7 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('bgp params is None for %s' % fq_name)
         self.assertEqual(params.get_autonomous_system(), asn)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_lr_asn(self, fq_name, rt_target):
         router = self._vnc_lib.logical_router_read(fq_name)
         rt_refs = router.get_route_target_refs()
@@ -81,7 +82,7 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('ri_refs is None for %s' % fq_name)
         self.assertEqual(rt_refs[0]['to'][0], rt_target)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_service_chain_prefix_match(self, fq_name, prefix):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_service_chain_information()
@@ -90,7 +91,7 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('Service chain info not found for %s' % fq_name)
         self.assertEqual(sci.prefix[0], prefix)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_service_chain_info(self, fq_name, expected):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_service_chain_information()
@@ -98,7 +99,7 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('Service chain info not found for %s' % fq_name)
         self.assertEqual(sci, expected)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_v6_service_chain_info(self, fq_name, expected):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_ipv6_service_chain_information()
@@ -106,14 +107,14 @@ class TestPolicy(test_case.STTestCase):
             raise Exception('Ipv6 service chain info not found for %s' % fq_name)
         self.assertEqual(sci, expected)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_analyzer_ip(self, vmi_fq_name):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         vmi_props = vmi.get_virtual_machine_interface_properties()
         ip = vmi_props.get_interface_mirror().get_mirror_to().get_analyzer_ip_address()
         self.assertTrue(ip != None)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_analyzer_no_ip(self, vmi_fq_name):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         vmi_props = vmi.get_virtual_machine_interface_properties()
@@ -124,7 +125,7 @@ class TestPolicy(test_case.STTestCase):
             pass
         self.assertTrue(ip == None)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_service_chain_pbf_rules(self, vn1, vn2, sc_ri_name, service_name, sc_ip):
         mac1 = '02:00:00:00:00:01'
         mac2 = '02:00:00:00:00:02'
@@ -155,21 +156,21 @@ class TestPolicy(test_case.STTestCase):
                     return
             raise Exception('Service chain pbf rules not found for %s' % service_ri_fq_name)
  
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_service_chain_ip(self, sc_name):
         _SC_IP_CF = 'service_chain_ip_address_table'
         cf = CassandraCFs.get_cf(_SC_IP_CF)
         ip = cf.get(sc_name)['ip_address']
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_ri_ref_present(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         for ri_ref in ri.get_routing_instance_refs() or []:
             if ri_ref['to'] == to_fq_name:
                 return
-        raise Exception('ri_ref not found from %s to %s' % fq_name, to_fq_name)
+        raise Exception('ri_ref not found from %s to %s' % (fq_name, to_fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_ri_refs_are_deleted(self, fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         ri_refs = ri.get_routing_instance_refs()
@@ -177,7 +178,7 @@ class TestPolicy(test_case.STTestCase):
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs still exist for %s' % fq_name)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def delete_vn(self, fq_name):
         try:
             self._vnc_lib.virtual_network_delete(fq_name=fq_name)
@@ -186,14 +187,14 @@ class TestPolicy(test_case.STTestCase):
             print "retrying ... ", test_common.lineno()
             raise Exception('virtual network %s still exists' % str(fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_st_vm_is_deleted(self, name):
         vm_obj = config_db.VirtualMachineST.get(name)
         if vm_obj is not None:
             raise Exception('vm %s still exists' % name)
         return
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_lr_is_deleted(self, uuid):
         try:
             self._vnc_lib.logical_router_read(id=uuid)
@@ -202,7 +203,7 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             print 'lr deleted'
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_rt_is_deleted(self, name):
         try:
             self._vnc_lib.route_target_read(fq_name=[name])
@@ -211,7 +212,7 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             print 'rt deleted'
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_vn_is_deleted(self, uuid):
         try:
             self._vnc_lib.virtual_network_read(id=uuid)
@@ -220,7 +221,7 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             print 'vn deleted'
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_ri_is_deleted(self, fq_name):
         try:
             self._vnc_lib.routing_instance_read(fq_name)
@@ -229,43 +230,43 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             print 'ri deleted'
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_ri_is_present(self, fq_name):
         self._vnc_lib.routing_instance_read(fq_name)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_link_in_ifmap_graph(self, fq_name_str, links):
         self._vnc_lib.routing_instance_read(fq_name)
 
-    @retries(5, hook=retry_exc_handler)
-    def wait_to_get_sc(self):
-        sc = [x for x in to_bgp.ServiceChain]
-        if len(sc) == 0:
-            print "retrying ... ", test_common.lineno()
-            raise Exception('Service chain not found')
-        return sc
+    @retries(5)
+    def wait_to_get_sc(self, left_vn=None, right_vn=None):
+        for sc in to_bgp.ServiceChain.values():
+            if (left_vn in (None, sc.left_vn) and
+                    right_vn in (None, sc.right_vn)):
+                return sc.name
+        raise Exception('Service chain not found')
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def wait_to_get_link(self, ident_name, link_fq_name):
         self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Contains(link_fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def wait_to_remove_link(self, ident_name, link_fq_name):
         self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']), Not(Contains(link_fq_name)))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def wait_to_get_sg_id(self, sg_fq_name):
         sg_obj = self._vnc_lib.security_group_read(sg_fq_name)
         if sg_obj.get_security_group_id() is None:
             raise Exception('Security Group Id is none %s' % str(sg_fq_name)) 
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_rt_in_ri(self, ri_name, rt_id, is_present):
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
         self.assertEqual(is_present, rt_id in ri_rt_refs)
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -276,7 +277,7 @@ class TestPolicy(test_case.STTestCase):
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -286,7 +287,7 @@ class TestPolicy(test_case.STTestCase):
         raise Exception('nets %s/%s not found in ACL rules for %s' %
                         (vn1_fq_name, vn2_fq_name, fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_match_sg(self, fq_name, acl_name, sg_id, is_all_rules = False):
         sg_obj = self._vnc_lib.security_group_read(fq_name)
         acls = sg_obj.get_access_control_lists()
@@ -319,7 +320,7 @@ class TestPolicy(test_case.STTestCase):
                         (str(fq_name), str(sg_id), acl_name))
         return
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_no_policies_for_sg(self, fq_name):
         try:
             sg_obj = self._vnc_lib.security_group_read(fq_name)
@@ -329,11 +330,11 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             pass
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_sg_refer_list(self, sg_referred_by, sg_referrer, is_present):
         self.assertEqual(is_present, sg_referred_by in config_db.SecurityGroupST._sg_dict.get(sg_referrer, []))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_not_match_sg(self, fq_name, acl_name, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(fq_name)
@@ -357,7 +358,7 @@ class TestPolicy(test_case.STTestCase):
         except NoIdError:
             pass
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_not_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
         acl = None
         try:
@@ -374,7 +375,7 @@ class TestPolicy(test_case.STTestCase):
                         (vn1_fq_name, vn2_fq_name, fq_name))
         return
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_not_match_mirror_to_ip(self, fq_name):
         acl = None
         try:
@@ -386,7 +387,7 @@ class TestPolicy(test_case.STTestCase):
                 raise Exception('mirror to ip %s found in ACL rules for %s' % (fq_name))
         return
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_acl_match_mirror_to_ip(self, fq_name):
         acl = self._vnc_lib.access_control_list_read(fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
@@ -394,7 +395,7 @@ class TestPolicy(test_case.STTestCase):
                 return
         raise Exception('mirror to ip not found in ACL rules for %s' % (fq_name))
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_route_target_in_routing_instance(self, ri_name, rt_list):
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
@@ -537,7 +538,7 @@ class TestPolicy(test_case.STTestCase):
         vn3_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn3_obj)
 
-        @retries(5, hook=retry_exc_handler)
+        @retries(5)
         def _match_acl_rule():
             acl = self._vnc_lib.access_control_list_read(
                     fq_name=self.get_ri_name(vn1_obj))
@@ -580,7 +581,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
@@ -590,8 +591,7 @@ class TestPolicy(test_case.STTestCase):
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
                                service_chain_address = '10.0.0.252',
-                               service_instance = si_name,
-                              )
+                               service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
         sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
@@ -599,8 +599,7 @@ class TestPolicy(test_case.STTestCase):
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
                                service_chain_address = '10.0.0.252',
-                               service_instance = si_name,
-                              )
+                               service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         sci.prefix = ['2000::/16']
         sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
@@ -628,6 +627,102 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy
 
+    def test_service_policy_with_any(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24'])
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24'])
+
+        # create vn3
+        vn3_name = self.id() + 'vn3'
+        vn3_obj = self.create_virtual_network(vn3_name, ['30.0.0.0/24'])
+
+        service_name = self.id() + 's1'
+        np1 = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np1, vnp)
+        np2 = self.create_network_policy('any', vn2_obj)
+        np2.get_network_policy_entries().policy_rule[0].set_action_list(
+            copy.deepcopy(np1.get_network_policy_entries().policy_rule[0].action_list))
+        np2.set_network_policy_entries(np2.get_network_policy_entries())
+        self._vnc_lib.network_policy_update(np2)
+
+        vn2_obj.set_network_policy(np2, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc(vn1_obj.get_fq_name_str(),
+                                 vn2_obj.get_fq_name_str())
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
+
+        si_name = 'default-domain:default-project:' + service_name
+        sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
+                               service_chain_address = '10.0.0.252',
+                               service_instance = si_name)
+        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
+                               service_chain_address = '10.0.0.252',
+                               service_instance = si_name)
+        self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
+
+        np3 = self.create_network_policy(vn3_obj, vn2_obj)
+        np3.get_network_policy_entries().policy_rule[0].set_action_list(
+            copy.deepcopy(np1.get_network_policy_entries().policy_rule[0].action_list))
+        np3.set_network_policy_entries(np3.get_network_policy_entries())
+        self._vnc_lib.network_policy_update(np3)
+        vn3_obj.set_network_policy(np3, vnp)
+        self._vnc_lib.virtual_network_update(vn3_obj)
+
+        sc = self.wait_to_get_sc(vn3_obj.get_fq_name_str(),
+                                 vn2_obj.get_fq_name_str())
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        self.check_ri_ref_present(self.get_ri_name(vn3_obj),
+                                  self.get_ri_name(vn3_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
+
+        si_name = 'default-domain:default-project:' + service_name
+        sci = ServiceChainInfo(prefix = ['30.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn3_obj)),
+                               service_chain_address = '30.0.0.252',
+                               service_instance = si_name)
+        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
+                               routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
+                               service_chain_address = '30.0.0.252',
+                               service_instance = si_name)
+        self.check_service_chain_info(self.get_ri_name(vn3_obj, sc_ri_name), sci)
+
+        vn1_obj.del_network_policy(np1)
+        vn2_obj.del_network_policy(np2)
+        vn3_obj.del_network_policy(np3)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self._vnc_lib.virtual_network_update(vn3_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np1)
+        self._vnc_lib.network_policy_delete(id=np2.uuid)
+        self._vnc_lib.network_policy_delete(id=np3.uuid)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn3_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn3_obj))
+    # end test_service_policy_with_any
+
     def test_service_policy_no_vm(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -651,7 +746,7 @@ class TestPolicy(test_case.STTestCase):
         np.set_network_policy_entries(np.network_policy_entries)
         self._vnc_lib.network_policy_update(np)
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
 
         vn1_obj.del_network_policy(np)
@@ -694,7 +789,7 @@ class TestPolicy(test_case.STTestCase):
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
         sc = self.wait_to_get_sc()
-        sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
+        sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_names[0]))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[2]),
@@ -752,7 +847,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_names = ['service-'+sc[0]+'-default-domain_default-project_' + s for s in service_names]
+        sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_names[0]))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[-1]),
@@ -834,7 +929,7 @@ class TestPolicy(test_case.STTestCase):
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
-        @retries(5, hook=retry_exc_handler)
+        @retries(5)
         def _match_route_table(rtgt_list):
             sc = [x for x in to_bgp.ServiceChain]
             if len(sc) == 0:
@@ -876,7 +971,7 @@ class TestPolicy(test_case.STTestCase):
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
-        @retries(5, hook=retry_exc_handler)
+        @retries(5)
         def _match_route_table_cleanup(sc_ri_name, rt100):
             lri = self._vnc_lib.routing_instance_read(
                 fq_name=self.get_ri_name(lvn, sc_ri_name))
@@ -937,7 +1032,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn))
     # test_vn_delete
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_vn_ri_state(self, fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
 
@@ -1015,7 +1110,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+        sc_ri_name = ('service-' + sc + '-default-domain_default-project_'
                       + service_name)
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
@@ -1069,7 +1164,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+        sc_ri_name = ('service-' + sc + '-default-domain_default-project_'
                       + service_name)
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
@@ -1085,7 +1180,7 @@ class TestPolicy(test_case.STTestCase):
 
         #check service chain state
         sc = self.wait_to_get_sc()
-        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+        sc_ri_name = ('service-' + sc + '-default-domain_default-project_'
                       + service_name)
 
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
@@ -1155,7 +1250,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_lr_is_deleted(uuid=lr.uuid)
         self.check_rt_is_deleted(name='target:64512:8000002')
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_bgp_peering(self, router1, router2, length):
         r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
         ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
@@ -1211,7 +1306,7 @@ class TestPolicy(test_case.STTestCase):
 	self._vnc_lib.bgp_router_delete(id=router4.uuid)
         gevent.sleep(1)
 
-    @retries(10, hook=retry_exc_handler)
+    @retries(10)
     def check_vrf_assign_table(self, vmi_fq_name, floating_ip, is_present = True):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         if is_present:
@@ -1284,7 +1379,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
@@ -1314,7 +1409,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(5)
     def check_security_group_id(self, sg_fq_name, verify_sg_id = None):
         sg = self._vnc_lib.security_group_read(sg_fq_name)
         sg_id = sg.get_security_group_id()
@@ -1695,7 +1790,7 @@ class TestPolicy(test_case.STTestCase):
         np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], service_mode='in-network', auto_policy=True)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
@@ -1758,7 +1853,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
@@ -1857,7 +1952,7 @@ class TestPolicy(test_case.STTestCase):
 
         sc = self.wait_to_get_sc()
 
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
         #basic checks
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
@@ -1969,7 +2064,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
-        sc = self.wait_to_get_sc()
+        self.wait_to_get_sc()
 
         sp_list1 = [PortType(start_port=5000, end_port=8000), PortType(start_port=2000, end_port=3000)]
         dp_list1 = [PortType(start_port=1000, end_port=1500), PortType(start_port=500, end_port=800)]
