@@ -3,8 +3,8 @@ from vnc_api.vnc_api import *
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
-                     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
-from db import LBDB
+    LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
+
 
 class LoadbalancerAgent(object):
 
@@ -12,16 +12,16 @@ class LoadbalancerAgent(object):
         # Loadbalancer
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
+        self._cassandra = self._svc_mon._cassandra
         self._pool_driver = {}
         self._args = config_section
         self._loadbalancer_driver = {}
         # create default service appliance set
-        self._create_default_service_appliance_set("opencontrail", 
-          "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver")
+        self._create_default_service_appliance_set(
+            "opencontrail",
+            "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver"
+        )
         self._default_provider = "opencontrail"
-        self.lb_db = LBDB(config_section)
-        self.lb_db.add_logger(self._svc_mon.logger)
-        self.lb_db.init_database()
     # end __init__
 
     # create default loadbalancer driver
@@ -32,8 +32,6 @@ class LoadbalancerAgent(object):
 
         try:
             sa_set_obj = self._vnc_lib.service_appliance_set_read(fq_name=sa_set_fq_name)
-            sa_set_uuid = sa_set_obj.uuid
-            return
         except vnc_exc.NoIdError:
             gsc_obj = self._vnc_lib.global_system_config_read(fq_name=default_gsc_fq_name)
             sa_set_obj = ServiceApplianceSet(sa_set_name, gsc_obj)
@@ -58,18 +56,19 @@ class LoadbalancerAgent(object):
                     config.set(sas.name, 'password',
                                saobj.user_credential['password'])
                 self._loadbalancer_driver[sas.name] = \
-                       importutils.import_object(sas.driver, sas.name,
-                           self._svc_mon, self._vnc_lib, self.lb_db, self._args)
+                    importutils.import_object(sas.driver, sas.name,
+                                              self._svc_mon, self._vnc_lib,
+                                              self._cassandra, self._args)
     # end load_drivers
 
     def audit_lb_pools(self):
-        for pool_id, config_data, driver_data in self.lb_db.pool_list():
+        for pool_id, config_data, driver_data in self._cassandra.pool_list():
             if LoadbalancerPoolSM.get(pool_id):
                 continue
             # Delete the pool from the driver
             driver = self._get_driver_for_provider(config_data['provider'])
             driver.delete_pool(config_data)
-            self.lb_db.pool_remove(pool_id)
+            self._cassandra.pool_remove(pool_id)
 
     def load_driver(self, sas):
         if sas.name in self._loadbalancer_driver:
@@ -78,7 +77,7 @@ class LoadbalancerAgent(object):
             config = self._args.config_sections
             try:
                 config.remove_section(sas.name)
-            except Exception as ex:
+            except Exception:
                 pass
             config.add_section(sas.name)
             for kvp in sas.kvpairs or []:
@@ -92,8 +91,9 @@ class LoadbalancerAgent(object):
                 config.set(sas.name, 'password',
                            saobj.user_credential['password'])
             self._loadbalancer_driver[sas.name] = \
-                       importutils.import_object(sas.driver, sas.name,
-                          self._svc_mon, self._vnc_lib, self.lb_db, self._args)
+                importutils.import_object(sas.driver, sas.name,
+                                          self._svc_mon, self._vnc_lib,
+                                          self._cassandra, self._args)
     # end load_driver
 
     def unload_driver(self, sas):
@@ -129,9 +129,9 @@ class LoadbalancerAgent(object):
             #elif p != pool.last_sent:
             else:
                 driver.update_pool(pool.last_sent, p)
-        except Exception as ex:
+        except Exception:
             pass
-        self.lb_db.pool_config_insert(p['id'], p)
+        self._cassandra.pool_config_insert(p['id'], p)
         return p
     # end loadbalancer_pool_add
 
@@ -143,7 +143,7 @@ class LoadbalancerAgent(object):
                 driver.create_member(m)
             elif m != member.last_sent:
                 driver.update_member(member.last_sent, m)
-        except Exception as ex:
+        except Exception:
             pass
         return m
     # end loadbalancer_member_add
@@ -156,7 +156,7 @@ class LoadbalancerAgent(object):
                 driver.create_vip(v)
             elif v != vip.last_sent:
                 driver.update_vip(vip.last_sent, v)
-        except Exception as ex:
+        except Exception:
             pass
         return v
     # end  virtual_ip_add
@@ -166,7 +166,7 @@ class LoadbalancerAgent(object):
         driver = self._get_driver_for_pool(v['pool_id'])
         try:
             driver.delete_vip(v)
-        except Exception as ex:
+        except Exception:
             pass
     # end delete_virtual_ip
 
@@ -175,7 +175,7 @@ class LoadbalancerAgent(object):
         driver = self._get_driver_for_pool(m['pool_id'])
         try:
             driver.delete_member(m)
-        except Exception as ex:
+        except Exception:
             pass
     # end delete_loadbalancer_member
 
@@ -184,9 +184,9 @@ class LoadbalancerAgent(object):
         driver = self._get_driver_for_pool(p['id'])
         try:
             driver.delete_pool(p)
-        except Exception as ex:
+        except Exception:
             pass
-        self.lb_db.pool_remove(p['id'])
+        self._cassandra.pool_remove(p['id'])
     # end delete_loadbalancer_pool
 
     def update_hm(self, obj):
@@ -195,12 +195,12 @@ class LoadbalancerAgent(object):
         old_pools = []
         if obj.last_sent:
             old_pools = hm['pools'] or []
- 
+
         set_current_pools = set()
         set_old_pools = set()
         for i in current_pools:
             set_current_pools.add(i['pool_id'])
-        for i in old_pools: 
+        for i in old_pools:
             set_old_pools.add(i['pool_id'])
         update_pools = set_current_pools & set_old_pools
         delete_pools = set_old_pools - set_current_pools
@@ -214,9 +214,9 @@ class LoadbalancerAgent(object):
                 driver.delete_pool_health_monitor(hm, pool)
             for pool in update_pools:
                 driver = self._get_driver_for_pool(pool)
-                driver.update_health_monitor(obj.last_sent, 
-                                         hm, pool)
-        except Exception as ex:
+                driver.update_health_monitor(obj.last_sent,
+                                             hm, pool)
+        except Exception:
             pass
     # end update_hm
 
@@ -267,7 +267,7 @@ class LoadbalancerAgent(object):
                 sp['cookie_name'] = props['persistence_cookie_name']
             res['session_persistence'] = sp
 
-        return res;
+        return res
     # end virtual_ip_get_reqdict
 
     _loadbalancer_health_type_mapping = {
