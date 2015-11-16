@@ -1573,6 +1573,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
     } else if (state == xmps::TIMEDOUT) {
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "TIMEDOUT",
                          "NULL", "Connection to Xmpp Server, Timed out");
+
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
             dac->ReDiscoverController();
@@ -2478,9 +2479,19 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::UP, ep,
                                            last_state_name);
+        if (agent_->discovery_service_client()) {
+            agent_->discovery_service_client()->AddSubscribeInUseServiceList(
+                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
+        }
     } else {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
+        if (state == xmps::TIMEDOUT) {
+            if (agent_->discovery_service_client()) {
+                agent_->discovery_service_client()->DeleteSubscribeInUseServiceList(
+                    g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
+            }
+        }
     }
 }

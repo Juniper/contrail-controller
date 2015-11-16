@@ -14,6 +14,7 @@
 #include "bind/xmpp_dns_agent.h"
 #include <cfg/discovery_agent.h>
 
+using namespace boost::asio;
 using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
@@ -94,6 +95,7 @@ void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                        xmps::PeerState state) {
     peer->UpdateConnectionInfo(state);
+
     if (state == xmps::READY) {
         peer->dns_xmpp_event_handler_cb_(peer);
     } else if (state == xmps::TIMEDOUT) {
@@ -132,9 +134,19 @@ void AgentDnsXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::UP, ep,
                                            last_state_name);
+        if (agent_->discovery_service_client()) {
+            agent_->discovery_service_client()->AddSubscribeInUseServiceList(
+                g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, ep);
+        }
     } else {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
+        if (state == xmps::TIMEDOUT) {
+            if (agent_->discovery_service_client()) {
+                agent_->discovery_service_client()->DeleteSubscribeInUseServiceList(
+                    g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, ep);
+            }
+        }
     }
 }
