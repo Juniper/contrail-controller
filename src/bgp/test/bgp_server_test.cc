@@ -153,6 +153,7 @@ protected:
                 unsigned short port_b, bool verify_keepalives,
                 bool admin_down1, bool admin_down2,
                 bool nbr_admin_down1, bool nbr_admin_down2,
+                bool nbr_passive1, bool nbr_passive2,
                 uint16_t as_num1, uint16_t as_num2,
                 uint16_t local_as_num1, uint16_t local_as_num2);
     void SetupPeers(int peer_count, unsigned short port_a,
@@ -220,6 +221,7 @@ protected:
                         unsigned short port_a, unsigned short port_b,
                         bool admin_down1, bool admin_down2,
                         bool nbr_admin_down1, bool nbr_admin_down2,
+                        bool nbr_passive1, bool nbr_passive2,
                         uint16_t as_num1, uint16_t as_num2,
                         uint16_t local_as_num1, uint16_t local_as_num2,
                         string peer_address1, string peer_address2,
@@ -273,6 +275,7 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         unsigned short port_a, unsigned short port_b,
         bool admin_down1, bool admin_down2,
         bool nbr_admin_down1, bool nbr_admin_down2,
+        bool nbr_passive1, bool nbr_passive2,
         as_t as_num1, as_t as_num2,
         as_t local_as_num1, as_t local_as_num2,
         string peer_address1, string peer_address2,
@@ -327,6 +330,9 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         config << "<admin-down>";
         config << std::boolalpha << nbr_admin_down1 << std::noboolalpha;
         config << "</admin-down>";
+        config << "<passive>";
+        config << std::boolalpha << nbr_passive1 << std::noboolalpha;
+        config << "</passive>";
         if (nbr_hold_time1)
             config << "<hold-time>" << nbr_hold_time1 << "</hold-time>";
         config << "<address-families>";
@@ -379,6 +385,9 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         config << "<admin-down>";
         config << std::boolalpha << nbr_admin_down2 << std::noboolalpha;
         config << "</admin-down>";
+        config << "<passive>";
+        config << std::boolalpha << nbr_passive2 << std::noboolalpha;
+        config << "</passive>";
         if (nbr_hold_time2)
             config << "<hold-time>" << nbr_hold_time2 << "</hold-time>";
         config << "<address-families>";
@@ -403,7 +412,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
         vector<string> families1, vector<string> families2,
         bool delete_config) {
     string config = GetConfigStr(peer_count, port_a, port_b,
-                                 false, false, false, false,
+                                 false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  as_num1, as_num2,
                                  peer_address1, peer_address2,
@@ -424,7 +433,7 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
         vector<string> families1, vector<string> families2,
         bool delete_config) {
     string config = GetConfigStr(peer_count, port_a, port_b,
-                                 false, false, false, false,
+                                 false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  as_num1, as_num2, peer_address1, peer_address2,
                                  bgp_identifier1, bgp_identifier2,
@@ -440,11 +449,13 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b, bool verify_keepalives,
         bool admin_down1, bool admin_down2,
         bool nbr_admin_down1, bool nbr_admin_down2,
+        bool nbr_passive1, bool nbr_passive2,
         as_t as_num1, as_t as_num2,
         as_t local_as_num1, as_t local_as_num2) {
     string config = GetConfigStr(peer_count, port_a, port_b,
                                  admin_down1, admin_down2,
                                  nbr_admin_down1, nbr_admin_down2,
+                                 nbr_passive1, nbr_passive2,
                                  as_num1, as_num2,
                                  local_as_num1, local_as_num2,
                                  "127.0.0.1",
@@ -471,7 +482,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         vector<string> families1, vector<string> families2,
         uint16_t hold_time1, uint16_t hold_time2) {
     string config = GetConfigStr(peer_count, port_a, port_b,
-                                 false, false, false, false,
+                                 false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  as_num1, as_num2, peer_address1, peer_address2,
                                  bgp_identifier1, bgp_identifier2,
@@ -494,7 +505,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         uint16_t hold_time1, uint16_t hold_time2,
         uint16_t nbr_hold_time1, uint16_t nbr_hold_time2) {
     string config = GetConfigStr(peer_count, port_a, port_b,
-                                 false, false, false, false,
+                                 false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  as_num1, as_num2,
                                  peer_address1, peer_address2,
@@ -513,7 +524,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b, bool verify_keepalives,
         as_t as_num1, as_t as_num2, as_t local_as_num1, as_t local_as_num2) {
     string config = GetConfigStr(peer_count, port_a, port_b,
-                                 false, false, false, false,
+                                 false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  local_as_num1, local_as_num2,
                                  "127.0.0.1", "127.0.0.1",
@@ -1522,7 +1533,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown1) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               true, true, false, false,
+               true, true, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1547,7 +1558,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown1) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1565,7 +1576,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown2) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1593,7 +1604,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown2) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               true, true, false, false,
+               true, true, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1620,7 +1631,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown2) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1638,7 +1649,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown3) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1666,7 +1677,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown3) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               true, false, false, false,
+               true, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1693,7 +1704,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown3) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1710,7 +1721,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown4) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, true, true,
+               false, false, true, true, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1735,7 +1746,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown4) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1753,7 +1764,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown5) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1781,7 +1792,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown5) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, true, true,
+               false, false, true, true, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1808,7 +1819,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown5) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1826,7 +1837,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown6) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1854,7 +1865,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown6) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, true, false,
+               false, false, true, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
@@ -1882,12 +1893,201 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown6) {
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem);
     VerifyPeers(peer_count);
+}
+
+TEST_F(BgpServerUnitTest, Passive1) {
+    int peer_count = 3;
+    BgpPeerTest::verbose_name(true);
+
+    //
+    // Set neighbors on A and B to be passive.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, false, true, true,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers are passive.
+    // Verify that state machine is in ACTIVE state.
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsPassive());
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsPassive());
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ACTIVE);
+        TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ACTIVE);
+    }
+
+    //
+    // Set neighbors on A and B to not be passive.
+    // Verify that sessions come up.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, false, false, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Set neighbors on A and B to be passive.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, false, true, true,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers flapped.
+    // Make sure that the peers are passive.
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsPassive());
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsPassive());
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ACTIVE);
+        TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ACTIVE);
+    }
+}
+
+TEST_F(BgpServerUnitTest, Passive2) {
+    int peer_count = 3;
+    BgpPeerTest::verbose_name(true);
+
+    //
+    // Set neighbors on A to be passive and B to be admin down.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, true, true, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers on A are passive.
+    // Verify that state machine for peers on A is in ACTIVE state.
+    // Make sure that the peers on B are admin down.
+    // Verify that state machine for peers on B is in IDLE state.
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsPassive());
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsAdminDown());
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ACTIVE);
+        TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::IDLE);
+    }
+
+    //
+    // Set neighbors on A to be passive and B to not be admin down.
+    // Verify that sessions come up.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, false, true, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Set neighbors on A to be passive and B to be admin down.
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               false, false, false, true, true, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers flapped.
+    // Make sure that the peers on A are passive.
+    // Verify that state machine for peers on A is in ACTIVE state.
+    // Make sure that the peers on B are admin down.
+    // Verify that state machine for peers on B is in IDLE state.
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsPassive());
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsAdminDown());
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ACTIVE);
+        TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::IDLE);
+    }
 }
 
 TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
@@ -1980,7 +2180,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
     vector<string> families_b;
     string config = GetConfigStr(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(),
-               false, false, false, false,
+               false, false, false, false, false, false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,

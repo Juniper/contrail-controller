@@ -205,6 +205,10 @@ protected:
         return false;
     }
 
+    void SetPeerPassive() {
+        peer_->passive_ = true;
+    }
+
     void RunToState(StateMachine::State state) {
         timer_->Start(15000,
             boost::bind(&StateMachineUnitTest::DummyTimerHandler, this));
@@ -292,7 +296,12 @@ protected:
             break;
 
         case StateMachine::ACTIVE:
-            TASK_UTIL_EXPECT_TRUE(ConnectTimerRunning() != OpenTimerRunning());
+            if (peer_->IsPassive()) {
+                TASK_UTIL_EXPECT_FALSE(ConnectTimerRunning());
+            } else {
+                TASK_UTIL_EXPECT_TRUE(
+                    ConnectTimerRunning() != OpenTimerRunning());
+            }
             TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
@@ -730,6 +739,76 @@ TEST_F(StateMachineUnitTest, ConnectTimerBackoff) {
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
     VerifyState(StateMachine::OPENSENT);
+}
+
+class StateMachinePassivePeerTest : public StateMachineUnitTest {
+protected:
+    virtual void SetUp() {
+        SetPeerPassive();
+        GetToState(StateMachine::IDLE);
+    }
+
+    virtual void TearDown() {
+    }
+};
+
+// Old State: Idle
+// Event:     EvStart + EvTcpPassiveOpen + EvBgpOpen + EvBgpKeepalive
+// New State: Active
+// Intent:    Simplest sequence of events to go to Established for passive peer.
+TEST_F(StateMachinePassivePeerTest, Basic) {
+    EvStart();
+    VerifyState(StateMachine::ACTIVE);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::ACTIVE);
+    EvBgpOpen();
+    VerifyState(StateMachine::OPENCONFIRM);
+    EvBgpKeepalive();
+    VerifyState(StateMachine::ESTABLISHED);
+}
+
+// Old State: Idle
+// Event:     EvStart
+// New State: Active
+// Intent:    Connect timer should not be started as peer is passive.
+TEST_F(StateMachinePassivePeerTest, Start) {
+    EvStart();
+    VerifyState(StateMachine::ACTIVE);
+    TASK_UTIL_EXPECT_FALSE(ConnectTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
+}
+
+// Old State: Idle
+// Event:     EvStart + EvConnectTimerExpired
+// New State: Active
+// Intent:    Connect timer expiration should be ignored as peer is passive.
+TEST_F(StateMachinePassivePeerTest, StartThenConnectTimerExpired) {
+    EvStart();
+    VerifyState(StateMachine::ACTIVE);
+    EvConnectTimerExpired();
+    VerifyState(StateMachine::ACTIVE);
+    TASK_UTIL_EXPECT_FALSE(ConnectTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
+}
+
+// Old State: Idle
+// Event:     EvStart + EvTcpPassiveOpen.
+// New State: Active
+TEST_F(StateMachinePassivePeerTest, StartThenTcpPassiveOpen) {
+    EvStart();
+    VerifyState(StateMachine::ACTIVE);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::ACTIVE);
+    TASK_UTIL_EXPECT_FALSE(ConnectTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
 }
 
 class StateMachineIdleTest : public StateMachineUnitTest {

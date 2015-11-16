@@ -185,6 +185,7 @@ public:
     // thread-safe
     bool IsDeleted() const;
     bool IsAdminDown() const { return admin_down_; }
+    bool IsPassive() const { return passive_; }
     bool IsCloseInProgress() const;
     virtual bool IsReady() const;
     virtual bool IsXmppPeer() const;
@@ -360,6 +361,7 @@ private:
     Timer *end_of_rib_timer_;
     bool send_ready_;
     bool admin_down_;
+    bool passive_;
 
     boost::scoped_ptr<StateMachine> state_machine_;
     uint64_t membership_req_pending_;

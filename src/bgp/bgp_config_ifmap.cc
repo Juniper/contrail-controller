@@ -168,6 +168,7 @@ static void NeighborSetSessionAttributes(
         attributes = local;
     }
     if (attributes != NULL) {
+        neighbor->set_passive(attributes->passive);
         if (attributes->admin_down) {
             neighbor->set_admin_down(true);
         }
@@ -804,6 +805,7 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         Create, manager->server(), neighbor, SandeshLevel::SYS_DEBUG,
         BGP_LOG_FLAG_ALL,
         neighbor->admin_down(),
+        neighbor->passive(),
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
@@ -826,6 +828,7 @@ void BgpIfmapInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         Update, manager->server(), neighbor,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
         neighbor->admin_down(),
+        neighbor->passive(),
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),

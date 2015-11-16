@@ -472,11 +472,13 @@ struct Active : sc::state<Active, StateMachine> {
             BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
 
-    // Start the connect timer if we don't have a passive session. There may
-    // a passive session if we got here from Connect or OpenSent.
+    // Start the connect timer if the peer is not passive and we don't have
+    // a passive session. There may a passive session if we got here from
+    // Connect or OpenSent.
     explicit Active(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
-        if (state_machine->passive_session() == NULL)
+        BgpPeer *peer = state_machine->peer();
+        if (!peer->IsPassive() && !state_machine->passive_session())
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
         state_machine->set_state(StateMachine::ACTIVE);
     }
@@ -488,9 +490,15 @@ struct Active : sc::state<Active, StateMachine> {
         state_machine->CancelConnectTimer();
     }
 
-    // The connect timer expired, go to Connect.
+    // The connect timer expired, go to Connect if the peer is not passive.
     sc::result react(const EvConnectTimerExpired &event) {
-        return transit<Connect>();
+        StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
+        if (peer->IsPassive()) {
+            return discard_event();
+        } else {
+            return transit<Connect>();
+        }
     }
 
     // Send an OPEN message on the passive session and go to OpenSent.
