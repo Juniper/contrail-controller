@@ -181,7 +181,7 @@ void PhysicalPortTable::CreatePortEntry(struct ovsdb_idl_row *row,
                 std::string(ovsdb_wrapper_physical_port_name(row)));
         entry = static_cast<PhysicalPortEntry *>(Create(&key));
         entry->ovs_entry_ = row;
-    } else if (!IsActiveEntry(entry)) {
+    } else if (!entry->IsActive()) {
         // entry is present but it is a temp entry.
         OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
                 std::string(ovsdb_wrapper_physical_port_name(row)));
