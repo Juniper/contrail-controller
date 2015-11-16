@@ -575,8 +575,10 @@ void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
     GetOptValue<uint16_t>(var_map, dss_port_, "DISCOVERY.port");
-    GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
-                          "DISCOVERY.max_control_nodes");
+    if (!GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
+                          "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = MAX_XMPP_SERVERS;
+    }
 }
 
 void AgentParam::ParseNetworksArguments
@@ -1197,7 +1199,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Listen port of discovery server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
          "IP address of discovery server")
-        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>()->default_value(2),
+        ("DISCOVERY.max_control_nodes", 
+         opt::value<uint16_t>()->default_value(MAX_XMPP_SERVERS),
          "Maximum number of control node info to be provided by discovery "
          "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
