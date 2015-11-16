@@ -278,13 +278,10 @@ protected:
 
     BgpRoute *RouteLookup(BgpServerTestPtr server, const string &instance_name,
         const string &prefix) {
-        task_util::TaskSchedulerLock lock;
         BgpTable *bgp_table = GetTable(server, instance_name);
         TableT *table = dynamic_cast<TableT *>(bgp_table);
         EXPECT_TRUE(table != NULL);
-        if (table == NULL) {
-            return NULL;
-        }
+
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -341,20 +338,23 @@ protected:
             CheckPathNoExists(server, instance, prefix, peer, nexthop));
     }
 
-    BgpRoute *VerifyRouteExists(BgpServerTestPtr server, const string &instance,
-        const string &prefix, const string &nexthop) {
-        TASK_UTIL_EXPECT_TRUE(RouteLookup(server, instance, prefix) != NULL);
-        BgpRoute *rt = RouteLookup(server, instance, prefix);
-        if (rt == NULL) {
-            return NULL;
-        }
-        TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
-        return rt;
+    bool CheckRouteNoExists(BgpServerTestPtr server,
+        const string &instance_name, const string &prefix) {
+        task_util::TaskSchedulerLock lock;
+        BgpTable *bgp_table = GetTable(server, instance_name);
+        TableT *table = dynamic_cast<TableT *>(bgp_table);
+        EXPECT_TRUE(table != NULL);
+
+        boost::system::error_code error;
+        PrefixT nlri = PrefixT::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        typename TableT::RequestKey key(nlri, NULL);
+        return (table->Find(&key) == NULL);
     }
 
     void VerifyRouteNoExists(BgpServerTestPtr server, const string &instance,
         const string &prefix) {
-        TASK_UTIL_EXPECT_TRUE(RouteLookup(server, instance, prefix) == NULL);
+        TASK_UTIL_EXPECT_TRUE(CheckRouteNoExists(server, instance, prefix));
     }
 
     EventManager evm_;
