@@ -52,6 +52,7 @@ AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_local', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_ha_stale', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_vlan_port', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_event', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_resource_vxlanid', agent_suite)
 
 env.TestSuite('ovsdb_client:flaky_test', flaky_agent_suite)
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
