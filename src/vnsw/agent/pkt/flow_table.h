@@ -53,6 +53,7 @@ struct VmFlowInfo;
 class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
+class FlowTableKSyncObject;
 class FlowMgmtResponse;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -144,6 +145,10 @@ public:
     void Init();
     void InitDone();
     void Shutdown();
+
+    // Accessor routines
+    void set_ksync_object(FlowTableKSyncObject *obj) { ksync_object_ = obj; }
+    FlowTableKSyncObject *ksync_object() const { return ksync_object_; }
 
     // Table managment routines
     FlowEntry *Locate(FlowEntry *flow);
@@ -256,6 +261,7 @@ private:
     bool RequestHandler(const FlowTableRequest &req);
     Agent *agent_;
     uint16_t table_index_;
+    FlowTableKSyncObject *ksync_object_;
     FlowEntryMap flow_entry_map_;
 
     VmFlowTree vm_flow_tree_;

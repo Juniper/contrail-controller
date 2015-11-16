@@ -81,10 +81,13 @@ public:
 
     vr_flow_req &flow_req() { return flow_req_; }
     KSync *ksync() const { return ksync_; }
+    void set_flow_table(FlowTable *table) { flow_table_ = table; }
+    FlowTable *flow_table() const { return flow_table_; }
 private:
     friend class KSyncSandeshContext;
     friend class FlowTable;
     KSync *ksync_;
+    FlowTable *flow_table_;
     vr_flow_req flow_req_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };

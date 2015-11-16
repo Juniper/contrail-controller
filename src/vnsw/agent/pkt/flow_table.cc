@@ -56,6 +56,7 @@ boost::uuids::random_generator FlowTable::rand_gen_;
 FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     agent_(agent),
     table_index_(table_index),
+    ksync_object_(NULL),
     flow_entry_map_(),
     linklocal_flow_count_(),
     request_queue_(agent_->task_scheduler()->GetTaskId(kTaskName), 1,
@@ -288,8 +289,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
         return;
     }
     fe->set_deleted(true);
-    FlowTableKSyncObject *ksync_obj = 
-        agent_->ksync()->flowtable_ksync_obj();
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
@@ -304,7 +303,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
     if (ksync_entry) {
-        ksync_obj->Delete(ksync_entry);
+        ksync_object_->Delete(ksync_entry);
         fe->ksync_entry_ = NULL;
     } else {
         FLOW_TRACE(Err, fe->flow_handle(), "Entry not found in ksync");
@@ -932,8 +931,6 @@ bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
 // KSync Routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
-    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
-
     //In case of TCP flow eviction there is a chance
     //that same flow with same flow key could be evicted
     //and reused, in that case, we force programming of
@@ -943,16 +940,17 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
     if (update == false) {
         if (flow->ksync_entry() != NULL) {
             flow->data().vrouter_evicted_flow = true;
-            ksync_obj->Delete(flow->ksync_entry());
+            ksync_object_->Delete(flow->ksync_entry());
             flow->data().vrouter_evicted_flow = false;
             flow->set_ksync_entry(NULL);
         }
     }
 
     if (flow->ksync_entry() == NULL) {
-        FlowTableKSyncEntry key(ksync_obj, flow, flow->flow_handle());
+        FlowTableKSyncEntry key(ksync_object_, flow, flow->flow_handle());
         flow->set_ksync_entry
-            (static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key, true)));
+            (static_cast<FlowTableKSyncEntry *>
+             (ksync_object_->Create(&key, true)));
         if (flow->deleted()) {
             /*
              * Create and delete a KSync Entry when update ksync entry is
@@ -960,7 +958,7 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
              * This happens when Reverse flow deleted  is deleted before
              * getting an ACK from vrouter.
              */
-            ksync_obj->Delete(flow->ksync_entry());
+            ksync_object_->Delete(flow->ksync_entry());
             flow->set_ksync_entry(NULL);
         }
     } else {
@@ -969,24 +967,23 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
              * if flow handle changes delete the previous record from
              * vrouter and install new
              */
-            ksync_obj->Delete(flow->ksync_entry());
-            FlowTableKSyncEntry key(ksync_obj, flow, flow->flow_handle());
+            ksync_object_->Delete(flow->ksync_entry());
+            FlowTableKSyncEntry key(ksync_object_, flow, flow->flow_handle());
             flow->set_ksync_entry
-                (static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key)));
+                (static_cast<FlowTableKSyncEntry *>
+                 (ksync_object_->Create(&key)));
         } else {
-            ksync_obj->Change(flow->ksync_entry());
+            ksync_object_->Change(flow->ksync_entry());
         }
     }
 }
 
 void FlowTable::RemoveFromKSyncTree(FlowEntry *flow) {
-    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
-    ksync_obj->RemoveFromTree(flow->ksync_entry());
+    ksync_object_->RemoveFromTree(flow->ksync_entry());
 }
 
 void FlowTable::AddToKSyncTree(FlowEntry *flow) {
-    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
-    ksync_obj->InsertToTree(flow->ksync_entry());
+    ksync_object_->InsertToTree(flow->ksync_entry());
 }
 
 void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
