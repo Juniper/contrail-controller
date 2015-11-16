@@ -24,6 +24,7 @@
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
 #include <cmn/agent_cmn.h>
+#include <pkt/flow_proto.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
@@ -45,7 +46,7 @@
 
 KSync::KSync(Agent *agent)
     : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)),
-      flowtable_ksync_obj_(new FlowTableKSyncObject(this)),
+      flow_table_ksync_obj_list_(),
       mpls_ksync_obj_(new MplsKSyncObject(this)),
       nh_ksync_obj_(new NHKSyncObject(this)),
       mirror_ksync_obj_(new MirrorKSyncObject(this)),
@@ -55,9 +56,14 @@ KSync::KSync(Agent *agent)
       interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
       ksync_flow_memory_(new KSyncFlowMemory(this)) {
+      for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
+          FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
+          flow_table_ksync_obj_list_.push_back(obj);
+      }
 }
 
 KSync::~KSync() {
+    STLDeleteValues(&flow_table_ksync_obj_list_);
 }
 
 void KSync::RegisterDBClients(DB *db) {
@@ -82,8 +88,20 @@ void KSync::Init(bool create_vhost) {
         CreateVhostIntf();
     }
     interface_ksync_obj_.get()->Init();
-    flowtable_ksync_obj_.get()->Init();
+    for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
+        FlowTable *flow_table = agent_->pkt()->get_flow_proto()->GetTable(i);
+        flow_table->set_ksync_object(flow_table_ksync_obj_list_[i]);
+        flow_table_ksync_obj_list_[i]->Init();
+    }
     ksync_flow_memory_.get()->Init();
+}
+
+void KSync::InitDone() {
+    for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
+        FlowTable *flow_table = agent_->pkt()->get_flow_proto()->GetTable(i);
+        flow_table_ksync_obj_list_[i]->set_flow_table(flow_table);
+        flow_table->set_ksync_object(flow_table_ksync_obj_list_[i]);
+    }
 }
 
 void KSync::InitFlowMem() {
@@ -261,11 +279,11 @@ void KSync::Shutdown() {
     vrf_ksync_obj_.reset(NULL);
     nh_ksync_obj_.reset(NULL);
     mpls_ksync_obj_.reset(NULL);
-    flowtable_ksync_obj_.reset(NULL);
     ksync_flow_memory_.reset(NULL);
     mirror_ksync_obj_.reset(NULL);
     vrf_assign_ksync_obj_.reset(NULL);
     vxlan_ksync_obj_.reset(NULL);
+    STLDeleteValues(&flow_table_ksync_obj_list_);
     KSyncSock::Shutdown();
     KSyncObjectManager::Shutdown();
 }
@@ -321,6 +339,8 @@ void KSyncTcp::Init(bool create_vhost) {
     KSyncSockTcp *sock = static_cast<KSyncSockTcp *>(KSyncSock::Get(0));
     sock->AsyncReadStart();
     interface_ksync_obj_.get()->Init();
-    flowtable_ksync_obj_.get()->Init();
+    for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
+        flow_table_ksync_obj_list_[i]->Init();
+    }
     ksync_flow_memory_.get()->Init();
 }

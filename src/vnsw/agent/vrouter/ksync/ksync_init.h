@@ -16,6 +16,7 @@
 #include "vnswif_listener.h"
 
 class KSyncFlowMemory;
+class FlowTableKSyncObject;
 
 class KSync {
 public:
@@ -23,6 +24,7 @@ public:
     virtual ~KSync();
 
     virtual void Init(bool create_vhost);
+    virtual void InitDone();
     virtual void RegisterDBClients(DB *db);
     void VnswInterfaceListenerInit();
     void Shutdown();
@@ -41,8 +43,8 @@ public:
     VrfKSyncObject *vrf_ksync_obj() const {
         return vrf_ksync_obj_.get();
     }
-    FlowTableKSyncObject *flowtable_ksync_obj() const {
-        return flowtable_ksync_obj_.get();
+    FlowTableKSyncObject *flow_table_ksync_obj(uint16_t index) const {
+        return flow_table_ksync_obj_list_[index];
     }
     InterfaceKScan *interface_scanner() const {
         return interface_scanner_.get();
@@ -56,7 +58,7 @@ public:
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
-    boost::scoped_ptr<FlowTableKSyncObject> flowtable_ksync_obj_; 
+    std::vector<FlowTableKSyncObject *> flow_table_ksync_obj_list_;
     boost::scoped_ptr<MplsKSyncObject> mpls_ksync_obj_; 
     boost::scoped_ptr<NHKSyncObject> nh_ksync_obj_; 
     boost::scoped_ptr<MirrorKSyncObject> mirror_ksync_obj_; 

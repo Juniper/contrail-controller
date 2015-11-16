@@ -2324,8 +2324,7 @@ TEST_F(FlowTest, Flow_entry_reuse) {
     flow1[0].pkt_.set_allow_wait_for_idle(true);
     WAIT_FOR(1000, 1000, (fe->deleted() == false));
     client->WaitForIdle();
-    FlowTableKSyncEntry *fe_ksync = 
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(fe);
+    FlowTableKSyncEntry *fe_ksync = fe->flow_table()->ksync_object()->Find(fe);
     WAIT_FOR(1000, 1000, (fe_ksync->GetState() == KSyncEntry::IN_SYNC));
 
     EXPECT_TRUE(fe->flow_handle() == 1002);
