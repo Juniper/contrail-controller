@@ -1282,7 +1282,6 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : VMI_TABLE,
       'attributes': [
           { 'name' : 'vm_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'virtual_network', 'datatype' : 'string', 'index' : true },
           { 'name' : 'vm_uuid', 'datatype' : 'string', 'index' : true },
           { 'name' : 'if_stats.in_pkts', 'datatype' : 'int', 'index' : false },
           { 'name' : 'if_stats.in_bytes', 'datatype' : 'int', 'index' : false },
@@ -1337,6 +1336,18 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'api_stats.response_time_in_usec', 'datatype' : 'double', 'index' : true },
           { 'name' : 'api_stats.response_size', 'datatype' : 'int', 'index' : true },
           { 'name' : 'api_stats.response_code', 'datatype' : 'int', 'index' : true }
+        ]
+    },
+    {
+      'display_name' : 'Vrouter Physical Interface bandwidth Statistics',
+      'stat_type' : 'VrouterStatsAgent'
+      'stat_attr' : 'phy_if_band',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'phy_if_band.name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'phy_if_band.in_bandwidth_usage', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'phy_if_band.out_bandwidth_usage', 'datatype' : 'int', 'index' : false }
         ]
     }
 ]

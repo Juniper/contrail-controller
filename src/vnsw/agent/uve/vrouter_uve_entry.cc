@@ -141,10 +141,12 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_1min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhysicalInterfaceBandwidth(phy_if_blist, 1);
-        if (prev_stats_.get_phy_if_1min_usage() != phy_if_blist) {
-            stats.set_phy_if_1min_usage(phy_if_blist);
-            prev_stats_.set_phy_if_1min_usage(phy_if_blist);
-            change = true;
+        /* One minute bandwidth has 'tags' annotation and has to be sent
+         * always regardless of change in bandwidth or not */
+        stats.set_phy_if_band(phy_if_blist);
+        change = true;
+        if (prev_stats_.get_phy_if_band() != phy_if_blist) {
+            prev_stats_.set_phy_if_band(phy_if_blist);
 
             vector<AgentIfBandwidth>::iterator it = phy_if_blist.begin();
             int num_intfs = 0, in_band = 0, out_band = 0;
