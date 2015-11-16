@@ -1408,6 +1408,15 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         if (peer->bgp_peer_id() != NULL)
             return;
 
+        if (agent->discovery_service_client()) {
+            boost::asio::ip::tcp::endpoint ep;
+            boost::system::error_code ec;
+            IpAddress ip = ip::address::from_string(peer->GetXmppServer(),ec);
+            ep.address(ip);
+            agent->discovery_service_client()->AddSubscribeInUseServiceList(
+                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
+        }
+
         // Create a new BgpPeer channel is UP from DOWN state
         peer->CreateBgpPeer();
         agent->set_controller_xmpp_channel_setup_time(UTCTimestampUsec(), peer->
@@ -1573,6 +1582,17 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
     } else if (state == xmps::TIMEDOUT) {
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "TIMEDOUT",
                          "NULL", "Connection to Xmpp Server, Timed out");
+
+
+        boost::asio::ip::tcp::endpoint ep;
+        boost::system::error_code ec;
+        IpAddress ip = ip::address::from_string(peer->GetXmppServer(),ec);
+        ep.address(ip);
+        if (agent->discovery_service_client()) {
+            agent->discovery_service_client()->DeleteSubscribeInUseServiceList(
+                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
+        }
+
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
             dac->ReDiscoverController();
