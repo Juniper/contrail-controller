@@ -716,8 +716,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->Delete
-                (entry->key(), true);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteEnqueue(entry);
             entry = NULL;
             if (reverse_flow) {
                 count++;
