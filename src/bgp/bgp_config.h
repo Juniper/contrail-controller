@@ -372,8 +372,8 @@ public:
     int port() const { return port_; }
     void set_port(int port) { port_ = port; }
 
-    int hold_time() const { return hold_time_; }
-    void set_hold_time(int hold_time) { hold_time_ = hold_time; }
+    uint32_t hold_time() const { return hold_time_; }
+    void set_hold_time(uint32_t hold_time) { hold_time_ = hold_time; }
 
     uint64_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
@@ -385,7 +385,7 @@ private:
     uint32_t local_autonomous_system_;
     uint32_t identifier_;
     int port_;
-    int hold_time_;
+    uint32_t hold_time_;
     mutable uint64_t last_change_at_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);

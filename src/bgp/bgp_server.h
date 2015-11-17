@@ -142,7 +142,7 @@ public:
     std::string bgp_identifier_string() const {
         return bgp_identifier_.to_string();
     }
-    uint16_t hold_time() const { return hold_time_; }
+    uint32_t hold_time() const { return hold_time_; }
     bool HasSelfConfiguration() const;
 
     // Status
@@ -219,7 +219,7 @@ private:
     Ip4Address bgp_identifier_;
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
-    uint16_t hold_time_;
+    uint32_t hold_time_;
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;

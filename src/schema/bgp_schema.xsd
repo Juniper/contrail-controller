@@ -54,8 +54,15 @@
      Property('bgp-router-parameters', 'bgp-router') -->
 
 <xsd:simpleType name='BgpHoldTime'>
+    <xsd:annotation>
+        <xsd:documentation>
+            A value of 0 is treated as unspecified. If the hold time is not
+            specified in BgpSessionAttributes or BgpRouterParams, the back
+            end uses a hard coded value of StateMachine::kHoldTime.
+        </xsd:documentation>
+    </xsd:annotation>
      <xsd:restriction base='xsd:integer'>
-         <xsd:minInclusive value='1'/>
+         <xsd:minInclusive value='0'/>
          <xsd:maxInclusive value='65535'/>
      </xsd:restriction>
 </xsd:simpleType> 

@@ -67,7 +67,7 @@ public:
         uint32_t config_identifier = 0;
         uint32_t config_autonomous_system = 0;
         uint32_t config_local_autonomous_system = 0;
-        uint16_t config_hold_time = 0;
+        uint32_t config_hold_time = 0;
         bool config_admin_down = false;
         if (config) {
             config_admin_down = config->admin_down();

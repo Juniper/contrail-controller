@@ -216,7 +216,7 @@ BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
           local_autonomous_system_(0),
           identifier_(0), 
           port_(0),
-          hold_time_(-1),
+          hold_time_(0),
           last_change_at_(UTCTimestampUsec()) {
 }
 

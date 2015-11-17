@@ -194,12 +194,12 @@ const BgpNeighborConfig *BgpYamlConfigManager::FindNeighbor(
     return NULL;
 }
 
-static bool ParseTimers(const YAML::Node &timers, int32_t *hold_time,
+static bool ParseTimers(const YAML::Node &timers, uint32_t *hold_time,
                         string *error_msg) {
     if (timers["hold-time"]) {
-        int value;
+        uint32_t value;
         try {
-            value = timers["hold-time"].as<int>();
+            value = timers["hold-time"].as<uint32_t>();
         } catch (...) {
             *error_msg = "Invalid hold-time value: not an integer";
             return false;
@@ -338,7 +338,7 @@ static bool ParseBgpGroupNeighborCommon(
     }
 
     if (node["timers"]) {
-        int hold_time;
+        uint32_t hold_time;
         if (!ParseTimers(node["timers"], &hold_time, error_msg)) {
             return false;
         }
