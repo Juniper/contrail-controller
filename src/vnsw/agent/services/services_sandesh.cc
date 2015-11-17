@@ -21,6 +21,19 @@
 #include <services/services_sandesh.h>
 #include <vr_defs.h>
 
+#define SET_ICMPV6_INTERFACE_STATS(it, list)                                   \
+    InterfaceIcmpv6Stats entry;                                                \
+    VmInterface *vmi = it->first;                                              \
+    const Icmpv6Proto::Icmpv6Stats &stats = it->second;                        \
+    entry.set_interface_index(vmi->id());                                      \
+    entry.set_icmpv6_router_solicit(stats.icmpv6_router_solicit_);             \
+    entry.set_icmpv6_router_advert(stats.icmpv6_router_advert_);               \
+    entry.set_icmpv6_ping_request(stats.icmpv6_ping_request_);                 \
+    entry.set_icmpv6_ping_response(stats.icmpv6_ping_response_);               \
+    entry.set_icmpv6_neighbor_solicit(stats.icmpv6_neighbor_solicit_);         \
+    entry.set_icmpv6_neighbor_advert(stats.icmpv6_neighbor_advert_);           \
+    list.push_back(entry);
+
 std::map<uint16_t, std::string> g_ip_protocol_map = 
                     boost::assign::map_list_of<uint16_t, std::string>
                             (1, "icmp")
@@ -1134,4 +1147,30 @@ void InterfaceArpStatsReq::HandleRequest() const {
          arp_sandesh.SetInterfaceArpStatsEntry(it, list);
     }
     arp_sandesh.Response();
+}
+
+void InterfaceIcmpv6StatsReq::HandleRequest() const {
+    Agent * agent = Agent::GetInstance();
+    InterfaceIcmpv6StatsResponse *resp = new InterfaceIcmpv6StatsResponse();
+    resp->set_context(context());
+    const Icmpv6Proto::VmInterfaceMap &imap =
+              (agent->icmpv6_proto()->vm_interfaces());
+    std::vector<InterfaceIcmpv6Stats> &list =
+                const_cast<std::vector<InterfaceIcmpv6Stats>&>(resp->get_stats_list());
+    if (get_interface_index() != -1) {
+        VmInterface *vm_intf = static_cast<VmInterface *>(
+             agent->interface_table()->FindInterface(get_interface_index()));
+        if (vm_intf) {
+            Icmpv6Proto::VmInterfaceMap::const_iterator it = imap.find(vm_intf);
+            if (it != imap.end()) {
+                SET_ICMPV6_INTERFACE_STATS(it, list);
+            }
+        }
+    } else {
+        for (Icmpv6Proto::VmInterfaceMap::const_iterator it = imap.begin();
+             it != imap.end(); it++) {
+            SET_ICMPV6_INTERFACE_STATS(it, list);
+        }
+    }
+    resp->Response();
 }
