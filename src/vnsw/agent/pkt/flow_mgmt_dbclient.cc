@@ -510,7 +510,7 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
 /////////////////////////////////////////////////////////////////////////////
 // FlowTableRequest message handler
 /////////////////////////////////////////////////////////////////////////////
-bool FlowMgmtDbClient::ResponseHandler(const DBEntry *entry, uint32_t gen_id) {
+bool FlowMgmtDbClient::FreeDBState(const DBEntry *entry, uint32_t gen_id) {
     if (dynamic_cast<const Interface *>(entry)) {
         DBTable *table = agent_->interface_table();
         Interface *intf = static_cast<Interface *>(table->Find(entry));

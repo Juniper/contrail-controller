@@ -520,5 +520,14 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
     return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
 }
 
+void FlowTableKSyncObject::UpdateKey(KSyncEntry *entry, uint32_t flow_handle) {
+    static_cast<FlowTableKSyncEntry *>(entry)->set_hash_id(flow_handle);
+}
+
+void FlowTableKSyncObject::UpdateFlowHandle(FlowTableKSyncEntry *entry,
+                                            uint32_t flow_handle) {
+    ChangeKey(entry, flow_handle);
+}
+
 void FlowTableKSyncObject::Init() {
 }

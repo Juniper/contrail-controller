@@ -200,6 +200,10 @@ extern void RouterIdDepInit(Agent *agent);
 
 #define VROUTER_SERVER_PORT 20914
 
+#define kTaskFlowUpdate "Agent::FlowUpdate"
+#define kTaskFlowEvent "Agent::FlowEvent"
+#define kTaskFlowAudit "KSync::FlowAudit"
+
 class Agent {
 public:
     static const uint32_t kDefaultMaxLinkLocalOpenFds = 2048;

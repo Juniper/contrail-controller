@@ -533,7 +533,8 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         TaskPolicy policy;
         policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::StatsCollector")));
-        policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::FlowHandler")));
+        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowEvent)));
+        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowUpdate)));
         policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::KSync")));
         scheduler->SetPolicy(scheduler->GetTaskId("FlowFlush"), policy);
     }
@@ -548,7 +549,8 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         TaskPolicy policy;
         policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::StatsCollector")));
-        policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::FlowHandler")));
+        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowEvent)));
+        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowUpdate)));
         policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::KSync")));
         scheduler->SetPolicy(scheduler->GetTaskId("FlowAge"), policy);
     }

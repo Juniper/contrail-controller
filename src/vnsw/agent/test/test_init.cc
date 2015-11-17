@@ -83,6 +83,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
+    TaskScheduler::GetInstance();
     init->Start();
 
     WaitForInitDone(agent);

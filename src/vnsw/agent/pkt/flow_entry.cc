@@ -44,7 +44,7 @@
 #include <pkt/pkt_types.h>
 #include <pkt/pkt_sandesh_flow.h>
 #include <pkt/flow_mgmt.h>
-#include <pkt/flow_mgmt_response.h>
+#include <pkt/flow_event.h>
 #include <pkt/flow_entry.h>
 #include <uve/agent_uve.h>
 #include <uve/vm_uve_table.h>
@@ -454,9 +454,7 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle) {
         // Skip ksync index manipulation, for deleted flow entry
         // as ksync entry is not available for deleted flow
         if (!deleted_ && flow_handle_ == kInvalidFlowHandle) {
-            flow_table_->RemoveFromKSyncTree(this);
-            ksync_entry_->set_hash_id(flow_handle);
-            flow_table_->AddToKSyncTree(this);
+            flow_table_->UpdateFlowHandle(this, flow_handle);
         }
         flow_handle_ = flow_handle;
         flow_table_->UpdateKSync(this, true);

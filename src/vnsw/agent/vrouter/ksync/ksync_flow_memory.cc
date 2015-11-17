@@ -50,9 +50,8 @@ KSyncFlowMemory::KSyncFlowMemory(KSync *ksync) :
     audit_timer_(TimerManager::CreateTimer
                  (*(ksync->agent()->event_manager())->io_service(),
                   "Flow Audit Timer",
-                  ksync->agent()->task_scheduler()->GetTaskId
-                  ("Agent::StatsCollector"),
-                  StatsCollector::FlowStatsCollector)),
+                  ksync->agent()->task_scheduler()->GetTaskId(kTaskFlowAudit),
+                  0)),
     audit_timeout_(0),
     audit_yield_(0),
     audit_flow_idx_(0),
@@ -236,18 +235,14 @@ bool KSyncFlowMemory::AuditProcess() {
                         vflow_entry->fe_key.flow_proto,
                         ntohs(vflow_entry->fe_key.flow_sport),
                         ntohs(vflow_entry->fe_key.flow_dport));
-            FlowTable *flow_table =
-                ksync_->agent()->pkt()->get_flow_proto()->GetFlowTable(key);
-            FlowEntry *flow_p = flow_table->Find(key);
-            if (flow_p == NULL) {
-                /* Create Short flow only for non-existing flows. */
-                FlowEntryPtr flow(flow_p->Allocate(key, flow_table));
-                flow->InitAuditFlow(flow_idx);
-                AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
-                            "entry to short flow");
-                flow_table->Add(flow.get(), NULL);
-            }
 
+            FlowProto *proto = ksync_->agent()->pkt()->get_flow_proto();
+            FlowTable *flow_table = proto->GetFlowTable(key);
+            FlowEntry *flow = FlowEntry::Allocate(key, flow_table);
+            flow->InitAuditFlow(flow_idx);
+            proto->CreateAuditEntry(flow);
+            AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
+                        "entry to short flow");
         }
     }
 

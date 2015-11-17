@@ -8,15 +8,15 @@
 #include <net/if.h>
 #include "cmn/agent_cmn.h"
 #include "base/queue_task.h"
-#include "pkt/proto.h"
-#include "pkt/proto_handler.h"
-#include "pkt/flow_table.h"
-#include "pkt/flow_handler.h"
+#include "proto.h"
+#include "proto_handler.h"
+#include "flow_table.h"
+#include "flow_handler.h"
+#include "flow_event.h"
 
-typedef WorkQueue<boost::shared_ptr<PktInfo> > FlowWorkQueue;
 class FlowProto : public Proto {
 public:
-    static const std::string kFlowTaskName;
+    typedef WorkQueue<FlowEvent> FlowEventQueue;
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
 
@@ -40,9 +40,19 @@ public:
     uint32_t FlowCount() const;
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
                         uint32_t *out_count);
+
+    bool AddFlow(FlowEntry *flow);
+    bool UpdateFlow(FlowEntry *flow);
+
+    void EnqueueFlowEvent(const FlowEvent &event);
+    void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow);
+    void CreateAuditEntry(FlowEntry *flow);
+    bool FlowEventHandler(const FlowEvent &req);
+
 private:
-    std::vector<FlowWorkQueue *> flow_work_queue_list_;
+    std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
+    FlowEventQueue flow_update_queue_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;
