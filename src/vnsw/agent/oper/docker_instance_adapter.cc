@@ -2,7 +2,46 @@
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
 
-InstanceTask* DockerInstanceAdapter::CreateStartTask(const ServiceInstance::Properties &props, bool update) {
+
+static void generate_cmd_for_intf_create(
+        const ServiceInstance::Properties &props, const std::string& type,
+        std::stringstream& cmd_str) {
+    const ServiceInstance::InterfaceData *intf_data =
+            props.GetIntfByType(type);
+    if (intf_data == NULL)
+        return;
+
+    cmd_str << " --vmi-" << type << "-id " << UuidToString(
+                   intf_data->vmi_uuid);
+
+    if (intf_data->ip_prefix_len != -1 && !intf_data->ip_addr.empty()) {
+        cmd_str << " --vmi-" << type << "-ip " << intf_data->ip_addr << "/";
+        cmd_str << intf_data->ip_prefix_len;
+    } else {
+        cmd_str << " --vmi-" << type << "-ip 0.0.0.0/0";
+    }
+    if (!intf_data->mac_addr.empty()) {
+        cmd_str << " --vmi-" << type << "-mac " << intf_data->mac_addr;
+    } else {
+        cmd_str << " --vmi-" << type << "-mac 00:00:00:00:00:00";
+    }
+}
+
+static void generate_cmd_for_intf_delete(
+        const ServiceInstance::Properties &props, const std::string& type,
+        std::stringstream& cmd_str) {
+    const ServiceInstance::InterfaceData *intf_data =
+            props.GetIntfByType(type);
+
+    if (intf_data == NULL)
+        return;
+
+    cmd_str << " --vmi-" << type << "-id " << UuidToString(
+                   intf_data->vmi_uuid);
+}
+
+InstanceTask* DockerInstanceAdapter::CreateStartTask(
+        const ServiceInstance::Properties &props, bool update) {
     if (docker_cmd_.length() == 0) {
         return NULL;
     }
@@ -11,48 +50,9 @@ InstanceTask* DockerInstanceAdapter::CreateStartTask(const ServiceInstance::Prop
     cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " --image " << props.image_name;
 
-    if (props.vmi_inside != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-left-id " << UuidToString(props.vmi_inside);
-        if (props.ip_prefix_len_inside != -1 && !props.ip_addr_inside.empty()) {
-            cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
-            cmd_str << props.ip_prefix_len_inside;
-        } else {
-            cmd_str << " --vmi-left-ip 0.0.0.0/0";
-        }
-        if (!props.mac_addr_inside.empty()) {
-            cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
-        } else {
-            cmd_str << " --vmi-left-mac 00:00:00:00:00:00";
-        }
-    }
-    if (props.vmi_outside != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-right-id " << UuidToString(props.vmi_outside);
-        if (props.ip_prefix_len_outside != -1 && !props.ip_addr_outside.empty())  {
-            cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
-            cmd_str << props.ip_prefix_len_outside;
-        } else {
-            cmd_str << " --vmi-right-ip 0.0.0.0/0";
-        }
-        if (!props.mac_addr_outside.empty()) {
-            cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
-        } else {
-            cmd_str << " --vmi-right-mac 00:00:00:00:00:00";
-        }
-    }
-    if (props.vmi_management != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-management-id " << UuidToString(props.vmi_management);
-        if (props.ip_prefix_len_management != -1 && !props.ip_addr_management.empty())  {
-            cmd_str << " --vmi-management-ip " << props.ip_addr_management << "/";
-            cmd_str << props.ip_prefix_len_management;
-        } else {
-            cmd_str << " --vmi-management-ip 0.0.0.0/0";
-        }
-        if (!props.mac_addr_management.empty()) {
-            cmd_str << " --vmi-management-mac " << props.mac_addr_management;
-        } else {
-            cmd_str << " --vmi-management-mac 00:00:00:00:00:00";
-        }
-    }
+    generate_cmd_for_intf_create(props, "left", cmd_str);
+    generate_cmd_for_intf_create(props, "right", cmd_str);
+    generate_cmd_for_intf_create(props, "management", cmd_str);
 
     if (!props.instance_data.empty()) {
         cmd_str << " --instance-data " << props.instance_data;
@@ -63,10 +63,12 @@ InstanceTask* DockerInstanceAdapter::CreateStartTask(const ServiceInstance::Prop
     }
 
 
-    return new InstanceTaskExecvp(cmd_str.str(), START, agent_->event_manager());
+    return new InstanceTaskExecvp(cmd_str.str(), START,
+                                  agent_->event_manager());
 }
 
-InstanceTask* DockerInstanceAdapter::CreateStopTask(const ServiceInstance::Properties &props) {
+InstanceTask* DockerInstanceAdapter::CreateStopTask(
+        const ServiceInstance::Properties &props) {
     if (docker_cmd_.length() == 0) {
         return NULL;
     }
@@ -75,19 +77,15 @@ InstanceTask* DockerInstanceAdapter::CreateStopTask(const ServiceInstance::Prope
     cmd_str << "sudo " << docker_cmd_ << " destroy";
     cmd_str << " " << UuidToString(props.instance_id);
 
-    if (props.vmi_inside != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-left-id " << UuidToString(props.vmi_inside);
-    }
-    if (props.vmi_outside != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-right-id " << UuidToString(props.vmi_outside);
-    }
-    if (props.vmi_management != boost::uuids::nil_uuid()) {
-        cmd_str << " --vmi-management-id " << UuidToString(props.vmi_management);
-    }
+    generate_cmd_for_intf_delete(props, "left", cmd_str);
+    generate_cmd_for_intf_delete(props, "right", cmd_str);
+    generate_cmd_for_intf_delete(props, "management", cmd_str);
+
     return new InstanceTaskExecvp(cmd_str.str(), STOP, agent_->event_manager());
 }
 
-bool DockerInstanceAdapter::isApplicable(const ServiceInstance::Properties &props) {
+bool DockerInstanceAdapter::isApplicable(
+        const ServiceInstance::Properties &props) {
     return (props.virtualization_type == ServiceInstance::VRouterInstance
             && props.vrouter_instance_type == ServiceInstance::Docker);
 }

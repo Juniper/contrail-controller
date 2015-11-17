@@ -35,26 +35,38 @@ class LibvirtAdapterTest : public ::testing::Test {
       properties_.instance_id =
         boost::lexical_cast<boost::uuids::uuid>("ea294ce2-8182-11e4-ae5f-c32f93853088");
 
-      properties_.vmi_inside =
+      ServiceInstance::InterfaceData vmi_data_inside;
+      ServiceInstance::InterfaceData vmi_data_outside;
+      ServiceInstance::InterfaceData vmi_data_management;
+
+      vmi_data_inside.vmi_uuid =
         boost::lexical_cast<boost::uuids::uuid>("ea9b8b18-8182-11e4-8ad5-47899f2d45f1");
-      properties_.vmi_outside = 
+      vmi_data_outside.vmi_uuid =
         boost::lexical_cast<boost::uuids::uuid>("eb0e2d30-8182-11e4-b09d-533359975d6a");
-      properties_.vmi_management = 
+      vmi_data_management.vmi_uuid =
         boost::lexical_cast<boost::uuids::uuid>("324d6de6-8183-11e4-8a75-13b524544c2f");
 
-      properties_.mac_addr_inside = "00:50:56:00:00:01";
-      properties_.mac_addr_outside = "00:50:56:00:00:02";
-      properties_.mac_addr_management = "00:50:56:00:00:03";
+      vmi_data_inside.intf_type = "left";
+      vmi_data_outside.intf_type = "right";
+      vmi_data_management.intf_type = "management";
 
-      properties_.ip_addr_inside = "10.0.0.1";
-      properties_.ip_addr_outside = "10.0.1.1";
-      properties_.ip_addr_management = "10.0.2.1";
+      vmi_data_inside.mac_addr = "00:50:56:00:00:01";
+      vmi_data_outside.mac_addr = "00:50:56:00:00:02";
+      vmi_data_management.mac_addr = "00:50:56:00:00:03";
+
+      vmi_data_inside.ip_addr = "10.0.0.1";
+      vmi_data_outside.ip_addr = "10.0.1.1";
+      vmi_data_management.ip_addr = "10.0.2.1";
 
       properties_.image_name = "test";
 
-      properties_.ip_prefix_len_inside = 24;
-      properties_.ip_prefix_len_outside = 24;
-      properties_.ip_prefix_len_management = 24;
+      vmi_data_inside.ip_prefix_len = 24;
+      vmi_data_outside.ip_prefix_len = 24;
+      vmi_data_management.ip_prefix_len = 24;
+
+      properties_.interfaces.push_back(vmi_data_inside);
+      properties_.interfaces.push_back(vmi_data_outside);
+      properties_.interfaces.push_back(vmi_data_management);
 
       std::ifstream data("data/libvirt_domain.xml");
       properties_.instance_data = std::string((std::istreambuf_iterator<char>(data)),
