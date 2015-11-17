@@ -54,14 +54,14 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
         static void DomainXMLAssignUUID(
             const std::string &libvirt_conf_str,
             const pugi::xml_document &libvirt_xml_conf);
-        void DomainXMLSetInterfaceData(
+        bool DomainXMLSetInterfacesData(
             const pugi::xml_document &libvirt_xml_conf,
             const std::string &dom_uuid);
-        static void DomainXMLAddInterface(
-                pugi::xml_node *devices_node,
+        static void DomainXMLSetInterfaceData(
+                pugi::xml_node *intf_node,
                 const std::string &mac_addr,
                 const std::string &intf_name);
-        static bool CreateTAPInterfaces(const std::string &dom_uuid);
+        bool CreateTAPInterfaces(const std::string &dom_uuid);
 
         LibvirtInstanceAdapter *parent_adapter_;
         const ServiceInstance::Properties &si_properties_;
