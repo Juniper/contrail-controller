@@ -222,6 +222,7 @@ public:
         return physical_interface_mac_addr_;
     }
     std::string agent_base_dir() const { return agent_base_dir_; }
+    bool flood_arp() const {return flood_arp_;}
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -296,6 +297,7 @@ private:
     void ParseNexthopServer();
     void ParsePlatform();
     void set_agent_mode(const std::string &mode);
+    void ParseFloodArp();
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -324,6 +326,8 @@ private:
     void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
     void ParsePlatformArguments
+        (const boost::program_options::variables_map &v);
+    void ParseFloodArpArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -381,6 +385,7 @@ private:
     int flow_stats_interval_;
     int vrouter_stats_interval_;
     std::string vmware_physical_port_;
+    bool flood_arp_;
     bool test_mode_;
     bool debug_;
     boost::property_tree::ptree tree_;
@@ -411,6 +416,7 @@ private:
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
     bool subnet_hosts_resolvable_;
+
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

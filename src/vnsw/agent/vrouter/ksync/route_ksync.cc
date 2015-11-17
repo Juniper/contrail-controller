@@ -347,6 +347,11 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         ret = true;
     }
 
+    //No update to flood_ should happen after this.
+    if (agent->flood_arp() == false) {
+        flood_ = false;
+    }
+
     if (flood != flood_) {
         flood_ = flood;
         ret = true;

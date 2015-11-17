@@ -275,6 +275,7 @@ void Agent::CopyConfig(AgentParam *params) {
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
+    flood_arp_ = params_->flood_arp();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -432,7 +433,7 @@ Agent::Agent() :
     vhost_interface_(NULL),
     connection_state_(NULL), debug_(false), test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
-    tor_agent_enabled_(false),
+    tor_agent_enabled_(false), flood_arp_(false),
     flow_table_size_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
