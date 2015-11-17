@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+      <bgp-router name='local'>
+          <address>127.0.0.1</address>
+          <autonomous-system>64512</autonomous-system>
+          <session to='remote:100'>
+              <family-attributes>
+                  <address-family>e-vpn</address-family>
+                  <loop-count>12</loop-count>
+              </family-attributes>
+              <family-attributes>
+                  <address-family>inet</address-family>
+                  <loop-count>2</loop-count>
+              </family-attributes>
+          </session>
+      </bgp-router>
+      <bgp-router name='remote'>
+          <address>10.1.1.1</address>
+          <autonomous-system>64512</autonomous-system>
+      </bgp-router>
+    </routing-instance>
+</config>

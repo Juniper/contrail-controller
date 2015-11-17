@@ -183,6 +183,9 @@ public:
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
+    uint8_t loop_count() const { return loop_count_; }
+    void set_loop_count(uint8_t loop_count) { loop_count_ = loop_count; }
+
     uint32_t local_as() const { return local_as_; }
     void set_local_as(uint32_t local_as) { local_as_ = local_as; }
 
@@ -233,6 +236,7 @@ private:
     IpAddress address_;
     int port_;
     int hold_time_;
+    uint8_t loop_count_;
     uint32_t local_as_;
     uint32_t local_identifier_;
     mutable uint64_t last_change_at_;

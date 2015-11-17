@@ -90,11 +90,16 @@ size_t AsPathSpec::EncodeLength() const {
     return sz;
 }
 
-bool AsPathSpec::AsPathLoop(as_t as) const {
-    for (size_t i = 0; i < path_segments.size(); i++)
-        for (size_t j = 0; j < path_segments[i]->path_segment.size(); j++)
-            if (path_segments[i]->path_segment[j] == as)
+bool AsPathSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
+    uint8_t loop_count = 0;
+    for (size_t i = 0; i < path_segments.size(); ++i) {
+        for (size_t j = 0; j < path_segments[i]->path_segment.size(); ++j) {
+            if (path_segments[i]->path_segment[j] == as &&
+                ++loop_count > max_loop_count) {
                 return true;
+            }
+        }
+    }
     return false;
 }
 

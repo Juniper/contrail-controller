@@ -39,6 +39,12 @@ struct BgpNeighborRoutingTable {
     4: string pending_request;
 }
 
+struct ShowBgpNeighborFamily {
+    string family;
+    u32 loop_count;
+    u32 prefix_limit;
+}
+
 struct BgpNeighborResp {
     1: string peer (link="BgpNeighborReq"); // Peer name
     36: bool deleted;           // Deletion in progress
@@ -63,6 +69,7 @@ struct BgpNeighborResp {
     45: optional list<string> auth_keys;
     38: optional list<string> configured_address_families;
     39: optional list<string> negotiated_address_families;
+    49: optional list<ShowBgpNeighborFamily> family_attributes_list;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;
     46: u32 primary_path_count;
@@ -433,6 +440,12 @@ struct ShowBgpPeeringConfig {
     4: list<ShowBgpSessionConfig> sessions;
 }
 
+struct ShowBgpNeighborFamilyConfig {
+    1: string family;
+    2: i32 loop_count;
+    3: i32 prefix_limit;
+}
+
 struct ShowBgpNeighborConfig {
     1: string instance_name;
     2: string name;
@@ -445,10 +458,12 @@ struct ShowBgpNeighborConfig {
     5: string identifier;
     6: string address;
     14: i32 hold_time;
+    16: i32 loop_count;
     10: string last_change_at;
     11: optional string auth_type;
     12: optional list<string> auth_keys;
     7: list<string> address_families;
+    17: list<ShowBgpNeighborFamilyConfig> family_attributes_list;
 }
 
 response sandesh ShowBgpNeighborConfigResp {

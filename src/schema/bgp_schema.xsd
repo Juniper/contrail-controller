@@ -122,6 +122,7 @@
     <xsd:element name="admin-down" type="xsd:boolean" default="false"/>
     <xsd:element name="passive" type="xsd:boolean" default="false"/>
     <xsd:element name='hold-time' type='BgpHoldTime' default='0'/>
+    <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='0'/>
     <xsd:element name='address-families' type='AddressFamilies'/>
     <xsd:element name='auth-data' type='AuthenticationData'/>
     <xsd:element name='family-attributes' type='BgpFamilyAttributes' maxOccurs='unbounded'/>
@@ -139,7 +140,7 @@
         </xsd:documentation>
     </xsd:annotation>
     <xsd:element name='address-family' type='AddressFamily'/>
-    <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='1'/>
+    <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='0'/>
     <xsd:element name='prefix-limit' type='BgpPrefixLimit'/>
 </xsd:complexType>
 

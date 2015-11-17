@@ -60,6 +60,11 @@ protected:
         return peer->state_machine();
     }
 
+    const BgpPeerFamilyAttributes *GetPeerFamilyAttributes(BgpPeer *peer,
+        Address::Family family) {
+        return (peer->family_attributes_list_[family]);
+    }
+
     EventManager evm_;
     BgpServer server_;
     DB config_db_;
@@ -308,6 +313,60 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
     EXPECT_TRUE(parser_.Parse(config_delete));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+}
+
+TEST_F(BgpConfigTest, MasterNeighborAttributes) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_35a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_EXPECT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote:100";
+
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    BgpPeer *peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INET) != NULL);
+    TASK_UTIL_EXPECT_EQ(2,
+        GetPeerFamilyAttributes(peer, Address::INET)->loop_count);
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INETVPN) != NULL);
+    TASK_UTIL_EXPECT_EQ(4,
+        GetPeerFamilyAttributes(peer, Address::INETVPN)->loop_count);
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_35b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INET) != NULL);
+    TASK_UTIL_EXPECT_EQ(4,
+        GetPeerFamilyAttributes(peer, Address::INET)->loop_count);
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INETVPN) != NULL);
+    TASK_UTIL_EXPECT_EQ(2,
+        GetPeerFamilyAttributes(peer, Address::INETVPN)->loop_count);
+
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_35c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INETVPN) == NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::INET) != NULL);
+    TASK_UTIL_EXPECT_EQ(2,
+        GetPeerFamilyAttributes(peer, Address::INET)->loop_count);
+    TASK_UTIL_EXPECT_TRUE(
+        GetPeerFamilyAttributes(peer, Address::EVPN) != NULL);
+    TASK_UTIL_EXPECT_EQ(12,
+        GetPeerFamilyAttributes(peer, Address::EVPN)->loop_count);
+
+    boost::replace_all(content_c, "<config>", "<delete>");
+    boost::replace_all(content_c, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
 }
 
 //

@@ -55,7 +55,7 @@ struct AsPathSpec : public BgpAttribute {
 
     as_t AsLeftMost() const;
     bool AsLeftMostMatch(as_t as) const;
-    bool AsPathLoop(as_t as) const;
+    bool AsPathLoop(as_t as, uint8_t max_loop_count = 0) const;
 
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);

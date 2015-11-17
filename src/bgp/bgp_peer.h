@@ -43,7 +43,8 @@ class BgpSandeshContext;
 // Address::Family value.
 //
 struct BgpPeerFamilyAttributes {
-    BgpPeerFamilyAttributes(const BgpFamilyAttributesConfig &family_config);
+    BgpPeerFamilyAttributes(const BgpNeighborConfig *config,
+        const BgpFamilyAttributesConfig &family_config);
     uint8_t loop_count;
     uint32_t prefix_limit;
 };
@@ -305,6 +306,7 @@ private:
 
     void UnregisterAllTables();
 
+    uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
     template <typename TableT, typename PrefixT>
@@ -322,6 +324,8 @@ private:
 
     void PostCloseRelease();
     void CustomClose();
+
+    void FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const;
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
