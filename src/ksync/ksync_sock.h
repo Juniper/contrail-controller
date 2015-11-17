@@ -209,7 +209,7 @@ public:
     const static unsigned kBufLen = (4*1024);
 
     // Number of messages that can be bunched together
-    const static unsigned kMaxBulkMsgCount = 1;
+    const static unsigned kMaxBulkMsgCount = 16;
     // Max size of buffer that can be bunched together
     const static unsigned kMaxBulkMsgSize = (4*1024);
 
