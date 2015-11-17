@@ -535,7 +535,7 @@ TEST_F(BgpProtoTest, UpdateError) {
     uint8_t data[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                        0x00, 0x7b, 0x02, 0x00, 0x07, 0x09, 0x01, 0x02,
-                       0x14, 0x01, 0x02, 0x03, 0x00, 0x58, 0x10, 0x01,
+                       0x14, 0x01, 0x02, 0x03, 0x00, 0x58, 0x50, 0x01,
                        0x00, 0x01, 0x02, 0x40, 0x03, 0x04, 0xab, 0xcd,
                        0xef, 0x01, 0x40, 0x06, 0x00, 0xc0, 0x07, 0x06,
                        0xfa, 0xce, 0xca, 0xfe, 0xba, 0xbe, 0x40, 0x02,
@@ -548,37 +548,49 @@ TEST_F(BgpProtoTest, UpdateError) {
                        0x09, 0x01, 0x02, 0xc0, 0x10, 0x08, 0x10, 0x20,
                        0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x04, 0x01,
                        0x0a, 0x01, 0x02 };
-    // withdrawn routes error
+    const BgpProto::Update *result = static_cast<BgpProto::Update *>(
+        BgpProto::Decode(&data[0], sizeof(data)));
+    EXPECT_TRUE(result != NULL);
+    delete result;
+
+    // Withdrawn routes error.
     data[19] = 0xff;
     ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::UpdateMsgErr,
             BgpProto::Notification::MalformedAttributeList,
             "BgpUpdateWithdrawnRoutes", 19, 2);
+    data[19] = 0x00;
 
-    // attributes length error
-    data[19] = 0;
+    // Attributes length error.
     data[28] = 0xff;
     ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::UpdateMsgErr,
             BgpProto::Notification::MalformedAttributeList,
             "BgpPathAttributeList", 28, 2);
+    data[28] = 0x00;
 
-    // Origin attribute length error
-    data[28] = 0;
-    data[33] = 5;
+    // Origin attribute length error.
+    data[33] = 0x05;
     ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::UpdateMsgErr,
             BgpProto::Notification::AttribLengthError,
             "BgpAttrOrigin", 30, 9);
+    data[33] = 0x01;
 
-    // Unknown well-known attribute
-    data[33] = 1;
-    data[31] = 20;
+    // Bad mp reach nlri nexthop address length.
+    data[79] = 0x04;
+    ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::UpdateMsgErr,
+            BgpProto::Notification::OptionalAttribError,
+            "BgpPathAttributeMpNlriNextHopLength", 79, 1);
+    data[79] = 0x0c;
+
+    // Unknown well-known attribute.
+    data[31] = 0x14;
     ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::UpdateMsgErr,
             BgpProto::Notification::UnrecognizedWellKnownAttrib,
             "BgpAttrUnknown", 30, 5);
 
-    // unknown optional attribute
+    // Unknown optional attribute.
     data[30] |= BgpAttribute::Optional;
-    const BgpProto::Update *result =
-            static_cast<BgpProto::Update *>(BgpProto::Decode(&data[0], sizeof(data)));
+    result = static_cast<BgpProto::Update *>(
+        BgpProto::Decode(&data[0], sizeof(data)));
     EXPECT_TRUE(result != NULL);
     BgpAttrUnknown *attr = static_cast<BgpAttrUnknown *>(result->path_attributes[0]);
     EXPECT_EQ(20, attr->code);

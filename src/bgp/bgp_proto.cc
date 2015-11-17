@@ -1144,10 +1144,13 @@ class BgpPathAttributeMpNlriNextHopLength :
     public ProtoElement<BgpPathAttributeMpNlriNextHopLength> {
 public:
     static const int kSize = 1;
+    static const int kErrorCode = BgpProto::Notification::UpdateMsgErr;
+    static const int kErrorSubcode =
+            BgpProto::Notification::OptionalAttribError;
     typedef int SequenceLength;
     static bool Verifier(const BgpMpNlri *obj, const uint8_t *data, size_t size,
                          ParseContext *context) {
-        uint8_t len = data[0];
+        uint8_t len = get_value(data, kSize);
         uint16_t afi = obj->afi;
         uint8_t safi = obj->safi;
         if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast) {
