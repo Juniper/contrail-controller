@@ -61,7 +61,6 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
                 pugi::xml_node *intf_node,
                 const std::string &mac_addr,
                 const std::string &intf_name);
-        bool CreateTAPInterfaces(const std::string &dom_uuid);
 
         LibvirtInstanceAdapter *parent_adapter_;
         const ServiceInstance::Properties &si_properties_;
@@ -96,11 +95,21 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
  private:
     bool EnsureConnected();
     void CloseConnection();
-    void EnsureDestroyed(const std::string &dom_uuid_str,
-                         const ServiceInstance::Properties &si_properties);
-    void UnregisterInterfaces(const ServiceInstance::Properties &si_properties);
-    bool RegisterInterfaces(const ServiceInstance::Properties &si_properties);
-    static std::string GenIntfName(const std::string &dom_uuid, char type);
+    void EnsureDestroyed(
+            const std::string &dom_uuid_str,
+            const ServiceInstance::Properties &si_properties);
+    void UnregisterInterfaces(
+            const ServiceInstance::Properties &si_properties);
+    bool RegisterInterfaces(
+            const ServiceInstance::Properties &si_properties);
+    bool CreateTAPInterfaces(
+            const ServiceInstance::Properties &si_properties,
+            const std::string &dom_uuid);
+    bool DestroyTAPInterfaces(
+            const ServiceInstance::Properties &si_properties,
+            const std::string &dom_uuid);
+    static std::string GenIntfName(const std::string &dom_uuid,
+                                   const std::string &type, int index);
 
     Agent *agent_;
     std::string libvirt_conn_addr_;

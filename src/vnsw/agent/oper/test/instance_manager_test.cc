@@ -272,19 +272,25 @@ protected:
          * Set non-nil uuids
          */
         ServiceInstance::Properties prop;
+        ServiceInstance::InterfaceData vmi_inside_data;
+        ServiceInstance::InterfaceData vmi_outside_data;
         prop.Clear();
         prop.virtualization_type = ServiceInstance::NetworkNamespace;
         boost::uuids::random_generator gen;
         prop.instance_id = svc_instance->uuid();
-        prop.vmi_inside = gen();
-        prop.vmi_outside = gen();
-        prop.ip_addr_inside = "10.0.0.1";
-        prop.ip_addr_outside = "10.0.0.2";
-        prop.ip_prefix_len_inside = 24;
+        vmi_data_inside.vmi_uuid = gen();
+        vmi_data_outside.vmi_uuid = gen();
+        vmi_data_inside.intf_type = "left";
+        vmi_data_outside.intf_type = "right";
+        vmi_data_inside.ip_addr = "10.0.0.1";
+        vmi_data_outside.ip_addr = "10.0.0.2";
+        vmi_data_outside.ip_prefix_len = 24;
         prop.gw_ip = "10.0.0.254";
         if (usable) {
-            prop.ip_prefix_len_outside = 24;
+            vmi_data_outside.ip_prefix_len = 24;
         }
+        prop.interfaces.push_back(vmi_inside_data);
+        prop.interfaces.push_back(vmi_outside_data);
         svc_instance->set_properties(prop);
         if (usable) {
             EXPECT_TRUE(svc_instance->IsUsable());
