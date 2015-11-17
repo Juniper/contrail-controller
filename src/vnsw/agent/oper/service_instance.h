@@ -5,6 +5,7 @@
 #ifndef VNSW_AGENT_OPER_SERVICE_INSTANCE_H__
 #define VNSW_AGENT_OPER_SERVICE_INSTANCE_H__
 
+#include <vector>
 #include <map>
 #include <boost/uuid/uuid.hpp>
 #include "cmn/agent_db.h"
@@ -46,6 +47,17 @@ public:
     };
 
     /*
+     * Properties of interface attached to service instance
+     */
+    struct InterfaceData {
+        boost::uuids::uuid vmi_uuid;
+        std::string intf_type;
+        std::string mac_addr;
+        std::string ip_addr;
+        int ip_prefix_len;
+    };
+
+    /*
      * Properties computed from walking the ifmap graph.
      * POD type.
      */
@@ -53,6 +65,10 @@ public:
         void Clear();
         int CompareTo(const Properties &rhs) const;
         const std::string &ServiceTypeString() const;
+        const InterfaceData* GetIntfByType(
+                const std::string &type) const;
+        const InterfaceData* GetIntfByUuid(
+                const boost::uuids::uuid &uuid) const;
 
         bool Usable() const;
         std::string DiffString(const Properties &rhs) const;
@@ -66,27 +82,10 @@ public:
         boost::uuids::uuid instance_id;
 
         /* interfaces */
-        boost::uuids::uuid vmi_inside;
-        boost::uuids::uuid vmi_outside;
-        boost::uuids::uuid vmi_management;
-
-        std::string mac_addr_inside;
-        std::string mac_addr_outside;
-        std::string mac_addr_management;
-
-        std::string ip_addr_inside;
-        std::string ip_addr_outside;
-        std::string ip_addr_management;
+        std::vector<InterfaceData> interfaces;
 
         std::string gw_ip;
         std::string image_name;
-
-        int ip_prefix_len_inside;
-        int ip_prefix_len_outside;
-        int ip_prefix_len_management;
-
-        int interface_count;
-
         std::string instance_data;
 
         // loadbalancer-pool uuid

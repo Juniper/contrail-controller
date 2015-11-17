@@ -19,24 +19,35 @@ class DockerAdapterTest : public ::testing::Test {
         properties_.vrouter_instance_type = ServiceInstance::Docker;
         properties_.instance_id = gen();
 
-        properties_.vmi_inside = gen();
-        properties_.vmi_outside = gen();
-        properties_.vmi_management = gen();
+        ServiceInstance::InterfaceData vmi_data_inside;
+        ServiceInstance::InterfaceData vmi_data_outside;
+        ServiceInstance::InterfaceData vmi_data_management;
 
-        properties_.mac_addr_inside = "01:00:00:00:00:00";
-        properties_.mac_addr_outside = "02:00:00:00:00:00";
-        properties_.mac_addr_management = "03:00:00:00:00:00";
+        vmi_data_inside.vmi_uuid = gen();
+        vmi_data_outside.vmi_uuid = gen();
+        vmi_data_management.vmi_uuid = gen();
 
-        properties_.ip_addr_inside = "10.0.0.1";
-        properties_.ip_addr_outside = "10.0.1.1";
-        properties_.ip_addr_management = "10.0.2.1";
+        vmi_data_inside.intf_type = "left";
+        vmi_data_outside.intf_type = "right";
+        vmi_data_management.intf_type = "management";
+
+        vmi_data_inside.mac_addr = "01:00:00:00:00:00";
+        vmi_data_outside.mac_addr = "02:00:00:00:00:00";
+        vmi_data_management.mac_addr = "03:00:00:00:00:00";
+
+        vmi_data_inside.ip_addr = "10.0.0.1";
+        vmi_data_outside.ip_addr = "10.0.1.1";
+        vmi_data_management.ip_addr = "10.0.2.1";
 
         properties_.image_name = "test";
 
-        properties_.ip_prefix_len_inside = 24;
-        properties_.ip_prefix_len_outside = 24;
-        properties_.ip_prefix_len_management = 24;
+        vmi_data_inside.ip_prefix_len = 24;
+        vmi_data_outside.ip_prefix_len = 24;
+        vmi_data_management.ip_prefix_len = 24;
 
+        properties_.interfaces.push_back(vmi_data_inside);
+        properties_.interfaces.push_back(vmi_data_outside);
+        properties_.interfaces.push_back(vmi_data_management);
     }
 
     virtual void TearDown() {
