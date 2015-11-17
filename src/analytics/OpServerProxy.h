@@ -49,6 +49,7 @@ public:
                            const std::string &module, 
                            const std::string &instance_id,
                            const std::string &table, const std::string &barekey,
+                           const std::map<std::string,std::string>& value,
                            bool deleted);
 
     // Use this to delete the object when the deleted attribute is set

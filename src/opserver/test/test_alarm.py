@@ -267,6 +267,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self._agtask.kill()
 
 
+    @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
+    @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
@@ -275,7 +277,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Test partition shutdown as well
     def test_00_init(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part, mock_send_agg_uve):
+            mock_get_uve, mock_get_part,
+            mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \
@@ -303,6 +306,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             self._ag.ptab_info, False))
         
 
+    @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
+    @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
@@ -311,7 +316,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Also test for deletetion of a boot-straped UVE
     def test_01_rxmsg(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part, mock_send_agg_uve):
+            mock_get_uve, mock_get_part,
+            mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \
@@ -340,6 +346,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self.assertTrue(self.checker_exact(\
             self._ag.ptab_info[1]["ObjectYY"]["uve2"].values(), {"type2" : {"yy": 1}}))
 
+    @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
+    @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
@@ -348,7 +356,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Also test collector shutdown
     def test_02_collectorha(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part, mock_send_agg_uve):
+            mock_get_uve, mock_get_part,
+            mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
         m_get_part[(1,("127.0.0.1",0,0))] = "127.0.0.1:0", \

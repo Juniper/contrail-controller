@@ -31,6 +31,7 @@
 #include "viz_sandesh.h"
 #include "viz_collector.h"
 
+using std::map;
 using std::string;
 using boost::shared_ptr;
 using boost::assign::list_of;
@@ -635,6 +636,7 @@ OpServerProxy::UVENotif(const std::string &type,
                        const std::string &module, 
                        const std::string &instance_id,
                        const std::string &table, const std::string &barekey,
+                       const std::map<std::string,std::string>& value,
                        bool deleted) {
      
     std::string key = table + ":" + barekey;
@@ -703,6 +705,12 @@ OpServerProxy::UVENotif(const std::string &type,
     } else {
         rapidjson::Value val(rapidjson::kObjectType);
         val.SetObject();
+        for (map<string,string>::const_iterator it = value.begin();
+                    it != value.end(); it++) {
+            rapidjson::Value sval(rapidjson::kStringType);
+            sval.SetString((it->second).c_str());
+            val.AddMember(it->first.c_str(), sval, dd.GetAllocator());
+        }
         dd.AddMember("value", val, dd.GetAllocator());
     }
 

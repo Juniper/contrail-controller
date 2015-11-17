@@ -111,7 +111,7 @@ class UveCacheProcessor(object):
                     host=pi.ip_address, 
                     port=pi.port,
                     password=self._rpass,
-                    db=2)
+                    db=7)
             ppe = lredis.pipeline()
             luves = list(uveparts[pkey])
             for elem in luves:
@@ -342,7 +342,7 @@ class UveStreamPart(gevent.Greenlet):
                         host=self._pi.ip_address,
                         port=self._pi.port,
                         password=self._rpass,
-                        db=2)
+                        db=7)
                 pb = lredis.pubsub()
                 inst = self._pi.instance_id
                 part = self._partno
@@ -587,7 +587,7 @@ class PartitionHandler(gevent.Greenlet):
 
                 # start reading from last previously processed message
                 if mi != None:
-                    consumer.seek(0,1)
+                    consumer.seek(-1,1)
                 else:
                     consumer.seek(0,0)
 
@@ -657,6 +657,9 @@ class UveStreamProc(PartitionHandler):
         self._acq_time = UTCTimestampUsec() 
         self._rport = rport
 
+    def reset_acq_time(self):
+        self._acq_time = UTCTimestampUsec()
+
     def acq_time(self):
         return self._acq_time
 
@@ -672,28 +675,11 @@ class UveStreamProc(PartitionHandler):
         if len(chg_res):
             self.start_partition(chg_res)
         self.disc_rset = newset
-        if self._disc:
-            data = { 'instance-id' : self._aginst,
-                     'partition' : str(self._partno),
-                     'ip-address': self._host_ip, 
-                     'acq-time': str(self._acq_time),
-                     'port':str(self._rport)}
-            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         
     def stop_partition(self, kcoll=None):
         clist = []
         if not kcoll:
             clist = self._uvedb.keys()
-            # If all collectors are being cleared, clear resoures too
-            self.disc_rset = set()
-            if self._disc:
-                # TODO: Unpublish instead of setting acq-time to 0
-                data = { 'instance-id' : self._aginst,
-                         'partition' : str(self._partno),
-                         'ip-address': self._host_ip, 
-                         'acq-time': "0",
-                         'port':str(self._rport)}
-                self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         else:
             clist = [kcoll]
         self._logger.error("Stopping part %d collectors %s" % \
@@ -715,13 +701,33 @@ class UveStreamProc(PartitionHandler):
             del self._uvedb[coll]
         self._logger.error("Stopping part %d UVEs %s" % \
                 (self._partno,str(chg.keys())))
-        self._callback(self._partno, chg)
+        if kcoll:
+            self._callback(self._partno, chg)
+        else:
+            # If all collectors are being cleared, clear resoures too
+            self.disc_rset = set()
+            if self._disc:
+                # TODO: Unpublish instead of setting acq-time to 0
+                data = { 'instance-id' : self._aginst,
+                         'partition' : str(self._partno),
+                         'ip-address': self._host_ip, 
+                         'acq-time': "0",
+                         'port':str(self._rport)}
+                self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
+
         return partdb
 
     def start_partition(self, cbdb):
         ''' This function loads the initial UVE database.
             for the partition
         '''
+        if self._disc:
+            data = { 'instance-id' : self._aginst,
+                     'partition' : str(self._partno),
+                     'ip-address': self._host_ip, 
+                     'acq-time': str(self._acq_time),
+                     'port':str(self._rport)}
+            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
         self._logger.error("Starting part %d collectors %s" % \
                 (self._partno, str(cbdb.keys())))
         uves  = {}
@@ -738,13 +744,14 @@ class UveStreamProc(PartitionHandler):
                     self._uvedb[kcoll][kgen][tab][rkey] = {}
 
                     if not kk in uves:
-                        uves[kk] = {}
+                        uves[kk] = None
                     for typ, contents in gen[kk].iteritems():
                         self._uvedb[kcoll][kgen][tab][rkey][typ] = {}
                         self._uvedb[kcoll][kgen][tab][rkey][typ]["c"] = 0
                         self._uvedb[kcoll][kgen][tab][rkey][typ]["u"] = \
                                 uuid.uuid1(self._ip_code)
-                        uves[kk][typ] = contents
+                        # TODO: for loading only specific types:
+                        #       uves[kk][typ] = contents
                     
         self._logger.error("Starting part %d UVEs %s" % \
                           (self._partno, str(uves.keys())))

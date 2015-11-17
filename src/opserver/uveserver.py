@@ -380,7 +380,7 @@ class UVEServer(object):
                 failures = True
             else:
                 self._redis_inst_up(r_inst, redish)
-                self._logger.debug("Computed %s as %s" % (key,str(rsp)))
+                self._logger.debug("Computed %s as %s" % (key,rsp.keys()))
 
         return failures, rsp
     # end get_uve
