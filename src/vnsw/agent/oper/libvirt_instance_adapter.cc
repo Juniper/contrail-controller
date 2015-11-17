@@ -213,7 +213,10 @@ std::string LibvirtInstanceAdapter::DomainStartTask::XmlConf() {
     DomainXMLAssignUUID(dom_uuid_str, domain_xml_conf);
 
     // interfaces defined by Contrail (left, right, management)
-    DomainXMLSetInterfaceData(domain_xml_conf, dom_uuid_str);
+    if (!DomainXMLSetInterfacesData(domain_xml_conf, dom_uuid_str)) {
+        LOG(ERROR, "Error setting interfaces configuration");
+        return "";
+    }
 
     std::stringstream domain_conf;
     domain_xml_conf.save(domain_conf);
@@ -237,44 +240,88 @@ void LibvirtInstanceAdapter::DomainStartTask::DomainXMLAssignUUID(
 bool LibvirtInstanceAdapter::DomainStartTask::CreateTAPInterfaces(
     const std::string &dom_uuid) {
     // to be deprecated. Agent code currently supports only 3 interfaces/dom.
-    std::string left = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l');
-    std::string right = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r');
-    std::string mgmt = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm');
+    std::string intf;
 
-    return alloc_tap_interface(left.c_str(), IFF_TAP) &&
-        alloc_tap_interface(right.c_str(), IFF_TAP) &&
-        alloc_tap_interface(mgmt.c_str(), IFF_TAP);
+    switch (si_properties_.interface_count) {
+        case 3:  // management
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm');
+            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
+                return false;
+            // fallover
+        case 2:  // right
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r');
+            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
+                return false;
+            // fallover
+        case 1:  // left
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l');
+            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
+                return false;
+            break;
+        default:
+            return false;
+    }
+    return true;
 }
 
-void LibvirtInstanceAdapter::DomainStartTask::DomainXMLSetInterfaceData(
+bool LibvirtInstanceAdapter::DomainStartTask::DomainXMLSetInterfacesData(
         const xml_document &libvirt_xml_conf, const std::string &dom_uuid) {
     LOG(DEBUG, "adding vrouter interface "
         "data to libvirt instance configuration");
+
     // to be deprecated. Agent code currently supports only 3 interfaces/dom.
     xml_node devices_node = libvirt_xml_conf.child("domain").child("devices");
+    std::vector<xml_node> interfaces;
+    std::string intf;
 
-    DomainXMLAddInterface(&devices_node,
-                          si_properties_.mac_addr_inside,
-                          LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l'));
-    DomainXMLAddInterface(&devices_node,
-                          si_properties_.mac_addr_outside,
-                          LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r'));
-    DomainXMLAddInterface(&devices_node,
-                          si_properties_.mac_addr_management,
-                          LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm'));
+    for (xml_node child = devices_node.first_child();
+        (int)interfaces.size() < si_properties_.interface_count && child;
+        child = child.next_sibling()) {
+        if (strcmp(child.name(), "interface") == 0) {
+            interfaces.push_back(child);
+        }
+    }
+    if ((int)interfaces.size() < si_properties_.interface_count) {
+        LOG(ERROR, "Not enough interfaces in xml configuration");
+        return false;
+    }
+
+    switch (si_properties_.interface_count) {
+        case 3:  // management
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm');
+            DomainXMLSetInterfaceData(&interfaces[2],
+                                      si_properties_.mac_addr_management, intf);
+            // fallover
+        case 2:  // right
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r');
+            DomainXMLSetInterfaceData(&interfaces[1],
+                                      si_properties_.mac_addr_outside, intf);
+            // fallover
+        case 1:  // left
+            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l');
+            DomainXMLSetInterfaceData(&interfaces[0],
+                                      si_properties_.mac_addr_inside, intf);
+            break;
+        default:
+            return false;
+    }
+    return true;
 }
 
-void LibvirtInstanceAdapter::DomainStartTask::DomainXMLAddInterface(
-        xml_node *devices_node, const std::string &mac_addr,
+void LibvirtInstanceAdapter::DomainStartTask::DomainXMLSetInterfaceData(
+        xml_node *intf_node, const std::string &mac_addr,
         const std::string &intf_name) {
-    xml_node intf_node = devices_node->append_child("interface");
-    intf_node.append_attribute("type").set_value("ethernet");
+    xml_node mac_node = get_or_create_node(intf_node, "mac");
+    xml_attribute addr = mac_node.attribute("address");
+    if (!addr)
+        addr = mac_node.append_attribute("address");
+    addr.set_value(mac_addr.c_str());
 
-    xml_node mac_node = intf_node.append_child("mac");
-    mac_node.append_attribute("address").set_value(mac_addr.c_str());
-
-    xml_node target_node = intf_node.append_child("target");
-    target_node.append_attribute("dev").set_value(intf_name.c_str());
+    xml_node target_node = get_or_create_node(intf_node, "target");
+    xml_attribute dev = target_node.attribute("dev");
+    if (!dev)
+        dev = target_node.append_attribute("dev");
+    dev.set_value(intf_name.c_str());
 }
 
 std::string LibvirtInstanceAdapter::GenIntfName(
