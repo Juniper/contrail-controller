@@ -20,10 +20,11 @@ do {                                                                         \
     Icmpv6##obj::TraceMsg(Icmpv6TraceBuf, __FILE__, __LINE__, _str.str());   \
 } while (false)                                                              \
 
+class Icmpv6VrfState;
+
 class Icmpv6Proto : public Proto {
 public:
     static const uint32_t kRouterAdvertTimeout = 30000; // milli seconds
-    typedef std::set<VmInterface *> VmInterfaceSet;
 
     struct Icmpv6Stats {
         Icmpv6Stats() { Reset(); }
@@ -42,6 +43,9 @@ public:
         uint32_t icmpv6_neighbor_advert_;
     };
 
+    typedef std::map<VmInterface *, Icmpv6Stats> VmInterfaceMap;
+    typedef std::pair<VmInterface *, Icmpv6Stats> VmInterfacePair;
+
     void Shutdown();
     Icmpv6Proto(Agent *agent, boost::asio::io_service &io);
     virtual ~Icmpv6Proto();
@@ -51,23 +55,25 @@ public:
     void VnNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
 
-    const VmInterfaceSet &vm_interfaces() { return vm_interfaces_; }
+    const VmInterfaceMap &vm_interfaces() { return vm_interfaces_; }
 
-    void IncrementStatsRouterSolicit() { stats_.icmpv6_router_solicit_++; }
-    void IncrementStatsRouterAdvert() { stats_.icmpv6_router_advert_++; }
-    void IncrementStatsPingRequest() { stats_.icmpv6_ping_request_++; }
-    void IncrementStatsPingResponse() { stats_.icmpv6_ping_response_++; }
+    void IncrementStatsRouterSolicit(VmInterface *vmi);
+    void IncrementStatsRouterAdvert(VmInterface *vmi);
+    void IncrementStatsPingRequest(VmInterface *vmi);
+    void IncrementStatsPingResponse(VmInterface *vmi);
     void IncrementStatsDrop() { stats_.icmpv6_drop_++; }
-    void IncrementStatsNeighborSolicit() { stats_.icmpv6_neighbor_solicit_++; }
-    void IncrementStatsNeighborAdvert() { stats_.icmpv6_neighbor_advert_++; }
+    void IncrementStatsNeighborSolicit(VmInterface *vmi);
+    void IncrementStatsNeighborAdvert(VmInterface *vmi);
     const Icmpv6Stats &GetStats() const { return stats_; }
+    Icmpv6Stats *VmiToIcmpv6Stats(VmInterface *i);
     void ClearStats() { stats_.Reset(); }
     void ValidateAndClearVrfState(VrfEntry *vrf);
+    Icmpv6VrfState *CreateAndSetVrfState(VrfEntry *vrf);
 
 private:
     Timer *timer_;
     Icmpv6Stats stats_;
-    VmInterfaceSet vm_interfaces_;
+    VmInterfaceMap vm_interfaces_;
     // handler to send router advertisements and neighbor solicits
     boost::scoped_ptr<Icmpv6Handler> icmpv6_handler_;
     DBTableBase::ListenerId vn_table_listener_id_;

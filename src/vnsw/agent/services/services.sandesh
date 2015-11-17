@@ -163,6 +163,24 @@ response sandesh PktErrorResp {
     1: string resp = "   Success !!!   ";
 }
 
+struct InterfaceIcmpv6Stats {
+    1: u32 interface_index;
+    2: u32 icmpv6_router_solicit;
+    3: u32 icmpv6_router_advert;
+    4: u32 icmpv6_ping_request;
+    5: u32 icmpv6_ping_response;
+    6: u32 icmpv6_neighbor_solicit;
+    7: u32 icmpv6_neighbor_advert;
+}
+
+request sandesh InterfaceIcmpv6StatsReq {
+    1: i32 interface_index = -1;
+}
+
+response sandesh InterfaceIcmpv6StatsResponse {
+    1: list<InterfaceIcmpv6Stats> stats_list;
+}
+
 struct VrouterHdr {
     1: i16 ifindex;             // interface index
     2: i16 vrf;                 // VRF

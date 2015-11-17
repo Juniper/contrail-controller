@@ -60,7 +60,7 @@ bool Icmpv6Handler::Run() {
     }
     switch (icmp_->icmp6_type) {
         case ND_ROUTER_SOLICIT:
-            icmpv6_proto->IncrementStatsRouterSolicit();
+            icmpv6_proto->IncrementStatsRouterSolicit(vm_itf);
             if (CheckPacket()) {
                 Ip6Address prefix;
                 uint8_t plen;
@@ -72,12 +72,18 @@ bool Icmpv6Handler::Run() {
                     uint32_t interface =
                         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
                         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+                    VmInterface *vmi = NULL;
+                    Interface *intf =
+                        agent()->interface_table()->FindInterface(interface);
+                    if (intf->type() == Interface::VM_INTERFACE) {
+                        vmi = static_cast<VmInterface *>(intf);
+                    }
                     SendRAResponse(interface,
                                    pkt_info_->vrf,
                                    src_addr.to_bytes().data(),
                                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                                    MacAddress(pkt_info_->eth->ether_shost), prefix, plen);
-                    icmpv6_proto->IncrementStatsRouterAdvert();
+                    icmpv6_proto->IncrementStatsRouterAdvert(vmi);
                     return true;
                 }
                 ICMPV6_TRACE(Trace, "Ignoring ND Router Solicit : VN / prefix not present");
@@ -87,17 +93,17 @@ bool Icmpv6Handler::Run() {
             break;
 
         case ICMP6_ECHO_REQUEST:
-            icmpv6_proto->IncrementStatsPingRequest();
+            icmpv6_proto->IncrementStatsPingRequest(vm_itf);
             if (CheckPacket()) {
                 SendPingResponse();
-                icmpv6_proto->IncrementStatsPingResponse();
+                icmpv6_proto->IncrementStatsPingResponse(vm_itf);
                 return true;
             }
             ICMPV6_TRACE(Trace, "Ignoring Echo request with wrong cksum");
             break;
 
         case ND_NEIGHBOR_ADVERT:
-            icmpv6_proto->IncrementStatsNeighborAdvert();
+            icmpv6_proto->IncrementStatsNeighborAdvert(vm_itf);
             if (CheckPacket()) {
                 nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
                 boost::array<uint8_t, 16> bytes;
@@ -110,6 +116,7 @@ bool Icmpv6Handler::Run() {
                 if (opt->nd_opt_type != ND_OPT_TARGET_LINKADDR) {
                     ICMPV6_TRACE(Trace, "Ignoring Neighbor Advert with no"
                                  "Target Link-layer address option");
+                    icmpv6_proto->IncrementStatsDrop();
                     return true;
                 }
 
@@ -132,15 +139,16 @@ bool Icmpv6Handler::Run() {
 }
 
 bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
-    const Icmpv6Proto::VmInterfaceSet &interfaces = proto->vm_interfaces();
+    const Icmpv6Proto::VmInterfaceMap &interfaces = proto->vm_interfaces();
     boost::system::error_code ec;
     Ip6Address src_addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
     Ip6Address dest_addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
     // Ethernet mcast address corresponding to IPv6 mcast address ff02::1
     MacAddress dest_mac(0x33, 0x33, 0x00, 0x00, 0x00, 0x01);
-    for (Icmpv6Proto::VmInterfaceSet::const_iterator it = interfaces.begin();
+    for (Icmpv6Proto::VmInterfaceMap::const_iterator it = interfaces.begin();
          it != interfaces.end(); ++it) {
-        if ((*it)->IsIpv6Active()) {
+        VmInterface *vmi = it->first;
+        if (vmi->IsIpv6Active()) {
             pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE, 0);
             pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
             pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
@@ -148,12 +156,12 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
                 (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) + sizeof(ip6_hdr));
             Ip6Address prefix;
             uint8_t plen;
-            if ((*it)->vn()->GetPrefix((*it)->primary_ip6_addr(), &prefix, &plen)) {
-                SendRAResponse((*it)->id(), (*it)->vrf()->vrf_id(),
+            if (vmi->vn()->GetPrefix(vmi->primary_ip6_addr(), &prefix, &plen)) {
+                SendRAResponse(vmi->id(), vmi->vrf()->vrf_id(),
                                src_addr.to_bytes().data(),
                                dest_addr.to_bytes().data(),
                                dest_mac, prefix, plen);
-                proto->IncrementStatsRouterAdvert();
+                proto->IncrementStatsRouterAdvert(vmi);
             }
         }
     }

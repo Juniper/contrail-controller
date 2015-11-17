@@ -45,6 +45,16 @@ ProtoHandler *Icmpv6Proto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new Icmpv6Handler(agent(), info, io);
 }
 
+Icmpv6VrfState *Icmpv6Proto::CreateAndSetVrfState(VrfEntry *vrf) {
+    Icmpv6VrfState *state = new Icmpv6VrfState(agent_, this, vrf,
+                                               vrf->GetInet6UnicastRouteTable());
+    state->set_route_table_listener_id(vrf->GetInet6UnicastRouteTable()->
+        Register(boost::bind(&Icmpv6VrfState::RouteUpdate, state, _1, _2)));
+    vrf->SetState(vrf->get_table_partition()->parent(),
+                  vrf_table_listener_id_, state);
+    return state;
+}
+
 void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
     if (entry->IsDeleted()) return;
 
@@ -59,7 +69,9 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
         Icmpv6VrfState *state = static_cast<Icmpv6VrfState *>(vrf->GetState(
                              vrf->get_table_partition()->parent(),
                              vrf_table_listener_id_));
-        assert(state != NULL);
+        if (state == NULL) {
+            state = CreateAndSetVrfState(vrf);
+        }
         if (state->default_routes_added()) {
             return;
         }
@@ -106,12 +118,8 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         state->set_default_routes_added(false);
         state->Delete();
     }
-    if (!state){
-        state = new Icmpv6VrfState(agent_, this, vrf,
-                                   vrf->GetInet6UnicastRouteTable());
-        state->set_route_table_listener_id(vrf->GetInet6UnicastRouteTable()->
-            Register(boost::bind(&Icmpv6VrfState::RouteUpdate, state, _1, _2)));
-        entry->SetState(part->parent(), vrf_table_listener_id_, state);
+    if (!state) {
+        CreateAndSetVrfState(vrf);
     }
 }
 
@@ -120,11 +128,18 @@ void Icmpv6Proto::InterfaceNotify(DBEntryBase *entry) {
     if (interface->type() != Interface::VM_INTERFACE)
         return;
 
+    Icmpv6Stats stats;
     VmInterface *vm_interface = static_cast<VmInterface *>(entry);
-    if (interface->IsDeleted())
-        vm_interfaces_.erase(vm_interface);
-    else
-        vm_interfaces_.insert(vm_interface);
+    VmInterfaceMap::iterator it = vm_interfaces_.find(vm_interface);
+    if (interface->IsDeleted()) {
+        if (it != vm_interfaces_.end()) {
+            vm_interfaces_.erase(it);
+        }
+    } else {
+        if (it == vm_interfaces_.end()) {
+            vm_interfaces_.insert(VmInterfacePair(vm_interface, stats));
+        }
+    }
 }
 
 void Icmpv6Proto::ValidateAndClearVrfState(VrfEntry *vrf) {
@@ -229,7 +244,7 @@ bool Icmpv6RouteState::SendNeighborSolicit() {
             continue;
         }
 
-        const VmInterface *vm_intf = static_cast<const VmInterface *>(
+        VmInterface *vm_intf = static_cast<VmInterface *>(
              vrf_state_->agent()->interface_table()->FindInterface(it->first));
         if (!vm_intf) {
             continue;
@@ -237,7 +252,7 @@ bool Icmpv6RouteState::SendNeighborSolicit() {
         it->second++;
         handler.SendNeighborSolicit(gw_ip_.to_v6(), vm_ip_.to_v6(), it->first,
                                     vrf_id_);
-        vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit();
+        vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit(vm_intf);
         ret = true;
     }
     return ret;
@@ -306,5 +321,61 @@ void Icmpv6RouteState::SendNeighborSolicitForAllIntf
     if (wait_for_traffic_map_.size() > 0) {
         SendNeighborSolicit();
         StartTimer();
+    }
+}
+
+Icmpv6Proto::Icmpv6Stats *Icmpv6Proto::VmiToIcmpv6Stats(VmInterface *i) {
+    VmInterfaceMap::iterator it = vm_interfaces_.find(i);
+    if (it == vm_interfaces_.end()) {
+        return NULL;
+    }
+    return &it->second;
+}
+
+void Icmpv6Proto::IncrementStatsRouterSolicit(VmInterface *vmi) {
+    stats_.icmpv6_router_solicit_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_router_solicit_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsRouterAdvert(VmInterface *vmi) {
+    stats_.icmpv6_router_advert_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_router_advert_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsPingRequest(VmInterface *vmi) {
+    stats_.icmpv6_ping_request_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_ping_request_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsPingResponse(VmInterface *vmi) {
+    stats_.icmpv6_ping_response_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_ping_response_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsNeighborSolicit(VmInterface *vmi) {
+    stats_.icmpv6_neighbor_solicit_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_neighbor_solicit_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsNeighborAdvert(VmInterface *vmi) {
+    stats_.icmpv6_neighbor_advert_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_neighbor_advert_++;
     }
 }
