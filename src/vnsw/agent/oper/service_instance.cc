@@ -151,6 +151,17 @@ static IFMapNode *FindNetwork(DBGraph *graph, IFMapNode *vmi_node) {
     return NULL;
 }
 
+static IFMapNode *FindServiceTemplateNode(DBGraph *graph, IFMapNode *si_node) {
+    for (DBGraphVertex::adjacency_iterator iter = si_node->begin(graph);
+         iter != si_node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (IsNodeType(adj, "service-template")) {
+            return adj;
+        }
+    }
+
+    return NULL;
+}
 
 static std::string FindInterfaceIp(DBGraph *graph, IFMapNode *vmi_node) {
     for (DBGraphVertex::adjacency_iterator iter = vmi_node->begin(graph);
@@ -182,20 +193,55 @@ static bool SubNetContainsIpv4(const autogen::IpamSubnetType &subnet,
     return false;
 }
 
+static int GetInterfaceInOrder(
+        const std::string &network_name,
+        const std::string &interface_type,
+        const autogen::ServiceInstanceType &service_instance_type,
+        const autogen::ServiceTemplateType &service_template_type,
+        const std::vector<ServiceInstance::InterfaceData> &interfaces) {
+    const std::vector<autogen::ServiceInstanceInterfaceType> *si_interfaces =
+            &service_instance_type.interface_list;
+    const std::vector<autogen::ServiceTemplateInterfaceType> *tmpl_interfaces =
+            &service_template_type.interface_type;
+    bool order_interfaces = service_template_type.ordered_interfaces &&
+            si_interfaces->size() == si_interfaces->size();
+
+    if (order_interfaces == true) {
+        for (unsigned i = 0; i < si_interfaces->size(); ++i) {
+            if (!interfaces[i].vmi_uuid.is_nil())
+                continue;
+
+            std::string virtual_network = si_interfaces->at(i).virtual_network;
+            std::string type = tmpl_interfaces->at(i).service_interface_type;
+
+            if (virtual_network == network_name && type == interface_type) {
+                return (int)i;
+            }
+        }
+    }
+
+    for (unsigned i = 0; i < tmpl_interfaces->size(); ++i) {
+        std::string type = tmpl_interfaces->at(i).service_interface_type;
+        if (type == interface_type && interfaces[i].vmi_uuid.is_nil())
+            return (int)i;
+    }
+    return -1;
+}
+
 static void FindAndSetInterfaces(
     DBGraph *graph, IFMapNode *vm_node,
-    autogen::ServiceInstance *svc_instance,
+    const autogen::ServiceInstance *svc_instance,
+    const autogen::ServiceTemplateType &svc_template_props,
     ServiceInstance::Properties *properties) {
 
     /*
      * The outside virtual-network is always specified (by the
      * process that creates the service-instance).
      * The inside virtual-network is optional for loadbalancer.
-     * For VRouter instance there can be up to 3 interfaces.
-     * TODO: support more than 3 interfaces for VRouter instances.
-     * Lookup for VMI nodes
      */
-    properties->interface_count = 0;
+    properties->interfaces.clear();
+    properties->interfaces.resize(svc_template_props.interface_type.size());
+
     for (DBGraphVertex::adjacency_iterator iter = vm_node->begin(graph);
          iter != vm_node->end(graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
@@ -213,26 +259,25 @@ static void FindAndSetInterfaces(
         if (vn_node == NULL) {
             continue;
         }
+        std::string network_name = vn_node->name();
+        int inderface_data_index = GetInterfaceInOrder(
+            network_name, vmi_props.service_interface_type,
+            svc_instance->properties(), svc_template_props,
+            properties->interfaces
+        );
+        if (inderface_data_index < 0) {
+            continue;
+        }
 
-        properties->interface_count++;
-        if(vmi_props.service_interface_type == "left") {
-            properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
-            if  (vmi->mac_addresses().size())
-                properties->mac_addr_inside = vmi->mac_addresses().at(0);
-            properties->ip_addr_inside = FindInterfaceIp(graph, adj);
-        }
-        else if(vmi_props.service_interface_type == "right") {
-            properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
-            if  (vmi->mac_addresses().size())
-                properties->mac_addr_outside = vmi->mac_addresses().at(0);
-            properties->ip_addr_outside = FindInterfaceIp(graph, adj);
-        }
-        else if(vmi_props.service_interface_type == "management") {
-            properties->vmi_management = IdPermsGetUuid(vmi->id_perms());
-            if  (vmi->mac_addresses().size())
-                properties->mac_addr_management = vmi->mac_addresses().at(0);
-            properties->ip_addr_management = FindInterfaceIp(graph, adj);
-        }
+        ServiceInstance::InterfaceData *interface_data =
+            &properties->interfaces[inderface_data_index];
+
+        if (vmi->mac_addresses().size())
+            interface_data->mac_addr = vmi->mac_addresses().at(0);
+        interface_data->vmi_uuid = IdPermsGetUuid(vmi->id_perms());
+        interface_data->ip_addr = FindInterfaceIp(graph, adj);
+        interface_data->ip_prefix_len = -1;
+        interface_data->intf_type = vmi_props.service_interface_type;
 
         IFMapNode *ipam_node = FindNetworkSubnets(graph, vn_node);
         if (ipam_node == NULL) {
@@ -242,27 +287,22 @@ static void FindAndSetInterfaces(
         autogen::VirtualNetworkNetworkIpam *ipam =
             static_cast<autogen::VirtualNetworkNetworkIpam *> (ipam_node->GetObject());
         const autogen::VnSubnetsType &subnets = ipam->data();
+
         for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-
             int prefix_len = subnets.ipam_subnets[i].subnet.ip_prefix_len;
+            std::string default_gw = subnets.ipam_subnets[i].default_gateway;
 
-            if (vmi_props.service_interface_type == "left" &&
-                SubNetContainsIpv4(subnets.ipam_subnets[i],
-                        properties->ip_addr_inside)) {
-                properties->ip_prefix_len_inside = prefix_len;
-                if (properties->service_type == ServiceInstance::SourceNAT)
-                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
-            } else if (vmi_props.service_interface_type == "right" &&
-                       SubNetContainsIpv4(subnets.ipam_subnets[i],
-                                properties->ip_addr_outside)) {
-                if (properties->service_type == ServiceInstance::LoadBalancer)
-                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
-                properties->ip_prefix_len_outside = prefix_len;
-            } else if (vmi_props.service_interface_type == "management" &&
-                SubNetContainsIpv4(subnets.ipam_subnets[i],
-                        properties->ip_addr_management)) {
-                properties->ip_prefix_len_management = prefix_len;
+            if (!SubNetContainsIpv4(subnets.ipam_subnets[i],
+                                    interface_data->ip_addr)) {
+                continue;
             }
+            interface_data->ip_prefix_len = prefix_len;
+            if (properties->service_type == ServiceInstance::SourceNAT &&
+                    interface_data->intf_type == "left")
+                properties->gw_ip = default_gw;
+            if (properties->service_type == ServiceInstance::LoadBalancer &&
+                    interface_data->intf_type == "right")
+                properties->gw_ip = default_gw;
         }
     }
 }
@@ -272,41 +312,22 @@ static void FindAndSetInterfaces(
  * Service Instance Node and set the types in the ServiceInstanceData object.
  */
 static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
-                            ServiceInstance::Properties *properties) {
-    IFMapNode *st_node = NULL;
-
-    for (DBGraphVertex::adjacency_iterator iter = si_node->begin(graph);
-         iter != si_node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (IsNodeType(adj, "service-template")) {
-            st_node = adj;
-            break;
-        }
-    }
-
-    if (st_node == NULL) {
-        return;
-    }
-
-    autogen::ServiceTemplate *svc_template =
-            static_cast<autogen::ServiceTemplate *>(st_node->GetObject());
-    autogen::ServiceTemplateType svc_template_props =
-            svc_template->properties();
-
+                            ServiceInstance::Properties *properties,
+                            autogen::ServiceTemplateType *svc_template_props) {
     properties->service_type =
             ServiceInstanceTypesMapping::StrServiceTypeToInt(
-                svc_template_props.service_type);
+                svc_template_props->service_type);
 
     properties->virtualization_type =
             ServiceInstanceTypesMapping::StrVirtualizationTypeToInt(
-                svc_template_props.service_virtualization_type);
+                svc_template_props->service_virtualization_type);
 
     properties->vrouter_instance_type =
             ServiceInstanceTypesMapping::StrVRouterInstanceTypeToInt(
-                svc_template_props.vrouter_instance_type);
+                svc_template_props->vrouter_instance_type);
 
-    properties->image_name = svc_template_props.image_name;
-    properties->instance_data = svc_template_props.instance_data;
+    properties->image_name = svc_template_props->image_name;
+    properties->instance_data = svc_template_props->instance_data;
 }
 
 static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
@@ -332,30 +353,37 @@ void ServiceInstance::Properties::Clear() {
 
     instance_id = boost::uuids::nil_uuid();
 
-    vmi_inside = boost::uuids::nil_uuid();
-    vmi_outside = boost::uuids::nil_uuid();
-    vmi_management = boost::uuids::nil_uuid();
-
-    mac_addr_inside.clear();
-    mac_addr_outside.clear();
-    mac_addr_management.clear();
-
-    ip_addr_inside.clear();
-    ip_addr_outside.clear();
-    ip_addr_management.clear();
+    interfaces.clear();
 
     gw_ip.clear();
     image_name.clear();
-
-    ip_prefix_len_inside = -1;
-    ip_prefix_len_outside = -1;
-    ip_prefix_len_management = -1;
-
-    interface_count = 0;
-
     instance_data.clear();
     
     pool_id = boost::uuids::nil_uuid();
+}
+
+const ServiceInstance::InterfaceData* ServiceInstance::Properties::GetIntfByType(
+        const std::string &type) const {
+    const InterfaceData *intf_data = NULL;
+
+    for (unsigned i = 0; i < interfaces.size(); ++i) {
+        intf_data = &interfaces[i];
+        if (intf_data->intf_type == type)
+            return intf_data;
+    }
+    return NULL;
+}
+
+const ServiceInstance::InterfaceData* ServiceInstance::Properties::GetIntfByUuid(
+        const boost::uuids::uuid &uuid) const {
+    const InterfaceData *intf_data = NULL;
+
+    for (unsigned i = 0; i < interfaces.size(); ++i) {
+        intf_data = &interfaces[i];
+        if (intf_data->vmi_uuid == uuid)
+            return intf_data;
+    }
+    return NULL;
 }
 
 template <typename Type>
@@ -371,6 +399,7 @@ static int compare(const Type &lhs, const Type &rhs) {
 
 int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     int cmp = 0;
+
     cmp = compare(service_type, rhs.service_type);
     if (cmp != 0) {
         return cmp;
@@ -387,33 +416,34 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
-    cmp = compare(vmi_inside, rhs.vmi_inside);
+    cmp = compare(interfaces.size(), rhs.interfaces.size());
     if (cmp != 0) {
         return cmp;
     }
-    cmp = compare(vmi_outside, rhs.vmi_outside);
-    if (cmp != 0) {
-        return cmp;
-    }
-    cmp = compare(ip_addr_inside, rhs.ip_addr_inside);
-    if (cmp != 0) {
-        return cmp;
-    }
-    cmp = compare(ip_addr_outside, rhs.ip_addr_outside);
-    if (cmp != 0) {
-        return cmp;
-    }
-    cmp = compare(ip_prefix_len_inside, rhs.ip_prefix_len_inside);
-    if (cmp != 0) {
-        return cmp;
-    }
-    cmp = compare(ip_prefix_len_outside, rhs.ip_prefix_len_outside);
-    if (cmp != 0) {
-        return cmp;
-    }
-    cmp = compare(interface_count, rhs.interface_count);
-    if (cmp != 0) {
-        return cmp;
+
+    const InterfaceData *intf_other;
+    const InterfaceData *intf_data;
+    for (unsigned i = 0; i < rhs.interfaces.size(); ++i) {
+        intf_other = &rhs.interfaces[i];
+        intf_data = GetIntfByUuid(intf_other->vmi_uuid);
+        if (intf_data == NULL)
+            return -1;
+        cmp = compare(intf_other->intf_type, intf_data->intf_type);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = compare(intf_other->ip_addr, intf_data->ip_addr);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = compare(intf_other->ip_prefix_len, intf_data->ip_prefix_len);
+        if (cmp != 0) {
+            return cmp;
+        }
+        cmp = compare(intf_other->mac_addr, intf_data->mac_addr);
+        if (cmp != 0) {
+            return cmp;
+        }
     }
 
     cmp = compare(gw_ip, rhs.gw_ip);
@@ -456,28 +486,55 @@ std::string ServiceInstance::Properties::DiffString(
     if (compare(instance_id, rhs.instance_id)) {
         ss << " id: -" << instance_id << " +" << rhs.instance_id;
     }
-    if (compare(vmi_inside, rhs.vmi_inside)) {
-        ss << " vmi-inside: -" << vmi_inside << " +" << rhs.vmi_inside;
+    ss << " interfaces: [";
+
+    const InterfaceData *intf_other;
+    const InterfaceData *intf_data;
+    for (unsigned i = 0; i < rhs.interfaces.size(); ++i) {
+        intf_other = &rhs.interfaces[i];
+        intf_data = GetIntfByUuid(intf_other->vmi_uuid);
+        if (intf_data == NULL) {
+            ss << " DEL [vmi: " << intf_other->vmi_uuid << " mac: "
+               << intf_other->mac_addr << " ip: " << intf_other->ip_addr
+               << " pfx: " << intf_other->ip_prefix_len
+               << " intf-type: " << intf_other->intf_type << "]";
+            continue;
+        }
+        ss << " CHANGE [";
+        if (compare(intf_data->vmi_uuid, intf_other->vmi_uuid)) {
+            ss << " [vmi: -" << intf_data->vmi_uuid
+               << " +" << intf_other->vmi_uuid;
+        }
+        if (compare(intf_data->ip_addr, intf_other->ip_addr)) {
+            ss << " ip: -" << intf_data->ip_addr
+               << " +" << intf_other->ip_addr;
+        }
+        if (compare(intf_data->mac_addr, intf_other->mac_addr)) {
+            ss << " mac: -" << intf_data->mac_addr
+               << " +" << intf_other->mac_addr;
+        }
+        if (compare(intf_data->ip_prefix_len, intf_other->ip_prefix_len)) {
+            ss << " pfx: -" << intf_data->ip_prefix_len
+               << " +" << intf_other->ip_prefix_len;
+        }
+        if (compare(intf_data->intf_type, intf_other->intf_type)) {
+            ss << " type: -" << intf_data->intf_type
+               << " +" << intf_other->intf_type;
+        }
+        ss << "]";
     }
-    if (compare(vmi_outside, rhs.vmi_outside)) {
-        ss << " vmi-outside: -" << vmi_outside << " +" << rhs.vmi_outside;
+    for (unsigned i = 0; i < interfaces.size(); ++i) {
+        intf_data = &interfaces[i];
+        intf_other = rhs.GetIntfByUuid(intf_data->vmi_uuid);
+        if (intf_other == NULL) {
+            ss << " NEW [vmi: " << intf_data->vmi_uuid << " mac: "
+               << intf_data->mac_addr << " ip: " << intf_data->ip_addr
+               << " pfx: " << intf_data->ip_prefix_len
+               << " intf-type: " << intf_data->intf_type << "]";
+        }
     }
-    if (compare(ip_addr_inside, rhs.ip_addr_inside)) {
-        ss << " ip-inside: -" << ip_addr_inside
-           << " +" << rhs.ip_addr_inside;
-    }
-    if (compare(ip_addr_outside, rhs.ip_addr_outside)) {
-        ss << " ip-outside: -" << ip_addr_outside
-           << " +" << rhs.ip_addr_outside;
-    }
-    if (compare(ip_prefix_len_inside, rhs.ip_prefix_len_inside)) {
-        ss << " pfx-inside: -" << ip_prefix_len_inside
-           << " +" << rhs.ip_prefix_len_inside;
-    }
-    if (compare(ip_prefix_len_outside, rhs.ip_prefix_len_outside)) {
-        ss << " pfx-outside: -" << ip_prefix_len_outside
-           << " +" << rhs.ip_prefix_len_outside;
-    }
+    ss << "]";
+
     if (compare(pool_id, rhs.pool_id)) {
         ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
     }
@@ -495,8 +552,16 @@ std::string ServiceInstance::Properties::DiffString(
 }
 
 bool ServiceInstance::Properties::Usable() const {
+    const InterfaceData *intf_outside = GetIntfByType("right");
+    const InterfaceData *intf_inside = GetIntfByType("left");
+
     if (instance_id.is_nil()) {
         return false;
+    }
+
+    for (unsigned i = 0; i < interfaces.size(); ++i) {
+        if (interfaces[i].vmi_uuid.is_nil())
+            return false;
     }
 
     if (virtualization_type == ServiceInstance::VRouterInstance) {
@@ -504,18 +569,20 @@ bool ServiceInstance::Properties::Usable() const {
         return true;
     }
 
-    bool common = (!vmi_outside.is_nil() &&
-                   !ip_addr_outside.empty() &&
-                   (ip_prefix_len_outside >= 0));
+    bool common = (intf_outside != NULL &&
+                   !intf_outside->vmi_uuid.is_nil() &&
+                   !intf_outside->ip_addr.empty() &&
+                   (intf_outside->ip_prefix_len >= 0));
     if (!common) {
         return false;
     }
 
-    if (service_type == SourceNAT || interface_count == 2) {
-        bool outside = (!vmi_inside.is_nil() &&
-                       !ip_addr_inside.empty() &&
-                       (ip_prefix_len_inside >= 0));
-        if (!outside) {
+    if (service_type == SourceNAT || interfaces.size() == 2) {
+        bool inside = (intf_inside != NULL &&
+                       !intf_inside->vmi_uuid.is_nil() &&
+                       !intf_inside->ip_addr.empty() &&
+                       (intf_inside->ip_prefix_len >= 0));
+        if (!inside) {
             return false;
         }
     }
@@ -582,8 +649,16 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
                     static_cast<VirtualizationType>(
                                     properties_.virtualization_type)));
 
-    data.set_vmi_inside(UuidToString(properties_.vmi_inside));
-    data.set_vmi_outside(UuidToString(properties_.vmi_outside));
+    const InterfaceData *outside = properties_.GetIntfByType("right");
+    const InterfaceData *inside = properties_.GetIntfByType("left");
+    if (inside == NULL)
+        data.set_vmi_inside("");
+    else
+        data.set_vmi_inside(UuidToString(inside->vmi_uuid));
+    if (outside == NULL)
+        data.set_vmi_outside("");
+    else
+        data.set_vmi_outside(UuidToString(outside->vmi_uuid));
 
     Agent *agent = Agent::GetInstance();
     DBTableBase *si_table = agent->db()->FindTable("db.service-instance.0");
@@ -617,7 +692,47 @@ bool ServiceInstance::IsUsable() const {
     return properties_.Usable();
 }
 
+void ServiceInstance::CalculateProperties(
+    DBGraph *graph, Properties *properties) {
+    properties->Clear();
 
+    IFMapNode *node = ifmap_node();
+
+    if (node->IsDeleted()) {
+        return;
+    }
+
+    IFMapNode *st_node = FindServiceTemplateNode(graph, node);
+    if (st_node == NULL) {
+        return;
+    }
+    autogen::ServiceTemplate *svc_template =
+        static_cast<autogen::ServiceTemplate *>(st_node->GetObject());
+    autogen::ServiceTemplateType svc_template_props =
+        svc_template->properties();
+    FindAndSetTypes(graph, node, properties, &svc_template_props);
+
+    /*
+     * The vrouter agent is only interest in the properties of service
+     * instances that are implemented as a network-namespace.
+     */
+    if (properties->virtualization_type != NetworkNamespace && properties->virtualization_type != VRouterInstance) {
+        return;
+    }
+
+    IFMapNode *vm_node = FindAndSetVirtualMachine(graph, node, properties);
+    if (vm_node == NULL) {
+        return;
+    }
+
+    autogen::ServiceInstance *svc_instance =
+                 static_cast<autogen::ServiceInstance *>(node->GetObject());
+    FindAndSetInterfaces(graph, vm_node, svc_instance, svc_template_props, properties);
+
+    if (properties->service_type == LoadBalancer) {
+        FindAndSetLoadbalancer(graph, node, properties);
+    }
+}
 
 void ServiceInstanceReq::HandleRequest() const {
     AgentSandeshPtr sand(new AgentServiceInstanceSandesh(context(),

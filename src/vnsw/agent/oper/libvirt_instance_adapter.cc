@@ -166,7 +166,8 @@ bool LibvirtInstanceAdapter::DomainStartTask::Run() {
     }
     LOG(DEBUG, "Creating domain: " << xml);
 
-    if (!CreateTAPInterfaces(dom_uuid_str)) {
+    if (!parent_adapter_->CreateTAPInterfaces(si_properties_, dom_uuid_str)) {
+        parent_adapter_->DestroyTAPInterfaces(si_properties_, dom_uuid_str);
         LOG(ERROR, "Error creating TAP interfaces");
         return false;
     }
@@ -174,6 +175,7 @@ bool LibvirtInstanceAdapter::DomainStartTask::Run() {
     virDomainPtr dom = virDomainCreateXML(parent_adapter_->conn_,
         xml.c_str(), 0);
     if (dom == NULL) {
+        parent_adapter_->DestroyTAPInterfaces(si_properties_, dom_uuid_str);
         LOG(ERROR, "Error creating domain: " << virGetLastErrorMessage());
         return false;
     }
@@ -237,28 +239,29 @@ void LibvirtInstanceAdapter::DomainStartTask::DomainXMLAssignUUID(
     LOG(DEBUG, dom_uuid_str.c_str());
 }
 
-bool LibvirtInstanceAdapter::DomainStartTask::CreateTAPInterfaces(
+bool LibvirtInstanceAdapter::DestroyTAPInterfaces(
+    const ServiceInstance::Properties &si_properties,
     const std::string &dom_uuid) {
-    // to be deprecated. Agent code currently supports only 3 interfaces/dom.
     std::string intf;
 
-    switch (si_properties_.interface_count) {
-        case 3:  // management
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm');
-            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
-                return false;
-            // fallover
-        case 2:  // right
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r');
-            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
-                return false;
-            // fallover
-        case 1:  // left
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l');
-            if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
-                return false;
-            break;
-        default:
+    for (unsigned i = 0; i < si_properties.interfaces.size(); ++i) {
+        intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid,
+            si_properties.interfaces[i].intf_type, i);
+        if (!destroy_tap_interface(intf.c_str()))
+            return false;
+    }
+    return true;
+}
+
+bool LibvirtInstanceAdapter::CreateTAPInterfaces(
+    const ServiceInstance::Properties &si_properties,
+    const std::string &dom_uuid) {
+    std::string intf;
+
+    for (unsigned i = 0; i < si_properties.interfaces.size(); ++i) {
+        intf = GenIntfName(dom_uuid,
+                           si_properties.interfaces[i].intf_type, i);
+        if (!alloc_tap_interface(intf.c_str(), IFF_TAP))
             return false;
     }
     return true;
@@ -269,41 +272,29 @@ bool LibvirtInstanceAdapter::DomainStartTask::DomainXMLSetInterfacesData(
     LOG(DEBUG, "adding vrouter interface "
         "data to libvirt instance configuration");
 
-    // to be deprecated. Agent code currently supports only 3 interfaces/dom.
     xml_node devices_node = libvirt_xml_conf.child("domain").child("devices");
     std::vector<xml_node> interfaces;
     std::string intf;
 
     for (xml_node child = devices_node.first_child();
-        (int)interfaces.size() < si_properties_.interface_count && child;
-        child = child.next_sibling()) {
+         interfaces.size() < si_properties_.interfaces.size() && child;
+         child = child.next_sibling()) {
         if (strcmp(child.name(), "interface") == 0) {
             interfaces.push_back(child);
         }
     }
-    if ((int)interfaces.size() < si_properties_.interface_count) {
+    if (interfaces.size() < si_properties_.interfaces.size()) {
         LOG(ERROR, "Not enough interfaces in xml configuration");
         return false;
     }
 
-    switch (si_properties_.interface_count) {
-        case 3:  // management
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'm');
-            DomainXMLSetInterfaceData(&interfaces[2],
-                                      si_properties_.mac_addr_management, intf);
-            // fallover
-        case 2:  // right
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'r');
-            DomainXMLSetInterfaceData(&interfaces[1],
-                                      si_properties_.mac_addr_outside, intf);
-            // fallover
-        case 1:  // left
-            intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid, 'l');
-            DomainXMLSetInterfaceData(&interfaces[0],
-                                      si_properties_.mac_addr_inside, intf);
-            break;
-        default:
-            return false;
+    for (unsigned i = 0; i < si_properties_.interfaces.size(); ++i) {
+        const ServiceInstance::InterfaceData *intf_data =
+                &si_properties_.interfaces[i];
+        intf = LibvirtInstanceAdapter::GenIntfName(dom_uuid,
+            intf_data->intf_type, i);
+        DomainXMLSetInterfaceData(&interfaces[i],
+                                  intf_data->mac_addr, intf);
     }
     return true;
 }
@@ -325,8 +316,11 @@ void LibvirtInstanceAdapter::DomainStartTask::DomainXMLSetInterfaceData(
 }
 
 std::string LibvirtInstanceAdapter::GenIntfName(
-        const std::string &dom_uuid, char type) {
-    return std::string("tap_" + dom_uuid.substr(0, 8) + type);
+        const std::string &dom_uuid, const std::string &type,
+        int index) {
+    std::stringstream ss;
+    ss << "tap_" << dom_uuid.substr(0, 8) << index << type[0];
+    return ss.str();
 }
 
 bool LibvirtInstanceAdapter::EnsureConnected() {
@@ -345,100 +339,56 @@ bool LibvirtInstanceAdapter::EnsureConnected() {
 void LibvirtInstanceAdapter::EnsureDestroyed(
         const std::string &dom_uuid_str,
         const ServiceInstance::Properties &si_properties) {
-    virDomainPtr dom = virDomainLookupByUUIDString(conn_, dom_uuid_str.c_str());
+    virDomainPtr dom = virDomainLookupByUUIDString(
+        conn_, dom_uuid_str.c_str());
     if (dom != NULL) {
         std::string domain_name = std::string(virDomainGetName(dom));
         virDomainDestroy(dom);
         virDomainFree(dom);
     }
-    std::string left = LibvirtInstanceAdapter::GenIntfName(dom_uuid_str, 'l');
-    std::string right = LibvirtInstanceAdapter::GenIntfName(dom_uuid_str, 'r');
-    std::string mgmt = LibvirtInstanceAdapter::GenIntfName(dom_uuid_str, 'm');
-    destroy_tap_interface(left.c_str());
-    destroy_tap_interface(right.c_str());
-    destroy_tap_interface(mgmt.c_str());
+    DestroyTAPInterfaces(si_properties, dom_uuid_str);
     UnregisterInterfaces(si_properties);
 }
 
 bool LibvirtInstanceAdapter::RegisterInterfaces(
     const ServiceInstance::Properties &si_properties) {
     LOG(DEBUG, "registering TAP interfaces to vrouter");
-    std::string dom_uuid_str =
-        boost::lexical_cast<std::string>(si_properties.instance_id);
-    switch (si_properties.interface_count) {
-        case 3:  // management interface
+    const ServiceInstance::InterfaceData *intf_data;
+    std::string intf;
+    std::string dom_uuid = boost::lexical_cast<std::string>(
+        si_properties.instance_id);
+
+    for (unsigned i = 0; i < si_properties.interfaces.size(); ++i) {
+        intf_data = &si_properties.interfaces[i];
+        intf = GenIntfName(dom_uuid, intf_data->intf_type, i);
+
         VmInterface::NovaAdd(agent_->interface_table(),
-                         si_properties.vmi_management,
-                         GenIntfName(dom_uuid_str, 'm'),
-                         Ip4Address::from_string(
-                             si_properties.ip_addr_management),
-                         si_properties.mac_addr_management,
-                         GenIntfName(dom_uuid_str, 'm'),
-                         si_properties.instance_id,
-                         VmInterface::kInvalidVlanId,
-                         VmInterface::kInvalidVlanId,
-                         Agent::NullString(),
-                         Ip6Address(),
-                         Interface::TRANSPORT_ETHERNET);
+                             intf_data->vmi_uuid,
+                             intf,
+                             Ip4Address::from_string(intf_data->ip_addr),
+                             intf_data->mac_addr,
+                             intf,
+                             si_properties.instance_id,
+                             VmInterface::kInvalidVlanId,
+                             VmInterface::kInvalidVlanId,
+                             Agent::NullString(),
+                             Ip6Address(),
+                             Interface::TRANSPORT_ETHERNET);
         agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
-            si_properties.vmi_management);
-        // fallover
-        case 2:  // right interface
-        VmInterface::NovaAdd(agent_->interface_table(),
-                         si_properties.vmi_outside,
-                         GenIntfName(dom_uuid_str, 'r'),
-                         Ip4Address::from_string(si_properties.ip_addr_outside),
-                         si_properties.mac_addr_outside,
-                         GenIntfName(dom_uuid_str, 'r'),
-                         si_properties.instance_id,
-                         VmInterface::kInvalidVlanId,
-                         VmInterface::kInvalidVlanId,
-                         Agent::NullString(),
-                         Ip6Address(),
-                         Interface::TRANSPORT_ETHERNET);
-        agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
-            si_properties.vmi_outside);
-        // fallover
-        case 1:  // left interface
-        VmInterface::NovaAdd(agent_->interface_table(),
-                         si_properties.vmi_inside,
-                         GenIntfName(dom_uuid_str, 'l'),
-                         Ip4Address::from_string(si_properties.ip_addr_inside),
-                         si_properties.mac_addr_inside,
-                         GenIntfName(dom_uuid_str, 'l'),
-                         si_properties.instance_id,
-                         VmInterface::kInvalidVlanId,
-                         VmInterface::kInvalidVlanId,
-                         Agent::NullString(),
-                         Ip6Address(),
-                         Interface::TRANSPORT_ETHERNET);
-        agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
-            si_properties.vmi_inside);
-        break;
-        default:
-            return false;
+            intf_data->vmi_uuid);
     }
     return true;
 }
 
 void LibvirtInstanceAdapter::UnregisterInterfaces(
         const ServiceInstance::Properties &si_properties) {
-    switch (si_properties.interface_count) {
-        case 3:  // management interface
+    const ServiceInstance::InterfaceData *intf_data;
+
+    for (unsigned i = 0; i < si_properties.interfaces.size(); ++i) {
+        intf_data = &si_properties.interfaces[i];
         VmInterface::Delete(agent_->interface_table(),
-                           si_properties.vmi_inside,
-                           VmInterface::INSTANCE_MSG);
-        // fallover
-        case 2:  // right interface
-        VmInterface::Delete(agent_->interface_table(),
-                           si_properties.vmi_outside,
-                           VmInterface::INSTANCE_MSG);
-        // fallover
-        case 1:  // left interface
-        VmInterface::Delete(agent_->interface_table(),
-                           si_properties.vmi_management,
-                           VmInterface::INSTANCE_MSG);
-        break;
+                            intf_data->vmi_uuid,
+                            VmInterface::INSTANCE_MSG);
     }
 }
 
