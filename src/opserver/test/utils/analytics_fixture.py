@@ -807,7 +807,8 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('verify_generator_uve_list')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         # get generator list
-        gen_list = vns.uve_query('generators?cfilt=ModuleClientState:client_info')
+        gen_list = vns.uve_query('generators',
+            {'cfilt':'ModuleClientState:client_info'})
         try:
             actual_gen_list = [gen['name'] for gen in gen_list]
             self.logger.info('generators: %s' % str(actual_gen_list))
@@ -2235,25 +2236,18 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_fieldname_table
 
-    def _get_filters_string(self, filters):
+    def _get_filters_url_param(self, filters):
         if filters is None:
-            return ''
-        filt = []
-        if filters.get('kfilt') is not None:
-            filt.append('kfilt=%s' % (','.join(filters['kfilt'])))
-        if filters.get('tablefilt') is not None:
-            filt.append('tablefilt=%s' % (filters['tablefilt']))
-        if filters.get('sfilt') is not None:
-            filt.append('sfilt=%s' % (filters['sfilt']))
-        if filters.get('mfilt') is not None:
-            filt.append('mfilt=%s' % (filters['mfilt']))
-        if filters.get('cfilt') is not None:
-            filt.append('cfilt=%s' % (','.join(filters['cfilt'])))
-        if filters.get('ackfilt') is not None:
-            filt.append('ackfilt=%s' %
-                        ('true' if filters['ackfilt'] else 'false'))
-        return '&'.join(filt)
-    # end _get_filters_string
+            return None
+        filt = {k:v for k, v in filters.iteritems() if v is not None}
+        if filt.has_key('kfilt'):
+            filt['kfilt'] = ','.join(filt['kfilt'])
+        if filt.has_key('cfilt'):
+            filt['cfilt'] = ','.join(filt['cfilt'])
+        if filt.has_key('ackfilt'):
+            filt['ackfilt'] = 'true' if filt['ackfilt'] else 'false'
+        return filt
+    # end _get_filters_url_param
 
     def _get_filters_json(self, filters):
         if filters is None:
@@ -2265,14 +2259,15 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=4)
     def verify_uve_list(self, table, filts=None, exp_uve_list=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
-        query = table+'s?'+filters
-        self.logger.info('verify_uve_list: %s' % (query))
+        filters = self._get_filters_url_param(filts)
+        table_query = table+'s'
+        self.logger.info('verify_uve_list: %s:%s' %
+            (table_query, str(filters)))
         try:
-            uve_list = vns.uve_query(query)
+            uve_list = vns.uve_query(table_query, filters)
         except Exception as err:
-            self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
+            self.logger.error('Failed to get response for %s:%s [%s]' % \
+                (table_query, str(filters), str(err)))
             assert(False)
         actual_uve_list = [uve['name'] for uve in uve_list]
         exp_uve_list.sort()
@@ -2321,13 +2316,13 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=4)
     def verify_get_alarms(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
-        self.logger.info('verify_get_alarms: %s' % (filters))
+        filters = self._get_filters_url_param(filts)
+        self.logger.info('verify_get_alarms: %s' % str(filters))
         try:
             actual_uves = vns.get_alarms(filters)
         except Exception as err:
             self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
+                (str(filters), str(err)))
             assert(False)
         return self._verify_uves(exp_uves, actual_uves)
     # end verify_get_alarms
@@ -2335,16 +2330,17 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=1, tries=4)
     def verify_multi_uve_get(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(filts)
+        filters = self._get_filters_url_param(filts)
+        table_query = table+'/*'
         if not filters:
-            filters = 'flat'
-        query = table+'/*?'+filters
-        self.logger.info('verify_multi_uve_get: %s' % (query))
+            table_query += '?flat'
+        self.logger.info('verify_multi_uve_get: %s:%s' %
+            (table_query, str(filters)))
         try:
-            actual_uves = vns.uve_query(query)
+            actual_uves = vns.uve_query(table_query, filters)
         except Exception as err:
-            self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
+            self.logger.error('Failed to get response for %s:%s [%s]' % \
+                (query, str(filters), str(err)))
             assert(False)
         return self._verify_uves(exp_uves, actual_uves)
     # end verify_multi_uve_get
@@ -2368,14 +2364,15 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         yfilts = filts or {}
         yfilts['cfilt'] = ["UVEAlarms"] 
-        filters = self._get_filters_string(yfilts)
-        query = table+'s?'+filters
-        self.logger.info('verify_alarm_list: %s' % (query))
+        filters = self._get_filters_url_param(yfilts)
+        table_query = table+'s'
+        self.logger.info('verify_alarm_list: %s:%s' %
+            (table_query, str(filters)))
         try:
-            alarms = vns.uve_query(query)
+            alarms = vns.uve_query(table_query, filters)
         except Exception as err:
-            self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
+            self.logger.error('Failed to get response for %s:%s [%s]' % \
+                (table_query, str(filters), str(err)))
             assert(False)
         actual_alarms = [alarm['name'] for alarm in alarms \
             if alarm['name'] in set(expected_alarms)]
@@ -2391,14 +2388,15 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
         yfilts = filts or {}
         yfilts['cfilt'] = ["UVEAlarms"]
-        filters = self._get_filters_string(yfilts)
-        query = table+'s?'+filters
-        self.logger.info('verify_alarm_list: %s' % (query))
+        filters = self._get_filters_url_param(yfilts)
+        table_query = table+'s'
+        self.logger.info('verify_alarm_list: %s:%s' %
+            (table_query, str(filters)))
         try:
-            alarms = vns.uve_query(query)
+            alarms = vns.uve_query(table_query, filters)
         except Exception as err:
-            self.logger.error('Failed to get response for %s: %s' % \
-                              (query, str(err)))
+            self.logger.error('Failed to get response for %s:%s [%s]' % \
+                (table_query, str(filters), str(err)))
             assert(False)
         actual_alarms = [alarm['name'] for alarm in alarms \
             if alarm['name'] in set(unexpected_alms)]
@@ -2430,11 +2428,13 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_alarm(self, table, key, expected_alarm):
         self.logger.info('verify_alarm: %s:%s' % (table, key))
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        table_query = table+'/'+key
+        filters = {'cfilt':'UVEAlarms'}
         try:
-            alarm = vns.uve_query(table+'/'+key+'?cfilt=UVEAlarms')
+            alarm = vns.uve_query(table_query, filters)
         except Exception as err:
-            self.logger.error('Failed to get alarm %s:%s: %s' % \
-                              (table, key, str(err)))
+            self.logger.error('Failed to get alarm %s:%s [%s]' % \
+                (table_query, str(filters), str(err)))
             assert(False)
         return self.verify_alarm_data(expected_alarm, alarm)
     # end verify_alarm

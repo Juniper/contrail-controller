@@ -40,7 +40,6 @@ class VerificationOpsSrv (IntrospectUtilBase):
             col = socket.gethostname()
         res = None
         try:
-            #import pdb; pdb.set_trace()
             col_dict = self.dict_get('analytics/uves/analytics-node/' + col)
             res = OpCollectorResult(col_dict)
         except Exception as e:
@@ -56,11 +55,11 @@ class VerificationOpsSrv (IntrospectUtilBase):
         return self.dict_get('analytics/table/%s/column-values/%s' \
                              % (table, col_name)) 
 
-    def uve_query(self, query):
-        return self.dict_get('analytics/uves/%s' % query)
+    def uve_query(self, table, query):
+        return self.dict_get('analytics/uves/%s' % (table), query)
 
     def get_alarms(self, filters):
-        return self.dict_get('analytics/alarms?%s' % filters)
+        return self.dict_get('analytics/alarms', filters)
 
     def post_uve_request(self, table, json_body):
         url = 'http://%s:%s/analytics/uves/%s' % (self._ip, str(self._port), table)
@@ -77,7 +76,7 @@ class VerificationOpsSrv (IntrospectUtilBase):
     def get_redis_uve_info(self):
         path = 'Snh_RedisUVERequest'
         xpath = '/RedisUVEResponse/redis_uve_info'
-        p = self.dict_get(path, XmlDrv)
+        p = self.dict_get(path, None, XmlDrv)
         return EtreeToDict(xpath).get_all_entry(p)
 
     def post_query_json(self, json_str, sync=True):
