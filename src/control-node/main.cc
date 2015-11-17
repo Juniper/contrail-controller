@@ -150,8 +150,9 @@ static void ShutdownServers(
 
     channel_manager->reset();
     TcpServerManager::DeleteServer(xmpp_server);
-    TimerManager::DeleteTimer(node_info_log_timer);
-
+    if (node_info_log_timer) {
+        TimerManager::DeleteTimer(node_info_log_timer);
+    }
     // Shutdown Discovery Service Client
     ShutdownDiscoveryClient(dsclient);
 
@@ -549,8 +550,9 @@ int main(int argc, char *argv[]) {
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
+        bool success;
         if (options.collectors_configured()) {
-            Sandesh::InitGenerator(
+            success = Sandesh::InitGenerator(
                     module_name,
                     options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -560,7 +562,7 @@ int main(int argc, char *argv[]) {
                     options.collector_server_list(),
                     &sandesh_context);
         } else {
-            Sandesh::InitGenerator(
+            success = Sandesh::InitGenerator(
                     g_vns_constants.ModuleNames.find(module)->second,
                     options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -568,6 +570,11 @@ int main(int argc, char *argv[]) {
                     &evm,
                     options.http_server_port(),
                     &sandesh_context);
+        }
+        if (!success) {
+            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+            Sandesh::Uninit();
+            exit(1);
         }
     }
 
@@ -687,11 +694,20 @@ int main(int argc, char *argv[]) {
             csf = boost::bind(&DiscoveryServiceClient::Subscribe,
                               ds_client, _1, _2, _3);
             vector<string> list;
-            Sandesh::InitGenerator(subscriber_name, options.hostname(),
+            bool success(Sandesh::InitGenerator(subscriber_name,
+                                   options.hostname(),
                                    node_type_name,
                                    g_vns_constants.INSTANCE_ID_DEFAULT,
-                                   &evm, options.http_server_port(),
-                                   csf, list, &sandesh_context);
+                                   &evm,
+                                   options.http_server_port(),
+                                   csf,
+                                   list,
+                                   &sandesh_context));
+            if (!success) {
+                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+                ShutdownServers(&bgp_peer_manager, ds_client, NULL);
+                exit(1);
+            }
         }
     } else {
         LOG(ERROR, "Invalid Discovery Server hostname or address " <<
