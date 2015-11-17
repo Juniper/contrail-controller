@@ -106,7 +106,7 @@ class InstallVenv(object):
             pass
 
     def pip_install(self, find_links, *args):
-        tdir = '/tmp/cache/%s/config_test' %(os.environ.get('USER', 'pip'))
+        tdir = '/tmp/cache-%s-config_test' %(os.environ.get('USER', 'pip'))
         find_links_str = ' '.join('--find-links file://'+x for x in find_links)
         cmd_array = ['tools/with_venv.sh',
                          'python', '.venv/bin/pip', 'install', 

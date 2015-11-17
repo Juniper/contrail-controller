@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 zookeeper_version = 'zookeeper-3.4.5'
 zookeeper_dl = '/zookeeper-3.4.5.tar.gz'
-zookeeper_bdir  = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
+zookeeper_bdir  = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
 def start_zoo(cport):
     '''
