@@ -24,7 +24,6 @@ import socket
 from netaddr import IPNetwork
 
 from cfgm_common.uve.vnc_api.ttypes import *
-from cfgm_common.uve.vnc_api.sandesh_dynamic_uve.ttypes import DynamicElement
 from cfgm_common import ignore_exceptions
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest
