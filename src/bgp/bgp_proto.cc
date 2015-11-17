@@ -1149,6 +1149,29 @@ class BgpPathAttributeMpNlriNextHopLength :
 public:
     static const int kSize = 1;
     typedef int SequenceLength;
+    static bool Verifier(const BgpMpNlri *obj, const uint8_t *data, size_t size,
+                         ParseContext *context) {
+        uint8_t len = data[0];
+        uint16_t afi = obj->afi;
+        uint8_t safi = obj->safi;
+        if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast) {
+            return (len == Address::kMaxV4Bytes);
+        } else if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn) {
+            return (len == RouteDistinguisher::kSize + Address::kMaxV4Bytes);
+        } else if (afi == BgpAf::IPv6 && safi == BgpAf::Unicast) {
+            return (len == Address::kMaxV6Bytes ||
+                len == 2 * Address::kMaxV6Bytes);
+        } else if (afi == BgpAf::IPv6 && safi == BgpAf::Vpn) {
+            return (len == RouteDistinguisher::kSize + Address::kMaxV6Bytes);
+        } else if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn) {
+            return (len == Address::kMaxV4Bytes);
+        } else if (afi == BgpAf::IPv4 && safi == BgpAf::RTarget) {
+            return (len == Address::kMaxV4Bytes);
+        } else if (afi == BgpAf::IPv4 && safi == BgpAf::ErmVpn) {
+            return (len == Address::kMaxV4Bytes);
+        }
+        return false;
+    }
 };
 
 

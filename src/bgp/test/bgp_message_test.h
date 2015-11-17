@@ -6,6 +6,7 @@
 #define BGP_MESSAGE_TEST_H_
 
 using namespace std;
+
 class BgpMessageTest {
 public:
     static void GenerateOpenMessage(BgpProto::OpenMessage *open) {
@@ -80,8 +81,15 @@ public:
         BgpMpNlri *mp_nlri = new BgpMpNlri(BgpAttribute::MPReachNlri);
         mp_nlri->afi = afi;
         mp_nlri->safi = safi;
-        uint8_t nh[3] = {192,168,1};
-        mp_nlri->nexthop.assign(&nh[0], &nh[3]);
+        uint8_t nh[4] = {192,168,1,1};
+        if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn) {
+            mp_nlri->nexthop.resize(12);
+            copy(&nh[0], &nh[4], mp_nlri->nexthop.begin() + 8);
+        } else {
+            mp_nlri->nexthop.resize(4);
+            copy(&nh[0], &nh[4], mp_nlri->nexthop.begin());
+        }
+
         prefix = new BgpProtoPrefix;
         if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn) {
             prefix->type = 2;
