@@ -548,6 +548,12 @@ void AgentParam::ParseNexthopServer() {
     }
 }
 
+void AgentParam::ParseFloodArp() {
+    if (!GetValueFromTree<bool>(flood_arp_, "DEFAULT.flood_arp")) {
+        flood_arp_ = false;
+    }
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -731,7 +737,7 @@ void AgentParam::ParseNexthopServerArguments
 }
 
 void AgentParam::ParsePlatformArguments
-    (const boost::program_options::variables_map &var_map) {
+(const boost::program_options::variables_map &var_map) {
     boost::system::error_code ec;
     if (var_map.count("DEFAULT.platform") &&
         !var_map["DEFAULT.platform"].defaulted()) {
@@ -741,14 +747,19 @@ void AgentParam::ParsePlatformArguments
             platform_ = AgentParam::VROUTER_ON_HOST_DPDK;
             if (var_map.count("DEFAULT.physical_interface_address")) {
                 physical_interface_pci_addr_ =
-                var_map["DEFAULT.physical_interface_address"].as<string>();
+                    var_map["DEFAULT.physical_interface_address"].as<string>();
                 physical_interface_mac_addr_ =
-                var_map["DEFAULT.physical_interface_mac"].as<string>();
+                    var_map["DEFAULT.physical_interface_mac"].as<string>();
             }
         } else {
             platform_ = AgentParam::VROUTER_ON_HOST;
         }
     }
+}
+
+void AgentParam::ParseFloodArpArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, flood_arp_, "DEFAULT.flood_arp");
 }
 
 // Initialize hypervisor mode based on system information
@@ -798,6 +809,7 @@ void AgentParam::InitFromConfig() {
     ParseAgentInfo();
     ParseNexthopServer();
     ParsePlatform();
+    ParseFloodArp();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -820,6 +832,7 @@ void AgentParam::InitFromArguments() {
     ParseAgentInfoArguments(var_map_);
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
+    ParseFloodArpArguments(var_map_);
     return;
 }
 
@@ -1053,6 +1066,7 @@ void AgentParam::LogConfig() const {
     if (simulate_evpn_tor_) {
         LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
     }
+    LOG(DEBUG, "Flood Arp                   : " << flood_arp_);
     LOG(DEBUG, "Service instance netns cmd  : " << si_netns_command_);
     LOG(DEBUG, "Service instance docker cmd  : " << si_docker_command_);
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
@@ -1138,7 +1152,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
-        vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
+        vmware_physical_port_(""), flood_arp_(false),
+        test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), dhcp_relay_mode_(false),
         xmpp_auth_enable_1_(false), xmpp_auth_enable_2_(false),
         xmpp_server_cert_1_(""), xmpp_server_cert_2_(""),
