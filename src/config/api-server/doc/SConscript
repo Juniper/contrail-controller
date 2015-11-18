@@ -16,6 +16,7 @@ generated = ['vnc_cfg_api_server.rst', 'modules.rst']
 if os.path.exists('/usr/bin/sphinx-apidoc'):
     apidoc_rule = env.Command(generated, '', 'SPHINX_APIDOC_OPTIONS="members,show-inheritance" sphinx-apidoc -f -o ' + Dir('.').path + ' ' + Dir('../vnc_cfg_api_server').path + ' ' + Dir('.').path)
     env.Depends(apidoc_rule, File(env['TOP'] + '/config/api-server/vnc_cfg_api_server/gen/__init__.py'))
+    env.Depends(apidoc_rule, File(env['TOP'] + '/config/api-server/vnc_cfg_api_server/__init__.py'))
 
     userdoc_rule = env.Install(Dir('.'), Glob('#controller/src/config/api-server/doc/source/*'))
     schema_rule = env.Install(Dir('.'), Glob('#controller/src/schema/*.xsd'))
