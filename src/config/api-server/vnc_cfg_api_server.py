@@ -239,8 +239,6 @@ class VncApiServer(VncApiServerGen):
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
             logging.basicConfig(level = getattr(logging, self._args.logging_level))
-        else:
-            logging.config.fileConfig(self._args.logging_conf)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -394,7 +392,9 @@ class VncApiServer(VncApiServerGen):
                                      self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common'], self._disc)
+                                     ['cfgm_common'], self._disc,
+                                     logger_class=self._args.logger_class,
+                                     logger_config_file=self._args.logging_conf)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
@@ -409,6 +409,7 @@ class VncApiServer(VncApiServerGen):
             file=self._args.log_file,
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
+
         ConnectionState.init(self._sandesh, hostname, module_name,
                 instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),

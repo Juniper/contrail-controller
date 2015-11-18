@@ -187,7 +187,9 @@ class DiscoveryServer():
         self._sandesh.init_generator(
             module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'discovery_context', 
-            int(self._args.http_server_port), ['sandesh'], disc_client)
+            int(self._args.http_server_port), ['sandesh'], disc_client,
+            logger_class=self._args.logger_class,
+            logger_config_file=self._args.logging_conf)
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
                                          category=self._args.log_category,
                                          level=self._args.log_level,
@@ -1084,6 +1086,8 @@ def parse_args(args_str):
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
         'worker_id': '0',
+        'logging_conf': '',
+        'logger_class': None,
     }
 
     # per service options
@@ -1170,6 +1174,13 @@ def parse_args(args_str):
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
+    parser.add_argument(
+        "--logging_conf",
+        help=("Optional logging configuration file, default: None"))
+    parser.add_argument(
+        "--logger_class",
+        help=("Optional external logger class, default: None"))
+
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config

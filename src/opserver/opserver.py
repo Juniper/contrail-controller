@@ -474,12 +474,13 @@ class OpServer(object):
         self._hostname = socket.gethostname()
         if self._args.dup:
             self._hostname += 'dup'
-        opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
-        sandesh_global.init_generator(self._moduleid, self._hostname,
-                                      self._node_type_name, self._instance_id,
-                                      self._args.collectors, 'opserver_context',
-                                      int(self._args.http_server_port),
-                                      ['opserver.sandesh'])
+        opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
+        sandesh_global.init_generator(
+            self._moduleid, self._hostname, self._node_type_name,
+            self._instance_id, self._args.collectors, 'opserver_context',
+            int(self._args.http_server_port), ['opserver.sandesh'],
+            logger_class=self._args.logger_class,
+            logger_config_file=self._args.logging_conf)
         sandesh_global.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
@@ -759,7 +760,9 @@ class OpServer(object):
             'analytics_data_ttl' : 48,
             'analytics_config_audit_ttl' : -1,
             'analytics_statistics_ttl' : -1,
-            'analytics_flow_ttl' : -1
+            'analytics_flow_ttl' : -1,
+            'logging_conf': '',
+            'logger_class': None,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -851,6 +854,12 @@ class OpServer(object):
             nargs="+")
         parser.add_argument("--auto_db_purge", action="store_true",
             help="Automatically purge database if disk usage cross threshold")
+        parser.add_argument(
+            "--logging_conf",
+            help=("Optional logging configuration file, default: None"))
+        parser.add_argument(
+            "--logger_class",
+            help=("Optional external logger class, default: None"))
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
