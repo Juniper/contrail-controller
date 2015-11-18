@@ -462,11 +462,11 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
     if (valid) {
         if (key_type == AuthenticationData::MD5) {
             LogInstallAuthKeys("add", auth_key, key_type);
-            SetInuseAuthKeyInfo(auth_key, AuthenticationData::MD5);
             if (session) {
                 session->SetMd5SocketOption(PeerAddress(), auth_key.value);
             }
             SetListenSocketAuthKey(auth_key);
+            SetInuseAuthKeyInfo(auth_key, AuthenticationData::MD5);
         }
     } else {
         // If there are no valid available keys but an older one is currently
