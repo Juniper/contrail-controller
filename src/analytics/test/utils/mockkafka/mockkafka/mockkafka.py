@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO,
 
 kafka_version = 'kafka_2.10-0.9.0.0-SNAPSHOT'
 kafka_dl = '/kafka_2.10-0.9.0.0-SNAPSHOT.tgz'
-kafka_bdir  = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
+kafka_bdir  = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
 def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     if not os.path.exists(kafka_bdir):

@@ -281,8 +281,7 @@ class AlarmGen(object):
                 self.analytics_fixture.set_alarmgen_partition(part,0)
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
-                self._instance, self._log_file, is_py=False)
-            #assert(rcode == 0)
+                self._instance, self._log_file, is_py=False, del_log=False)
             self._instance = None
     # end stop
 
@@ -2453,6 +2452,7 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_alarm_data
 
     def cleanUp(self):
+        self.logger.info('cleanUp started')
 
         try:
             self.opserver.stop()
@@ -2473,6 +2473,7 @@ class AnalyticsFixture(fixtures.Fixture):
             self.kafka.stop()
 
         super(AnalyticsFixture, self).cleanUp()
+        self.logger.info('cleanUp complete')
 
     @staticmethod
     def get_free_port():
@@ -2536,14 +2537,13 @@ class AnalyticsFixture(fixtures.Fixture):
                 bad_term = True
             (p_out, p_err) = instance.communicate()
             rcode = instance.returncode
-            if rcode != 0 or bad_term:
+            if rcode != 0 or bad_term or not del_log:
                 self.logger.info('%s returned %d' % (name,rcode))
                 self.logger.info('%s terminated stdout: %s' % (name, p_out))
                 self.logger.info('%s terminated stderr: %s' % (name, p_err))
                 with open(log_file, 'r') as fin:
                     self.logger.info(fin.read())
-        if del_log:
-            subprocess.call(['rm', '-rf', log_file])
+        subprocess.call(['rm', '-rf', log_file])
         return rcode
 
     def start_with_ephemeral_ports(self, modname, pnames, args, preexec,

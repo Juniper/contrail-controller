@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
 cassandra_version = '1.2.11'
-cassandra_bdir = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
+cassandra_bdir = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
 def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_password = None):
