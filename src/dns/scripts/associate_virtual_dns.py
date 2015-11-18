@@ -91,7 +91,7 @@ class AssociateVirtualDns(object):
         parser.add_argument("--api_server_port", help = "Port of api server")
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
         parser.add_argument("--admin_password", help = "Password of keystone admin user")
-        parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
+        parser.add_argument("--admin_tenant_name", help = "Tenant name for keystone admin user")
     
         self._args = parser.parse_args(remaining_argv)
 

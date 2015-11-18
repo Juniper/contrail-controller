@@ -86,7 +86,7 @@ class MxProvisioner(object):
         parser.add_argument(
             "--admin_password", help="Password of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user", required=True)
+            "--admin_tenant_name", help="Tenant name for keystone admin user", required=True)
 
         self._args = parser.parse_args(remaining_argv)
 

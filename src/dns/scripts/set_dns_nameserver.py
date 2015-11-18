@@ -82,7 +82,7 @@ class AddDnsNameServer(object):
 
         parser.add_argument("--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", type=int, help="Port of api server")
-        parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
+        parser.add_argument("--admin_tenant_name", help = "Tenant name for keystone admin user")
         parser.add_argument("--admin_user", help="Name of keystone admin user")
         parser.add_argument("--admin_password", help="Password of keystone admin user")
         parser.add_argument("--ipam_network_fq_name", help="IPAM network name", default='default-domain:default-project:default-network-ipam')
