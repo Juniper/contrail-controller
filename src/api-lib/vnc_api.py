@@ -127,8 +127,12 @@ class VncApi(object):
                 method = getattr(self, '_object%s' %(oper_str))
                 bound_method = functools.partial(method, resource_type)
                 functools.update_wrapper(bound_method, method)
-                setattr(self, '%s%s' %(obj_type, oper_str),
-                    bound_method)
+                if oper_str == '_get_default_id':
+                    setattr(self, 'get_default_%s_id' %(obj_type),
+                        bound_method)
+                else:
+                    setattr(self, '%s%s' %(obj_type, oper_str),
+                        bound_method)
 
         cfg_parser = ConfigParser.ConfigParser()
         try:
