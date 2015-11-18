@@ -274,7 +274,8 @@ public:
     bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
     void InstallAuthKeys(TcpSession *session);
     std::string GetInuseAuthKeyValue() const;
-    void SetListenSocketAuthKey(const AuthenticationKey &auth_key);
+    void SetListenSocketAuthKey(const AuthenticationKey &auth_key,
+                                KeyType key_type);
     void ClearListenSocketAuthKey();
 
 private:
