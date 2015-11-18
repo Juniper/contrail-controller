@@ -1172,33 +1172,14 @@ public:
             return ((obj->afi == BgpAf::IPv4 && obj->safi == BgpAf::Unicast) ||
                 (obj->afi == BgpAf::IPv4 && obj->safi == BgpAf::Vpn) ||
                 (obj->afi == BgpAf::IPv6 && obj->safi == BgpAf::Unicast) ||
-                (obj->afi == BgpAf::IPv6 && obj->safi == BgpAf::Vpn));
+                (obj->afi == BgpAf::IPv6 && obj->safi == BgpAf::Vpn) ||
+                (obj->afi == BgpAf::IPv4 && obj->safi == BgpAf::RTarget));
         }
     };
 
     typedef OptMatch ContextMatch;
     typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
             &BgpMpNlri::nlri> ContextStorer;
-    typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
-};
-
-class BgpPathAttributeMpRTargetNlri :
-    public ProtoSequence<BgpPathAttributeMpRTargetNlri> {
-public:
-    static const int kMinOccurs = 0;
-    static const int kMaxOccurs = -1;
-
-    struct OptMatch {
-        bool match(const BgpMpNlri *obj) {
-            return ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget));
-        }
-    };
-
-    typedef OptMatch ContextMatch;
-
-    typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
-            &BgpMpNlri::nlri> ContextStorer;
-
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
 };
 
@@ -1314,14 +1295,14 @@ public:
             if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
             }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
+                value = 0;
+            }
             if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
                 value = 1;
             }
-            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
-                value = 2;
-            }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::ErmVpn)) {
-                value = 3;
+                value = 2;
             }
         }
 
@@ -1338,14 +1319,14 @@ public:
             if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
                 return 0;
             }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
+                return 0;
+            }
             if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
                 return 1;
             }
-            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
-                return 2;
-            }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::ErmVpn)) {
-                return 3;
+                return 2;
             }
             return -1;
         }
@@ -1355,8 +1336,7 @@ public:
     typedef mpl::map<
           mpl::pair<mpl::int_<0>, BgpPathAttributeMpNlri>,
           mpl::pair<mpl::int_<1>, BgpPathAttributeMpEvpnNlri>,
-          mpl::pair<mpl::int_<2>, BgpPathAttributeMpRTargetNlri>,
-          mpl::pair<mpl::int_<3>, BgpPathAttributeMpErmVpnNlri>
+          mpl::pair<mpl::int_<2>, BgpPathAttributeMpErmVpnNlri>
     > Choice;
 };
 
@@ -1560,8 +1540,6 @@ int BgpProto::Encode(const BgpMpNlri *msg, uint8_t *data, size_t size,
     int result = 0;
     if ((msg->afi == BgpAf::L2Vpn) && (msg->safi == BgpAf::EVpn)) {
         result = BgpPathAttributeMpEvpnNlri::Encode(&ctx, msg, data, size);
-    } else if ((msg->afi == BgpAf::IPv4) && (msg->safi == BgpAf::RTarget)) {
-        result = BgpPathAttributeMpRTargetNlri::Encode(&ctx, msg, data, size);
     } else if ((msg->afi == BgpAf::IPv4) && (msg->safi == BgpAf::ErmVpn)) {
         result = BgpPathAttributeMpErmVpnNlri::Encode(&ctx, msg, data, size);
     } else {
