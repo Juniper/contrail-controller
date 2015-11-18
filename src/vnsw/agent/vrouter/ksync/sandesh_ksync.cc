@@ -127,7 +127,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             //Tie forward flow and reverse flow
             if (rev_flow && update_rev_flow) {
                 rev_flow->UpdateKSync(
-                        flow_ksync_->ksync()->agent()->pkt()->flow_table());
+                        flow_ksync_->ksync()->agent()->pkt()->flow_table(),
+                        true);
             }
         }
     } else {

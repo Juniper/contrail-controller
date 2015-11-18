@@ -118,7 +118,6 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
                                       const vr_flow_entry *k_flow,
                                       uint64_t curr_time,
                                       const FlowEntry *flow) {
-
     if (k_flow != NULL) {
         uint64_t k_flow_bytes, bytes;
 

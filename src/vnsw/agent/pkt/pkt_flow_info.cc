@@ -1447,14 +1447,20 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, pkt, out, in);
 
+    bool update = true;
+    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
+        update = false;
+    }
     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
      * both forward and reverse flows are not not linked to each other yet.
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     if (swap_flows) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(rflow.get(), flow.get());
+        Agent::GetInstance()->pkt()->flow_table()->Add(rflow.get(), flow.get(),
+                                                       update);
     } else {
-        Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
+        Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get(),
+                                                       update);
     }
 }
 
