@@ -1526,8 +1526,8 @@ TEST_F(RouteTest, SubnetGwForRoute_1) {
     //Check if the subnet gateway is set to 1.1.1.200 for a route
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     InetUnicastRouteEntry *rt = RouteGet("vrf1", vm_ip, 32);
-    Ip4Address subnet_gw_ip = Ip4Address::from_string("1.1.1.200");
-    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+    Ip4Address subnet_service_ip = Ip4Address::from_string("1.1.1.200");
+    EXPECT_TRUE(rt->GetActivePath()->subnet_service_ip() == subnet_service_ip);
 
     //Update ipam to have different gw address
     IpamInfo ipam_info2[] = {
@@ -1536,8 +1536,8 @@ TEST_F(RouteTest, SubnetGwForRoute_1) {
     AddIPAM("vn1", ipam_info2, 1, NULL, "vdns1");
     client->WaitForIdle();
 
-    subnet_gw_ip = Ip4Address::from_string("1.1.1.201");
-    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+    subnet_service_ip = Ip4Address::from_string("1.1.1.201");
+    EXPECT_TRUE(rt->GetActivePath()->subnet_service_ip() == subnet_service_ip);
 
     DelIPAM("vn1", "vdns1");
     DeleteVmportEnv(input, 1, true);
