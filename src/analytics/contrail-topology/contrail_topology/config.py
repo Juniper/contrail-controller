@@ -4,6 +4,7 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh_common.vns.constants import HttpPortTopology
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-topology.conf'
@@ -69,7 +70,7 @@ optional arguments:
             'use_syslog'      : False,
             'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'scan_frequency'  : 60,
-            'http_server_port': 5921,
+            'http_server_port': HttpPortTopology,
             'zookeeper'       : '127.0.0.1:2181',
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         }
