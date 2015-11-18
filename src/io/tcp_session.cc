@@ -428,9 +428,12 @@ void TcpSession::AsyncReadHandler(
 
     if (IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
-        TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+	// eof is returned when the peer closed the socket, no need to log err
+	if (error != error::eof) {
+	    TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                               "Read failed due to error " << error.value()
                               << " : " << error.message());
+	}
         lock.release();
         session->CloseInternal(error, true);
         return;
@@ -441,9 +444,12 @@ void TcpSession::AsyncReadHandler(
         // check error code if session needs to be closed
         if (IsSocketErrorHard(err)) {
             session->ReleaseBufferLocked(buffer);
-            TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+	    // eof is returned when the peer has closed the socket
+	    if (error != error::eof) {
+		TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                                   "Read failed due to error " << err.value()
                                   << " : " << err.message());
+	    }
             lock.release();
             session->CloseInternal(err, true);
             return;
