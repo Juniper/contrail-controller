@@ -41,6 +41,7 @@ class PmsiTunnelDB;
 class PeerRibMembershipManager;
 class RoutePathReplicator;
 class RoutingInstanceMgr;
+class RoutingPolicyMgr;
 class RTargetGroupMgr;
 class SchedulingGroupManager;
 
@@ -77,6 +78,10 @@ public:
     RoutingInstanceMgr *routing_instance_mgr() { return inst_mgr_.get(); }
     const RoutingInstanceMgr *routing_instance_mgr() const {
         return inst_mgr_.get();
+    }
+    RoutingPolicyMgr *route_policy_mgr() { return policy_mgr_.get(); }
+    const RoutingPolicyMgr *route_policy_mgr() const {
+        return policy_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
     const RTargetGroupMgr *rtarget_group_mgr() const {
@@ -247,6 +252,7 @@ private:
     BgpSessionManager *session_mgr_;
     boost::scoped_ptr<SchedulingGroupManager> sched_mgr_;
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
+    boost::scoped_ptr<RoutingPolicyMgr> policy_mgr_;
     boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;
     boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;

@@ -285,6 +285,19 @@ const ServiceChainConfig *BgpInstanceConfig::service_chain_info(
     return NULL;
 }
 
+
+BgpRoutingPolicyConfig::BgpRoutingPolicyConfig(const std::string &name)
+        : name_(name),
+          last_change_at_(UTCTimestampUsec()) {
+}
+
+BgpRoutingPolicyConfig::~BgpRoutingPolicyConfig() {
+}
+
+void BgpRoutingPolicyConfig::Clear() {
+    terms_.clear();
+}
+
 BgpConfigManager::BgpConfigManager(BgpServer *server)
         : server_(server) {
 }
@@ -298,6 +311,15 @@ void BgpConfigManager::Notify<BgpInstanceConfig>(
     config->set_last_change_at(UTCTimestampUsec());
     if (obs_.instance) {
         (obs_.instance)(config, event);
+    }
+}
+
+template<>
+void BgpConfigManager::Notify<BgpRoutingPolicyConfig>(
+        const BgpRoutingPolicyConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
+    if (obs_.policy) {
+        (obs_.policy)(config, event);
     }
 }
 

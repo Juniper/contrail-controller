@@ -26,6 +26,7 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/routing-instance')
+env.Append(LIBPATH = env['TOP'] + '/bgp/routing-policy')
 env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
 env.Append(LIBPATH = env['TOP'] + '/bgp/security_group')
 env.Append(LIBPATH = env['TOP'] + '/bgp/tunnel_encap')
@@ -49,6 +50,7 @@ env.Prepend(LIBS = [
                     'control_node',
                     'origin_vn',
                     'routing_instance',
+                    'routing_policy',
                     'rtarget',
                     'security_group',
                     'tunnel_encap',

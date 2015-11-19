@@ -110,6 +110,8 @@ test_suite += env.SConscript('l3vpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('origin-vn/SConscript', exports='BuildEnv',
                              duplicate = 0)
+env.SConscript('routing-policy/SConscript', exports='BuildEnv', duplicate = 0)
+
 env.SConscript('routing-instance/SConscript', exports='BuildEnv', duplicate = 0)
 test_suite += env.SConscript('rtarget/SConscript', exports='BuildEnv',
                              duplicate = 0)
