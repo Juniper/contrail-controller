@@ -354,6 +354,7 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
      * both these information to be seen in same UVE */
     uve->set_name(entry->name_);
     uve->set_uuid(to_string(entry->uuid_));
+    uve->set_agent_name(agent_->agent_name());
     InterfaceSet::iterator pit = entry->physical_interface_set_.begin();
     while (pit != entry->physical_interface_set_.end()) {
         phy_if_list.push_back(*pit);
