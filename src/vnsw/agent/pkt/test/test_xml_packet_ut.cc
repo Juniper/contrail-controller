@@ -32,17 +32,19 @@ class TestPkt : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        proto_ = agent_->pkt()->get_flow_proto();
         interface_count_ = agent_->interface_table()->Size();
     }
 
     virtual void TearDown() {
-        EXPECT_EQ(agent_->pkt()->flow_table()->Size(), 0);
+        EXPECT_EQ(agent_->pkt()->get_flow_proto()->FlowCount(), 0);
         EXPECT_EQ(agent_->vn_table()->Size(), 0);
         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
         agent_->flow_stats_collector()->set_flow_export_count(0);
     }
 
     Agent *agent_;
+    FlowProto *proto_;
     uint32_t interface_count_;
 };
 
@@ -127,7 +129,7 @@ TEST_F(TestPkt, DISABLED_unknown_unicast_flood) {
     client->agent()->flow_stats_collector()->set_delete_short_flow(true);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(000, 1000, (0U == client->agent()->pkt()->flow_table()->Size()));
+    WAIT_FOR(000, 1000, (0U == proto_->FlowCount()));
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
 }
 
@@ -146,7 +148,7 @@ TEST_F(TestPkt, tcp) {
     client->agent()->flow_stats_collector()->set_delete_short_flow(true);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(000, 1000, (0U == client->agent()->pkt()->flow_table()->Size()));
+    WAIT_FOR(000, 1000, (0U == proto_->FlowCount()));
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
 }
 

@@ -22,6 +22,7 @@ class VgwTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
 
     virtual void TearDown() {
@@ -30,6 +31,7 @@ public:
     opt::options_description desc;
     opt::variables_map var_map;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(VgwTest, conf_file_1) {
@@ -278,7 +280,7 @@ TEST_F(VgwTest, IngressFlow_1) {
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
+    WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
     DelVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
               "default-domain:admin:public:public",
@@ -318,7 +320,7 @@ TEST_F(VgwTest, EgressFlow_1) {
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
+    WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
     DelVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
               "default-domain:admin:public:public",

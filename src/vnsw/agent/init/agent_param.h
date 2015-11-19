@@ -223,6 +223,8 @@ public:
     std::string agent_base_dir() const { return agent_base_dir_; }
     uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
 
+    uint16_t flow_thread_count() const { return flow_thread_count_; }
+    void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -416,6 +418,7 @@ private:
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
     uint32_t send_ratelimit_;
+    uint16_t flow_thread_count_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

@@ -9,9 +9,8 @@ const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
 /////////////////////////////////////////////////////////////////////////////
 // FlowMgmtManager methods
 /////////////////////////////////////////////////////////////////////////////
-FlowMgmtManager::FlowMgmtManager(Agent *agent, FlowTable *flow_table) :
+FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     agent_(agent),
-    flow_table_(flow_table),
     acl_flow_mgmt_tree_(this),
     interface_flow_mgmt_tree_(this),
     vn_flow_mgmt_tree_(this),
@@ -1338,7 +1337,7 @@ bool FlowMgmtManager::ResponseHandler(const FlowMgmtResponse &resp){
     case FlowMgmtResponse::REVALUATE_FLOW:
     case FlowMgmtResponse::REVALUATE_DBENTRY:
     case FlowMgmtResponse::DELETE_DBENTRY: {
-        flow_table_->FlowResponseHandler(&resp);
+        resp.flow()->flow_table()->FlowResponseHandler(&resp);
         break;
     }
 

@@ -410,7 +410,7 @@ TEST_F(KStateTest, FlowDumpTest_invalid_index) {
 }
 
 TEST_F(KStateTest, DISABLED_FlowDumpTest) {
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
     TestFlowKState::Init(true, -1, 0);
     client->WaitForIdle();
     client->KStateResponseWait(0);
@@ -455,7 +455,7 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
                         "vn3", "vn3", hash_id++,
                         test1->flow_key_nh()->id(),
                         test0->flow_key_nh()->id()));
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount());
 
     TestFlowKState::Init(true, -1, 6);
     client->WaitForIdle();
@@ -464,7 +464,8 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    WAIT_FOR(1000, 1000, 
+             (0 == Agent::GetInstance()->pkt()->get_flow_proto()->FlowCount()));
     DeletePortsWithPolicy();
 }
 

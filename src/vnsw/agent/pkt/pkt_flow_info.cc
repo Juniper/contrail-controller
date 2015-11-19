@@ -1390,7 +1390,7 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
         return;
     }
 
-    uint32_t limit = flow_table->max_vm_flows();
+    uint32_t limit = flow_table->agent()->max_vm_flows();
     bool limit_exceeded = false;
     if (in->vm_ && ((flow_table->VmFlowCount(in->vm_) + 2) > limit)) {
         limit_exceeded = true;
@@ -1445,7 +1445,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
                 pkt->sport, pkt->dport);
-    FlowEntryPtr flow = FlowEntry::Allocate(key);
+    FlowEntryPtr flow = FlowEntry::Allocate(key, flow_table);
 
     ApplyFlowLimits(in, out);
     LinkLocalPortBind(pkt, in, flow.get());
@@ -1475,11 +1475,11 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = FlowEntry::Allocate(rkey);
+        rflow = FlowEntry::Allocate(rkey, flow_table);
     } else {
         FlowKey rkey(out->nh_, pkt->ip_daddr, pkt->ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
-        rflow = FlowEntry::Allocate(rkey);
+        rflow = FlowEntry::Allocate(rkey, flow_table);
     }
 
     bool swap_flows = false;
@@ -1574,8 +1574,8 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     std::ostringstream ostr;
     ostr << "ECMP Resolve for flow index " << flow_index;
     PKTFLOW_TRACE(Err,ostr.str());
-    FlowTableKSyncObject *obj = 
-        flow_table->agent()->ksync()->flowtable_ksync_obj();
+    KSyncFlowMemory *obj = 
+        flow_table->agent()->ksync()->ksync_flow_memory();
 
     FlowKey key;
     if (!obj->GetFlowKey(flow_index, &key)) {

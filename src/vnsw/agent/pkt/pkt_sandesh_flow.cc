@@ -296,13 +296,14 @@ bool PktSandeshFlow::SetFlowKey(string key) {
     return true;
 }
 
+// FIXME : Should handle multiple flow tables
 bool PktSandeshFlow::Run() {
     FlowTable::FlowEntryMap::iterator it;
     std::vector<SandeshFlowData>& list =
         const_cast<std::vector<SandeshFlowData>&>(resp_obj_->get_flow_list());
     int count = 0;
     bool flow_key_set = false;
-    FlowTable *flow_obj = agent_->pkt()->flow_table();
+    FlowTable *flow_obj = agent_->pkt()->flow_table(0);
 
     if (delete_op_) {
         flow_obj->DeleteAll();
@@ -389,7 +390,7 @@ void FetchFlowRecord::HandleRequest() const {
     key.protocol = get_protocol();
 
     FlowTable::FlowEntryMap::iterator it;
-    FlowTable *flow_obj = agent->pkt()->flow_table();
+    FlowTable *flow_obj = agent->pkt()->flow_table(0);
     FlowStatsCollector *fec = agent->flow_stats_collector();
     it = flow_obj->flow_entry_map_.find(key);
     SandeshResponse *resp;
@@ -442,7 +443,7 @@ void FetchLinkLocalFlowInfo::HandleRequest() const {
         (resp->get_linklocal_flow_list());
 
     const FlowTable::LinkLocalFlowInfoMap &flow_map =
-        Agent::GetInstance()->pkt()->flow_table()->linklocal_flow_info_map();
+        Agent::GetInstance()->pkt()->flow_table(0)->linklocal_flow_info_map();
     FlowTable::LinkLocalFlowInfoMap::const_iterator it = flow_map.begin();
     while (it != flow_map.end()) {
         LinkLocalFlowInfo info;

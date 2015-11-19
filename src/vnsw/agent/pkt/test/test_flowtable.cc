@@ -46,6 +46,11 @@ struct TestFlowKey {
         key->dst_port = dport_;
         key->family = key->src_addr.is_v4() ? Address::INET : Address::INET6;
     }
+    FlowTable *GetFlowTable(FlowProto *proto) {
+        FlowKey key;
+        InitFlowKey(&key);
+        return proto->GetFlowTable(key);
+    }
 };
 
 #define vm_1_1_ip  "1.1.1.1"
@@ -68,14 +73,14 @@ int hash_id;
 
 class SetupTask;
 
-FlowEntry *FlowInit(TestFlowKey *t) {
+FlowEntry *FlowInit(TestFlowKey *t, FlowTable *flow_table) {
     FlowKey key;
     t->InitFlowKey(&key);
-    FlowEntry *flow = FlowEntry::Allocate(key);
+    FlowEntry *flow = FlowEntry::Allocate(key, flow_table);
 
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
                                                     100, PktHandler::FLOW, 0));
-    PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
+    PktFlowInfo info(flow_table->agent(), pkt_info, flow_table);
     PktInfo *pkt = pkt_info.get();
 
     PktControlInfo ctrl;
@@ -90,7 +95,9 @@ FlowEntry *FlowInit(TestFlowKey *t) {
 static void FlowAdd(FlowEntryPtr fwd, FlowEntryPtr rev) {
     fwd->set_reverse_flow_entry(rev.get());
     rev->set_reverse_flow_entry(fwd.get());
-    Agent::GetInstance()->pkt()->flow_table()->Add(fwd.get(), rev.get());
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(fwd->key());
+    table->Add(fwd.get(), rev.get());
 }
 
 class FlowTableTest : public ::testing::Test {
@@ -99,13 +106,13 @@ public:
         int i = 100000;
         while (i > 0) {
             i--;
-            if (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count) {
+            if (proto->FlowCount() == (size_t) count) {
                 return true;
             }
             client->WaitForIdle();
             usleep(100);
         }
-        return (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count);
+        return (proto->FlowCount() == (size_t) count);
     }
 
     void FlushFlowTable() {
@@ -159,7 +166,7 @@ public:
         bool ret = true;
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
+        FlowEntry *flow = proto->Find(key);
         EXPECT_TRUE(flow != NULL);
         if (flow == NULL) {
             return false;
@@ -168,7 +175,7 @@ public:
         FlowEntry *rflow = NULL;
         if (rev) {
             rev->InitFlowKey(&key);
-            rflow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
+            rflow = proto->Find(key);
             WAIT_FOR(1000, 100, (flow->reverse_flow_entry() == rflow));
             if (flow->reverse_flow_entry() != rflow) {
                 ret = false;
@@ -257,19 +264,22 @@ public:
     static void FlowDel(const TestFlowKey *flow) {
         FlowKey key;
         flow->InitFlowKey(&key);
-        Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
+        FlowTable *table =
+            Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
+        table->Delete(key, true);
         client->WaitForIdle();
     }
 
     FlowEntry *FlowInit(TestFlowKey *t) {
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = FlowEntry::Allocate(key);
+        FlowEntry *flow = FlowEntry::Allocate
+            (key,proto->GetFlowTable(key));
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0,
                                                         PktHandler::FLOW, 0));
         pkt_info->family = Address::INET;
-        PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
+        PktFlowInfo info(agent, pkt_info, proto->GetFlowTable(key));
         PktInfo *pkt = pkt_info.get();
 
         PktControlInfo ctrl;
@@ -352,6 +362,7 @@ public:
         client->WaitForIdle();
     }
 
+    FlowProto *get_flow_proto() const { return proto; }
     static bool ksync_init_;
     static int fd_table[MAX_VNET];
     static VmInterface *vif1;
@@ -381,6 +392,8 @@ protected:
 
     TestFlowKey *key2_r;
     FlowEntry *flow2_r;
+    Agent *agent;
+    FlowProto *proto;
     friend class SetupTask;
 };
 
@@ -389,10 +402,13 @@ class SetupTask : public Task {
         SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler")), -1), test_(test) {
         }
         virtual bool Run() {
-            test_->flow1 = FlowInit(test_->key1);
+            FlowProto *proto = test_->get_flow_proto();
+            test_->flow1 = FlowInit(test_->key1,
+                                    test_->key1->GetFlowTable(proto));
             test_->flow1->set_flags(FlowEntry::LocalFlow);
 
-            test_->flow1_r = FlowInit(test_->key1_r);
+            test_->flow1_r = FlowInit(test_->key1_r,
+                                      test_->key1_r->GetFlowTable(proto));
             test_->flow1_r->set_flags(FlowEntry::LocalFlow);
 
             test_->flow1->GetPolicyInfo(test_->flow1_r);
@@ -401,10 +417,12 @@ class SetupTask : public Task {
             test_->flow1_r->ResyncFlow();
             FlowAdd(test_->flow1, test_->flow1_r);
 
-            test_->flow2 = FlowInit(test_->key2);
+            test_->flow2 = FlowInit(test_->key2,
+                                    test_->key2->GetFlowTable(proto));
             test_->flow2->reset_flags(FlowEntry::LocalFlow);
 
-            test_->flow2_r = FlowInit(test_->key2_r);
+            test_->flow2_r = FlowInit(test_->key2_r,
+                                      test_->key2_r->GetFlowTable(proto));
             test_->flow2_r->reset_flags(FlowEntry::LocalFlow);
             test_->flow2->GetPolicyInfo(test_->flow2_r);
             test_->flow2_r->GetPolicyInfo(test_->flow2);
@@ -420,8 +438,9 @@ class SetupTask : public Task {
 
 void
 FlowTableTest::SetUp() {
-    WAIT_FOR(1000, 100,
-            (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    agent = Agent::GetInstance();
+    proto = agent->pkt()->get_flow_proto();
+    WAIT_FOR(1000, 100, (0U == proto->FlowCount()));
     //Reset flow age
     client->EnqueueFlowAge();
     client->WaitForIdle();

@@ -129,7 +129,7 @@ public:
     FlowFlush() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowFlush")), 0) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
+        Agent::GetInstance()->pkt()->get_flow_proto()->FlushFlows();
         return true;
     }
 };

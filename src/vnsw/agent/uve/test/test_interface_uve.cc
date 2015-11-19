@@ -87,6 +87,7 @@ void RouterIdDepInit(Agent *agent) {
 class InterfaceUveTest : public ::testing::Test {
 public:
     InterfaceUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     void InterfaceSetup() {
         client->Reset();
@@ -108,7 +109,7 @@ public:
     }
 
     void FlowSetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -174,7 +175,7 @@ public:
     }
 
     void FlowSetUp2() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(fip_input1, 2, 1);
         client->WaitForIdle(5);
@@ -246,6 +247,7 @@ public:
     TestUveUtil util_;
     BgpPeer *peer_;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(InterfaceUveTest, VmIntfAddDel_1) {
@@ -578,7 +580,7 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Verify Floating IP flows are created.
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -640,7 +642,7 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Verify Floating IP flows are created.
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -699,7 +701,7 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
     EXPECT_EQ(3U, vmut->InterfaceUveCount());
 
     //Send the required UVEs which clears changed flag set on UVE objects.
@@ -788,7 +790,7 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Verify Floating IP flows are created.
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -874,7 +876,7 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
 
     //Verify Floating IP flows are created.
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();

@@ -13,36 +13,36 @@
 #include "pkt/flow_table.h"
 #include "pkt/flow_handler.h"
 
+typedef WorkQueue<boost::shared_ptr<PktInfo> > FlowWorkQueue;
 class FlowProto : public Proto {
 public:
     static const std::string kFlowTaskName;
-    static const int kIterations = 128;
-    FlowProto(Agent *agent, boost::asio::io_service &io) :
-        Proto(agent, kFlowHandlerTask.c_str(), PktHandler::FLOW, io,
-              kIterations) {
-        agent->SetFlowProto(this);
-        set_trace(false);
-    }
-    virtual ~FlowProto() {}
-    void Init() {}
-    void Shutdown() {}
+    static const int kMinTableCount = 1;
+    static const int kMaxTableCount = 16;
 
-    bool Validate(PktInfo *msg) {
-        if (msg->l3_forwarding && msg->ip == NULL && msg->ip6 == NULL &&
-            msg->type != PktType::MESSAGE) {
-            FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
-                       msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
-                       msg->ether_type, 0, "Flow : Non-IP packet. Dropping",
-                       msg->l3_forwarding, 0, 0, 0, 0);
-            return false;
-        }
-        return true;
-    }
+    FlowProto(Agent *agent, boost::asio::io_service &io);
+    virtual ~FlowProto();
 
+    void Init();
+    void InitDone();
+    void Shutdown();
+    void FlushFlows();
+
+    bool Validate(PktInfo *msg);
     FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
-                                   boost::asio::io_service &io) {
-        return new FlowHandler(agent(), info, io);
-    }
+                                   boost::asio::io_service &io);
+    bool Enqueue(boost::shared_ptr<PktInfo> msg);
+
+    FlowEntry *Find(const FlowKey &key) const;
+    uint16_t FlowTableIndex(uint16_t sport, uint16_t dport) const;
+    FlowTable *GetTable(uint16_t index) const;
+    FlowTable *GetFlowTable(const FlowKey &key) const;
+    uint32_t FlowCount() const;
+    void VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
+                        uint32_t *out_count);
+private:
+    std::vector<FlowWorkQueue *> flow_work_queue_list_;
+    std::vector<FlowTable *> flow_table_list_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;

@@ -314,7 +314,7 @@ class FlowEntry {
         UnknownUnicastFlood = 1 << 11
     };
 
-    FlowEntry(const FlowKey &k);
+    FlowEntry(const FlowKey &k, FlowTable *flow_table);
     virtual ~FlowEntry();
 
     // Copy data fields from rhs
@@ -336,16 +336,17 @@ class FlowEntry {
     static const SecurityGroupList &default_sg_list() {
         return default_sg_list_;
     }
-    static FlowEntry *Allocate(const FlowKey &key);
+    static FlowEntry *Allocate(const FlowKey &key, FlowTable *flow_table);
 
     // Flow accessor routines
     int GetRefCount() { return refcount_; }
     const FlowKey &key() const { return key_;}
     FlowData &data() { return data_;}
     const FlowData &data() const { return data_;}
+    FlowTable *flow_table() const { return flow_table_; }
     bool l3_flow() const { return l3_flow_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle, FlowTable* table);
+    void set_flow_handle(uint32_t flow_handle);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
     uint32_t flags() const { return flags_; }
     const FlowEntry *reverse_flow_entry() const {
@@ -455,6 +456,7 @@ private:
     const std::string InterfaceIdToVmCfgName(Agent *agent, uint32_t id);
 
     FlowKey key_;
+    FlowTable *flow_table_;
     FlowData data_;
     bool l3_flow_;
     uint32_t flow_handle_;

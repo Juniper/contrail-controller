@@ -177,7 +177,7 @@ bool VnUveEntry::UpdateVnFlowCount(const VnEntry *vn,
                                    UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
     uint32_t in_count, out_count;
-    agent_->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent_->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
     if (UveVnInFlowCountChanged(in_count)) {
         s_vn.set_ingress_flow_count(in_count);
         uve_info_.set_ingress_flow_count(in_count);

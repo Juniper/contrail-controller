@@ -50,11 +50,12 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
 
     void SetUp() {
         agent_ = client->agent();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         pkt_info_.reset(new PktInfo(agent_, 1024, PktHandler::ARP, 0));
         handler_.reset(new ArpHandler(agent_, pkt_info_,
                                      *(agent_->event_manager()->io_service())));
@@ -76,6 +77,7 @@ public:
     }
 
     Agent *agent_;
+    FlowProto *flow_proto_;
     boost::shared_ptr<ArpHandler> handler_;
     boost::shared_ptr<PktInfo> pkt_info_;
 };

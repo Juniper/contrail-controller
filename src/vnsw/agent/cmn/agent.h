@@ -207,6 +207,8 @@ public:
     static const uint32_t kMaxOtherOpenFds = 64;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
+    // default number of threads for flow setup
+    static const uint32_t kDefaultFlowThreadCount = 1;
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -624,6 +626,9 @@ public:
         fabric_vrf_name_ = name;
     }
 
+    VrfEntry *fabric_vrf() const { return fabric_vrf_; }
+    void set_fabric_vrf(VrfEntry *vrf) { fabric_vrf_ = vrf; }
+
     const std::string &linklocal_vn_name() {return link_local_vn_name_;}
     const std::string &linklocal_vrf_name() {return link_local_vrf_name_;}
 
@@ -823,7 +828,11 @@ public:
     void set_test_mode(bool test_mode) { test_mode_ = test_mode; }
 
     uint32_t flow_table_size() const { return flow_table_size_; }
-    void set_flow_table_size(uint32_t count) { flow_table_size_ = count; }
+    void set_flow_table_size(uint32_t count);
+
+    uint16_t flow_thread_count() const { return flow_thread_count_; }
+    uint32_t max_vm_flows() const { return max_vm_flows_; }
+    void set_max_vm_flows(uint32_t count) { max_vm_flows_ = count; }
 
     bool init_done() const { return init_done_; }
     void set_init_done(bool done) { init_done_ = done; }
@@ -962,6 +971,7 @@ private:
     DB *db_;
     TaskScheduler *task_scheduler_;
     AgentInit *agent_init_;
+    VrfEntry *fabric_vrf_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
@@ -1067,6 +1077,8 @@ private:
 
     // Flow information
     uint32_t flow_table_size_;
+    uint16_t flow_thread_count_;
+    uint32_t max_vm_flows_;
 
     // OVSDB client ptr
     OVSDB::OvsdbClient *ovsdb_client_;

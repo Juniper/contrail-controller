@@ -18,6 +18,8 @@ void RouterIdDepInit(Agent *agent) {
 class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
         WAIT_FOR(10000, 1000, VmPortActive(input, 0));
@@ -32,14 +34,14 @@ public:
                             TunnelType::AllType(), 16, "TestVn",
                             SecurityGroupList(), PathPreference());
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
     }
 
     virtual void TearDown() {
-        int count = Agent::GetInstance()->pkt()->flow_table()->Size();
+        int count = flow_proto_->FlowCount();
         
         client->EnqueueFlowFlush();
-        WAIT_FOR(count, 10000, (0 == Agent::GetInstance()->pkt()->flow_table()->Size()));
+        WAIT_FOR(count, 10000, (0 == flow_proto_->FlowCount()));
         int a = count / 500;
         if (a == 0)
             a = 1;
@@ -53,6 +55,8 @@ public:
 
     VmInterface *vnet;
     char vnet_addr[32];
+    Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(FlowTest, FlowScaling_1) {
@@ -62,7 +66,7 @@ TEST_F(FlowTest, FlowScaling_1) {
         strcpy(env, getenv("AGENT_FLOW_SCALE_COUNT"));
         count = strtoul(env, NULL, 0);
     }
-    int flow_count = Agent::GetInstance()->pkt()->flow_table()->Size();
+    int flow_count = flow_proto_->FlowCount();
 
     for (int i = 0; i < count; i++) {
         Ip4Address addr(0x05000000 + i);
@@ -72,7 +76,7 @@ TEST_F(FlowTest, FlowScaling_1) {
 
     count = count * 2;
     WAIT_FOR(count * 10, 10000,
-             (count == flow_count + (int) Agent::GetInstance()->pkt()->flow_table()->Size()));
+             (count == flow_count + (int) flow_proto_->FlowCount()));
 }
 
 int main(int argc, char *argv[]) {

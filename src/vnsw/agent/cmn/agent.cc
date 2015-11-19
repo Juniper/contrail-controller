@@ -298,6 +298,7 @@ void Agent::CopyConfig(AgentParam *params) {
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
+    flow_thread_count_ = params_->flow_thread_count();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -428,7 +429,8 @@ Agent::Agent() :
     host_name_(""), agent_name_(""), prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
     module_type_(Module::VROUTER_AGENT), db_(NULL),
-    task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
+    task_scheduler_(NULL), agent_init_(NULL), fabric_vrf_(NULL),
+    intf_table_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL), vrf_table_(NULL),
     vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), mpls_table_(NULL),
     acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
@@ -453,7 +455,8 @@ Agent::Agent() :
     connection_state_(NULL), debug_(false), test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
     tor_agent_enabled_(false),
-    flow_table_size_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
+    flow_table_size_(0), flow_thread_count_(0),
+    ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0) {
 
     assert(singleton_ == NULL);
@@ -684,4 +687,9 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
         return Agent::L2_L3;
 
     return Agent::NONE;
+}
+
+void Agent::set_flow_table_size(uint32_t count) {
+    flow_table_size_ = count;
+    max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
 }

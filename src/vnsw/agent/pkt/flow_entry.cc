@@ -99,8 +99,9 @@ SecurityGroupList FlowEntry::default_sg_list_;
 /////////////////////////////////////////////////////////////////////////////
 // FlowEntry constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
-FlowEntry::FlowEntry(const FlowKey &k) :
+FlowEntry::FlowEntry(const FlowKey &k, FlowTable *flow_table) :
     key_(k),
+    flow_table_(flow_table),
     data_(),
     l3_flow_(true),
     flow_handle_(kInvalidFlowHandle),
@@ -134,8 +135,7 @@ FlowEntry::~FlowEntry() {
     }
     if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
         close(linklocal_src_port_fd_);
-        Agent::GetInstance()->pkt()->flow_table()->
-            DelLinkLocalFlowInfo(linklocal_src_port_fd_);
+        flow_table_->DelLinkLocalFlowInfo(linklocal_src_port_fd_);
     }
     alloc_count_.fetch_and_decrement();
 }
@@ -144,8 +144,8 @@ void FlowEntry::Init() {
     alloc_count_ = 0;
 }
 
-FlowEntry *FlowEntry::Allocate(const FlowKey &key) {
-    return new FlowEntry(key);
+FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
+    return new FlowEntry(key, flow_table);
 }
 
 // selectively copy fields from RHS
@@ -169,14 +169,14 @@ void intrusive_ptr_add_ref(FlowEntry *fe) {
 }
 
 void intrusive_ptr_release(FlowEntry *fe) {
+    FlowTable *flow_table = fe->flow_table();
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
         if (fe->on_tree()) {
-            FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
             FlowTable::FlowEntryMap::iterator it =
-                table->flow_entry_map_.find(fe->key());
-            assert(it != table->flow_entry_map_.end());
-            table->flow_entry_map_.erase(it);
+                flow_table->flow_entry_map_.find(fe->key());
+            assert(it != flow_table->flow_entry_map_.end());
+            flow_table->flow_entry_map_.erase(it);
         }
         delete fe;
     }
@@ -247,9 +247,8 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (info->linklocal_bind_local_port) {
         linklocal_src_port_ = info->nat_sport;
         linklocal_src_port_fd_ = info->linklocal_src_port_fd;
-        info->flow_table->AddLinkLocalFlowInfo(linklocal_src_port_fd_,
-                                               flow_handle_, key_,
-                                               UTCTimestampUsec());
+        flow_table_->AddLinkLocalFlowInfo(linklocal_src_port_fd_, flow_handle_,
+                                          key_, UTCTimestampUsec());
         set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
@@ -263,7 +262,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::IngressDir);
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(info->flow_table, ctrl->rt_);
+        SetRpfNH(flow_table_, ctrl->rt_);
     }
 
     data_.flow_source_vrf = info->flow_source_vrf;
@@ -333,7 +332,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         }
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(info->flow_table, ctrl->rt_);
+        SetRpfNH(flow_table_, ctrl->rt_);
     }
 
     data_.flow_source_vrf = info->flow_dest_vrf;
@@ -449,18 +448,18 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle, FlowTable* table) {
+void FlowEntry::set_flow_handle(uint32_t flow_handle) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         // Skip ksync index manipulation, for deleted flow entry
         // as ksync entry is not available for deleted flow
         if (!deleted_ && flow_handle_ == kInvalidFlowHandle) {
-            table->RemoveFromKSyncTree(this);
+            flow_table_->RemoveFromKSyncTree(this);
             ksync_entry_->set_hash_id(flow_handle);
-            table->AddToKSyncTree(this);
+            flow_table_->AddToKSyncTree(this);
         }
         flow_handle_ = flow_handle;
-        table->UpdateKSync(this, true);
+        flow_table_->UpdateKSync(this, true);
     }
 }
 
@@ -471,7 +470,7 @@ const std::string& FlowEntry::acl_assigned_vrf() const {
 uint32_t FlowEntry::acl_assigned_vrf_index() const {
     VrfKey vrf_key(data_.match_p.action_info.vrf_translate_action_.vrf_name());
     const VrfEntry *vrf = static_cast<const VrfEntry *>(
-            Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
+            flow_table_->agent()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf) {
         return vrf->vrf_id();
     }

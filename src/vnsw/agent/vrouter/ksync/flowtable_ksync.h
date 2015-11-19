@@ -16,6 +16,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_netlink.h>
 #include <vrouter/ksync/agent_ksync_types.h>
+#include <vrouter/ksync/ksync_flow_memory.h>
 #include <pkt/flow_table.h>
 #include <vr_types.h>
 #include <vr_flow.h>
@@ -67,59 +68,24 @@ private:
 
 class FlowTableKSyncObject : public KSyncObject {
 public:
-    static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
-    static const uint32_t AuditYieldTimer = 500;         // in msec
-    static const uint32_t AuditTimeout = 2000;           // in msec
-    static const int AuditYield = 1024;
-
     FlowTableKSyncObject(KSync *ksync);
     FlowTableKSyncObject(KSync *ksync, int max_index);
     virtual ~FlowTableKSyncObject();
-    vr_flow_req &flow_req() { return flow_req_; }
-    KSync *ksync() const { return ksync_; }
+
+    void Init();
+    void Shutdown() { }
+
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     bool DoEventTrace(void) { return false; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
-    const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
-                                            bool ignore_active_status);
-    bool GetFlowKey(uint32_t index, FlowKey *key);
 
-    uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
-    bool AuditProcess();
-    void MapFlowMem();
-    void MapFlowMemTest();
-    void UnmapFlowMemTest();
-    void InitFlowMem() {
-        MapFlowMem();
-    }
-    void InitTest() {
-        MapFlowMemTest();
-    }
-    void Init();
-
-    void Shutdown() {
-        UnmapFlowMemTest();
-    }
-    void MapSharedMemory();
-    void GetFlowTableSize();
-    void StartAuditTimer();
-
+    vr_flow_req &flow_req() { return flow_req_; }
+    KSync *ksync() const { return ksync_; }
 private:
     friend class KSyncSandeshContext;
     friend class FlowTable;
     KSync *ksync_;
-    int major_devid_;
-    int flow_table_size_;
     vr_flow_req flow_req_;
-    vr_flow_entry *flow_table_;
-    uint32_t flow_table_entries_count_;
-    int audit_yield_;
-    uint32_t audit_timeout_;
-    uint32_t audit_flow_idx_;
-    uint64_t audit_timestamp_;
-    std::string flow_table_path_;
-    std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
-    Timer *audit_timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };
 

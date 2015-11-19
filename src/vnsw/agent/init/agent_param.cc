@@ -390,6 +390,11 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.flow_cache_timeout")) {
         flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
     }
+
+    if (!GetValueFromTree<uint16_t>(flow_thread_count_,
+                                    "DEFAULT.flow_thread_count")) {
+        flow_thread_count_ = Agent::kDefaultFlowThreadCount;
+    }
    
     if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
         log_level_ = "SYS_DEBUG";
@@ -636,6 +641,8 @@ void AgentParam::ParseDefaultSectionArguments
 
     GetOptValue<uint16_t>(var_map, flow_cache_timeout_,
                           "DEFAULT.flow_cache_timeout");
+    GetOptValue<uint16_t>(var_map, flow_thread_count_,
+                          "DEFAULT.flow_thread_count");
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
     GetOptValue<string>(var_map, agent_name_, "DEFAULT.agent_name");
     GetOptValue<uint16_t>(var_map, http_server_port_,
@@ -1042,6 +1049,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+    LOG(DEBUG, "Flow thread count           : " << flow_thread_count_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1157,7 +1165,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
         agent_base_dir_(),
-        send_ratelimit_(sandesh_send_rate_limit()) {
+        send_ratelimit_(sandesh_send_rate_limit()),
+        flow_thread_count_(agent->kDefaultFlowThreadCount) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1180,6 +1189,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(agent->kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
+        ("DEFAULT.flow_thread_count",
+         opt::value<uint16_t>()->default_value(agent->kDefaultFlowThreadCount),
+         "Number of threads for flow setup")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
         ("DEFAULT.headless_mode", opt::value<bool>(),

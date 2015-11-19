@@ -82,9 +82,10 @@ void RouterIdDepInit(Agent *agent) {
 class UveVmUveTest : public ::testing::Test {
 public:
     UveVmUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
+        proto_ = agent_->pkt()->get_flow_proto();
     }
     void FlowSetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -149,7 +150,7 @@ public:
     }
 
     void FlowSetUp2() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, proto_->FlowCount());
         client->Reset();
         CreateVmportEnv(fip_input1, 2, 1);
         client->WaitForIdle(5);
@@ -211,6 +212,7 @@ public:
     TestUveUtil util_;
     BgpPeer *peer_;
     Agent *agent_;
+    FlowProto *proto_;
 };
 
 TEST_F(UveVmUveTest, VmAddDel_1) {
@@ -965,7 +967,7 @@ TEST_F(UveVmUveTest, SIP_override) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, proto_->FlowCount());
 
     //Verify Floating IP flows are created.
     FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -1018,7 +1020,7 @@ TEST_F(UveVmUveTest, SIP_override) {
     //cleanup
     FlowTearDown();
     RemoveFipConfig();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, proto_->FlowCount());
     client->WaitForIdle(10);
 
     //Verify that flow-logs are sent during flow delete

@@ -26,16 +26,18 @@ except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 libksync = env.Library('vnswksync',
                        sandesh_objs +
                        except_objs +
-                       ['ksync_init.cc',
+                       [
+                        'flowtable_ksync.cc',
                         'interface_ksync.cc',
                         'interface_scan.cc',
+                        'ksync_flow_memory.cc',
+                        'ksync_init.cc',
                         'mirror_ksync.cc',
                         'mpls_ksync.cc',
                         'nexthop_ksync.cc',
                         'route_ksync.cc',
-                        'flowtable_ksync.cc',
-                        'vxlan_ksync.cc',
                         'sandesh_ksync.cc',
+                        'vxlan_ksync.cc',
                         'vrf_assign_ksync.cc'
                        ])
 

@@ -216,7 +216,7 @@ public:
         key.protocol = proto_;
         key.family = Address::INET;
 
-        if (Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL) {
+        if (Agent::GetInstance()->pkt()->get_flow_proto()->Find(key) == NULL) {
             return;
         }
 
@@ -243,7 +243,9 @@ private:
         Task(TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"), -1),
         key_(key) {}
         virtual bool Run() {
-            Agent::GetInstance()->pkt()->flow_table()->Delete(key_, true);
+            FlowTable *table =
+                Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key_);
+            table->Delete(key_, true);
             return true;
         }
     private:

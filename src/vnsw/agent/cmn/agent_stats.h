@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 
+typedef boost::function<uint32_t()> FlowCountFn;
 class AgentStats {
 public:
     static const uint64_t kInvalidFlowCount = 0xFFFFFFFFFFFFFFFF;
@@ -129,11 +130,15 @@ public:
     void UpdateFlowDelMinMaxStats(uint64_t time);
     void ResetFlowAddMinMaxStats(uint64_t time);
     void ResetFlowDelMinMaxStats(uint64_t time);
+
+    void RegisterFlowCountFn(FlowCountFn cb);
+    uint32_t FlowCount() const;
 private:
     void UpdateAddMinMaxStats(uint64_t count, uint64_t time);
     void UpdateDelMinMaxStats(uint64_t count, uint64_t time);
 
     Agent *agent_;
+    FlowCountFn flow_count_fn_;
     uint32_t xmpp_reconnect_[MAX_XMPP_SERVERS];
     uint64_t xmpp_in_msgs_[MAX_XMPP_SERVERS];
     uint64_t xmpp_out_msgs_[MAX_XMPP_SERVERS];

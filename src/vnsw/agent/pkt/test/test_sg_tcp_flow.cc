@@ -244,9 +244,10 @@ class SgTcpAckTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
 
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
 
         intf1 = GetVmPort(1);
         intf2 = GetVmPort(2);
@@ -314,7 +315,7 @@ public:
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
+        WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
         boost::system::error_code ec;
         InetUnicastAgentRouteTable::DeleteReq
@@ -390,6 +391,7 @@ public:
     }
 
     Agent *agent_;
+    FlowProto *flow_proto_;
     const VmInterface *intf1;
     char intf1_addr[32];
     const VmInterface *intf2;
