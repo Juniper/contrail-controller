@@ -8,6 +8,7 @@ struct ProuterData {
     3: string uuid
     4: optional list<string> physical_interface_list
     5: optional list<string> logical_interface_list
+    6: optional string agent_name
 }
 
 uve sandesh UveProuterAgent {
