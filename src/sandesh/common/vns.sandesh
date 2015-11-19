@@ -21,6 +21,8 @@ const string SERVICE_COLLECTOR = "contrail-collector"
 const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
 const string SERVICE_ALARM_GENERATOR= "contrail-alarm-gen"
+const string SERVICE_SNMP_COLLECTOR = "contrail-snmp-collector"
+const string SERVICE_TOPOLOGY = "contrail-topology"
 const string SERVICE_DISCOVERY = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
 const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
@@ -64,6 +66,8 @@ const u16 HttpPortOpserver = 8090
 const u16 HttpPortQueryEngine = 8091
 const u16 HttpPortDns = 8092
 const u16 HttpPortAlarmGenerator = 5995
+const u16 HttpPortSnmpCollector = 5920
+const u16 HttpPortTopology = 5921
 
 // Supervisord control ports
 const u16 AnalyticsSupervisorPort = 9002
@@ -114,6 +118,8 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_IPMI_STATS_MGR : HttpPortIpmiStatsmgr,
     SERVICE_INVENTORY_AGENT: HttpPortInventorymgr,
     SERVICE_ALARM_GENERATOR: HttpPortAlarmGenerator,
+    SERVICE_SNMP_COLLECTOR : HttpPortSnmpCollector,
+    SERVICE_TOPOLOGY : HttpPortTopology
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -128,6 +134,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
     SERVICE_ALARM_GENERATOR,
+    SERVICE_SNMP_COLLECTOR,
     SERVICE_DATABASE_NODE_MGR,
     SERVICE_CONFIG_NODE_MGR,
     SERVICE_ANALYTICS_NODE_MGR,
@@ -148,6 +155,9 @@ const map<string, string> ServicesDefaultConfigurationFile = {
     SERVICE_COLLECTOR : '/etc/contrail/contrail-collector.conf',
     SERVICE_QUERY_ENGINE : '/etc/contrail/contrail-query-engine.conf',
     SERVICE_OPSERVER : '/etc/contrail/contrail-analytics-api.conf',
+    SERVICE_ALARM_GENERATOR : '/etc/contrail/contrail-alarm-gen.conf',
+    SERVICE_SNMP_COLLECTOR : '/etc/contrail/contrail-snmp-collector.conf',
+    SERVICE_TOPOLOGY : '/etc/contrail/contrail-topology.conf',
     SERVICE_API_SERVER : '/etc/contrail/contrail-api.conf',
     SERVICE_SCHEMA_TRANSFORMER : '/etc/contrail/contrail-schema.conf',
     SERVICE_SVC_MONITOR : '/etc/contrail/contrail-svc-monitor.conf',
@@ -220,8 +230,8 @@ const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
 const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
 const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
-const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = "contrail-snmp-collector"
-const string MODULE_CONTRAIL_TOPOLOGY_NAME = "contrail-topology"
+const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = SERVICE_SNMP_COLLECTOR
+const string MODULE_CONTRAIL_TOPOLOGY_NAME = SERVICE_TOPOLOGY
 const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
 const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
 

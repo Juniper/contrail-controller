@@ -8,7 +8,7 @@ from device_config import DeviceConfig
 import discoveryclient.client as client
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, \
-         API_SERVER_DISCOVERY_SERVICE_NAME
+         API_SERVER_DISCOVERY_SERVICE_NAME, HttpPortSnmpCollector
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-collector.conf'
@@ -88,7 +88,7 @@ Mibs = LldpTable, ArpTable
             'syslog_facility'     : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'scan_frequency'      : 600,
             'fast_scan_frequency' : 60,
-            'http_server_port'    : 5920,
+            'http_server_port'    : HttpPortSnmpCollector,
             'zookeeper'           : '127.0.0.1:2181',
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         }
