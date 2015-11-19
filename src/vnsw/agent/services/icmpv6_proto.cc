@@ -282,8 +282,8 @@ void Icmpv6RouteState::SendNeighborSolicitForAllIntf
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() &&
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
-            if (path->subnet_gw_ip().is_unspecified() ||
-                !path->subnet_gw_ip().is_v6()) {
+            if (path->subnet_service_ip().is_unspecified() ||
+                !path->subnet_service_ip().is_v6()) {
                 continue;
             }
             const NextHop *nh = path->ComputeNextHop(vrf_state_->agent());
@@ -299,7 +299,7 @@ void Icmpv6RouteState::SendNeighborSolicitForAllIntf
                 //Ignore non vm interface nexthop
                 continue;
             }
-            gw_ip_ = path->subnet_gw_ip();
+            gw_ip_ = path->subnet_service_ip();
             uint32_t intf_id = intf->id();
             bool wait_for_traffic = path->path_preference().wait_for_traffic();
             //Build new list of interfaces in active state

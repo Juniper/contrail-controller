@@ -222,9 +222,9 @@ TEST_F(TestAap, SubnetGw) {
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
 
-    Ip4Address subnet_gw_ip = Ip4Address::from_string("10.10.10.200");
+    Ip4Address subnet_service_ip = Ip4Address::from_string("10.10.10.200");
     InetUnicastRouteEntry *rt = RouteGet("vrf1", ip1, 32);
-    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+    EXPECT_TRUE(rt->GetActivePath()->subnet_service_ip() == subnet_service_ip);
 
     DelIPAM("vn1", "vdns1");
     client->WaitForIdle();

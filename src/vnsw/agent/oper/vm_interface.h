@@ -237,7 +237,7 @@ public:
         mutable bool        l2_entry_installed_;
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
-        mutable IpAddress  gw_ip_;
+        mutable IpAddress  service_ip_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -545,7 +545,7 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
-    IpAddress GetGateway(const IpAddress &ip) const;
+    IpAddress GetServiceIp(const IpAddress &ip) const;
     void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
@@ -576,7 +576,7 @@ private:
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
-                  bool ecmp, const IpAddress &gw_ip,
+                  bool ecmp, const IpAddress &service_ip,
                   const IpAddress &dependent_ip,
                   const CommunityList &communties);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
@@ -656,12 +656,6 @@ private:
                              const Ip4Address &old_addr);
     void DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
                                   const Ip4Address &old_addr);
-    void UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_update,
-                                  bool policy_change,
-                                  VrfEntry * old_vrf,
-                                  const Ip6Address &old_addr);
-    void DeleteIpv6InterfaceRoute(VrfEntry *old_vrf, 
-                                  const Ip6Address &old_addr);
     void UpdateResolveRoute(bool old_ipv4_active, bool force_update,
                             bool policy_change, VrfEntry * old_vrf,
                             const Ip4Address &old_addr, uint8_t old_plen);
@@ -759,8 +753,7 @@ private:
     std::auto_ptr<LocalVmPortPeer> peer_;
     VrfAssignRuleList vrf_assign_rule_list_;
     AclDBEntryRef vrf_assign_acl_;
-    Ip4Address vm_ip_gw_addr_;
-    Ip6Address vm_ip6_gw_addr_;
+    Ip4Address vm_ip_service_addr_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
     uint8_t configurer_;

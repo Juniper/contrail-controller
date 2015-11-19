@@ -217,9 +217,9 @@ TEST_F(TestAap6, SubnetGw) {
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
 
-    Ip6Address subnet_gw_ip = Ip6Address::from_string("fd10::200");
+    Ip6Address subnet_service_ip = Ip6Address::from_string("fd10::200");
     InetUnicastRouteEntry *rt = RouteGetV6("vrf1", ip1, 128);
-    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+    EXPECT_TRUE(rt->GetActivePath()->subnet_service_ip() == subnet_service_ip);
 
     DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
