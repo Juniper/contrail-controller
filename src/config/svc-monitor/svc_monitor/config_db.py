@@ -283,6 +283,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.service_instance = None
         self.instance_id = None
         self.physical_interface = None
+        self.port_tuple = None
         self.update(obj_dict)
     # end __init__
 
@@ -304,6 +305,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('interface_route_table', obj)
         self.update_single_ref('physical_interface',obj)
         self.update_single_ref('security_group', obj)
+        self.update_single_ref('port_tuple', obj)
         if self.virtual_machine:
             vm = VirtualMachineSM.get(self.virtual_machine)
             if vm:
@@ -324,6 +326,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_single_ref('logical_interface', {})
         obj.update_single_ref('interface_route_table', {})
         obj.update_single_ref('security_group', {})
+        obj.update_single_ref('port_tuple', {})
         del cls._dict[uuid]
     # end delete
 # end VirtualMachineInterfaceSM
@@ -352,7 +355,9 @@ class ServiceInstanceSM(DBBaseSM):
         self.vn_changed = False
         self.local_preference = [None, None]
         self.vn_info = []
+        self.port_tuples = set()
         self.update(obj_dict)
+        self.set_children('port_tuple', obj_dict)
         if self.ha_mode == 'active-standby':
             self.max_instances = 2
             self.local_preference = [svc_info.get_active_preference(),
@@ -904,6 +909,36 @@ class LogicalRouterSM(DBBaseSM):
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end LogicalRouterSM
+
+class PortTupleSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'port_tuple'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+        self.add_to_parent(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.parent_uuid = obj['parent_uuid']
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.name = obj['fq_name'][-1]
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 # end LogicalRouterSM
