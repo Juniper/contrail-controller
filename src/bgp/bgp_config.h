@@ -262,12 +262,73 @@ struct StaticRouteConfig {
     std::vector<std::string> route_target;
 };
 
+typedef std::vector<std::string> CommunityList;
+
+struct PrefixMatch {
+    std::string prefix_to_match;
+    std::string prefix_match_type;
+};
+
+struct RoutingPolicyMatch {
+    std::string community_match;
+    PrefixMatch prefix_match;
+};
+
+struct ActionUpdate {
+    CommunityList community_set;
+    CommunityList community_add;
+    CommunityList community_remove;
+    uint32_t local_pref;
+};
+
+struct RoutingPolicyAction {
+    enum ActionType {
+        ACCEPT,
+        REJECT,
+        NEXT_TERM
+    };
+    ActionUpdate update;
+    ActionType action;
+};
+
+struct RoutingPolicyTerm {
+    RoutingPolicyMatch match;
+    RoutingPolicyAction action;
+};
+
+// Route Policy configuration.
+class BgpRoutingPolicyConfig {
+public:
+    typedef std::vector<RoutingPolicyTerm> RoutingPolicyTermList;
+    explicit BgpRoutingPolicyConfig(const std::string &name);
+    virtual ~BgpRoutingPolicyConfig();
+
+    const std::string &name() const { return name_; }
+    void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
+    void add_term(RoutingPolicyTerm term) {
+        terms_.push_back(term);
+    }
+    void Clear();
+
+private:
+    std::string name_;
+    mutable uint64_t last_change_at_;
+    RoutingPolicyTermList terms_;
+    DISALLOW_COPY_AND_ASSIGN(BgpRoutingPolicyConfig);
+};
+
+struct RoutingPolicyAttachInfo {
+    std::string sequence_;
+    std::string routing_policy_;
+};
+
 // Instance configuration.
 class BgpInstanceConfig {
 public:
     typedef std::set<std::string> RouteTargetList;
     typedef std::vector<StaticRouteConfig> StaticRouteList;
     typedef std::vector<ServiceChainConfig> ServiceChainList;
+    typedef std::vector<RoutingPolicyAttachInfo> RoutingPolicyList;
 
     explicit BgpInstanceConfig(const std::string &name);
     virtual ~BgpInstanceConfig();
@@ -320,6 +381,12 @@ public:
     }
     const ServiceChainConfig *service_chain_info(Address::Family family) const;
 
+    const RoutingPolicyList &routing_policy_list() const {
+        return routing_policies_;
+    }
+    void swap_routing_policy_list(RoutingPolicyList *list) {
+        std::swap(routing_policies_, *list);
+    }
     void Clear();
 
 private:
@@ -337,6 +404,7 @@ private:
     StaticRouteList inet_static_routes_;
     StaticRouteList inet6_static_routes_;
     ServiceChainList service_chain_list_;
+    RoutingPolicyList routing_policies_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpInstanceConfig);
 };
@@ -411,13 +479,19 @@ public:
         BgpInstanceObserver;
     typedef boost::function<void(const BgpNeighborConfig *, EventType)>
         BgpNeighborObserver;
+    typedef boost::function<void(const BgpRoutingPolicyConfig *, EventType)>
+        BgpRoutingPolicyObserver;
 
     struct Observers {
         BgpProtocolObserver protocol;
         BgpInstanceObserver instance;
         BgpNeighborObserver neighbor;
+        BgpRoutingPolicyObserver policy;
     };
 
+    typedef std::map<std::string, BgpRoutingPolicyConfig *> RoutingPolicyMap;
+    typedef std::pair<RoutingPolicyMap::const_iterator,
+            RoutingPolicyMap::const_iterator> RoutingPolicyMapRange;
     typedef std::map<std::string, BgpInstanceConfig *> InstanceMap;
     typedef std::pair<InstanceMap::const_iterator,
             InstanceMap::const_iterator> InstanceMapRange;
@@ -437,6 +511,8 @@ public:
     virtual void Terminate() = 0;
     virtual const std::string &localname() const = 0;
 
+    virtual RoutingPolicyMapRange RoutingPolicyMapItems(
+        const std::string &start_policy = std::string()) const = 0;
     virtual InstanceMapRange InstanceMapItems(
         const std::string &start_instance = std::string()) const = 0;
     virtual NeighborMapRange NeighborMapItems(
@@ -445,6 +521,8 @@ public:
     virtual int NeighborCount(const std::string &instance_name) const = 0;
 
     virtual const BgpInstanceConfig *FindInstance(
+        const std::string &name) const = 0;
+    virtual const BgpRoutingPolicyConfig *FindRoutingPolicy(
         const std::string &name) const = 0;
     virtual const BgpProtocolConfig *GetProtocolConfig(
         const std::string &instance_name) const = 0;

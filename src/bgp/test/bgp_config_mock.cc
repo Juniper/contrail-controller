@@ -26,6 +26,12 @@ class BgpMockConfigManager : public BgpConfigManager {
         return make_pair(instance_map_.lower_bound(name), instance_map_.end());
     }
 
+    virtual RoutingPolicyMapRange RoutingPolicyMapItems(
+        const std::string &name = std::string()) const {
+        return make_pair(routing_policy_map_.lower_bound(name),
+                         routing_policy_map_.end());
+    }
+
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const {
         return make_pair(neighbor_map_.begin(), neighbor_map_.end());
@@ -36,6 +42,11 @@ class BgpMockConfigManager : public BgpConfigManager {
     }
 
     virtual const BgpInstanceConfig *FindInstance(
+        const std::string &name) const {
+        return NULL;
+    }
+
+    virtual const BgpRoutingPolicyConfig *FindRoutingPolicy(
         const std::string &name) const {
         return NULL;
     }
@@ -52,6 +63,7 @@ class BgpMockConfigManager : public BgpConfigManager {
 
  private:
     std::string localname_;
+    RoutingPolicyMap routing_policy_map_;
     InstanceMap instance_map_;
     NeighborMap neighbor_map_;
 };

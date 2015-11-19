@@ -22,6 +22,7 @@ class BgpConfigListener;
 typedef struct IFMapConfigListener::ConfigDelta BgpConfigDelta;
 class BgpIfmapConfigManager;
 class BgpIfmapInstanceConfig;
+class BgpIfmapRoutingPolicyConfig;
 class BgpServer;
 class DB;
 class DBGraph;
@@ -30,6 +31,8 @@ namespace autogen {
 class BgpPeering;
 class BgpRouter;
 class RoutingInstance;
+class RoutingPolicy;
+class RoutingInstanceRoutingPolicy;
 struct BgpRouterParams;
 }
 
@@ -178,6 +181,7 @@ class BgpIfmapInstanceConfig {
 public:
     typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
     typedef std::map<std::string, BgpIfmapPeeringConfig *> PeeringMap;
+    typedef std::map<std::string, BgpIfmapRoutingPolicyConfig *> RouitngPolicyMap;
     typedef BgpInstanceConfig::RouteTargetList RouteTargetList;
 
     explicit BgpIfmapInstanceConfig(const std::string &name);
@@ -231,6 +235,8 @@ public:
         return data_.virtual_network();
     }
     int virtual_network_index() const { return data_.virtual_network_index(); }
+    void AddRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
+    void DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
 
 private:
     friend class BgpConfigManagerTest;
@@ -241,9 +247,79 @@ private:
     boost::scoped_ptr<BgpIfmapProtocolConfig> protocol_;
     NeighborMap neighbors_;
     PeeringMap peerings_;
+    RouitngPolicyMap routing_policies_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapInstanceConfig);
 };
+
+class BgpIfmapRoutingPolicyLinkConfig {
+public:
+    explicit BgpIfmapRoutingPolicyLinkConfig(BgpIfmapInstanceConfig *rti,
+                                             BgpIfmapRoutingPolicyConfig *rtp);
+    ~BgpIfmapRoutingPolicyLinkConfig();
+
+    void SetNodeProxy(IFMapNodeProxy *proxy);
+
+    const IFMapNode *node() const { return node_proxy_.node(); }
+    std::string name() const { return name_; }
+    const autogen::RoutingInstanceRoutingPolicy *routing_policy_link() const {
+        return ri_rp_link_.get();
+    }
+    static bool GetRoutingInstanceRoutingPolicyPair(DBGraph *graph,
+                    IFMapNode *node, std::pair<IFMapNode *, IFMapNode *> *pair);
+    BgpIfmapInstanceConfig *instance() { return instance_; }
+    BgpIfmapRoutingPolicyConfig *policy() { return policy_; }
+
+    void Update(BgpIfmapConfigManager *manager,
+                const autogen::RoutingInstanceRoutingPolicy *ri_rp);
+    void Delete(BgpIfmapConfigManager *manager);
+
+private:
+    BgpIfmapInstanceConfig *instance_;
+    BgpIfmapRoutingPolicyConfig *policy_;
+    std::string name_;
+    IFMapNodeProxy node_proxy_;
+    boost::intrusive_ptr<const autogen::RoutingInstanceRoutingPolicy> ri_rp_link_;
+
+    DISALLOW_COPY_AND_ASSIGN(BgpIfmapRoutingPolicyLinkConfig);
+};
+
+class BgpIfmapRoutingPolicyConfig {
+public:
+    typedef std::map<std::string, BgpIfmapInstanceConfig *> InstanceMap;
+    explicit BgpIfmapRoutingPolicyConfig(const std::string &name);
+    ~BgpIfmapRoutingPolicyConfig();
+
+    void SetNodeProxy(IFMapNodeProxy *proxy);
+
+    // The corresponding if-map node has been deleted.
+    void ResetConfig();
+    void Delete(BgpConfigManager *manager);
+    bool DeleteIfEmpty(BgpConfigManager *manager);
+
+    void Update(BgpIfmapConfigManager *manager,
+                const autogen::RoutingPolicy *policy);
+
+    IFMapNode *node() { return node_proxy_.node(); }
+    const std::string &name() const { return name_; }
+
+    BgpRoutingPolicyConfig *routing_policy_config() { return &data_; }
+    const BgpRoutingPolicyConfig *routing_policy_config() const { return &data_; }
+
+    void AddInstance(BgpIfmapInstanceConfig *rti);
+    void RemoveInstance(BgpIfmapInstanceConfig *rti);
+private:
+    friend class BgpConfigManagerTest;
+
+    std::string name_;
+    IFMapNodeProxy node_proxy_;
+    BgpRoutingPolicyConfig data_;
+    boost::intrusive_ptr<const autogen::RoutingPolicy> routing_policy_;
+    InstanceMap instances_;
+
+    DISALLOW_COPY_AND_ASSIGN(BgpIfmapRoutingPolicyConfig);
+};
+
 
 //
 // BgpConfigData contains all the configuration data that's relevant to a
@@ -253,12 +329,17 @@ private:
 // that have been created for all the routing-instances.
 // The IfmapPeeringMap stores pointers to the BgpIfmapPeeringConfigs
 // that have been created for all the bgp-peerings.
+// The IfmapRoutingPolicyMap stores pointers to the BgpIfmapRoutingPolicyConfig
+// that have been created for all the routing-policy.
 //
 class BgpIfmapConfigData {
 public:
     typedef BgpConfigManager::InstanceMap BgpInstanceMap;
+    typedef BgpConfigManager::RoutingPolicyMap BgpRoutingPolicyMap;
     typedef std::map<std::string, BgpIfmapInstanceConfig *> IfmapInstanceMap;
+    typedef std::map<std::string, BgpIfmapRoutingPolicyConfig *> IfmapRoutingPolicyMap;
     typedef std::map<std::string, BgpIfmapPeeringConfig *> IfmapPeeringMap;
+    typedef std::map<std::string, BgpIfmapRoutingPolicyLinkConfig *> IfmapRoutingPolicyLinkMap;
 
     BgpIfmapConfigData();
     ~BgpIfmapConfigData();
@@ -268,6 +349,12 @@ public:
     BgpIfmapInstanceConfig *FindInstance(const std::string &name);
     const BgpIfmapInstanceConfig *FindInstance(const std::string &name) const;
 
+    // Routing Policy
+    BgpIfmapRoutingPolicyConfig *LocateRoutingPolicy(const std::string &name);
+    void DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
+    BgpIfmapRoutingPolicyConfig *FindRoutingPolicy(const std::string &name);
+    const BgpIfmapRoutingPolicyConfig *FindRoutingPolicy(const std::string &name) const;
+
     BgpIfmapPeeringConfig *CreatePeering(BgpIfmapInstanceConfig *rti,
                                          IFMapNodeProxy *proxy);
     void DeletePeering(BgpIfmapPeeringConfig *peer);
@@ -275,7 +362,17 @@ public:
     const BgpIfmapPeeringConfig *FindPeering(const std::string &name) const;
     int PeeringCount() const { return peerings_.size(); }
 
+    BgpIfmapRoutingPolicyLinkConfig *
+        CreateRoutingPolicyLink(BgpIfmapInstanceConfig *rti,
+                                BgpIfmapRoutingPolicyConfig *rtp,
+                                IFMapNodeProxy *proxy);
+    void DeleteRoutingPolicyLink(BgpIfmapRoutingPolicyLinkConfig *ri_rp_link);
+    BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(const std::string &name);
+    const BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(const std::string &name) const;
+
     BgpConfigManager::InstanceMapRange InstanceMapItems(
+        const std::string &start_name = std::string()) const;
+    BgpConfigManager::RoutingPolicyMapRange RoutingPolicyMapItems(
         const std::string &start_name = std::string()) const;
 
     const IfmapInstanceMap &instances() const { return instances_; }
@@ -283,7 +380,10 @@ public:
 private:
     IfmapInstanceMap instances_;
     BgpInstanceMap instance_config_map_;
+    IfmapRoutingPolicyMap routing_policies_;
+    BgpRoutingPolicyMap routing_policy_config_map_;
     IfmapPeeringMap peerings_;
+    IfmapRoutingPolicyLinkMap ri_rp_links_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapConfigData);
 };
@@ -321,12 +421,16 @@ public:
 
     virtual InstanceMapRange InstanceMapItems(
         const std::string &start_name = std::string()) const;
+    virtual RoutingPolicyMapRange RoutingPolicyMapItems(
+        const std::string &start_name = std::string()) const;
     virtual NeighborMapRange NeighborMapItems(
         const std::string &instance_name) const;
 
     virtual int NeighborCount(const std::string &instance_name) const;
 
     virtual const BgpInstanceConfig *FindInstance(
+        const std::string &name) const;
+    virtual const BgpRoutingPolicyConfig *FindRoutingPolicy(
         const std::string &name) const;
     virtual const BgpProtocolConfig *GetProtocolConfig(
         const std::string &instance_name) const;
@@ -353,6 +457,8 @@ private:
 
     void ProcessChanges(const ChangeList &change_list);
     void ProcessRoutingInstance(const BgpConfigDelta &change);
+    void ProcessRoutingPolicyLink(const BgpConfigDelta &change);
+    void ProcessRoutingPolicy(const BgpConfigDelta &change);
     void ProcessBgpRouter(const BgpConfigDelta &change);
     void ProcessBgpProtocol(const BgpConfigDelta &change);
     void ProcessBgpPeering(const BgpConfigDelta &change);

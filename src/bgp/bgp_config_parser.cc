@@ -296,6 +296,29 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
     return true;
 }
 
+static bool ParseInstanceRoutingPolicy(const string &instance,
+    const xml_node &node, bool add_change,
+    BgpConfigParser::RequestList *requests) {
+
+    xml_attribute to = node.attribute("to");
+    assert(to);
+    string policy_name = to.value();
+    auto_ptr<autogen::RoutingPolicyType> attr(
+        new autogen::RoutingPolicyType());
+    assert(attr->XmlParse(node));
+    if (add_change) {
+        MapObjectLinkAttr("routing-instance", instance,
+            "routing-policy", policy_name,
+            "routing-instance-routing-policy", attr.release(), requests);
+    } else {
+        MapObjectUnlink("routing-instance", instance,
+            "routing-policy", policy_name,
+            "routing-instance-routing-policy", requests);
+    }
+
+    return true;
+}
+
 static bool ParseStaticRoute(const string &instance, const xml_node &node,
                               bool add_change,
                               BgpConfigParser::RequestList *requests) {
@@ -465,6 +488,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
         } else if (strcmp(node.name(), "ipv6-service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, Address::INET6,
                               requests);
+        } else if (strcmp(node.name(), "routing-policy") == 0) {
+            ParseInstanceRoutingPolicy(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
             ParseStaticRoute(instance, node, add_change, requests);
         }
@@ -504,6 +529,28 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
     return true;
 }
 
+bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
+                                          bool add_change,
+                                          RequestList *requests) const {
+    // policy name
+    string policy_name(node.attribute("name").value());
+    assert(!policy_name.empty());
+
+    auto_ptr<autogen::PolicyStatement> policy_statement(
+        new autogen::PolicyStatement());
+    assert(policy_statement->XmlParse(node));
+
+    if (add_change) {
+        MapObjectSetProperty("routing-policy", policy_name,
+            "routing-policy-entries", policy_statement.release(), requests);
+    } else {
+        MapObjectClearProperty("routing-policy", policy_name,
+            "routing-policy-entries", requests);
+    }
+
+    return true;
+}
+
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
     SessionMap sessions;
@@ -523,6 +570,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "virtual-network") == 0) {
             ParseVirtualNetwork(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "routing-policy") == 0) {
+            ParseRoutingPolicy(node, add_change, requests);
         }
     }
 

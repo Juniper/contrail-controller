@@ -35,6 +35,8 @@ private:
                               RequestList *requests) const;
     bool ParseVirtualNetwork(const pugi::xml_node &parent, bool add_change,
                               RequestList *requests) const;
+    bool ParseRoutingPolicy(const pugi::xml_node &parent, bool add_change,
+                              RequestList *requests) const;
 
     DB *db_;
     DISALLOW_COPY_AND_ASSIGN(BgpConfigParser);
