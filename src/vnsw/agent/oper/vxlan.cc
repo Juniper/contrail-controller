@@ -91,6 +91,11 @@ VxLanId *VxLanTable::Find(uint32_t vxlan_id) {
     return static_cast<VxLanId *>(FindActiveEntry(&key));
 }
 
+VxLanId *VxLanTable::FindNoLock(uint32_t vxlan_id) {
+    VxLanIdKey key(vxlan_id);
+    return static_cast<VxLanId *>(FindActiveEntryNoLock(&key));
+}
+
 void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
     const VxLanId *vxlan_id = static_cast<const VxLanId *>(e);
     Delete(vxlan_id->vxlan_id());

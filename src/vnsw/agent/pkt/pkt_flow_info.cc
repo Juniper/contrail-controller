@@ -138,6 +138,7 @@ static uint32_t NhToVrf(const NextHop *nh) {
     return vrf->vrf_id();
 }
 
+// FIXME : PERF - Copy NextHop instead of creating key and then entry
 static const NextHop* GetPolicyEnabledNH(NextHopTable *nh_table,
                                          const NextHop *nh) {
     if (nh->PolicyEnabled()) {
@@ -146,7 +147,8 @@ static const NextHop* GetPolicyEnabledNH(NextHopTable *nh_table,
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(true);
-    return static_cast<const NextHop *>(nh_table->FindActiveEntry(key.get()));
+    return static_cast<const NextHop *>
+        (nh_table->FindActiveEntryNoLock(key.get()));
 }
 
 static const NextHop* GetPolicyDisabledNH(NextHopTable *nh_table,
@@ -157,7 +159,8 @@ static const NextHop* GetPolicyDisabledNH(NextHopTable *nh_table,
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(false);
-    return static_cast<const NextHop *>(nh_table->FindActiveEntry(key.get()));
+    return static_cast<const NextHop *>
+        (nh_table->FindActiveEntryNoLock(key.get()));
 }
 
 static bool IsVgwOrVmInterface(const Interface *intf) {
@@ -226,7 +229,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
     }
 
-    NextHopTable *nh_table = info->flow_table->agent()->nexthop_table();
+    NextHopTable *nh_table = info->agent->nexthop_table();
     // Pick out going attributes based on the NH selected above
     switch (nh->GetType()) {
     case NextHop::INTERFACE:
@@ -376,12 +379,12 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
                            PktFlowInfo *info, PktControlInfo *in,
                            PktControlInfo *out) {
-    Agent *agent = static_cast<AgentRouteTable *>(rt->get_table())->agent();
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
         return false;
 
-    const NextHop *nh = static_cast<const NextHop *>(path->ComputeNextHop(agent));
+    const NextHop *nh = static_cast<const NextHop *>
+        (path->ComputeNextHop(info->agent));
     if (nh == NULL)
         return false;
 
@@ -444,7 +447,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     if (pkt->family == Address::INET6) {
         //TODO::ECMP for v6
     }
-    Agent *agent = static_cast<AgentRouteTable *>(in->rt_->get_table())->agent();
+    Agent *agent = flow_info->agent;
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(in->rt_);
     NextHop *component_nh_ptr = NULL;
@@ -459,28 +462,24 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             label = vm_port->GetServiceVlanLabel(vrf);
             uint32_t vlan = vm_port->GetServiceVlanTag(vrf);
 
-            VlanNHKey key(vm_port->GetUuid(), vlan);
-            component_nh_ptr =
-                static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntry(&key));
+            const VlanNH key(const_cast<VmInterface *>(vm_port), vlan);
+            component_nh_ptr = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntryNoLock(&key));
         } else {
-            InterfaceNHKey key(static_cast<InterfaceKey *>
-                               (vm_port->GetDBRequestKey().release()),
-                               false, InterfaceNHFlags::INET4);
-            component_nh_ptr =
-                static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntry(&key));
+            InterfaceNH key(const_cast<VmInterface *>(vm_port), false,
+                            InterfaceNHFlags::INET4);
+            component_nh_ptr = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntryNoLock(&key));
             label = vm_port->label();
         }
     } else {
         //Packet from fabric
         Ip4Address dest_ip(pkt->tunnel.ip_saddr);
-        TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(),
-                        dest_ip, false, pkt->tunnel.type);
+        TunnelNH key(agent->fabric_vrf(), agent->router_id(), dest_ip, false,
+                     pkt->tunnel.type);
         //Get component NH pointer
-        component_nh_ptr =
-            static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&key));
+        component_nh_ptr = static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntryNoLock(&key));
         //Get Label to be used to reach destination server
         const CompositeNH *nh = 
             static_cast<const CompositeNH *>(rt->GetActiveNextHop());
@@ -552,10 +551,10 @@ void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
         uint16_t nat_port;
         Ip4Address nat_server;
         std::string service_name;
-        Agent *agent = flow_table->agent();
-        if (agent->oper_db()->global_vrouter()->
-            FindLinkLocalService(pkt->ip_daddr.to_v4(), pkt->dport,
-                                 &service_name, &nat_server, &nat_port)) {
+        GlobalVrouter *global_vrouter = agent->oper_db()->global_vrouter();
+        if (global_vrouter->FindLinkLocalService(pkt->ip_daddr.to_v4(),
+                                                 pkt->dport, &service_name,
+                                                 &nat_server, &nat_port)) {
             // it is link local service request, treat it as l3
             l3_flow = true;
             pkt->l3_forwarding = true;
@@ -570,10 +569,10 @@ uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
         return 0;
     // Do not allow more than max link local flows
     if (flow_table->linklocal_flow_count() >=
-        flow_table->agent()->params()->linklocal_system_flows())
+        agent->params()->linklocal_system_flows())
         return 0;
     if (flow_table->VmLinkLocalFlowCount(vm) >=
-        flow_table->agent()->params()->linklocal_vm_flows())
+        agent->params()->linklocal_vm_flows())
         return 0;
 
     if (proto == IPPROTO_TCP) {
@@ -634,23 +633,22 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     uint16_t nat_port;
     Ip4Address nat_server;
     std::string service_name;
-    if (!flow_table->agent()->oper_db()->global_vrouter()->
-        FindLinkLocalService(pkt->ip_daddr.to_v4(), pkt->dport,
-                             &service_name, &nat_server, &nat_port)) {
+    if (!agent->oper_db()->global_vrouter()->FindLinkLocalService
+        (pkt->ip_daddr.to_v4(), pkt->dport, &service_name, &nat_server,
+         &nat_port)) {
         // link local service not configured, drop the request
         in->rt_ = NULL;
         out->rt_ = NULL;
         return; 
     }
 
-    out->vrf_ = flow_table->agent()->vrf_table()->
-                FindVrfFromName(flow_table->agent()->fabric_vrf_name());
+    out->vrf_ = agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
     dest_vrf = out->vrf_->vrf_id();
 
     // Set NAT flow fields
     linklocal_flow = true;
     nat_done = true;
-    if (nat_server == flow_table->agent()->router_id()) {
+    if (nat_server == agent->router_id()) {
         // In case of metadata or when link local destination is local host,
         // set VM's metadata address as NAT source address. This is required
         // to avoid response from the linklocal service being looped back and
@@ -659,10 +657,10 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         nat_ip_saddr = vm_port->mdata_ip_addr();
         // Services such as metadata will run on compute_node_ip. Set nat
         // address to compute_node_ip
-        nat_server = flow_table->agent()->compute_node_ip();
+        nat_server = agent->compute_node_ip();
         nat_sport = pkt->sport;
     } else {
-        nat_ip_saddr = flow_table->agent()->router_id();
+        nat_ip_saddr = agent->router_id();
         // we bind to a local port & use it as NAT source port (cannot use
         // incoming src port); init here and bind in Add;
         nat_sport = 0;
@@ -716,7 +714,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     nat_ip_saddr = Ip4Address(METADATA_IP_ADDR);
     nat_ip_daddr = vm_port->primary_ip_addr();
     nat_dport = pkt->dport;
-    if (pkt->sport == flow_table->agent()->metadata_server_port()) {
+    if (pkt->sport == agent->metadata_server_port()) {
         nat_sport = METADATA_NAT_PORT;
     } else {
         nat_sport = pkt->sport;
@@ -994,7 +992,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     if (match_acl_param.action_info.vrf_translate_action_.vrf_name() != "") {
         VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
         const VrfEntry *vrf = static_cast<const VrfEntry*>
-            (flow_table->agent()->vrf_table()->FindActiveEntry(&key));
+            (agent->vrf_table()->FindActiveEntry(&key));
         if (vrf == NULL) {
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_VRF;
@@ -1054,7 +1052,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    if (RouteAllowNatLookup(flow_table->agent(), out->rt_)) {
+    if (RouteAllowNatLookup(agent, out->rt_)) {
         // If interface has floating IP, check if we have more specific route in
         // public VN (floating IP)
         if (IntfHasFloatingIp(this, in->intf_, pkt->family)) {
@@ -1072,8 +1070,8 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Packets needing linklocal service will have route added by LinkLocal peer
-    if ((in->rt_ && IsLinkLocalRoute(flow_table->agent(), in->rt_)) ||
-        (out->rt_ && IsLinkLocalRoute(flow_table->agent(), out->rt_))) {
+    if ((in->rt_ && IsLinkLocalRoute(agent, in->rt_)) ||
+        (out->rt_ && IsLinkLocalRoute(agent, out->rt_))) {
         LinkLocalServiceTranslate(pkt, in, out);
     }
 
@@ -1091,14 +1089,13 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                 tunnel_type = tunnel_nh->GetTunnelType();
             }
         } else {
-            peer_vrouter = flow_table->agent()->router_id().to_string();
+            peer_vrouter = agent->router_id().to_string();
         }
     }
     return;
 }
 
 const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
-    Agent *agent = flow_table->agent();
     tunnel_type = pkt->tunnel.type;
     if (tunnel_type.GetType() == TunnelType::MPLS_GRE ||
         tunnel_type.GetType() == TunnelType::MPLS_UDP) {
@@ -1110,7 +1107,7 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
         return mpls->nexthop();
     } else if (tunnel_type.GetType() == TunnelType::VXLAN) {
         VxLanTable *table = static_cast<VxLanTable *>(agent->vxlan_table());
-        VxLanId *vxlan = table->Find(pkt->tunnel.vxlan_id);
+        VxLanId *vxlan = table->FindNoLock(pkt->tunnel.vxlan_id);
         if (vxlan == NULL) {
             LogError(pkt, "Invalid vxlan in egress flow");
             return NULL;
@@ -1178,7 +1175,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (RouteAllowNatLookup(flow_table->agent(), out->rt_)) {
+    if (RouteAllowNatLookup(agent, out->rt_)) {
         // If interface has floating IP, check if destination is one of the
         // configured floating IP.
         if (IntfHasFloatingIp(this, out->intf_, pkt->family)) {
@@ -1227,11 +1224,10 @@ bool PktFlowInfo::UnknownUnicastFlow(const PktInfo *pkt,
         //to flood multicast, hence we would
         //hit all broadcast multicast route and
         //packet would never be trapped for flow setup
-        Agent *agent = flow_table->agent();
         tunnel_type = pkt->tunnel.type;
         if (tunnel_type.GetType() == TunnelType::VXLAN) {
             VxLanTable *table = static_cast<VxLanTable *>(agent->vxlan_table());
-            VxLanId *vxlan = table->Find(pkt->tunnel.vxlan_id);
+            VxLanId *vxlan = table->FindNoLock(pkt->tunnel.vxlan_id);
             if (vxlan && vxlan->nexthop()) {
                 const VrfNH *vrf_nh =
                     static_cast<const VrfNH *>(vxlan->nexthop());
@@ -1253,7 +1249,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         RewritePktInfo(pkt->agent_hdr.cmd_param);
     }
 
-    in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
+    in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
     if (in->intf_ == NULL ||
         (pkt->l3_forwarding == true &&
@@ -1287,7 +1283,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    in->vrf_ = flow_table->agent()->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
+    in->vrf_ = agent->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         in->vrf_ = NULL;
         LogError(pkt, "Invalid or Inactive VRF");
@@ -1357,6 +1353,7 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
         return;
     }
 
+    // TODO : No need for one more route lookup
     const AgentRoute *rt = NULL;
     IpAddress sip = pkt->ip_saddr;
     if (pkt->family == Address::INET ||
@@ -1370,13 +1367,11 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
     // Generate event if route was waiting for traffic
     if (rt && rt->WaitForTraffic()) {
         if (pkt->family == Address::INET) {
-            flow_table->agent()->oper_db()->route_preference_module()->
-                EnqueueTrafficSeen(sip, 32, in->intf_->id(), pkt->vrf,
-                                   pkt->smac);
+            agent->oper_db()->route_preference_module()->EnqueueTrafficSeen
+                (sip, 32, in->intf_->id(), pkt->vrf, pkt->smac);
         } else if (pkt->family == Address::INET6) {
-            flow_table->agent()->oper_db()->route_preference_module()->
-                EnqueueTrafficSeen(sip, 128, in->intf_->id(), pkt->vrf,
-                                   pkt->smac);
+            agent->oper_db()->route_preference_module()->EnqueueTrafficSeen
+                (sip, 128, in->intf_->id(), pkt->vrf, pkt->smac);
         }
     }
 }
@@ -1401,7 +1396,7 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
     }
 
     if (limit_exceeded) {
-        flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
+        agent->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
     }
@@ -1424,7 +1419,7 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
         nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
     }
     if (!nat_sport) {
-        flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
+        agent->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
     }
@@ -1490,8 +1485,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     tcp_ack = pkt->tcp_ack;
-    flow->InitFwdFlow(this, pkt, in, out, rflow.get(), flow_table->agent());
-    rflow->InitRevFlow(this, pkt, out, in, flow.get(), flow_table->agent());
+    flow->InitFwdFlow(this, pkt, in, out, rflow.get(), agent);
+    rflow->InitRevFlow(this, pkt, out, in, flow.get(), agent);
 
     flow->GetPolicyInfo();
     rflow->GetPolicyInfo();
@@ -1561,8 +1556,8 @@ void PktFlowInfo::UpdateFipStatsInfo
     }
 
     if (fip_snat || fip_dnat) {
-        flow->UpdateFipStatsInfo(fip, intf_id, flow_table->agent());
-        rflow->UpdateFipStatsInfo(r_fip, r_intf_id, flow_table->agent());
+        flow->UpdateFipStatsInfo(fip, intf_id, agent);
+        rflow->UpdateFipStatsInfo(r_fip, r_intf_id, agent);
     }
 }
 
