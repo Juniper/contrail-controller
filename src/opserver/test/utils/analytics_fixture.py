@@ -1929,6 +1929,19 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
 
     @retry(delay=2, tries=5)
+    def verify_generator_collector_connection(self, gen_http_port):
+        self.logger.info('verify_generator_collector_connection')
+        vgen = VerificationGenerator('127.0.0.1', gen_http_port)
+        try:
+            conn_status = vgen.get_collector_connection_status()
+        except Exception as err:
+            self.logger.error('Failed to get collector connection: %s' % (err))
+            return False
+        else:
+            return conn_status['status'] == 'Established'
+    # end verify_generator_collector_connection
+
+    @retry(delay=2, tries=5)
     def verify_collector_redis_uve_connection(self, collector, connected=True):
         self.logger.info('verify_collector_redis_uve_connection')
         vcl = VerificationCollector('127.0.0.1', collector.http_port)
@@ -2059,20 +2072,20 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_database_purge_status(self, purge_id):
         self.logger.info('verify database purge status: purge_id [%s]' %
                          (purge_id))
-        try:
-            ops_introspect = VerificationGenerator('127.0.0.1',
-                                self.opserver.http_port)
-            db_purge_uve = ops_introspect.get_uve('DatabasePurgeInfo')
-            db_purge_stats = db_purge_uve['stats'][0]
-        except Exception as e:
-            self.logger.error('Failed to get DatabasePurgeInfo UVE: %s' % (e))
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        query = Query(table='StatTable.DatabasePurgeInfo.stats',
+                      start_time='now-1m', end_time='now',
+                      select_fields=['stats.purge_id', 'stats.purge_status',
+                                     'stats.purge_status_details'],
+                      where=[[{'name':'stats.purge_id', 'value':purge_id,
+                               'op':1}]])
+        self.logger.info(json.dumps(query.__dict__))
+        res = vns.post_query_json(json.dumps(query.__dict__))
+        self.logger.info('database purge status: %s' % (str(res)))
+        if not res:
             return False
-        else:
-            self.logger.info(str(db_purge_stats))
-            if db_purge_stats['purge_id'] != purge_id or \
-               db_purge_stats['purge_status'] != 'success' or \
-               db_purge_stats['purge_status_details']:
-                return False
+        assert(res[0]['stats.purge_status'] == 'success' and \
+               res[0]['stats.purge_status_details'] == '')
         return True
     # end verify_database_purge_status
 

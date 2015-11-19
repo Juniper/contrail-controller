@@ -22,17 +22,10 @@ struct DatabasePurgeStats {
     3: optional u64                        rows_deleted
     4: optional u64                        duration
     5: string                              purge_status
-    6: list<string>                        purge_status_details
+    6: string                              purge_status_details
 }
 
-struct DatabasePurgeInfo {
-    1: string                              name (key="ObjectDatabaseInfo")
-    2: optional bool                       deleted
-    3: optional u64                        number_of_purge_requests (aggtype="counter")
-    4: optional list<DatabasePurgeStats>   stats (tags=".purge_id, .purge_status, .request_time, .rows_deleted, .duration")
-}
-
-//DatabasePurge uve will be sent by Analytics-api
-uve sandesh DatabasePurge {
-    1: DatabasePurgeInfo                   data
+objectlog sandesh DatabasePurgeInfo {
+    1: string name (key="ObjectDatabaseInfo")
+    2: DatabasePurgeStats stats (tags=".purge_id, .purge_status, .request_time, .rows_deleted, .duration")
 }

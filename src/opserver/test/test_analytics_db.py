@@ -78,6 +78,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_with_percentage_input()
         return True
     # end test_00_database_purge_query
@@ -100,6 +102,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_utc_time_format()
         return True
     # end test_01_database_purge_query
@@ -121,6 +125,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_datetime_format()
         return True
     # end test_02_database_purge_query
@@ -142,6 +148,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_deltatime_format()
         return True
     # end test_03_database_purge_query
@@ -163,6 +171,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_request_limit()
         return True
     # end test_04_database_purge_query
@@ -185,6 +195,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_with_percentage_input()
         return True
     # end test_05_database_purge_query
@@ -207,6 +219,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_utc_time_format()
         return True
     # end test_06_database_purge_query
@@ -229,6 +243,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_datetime_format()
         return True
     # end test_07_database_purge_query
@@ -251,6 +267,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_support_deltatime_format()
         return True
     # end test_08_database_purge_query
@@ -273,6 +291,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_generator_collector_connection(
+                    vizd_obj.opserver.http_port)
         assert vizd_obj.verify_database_purge_request_limit()
         return True
 
