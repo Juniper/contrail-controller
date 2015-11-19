@@ -81,9 +81,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType> 
 
 <xsd:complexType name="AllowedAddressPairs">
-    <xsd:all>
-        <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
-    </xsd:all>
+    <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
 </xsd:complexType>
 
 <xsd:complexType name="UuidType">
@@ -110,26 +108,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:complexType name="VirtualNetworkPolicyType">
-    <xsd:all>
-        <xsd:element name="sequence" type="SequenceType"/>
-        <xsd:element name="timer" type="TimerType"/>
-    </xsd:all>
+    <xsd:element name="sequence" type="SequenceType"/>
+    <xsd:element name="timer" type="TimerType"/>
 </xsd:complexType>
 
 <xsd:complexType name="AddressType">
-    <xsd:choice>
-        <xsd:element name="subnet" type="SubnetType"/>
-        <xsd:element name="virtual-network" type="xsd:string" />
-        <xsd:element name="security-group" type="xsd:string" />
-        <xsd:element name="network-policy" type="xsd:string"/>
-    </xsd:choice>
+    <xsd:element name="subnet" type="SubnetType"/> <!-- Deprecated in favor of subnet-list -->
+    <xsd:element name="virtual-network" type="xsd:string" />
+    <xsd:element name="security-group" type="xsd:string" />
+    <xsd:element name="network-policy" type="xsd:string"/>
+    <xsd:element name="subnet-list" type="SubnetType" maxOccurs="unbounded"/>
 </xsd:complexType>
 
 <xsd:simpleType name="L4PortType">
-     <xsd:restriction base="xsd:integer">
-         <xsd:minInclusive value="-1"/>
-         <xsd:maxInclusive value="65535"/>
-     </xsd:restriction>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="-1"/>
+        <xsd:maxInclusive value="65535"/>
+    </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name="PortType">
