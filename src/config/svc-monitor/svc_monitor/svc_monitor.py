@@ -542,6 +542,8 @@ class SvcMonitor(object):
     #_create_default_analyzer_template
 
     def port_delete_or_si_link(self, vm, vmi):
+        if vmi.port_tuple:
+            return
         if (vmi.service_instance and vmi.virtual_machine == None):
             self.vm_manager.cleanup_svc_vm_ports([vmi.uuid])
             return
@@ -567,6 +569,8 @@ class SvcMonitor(object):
         if not st:
             self.logger.log_error("template not found for %s" %
                                   ((':').join(si.fq_name)))
+            return
+        if st.params and st.params.get('version', 1) == 2:
             return
 
         self.logger.log_info("Creating SI %s (%s)" %
@@ -617,6 +621,8 @@ class SvcMonitor(object):
 
     def _check_service_running(self, si):
         st = ServiceTemplateSM.get(si.service_template)
+        if st.params and st.params.get('version', 1) == 2:
+            return
         if st.virtualization_type == 'virtual-machine':
             status = self.vm_manager.check_service(si)
         elif st.virtualization_type == 'network-namespace':
