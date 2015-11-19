@@ -883,7 +883,7 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
     return 0;
 }
 
-void FlowEntry::UpdateKSync(FlowTable* table) {
+void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
     if (stats_.last_modified_time != stats_.setup_time) {
@@ -897,6 +897,21 @@ void FlowEntry::UpdateKSync(FlowTable* table) {
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+
+    //In case of TCP flow eviction there is a chance
+    //that same flow with same flow key could be evicted
+    //and reused, in that case, we force programming of
+    //flow by deleting the entry in ksync and readding it
+    //Since flag vrouter flow evicted would be set
+    //Actual msg would not be sent to kernel
+    if (update == false) {
+        if (ksync_entry_ != NULL) {
+            data_.vrouter_evicted_flow_ = true;
+            ksync_obj->Delete(ksync_entry_);
+            data_.vrouter_evicted_flow_ = false;
+            ksync_entry_ = NULL;
+        }
+    }
 
     if (ksync_entry_ == NULL) {
         FLOW_TRACE(Trace, "Add", flow_info);
@@ -989,7 +1004,7 @@ void FlowTable::DelLinkLocalFlowInfo(int fd) {
     linklocal_flow_info_map_.erase(fd);
 }
 
-void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
+void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     flow->reset_flags(FlowEntry::ReverseFlow);
     /* reverse flow may not be aviable always, eg: Flow Audit */
     if (rflow != NULL)
@@ -1012,13 +1027,14 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
 
     if (rflow) {
         rflow->GetPolicyInfo();
-        ResyncAFlow(rflow);
+        ResyncAFlow(rflow, update);
         AddFlowInfo(rflow);
     }
 
 
-    ResyncAFlow(flow);
+    ResyncAFlow(flow, update);
     AddFlowInfo(flow);
+    AddIndexFlowInfo(flow, flow->flow_handle_);
 
     agent_->flow_stats_manager()->AddEvent(flow);
     agent_->flow_stats_manager()->AddEvent(rflow);
@@ -1117,7 +1133,7 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle, FlowTable* table) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         flow_handle_ = flow_handle;
-        UpdateKSync(table);
+        UpdateKSync(table, true);
     }
 }
 
@@ -1689,6 +1705,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time)
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
+    DeleteByIndex(fe->flow_handle_, fe);
 
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
@@ -1841,6 +1858,9 @@ void FlowTable::InitDone() {
     max_vm_flows_ = (uint32_t)
         (agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
          agent_->params()->max_vm_flows()) / 100;
+    flow_index_tree_.resize(
+        agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count(),
+        NULL);
 }
 
 void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
@@ -2052,29 +2072,26 @@ void FlowTable::DeleteVrouterEvictedFlow(FlowEntry *flow) {
 
 void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
     if (flow_handle != FlowEntry::kInvalidFlowHandle &&
-        flow->deleted() == false) {
-        FlowEntry *old_flow = FindByIndex(flow_handle);
-        if (old_flow == NULL) {
-            flow_index_tree_.insert(std::pair<uint32_t,FlowEntryPtr>(flow_handle,
-                                                                     flow));
-        } else if (old_flow != flow) {
+            flow->deleted() == false) {
+        if (flow_index_tree_[flow_handle] &&
+                flow_index_tree_[flow_handle] != flow) {
             assert(0);
         }
+        flow_index_tree_[flow_handle] = flow;
     }
 }
 
 void FlowTable::DeleteByIndex(uint32_t flow_handle, FlowEntry *fe) {
     if (flow_handle != FlowEntry::kInvalidFlowHandle) {
-        if (FindByIndex(flow_handle) == fe) {
-            flow_index_tree_.erase(flow_handle);
+        if (flow_index_tree_[flow_handle].get() == fe) {
+            flow_index_tree_[flow_handle] = NULL;
         }
     }
 }
 
 FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
-    FlowIndexTree::iterator it = flow_index_tree_.find(flow_handle);
-    if (it != flow_index_tree_.end()) {
-        return it->second.get();
+    if (flow_handle <= flow_index_tree_.size()) {
+        return flow_index_tree_[flow_handle].get();
     }
     return NULL;
 }
@@ -2317,7 +2334,7 @@ bool InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
     if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
         FlowEntry *fwd_flow = fe->reverse_flow_entry();
         if (fwd_flow) {
-            table->ResyncAFlow(fwd_flow);
+            table->ResyncAFlow(fwd_flow, true);
             table->AddFlowInfo(fwd_flow);
         }
     }
@@ -2432,7 +2449,7 @@ bool BridgeEntryFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
     if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
         FlowEntry *fwd_flow = fe->reverse_flow_entry();
         if (fwd_flow) {
-            table->ResyncAFlow(fwd_flow);
+            table->ResyncAFlow(fwd_flow, true);
             table->AddFlowInfo(fwd_flow);
         }
     }
@@ -2559,11 +2576,11 @@ void FlowTable::ResyncVnFlows(const VnEntry *vn) {
             fe->is_flags_set(FlowEntry::UnknownUnicastFlood)) {
             fe->MakeShortFlow(FlowEntry::SHORT_NO_DST_ROUTE);
             fe->GetPolicyInfo(vn);
-            ResyncAFlow(fe);
+            ResyncAFlow(fe, true);
             continue;
         }
         fe->GetPolicyInfo(vn);
-        ResyncAFlow(fe);
+        ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -2587,7 +2604,7 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo();
-        ResyncAFlow(fe);
+        ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -2613,7 +2630,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
         }
 
         if (flow->SetRpfNH(this, rt) == true) {
-            flow->UpdateKSync(this);
+            flow->UpdateKSync(this, true);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
@@ -2726,7 +2743,7 @@ void FlowTable::IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb) 
         if (cb(fe) == false) {
             fet.erase(fet_it);
         } else {
-            ResyncAFlow(fe);
+            ResyncAFlow(fe, true);
             AddFlowInfo(fe);
         }
     }
@@ -2752,7 +2769,7 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
             if (fwd_flow) {
                 DeleteFlowInfo(fwd_flow);
                 fwd_flow->GetPolicyInfo();
-                ResyncAFlow(fwd_flow);
+                ResyncAFlow(fwd_flow, true);
                 AddFlowInfo(fwd_flow);
                 FlowInfo flow_info;
                 fwd_flow->FillFlowInfo(flow_info);
@@ -2761,7 +2778,7 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
         }
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo(intf->vn());
-        ResyncAFlow(fe);
+        ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -2990,8 +3007,6 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
     AddVmFlowInfo(fe);
     // Add RouteFlowTree;
     AddRouteFlowInfo(fe);
-
-    AddIndexFlowInfo(fe, fe->flow_handle_);
 }
 
 void FlowTable::AddAclFlowInfo (FlowEntry *fe) 
@@ -3318,10 +3333,10 @@ void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
     fe->set_flow_handle(flow_handle, this);
 }
 
-void FlowTable::ResyncAFlow(FlowEntry *fe) {
+void FlowTable::ResyncAFlow(FlowEntry *fe, bool update) {
     fe->UpdateRpf();
     fe->DoPolicy();
-    fe->UpdateKSync(this);
+    fe->UpdateKSync(this, update);
 
     // If this is forward flow, update the SG action for reflexive entry
     if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -3337,7 +3352,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe) {
     // Check if there is change in action for reverse flow
     rflow->ActionRecompute();
 
-    rflow->UpdateKSync(this);
+    rflow->UpdateKSync(this, update);
 }
 
 void FlowTable::DeleteVnFlows(const VnEntry *vn)

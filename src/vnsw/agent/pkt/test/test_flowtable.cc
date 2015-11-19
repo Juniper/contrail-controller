@@ -88,7 +88,7 @@ FlowEntry *FlowInit(TestFlowKey *t) {
 }
 
 static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-    Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
+    Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev, true);
 }
 
 class FlowTableTest : public ::testing::Test {
@@ -279,7 +279,7 @@ public:
     }
 
     static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
+        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev, true);
         client->WaitForIdle();
     }
 

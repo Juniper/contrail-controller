@@ -337,7 +337,7 @@ class FlowEntry {
     virtual ~FlowEntry();
 
     bool ActionRecompute();
-    void UpdateKSync(FlowTable* table);
+    void UpdateKSync(FlowTable* table, bool update);
     int GetRefCount() { return refcount_; }
     void MakeShortFlow(FlowShortReason reason);
     const FlowStats &stats() const { return stats_;}
@@ -611,8 +611,7 @@ public:
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
 
-    typedef std::map<uint32_t, FlowEntryPtr> FlowIndexTree;
-
+    typedef std::vector<FlowEntryPtr> FlowIndexTree;
     typedef Patricia::Tree<RouteFlowInfo, &RouteFlowInfo::node, RouteFlowInfo::KeyCmp> RouteFlowTree;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
 
@@ -678,7 +677,7 @@ public:
     void Shutdown();
 
     FlowEntry *Allocate(const FlowKey &key);
-    void Add(FlowEntry *flow, FlowEntry *rflow);
+    void Add(FlowEntry *flow, FlowEntry *rflow, bool update);
     FlowEntry *Find(const FlowKey &key);
     bool Delete(const FlowKey &key, bool del_reverse_flow);
 
@@ -788,7 +787,7 @@ private:
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
-    void ResyncAFlow(FlowEntry *fe);
+    void ResyncAFlow(FlowEntry *fe, bool update);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt);
 
