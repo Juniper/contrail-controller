@@ -63,6 +63,8 @@ TEST_F(UveProuterUveTest, ProuterAddDel_1) {
     WAIT_FOR(1000, 500, (vr->vrouter_msg_count() == 1U));
     const VrouterAgent &uve = vr->last_sent_vrouter();
     EXPECT_EQ(1U, uve.get_embedded_prouter_list().size());
+    const ProuterData &pr_uve = pr->last_sent_uve();
+    EXPECT_STREQ(pr_uve.get_agent_name().c_str(), agent_->agent_name().c_str());
 
     DeletePhysicalDevice("prouter1");
     client->WaitForIdle();
