@@ -514,6 +514,9 @@ class VirtualNetworkST(DBBase):
                         for rt in self.rt_list:
                             rtgt_obj = RouteTarget(rt)
                             rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                        if not is_default and self.allow_transit:
+                            rtgt_obj = RouteTarget(self._route_target)
+                            rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                     if (not compare_refs(rinst_obj.get_route_target_refs(),
                                          old_rt_refs)):
                         need_update = True
@@ -528,6 +531,9 @@ class VirtualNetworkST(DBBase):
                 if inst_tgt_data:
                     for rt in self.rt_list:
                         rtgt_obj = RouteTarget(rt)
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                    if not is_default and self.allow_transit:
+                        rtgt_obj = RouteTarget(self._route_target)
                         rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
