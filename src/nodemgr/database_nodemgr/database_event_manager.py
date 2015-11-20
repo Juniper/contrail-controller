@@ -15,6 +15,7 @@ import platform
 import select
 import gevent
 import ConfigParser
+import yaml
 
 from nodemgr.common.event_manager import EventManager
 
@@ -78,15 +79,15 @@ class DatabaseEventManager(EventManager):
         try:
             (linux_dist, x, y) = platform.linux_distribution()
             if (linux_dist == 'Ubuntu'):
-                popen_cmd = "grep -A 1 'data_file_directories:'" + \
-                    "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2"
+                yamlstream = open("/etc/cassandra/cassandra.yaml", 'r')
+                cfg = yaml.safe_load(yamlstream)
+                yamlstream.close()
             else:
-                popen_cmd = "grep -A 1 'data_file_directories:'" + \
-                    "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2"
+                yamlstream = open("/etc/cassandra/conf/cassandra.yaml", 'r')
+                cfg = yaml.safe_load(yamlstream)
+                yamlstream.close()
 
-            (cassandra_data_dir, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            cassandra_data_dir = cassandra_data_dir.strip()
+            cassandra_data_dir = cfg["data_file_directories"][0]
             analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
             if os.path.exists(analytics_dir):
                 self.stderr.write("analytics_dir is " + analytics_dir + "\n")
@@ -147,15 +148,15 @@ class DatabaseEventManager(EventManager):
         try:
             (linux_dist, x, y) = platform.linux_distribution()
             if (linux_dist == 'Ubuntu'):
-                popen_cmd = "grep -A 1 'data_file_directories:'" + \
-                    "  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2"
+                yamlstream = open("/etc/cassandra/cassandra.yaml", 'r')
+                cfg = yaml.safe_load(yamlstream)
+                yamlstream.close()
             else:
-                popen_cmd = "grep -A 1 'data_file_directories:'" + \
-                    "  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2"
+                yamlstream = open("/etc/cassandra/conf/cassandra.yaml", 'r')
+                cfg = yaml.safe_load(yamlstream)
+                yamlstream.close()
 
-            (cassandra_data_dir, error_value) = \
-                Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-            cassandra_data_dir = cassandra_data_dir.strip()
+            cassandra_data_dir = cfg["data_file_directories"][0]
             analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
             if os.path.exists(analytics_dir):
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
