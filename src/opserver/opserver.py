@@ -1079,6 +1079,7 @@ class OpServer(object):
             redis_query_ip, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, self._args.host_ip))
             qid = str(uuid.uuid1(redis_query_ip))
+            self._logger.info('Received Query: %s' % (str(request.json)))
             self._logger.info("Starting Query %s" % qid)
 
             tabl = ""
@@ -1920,11 +1921,9 @@ class OpServer(object):
         self._logger.info("purge_id %s START Purging!" % str(purge_id))
         purge_stat = DatabasePurgeStats()
         purge_stat.request_time = UTCTimestampUsec()
-        purge_info = DatabasePurgeInfo()
+        purge_info = DatabasePurgeInfo(sandesh=self._sandesh)
         self._analytics_db.number_of_purge_requests += 1
-        purge_info.number_of_purge_requests = \
-            self._analytics_db.number_of_purge_requests
-        total_rows_deleted, purge_stat.purge_status_details = \
+        total_rows_deleted, purge_status_details = \
             self._analytics_db.db_purge(purge_cutoff, purge_id)
         self._analytics_db.delete_db_purge_status()
 
@@ -1946,12 +1945,12 @@ class OpServer(object):
         else:
             purge_stat.purge_status = PurgeStatusString[PurgeStatus.SUCCESS]
             self._logger.info("purge_id %s purging DONE" % str(purge_id))
+        purge_stat.purge_status_details = ', '.join(purge_status_details)
         purge_stat.rows_deleted = total_rows_deleted
         purge_stat.duration = duration
         purge_info.name  = self._hostname
-        purge_info.stats = [purge_stat]
-        purge_data = DatabasePurge(data=purge_info, sandesh=self._sandesh)
-        purge_data.send(sandesh=self._sandesh)
+        purge_info.stats = purge_stat
+        purge_info.send(sandesh=self._sandesh)
     #end db_purge_operation
 
     def _auto_purge(self):
