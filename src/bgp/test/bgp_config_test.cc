@@ -315,6 +315,50 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
 }
 
+TEST_F(BgpConfigTest, InstanceBGPaaSNeighbors) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(64512, peer1->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_EQ(65001, peer1->peer_as());
+    TASK_UTIL_EXPECT_EQ("10.0.0.1", peer1->peer_address_string());
+
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(64512, peer2->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", peer2->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_EQ(65002, peer2->peer_as());
+    TASK_UTIL_EXPECT_EQ("10.0.0.2", peer2->peer_address_string());
+
+    // Change asn and identifier for master.
+    content = FileRead("controller/src/bgp/testdata/config_test_36b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that instance neighbors use the new values.
+    TASK_UTIL_EXPECT_EQ(64513, peer1->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.2", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_EQ(64513, peer2->local_as());
+    TASK_UTIL_EXPECT_EQ("192.168.1.2", peer2->local_bgp_identifier_string());
+
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+}
+
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
     string content_a = FileRead("controller/src/bgp/testdata/config_test_35a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));

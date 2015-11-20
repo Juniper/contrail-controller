@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp-router name='local'>
+        <address>192.168.1.2</address>
+        <autonomous-system>64513</autonomous-system>
+        <identifier>192.168.1.2</identifier>
+    </bgp-router>
+</config>

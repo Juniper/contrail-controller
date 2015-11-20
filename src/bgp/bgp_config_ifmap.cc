@@ -90,6 +90,17 @@ static void BuildKeyChain(BgpNeighborConfig *neighbor,
 }
 
 //
+// Check if the family is allowed to be configured for BgpNeighborConfig.
+// Only families inet and inet6 are allowed on non-master instances.
+//
+static bool AddressFamilyIsValid(BgpNeighborConfig *neighbor,
+    const string &family) {
+    if (neighbor->instance_name() == BgpConfigManager::kMasterInstance)
+        return true;
+    return (family == "inet" || family == "inet6");
+}
+
+//
 // Build list of BgpFamilyAttributesConfig elements from the list of address
 // families. This is provided for backward compatibility with configurations
 // that represent each family with a simple string.
@@ -98,6 +109,8 @@ static void BuildFamilyAttributesList(BgpNeighborConfig *neighbor,
     const BgpNeighborConfig::AddressFamilyList &family_list) {
     BgpNeighborConfig::FamilyAttributesList family_attributes_list;
     BOOST_FOREACH(const string &family, family_list) {
+        if (!AddressFamilyIsValid(neighbor, family))
+            continue;
         BgpFamilyAttributesConfig family_attributes(family);
         family_attributes_list.push_back(family_attributes);
     }
@@ -119,6 +132,8 @@ static void BuildFamilyAttributesList(BgpNeighborConfig *neighbor,
     BgpNeighborConfig::FamilyAttributesList family_attributes_list;
     BOOST_FOREACH(const autogen::BgpFamilyAttributes &family_config,
         attributes->family_attributes) {
+        if (!AddressFamilyIsValid(neighbor, family_config.address_family))
+            continue;
         BgpFamilyAttributesConfig family_attributes(
             family_config.address_family);
         family_attributes.loop_count = family_config.loop_count;
@@ -155,7 +170,8 @@ static void NeighborSetSessionAttributes(
         const autogen::BgpSessionAttributes *attr = iter.operator->();
         if (attr->bgp_router.empty()) {
             common = attr;
-        } else if (attr->bgp_router == localname) {
+        } else if (attr->bgp_router == localname ||
+                   attr->bgp_router == "BGPaaS") {
             local = attr;
         }
     }
@@ -183,8 +199,9 @@ static void NeighborSetSessionAttributes(
 
 static BgpNeighborConfig *MakeBgpNeighborConfig(
     const BgpIfmapInstanceConfig *instance,
-    const string &remote_name,
+    const BgpIfmapInstanceConfig *master_instance,
     const string &local_name,
+    const string &remote_name,
     const autogen::BgpRouter *local_router,
     const autogen::BgpRouter *remote_router,
     const autogen::BgpSession *session) {
@@ -236,10 +253,12 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         NeighborSetSessionAttributes(neighbor, local_name, session);
     }
 
-    // Get the local identifier and local as from the protocol config.
-    const BgpIfmapProtocolConfig *protocol = instance->protocol_config();
-    if (protocol && protocol->bgp_router()) {
-        const autogen::BgpRouterParams &params = protocol->router_params();
+    // Get the local identifier and local as from the master protocol config.
+    const BgpIfmapProtocolConfig *master_protocol =
+        master_instance->protocol_config();
+    if (master_protocol && master_protocol->bgp_router()) {
+        const autogen::BgpRouterParams &params =
+            master_protocol->router_params();
         if (params.admin_down) {
             neighbor->set_admin_down(true);
         }
@@ -252,7 +271,16 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         } else {
             neighbor->set_local_as(params.autonomous_system);
         }
+        if (instance != master_instance) {
+            neighbor->set_passive(true);
+        }
+    }
 
+    // Get other parameters from the instance protocol config.
+    // Note that there's no instance protocol config for non-master instances.
+    const BgpIfmapProtocolConfig *protocol = instance->protocol_config();
+    if (protocol && protocol->bgp_router()) {
+        const autogen::BgpRouterParams &params = protocol->router_params();
         if (neighbor->family_attributes_list().empty()) {
             BuildFamilyAttributesList(neighbor, params.address_families.family);
         }
@@ -272,10 +300,13 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
 //
 // Build map of BgpNeighborConfigs based on the data in autogen::BgpPeering.
 //
-void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
+void BgpIfmapPeeringConfig::BuildNeighbors(BgpIfmapConfigManager *manager,
         const autogen::BgpRouter *local_rt_config,
         const string &peername, const autogen::BgpRouter *remote_rt_config,
         const autogen::BgpPeering *peering, NeighborMap *map) {
+
+    const BgpIfmapInstanceConfig *master_instance =
+        manager->config()->FindInstance(BgpConfigManager::kMasterInstance);
 
     // If there are one or more autogen::BgpSessions for the peering, use
     // those to create the BgpNeighborConfigs.
@@ -283,8 +314,8 @@ void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
     for (autogen::BgpPeeringAttributes::const_iterator iter = attr.begin();
          iter != attr.end(); ++iter) {
         BgpNeighborConfig *neighbor = MakeBgpNeighborConfig(
-            instance_, peername, manager->localname(), local_rt_config,
-            remote_rt_config, iter.operator->());
+            instance_, master_instance, manager->localname(), peername,
+            local_rt_config, remote_rt_config, iter.operator->());
         map->insert(make_pair(neighbor->name(), neighbor));
     }
 
@@ -292,17 +323,17 @@ void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
     // no per-session configuration.
     if (map->empty()) {
         BgpNeighborConfig *neighbor = MakeBgpNeighborConfig(
-            instance_, peername, manager->localname(), local_rt_config,
-            remote_rt_config, NULL);
+            instance_, master_instance, manager->localname(), peername,
+            local_rt_config, remote_rt_config, NULL);
         map->insert(make_pair(neighbor->name(), neighbor));
     }
 }
 
 //
-// Update BgpPeeringConfig based on updated autogen::BgpPeering.
+// Update BgpIfmapPeeringConfig based on updated autogen::BgpPeering.
 //
 // This mainly involves building future BgpNeighborConfigs and doing a diff of
-// the current and future BgpNeighborConfigs.  Note that the BgpIfmapInstanceConfig
+// the current and future BgpNeighborConfigs.  Note that BgpIfmapInstanceConfig
 // also has references to BgpNeighborConfigs, so it also needs to be updated as
 // part of the process.
 //
@@ -426,7 +457,9 @@ bool BgpIfmapPeeringConfig::GetRouterPair(DBGraph *db_graph,
             continue;
         string instance_name(IdentifierParent(adj->name()));
         string name = adj->name().substr(instance_name.size() + 1);
-        if (name == localname) {
+        if (name == localname ||
+            (instance_name != BgpConfigManager::kMasterInstance &&
+             name == "BGPaaS")) {
             local = adj;
         } else {
             remote = adj;
@@ -1190,19 +1223,19 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
 //
 // Handler for routing-instance objects.
 //
-// Note that the BgpIfmapInstanceConfig object for the master instance is created
+// Note that BgpIfmapInstanceConfig object for the master instance is created
 // before we have received any configuration for it i.e. there's no IFMapNode
 // or autogen::RoutingInstance for it. However, we will eventually receive a
 // delta for the master.  The IFMapNodeProxy and autogen::RoutingInstance are
 // set at that time.
 //
-// For other routing-instances the BgpConfigInstance can get created before we
+// For other routing-instances BgpIfmapConfigInstance can get created before we
 // see the IFMapNode for the routing-instance if we see the IFMapNode for the
 // local bgp-router in the routing-instance.  In this case, the IFMapNodeProxy
 // and autogen::RoutingInstance are set when we later see the IFMapNode for the
 // routing-instance.
 //
-// In all other cases a BgpConfigInstance is created when we see the IFMapNode
+// In all other cases, BgpIfmapConfigInstance is created when we see IFMapNode
 // for the routing-instance.  The IFMapNodeProxy and autogen::RoutingInstance
 // are set right away.
 //
@@ -1378,15 +1411,12 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
 //
 // Handler for bgp-router objects.
 //
-// Note that we don't need to explicitly re-evaluate any bgp-peerings as the
-// BgpConfigListener::DependencyTracker adds any relevant bgp-peerings to the
-// change list.
-//
 void BgpIfmapConfigManager::ProcessBgpRouter(const BgpConfigDelta &delta) {
     CHECK_CONCURRENCY("bgp::Config");
 
     string instance_name(IdentifierParent(delta.id_name));
-    if (instance_name.empty()) {
+    if (instance_name.empty() ||
+        instance_name != BgpConfigManager::kMasterInstance) {
         return;
     }
 
@@ -1397,6 +1427,14 @@ void BgpIfmapConfigManager::ProcessBgpRouter(const BgpConfigDelta &delta) {
     }
 
     ProcessBgpProtocol(delta);
+
+    // Update all peerings since we use local asn and identifier from master
+    // instance for all neighbors, including those in non-master instances.
+    BOOST_FOREACH(const BgpIfmapConfigData::IfmapPeeringMap::value_type &value,
+        config_->peerings()) {
+        BgpIfmapPeeringConfig *peering = value.second;
+        peering->Update(this, peering->bgp_peering());
+    }
 }
 
 //
