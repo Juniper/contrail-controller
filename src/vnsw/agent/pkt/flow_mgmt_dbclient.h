@@ -95,7 +95,7 @@ public:
 
     void Init();
     void Shutdown();
-    bool ResponseHandler(const DBEntry *entry, uint32_t gen_id);
+    bool FreeDBState(const DBEntry *entry, uint32_t gen_id);
 
 private:
     void AddEvent(const DBEntry *entry, FlowMgmtState *state);

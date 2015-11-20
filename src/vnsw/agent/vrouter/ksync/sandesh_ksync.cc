@@ -118,18 +118,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             }
 
             FlowTable *table = entry->flow_table();
-            bool update_rev_flow = false;
-            if ((int)entry->flow_handle() != r->get_fr_index()) {
-                update_rev_flow = true;
-                table->AddIndexFlowInfo(entry, r->get_fr_index());
-                table->NotifyFlowStatsCollector(entry);
-            }
-
-            FlowEntry *rev_flow = entry->reverse_flow_entry();
-            if (rev_flow && update_rev_flow) {
-                bool update = true;
-                table->UpdateKSync(rev_flow, update);
-            }
+            table->KSyncSetFlowHandle(entry, r->get_fr_index());
         }
     } else {
         assert(!("Invalid Flow operation"));

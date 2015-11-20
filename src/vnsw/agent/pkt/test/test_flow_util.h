@@ -240,7 +240,7 @@ private:
     class FlowDeleteTask : public Task {
     public:
         FlowDeleteTask(const FlowKey &key) :
-        Task(TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"), -1),
+        Task(TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent), -1),
         key_(key) {}
         virtual bool Run() {
             FlowTable *table =

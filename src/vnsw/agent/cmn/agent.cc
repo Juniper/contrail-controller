@@ -101,8 +101,9 @@ void Agent::SetAgentTaskPolicy() {
     initialized = true;
 
     const char *db_exclude_list[] = {
-        "Agent::FlowTable",
-        "Agent::FlowHandler",
+        kTaskFlowEvent,
+        kTaskFlowUpdate,
+        kTaskFlowAudit,
         "Agent::Services",
         "Agent::StatsCollector",
         "sandesh::RecvQueue",
@@ -117,22 +118,17 @@ void Agent::SetAgentTaskPolicy() {
     const char *flow_table_exclude_list[] = {
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne("Agent::FlowTable", flow_table_exclude_list,
+    SetTaskPolicyOne(kTaskFlowEvent, flow_table_exclude_list,
                      sizeof(flow_table_exclude_list) / sizeof(char *));
 
     const char *flow_exclude_list[] = {
-        "Agent::StatsCollector",
-        "io::ReaderTask",
-        "Agent::PktFlowResponder",
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne("Agent::FlowHandler", flow_exclude_list, 
+    SetTaskPolicyOne(kTaskFlowUpdate, flow_exclude_list, 
                      sizeof(flow_exclude_list) / sizeof(char *));
 
     const char *sandesh_exclude_list[] = {
         "db::DBTable",
-        "Agent::FlowTable",
-        "Agent::FlowHandler",
         "Agent::Services",
         "Agent::StatsCollector",
         "io::ReaderTask",
@@ -143,8 +139,6 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(sandesh_exclude_list) / sizeof(char *));
 
     const char *xmpp_config_exclude_list[] = {
-        "Agent::FlowTable",
-        "Agent::FlowHandler",
         "Agent::Services",
         "Agent::StatsCollector",
         "sandesh::RecvQueue",
@@ -176,8 +170,6 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(walk_cancel_exclude_list) / sizeof(char *));
 
     const char *ksync_exclude_list[] = {
-        "Agent::FlowTable",
-        "Agent::FlowHandler",
         "Agent::StatsCollector",
         "db::DBTable",
         "Agent::PktFlowResponder",
@@ -623,8 +615,8 @@ bool Agent::isVmwareVcenterMode() const {
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
-                         "Flow::Management", "Agent::FlowHandler",
-                         "Agent::FlowTable");
+                         "Flow::Management", kTaskFlowUpdate,
+                         kTaskFlowEvent);
     }
 }
 

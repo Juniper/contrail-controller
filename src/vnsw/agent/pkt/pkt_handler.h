@@ -47,6 +47,7 @@ struct PktInfo;
 struct agent_hdr;
 class PacketBuffer;
 class Proto;
+typedef boost::shared_ptr<PktInfo> PktInfoPtr;
 
 struct InterTaskMsg {
     InterTaskMsg(uint16_t command): cmd(command) {}

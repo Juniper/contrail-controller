@@ -83,6 +83,8 @@ public:
     KSync *ksync() const { return ksync_; }
     void set_flow_table(FlowTable *table) { flow_table_ = table; }
     FlowTable *flow_table() const { return flow_table_; }
+    void UpdateFlowHandle(FlowTableKSyncEntry *entry, uint32_t flow_handle);
+    void UpdateKey(KSyncEntry *entry, uint32_t flow_handle);
 private:
     friend class KSyncSandeshContext;
     friend class FlowTable;

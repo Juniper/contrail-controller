@@ -6,7 +6,7 @@
 
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_request.h"
-#include "pkt/flow_mgmt_response.h"
+#include "pkt/flow_event.h"
 
 ////////////////////////////////////////////////////////////////////////////
 // Flow Management module is responsible to keep flow action in-sync with
@@ -57,8 +57,8 @@
 //   * Delete of DBEntry
 //   * Export of Flow
 //
-// - Flow Management Response
-//   Flow Management Tree module may generate response events as response to
+// - Flow Events
+//   Flow Management Tree module may generate events in response to
 //   requests. The response events are enqueued here. Example events are,
 //   * Flow revaluation in response to DBEntry change
 //   * Flow revaluation in response to DBEntry Add/Delete
@@ -261,8 +261,8 @@ public:
     // Clone the key
     virtual FlowMgmtKey *Clone() = 0;
 
-    // Convert from FlowMgmtKey to FlowMgmtResponse
-    virtual void KeyToFlowRequest(FlowMgmtResponse *req) {
+    // Convert from FlowMgmtKey to FlowEvent
+    virtual void KeyToFlowRequest(FlowEvent *req) {
         req->set_db_entry(db_entry_);
     }
 
@@ -285,7 +285,7 @@ public:
         return Compare(rhs);
     }
 
-    FlowMgmtResponse::Event FreeDBEntryEvent() const;
+    FlowEvent::Event FreeDBEntryEvent() const;
     Type type() const { return type_; }
     const DBEntry *db_entry() const { return db_entry_; }
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
@@ -944,14 +944,9 @@ public:
 
     bool DBEntryRequestHandler(FlowMgmtRequest *req, const DBEntry *entry);
     bool RequestHandler(boost::shared_ptr<FlowMgmtRequest> req);
-    void RequestEnqueue(FlowMgmtRequest *req);
 
-    bool FlowResponseHandler(FlowEntry *flow, const DBEntry *entry);
     bool DbClientHandler(const DBEntry *entry);
-    bool ResponseHandler(const FlowMgmtResponse &resp);
-    void ResponseEnqueue(const FlowMgmtResponse &resp) {
-        response_queue_.Enqueue(resp);
-    }
+    void EnqueueFlowEvent(const FlowEvent &event);
 
     Agent *agent() const { return agent_; }
     void AddEvent(FlowEntry *low);
@@ -968,6 +963,9 @@ public:
                         uint32_t *egress_flow_count);
     bool HasVrfFlows(uint32_t vrf);
 
+    FlowMgmtDbClient *flow_mgmt_dbclient() const {
+        return flow_mgmt_dbclient_.get();
+    }
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
@@ -1005,7 +1003,6 @@ private:
     FlowEntryTree flow_tree_;
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
     WorkQueue<boost::shared_ptr<FlowMgmtRequest> > request_queue_;
-    WorkQueue<FlowMgmtResponse> response_queue_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
 };
 

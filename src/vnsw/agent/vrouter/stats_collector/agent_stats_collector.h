@@ -20,7 +20,7 @@
 //statistics from vrouter and updates its data-structures with this
 //information. Stats collection request runs in the context of
 //"Agent::StatsCollector" which has exclusion with "db::DBTable",
-//"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
+//"sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
 //Stats collection response runs in the context of "Agent::Uve" which has
 //exclusion with "db::DBTable"
 class AgentStatsCollector : public StatsCollector {

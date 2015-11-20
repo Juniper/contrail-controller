@@ -25,7 +25,6 @@ class FetchFlowStatsRecord;
 //shared memory (between agent and Kernel) and export this stats info to
 //collector. Also responsible for aging of flow entries. Runs in the context
 //of "Agent::StatsCollector" which has exclusion with "db::DBTable",
-//"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
 class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;

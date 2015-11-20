@@ -286,9 +286,7 @@ void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
-    FlowTable *flow_table =
-        agent_uve_->agent()->pkt()->get_flow_proto()->GetFlowTable(key);
-    flow_table->FlowEvent(FlowTableRequest::DELETE_FLOW, NULL, key, rev);
+    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
 }
 
 // FIXME : Handle multiple tables

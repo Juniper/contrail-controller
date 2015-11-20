@@ -1,7 +1,7 @@
 #include <bitset>
+#include "pkt/flow_proto.h"
 #include "pkt/flow_mgmt.h"
 #include "pkt/flow_mgmt_request.h"
-#include "pkt/flow_mgmt_response.h"
 #include "pkt/flow_mgmt_dbclient.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
 const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
@@ -21,10 +21,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     nh_flow_mgmt_tree_(this),
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
     request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
-                   boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
-    response_queue_(agent_->task_scheduler()->GetTaskId(FlowTable::TaskName()),
-                    1, boost::bind(&FlowMgmtManager::ResponseHandler, this,
-                                   _1)) {
+                   boost::bind(&FlowMgmtManager::RequestHandler, this, _1)) {
 }
 
 void FlowMgmtManager::Init() {
@@ -38,7 +35,6 @@ void FlowMgmtManager::Init() {
 
 void FlowMgmtManager::Shutdown() {
     request_queue_.Shutdown();
-    response_queue_.Shutdown();
     flow_mgmt_dbclient_->Shutdown();
 }
 
@@ -116,6 +112,10 @@ void FlowMgmtManager::RetryVrfDeleteEvent(const VrfEntry *vrf) {
     boost::shared_ptr<FlowMgmtRequest>
         req(new FlowMgmtRequest(FlowMgmtRequest::RETRY_DELETE_VRF, vrf, 0));
     request_queue_.Enqueue(req);
+}
+
+void FlowMgmtManager::EnqueueFlowEvent(const FlowEvent &event) {
+    agent_->pkt()->get_flow_proto()->EnqueueFlowEvent(event);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -216,9 +216,9 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
         // being modified by two threads. Avoid the concurrency issue by
         // enqueuing a dummy request to flow-table queue. The reference will
         // be removed in flow processing context
-        FlowMgmtResponse flow_resp(FlowMgmtResponse::FREE_FLOW_REF,
+        FlowEvent flow_resp(FlowEvent::FREE_FLOW_REF,
                                    req->flow().get(), NULL);
-        ResponseEnqueue(flow_resp);
+        EnqueueFlowEvent(flow_resp);
         break;
     }
 
@@ -538,8 +538,8 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
 /////////////////////////////////////////////////////////////////////////////
 
 // Event to be enqueued to free an object
-FlowMgmtResponse::Event FlowMgmtKey::FreeDBEntryEvent() const {
-    FlowMgmtResponse::Event event = FlowMgmtResponse::INVALID;
+FlowEvent::Event FlowMgmtKey::FreeDBEntryEvent() const {
+    FlowEvent::Event event = FlowEvent::INVALID;
     switch (type_) {
     case INTERFACE:
     case ACL:
@@ -549,12 +549,12 @@ FlowMgmtResponse::Event FlowMgmtKey::FreeDBEntryEvent() const {
     case BRIDGE:
     case NH:
     case VRF:
-        event = FlowMgmtResponse::FREE_DBENTRY;
+        event = FlowEvent::FREE_DBENTRY;
         break;
 
     case ACE_ID:
     case VM:
-        event = FlowMgmtResponse::INVALID;
+        event = FlowEvent::INVALID;
         break;
 
     default:
@@ -653,12 +653,12 @@ bool FlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
 // Send DELETE Entry message to FlowTable module
 void FlowMgmtTree::FreeNotify(FlowMgmtKey *key, uint32_t gen_id) {
     assert(key->db_entry() != NULL);
-    FlowMgmtResponse::Event event = key->FreeDBEntryEvent();
-    if (event == FlowMgmtResponse::INVALID)
+    FlowEvent::Event event = key->FreeDBEntryEvent();
+    if (event == FlowEvent::INVALID)
         return;
 
-    FlowMgmtResponse resp(event, key->db_entry(), gen_id);
-    mgr_->ResponseEnqueue(resp);
+    FlowEvent resp(event, key->db_entry(), gen_id);
+    mgr_->EnqueueFlowEvent(resp);
 }
 
 // An object is added/updated. Enqueue REVALUATE for flows dependent on it
@@ -727,16 +727,16 @@ bool FlowMgmtEntry::CanDelete() const {
 bool FlowMgmtEntry::OperEntryAdd(FlowMgmtManager *mgr,
                                  const FlowMgmtRequest *req, FlowMgmtKey *key) {
     oper_state_ = OPER_ADD_SEEN;
-    FlowMgmtResponse::Event event = req->GetResponseEvent();
-    if (event == FlowMgmtResponse::INVALID)
+    FlowEvent::Event event = req->GetResponseEvent();
+    if (event == FlowEvent::INVALID)
         return false;
 
-    FlowMgmtResponse flow_resp(event, NULL, key->db_entry());
+    FlowEvent flow_resp(event, NULL, key->db_entry());
     key->KeyToFlowRequest(&flow_resp);
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
         flow_resp.set_flow(*it);
-        mgr->ResponseEnqueue(flow_resp);
+        mgr->EnqueueFlowEvent(flow_resp);
         it++;
     }
 
@@ -755,16 +755,16 @@ bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
                                     FlowMgmtKey *key) {
     oper_state_ = OPER_DEL_SEEN;
     gen_id_ = req->gen_id();
-    FlowMgmtResponse::Event event = req->GetResponseEvent();
-    if (event == FlowMgmtResponse::INVALID)
+    FlowEvent::Event event = req->GetResponseEvent();
+    if (event == FlowEvent::INVALID)
         return false;
 
-    FlowMgmtResponse flow_resp(event, NULL, key->db_entry());
+    FlowEvent flow_resp(event, NULL, key->db_entry());
     key->KeyToFlowRequest(&flow_resp);
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
         flow_resp.set_flow(*it);
-        mgr->ResponseEnqueue(flow_resp);
+        mgr->EnqueueFlowEvent(flow_resp);
         it++;
     }
 
@@ -1324,32 +1324,4 @@ void VrfFlowMgmtEntry::Data::ManagedDelete() {
     if (vrf_mgmt_entry_->CanDelete()) {
         vrf_mgmt_entry_->vrf_tree()->mgr()->RetryVrfDeleteEvent(vrf_);
     }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// FlowMamagentResponse message handler
-/////////////////////////////////////////////////////////////////////////////
-bool FlowMgmtManager::ResponseHandler(const FlowMgmtResponse &resp){
-    switch (resp.event()) {
-    case FlowMgmtResponse::FREE_FLOW_REF:
-        break;
-
-    case FlowMgmtResponse::REVALUATE_FLOW:
-    case FlowMgmtResponse::REVALUATE_DBENTRY:
-    case FlowMgmtResponse::DELETE_DBENTRY: {
-        resp.flow()->flow_table()->FlowResponseHandler(&resp);
-        break;
-    }
-
-    case FlowMgmtResponse::FREE_DBENTRY: {
-        flow_mgmt_dbclient_->ResponseHandler(resp.db_entry(), resp.gen_id());
-        break;
-    }
-
-    default: {
-        assert(0);
-        break;
-    }
-    }
-    return true;
 }

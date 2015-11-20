@@ -134,7 +134,7 @@ DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     return NULL;
 }
 DBEntry *DBTablePartition::FindNoLock(const DBEntry *entry) {
-    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowHandler", "Agent::FlowTable");
+    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowEvent", "Agent::FlowUpdate");
     return FindInternal(entry);
 }
 
@@ -144,7 +144,7 @@ DBEntry *DBTablePartition::Find(const DBEntry *entry) {
 }
 
 DBEntry *DBTablePartition::FindNoLock(const DBRequestKey *key) {
-    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowHandler", "Agent::FlowTable");
+    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowEvent", "Agent::FlowUpdate");
     DBTable *table = static_cast<DBTable *>(parent());
     std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
     return FindInternal(entry_ptr.get());

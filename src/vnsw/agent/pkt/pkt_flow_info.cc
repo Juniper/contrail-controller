@@ -1429,10 +1429,10 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
     
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
-    FlowTableRequest::Event event = FlowTableRequest::ADD_FLOW;
+    bool update = false;
     if (pkt->type == PktType::MESSAGE &&
         pkt->agent_hdr.cmd != AgentHdr::TRAP_FLOW_MISS) {
-        event = FlowTableRequest::UPDATE_FLOW;
+        update = true;
     }
 
     // Generate traffic seen event for path preference module
@@ -1498,10 +1498,12 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
      * both forward and reverse flows are not not linked to each other yet.
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
-    if (swap_flows) {
-        flow_table->FlowEvent(event, rflow.get(), FlowKey(), false);
+
+    FlowEntry *tmp = swap_flows ? rflow.get() : flow.get();
+    if (update) {
+        agent->pkt()->get_flow_proto()->UpdateFlow(tmp);
     } else {
-        flow_table->FlowEvent(event, flow.get(), FlowKey(), false);
+        agent->pkt()->get_flow_proto()->AddFlow(tmp);
     }
 }
 

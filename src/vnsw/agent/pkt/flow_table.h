@@ -54,7 +54,7 @@ class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
 class FlowTableKSyncObject;
-class FlowMgmtResponse;
+class FlowEvent;
 
 /////////////////////////////////////////////////////////////////////////////
 // Flow addition is a two step process.
@@ -65,43 +65,11 @@ class FlowMgmtResponse;
 //   This module will maintain a tree of all flows created. It is also
 //   responsible to generate KSync events. It is run in a single task context
 //
-//   This module has WorkQueue running in "Agent::FlowTable" task context.
-//   FlowTableRequest are enqueued to the queue to to add/delete flows.
-//
-//   Functionality of FLowTable:
+//   Functionality of FlowTable:
 //   1. Manage flow_entry_map_ which contains all flows
 //   2. Enforce the per-VM flow limits
 //   3. Generate events to KSync and FlowMgmt modueles
 /////////////////////////////////////////////////////////////////////////////
-struct FlowTableRequest {
-    enum Event {
-        INVALID,
-        ADD_FLOW,
-        DELETE_FLOW,
-        UPDATE_FLOW
-    };
-
-    FlowTableRequest() : event_(INVALID), flow_(NULL), del_flow_key_(),
-        del_rev_flow_(false) {
-    }
-
-    FlowTableRequest(Event event, FlowEntry *flow) :
-        event_(event), flow_(flow), del_flow_key_(), del_rev_flow_(false) {
-    }
-
-    FlowTableRequest(const FlowTableRequest &rhs) :
-        event_(rhs.event_), flow_(rhs.flow_), del_flow_key_(rhs.del_flow_key_),
-        del_rev_flow_(rhs.del_rev_flow_) {
-    }
-
-    virtual ~FlowTableRequest() { }
-
-    Event event_;
-    FlowEntryPtr flow_;
-    FlowKey del_flow_key_;
-    bool del_rev_flow_;
-};
-
 struct FlowTaskMsg : public InterTaskMsg {
     FlowTaskMsg(FlowEntry * fe) : InterTaskMsg(0), fe_ptr(fe) { }
     virtual ~FlowTaskMsg() { }
@@ -118,7 +86,6 @@ struct Inet4FlowKeyCmp {
 
 class FlowTable {
 public:
-    static const std::string kTaskName;
     static boost::uuids::random_generator rand_gen_;
 
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
@@ -156,6 +123,7 @@ public:
     void Add(FlowEntry *flow, FlowEntry *rflow);
     void Update(FlowEntry *flow, FlowEntry *rflow);
     bool Delete(const FlowKey &key, bool del_reverse_flow);
+    bool Delete(const FlowKey &flow_key);
     void DeleteAll();
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key,
@@ -169,6 +137,7 @@ public:
 
     // Accessor routines
     Agent *agent() const { return agent_; }
+    uint16_t table_index() const { return table_index_; }
     size_t Size() { return flow_entry_map_.size(); }
     uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
     FlowTable::FlowEntryMap::iterator begin() {
@@ -185,7 +154,7 @@ public:
                               const uint64_t timestamp);
     void DelLinkLocalFlowInfo(int fd);
 
-    static const std::string &TaskName() { return kTaskName; }
+    static const char *TaskName() { return kTaskFlowEvent; }
     // Sandesh routines
     void Copy(FlowEntry *lhs, const FlowEntry *rhs);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
@@ -202,7 +171,7 @@ public:
     void RevaluateNh(FlowEntry *flow);
     void DeleteVrf(VrfEntry *vrf);
     void RevaluateRoute(FlowEntry *flow, const AgentRoute *route);
-    bool FlowResponseHandler(const FlowMgmtResponse *resp);
+    bool FlowResponseHandler(const FlowEvent *req);
 
     bool FlowRouteMatch(const InetUnicastRouteEntry *rt, uint32_t vrf,
                         Address::Family family, const IpAddress &ip,
@@ -225,14 +194,10 @@ public:
     void EvictVrouterFlow(FlowEntry *fe, uint32_t flow_index);
     void UpdateKSync(FlowEntry *flow, bool update);
 
-    // Flow Table request queue events
-    void FlowEvent(FlowTableRequest::Event event, FlowEntry *flow,
-                   const FlowKey &del_key, bool del_rflow);
-
     // FlowStatsCollector request queue events
     void NotifyFlowStatsCollector(FlowEntry *fe);
-    void RemoveFromKSyncTree(FlowEntry *flow);
-    void AddToKSyncTree(FlowEntry *flow);
+    void UpdateFlowHandle(FlowEntry *flow, uint32_t flow_handle);
+    void KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
@@ -258,7 +223,9 @@ private:
                      FlowEntry *new_rflow, bool update);
     void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
              FlowEntry *new_rflow, bool update);
-    bool RequestHandler(const FlowTableRequest &req);
+    void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
+                     tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
+
     Agent *agent_;
     uint16_t table_index_;
     FlowTableKSyncObject *ksync_object_;
@@ -266,7 +233,6 @@ private:
 
     VmFlowTree vm_flow_tree_;
     uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
-    WorkQueue<FlowTableRequest> request_queue_;
     FlowIndexTree flow_index_tree_;
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;

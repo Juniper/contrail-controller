@@ -219,7 +219,7 @@ class ScaleTask : public Task {
 public:
     ScaleTask(VlanTable *table, bool use_key, bool do_lock, int thread_count,
               uint32_t find_count) :
-        Task(TaskScheduler::GetInstance()->GetTaskId("Agent::FlowTable"), -1),
+        Task(TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent), -1),
         table_(table), do_lock_(do_lock), use_key_(use_key),
         thread_count_(thread_count), find_count_(find_count) {
     }
@@ -244,7 +244,7 @@ private:
 
 // Find routine tests
 TEST_F(DBTest, Find) {
-    ConcurrencyScope scope("Agent::FlowTable");
+    ConcurrencyScope scope(kTaskFlowEvent);
     VlanTableReqKey key(101);
     EXPECT_TRUE(table_->Find(&key) != NULL);
     EXPECT_TRUE(table_->FindNoLock(&key) != NULL);
@@ -256,7 +256,7 @@ TEST_F(DBTest, Find) {
 
 // Find routine tests
 TEST_F(DBTest, VlanScaleNoTask) {
-    ConcurrencyScope scope("Agent::FlowTable");
+    ConcurrencyScope scope(kTaskFlowEvent);
     uint32_t count = FIND_COUNT;
 
     uint64_t key_with_lock = vlan_table_->FindScale(101, count,true, true);
@@ -275,7 +275,7 @@ TEST_F(DBTest, VlanScaleNoTask) {
 }
 
 TEST_F(DBTest, VlanScaleTask) {
-    ConcurrencyScope scope("Agent::FlowTable");
+    ConcurrencyScope scope(kTaskFlowEvent);
     scale_count_ = 0;
     uint32_t count = FIND_COUNT/4;
 
@@ -339,7 +339,7 @@ class ScaleInterfaceTask : public Task {
 public:
     ScaleInterfaceTask(DBTable *table, bool use_key, bool do_lock,
                        int thread_count, uint32_t find_count) :
-        Task(TaskScheduler::GetInstance()->GetTaskId("Agent::FlowTable"), -1),
+        Task(TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent), -1),
         table_(table), do_lock_(do_lock), use_key_(use_key),
         thread_count_(thread_count), find_count_(find_count) {
     }
@@ -362,7 +362,7 @@ private:
 };
 
 TEST_F(DBTest, ScaleVmInterface) {
-    ConcurrencyScope scope("Agent::FlowHandler");
+    ConcurrencyScope scope(kTaskFlowUpdate);
     DBTable *table =
         static_cast<DBTable *>(Agent::GetInstance()->interface_table());
     uint32_t count = FIND_COUNT;
@@ -383,7 +383,7 @@ TEST_F(DBTest, ScaleVmInterface) {
 }
 
 TEST_F(DBTest, ScaleTaskVmInterface) {
-    ConcurrencyScope scope("Agent::FlowHandler");
+    ConcurrencyScope scope(kTaskFlowUpdate);
     scale_count_ = 0;
     uint32_t count = FIND_COUNT/4;
     DBTable *table =

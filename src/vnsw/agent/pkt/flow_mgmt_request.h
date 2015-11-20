@@ -5,7 +5,7 @@
 #define __AGENT_FLOW_MGMT_REQUEST_H__
 
 #include "pkt/flow_table.h"
-#include "pkt/flow_mgmt_response.h"
+#include "pkt/flow_event.h"
 
 ////////////////////////////////////////////////////////////////////////////
 // Request to the Flow Management module
@@ -45,8 +45,8 @@ public:
     // At the end of Flow Management Request, we may enqueue a response message
     // back to FlowTable module. Compute the message type to be enqueued in
     // response. Returns INVALID if no message to be enqueued
-    FlowMgmtResponse::Event GetResponseEvent() const {
-        FlowMgmtResponse::Event resp_event = FlowMgmtResponse::INVALID;
+    FlowEvent::Event GetResponseEvent() const {
+        FlowEvent::Event resp_event = FlowEvent::INVALID;
         if (db_entry_ == NULL)
             return resp_event;
 
@@ -55,9 +55,9 @@ public:
         }
 
         if (event_ == ADD_DBENTRY || event_ == CHANGE_DBENTRY) {
-            resp_event = FlowMgmtResponse::REVALUATE_DBENTRY;
+            resp_event = FlowEvent::REVALUATE_DBENTRY;
         } else if (event_ == DELETE_DBENTRY) {
-            resp_event = FlowMgmtResponse::DELETE_DBENTRY;
+            resp_event = FlowEvent::DELETE_DBENTRY;
         }
 
         
@@ -65,7 +65,7 @@ public:
             dynamic_cast<const InetUnicastRouteEntry *>(db_entry_);
         if (rt) {
             if (event_ == ADD_DBENTRY || event_ == DELETE_DBENTRY) {
-                resp_event = FlowMgmtResponse::REVALUATE_FLOW;
+                resp_event = FlowEvent::REVALUATE_FLOW;
             }
         }
 

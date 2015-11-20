@@ -44,10 +44,9 @@
 #include <pkt/pkt_types.h>
 #include <pkt/pkt_sandesh_flow.h>
 #include <pkt/flow_mgmt.h>
-#include <pkt/flow_mgmt_response.h>
+#include <pkt/flow_event.h>
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
-const string FlowTable::kTaskName = "Agent::FlowTable";
 boost::uuids::random_generator FlowTable::rand_gen_;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -58,9 +57,7 @@ FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     table_index_(table_index),
     ksync_object_(NULL),
     flow_entry_map_(),
-    linklocal_flow_count_(),
-    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskName), 1,
-                   boost::bind(&FlowTable::RequestHandler, this, _1)) {
+    linklocal_flow_count_() {
 }
 
 FlowTable::~FlowTable() {
@@ -70,7 +67,6 @@ FlowTable::~FlowTable() {
 void FlowTable::Init() {
     FlowEntry::Init();
     rand_gen_ = boost::uuids::random_generator();
-
     return;
 }
 
@@ -81,77 +77,28 @@ void FlowTable::InitDone() {
 }
 
 void FlowTable::Shutdown() {
-    request_queue_.Shutdown();
-}
-
-// Generate flow events to FlowTable queue
-void FlowTable::FlowEvent(FlowTableRequest::Event event, FlowEntry *flow,
-                          const FlowKey &del_key, bool del_rflow) {
-    FlowTableRequest req;
-    req.flow_ = flow;
-    req.event_ = FlowTableRequest::INVALID;
-
-    switch (event) {
-    case FlowTableRequest::ADD_FLOW:
-        // The method can work in SYNC mode by calling Add routine below or
-        // in ASYNC mode by enqueuing a request
-        // Add(flow, flow->reverse_flow_entry());
-        req.event_ = FlowTableRequest::ADD_FLOW;
-        break;
-
-    case FlowTableRequest::UPDATE_FLOW:
-        req.event_ = FlowTableRequest::UPDATE_FLOW;
-        break;
-
-    case FlowTableRequest::DELETE_FLOW:
-        req.event_ = FlowTableRequest::DELETE_FLOW;
-        req.del_flow_key_ = del_key;
-        req.del_rev_flow_ = del_rflow;
-        break;
-
-    default:
-        assert(0);
-    }
-
-    if (req.event_ != FlowTableRequest::INVALID)
-        request_queue_.Enqueue(req);
-}
-
-bool FlowTable::RequestHandler(const FlowTableRequest &req) {
-    switch (req.event_) {
-    case FlowTableRequest::ADD_FLOW: {
-        // The reference to reverse flow can be dropped in the call. This can
-        // potentially release the reverse flow. Hold reference to reverse flow
-        // till this method is complete
-        FlowEntryPtr rflow = req.flow_->reverse_flow_entry();
-        Add(req.flow_.get(), rflow.get());
-        break;
-    }
-
-    case FlowTableRequest::UPDATE_FLOW: {
-        // The reference to reverse flow can be dropped in the call. This can
-        // potentially release the reverse flow. Hold reference to reverse flow
-        // till this method is complete
-        FlowEntryPtr rflow = req.flow_->reverse_flow_entry();
-        Update(req.flow_.get(), rflow.get());
-        break;
-    }
-
-    case FlowTableRequest::DELETE_FLOW: {
-        Delete(req.del_flow_key_, req.del_rev_flow_);
-        break;
-    }
-
-    default:
-         assert(0);
-
-    }
-    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable Add/Delete routines
 /////////////////////////////////////////////////////////////////////////////
+
+// When multiple lock are taken, there is possibility of deadlocks. We do
+// deadlock avoidance by ensuring "consistent ordering of locks"
+void FlowTable::GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
+                            tbb::mutex **mutex_ptr_1,
+                            tbb::mutex **mutex_ptr_2) {
+    *mutex_ptr_1 = NULL;
+    *mutex_ptr_2 = NULL;
+    if (&mutex1 < &mutex2) {
+        *mutex_ptr_1 = &mutex1;
+        *mutex_ptr_2 = &mutex2;
+    } else {
+        *mutex_ptr_1 = &mutex2;
+        *mutex_ptr_2 = &mutex1;
+    }
+}
+
 FlowEntry *FlowTable::Find(const FlowKey &key) {
     FlowEntryMap::iterator it;
 
@@ -265,21 +212,13 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
 
 void FlowTable::Add(FlowEntry *flow_req, FlowEntry *flow,
                     FlowEntry *rflow_req, FlowEntry *rflow, bool update) {
-    if (flow) {
-        flow->mutex().lock();
-    }
-    if (rflow) {
-        rflow->mutex().lock();
-    }
+    tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2;
+    GetMutexSeq(flow->mutex(), rflow ? rflow->mutex() : tmp_mutex,
+                &mutex_ptr_1, &mutex_ptr_2);
+    tbb::mutex::scoped_lock lock1(*mutex_ptr_1);
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
     AddInternal(flow_req, flow, rflow_req, rflow, update);
-
-    if (rflow) {
-        rflow->mutex().unlock();
-    }
-    if (flow) {
-        flow->mutex().unlock();
-    }
 }
 
 void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
@@ -857,13 +796,16 @@ void FlowTable::DeleteMessage(FlowEntry *flow) {
 }
 
 // Handle events from Flow Management module for a flow
-bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
+bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
     FlowEntry *flow = resp->flow();
-    const DBEntry *entry = resp->db_entry();
-    tbb::mutex::scoped_lock mutex(flow->mutex());
     FlowEntry *rflow = flow->reverse_flow_entry_.get();
-    if (rflow)
-        rflow->mutex().lock();
+    const DBEntry *entry = resp->db_entry();
+
+    tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2;
+    GetMutexSeq(flow->mutex(), rflow ? rflow->mutex() : tmp_mutex,
+                &mutex_ptr_1, &mutex_ptr_2);
+    tbb::mutex::scoped_lock lock1(*mutex_ptr_1);
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
     bool active_flow = true;
     bool deleted_flow = flow->deleted();
@@ -871,13 +813,13 @@ bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
         active_flow = false;
 
     switch (resp->event()) {
-    case FlowMgmtResponse::REVALUATE_FLOW: {
+    case FlowEvent::REVALUATE_FLOW: {
         if (active_flow)
             RevaluateFlow(flow);
         break;
     }
 
-    case FlowMgmtResponse::REVALUATE_DBENTRY: {
+    case FlowEvent::REVALUATE_DBENTRY: {
         const Interface *intf = dynamic_cast<const Interface *>(entry);
         if (intf && active_flow) {
             RevaluateInterface(flow);
@@ -912,7 +854,7 @@ bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
         break;
     }
 
-    case FlowMgmtResponse::DELETE_DBENTRY: {
+    case FlowEvent::DELETE_DBENTRY: {
         DeleteMessage(flow);
         break;
     }
@@ -920,9 +862,6 @@ bool FlowTable::FlowResponseHandler(const FlowMgmtResponse *resp) {
     default:
         assert(0);
     }
-
-    if (rflow)
-        rflow->mutex().unlock();
 
     return true;
 }
@@ -978,12 +917,31 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
     }
 }
 
-void FlowTable::RemoveFromKSyncTree(FlowEntry *flow) {
-    ksync_object_->RemoveFromTree(flow->ksync_entry());
+// Update FlowHandle for a flow
+void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    bool update_rflow = false;
+    assert(flow_handle != FlowEntry::kInvalidFlowHandle);
+
+    tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2;
+    GetMutexSeq(flow->mutex(), rflow ? rflow->mutex() : tmp_mutex,
+                &mutex_ptr_1, &mutex_ptr_2);
+    tbb::mutex::scoped_lock lock1(*mutex_ptr_1);
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
+
+    if (flow->flow_handle() != flow_handle) {
+        update_rflow = true;
+        AddIndexFlowInfo(flow, flow_handle);
+        NotifyFlowStatsCollector(flow);
+    }
+
+    if (rflow && update_rflow) {
+        UpdateKSync(rflow, true);
+    }
 }
 
-void FlowTable::AddToKSyncTree(FlowEntry *flow) {
-    ksync_object_->InsertToTree(flow->ksync_entry());
+void FlowTable::UpdateFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
+    ksync_object_->UpdateFlowHandle(flow->ksync_entry(), flow_handle);
 }
 
 void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
