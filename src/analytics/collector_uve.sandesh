@@ -43,16 +43,11 @@ struct GeneratorInfo {
     3: GeneratorInfoAttr                   gen_attr
 }
 
-struct GeneratorDbStats {
+objectlog sandesh GeneratorDbStats {
     1: string                             name (key="ObjectGeneratorInfo")
-    2: optional bool                      deleted
-    3: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
-    4: optional list<gendb.DbErrors>      errors (tags="")
-    5: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
-}
-
-uve sandesh GeneratorDbStatsUve {
-    1: GeneratorDbStats                   data
+    2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    3: optional list<gendb.DbErrors>      errors (tags="")
+    4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
 // This struct is part of the Generator UVE (key is <source>:<module>)
@@ -103,21 +98,16 @@ struct CollectorStats {
     5: u64                                 sandesh_type_mismatch_error
 }
 
-struct ProtobufCollectorStats {
+objectlog sandesh ProtobufCollectorStats {
     1: string                                       name (key="ObjectCollectorInfo")
-    2: optional bool                                deleted
-    3: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
-    4: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
-    5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
-    6: optional list<gendb.DbTableInfo>             db_table_info (tags=".table_name")
-    7: optional list<gendb.DbErrors>                db_errors (tags="")
-    8: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
-    9: optional u64                                 db_queue_count
-    10: optional u64                                db_enqueues
-}
-
-uve sandesh ProtobufCollectorStatsUve {
-    1: ProtobufCollectorStats                       data
+    2: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
+    3: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
+    4: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
+    5: optional list<gendb.DbTableInfo>             db_table_info (tags=".table_name")
+    6: optional list<gendb.DbErrors>                db_errors (tags="")
+    7: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
+    8: optional u64                                 db_queue_count
+    9: optional u64				    db_enqueues
 }
 
 request sandesh ShowCollectorServerReq {
@@ -232,13 +222,8 @@ struct SandeshMessageInfo {
      4: u64    bytes
 }
 
-struct SandeshMessageStat {
+objectlog sandesh SandeshMessageStat {
     1: string                            name (key="ObjectGeneratorInfo")
-    2: optional bool                     deleted
-    3: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
-}
-
-uve sandesh SandeshMessageTrace {
-    1: SandeshMessageStat data
+    2: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
 }
 

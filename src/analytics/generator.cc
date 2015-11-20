@@ -70,10 +70,10 @@ void Generator::SendSandeshMessageStatistics() {
         tbb::mutex::scoped_lock lock(smutex_);
         statistics_.Get(&smv);
     }
-    SandeshMessageStat sms;
-    sms.set_name(ToString());
-    sms.set_msg_info(smv);
-    SandeshMessageTrace::Send(sms);
+    SandeshMessageStat * snh = SANDESH_MESSAGE_STAT_CREATE();
+    snh->set_name(ToString());
+    snh->set_msg_info(smv);
+    SANDESH_MESSAGE_STAT_SEND_SANDESH(snh);
 }
     
 bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
@@ -278,12 +278,12 @@ void SandeshGenerator::SendDbStatistics() {
     db_handler_->GetStats(&vdbti, &dbe, &vstats_dbti);
     std::vector<GenDb::DbErrors> vdbe;
     vdbe.push_back(dbe);
-    GeneratorDbStats gdbstats;
-    gdbstats.set_name(name_);
-    gdbstats.set_table_info(vdbti);
-    gdbstats.set_errors(vdbe);
-    gdbstats.set_statistics_table_info(vstats_dbti);
-    GeneratorDbStatsUve::Send(gdbstats);
+    GeneratorDbStats * snh = GENERATOR_DB_STATS_CREATE();
+    snh->set_name(name_);
+    snh->set_table_info(vdbti);
+    snh->set_errors(vdbe);
+    snh->set_statistics_table_info(vstats_dbti);
+    GENERATOR_DB_STATS_SEND_SANDESH(snh);
 }
 
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {
