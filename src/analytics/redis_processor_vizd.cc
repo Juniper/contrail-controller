@@ -165,7 +165,8 @@ bool
 RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,
         const std::string &redis_password,  
         const std::string &source, const std::string &node_type,
-        const std::string &module, const std::string &instance_id) {
+        const std::string &module, const std::string &instance_id,
+        std::vector<std::pair<std::string,std::string> > & delReply) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
     std::string generator(source + ":" + node_type + ":" + module +
@@ -205,7 +206,15 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         return false;
     }
 
-    if (reply->type == REDIS_REPLY_INTEGER) {
+    if (reply->type == REDIS_REPLY_ARRAY) {
+        for (uint iter=0; iter < reply->elements; iter+=2) {
+            LOG(INFO, "SyncDeleteUVE <" << source << ":" << node_type << 
+                    ":" << module << ":" << instance_id << 
+                    "> : " << reply->element[iter]->str <<
+                    " , " << reply->element[iter+1]->str);
+            delReply.push_back(make_pair(reply->element[iter]->str,
+                    reply->element[iter+1]->str));
+        }
         freeReplyObject(reply);
         redisFree(c);
         return true;

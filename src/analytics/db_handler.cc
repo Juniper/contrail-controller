@@ -49,6 +49,10 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
+uint32_t DbHandler::field_cache_t2_ = 0;
+std::set<std::string> DbHandler::field_cache_set_;
+tbb::mutex DbHandler::fmutex_;
+
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
@@ -57,7 +61,7 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_user,
         const std::string& cassandra_password) :
     name_(name),
-    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map), field_cache_t2_(0) {
+    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
         dbif_.reset(new ThriftIf(err_handler,
           cassandra_ips, cassandra_ports, name, false,
           cassandra_user, cassandra_password));
@@ -68,7 +72,7 @@ DbHandler::DbHandler(EventManager *evm,
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
-    ttl_map_(ttl_map), field_cache_t2_(0) {
+    ttl_map_(ttl_map) {
 }
 
 DbHandler::~DbHandler() {
@@ -596,7 +600,7 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     fc_entry.append(":");
     fc_entry.append(field_val);
     {
-        tbb::mutex::scoped_lock lock(smutex_);
+        tbb::mutex::scoped_lock lock(fmutex_);
         if (temp_u32 > field_cache_t2_) {
             field_cache_set_.clear();
             field_cache_t2_ = temp_u32;

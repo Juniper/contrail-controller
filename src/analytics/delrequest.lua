@@ -7,7 +7,7 @@ redis.log(redis.LOG_NOTICE,"DelRequest for "..sm)
 local db = tonumber(ARGV[5])
 redis.call('select',db)
 local typ = redis.call('smembers',"TYPES:"..sm)
-
+local res = {}
 for k,v in pairs(typ) do
     redis.log(redis.LOG_NOTICE, "Read UVES:"..sm..":"..v)
     local lres = redis.call('zrange',"UVES:"..sm..":"..v, 0, -1, "withscores")
@@ -18,6 +18,9 @@ for k,v in pairs(typ) do
         local deluve = lres[iter]
         local delseq = lres[iter+1]
         local st,en
+        table.insert(res, deluve)
+        table.insert(res, deltyp)
+ 
         st,en = string.find(deluve,":")
         local deltbl = string.sub(deluve, 1, st-1)
 
@@ -60,4 +63,4 @@ end
 redis.call('del', "TYPES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
 redis.call('srem', "NGENERATORS", sm)
 redis.log(redis.LOG_NOTICE,"Delete Request for "..sm.." successful")
-return true
+return res
