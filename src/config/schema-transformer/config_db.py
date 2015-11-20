@@ -1809,8 +1809,11 @@ class RoutingInstanceST(DBBaseST):
                     for rt in vn.rt_list:
                         rtgt_obj = RouteTarget(rt)
                         self.obj.add_route_target(rtgt_obj, inst_tgt_data)
-                if (not compare_refs(self.obj.get_route_target_refs(),
-                                     old_rt_refs)):
+                    if not self.is_default and vn.allow_transit:
+                        rtgt_obj = RouteTarget(vn._route_target)
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                if not compare_refs(self.obj.get_route_target_refs(),
+                                    old_rt_refs):
                     self._vnc_lib.routing_instance_update(self.obj)
         except NoIdError as e:
             self._logger.error(
