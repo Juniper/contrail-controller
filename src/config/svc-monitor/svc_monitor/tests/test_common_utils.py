@@ -216,6 +216,8 @@ def vmi_db_read(obj_type, vmi_id):
     vmi_obj = {}
     vmi_obj['uuid'] = 'fake-vmi-uuid'
     vmi_obj['fq_name'] = ['fake-vmi-uuid']
+    vmi_obj['parent_type'] = 'project'
+    vmi_obj['parent_uuid'] = 'fake-project'
     return True, [vmi_obj]
 
 def iip_db_read(obj_type, iip_id):

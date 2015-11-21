@@ -134,7 +134,7 @@ class SnatAgentTest(unittest.TestCase):
         config_db.VirtualMachineInterfaceSM.locate(
             ROUTER_1['virtual_machine_interface_refs'][0]['uuid'],
             {'fq_name': ROUTER_1['virtual_machine_interface_refs'][0]['to'],
-             'virtual_network_refs': [{'uuid': 'private1-uuid'}]})
+             'virtual_network_refs': [{'uuid': 'private1-uuid'}], 'parent_type': 'project'})
 
     def tearDown(self):
         config_db.LogicalRouterSM.reset()
@@ -404,7 +404,7 @@ class SnatAgentTest(unittest.TestCase):
         config_db.VirtualMachineInterfaceSM.locate(
             router_dict['virtual_machine_interface_refs'][1]['uuid'],
             {'fq_name': router_dict['virtual_machine_interface_refs'][1]['to'],
-             'virtual_network_refs': [{'uuid': 'private2-uuid'}]})
+             'virtual_network_refs': [{'uuid': 'private2-uuid'}], 'parent_type': 'project'})
 
         # reset all calls
         self.vnc_lib.virtual_network_update.reset_mock()
