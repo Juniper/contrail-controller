@@ -33,6 +33,7 @@
 
 using std::map;
 using std::string;
+using std::vector;
 using boost::shared_ptr;
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -656,70 +657,36 @@ OpServerProxy::UVENotif(const std::string &type,
     ss << source << ":" << node_type << ":" << module << ":" << instance_id;
     string genstr = ss.str();
 
-    std::stringstream ks;
-    ks << key << "|" << type;
-    string kstr = ks.str();
-
     std::stringstream collss;
     collss << Collector::GetSelfIp() << ":" <<
                impl_->redis_uve_.GetPort();
     string collstr = collss.str();
 
-    rapidjson::Document dd;
-    dd.SetObject();
+    std::stringstream ks;
+    ks << key << "|" << type << "|" << genstr << "|" << collstr;
+    string kstr = ks.str();
 
-    {
-        rapidjson::Value val(rapidjson::kStringType);
-        val.SetString("UVEUpdate");
-        dd.AddMember("message", val, dd.GetAllocator());
-    }
-
-    {
-        rapidjson::Value val(rapidjson::kStringType);
-        val.SetString(key.c_str());
-        dd.AddMember("key", val, dd.GetAllocator());
-    }
-
-    {
-        rapidjson::Value val(rapidjson::kStringType);
-        val.SetString(type.c_str());
-        dd.AddMember("type", val, dd.GetAllocator());
-    }
-
-    {
-        rapidjson::Value val(rapidjson::kStringType);
-        val.SetString(genstr.c_str(), genstr.size());
-        dd.AddMember("gen", val, dd.GetAllocator());
-    }
-
-    {
-        rapidjson::Value val(rapidjson::kStringType);
-        val.SetString(collstr.c_str());
-        dd.AddMember("coll", val, dd.GetAllocator());
-    }
- 
     if (deleted) {
-        rapidjson::Value val(rapidjson::kNullType);
-        val.SetNull();
-        dd.AddMember("value", val, dd.GetAllocator());
+        impl_->KafkaPub(pt, kstr.c_str(), genstr, string());
     } else {
-        rapidjson::Value val(rapidjson::kObjectType);
-        val.SetObject();
+        rapidjson::Document dd;
+        dd.SetObject();
         for (map<string,string>::const_iterator it = value.begin();
                     it != value.end(); it++) {
             rapidjson::Value sval(rapidjson::kStringType);
             sval.SetString((it->second).c_str());
-            val.AddMember(it->first.c_str(), sval, dd.GetAllocator());
+            dd.AddMember(it->first.c_str(), sval, dd.GetAllocator());
         }
-        dd.AddMember("value", val, dd.GetAllocator());
+        rapidjson::StringBuffer sb;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+        dd.Accept(writer);
+        string jsonline(sb.GetString());
+
+        impl_->KafkaPub(pt, kstr.c_str(), genstr, jsonline);
     }
 
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-    dd.Accept(writer);
-    string jsonline(sb.GetString());
-
-    impl_->KafkaPub(pt, kstr.c_str(), genstr, jsonline);
+    rapidjson::Document dd;
+    dd.SetObject();
 
     return true;
 }
@@ -804,51 +771,34 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module,
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if  (!(prac && prac->IsConnUp())) return false;
+   
+    std::vector<std::pair<std::string,std::string> > delReply;
     bool ret =  RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(),
             impl_->redis_uve_.GetPort(), impl_->get_redis_password(), source,
-            node_type, module, instance_id);
+            node_type, module, instance_id, delReply);
 
-    // Generator Delete notification must go to all partitions
-    for (unsigned int pt = 0; pt < impl_->partitions_; pt++) {
+    // TODO: If we cannot get uve delete information here, we need to
+    //       restart the kakfa topic
+    assert(ret);
 
-        std::stringstream ss;
-        ss << source << ":" << node_type << ":" << module << ":" << instance_id;
-        string genstr = ss.str();
+    for(std::vector<std::pair<std::string,std::string> >::const_iterator
+            it = delReply.begin(); it != delReply.end(); it++) {
+        string uve = it->first;
+        string typ = it->second;    
 
-        std::stringstream collss;
-        collss << Collector::GetSelfIp() << ":" <<
-                   impl_->redis_uve_.GetPort();
-        string collstr = collss.str();
-
-        rapidjson::Document dd;
-        dd.SetObject();
-
-        {
-            rapidjson::Value val(rapidjson::kStringType);
-            val.SetString("GenDelete");
-            dd.AddMember("message", val, dd.GetAllocator());
+        vector<string> v;
+        boost::split(v, uve, boost::is_any_of(":"));
+        string table(v[0]);
+        string barekey(v[1]);
+        for (size_t idx=2; idx<v.size(); idx++) {
+            barekey += ":";
+            barekey += v[idx];
         }
-
-        {
-            rapidjson::Value val(rapidjson::kStringType);
-            val.SetString(genstr.c_str(), genstr.size());
-            dd.AddMember("gen", val, dd.GetAllocator());
-        }
-
-        {
-            rapidjson::Value val(rapidjson::kStringType);
-            val.SetString(collstr.c_str());
-            dd.AddMember("coll", val, dd.GetAllocator());
-        } 
-
-        rapidjson::StringBuffer sb;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-        dd.Accept(writer);
-        string jsonline(sb.GetString());
-
-        impl_->KafkaPub(pt, genstr.c_str(), genstr, jsonline);
+        std::map<std::string,std::string> val;
+        assert(UVENotif(typ, source, node_type, module, instance_id,
+                table, barekey, val, true));
     }
-    return ret;
+    return true;
 }
 
 void 

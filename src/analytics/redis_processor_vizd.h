@@ -45,7 +45,8 @@ public:
     SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password,  
             const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id);
+            const std::string &module, const std::string &instance_id,
+            std::vector<std::pair<std::string,std::string> > & delReply);
 
     static bool
     FlushUVEs(const std::string & redis_ip, unsigned short redis_port,

@@ -6,6 +6,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
+#include <iostream>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -21,6 +22,7 @@
 #include "sflow_collector.h"
 #include "ipfix_collector.h"
 
+using std::stringstream;
 using std::string;
 using boost::system::error_code;
 
@@ -54,7 +56,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
         std::string(), sflow_port)),
     ipfix_collector_(new IpfixCollector(evm, db_initializer_->GetDbHandler(),
-        string(), ipfix_port)) {
+        string(), ipfix_port)),
+    redis_gen_(0), partitions_(partitions) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
@@ -65,6 +68,46 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             protobuf_listen_port, cassandra_ips, cassandra_ports,
             ttl_map, cassandra_user, cassandra_password));
     }
+    CollectorPublish();
+}
+
+void
+VizCollector::CollectorPublish()
+{
+    if (!collector_) return;
+    DiscoveryServiceClient *ds_client = Collector::GetCollectorDiscoveryServiceClient();
+    if (!ds_client) return;
+    string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
+    stringstream pub_ss;
+    pub_ss << "<" << service_name << "><ip-address>" << Collector::GetSelfIp() <<
+            "</ip-address><port>" << collector_->GetPort() <<
+            "</port><pid>" << getpid() << 
+            "</pid><redis-gen>" << redis_gen_ <<
+            "</redis-gen><partcount>{ \"1\":[" <<
+                           VizCollector::PartitionRange(
+                    PartType::PART_TYPE_CNODES,partitions_).first <<
+            "," << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_CNODES,partitions_).second << 
+            "], \"2\":[" << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_PNODES,partitions_).first <<
+            "," << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_PNODES,partitions_).second << 
+            "], \"3\":[" << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_VMS,partitions_).first <<
+            "," << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_VMS,partitions_).second << 
+            "], \"4\":[" << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_IFS,partitions_).first <<
+            "," << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_IFS,partitions_).second << 
+            "], \"5\":[" << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_OTHER,partitions_).first <<
+            "," << VizCollector::PartitionRange(
+                    PartType::PART_TYPE_OTHER,partitions_).second << 
+            "]}</partcount></"  << service_name << ">";
+    std::string pub_msg;
+    pub_msg = pub_ss.str();
+    ds_client->Publish(service_name, pub_msg);
 }
 
 VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
@@ -79,7 +122,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3),
             db_handler)),
-    sflow_collector_(NULL), ipfix_collector_(NULL) {
+    sflow_collector_(NULL), ipfix_collector_(NULL), redis_gen_(0), partitions_(0) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
 }

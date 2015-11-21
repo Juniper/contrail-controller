@@ -64,10 +64,15 @@ public:
     bool SendRemote(const std::string& destination, const std::string& dec_sandesh);
     void RedisUpdate(bool rsc) {
         collector_->RedisUpdate(rsc);
+        if (rsc) {
+            redis_gen_ ++;
+            CollectorPublish();
+        }
     }
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
     void TestDatabaseConnection();
+    void CollectorPublish();
     
     static const unsigned int kPartCountCnodes = 1;
     static const unsigned int kPartMinTotalCount = 15;
@@ -125,7 +130,9 @@ private:
     IpfixCollector *ipfix_collector_;
     boost::scoped_ptr<ProtobufCollector> protobuf_collector_;
     std::string name_;
-
+    unsigned short listen_port_;
+    uint32_t redis_gen_;
+    uint16_t partitions_;
     DISALLOW_COPY_AND_ASSIGN(VizCollector);
 };
 

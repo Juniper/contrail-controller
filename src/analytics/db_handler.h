@@ -175,8 +175,9 @@ private:
     GenDb::DbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
-    uint32_t field_cache_t2_;
-    std::set<std::string> field_cache_set_;
+    static uint32_t field_cache_t2_;
+    static std::set<std::string> field_cache_set_;
+    static tbb::mutex fmutex_;
  
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

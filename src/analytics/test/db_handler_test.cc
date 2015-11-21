@@ -464,6 +464,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     init_vizd_tables();
 
     SandeshHeader hdr;
+    hdr.set_Timestamp(UTCTimestampUsec());
     hdr.set_Module("VizdTest");
     hdr.set_Source("127.0.0.1");
     std::string messagetype("");

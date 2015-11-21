@@ -364,10 +364,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
         m_get_messages = Mock_get_messages()
         m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0, key='',
-                    value=('{"message":"UVEUpdate","key":"ObjectYY:uve2",'
-                           '"type":"type2","gen":"gen1","coll":'
-                           '"127.0.0.1:0","value":{}}')))
+                    message=Message(magic=0, attributes=0,
+                    key='ObjectYY:uve2|type2|gen1|127.0.0.1:0',
+                    value='{}'))
         mock_SimpleConsumer.return_value.get_messages.side_effect = \
             m_get_messages
 
@@ -409,10 +408,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         # When this message is read, 127.0.0.5 will not be present
         m_get_messages = Mock_get_messages()
         m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0, key='',
-                    value=('{"message":"UVEUpdate","key":"ObjectYY:uve2",'
-                           '"type":"type2","gen":"gen1","coll":'
-                           '"127.0.0.5:0","value":{} }')))
+                    message=Message(magic=0, attributes=0,
+                    key='ObjectYY:uve2|type2|gen1|127.0.0.5:0',
+                    value='{}'))
         mock_SimpleConsumer.return_value.get_messages.side_effect = \
             m_get_messages
 
@@ -427,10 +425,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info, False))
         # Feed the message in again
         m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0, key='',
-                    value=('{"message":"UVEUpdate","key":"ObjectYY:uve2",'
-                           '"type":"type2","gen":"gen1","coll":'
-                           '"127.0.0.5:0","value":{}}')))
+                    message=Message(magic=0, attributes=0,
+                    key='ObjectYY:uve2|type2|gen1|127.0.0.5:0',
+                    value='{}'))
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info))
 
         

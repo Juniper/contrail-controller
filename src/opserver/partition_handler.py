@@ -787,9 +787,16 @@ class UveStreamProc(PartitionHandler):
         self._partoffset = om.offset
         chg = {}
         try:
-            uv = json.loads(om.message.value)
-            coll = uv["coll"]
-            gen = uv["gen"]
+            params = om.message.key.split("|")
+            gen = params[2]
+            coll = params[3]
+            uv = {}
+            uv["type"] = params[1]
+            uv["key"] = params[0]
+            if om.message.value is None or len(om.message.value) == 0:
+                uv["value"] = None
+            else:
+                uv["value"] = json.loads(om.message.value)
 
             if not self._uvedb.has_key(coll):
                 # This partition is not synced yet.
@@ -800,79 +807,58 @@ class UveStreamProc(PartitionHandler):
             if not self._uvedb[coll].has_key(gen):
                 self._uvedb[coll][gen] = {}
 
-            if (uv["message"] == "UVEUpdate"):
-                tabl = uv["key"].split(":",1)
-                tab = tabl[0]
-                rkey = tabl[1]
-                
-                if tab not in self._uvedb[coll][gen]:
-                    self._uvedb[coll][gen][tab] = {}
+            tabl = uv["key"].split(":",1)
+            tab = tabl[0]
+            rkey = tabl[1]
+            
+            if tab not in self._uvedb[coll][gen]:
+                self._uvedb[coll][gen][tab] = {}
 
-                if not rkey in self._uvedb[coll][gen][tab]:
-                    self._uvedb[coll][gen][tab][rkey] = {}
-         
-                removed = False
+            if not rkey in self._uvedb[coll][gen][tab]:
+                self._uvedb[coll][gen][tab][rkey] = {}
+     
+            removed = False
 
-                # uv["type"] and uv["value"] can be decoded as follows:
+            # uv["type"] and uv["value"] can be decoded as follows:
 
-                # uv["type"] can be one of the following:
-                # - None       # All Types under this UVE are deleted
-                #                uv["value"] will not be present
-                #                (this option is only for agg UVE updates)
-                # - "<Struct>" # uv["value"] refers to this struct
+            # uv["type"] refers to a struct name
 
-                # uv["value"] can be one of the following:
-                # - None      # This Type has been deleted.
-                # - {}        # The Type has a value, which is 
-                #               not available in this message.
-                #               (this option is only for raw UVE updates)
-                # - {<Value>} # The Value of the Type
-                #               (this option is only for agg UVE updates)
+            # uv["value"] can be one of the following:
+            # - None      # This Type has been deleted.
+            # - {}        # The Type has a value, which is 
+            #               not available in this message.
+            #               (this option is only for raw UVE updates)
+            # - {<Value>} # The Value of the Type
+            #               (this option is only for agg UVE updates)
 
-                if uv["type"] is None:
-                    # TODO: Handling of delete UVE case
-                    return False
-                
-                if uv["value"] is None:
-                    if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
-                        del self._uvedb[coll][gen][tab][rkey][uv["type"]]
-                    if not len(self._uvedb[coll][gen][tab][rkey]):
-                        del self._uvedb[coll][gen][tab][rkey]
-                    removed = True
+            if uv["value"] is None:
+                if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
+                    del self._uvedb[coll][gen][tab][rkey][uv["type"]]
+                if not len(self._uvedb[coll][gen][tab][rkey]):
+                    del self._uvedb[coll][gen][tab][rkey]
+                removed = True
 
-                if not removed: 
-                    if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
-                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] +=1
-                    else:
-                        self._uvedb[coll][gen][tab][rkey][uv["type"]] = {}
-                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] = 1
-                        self._uvedb[coll][gen][tab][rkey][uv["type"]]["u"] = \
-                            uuid.uuid1(self._ip_code)
-                chg[uv["key"]] = { uv["type"] : uv["value"] }
-
-                # Record stats on the input UVE Notifications
-                if not self._uvein.has_key(tab):
-                    self._uvein[tab] = {}
-                if not self._uvein[tab].has_key(coll):
-                    self._uvein[tab][coll] = {}
-                if not self._uvein[tab][coll].has_key(gen):
-                    self._uvein[tab][coll][gen] = {}
-                if not self._uvein[tab][coll][gen].has_key(uv["type"]):
-                    self._uvein[tab][coll][gen][uv["type"]] = 1
+            if not removed: 
+                if uv["type"] in self._uvedb[coll][gen][tab][rkey]:
+                    self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] +=1
                 else:
-                    self._uvein[tab][coll][gen][uv["type"]] += 1
+                    self._uvedb[coll][gen][tab][rkey][uv["type"]] = {}
+                    self._uvedb[coll][gen][tab][rkey][uv["type"]]["c"] = 1
+                    self._uvedb[coll][gen][tab][rkey][uv["type"]]["u"] = \
+                        uuid.uuid1(self._ip_code)
+            chg[uv["key"]] = { uv["type"] : uv["value"] }
 
+            # Record stats on the input UVE Notifications
+            if not self._uvein.has_key(tab):
+                self._uvein[tab] = {}
+            if not self._uvein[tab].has_key(coll):
+                self._uvein[tab][coll] = {}
+            if not self._uvein[tab][coll].has_key(gen):
+                self._uvein[tab][coll][gen] = {}
+            if not self._uvein[tab][coll][gen].has_key(uv["type"]):
+                self._uvein[tab][coll][gen][uv["type"]] = 1
             else:
-                # Record stats on UVE Keys being processed
-                for tab in self._uvedb[coll][gen].keys():
-                    for rkey in self._uvedb[coll][gen][tab].keys():
-                        uk = tab + ":" + rkey
-
-                        # when a generator is delelted, we need to 
-                        # notify for *ALL* its UVEs
-                        chg[uk] = None
-
-                del self._uvedb[coll][gen]
+                self._uvein[tab][coll][gen][uv["type"]] += 1
 
         except Exception as ex:
             template = "An exception of type {0} in uve proc . Arguments:\n{1!r}"
