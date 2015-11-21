@@ -284,7 +284,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.instance_id = None
         self.physical_interface = None
         self.port_tuple = None
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        self.add_to_parent(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -310,6 +311,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
             vm = VirtualMachineSM.get(self.virtual_machine)
             if vm:
                 self.service_instance = vm.service_instance
+        return obj
     # end update
 
     @classmethod
@@ -327,6 +329,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_single_ref('interface_route_table', {})
         obj.update_single_ref('security_group', {})
         obj.update_single_ref('port_tuple', {})
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 # end VirtualMachineInterfaceSM
@@ -358,6 +361,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.port_tuples = set()
         obj_dict = self.update(obj_dict)
         self.set_children('port_tuple', obj_dict)
+        self.add_to_parent(obj_dict)
         if self.ha_mode == 'active-standby':
             self.max_instances = 2
             self.local_preference = [svc_info.get_active_preference(),
@@ -418,6 +422,7 @@ class ServiceInstanceSM(DBBaseSM):
         obj.update_single_ref('loadbalancer_pool', {})
         obj.update_multiple_refs('virtual_machine_interface',{})
         obj.update_multiple_refs('virtual_machine', {})
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 # end class ServiceInstanceSM
@@ -533,6 +538,8 @@ class InstanceIpSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.address = None
+        self.family = None
+        self.service_instance_ip = None
         self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
@@ -542,6 +549,8 @@ class InstanceIpSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.service_instance_ip = obj.get('service_instance_ip', False)
+        self.family = obj.get('instance_ip_family', 'v4')
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
     # end update
@@ -921,7 +930,7 @@ class PortTupleSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        self.update(obj_dict)
+        obj = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
 
@@ -942,4 +951,4 @@ class PortTupleSM(DBBaseSM):
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
-# end LogicalRouterSM
+# end PortTupleSM

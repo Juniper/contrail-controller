@@ -48,6 +48,7 @@ from agent_manager import AgentManager
 from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
 from loadbalancer_agent import LoadbalancerAgent
+from port_tuple import PortTupleAgent
 from snat_agent import SNATAgent
 
 from novaclient import exceptions as nc_exc
@@ -89,8 +90,9 @@ class SvcMonitor(object):
             'loadbalancer_pool': []
         },
         "service_instance": {
-            'self': ['virtual_machine','virtual_machine_interface'],
+            'self': ['virtual_machine', 'port_tuple', 'virtual_machine_interface'],
             'virtual_machine': [],
+            'port_tuple': [],
             'virtual_machine_interface' : []
         },
         "instance_ip": {
@@ -124,10 +126,16 @@ class SvcMonitor(object):
             'service_instance': [],
             'virtual_machine_interface': [],
         },
+        "port_tuple": {
+            'self': ['virtual_machine_interface'],
+            'service_instance': [],
+            'virtual_machine_interface': [],
+        },
         "virtual_machine_interface": {
-            'self': ['interface_route_table', 'virtual_machine'],
+            'self': ['interface_route_table', 'virtual_machine', 'port_tuple'],
             'interface_route_table': [],
             'virtual_machine': [],
+            'port_tuple': [],
             'service_instance': ['physical_interface'],
             'physical_interface': ['service_instance']
         },
@@ -362,6 +370,11 @@ class SvcMonitor(object):
                                     self._cassandra, self._args)
         self._agent_manager.register_agent(self.snat_agent)
 
+        # load port tuple agent
+        self.port_tuple_agent = PortTupleAgent(self, self._vnc_lib,
+            self._cassandra, self._args, self.logger)
+        self._agent_manager.register_agent(self.port_tuple_agent)
+
         # Read the cassandra and populate the entry in ServiceMonitor DB
         self.sync_sm()
 
@@ -451,6 +464,9 @@ class SvcMonitor(object):
                 if not vmi:
                     continue
                 self.port_delete_or_si_link(vm, vmi)
+
+        # invoke port tuple handling
+        self.port_tuple_agent.update_port_tuples()
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
