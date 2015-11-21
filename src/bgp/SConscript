@@ -82,6 +82,8 @@ libbgp_ifmap_config = env.Library('bgp_ifmap_config',
                                       'bgp_config_ifmap.cc',
                                       'bgp_config_listener.cc',
                                       'bgp_config_parser.cc',
+                                      'bgp_ifmap_sandesh.cc',
+                                      'bgp_show_ifmap_peering_config.cc',
                                   ])
 
 libbgp_xmpp = env.Library('bgp_xmpp',

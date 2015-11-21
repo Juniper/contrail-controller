@@ -81,6 +81,7 @@ public:
 
     const IFMapNode *node() const { return node_proxy_.node(); }
     BgpIfmapInstanceConfig *instance() { return instance_; }
+    const BgpIfmapInstanceConfig *instance() const { return instance_; }
     std::string name() const { return name_; }
     size_t size() const { return neighbors_.size(); }
     const autogen::BgpPeering *bgp_peering() const {
@@ -208,9 +209,8 @@ public:
 
     BgpConfigManager::NeighborMapRange NeighborMapItems() const;
 
-    const NeighborMap &neighbors() const {
-        return neighbors_;
-    }
+    const NeighborMap &neighbors() const { return neighbors_; }
+    const PeeringMap &peerings() const { return peerings_; }
 
     void AddPeering(BgpIfmapPeeringConfig *peering);
     void DeletePeering(BgpIfmapPeeringConfig *peering);

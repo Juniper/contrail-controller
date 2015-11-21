@@ -377,139 +377,6 @@ void ShowRouteVrfReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-class ShowBgpPeeringConfigHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-        const ShowBgpPeeringConfigReq *req =
-            static_cast<const ShowBgpPeeringConfigReq *>(ps.snhRequest_.get());
-        BgpSandeshContext *bsc =
-            static_cast<BgpSandeshContext *>(req->client_context());
-        BgpConfigManager *bcm = bsc->bgp_server->config_manager();
-
-        vector<ShowBgpPeeringConfig> peering_list;
-        typedef std::pair<std::string, const BgpNeighborConfig *> pair_t;
-        BOOST_FOREACH(pair_t item, bcm->NeighborMapItems(
-            BgpConfigManager::kMasterInstance)) {
-            ShowBgpPeeringConfig peering;
-            const BgpNeighborConfig *neighbor = item.second;
-            peering.set_instance_name(neighbor->instance_name());
-            peering.set_name(neighbor->name());
-            peering.set_neighbor_count(1);
-
-            vector<ShowBgpSessionConfig> session_list;
-            ShowBgpSessionConfig session;
-            session.set_uuid(neighbor->uuid());
-            vector<ShowBgpSessionAttributesConfig> attribute_list;
-            ShowBgpSessionAttributesConfig attribute;
-            attribute.set_address_families(neighbor->GetAddressFamilies());
-            attribute_list.push_back(attribute);
-            session.set_attributes(attribute_list);
-            session_list.push_back(session);
-            peering.set_sessions(session_list);
-            peering_list.push_back(peering);
-        }
-
-        ShowBgpPeeringConfigResp *resp = new ShowBgpPeeringConfigResp;
-        resp->set_peerings(peering_list);
-        resp->set_context(req->context());
-        resp->Response();
-        return true;
-    }
-};
-
-void ShowBgpPeeringConfigReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-
-    // Request pipeline has single stage to collect peering config info
-    // and respond to the request
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = ShowBgpPeeringConfigHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
-    RequestPipeline rp(ps);
-}
-
-class ShowBgpNeighborConfigHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-        const ShowBgpNeighborConfigReq *req =
-            static_cast<const ShowBgpNeighborConfigReq *>(ps.snhRequest_.get());
-        BgpSandeshContext *bsc =
-            static_cast<BgpSandeshContext *>(req->client_context());
-        BgpConfigManager *bcm = bsc->bgp_server->config_manager();
-
-        vector<ShowBgpNeighborConfig> nbr_list;
-
-        typedef std::pair<std::string, const BgpNeighborConfig *> pair_t;
-        BOOST_FOREACH(pair_t item, bcm->NeighborMapItems(
-            BgpConfigManager::kMasterInstance)) {
-            const BgpNeighborConfig *neighbor = item.second;
-            ShowBgpNeighborConfig nbr;
-            nbr.set_instance_name(neighbor->instance_name());
-            nbr.set_name(neighbor->name());
-            nbr.set_admin_down(neighbor->admin_down());
-            nbr.set_passive(neighbor->passive());
-            Ip4Address localid(ntohl(neighbor->local_identifier()));
-            nbr.set_local_identifier(localid.to_string());
-            nbr.set_local_as(neighbor->local_as());
-            nbr.set_autonomous_system(neighbor->peer_as());
-            Ip4Address peerid(ntohl(neighbor->peer_identifier()));
-            nbr.set_identifier(peerid.to_string());
-            nbr.set_address(neighbor->peer_address().to_string());
-            nbr.set_address_families(neighbor->GetAddressFamilies());
-            nbr.set_hold_time(neighbor->hold_time());
-            nbr.set_loop_count(neighbor->loop_count());
-            nbr.set_last_change_at(
-                UTCUsecToString(neighbor->last_change_at()));
-            nbr.set_auth_type(neighbor->auth_data().KeyTypeToString());
-            if (bsc->test_mode()) {
-                nbr.set_auth_keys(neighbor->auth_data().KeysToStringDetail());
-            }
-
-            vector<ShowBgpNeighborFamilyConfig> family_attributes_list;
-            BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
-                neighbor->family_attributes_list()) {
-                ShowBgpNeighborFamilyConfig family_attributes;
-                family_attributes.family = family_config.family;
-                family_attributes.loop_count = family_config.loop_count;
-                family_attributes.prefix_limit = family_config.prefix_limit;
-                family_attributes_list.push_back(family_attributes);
-            }
-            nbr.set_family_attributes_list(family_attributes_list);
-
-            nbr_list.push_back(nbr);
-        }
-
-        ShowBgpNeighborConfigResp *resp = new ShowBgpNeighborConfigResp;
-        resp->set_neighbors(nbr_list);
-        resp->set_context(req->context());
-        resp->Response();
-        return true;
-    }
-};
-
-void ShowBgpNeighborConfigReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-
-    // Request pipeline has single stage to collect neighbor config info
-    // and respond to the request
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
-    s1.cbFn_ = ShowBgpNeighborConfigHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
-    RequestPipeline rp(ps);
-}
-
 class ShowBgpServerHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
@@ -579,4 +446,31 @@ void BgpSandeshContext::ShowNeighborStatisticsExtension(
     if (!show_neighbor_statistics_ext_)
         return;
     show_neighbor_statistics_ext_(count, this, req);
+}
+
+void BgpSandeshContext::SetPeeringShowHandlers(
+    const PeeringReqHandler &show_peering_req_handler,
+    const PeeringReqIterateHandler &show_peering_req_iterate_handler) {
+    show_peering_req_handler_ = show_peering_req_handler;
+    show_peering_req_iterate_handler_ = show_peering_req_iterate_handler;
+}
+
+void BgpSandeshContext::PeeringShowReqHandler(
+    const ShowBgpPeeringConfigReq *req) {
+    if (show_peering_req_handler_) {
+       show_peering_req_handler_(this, req);
+    } else {
+        ShowBgpPeeringConfigResp *resp = new ShowBgpPeeringConfigResp;
+        resp->Response();
+    }
+}
+
+void BgpSandeshContext::PeeringShowReqIterateHandler(
+    const ShowBgpPeeringConfigReqIterate *req_iterate) {
+    if (show_peering_req_iterate_handler_) {
+       show_peering_req_iterate_handler_(this, req_iterate);
+    } else {
+        ShowBgpPeeringConfigResp *resp = new ShowBgpPeeringConfigResp;
+        resp->Response();
+    }
 }
