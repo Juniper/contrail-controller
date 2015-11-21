@@ -1488,7 +1488,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name='service-instance-port-tuple'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-port-tuple', 'service-instance',
-          'port-tuple', ['has']) -->
+          'port-tuple', ['has', 'derived']) -->
 
 <xsd:element name='port-tuple-interface'/>
 <!-- #IFMAP-SEMANTICS-IDL
