@@ -236,7 +236,7 @@ class TestPolicy(test_case.STTestCase):
         try:
             self._vnc_lib.route_target_read(fq_name=[name])
             print "retrying ... ", test_common.lineno()
-            raise Exception('rt %s still exists' % uuid)
+            raise Exception('rt %s still exists' % name)
         except NoIdError:
             print 'rt deleted'
 
@@ -992,8 +992,9 @@ class TestPolicy(test_case.STTestCase):
         self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1], service_names[1], '10.0.0.251')
         self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
 
+        old_service_list = np.network_policy_entries.policy_rule[0].action_list.apply_service
         np.network_policy_entries.policy_rule[0].action_list.apply_service = \
-            np.network_policy_entries.policy_rule[0].action_list.apply_service[:-1]
+            old_service_list[:-1]
         np.set_network_policy_entries(np.network_policy_entries)
         self._vnc_lib.network_policy_update(np)
 
@@ -1017,12 +1018,14 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
+        np.network_policy_entries.policy_rule[0].action_list.apply_service = \
+            old_service_list
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
-    # end test_muliti_service_policy
+    # end test_multi_service_policy
 
     def test_multi_policy_service_chain(self):
         # create  vn1
@@ -1256,9 +1259,16 @@ class TestPolicy(test_case.STTestCase):
 
         self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
-        gevent.sleep(2)
+        gevent.sleep(1)
         self._vnc_lib.virtual_network_delete(fq_name=lvn.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=rvn.get_fq_name())
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=lvn.uuid)
+        self.check_vn_is_deleted(uuid=rvn.uuid)
+        self.check_vn_is_deleted(uuid=vn.uuid)
+        self.check_ri_is_deleted(fq_name=lvn.fq_name+[lvn.name])
+        self.check_ri_is_deleted(fq_name=rvn.fq_name+[rvn.name])
+        self.check_ri_is_deleted(fq_name=vn.fq_name+[vn.name])
     # test_add_delete_route
 
     def test_add_delete_static_route(self):
@@ -1517,7 +1527,7 @@ class TestPolicy(test_case.STTestCase):
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self.id(), self._api_server_ip, self._api_server_port)
 
-        #check if all ri's  are deleted
+        # check if all ri's  are deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
@@ -1748,6 +1758,12 @@ class TestPolicy(test_case.STTestCase):
         self.check_acl_not_match_nets(self.get_ri_name(vn2_obj),
                                       ':'.join(vn2_obj.get_fq_name()),
                                       ':'.join(vn1_obj.get_fq_name()))
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+        self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
+        self.check_ri_is_deleted(fq_name=vn2_obj.fq_name+[vn2_obj.name])
+        #self.check_ri_is_deleted(fq_name=vn2_obj.fq_name+[vn2_obj.name])
 
     def test_service_and_analyzer_policy(self):
         # create  vn1
@@ -1803,7 +1819,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
-    # end test_service_policy
+    # end test_service_and_analyzer_policy
 
     @retries(5)
     def check_security_group_id(self, sg_fq_name, verify_sg_id = None):
@@ -2095,6 +2111,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.security_group_update(sg1_obj)
         self.check_security_group_id(sg1_obj.get_fq_name(), -100)
 
+        self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
+        self._vnc_lib.security_group_delete(id=sg2_obj.uuid)
     #end test_sg
 
     def test_delete_sg(self):
@@ -2211,6 +2229,12 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:50000:8000001')
         self.check_bgp_asn(router1.get_fq_name(), 50000)
         self.check_lr_asn(lr.get_fq_name(), 'target:50000:8000002')
+
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
+        self._vnc_lib.bgp_router_delete(id=router1.uuid)
     #end test_asn
 
     def test_fip(self):
@@ -2272,6 +2296,16 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.floating_ip_delete(fip_fq_name)
         self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
+
+        self.delete_network_policy(np)
+        gevent.sleep(1)
+        self._vnc_lib.floating_ip_pool_delete(id=fip_pool.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn3_obj.uuid)
+        self.check_ri_is_deleted(vn1_obj.fq_name+[vn1_obj.name])
+        self.check_ri_is_deleted(vn2_obj.fq_name+[vn2_obj.name])
+        self.check_ri_is_deleted(vn3_obj.fq_name+[vn3_obj.name])
 
     def test_pnf_service(self):
         # create  vn1
@@ -2366,6 +2400,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
 
+        self.delete_service(si_fq_name_str)
     #end test_interface_mirror
 
     def test_transit_vn(self):
@@ -2399,9 +2434,11 @@ class TestPolicy(test_case.STTestCase):
         self.check_service_chain_prefix_match(
             fq_name=self.get_ri_name(vn2_obj, sc_ri_name), prefix='10.0.0.0/24')
 
+        vn1_st = config_db.VirtualNetworkST.get(vn1_obj.get_fq_name_str())
+        rt_vn1 = vn1_st.get_route_target()
         #vn1 rt is in not sc ri
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', False)
+                            rt_vn1, False)
 
         #set transit and check vn1 rt is in sc ri
         vn_props = VirtualNetworkType()
@@ -2409,7 +2446,7 @@ class TestPolicy(test_case.STTestCase):
         vn1_obj.set_virtual_network_properties(vn_props)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
 
         #unset transit and check vn1 rt is not in sc ri
         vn_props.allow_transit = False
@@ -2417,7 +2454,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', False)
+                            rt_vn1, False)
 
         #set transit on both vn1, vn2 and check vn1 & vn2 rt's are in sc ri
         vn_props.allow_transit = True
@@ -2426,10 +2463,12 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
+        vn2_st = config_db.VirtualNetworkST.get(vn2_obj.get_fq_name_str())
+        rt_vn2 = vn2_st.get_route_target()
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn2_obj,sc_ri_name),
-                            'target:64512:8000002', True, 'export')
+                            rt_vn2, True, 'export')
 
         #unset transit on both vn1, vn2 and check vn1 & vn2 rt's are not in sc ri
         vn_props.allow_transit = False
@@ -2439,9 +2478,9 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', False)
+                            rt_vn1, False)
         self.check_rt_in_ri(self.get_ri_name(vn2_obj,sc_ri_name),
-                            'target:64512:8000002', False)
+                            rt_vn2, False)
 
         #test external rt
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
@@ -2453,7 +2492,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:1', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
@@ -2466,7 +2505,7 @@ class TestPolicy(test_case.STTestCase):
         vn1_obj.set_export_route_target_list(rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:2', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
@@ -2479,7 +2518,7 @@ class TestPolicy(test_case.STTestCase):
         vn1_obj.set_export_route_target_list(rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:1', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
@@ -2494,7 +2533,7 @@ class TestPolicy(test_case.STTestCase):
         vn1_obj.set_export_route_target_list(RouteTargetList())
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:64512:8000001', True, 'export')
+                            rt_vn1, True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:1', False)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
@@ -2509,7 +2548,10 @@ class TestPolicy(test_case.STTestCase):
 
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
-    #end test_transit_vn
+        self.check_ri_is_deleted(vn1_obj.fq_name+[vn1_obj.name])
+        self.check_ri_is_deleted(vn2_obj.fq_name+[vn2_obj.name])
+        self.delete_network_policy(np)
+    # end test_transit_vn
 
     def test_misc(self):
         # create a service chain
@@ -2627,6 +2669,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
         self.check_st_vm_is_deleted(vm_name)
 
+        self.delete_network_policy(np)
     #end test_misc
 
     @retries(5)
@@ -2661,7 +2704,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.instance_ip_create(v4_obj)
 
         bgpaas_name = self.id() + 'bgp1'
-        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj)
+        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj,
+                               autonomous_system=64512)
         bgpaas.add_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
 
@@ -2723,6 +2767,9 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.instance_ip_delete(id=v6_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port2_obj.uuid)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self.check_ri_is_deleted(vn1_obj.fq_name+[vn1_obj.name])
+        self._vnc_lib.bgp_router_delete(id=mx_bgp_router.uuid)
     # end test_bgpaas
 
     def test_configured_targets(self):
@@ -2764,4 +2811,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
 # end class TestRouteTable

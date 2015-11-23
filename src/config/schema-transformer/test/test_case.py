@@ -16,6 +16,8 @@ class STTestCase(test_common.TestCase):
             self.id(), self._api_server_ip, self._api_server_port)
 
     def tearDown(self):
+        self.check_ri_is_deleted(fq_name=['default-domain', 'default-project', 'svc-vn-left', 'svc-vn-left'])
+        self.check_ri_is_deleted(fq_name=['default-domain', 'default-project', 'svc-vn-right', 'svc-vn-right'])
         test_common.kill_svc_monitor(self._svc_mon_greenlet)
         test_common.kill_schema_transformer(self._st_greenlet)
         super(STTestCase, self).tearDown()
@@ -93,44 +95,51 @@ class STTestCase(test_common.TestCase):
         return np
     # end create_network_policy_with_multiple_rules
 
+    def delete_service(self, service):
+        si = self._vnc_lib.service_instance_read(fq_name_str=service)
+        st_ref = si.get_service_template_refs()
+        st = self._vnc_lib.service_template_read(id=st_ref[0]['uuid'])
+
+        if st.service_template_properties.version == 2:
+            for pt_ref in si.get_port_tuples() or []:
+                pt = self._vnc_lib.port_tuple_read(id=pt_ref['uuid'])
+                for vmi_ref in pt.get_virtual_machine_interface_back_refs() or []:
+                    self._vnc_lib.virtual_machine_interface_delete(id=vmi_ref['uuid'])
+                self._vnc_lib.port_tuple_delete(id=pt_ref['uuid'])
+
+        self._vnc_lib.service_instance_delete(id=si.uuid)
+        self._vnc_lib.service_template_delete(id=st.uuid)
+
+        if st.service_template_properties.service_virtualization_type == 'physical-device':
+            sa_set_ref = st.get_service_appliance_set_refs()[0]
+            sa_set = self._vnc_lib.service_appliance_set_read(id=sa_set_ref['uuid'])
+            pr_list = set()
+            pi_list = set()
+            for sa_ref in sa_set.get_service_appliances() or []:
+                sa = self._vnc_lib.service_appliance_read(id=sa_ref['uuid'])
+                self._vnc_lib.service_appliance_delete(id=sa.uuid)
+                for pi_ref in sa.get_physical_interface_refs() or []:
+                    pi_list.add(pi_ref['uuid'])
+            self._vnc_lib.service_appliance_set_delete(id=sa_set.uuid)
+            for pi_id in pi_list:
+                pi = self._vnc_lib.physical_interface_read(id=pi_id)
+                pr_list.add(pi.parent_uuid)
+                self._vnc_lib.physical_interface_delete(id=pi_id)
+            for pr in pr_list:
+                self._vnc_lib.physical_router_delete(id=pr)
+    # delete_service
+
     def delete_network_policy(self, policy, auto_policy=False):
         action_list = policy.network_policy_entries.policy_rule[0].action_list
         if action_list:
-            for service in action_list.apply_service or []:
-                si = self._vnc_lib.service_instance_read(fq_name_str=service)
-                st_ref = si.get_service_template_refs()
-                st = self._vnc_lib.service_template_read(id=st_ref[0]['uuid'])
-
-                if st.service_template_properties.version == 2:
-                    for pt_ref in si.get_port_tuples() or []:
-                        pt = self._vnc_lib.port_tuple_read(id=pt_ref['uuid'])
-                        for vmi_ref in pt.get_virtual_machine_interface_back_refs() or []:
-                            self._vnc_lib.virtual_machine_interface_delete(id=vmi_ref['uuid'])
-                        self._vnc_lib.port_tuple_delete(id=pt_ref['uuid'])
-
-                self._vnc_lib.service_instance_delete(id=si.uuid)
-                self._vnc_lib.service_template_delete(id=st.uuid)
-
-                if st.service_template_properties.service_virtualization_type == 'physical-device':
-                    sa_set_ref = st.get_service_appliance_set_refs()[0]
-                    sa_set = self._vnc_lib.service_appliance_set_read(id=sa_set_ref['uuid'])
-                    pr_list = set()
-                    pi_list = set()
-                    for sa_ref in sa_set.get_service_appliances() or []:
-                        sa = self._vnc_lib.service_appliance_read(id=sa_ref['uuid'])
-                        self._vnc_lib.service_appliance_delete(id=sa.uuid)
-                        for pi_ref in sa.get_physical_interface_refs() or []:
-                            pi_list.add(pi_ref['uuid'])
-                    self._vnc_lib.service_appliance_set_delete(id=sa_set.uuid)
-                    for pi_id in pi_list:
-                        pi = self._vnc_lib.physical_interface_read(id=pi_id)
-                        pr_list.add(pi.parent_uuid)
-                        self._vnc_lib.physical_interface_delete(id=pi_id)
-                    for pr in pr_list:
-                        self._vnc_lib.physical_router_delete(id=pr)
-
+            service_list = action_list.apply_service or []
+            if action_list.mirror_to and action_list.mirror_to.analyzer_name:
+                service_list.append(action_list.mirror_to.analyzer_name)
+            for service in service_list:
+                self.delete_service(service)
             # end for service
         # if action_list
         if not auto_policy:
             self._vnc_lib.network_policy_delete(id=policy.uuid)
+
     # end delete_network_policy
