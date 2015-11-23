@@ -38,7 +38,8 @@ class ControlProvisioner(object):
             self._args.api_server_ip, self._args.api_server_port)
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('contrail', self._args.host_name,
-                                  self._args.host_ip, self._args.router_asn, self._args.md5)
+                                  self._args.host_ip, self._args.router_asn,
+                                  self._args.address_families, self._args.md5)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.host_name)
         else:
@@ -101,6 +102,10 @@ class ControlProvisioner(object):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--address_families", help="Address family list",
+            choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
+            nargs="*", default=[])
         parser.add_argument(
             "--md5", help="Md5 config for the node")
         parser.add_argument(
