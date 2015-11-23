@@ -958,12 +958,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="management"/>
-        <xsd:enumeration value="left"/>
-        <xsd:enumeration value="right"/>
-        <xsd:enumeration value="other"/>
+        <xsd:pattern value="management|left|right|other[0-9]*"/>
     </xsd:restriction>
 </xsd:simpleType>
+
+<xsd:complexType name='ServiceInterfaceTag'>
+    <xsd:element name="interface-type" type="ServiceInterfaceType"/>
+</xsd:complexType>
 
 <xsd:complexType name='InterfaceMirrorType'>
     <xsd:all>
@@ -995,14 +996,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='ip-address' type='IpAddressType'/>
         <xsd:element name='static-routes' type='RouteTableType' />
         <xsd:element name='allowed-address-pairs' type="AllowedAddressPairs" />
-        <xsd:element name='service-health-check' type='ServiceHealthCheckType' />
     </xsd:all>
 </xsd:complexType>
 
 <xsd:element name="virtual-machine-interface-properties" 
              type="VirtualMachineInterfacePropertiesType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-properties',
+             'virtual-machine-interface') -->
+
+<xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-bindings',
              'virtual-machine-interface') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>
@@ -1470,18 +1475,37 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-machine-service-instance', 'virtual-machine',
           'service-instance', ['ref', 'derived']) -->
 
+<xsd:element name='service-instance-instance-ip' type="ServiceInterfaceTag"/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('service-instance-instance-ip', 'service-instance',
+          'instance-ip', ['ref']) -->
+
+<xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-health-check-service-instance',
+          'service-health-check', 'service-instance', ['ref']) -->
+
+<xsd:element name="interface-route-table-service-instance" type="ServiceInterfaceTag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('interface-route-table-service-instance',
+          'interface-route-table', 'service-instance', ['ref']) -->
+
+<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
 <xsd:complexType name='ServiceInstanceVirtualMachineInterfaceType'>
     <xsd:all>
         <xsd:element name="instance-id" type="xsd:integer"/>
         <xsd:element name="interface-type" type="ServiceInterfaceType"/>
     </xsd:all>
 </xsd:complexType>
+<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
 
+<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
 <xsd:element name='service-instance-interface'
     type='ServiceInstanceVirtualMachineInterfaceType'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-interface', 'service-instance',
           'virtual-machine-interface', ['ref', 'derived']) -->
+<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
 
 <xsd:element name='port-tuple' type='ifmap:IdentityType'/>
 
@@ -1573,6 +1597,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='expected-codes' type='xsd:string'/>
     </xsd:sequence>
 </xsd:complexType>
+
+<xsd:element name="service-health-check" type="ifmap:IdentityType"/>
+<xsd:element name="service-health-check-properties" type="ServiceHealthCheckType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-health-check-properties', 'service-health-check') -->
+
+<xsd:element name="project-service-health-check"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-service-health-check',
+          'project', 'service-health-check', ['has']) -->
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
