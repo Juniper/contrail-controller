@@ -430,7 +430,9 @@ class OpServerUtils(object):
                 del messages_dict[key]
             if isinstance(value, list):
                 for elem in value:
-                    OpServerUtils._messages_dict_remove_keys(elem, key_pattern)
+                    if isinstance(elem, dict):
+                        OpServerUtils._messages_dict_remove_keys(
+                            elem, key_pattern)
             if isinstance(value, dict):
                 OpServerUtils._messages_dict_remove_keys(value, key_pattern)
     # end _messages_dict_remove_keys
@@ -489,7 +491,8 @@ class OpServerUtils(object):
                 OpServerUtils._messages_dict_eval(value)
             if isinstance(value, list):
                 for elem in value:
-                    OpServerUtils._messages_dict_eval(elem)
+                    if isinstance(elem, dict):
+                        OpServerUtils._messages_dict_eval(elem)
     # end _messages_dict_eval
 
     # Scrubs the message dict to remove keys containing @, and will
@@ -578,6 +581,35 @@ class OpServerUtils(object):
                                     ' [' + OpServerUtils._data_dict_to_str(
                                         vdict, sandesh_type) + ']'
                         data_str += ']'
+                    continue
+                if value_dict['@type'] == 'map':
+                    if data_str is None:
+                        data_str = ''
+                    else:
+                         data_str += ', '
+                    vdict = value_dict['map']
+                    data_str += key + ': {'
+                    if vdict['@value'] == 'struct':
+                        keys = []
+                        values = []
+                        for key, value in vdict.iteritems():
+                            if key == 'element':
+                                keys = value
+                            elif isinstance(value, dict):
+                                values = value
+                            elif isinstance(value, list):
+                                values = value
+                        for i in range(len(keys)):
+                            data_str += keys[i] + ': ' + \
+                                '[' + OpServerUtils._data_dict_to_str(
+                                    values[i], sandesh_type) + '], '
+                    else:
+                        vdict_list = vdict['element']
+                        for i in range(int(vdict['@size'])):
+                            k = i*2
+                            data_str += vdict_list[k] + ': ' + \
+                                vdict_list[k+1] + ', '
+                    data_str += '}'
                     continue
             else:
                 if data_str is None:
