@@ -2661,7 +2661,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.instance_ip_create(v4_obj)
 
         bgpaas_name = self.id() + 'bgp1'
-        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj)
+        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj,
+                               autonomous_system=64512)
         bgpaas.add_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
 
