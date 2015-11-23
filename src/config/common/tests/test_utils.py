@@ -689,6 +689,14 @@ class FakeIfmapClient(object):
 class FakeKombu(object):
     _queues = {}
 
+    @classmethod
+    def is_empty(cls):
+        for q in FakeKombu._queues.values():
+            if q.qsize() > 0:
+                return False
+        return True
+    # end is_empty
+
     class Exchange(object):
         def __init__(self, *args, **kwargs):
             pass
@@ -1211,7 +1219,6 @@ class ZnodeStat(object):
 # end ZnodeStat
 
 class FakeKazooClient(object):
-    # database values same across client instances
     _values = {}
     class Election(object):
         __init__ = stub
