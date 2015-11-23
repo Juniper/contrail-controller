@@ -786,6 +786,8 @@ def parse_args(args_str):
                         help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
                         help="Sandesh send rate limit in messages/sec.")
+    parser.add_argument("--check_service_interval",
+                        help="Check service interval")
 
     args = parser.parse_args(remaining_argv)
     args.config_sections = config

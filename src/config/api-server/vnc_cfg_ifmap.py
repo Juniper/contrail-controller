@@ -117,7 +117,7 @@ class VncIfmapClient(object):
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
 
-        self._reset()
+        self.reset()
 
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
@@ -370,14 +370,22 @@ class VncIfmapClient(object):
         return self._db_client_mgr._api_svr_mgr
     # end _get_api_server
 
-    def _reset(self):
+    def reset(self, drain_inflight=False):
         # Cache of metas populated in ifmap server. Useful in update to find
         # what things to remove in ifmap server
         self._id_to_metas = {}
+        if drain_inflight:
+            while True:
+                try:
+                    self._queue.get_nowait()
+                except Empty:
+                    break
+        # end drained in flight messages
+
         self._queue = Queue(self._get_api_server()._args.ifmap_queue_size)
         if self._dequeue_greenlet is None:
             self._dequeue_greenlet = gevent.spawn(self._ifmap_dequeue_task)
-    # end _reset
+    # end reset
 
 
     def _publish_config_root(self):
@@ -527,7 +535,7 @@ class VncIfmapClient(object):
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])
 
-                self._reset()
+                self.reset()
                 self._get_api_server().un_publish_ifmap_to_discovery()
                 # this will block till connection is re-established
                 self._init_conn()
@@ -1998,4 +2006,8 @@ class VncDbClient(object):
         return shared
     # end get_shared_objects
 
+    def reset(self):
+        self._ifmap_db.reset(drain_inflight=True)
+        self._msgbus.reset()
+    # end reset
 # end class VncDbClient
