@@ -186,6 +186,9 @@ class VncKombuClientBase(object):
         self._consumer.close()
         self._conn.close()
 
+    def reset(self):
+        self._publish_queue = Queue()
+
 
 class VncKombuClientV1(VncKombuClientBase):
     def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,

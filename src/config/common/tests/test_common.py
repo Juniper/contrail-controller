@@ -128,6 +128,46 @@ def generate_logconf_file_contents():
     return cfg_parser
 # end generate_logconf_file_contents
 
+def create_api_server_instance(test_id, config_knobs):
+    ret_server_info = {}
+    ret_server_info['ip'] = socket.gethostbyname(socket.gethostname())
+    ret_server_info['service_port'] = get_free_port()
+    ret_server_info['introspect_port'] = get_free_port()
+    ret_server_info['admin_port'] = get_free_port()
+    ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
+        test_id, ret_server_info['ip'], ret_server_info['service_port'],
+        ret_server_info['introspect_port'], ret_server_info['admin_port'],
+        config_knobs)
+    block_till_port_listened(ret_server_info['ip'],
+        ret_server_info['service_port'])
+    extra_env = {'HTTP_HOST':'%s%s' %(ret_server_info['ip'],
+                                      ret_server_info['service_port'])}
+    ret_server_info['app'] = TestApp(bottle.app(), extra_environ=extra_env)
+    ret_server_info['api_conn'] = VncApi('u', 'p',
+        api_server_host=ret_server_info['ip'],
+        api_server_port=ret_server_info['service_port'])
+
+    FakeNovaClient.vnc_lib = ret_server_info['api_conn']
+    ret_server_info['api_session'] = requests.Session()
+    adapter = requests.adapters.HTTPAdapter()
+    ret_server_info['api_session'].mount("http://", adapter)
+    ret_server_info['api_session'].mount("https://", adapter)
+    ret_server_info['api_server'] = vnc_cfg_api_server.server
+    ret_server_info['api_server']._sandesh.set_logging_level(level="SYS_DEBUG")
+
+    return ret_server_info
+# end create_api_server_instance
+
+def destroy_api_server_instance(server_info):
+    server_info['greenlet'].kill()
+    server_info['api_server']._db_conn._msgbus.shutdown()
+    FakeKombu.reset()
+    FakeIfmapClient.reset()
+    CassandraCFs.reset()
+    FakeKazooClient.reset()
+    FakeExtensionManager.reset()
+# end destroy_api_server_instance
+
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
     args_str = ""
@@ -222,38 +262,23 @@ def setup_extra_flexmock(mocks):
         flexmock(cls, **kwargs)
 # end setup_extra_flexmock
 
-def setup_common_flexmock():
-    flexmock(cfgm_common.vnc_cpu_info.CpuInfo, __init__=stub)
-    flexmock(novaclient.client, Client=FakeNovaClient.initialize)
-    flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
-             call=FakeIfmapClient.call,
-             call_async_result=FakeIfmapClient.call_async_result)
+def setup_mocks(mod_attr_val_list):
+    # use setattr instead of flexmock because flexmocks are torndown
+    # after every test in stopTest whereas these mocks are needed across
+    # all tests in class
+    orig_mod_attr_val_list = []
+    for mod, attr, val in mod_attr_val_list:
+        orig_mod_attr_val_list.append(
+            (mod, attr, getattr(mod, attr)))
+        setattr(mod, attr, val)
 
-    flexmock(pycassa.system_manager.Connection, __init__=stub)
-    flexmock(pycassa.system_manager.SystemManager, create_keyspace=stub,
-             create_column_family=stub)
-    flexmock(pycassa.ConnectionPool, __init__=stub)
-    flexmock(pycassa.ColumnFamily, __new__=FakeCF)
-    flexmock(pycassa.util, convert_uuid_to_time=Fake_uuid_to_time)
+    return orig_mod_attr_val_list
+#end setup_mocks
 
-    flexmock(disc_client.DiscoveryClient, __init__=stub)
-    flexmock(disc_client.DiscoveryClient, publish_obj=stub)
-    flexmock(disc_client.DiscoveryClient, publish=stub)
-    flexmock(disc_client.DiscoveryClient, subscribe=stub)
-    flexmock(disc_client.DiscoveryClient, syslog=stub)
-    flexmock(disc_client.DiscoveryClient, def_pub=stub)
-    flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
-    flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
-
-    flexmock(kombu.Connection, __new__=FakeKombu.Connection)
-    flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
-    flexmock(kombu.Queue, __new__=FakeKombu.Queue)
-    flexmock(kombu.Consumer, __new__=FakeKombu.Consumer)
-    flexmock(kombu.Producer, __new__=FakeKombu.Producer)
-
-    flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
-    #flexmock(VncApiStatsLog, __new__=FakeVncApiStatsLog)
-#end setup_common_flexmock
+def teardown_mocks(mod_attr_val_list):
+    for mod, attr, val in mod_attr_val_list:
+        setattr(mod, attr, val)
+# end teardown_mocks
 
 @contextlib.contextmanager
 def patch(target_obj, target_method_name, patched):
@@ -273,12 +298,46 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     _HTTP_HEADERS =  {
         'Content-type': 'application/json; charset="UTF-8"',
     }
+    _config_knobs = [
+        ('DEFAULTS', '', ''),
+        ('DEFAULTS', 'ifmap_health_check_interval', '3600'),
+        ]
+
+    mocks = [
+        (cfgm_common.vnc_cpu_info.CpuInfo, '__init__', stub),
+        (novaclient.client, 'Client', FakeNovaClient.initialize),
+        (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
+        (ifmap_client.client, 'call', FakeIfmapClient.call),
+        (ifmap_client.client, 'call_async_result', FakeIfmapClient.call_async_result),
+
+        (pycassa.system_manager.Connection, '__init__', stub),
+        (pycassa.system_manager.SystemManager, 'create_keyspace', stub),
+        (pycassa.system_manager.SystemManager, 'create_column_family', stub),
+        (pycassa.ConnectionPool, '__init__', stub),
+        (pycassa.ColumnFamily, '__new__', FakeCF),
+        (pycassa.util, 'convert_uuid_to_time', Fake_uuid_to_time),
+
+        (disc_client.DiscoveryClient, '__init__', stub),
+        (disc_client.DiscoveryClient, 'publish_obj', stub),
+        (disc_client.DiscoveryClient, 'publish', stub),
+        (disc_client.DiscoveryClient, 'subscribe', stub),
+        (disc_client.DiscoveryClient, 'syslog', stub),
+        (disc_client.DiscoveryClient, 'def_pub', stub),
+        (kazoo.client.KazooClient, '__new__', FakeKazooClient),
+        (kazoo.handlers.gevent.SequentialGeventHandler, '__init__', stub),
+
+        (kombu.Connection, '__new__', FakeKombu.Connection),
+        (kombu.Exchange, '__new__', FakeKombu.Exchange),
+        (kombu.Queue, '__new__', FakeKombu.Queue),
+        (kombu.Consumer, '__new__', FakeKombu.Consumer),
+        (kombu.Producer, '__new__', FakeKombu.Producer),
+
+        (VncApiConfigLog, '__new__', FakeApiConfigLog),
+    ]
+
     def __init__(self, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
-        self._assert_till_max_tries = 30
-        self._config_knobs = [
-            ('DEFAULTS', '', ''),
-            ]
+        self._assert_till_max_tries = 600
         super(TestCase, self).__init__(*args, **kwargs)
         self.addOnException(self._add_detailed_traceback)
 
@@ -395,11 +454,12 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 raise Exception('Max retries')
 
             self._logger.warn('Retrying at ' + str(inspect.stack()[1]))
-            gevent.sleep(2)
+            gevent.sleep(0.1)
 
 
-    def setUp(self, extra_mocks=None, extra_config_knobs=None):
-        super(TestCase, self).setUp()
+    @classmethod
+    def setUpClass(cls, extra_mocks=None, extra_config_knobs=None):
+        super(TestCase, cls).setUpClass()
         global cov_handle
         if not cov_handle:
             cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
@@ -407,48 +467,50 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
-        setup_common_flexmock()
-        if extra_mocks:
-            setup_extra_flexmock(extra_mocks)
-        if extra_config_knobs:
-            self._config_knobs.extend(extra_config_knobs)
+        cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
 
-        self._api_server_ip = socket.gethostbyname(socket.gethostname())
-        self._api_server_port = get_free_port()
-        http_server_port = get_free_port()
-        self._api_admin_port = get_free_port()
-        self._api_svr_greenlet = gevent.spawn(launch_api_server,
-                                     self.id(),
-                                     self._api_server_ip, self._api_server_port,
-                                     http_server_port, self._api_admin_port,
-                                     self._config_knobs)
-        block_till_port_listened(self._api_server_ip, self._api_server_port)
-        extra_env = {'HTTP_HOST':'%s%s' %(self._api_server_ip,
-                                          self._api_server_port)}
-        self._api_svr_app = TestApp(bottle.app(), extra_environ=extra_env)
-        self._vnc_lib = VncApi('u', 'p', api_server_host=self._api_server_ip,
-                               api_server_port=self._api_server_port)
+        cls._server_info = create_api_server_instance(
+            cls.__name__, cls._config_knobs + (extra_config_knobs or []))
+        try:
+            cls._api_server_ip = cls._server_info['ip']
+            cls._api_server_port = cls._server_info['service_port']
+            cls._api_admin_port = cls._server_info['admin_port']
+            cls._api_svr_greenlet = cls._server_info['greenlet']
+            cls._api_svr_app = cls._server_info['app']
+            cls._vnc_lib = cls._server_info['api_conn']
+            cls._api_server_session = cls._server_info['api_session']
+            cls._api_server = cls._server_info['api_server']
+        except Exception as e:
+            cls.tearDownClass()
+            raise
+    # end setUpClass
 
-        FakeNovaClient.vnc_lib = self._vnc_lib
-        self._api_server_session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter()
-        self._api_server_session.mount("http://", adapter)
-        self._api_server_session.mount("https://", adapter)
-        self._api_server = vnc_cfg_api_server.server
-        self._api_server._sandesh.set_logging_level(level="SYS_DEBUG")
-        self.addCleanup(self.cleanUp)
+    @classmethod
+    def tearDownClass(cls):
+        destroy_api_server_instance(cls._server_info)
+        teardown_mocks(cls.orig_mocked_values)
+    # end tearDownClass
+
+    def setUp(self, extra_mocks=None, extra_config_knobs=None):
+        self._logger.info("Running %s" %(self.id()))
+        super(TestCase, self).setUp()
     # end setUp
 
-    def cleanUp(self):
-        self._api_svr_greenlet.kill()
-        self._api_server._db_conn._msgbus.shutdown()
-        FakeKombu.reset()
-        FakeIfmapClient.reset()
-        CassandraCFs.reset()
-        FakeExtensionManager.reset()
-        #cov_handle.stop()
-        #cov_handle.report(file=open('covreport.txt', 'w'))
-    # end cleanUp
+    def tearDown(self):
+        self._logger.info("Finished %s" %(self.id()))
+        self.wait_till_api_server_idle()
+        super(TestCase, self).tearDown()
+    # end tearDown
+
+    def wait_till_api_server_idle(self):
+        # wait for in-flight messages to be processed
+        while self._api_server._db_conn._msgbus.num_pending_messages() > 0:
+            gevent.sleep(0.001)
+        while not FakeKombu.is_empty():
+            gevent.sleep(0.001)
+        while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
+            gevent.sleep(0.001)
+    # wait_till_api_server_idle
 
     def get_obj_imid(self, obj):
         return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
