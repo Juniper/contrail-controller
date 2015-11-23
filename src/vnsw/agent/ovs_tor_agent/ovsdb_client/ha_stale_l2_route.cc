@@ -46,6 +46,8 @@ bool HaStaleL2RouteEntry::Add() {
         static_cast<HaStaleL2RouteTable *>(table_);
     ack_event_ = KSyncEntry::ADD_ACK;
     table->EnqueueExportEntry(this);
+    // Stop stale clear timer on add/change/delete req
+    StopStaleClearTimer();
     return false;
 }
 
@@ -54,6 +56,8 @@ bool HaStaleL2RouteEntry::Change() {
         static_cast<HaStaleL2RouteTable *>(table_);
     ack_event_ = KSyncEntry::CHANGE_ACK;
     table->EnqueueExportEntry(this);
+    // Stop stale clear timer on add/change/delete req
+    StopStaleClearTimer();
     return false;
 }
 
@@ -62,7 +66,22 @@ bool HaStaleL2RouteEntry::Delete() {
         static_cast<HaStaleL2RouteTable *>(table_);
     ack_event_ = KSyncEntry::DEL_ACK;
     table->EnqueueExportEntry(this);
+    // Stop stale clear timer on add/change/delete req
+    StopStaleClearTimer();
     return false;
+}
+
+void HaStaleL2RouteEntry::StopStaleClearTimer() {
+    // Cancel timer if running
+    if (time_stamp_ != 0) {
+        HaStaleL2RouteTable *table =
+            static_cast<HaStaleL2RouteTable *>(table_);
+        HaStaleDevVnEntry *dev_vn = table->dev_vn_;
+        HaStaleDevVnTable *dev_vn_table =
+            static_cast<HaStaleDevVnTable*>(dev_vn->table());
+        dev_vn_table->StaleClearDelEntry(time_stamp_, this);
+        time_stamp_ = 0;
+    }
 }
 
 void HaStaleL2RouteEntry::AddEvent() {
@@ -90,14 +109,6 @@ void HaStaleL2RouteEntry::AddEvent() {
                 table->vrf_->GetName() + ", VxlanId " +
                 integerToString(vxlan_id_) + ", MAC " + mac_ + ", dest ip " +
                 table->dev_ip_.to_string());
-
-    // Cancel timer if running
-    if (time_stamp_ != 0) {
-        HaStaleDevVnTable *dev_vn_table =
-            static_cast<HaStaleDevVnTable*>(dev_vn->table());
-        dev_vn_table->StaleClearDelEntry(time_stamp_, this);
-        time_stamp_ = 0;
-    }
 }
 
 void HaStaleL2RouteEntry::ChangeEvent() {
@@ -121,13 +132,6 @@ void HaStaleL2RouteEntry::DeleteEvent() {
                 integerToString(vxlan_id_) + ", MAC " + mac_);
     dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
                                          MacAddress(mac_));
-
-    if (time_stamp_ != 0) {
-        HaStaleDevVnTable *dev_vn_table =
-            static_cast<HaStaleDevVnTable*>(dev_vn->table());
-        dev_vn_table->StaleClearDelEntry(time_stamp_, this);
-        time_stamp_ = 0;
-    }
 }
 
 bool HaStaleL2RouteEntry::Sync(DBEntry *db_entry) {

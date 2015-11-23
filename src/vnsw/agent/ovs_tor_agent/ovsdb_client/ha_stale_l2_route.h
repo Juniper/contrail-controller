@@ -87,6 +87,8 @@ private:
 
     void StaleClearCb();
 
+    void StopStaleClearTimer();
+
     void AddEvent();
     void ChangeEvent();
     void DeleteEvent();
