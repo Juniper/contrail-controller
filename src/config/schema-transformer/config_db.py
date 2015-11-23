@@ -2103,7 +2103,7 @@ class RoutingInstanceST(DBBaseST):
         service_info.set_prefix(prefixes)
         if service_info.get_service_chain_address() is None:
             self._logger.error(
-                "service chain ip adddress in None for : " + service_instance)
+                "service chain ip address is None for: " + service_instance)
             return None
         return service_info
     # fill_service_info

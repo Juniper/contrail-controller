@@ -236,7 +236,7 @@ class TestPolicy(test_case.STTestCase):
         try:
             self._vnc_lib.route_target_read(fq_name=[name])
             print "retrying ... ", test_common.lineno()
-            raise Exception('rt %s still exists' % uuid)
+            raise Exception('rt %s still exists' % name)
         except NoIdError:
             print 'rt deleted'
 
@@ -1256,9 +1256,12 @@ class TestPolicy(test_case.STTestCase):
 
         self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
-        gevent.sleep(2)
+        gevent.sleep(1)
         self._vnc_lib.virtual_network_delete(fq_name=lvn.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=rvn.get_fq_name())
+        self.check_ri_is_deletes(fq_name=lvn.fq_name+[lvn.name])
+        self.check_ri_is_deletes(fq_name=rvn.fq_name+[rvn.name])
+        self.check_ri_is_deletes(fq_name=vn.fq_name+[vn.name])
     # test_add_delete_route
 
     def test_add_delete_static_route(self):
@@ -2661,7 +2664,8 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.instance_ip_create(v4_obj)
 
         bgpaas_name = self.id() + 'bgp1'
-        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj)
+        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj,
+                               autonomous_system=64512)
         bgpaas.add_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
 
