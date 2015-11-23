@@ -175,11 +175,17 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (tunnel_bmap_ == TunnelType::VxlanType()) {
         //Only VXLAN encap is sent, so label is VXLAN
         path->set_vxlan_id(label_);
-        path->set_label(MplsTable::kInvalidLabel);
+        if (path->label() != MplsTable::kInvalidLabel) {
+            path->set_label(MplsTable::kInvalidLabel);
+            ret = true;
+        }
     } else if (tunnel_bmap_ == TunnelType::MplsType()) {
         //MPLS (GRE/UDP) is the only encap sent,
         //so label is MPLS.
-        path->set_label(label_);
+        if (path->label() != label_) {
+            path->set_label(label_);
+            ret = true;
+        }
         path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
     } else {
         //Got a mix of Vxlan and Mpls, so interpret label
