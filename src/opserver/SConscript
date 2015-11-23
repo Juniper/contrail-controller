@@ -26,7 +26,6 @@ local_sources = [
            'generator_introspect_util.py',
            'introspect_util.py',
            'opserver.py',
-           'opserver_client.py',
            'opserver_util.py',
            'overlay_to_underlay_mapper.py',
            'sandesh_req_impl.py',
