@@ -134,6 +134,9 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
         return;
     }
     if (!state) {
+        if (dev->name().empty())
+            return;
+
         state = new ConnectionStateEntry(this, dev->name());
         pair<EntryMap::iterator, bool> ret;
         ret = entry_map_.insert(pair<string, ConnectionStateEntry*>(dev->name(),
