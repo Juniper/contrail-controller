@@ -330,6 +330,37 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, RemoteVmRoute_label_change) {
+    client->Reset();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+
+    TunnelType::TypeBmap bmap;
+    bmap = TunnelType::MplsType();
+    AddRemoteVmRoute(remote_vm_mac_, remote_vm_ip4_, server1_ip_,
+                     MplsTable::kStartLabel, bmap);
+    WAIT_FOR(1000, 100,
+             (L2RouteFind(vrf_name_, remote_vm_mac_, remote_vm_ip4_) == true));
+
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
+                                      remote_vm_ip4_);
+    EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
+
+    AddRemoteVmRoute(remote_vm_mac_, remote_vm_ip4_, server1_ip_,
+                     MplsTable::kStartLabel + 1, bmap);
+    rt = L2RouteGet(vrf_name_, remote_vm_mac_,
+                    remote_vm_ip4_);
+    EXPECT_TRUE(rt->GetActiveLabel() == (MplsTable::kStartLabel + 1));
+
+    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
+                remote_vm_ip4_);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
 TEST_F(RouteTest, RemoteVmRoute_1) {
     client->Reset();
     VxLanNetworkIdentifierMode(false);
