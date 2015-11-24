@@ -27,6 +27,17 @@ from cfgm_common import ssl_adapter
 
 from pprint import pformat
 
+
+def check_homepage(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if not self._srv_root_url:
+            homepage = self._request(rest.OP_GET, self._base_url,
+                                    retry_on_error=False)
+            self._parse_homepage(homepage)
+        return func(self, *args, **kwargs)
+    return wrapper
+
 def compare_refs(old_refs, new_refs):
     # compare refs in an object
     old_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in old_refs or [])
@@ -64,7 +75,7 @@ class ActionUriDict(dict):
         except KeyError:
             homepage = self.vnc_api._request(rest.OP_GET, self.vnc_api._base_url,
                                     retry_on_error=False)
-            self.vnc_api._cfg_root_url = self.vnc_api._parse_homepage(homepage)
+            self.vnc_api._parse_homepage(homepage)
             return dict.__getitem__(self, key)
 
 
@@ -304,7 +315,7 @@ class VncApi(object):
             try:
                 homepage = self._request(rest.OP_GET, self._base_url,
                                          retry_on_error=False)
-                self._cfg_root_url = self._parse_homepage(homepage)
+                self._parse_homepage(homepage)
             except ServiceUnavailableError as e:
                 logger = logging.getLogger(__name__)
                 logger.warn("Exception: %s", str(e))
@@ -320,6 +331,7 @@ class VncApi(object):
                 break
     #end __init__
 
+    @check_homepage
     def _object_create(self, res_type, obj):
         obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
@@ -343,6 +355,7 @@ class VncApi(object):
         return obj.uuid
     # end _object_create
 
+    @check_homepage
     def _object_read(self, res_type, fq_name=None, fq_name_str=None,
                      id=None, ifmap_id=None, fields=None):
         obj_type = res_type.replace('-', '_')
@@ -372,6 +385,7 @@ class VncApi(object):
         return obj
     # end _object_read
 
+    @check_homepage
     def _object_update(self, res_type, obj):
         obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
@@ -409,6 +423,7 @@ class VncApi(object):
         return content
     # end _object_update
 
+    @check_homepage
     def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
                      obj_uuids=None, back_ref_id=None, fields=None,
                      detail=False, count=False, filters=None):
@@ -418,6 +433,7 @@ class VncApi(object):
             filters=filters)
     # end _objects_list
 
+    @check_homepage
     def _object_delete(self, res_type, fq_name=None, id=None, ifmap_id=None):
         obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
@@ -625,10 +641,8 @@ class VncApi(object):
 
     def _request_server(self, op, url, data=None, retry_on_error=True,
                         retry_after_authn=False, retry_count=30):
-        if not hasattr(self, '_cfg_root_url'):
-            homepage = self._request(rest.OP_GET, self._base_url,
-                                     retry_on_error=False)
-            self._cfg_root_url = self._parse_homepage(homepage)
+        if not self._srv_root_url:
+            raise ConnectionError("Unable to retrive the api server root url.")
 
         return self._request(op, url, data=data, retry_on_error=retry_on_error,
                       retry_after_authn=retry_after_authn,
@@ -698,6 +712,7 @@ class VncApi(object):
 
     #end _request_server
 
+    @check_homepage
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_fq_name, operation, attr=None):
         if ref_type.endswith('_refs'):
             ref_type = ref_type[:-5].replace('_', '-')
@@ -721,6 +736,7 @@ class VncApi(object):
         return self.fq_name_to_id(obj.get_type(), obj.get_fq_name())
     #end obj_to_id
 
+    @check_homepage
     def fq_name_to_id(self, obj_type, fq_name):
         json_body = json.dumps({'type': obj_type, 'fq_name': fq_name})
         uri = self._action_uri['name-to-id']
@@ -734,6 +750,7 @@ class VncApi(object):
         return json.loads(content)['uuid']
     #end fq_name_to_id
 
+    @check_homepage
     def id_to_fq_name(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
@@ -742,6 +759,7 @@ class VncApi(object):
         return json.loads(content)['fq_name']
     #end id_to_fq_name
 
+    @check_homepage
     def id_to_fq_name_type(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
@@ -751,6 +769,7 @@ class VncApi(object):
         return (json_rsp['fq_name'], json_rsp['type'])
 
     # This is required only for helping ifmap-subscribers using rest publish
+    @check_homepage
     def ifmap_to_id(self, ifmap_id):
         json_body = json.dumps({'ifmap_id': ifmap_id})
         uri = self._action_uri['ifmap-to-id']
@@ -771,6 +790,7 @@ class VncApi(object):
         return json.loads(self.obj_to_json(obj))
     # end obj_to_dict
 
+    @check_homepage
     def fetch_records(self):
         json_body = json.dumps({'fetch_records': None})
         uri = self._action_uri['fetch-records']
@@ -779,6 +799,7 @@ class VncApi(object):
         return json.loads(content)['results']
     #end fetch_records
 
+    @check_homepage
     def restore_config(self, create, resource, json_body):
         cls = utils.obj_type_to_vnc_class(resource, __name__)
         if not cls:
@@ -796,6 +817,7 @@ class VncApi(object):
         return json.loads(content)
     #end restore_config
 
+    @check_homepage
     def kv_store(self, key, value):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'STORE',
@@ -805,6 +827,7 @@ class VncApi(object):
         self._request_server(rest.OP_POST, uri, data=json_body)
     #end kv_store
 
+    @check_homepage
     def kv_retrieve(self, key=None):
         # if key is None, entire collection is retrieved, use with caution!
         # TODO move oper value to common
@@ -816,6 +839,7 @@ class VncApi(object):
         return json.loads(content)['value']
     #end kv_retrieve
 
+    @check_homepage
     def kv_delete(self, key):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'DELETE',
@@ -826,6 +850,7 @@ class VncApi(object):
 
     # reserve block of IP address from a VN
     # expected format {"subnet" : "2.1.1.0/24", "count" : 4}
+    @check_homepage
     def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None, family=None):
         json_body = json.dumps({'count': count, 'subnet': subnet, 'family':family})
         uri = self._action_uri['virtual-network-ip-alloc'] % vnobj.uuid
@@ -836,6 +861,7 @@ class VncApi(object):
     # free previously reserved block of IP address from a VN
     # Expected format "subnet" : "2.1.1.0/24",
     #                 "ip_addr" : ["2.1.1.239", "2.1.1.238"]
+    @check_homepage
     def virtual_network_ip_free(self, vnobj, ip_list, subnet=None):
         json_body = json.dumps({'ip_addr': ip_list, 'subnet': subnet})
         uri = self._action_uri['virtual-network-ip-free'] % vnobj.uuid
@@ -845,6 +871,7 @@ class VncApi(object):
 
     # return no of ip instances from a given VN/Subnet
     # Expected format "subne_list" : ["2.1.1.0/24", "2.2.2.0/24"]
+    @check_homepage
     def virtual_network_subnet_ip_count(self, vnobj, subnet_list):
         json_body = json.dumps({'subnet_list': subnet_list})
         uri = self._action_uri['virtual-network-subnet-ip-count'] % vnobj.uuid
@@ -860,6 +887,7 @@ class VncApi(object):
 
     #end get_auth_token
 
+    @check_homepage
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None):
