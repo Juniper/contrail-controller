@@ -636,6 +636,9 @@ class VirtualNetworkST(DictST):
                         for rt in self.rt_list:
                             rtgt_obj = RouteTarget(rt)
                             rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                        if not is_default and self.allow_transit:
+                            rtgt_obj = RouteTarget(self.get_route_target())
+                            rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except (NoIdError, KeyError):
                 rinst_obj = None
@@ -646,6 +649,9 @@ class VirtualNetworkST(DictST):
                 if inst_tgt_data:
                     for rt in self.rt_list:
                         rtgt_obj = RouteTarget(rt)
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                    if not is_default and self.allow_transit:
+                        rtgt_obj = RouteTarget(self.get_route_target())
                         rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
