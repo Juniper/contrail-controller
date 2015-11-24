@@ -2645,7 +2645,11 @@ class LogicalRouterST(DictST):
             lr = cls._dict[name]
             rtgt_num = int(lr.route_target.split(':')[-1])
             VirtualNetworkST._rt_allocator.delete(rtgt_num)
-            _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            try:
+                _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            except NoIdError:
+                _sandesh._logger.debug("NoIdError while trying to delete route-target %s" %
+                                       str(lr.route_target))
             for interface in lr.interfaces:
                 lr.delete_interface(interface)
             del cls._dict[name]
