@@ -366,7 +366,10 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute",
+                rules = [{"oper":"!",
+                          "operand1":{"AlarmOperand":{"name":"VrouterAgent.build_info",
+                                                      "json_value":"null"}}}]))
 
         # Now try to clear the alarm by sending build_info
         alarm_gen1.send_vrouterinfo("myvrouter1", b_info = True)
@@ -612,20 +615,12 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         vr_agent.send_vn_agent_uve(name=vn_list[2], ipkts=4, ibytes=128)
         vr_agent.send_vn_agent_uve(name=vn_list[3], ipkts=8, ibytes=256)
         # generate Alarms for the filter test
-        alarms = alarm_gen1.create_alarm('InPktsThreshold',
-                    'UveVirtualNetworkAgent.in_tpkts < 2',
-                    'UveVirtualNetworkAgent.in_tpkts == 2')
-        alarms += alarm_gen1.create_alarm('InBytesThreshold',
-                    'UveVirtualNetworkAgent.in_bytes < 512',
-                    'UveVirtualNetworkAgent.in_bytes == 1024', ack=True)
+        alarms = alarm_gen1.create_alarm('InPktsThreshold')
+        alarms += alarm_gen1.create_alarm('InBytesThreshold', ack=True)
         alarm_gen1.send_alarm(vn_list[1], alarms, VN_TABLE)
-        alarms = alarm_gen2.create_alarm('ConfigNotPresent',
-                    'UveVirtualNetworkConfig != False',
-                    'UveVirtualNetworkConfig == False', ack=False)
+        alarms = alarm_gen2.create_alarm('ConfigNotPresent', ack=False)
         alarm_gen2.send_alarm(vn_list[2], alarms, VN_TABLE)
-        alarms = alarm_gen2.create_alarm('ConfigNotPresent',
-                    'UveVirtualNetworkConfig != False',
-                    'UveVirtualNetworkConfig == False', ack=False)
+        alarms = alarm_gen2.create_alarm('ConfigNotPresent', ack=False)
         alarm_gen2.send_alarm(vn_list[3], alarms, VN_TABLE)
 
         filt_test = [
@@ -644,21 +639,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'InPktsThreshold',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                            }
-                                        ]
                                     },
                                     {
                                         'type': 'InBytesThreshold',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                            }
-                                        ],
                                         'ack': True
                                     }
                                 ]
@@ -669,12 +652,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -685,12 +662,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -726,21 +697,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -758,12 +717,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -781,12 +734,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -834,21 +781,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -866,12 +801,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -889,12 +818,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -941,21 +864,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -973,12 +884,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -996,12 +901,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1043,12 +942,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1066,12 +959,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1093,12 +980,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -1109,12 +990,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -1139,12 +1014,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1162,12 +1031,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1204,21 +1067,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -1236,12 +1087,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1287,21 +1132,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -1326,12 +1159,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1345,12 +1172,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1413,21 +1234,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -1441,12 +1250,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1460,12 +1263,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1577,21 +1374,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -1608,12 +1393,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1630,12 +1409,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1692,12 +1465,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -1740,12 +1507,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'InPktsThreshold',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                            }
-                                        ]
                                     },
                                 ]
                             } }
@@ -1755,12 +1516,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -1771,12 +1526,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
-                                        'description': [
-                                            {
-                                                'rule': 'UveVirtualNetworkConfig != False',
-                                                'value': 'UveVirtualNetworkConfig == False'
-                                            }
-                                        ],
                                         'ack': False
                                     }
                                 ]
@@ -1812,12 +1561,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         }
                                     ]
                                 }
@@ -1834,12 +1577,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1857,12 +1594,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
@@ -1972,21 +1703,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'InPktsThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_tpkts < 2',
-                                                    'value': 'UveVirtualNetworkAgent.in_tpkts == 2'
-                                                }
-                                            ]
                                         },
                                         {
                                             'type': 'InBytesThreshold',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkAgent.in_bytes < 512',
-                                                    'value': 'UveVirtualNetworkAgent.in_bytes == 1024',
-                                                }
-                                            ],
                                             'ack': True
                                         }
                                     ]
@@ -2076,12 +1795,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                     'alarms': [
                                         {
                                             'type': 'ConfigNotPresent',
-                                            'description': [
-                                                {
-                                                    'rule': 'UveVirtualNetworkConfig != False',
-                                                    'value': 'UveVirtualNetworkConfig == False'
-                                                }
-                                            ],
                                             'ack': False
                                         }
                                     ]
