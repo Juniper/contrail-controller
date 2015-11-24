@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
@@ -96,11 +96,14 @@ class DeviceManager(object):
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
             'routing_instance': ['physical_interface'],
-            'service_instance': ['physical_interface']
+            'port_tuple': ['physical_interface']
         },
         'service_instance': {
-            'self': ['virtual_machine_interface'],
-            'virtual_machine_interface': []
+            'self': ['port_tuple'],
+        },
+        'port_tuple':{
+            'self':['virtual_machine_interface'],
+            'service_instance':['virtual_machine_interface']
         },
         'virtual_network': {
             'self': ['physical_router',
@@ -252,6 +255,9 @@ class DeviceManager(object):
 
         for obj in si_obj_list:
             ServiceInstanceDM.locate(obj['uuid'], obj)
+
+        for obj in PortTupleDM.list_obj():
+            PortTupleDM.locate(obj['uuid'],obj)
 
         for obj in InstanceIpDM.list_obj():
             InstanceIpDM.locate(obj['uuid'], obj)
