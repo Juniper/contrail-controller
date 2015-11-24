@@ -729,7 +729,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
       
     @retry(delay=2, tries=5)
-    def verify_uvetable_alarm(self, table, name, type, is_set = True):
+    def verify_uvetable_alarm(self, table, name, type, is_set = True, rules = None):
         vag = self.alarmgen.get_introspect()
         ret = vag.get_UVETableAlarm(table)
         self.logger.info("verify_uvetable_alarm %s, %s, %s [%s]: %s" % \
@@ -749,14 +749,18 @@ class AnalyticsFixture(fixtures.Fixture):
                 return False
         if not ret['uves']:
             ret['uves'] = []
-        alarms = set()
+        alarms = {}
         for elem in ret['uves']:
             if elem['name'] != name:
                 continue
             for alm in elem['alarms']:
-                if len(alm['description']):
-                    alarms.add(alm['type'])
+                if len(alm['rules']):
+                    alarms[alm['type']] = alm['rules']
         if type in alarms:
+            if is_set:
+                if rules:
+                    if rules != alarms[type]:
+                        return False
             return is_set
         else:
             return not is_set
