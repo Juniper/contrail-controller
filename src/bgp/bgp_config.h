@@ -171,10 +171,14 @@ public:
 
     const IpAddress &peer_address() const { return address_; }
     void set_peer_address(const IpAddress &address) { address_ = address; }
+    std::string peer_address_string() const { return address_.to_string(); }
 
     uint32_t peer_identifier() const { return identifier_; }
     void set_peer_identifier(uint32_t identifier) {
         identifier_ = identifier;
+    }
+    std::string peer_identifier_string() const {
+        return Ip4Address(ntohl(identifier_)).to_string();
     }
 
     int port() const { return port_; }
@@ -192,6 +196,9 @@ public:
     uint32_t local_identifier() const { return local_identifier_; }
     void set_local_identifier(uint32_t identifier) {
         local_identifier_ = identifier;
+    }
+    std::string local_identifier_string() const {
+        return Ip4Address(ntohl(local_identifier_)).to_string();
     }
 
     const AuthenticationData &auth_data() const {

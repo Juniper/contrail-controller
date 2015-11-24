@@ -152,6 +152,8 @@ public:
     as_t peer_as() const { return peer_as_; }
 
     // The BGP Identifier in host byte order.
+    virtual uint32_t local_bgp_identifier() const;
+    std::string local_bgp_identifier_string() const;
     virtual uint32_t bgp_identifier() const;
     std::string bgp_identifier_string() const;
 

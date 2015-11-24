@@ -693,6 +693,14 @@ bool BgpPeer::IsXmppPeer() const {
     return false;
 }
 
+uint32_t BgpPeer::local_bgp_identifier() const {
+    return ntohl(local_bgp_id_);
+}
+
+string BgpPeer::local_bgp_identifier_string() const {
+    return Ip4Address(ntohl(local_bgp_id_)).to_string();
+}
+
 uint32_t BgpPeer::bgp_identifier() const {
     return ntohl(peer_bgp_id_);
 }

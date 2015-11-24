@@ -88,7 +88,7 @@ public:
     }
 
 private:
-    void BuildNeighbors(BgpConfigManager *manager,
+    void BuildNeighbors(BgpIfmapConfigManager *manager,
                         const autogen::BgpRouter *local_rt_config,
                         const std::string &peername,
                         const autogen::BgpRouter *remote_rt_config,
@@ -279,6 +279,7 @@ public:
         const std::string &start_name = std::string()) const;
 
     const IfmapInstanceMap &instances() const { return instances_; }
+    const IfmapPeeringMap &peerings() const { return peerings_; }
 
 private:
     IfmapInstanceMap instances_;
@@ -339,7 +340,7 @@ public:
 
     DB *database() { return db_; }
     DBGraph *graph() { return db_graph_; }
-    const BgpIfmapConfigData &config() const { return *config_; }
+    const BgpIfmapConfigData *config() const { return config_.get(); }
 
 private:
     friend class BgpConfigListenerTest;
