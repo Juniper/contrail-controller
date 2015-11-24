@@ -21,7 +21,7 @@ from pysandesh.util import UTCTimestampUsec
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
     SandeshAlarmAckResponseCode
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
-    AlarmElement, UVEAlarmInfo, UVEAlarms
+    AlarmRule, AlarmOperand, UVEAlarmInfo, UVEAlarms
 from opserver.uveserver import UVEServer
 from opserver.partition_handler import PartitionHandler, UveStreamProc, \
     UveStreamer, UveStreamPart, PartInfo
@@ -276,11 +276,13 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @staticmethod
     def create_test_alarm_info(alarm_type):
         elems = []
-        elems.append(AlarmElement('state != UP', 'state = DOWN'))
+        elems.append(AlarmRule(oper="!=",
+            operand1=AlarmOperand(name="state",json_value="'DOWN'"),
+            operand2=AlarmOperand(name=None,json_value="'UP'")))
         alarm_info = UVEAlarmInfo(type=alarm_type, severity=1,
                                   timestamp=UTCTimestampUsec(),
                                   token="dummytoken",
-                                  description=elems, ack=False)
+                                  rules=elems, ack=False)
         return alarm_info
     # end create_test_alarm_info
 
