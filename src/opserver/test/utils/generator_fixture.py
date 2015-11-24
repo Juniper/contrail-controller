@@ -420,18 +420,17 @@ class GeneratorFixture(fixtures.Fixture):
         self._logger.info('send uve: %s' % (v_uve.log()))
         v_uve.send(sandesh=self._sandesh_instance)
 
-    def create_alarm(self, type, rule, value, ack=None):
-        alarm_elements = []
-        alarm_elements.append(AlarmElement(rule=rule, value=value))
+    def create_alarm(self, type, name=None, ack=None):
         alarms = []
-        alarms.append(UVEAlarmInfo(type=type, description=alarm_elements,
-                                   ack=ack))
+        rules=None
+        if name:
+            rules = [AlarmRule(oper=name)]
+        alarms.append(UVEAlarmInfo(type=type,ack=ack,rules=rules))
         return alarms
     # end create_alarm
 
     def create_process_state_alarm(self, process):
-        return self.create_alarm('ProcessStatus', 'process_state != RUNNING',
-                    '%s, STOPPED' % (process))
+        return self.create_alarm('ProcessStatus', process)
     # end create_process_state_alarm
 
     def send_alarm(self, name, alarms, table):

@@ -28,7 +28,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
-    UVEAlarms, UVEAlarmInfo, AlarmElement
+    UVEAlarms, UVEAlarmInfo, AlarmRule, AlarmOperand
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -198,12 +198,13 @@ class Controller(object):
            elem_dict["timestamp"] = elem.timestamp
            elem_dict["token"] = elem.token
            elem_dict["severity"] = elem.severity
-           elem_dict["description"] = []
-           for desc in elem.description:
+           elem_dict["rules"] = []
+           for desc in elem.rules:
                desc_dict = {}
-               desc_dict["value"] = desc.value
-               desc_dict["rule"] = desc.rule
-               elem_dict["description"].append(desc_dict)
+               desc_dict["oper"] = desc.oper
+               desc_dict["operand1"] = desc.operand1
+               desc_dict["operand2"] = desc.operand2
+               elem_dict["rules"].append(desc_dict)
            res["UVEAlarms"]["alarms"].append(elem_dict)
         return res
 
@@ -835,13 +836,23 @@ class Controller(object):
                 self._logger.debug("Alarm[%s] %s: %s" % (tab, nm, str(errs)))
                 elems = []
                 for ae in errs:
-                    rule, val = ae
-                    rv = AlarmElement(rule, val)
+                    try:
+                        operand1,operand2,oper = ae
+                        ao1 = AlarmOperand(name=operand1.name,
+                                json_value=json.dumps(operand1.value))
+                        ao2=None
+                        if operand2:
+                            ao2 = AlarmOperand(name=operand2.name,
+                                json_value=json.dumps(operand2.value))
+                        rv = AlarmRule(oper=oper, operand1=ao1, operand2=ao2)
+                    except Exception as e:
+                        self._logger.error("Exception: %s" % str(e))
+                        rv = AlarmRule(oper=None,operand1=None,operand2=None)
                     elems.append(rv)
                 if len(elems):
                     new_uve_alarms[nm] = UVEAlarmInfo(type = nm, severity = sev,
                                            timestamp = 0, token = "",
-                                           description = elems, ack = False)
+                                           rules = elems, ack = False)
             del_types = []
             if self.tab_alarms[tab].has_key(uv):
                 for nm, uai in self.tab_alarms[tab][uv].iteritems():

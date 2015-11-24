@@ -1,5 +1,11 @@
 import abc
 
+
+from collections import namedtuple
+
+AlarmRule = namedtuple("AlarmRule", ["operand1","operand2","oper"])
+AlarmOperand = namedtuple("AlarmOperand",["name","value"])
+
 class AlarmBase(object):
     """Base class for Alarms
     """
@@ -10,7 +16,6 @@ class AlarmBase(object):
 
     def __init__(self):
         pass
-
     @abc.abstractmethod
     def __call__(self, uve_key, uve_data):
         """Evaluate whether alarm should be raised
