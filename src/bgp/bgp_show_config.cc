@@ -8,6 +8,7 @@
 #include <boost/foreach.hpp>
 
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 
@@ -168,4 +169,161 @@ void ShowBgpInstanceConfigReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
+}
+
+
+//
+// Fill in information for a neighbor.
+//
+static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
+    const BgpSandeshContext *bsc, const BgpNeighborConfig *neighbor) {
+    sbnc->set_instance_name(neighbor->instance_name());
+    sbnc->set_name(neighbor->name());
+    sbnc->set_admin_down(neighbor->admin_down());
+    sbnc->set_passive(neighbor->passive());
+    sbnc->set_local_identifier(neighbor->local_identifier_string());
+    sbnc->set_local_as(neighbor->local_as());
+    sbnc->set_autonomous_system(neighbor->peer_as());
+    sbnc->set_identifier(neighbor->peer_identifier_string());
+    sbnc->set_address(neighbor->peer_address().to_string());
+    sbnc->set_address_families(neighbor->GetAddressFamilies());
+    sbnc->set_hold_time(neighbor->hold_time());
+    sbnc->set_loop_count(neighbor->loop_count());
+    sbnc->set_last_change_at(UTCUsecToString(neighbor->last_change_at()));
+    sbnc->set_auth_type(neighbor->auth_data().KeyTypeToString());
+    if (bsc->test_mode()) {
+        sbnc->set_auth_keys(neighbor->auth_data().KeysToStringDetail());
+    }
+
+    vector<ShowBgpNeighborFamilyConfig> sbnfc_list;
+    BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
+        neighbor->family_attributes_list()) {
+        ShowBgpNeighborFamilyConfig sbnfc;
+        sbnfc.family = family_config.family;
+        sbnfc.loop_count = family_config.loop_count;
+        sbnfc.prefix_limit = family_config.prefix_limit;
+        sbnfc_list.push_back(sbnfc);
+    }
+    sbnc->set_family_attributes_list(sbnfc_list);
+}
+
+//
+// Specialization of BgpShowHandler<>::CallbackCommon.
+//
+template <>
+bool BgpShowHandler<ShowBgpNeighborConfigReq, ShowBgpNeighborConfigReqIterate,
+    ShowBgpNeighborConfigResp, ShowBgpNeighborConfig>::CallbackCommon(
+    const BgpSandeshContext *bsc, Data *data) {
+    uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
+    uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
+    const BgpConfigManager *bcm = bsc->bgp_server->config_manager();
+
+    BgpConfigManager::InstanceMapRange range =
+        bcm->InstanceMapItems(data->next_entry);
+    BgpConfigManager::InstanceMap::const_iterator it = range.first;
+    BgpConfigManager::InstanceMap::const_iterator it_end = range.second;
+    for (uint32_t iter_count = 0; it != it_end; ++it, ++iter_count) {
+        const BgpInstanceConfig *instance = it->second;
+        BOOST_FOREACH(BgpConfigManager::NeighborMap::value_type value,
+            bcm->NeighborMapItems(instance->name())) {
+            const BgpNeighborConfig *neighbor = value.second;
+            if (!data->search_string.empty() &&
+                (neighbor->name().find(data->search_string) == string::npos)) {
+                continue;
+            }
+
+            ShowBgpNeighborConfig sbnc;
+            FillBgpNeighborConfigInfo(&sbnc, bsc, neighbor);
+            data->show_list.push_back(sbnc);
+        }
+        if (data->show_list.size() >= page_limit)
+            break;
+        if (iter_count >= iter_limit)
+            break;
+    }
+
+    // All done if we've looked at all instances.
+    if (it == it_end || ++it == it_end)
+        return true;
+
+    // Return true if we've reached the page limit, false if we've reached the
+    // iteration limit.
+    bool done = data->show_list.size() >= page_limit;
+    SaveContextToData(it->second->name(), done, data);
+    return done;
+}
+
+//
+// Specialization of BgpShowHandler<>::FillShowList.
+//
+template <>
+void BgpShowHandler<ShowBgpNeighborConfigReq, ShowBgpNeighborConfigReqIterate,
+    ShowBgpNeighborConfigResp, ShowBgpNeighborConfig>::FillShowList(
+        ShowBgpNeighborConfigResp *resp,
+        const vector<ShowBgpNeighborConfig> &show_list) {
+    resp->set_neighbors(show_list);
+}
+
+//
+// Handler for ShowBgpNeighborConfigReq.
+//
+void ShowBgpNeighborConfigReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpNeighborConfigReq,
+        ShowBgpNeighborConfigReqIterate,
+        ShowBgpNeighborConfigResp,
+        ShowBgpNeighborConfig>::Callback, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpNeighborConfigReq,
+        ShowBgpNeighborConfigReqIterate,
+        ShowBgpNeighborConfigResp,
+        ShowBgpNeighborConfig>::CreateData;
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
+
+//
+// Handler for ShowBgpNeighborConfigReqIterate.
+//
+void ShowBgpNeighborConfigReqIterate::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpNeighborConfigReq,
+        ShowBgpNeighborConfigReqIterate,
+        ShowBgpNeighborConfigResp,
+        ShowBgpNeighborConfig>::CallbackIterate, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpNeighborConfigReq,
+        ShowBgpNeighborConfigReqIterate,
+        ShowBgpNeighborConfigResp,
+        ShowBgpNeighborConfig>::CreateData;
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
+
+//
+// Handler for ShowBgpPeeringConfigReq.
+//
+void ShowBgpPeeringConfigReq::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    bsc->PeeringShowReqHandler(this);
+}
+
+//
+// Handler for ShowBgpPeeringConfigReqIterate.
+//
+void ShowBgpPeeringConfigReqIterate::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    bsc->PeeringShowReqIterateHandler(this);
 }

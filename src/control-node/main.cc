@@ -17,6 +17,7 @@
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
+#include "bgp/bgp_ifmap_sandesh.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
@@ -547,6 +548,7 @@ int main(int argc, char *argv[]) {
     }
 
     BgpSandeshContext sandesh_context;
+    RegisterSandeshShowIfmapHandlers(&sandesh_context);
     RegisterSandeshShowXmppExtensions(&sandesh_context);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     if (sandesh_generator_init) {

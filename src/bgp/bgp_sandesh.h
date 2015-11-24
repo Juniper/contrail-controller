@@ -14,6 +14,8 @@ class BgpNeighborResp;
 class BgpNeighborReq;
 class ShowBgpNeighborSummaryReq;
 class ShowNeighborStatisticsReq;
+class ShowBgpPeeringConfigReq;
+class ShowBgpPeeringConfigReqIterate;
 
 struct BgpSandeshContext : public SandeshContext {
     typedef boost::function<bool(const BgpSandeshContext *, bool,
@@ -23,11 +25,20 @@ struct BgpSandeshContext : public SandeshContext {
     typedef boost::function<void(size_t *, const BgpSandeshContext *,
         const ShowNeighborStatisticsReq *)> NeighborStatisticsExtension;
 
+    typedef boost::function<void(const BgpSandeshContext *,
+        const ShowBgpPeeringConfigReq *)> PeeringReqHandler;
+    typedef boost::function<void(const BgpSandeshContext *,
+        const ShowBgpPeeringConfigReqIterate *)> PeeringReqIterateHandler;
+
     BgpSandeshContext();
 
     void SetNeighborShowExtensions(
         const NeighborListExtension &show_neighbor,
         const NeighborStatisticsExtension &show_neighbor_statistics);
+
+    void SetPeeringShowHandlers(
+        const PeeringReqHandler &show_peering_req_handler,
+        const PeeringReqIterateHandler &show_peering_req_iterate_handler);
 
     BgpServer *bgp_server;
     BgpXmppChannelManager *xmpp_peer_manager;
@@ -38,6 +49,10 @@ struct BgpSandeshContext : public SandeshContext {
         std::vector<BgpNeighborResp> *list, std::string *next_neighbor) const;
     void ShowNeighborStatisticsExtension(size_t *count,
         const ShowNeighborStatisticsReq *req) const;
+
+    void PeeringShowReqHandler(const ShowBgpPeeringConfigReq *req);
+    void PeeringShowReqIterateHandler(
+        const ShowBgpPeeringConfigReqIterate *req_iterate);
 
     // For testing.
     bool test_mode() const { return test_mode_; }
@@ -53,6 +68,8 @@ private:
     uint32_t iter_limit_;
     NeighborListExtension show_neighbor_ext_;
     NeighborStatisticsExtension show_neighbor_statistics_ext_;
+    PeeringReqHandler show_peering_req_handler_;
+    PeeringReqIterateHandler show_peering_req_iterate_handler_;
 };
 
 #endif /* BGP_SANDESH_H_ */

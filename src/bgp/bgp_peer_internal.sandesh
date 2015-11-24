@@ -94,9 +94,10 @@ request sandesh ShowBgpInstanceConfigReqIterate {
     1: string iterate_info;
 }
 
-response sandesh ShowBgpPeeringConfigResp {
-    1: list<bgp_peer.ShowBgpPeeringConfig> peerings;
+request sandesh ShowBgpPeeringConfigReqIterate {
+    1: string iterate_info;
 }
 
-request sandesh ShowBgpPeeringConfigReq {
+request sandesh ShowBgpNeighborConfigReqIterate {
+    1: string iterate_info;
 }

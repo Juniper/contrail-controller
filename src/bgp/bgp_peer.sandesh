@@ -40,9 +40,9 @@ struct BgpNeighborRoutingTable {
 }
 
 struct ShowBgpNeighborFamily {
-    string family;
-    u32 loop_count;
-    u32 prefix_limit;
+    1: string family;
+    2: u32 loop_count;
+    3: u32 prefix_limit;
 }
 
 struct BgpNeighborResp {
@@ -440,6 +440,16 @@ struct ShowBgpPeeringConfig {
     4: list<ShowBgpSessionConfig> sessions;
 }
 
+response sandesh ShowBgpPeeringConfigResp {
+    1: list<ShowBgpPeeringConfig> peerings;
+    2: optional string next_batch (link="ShowBgpPeeringConfigReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowBgpPeeringConfigReq {
+    1: string search_string;
+}
+
 struct ShowBgpNeighborFamilyConfig {
     1: string family;
     2: i32 loop_count;
@@ -468,9 +478,12 @@ struct ShowBgpNeighborConfig {
 
 response sandesh ShowBgpNeighborConfigResp {
     1: list<ShowBgpNeighborConfig> neighbors;
+    2: optional string next_batch (link="ShowBgpNeighborConfigReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowBgpNeighborConfigReq {
+    1: string search_string;
 }
 
 struct BgpPeerInfoData {
