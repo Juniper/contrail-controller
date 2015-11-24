@@ -2645,7 +2645,39 @@ class LogicalRouterST(DictST):
             lr = cls._dict[name]
             rtgt_num = int(lr.route_target.split(':')[-1])
             VirtualNetworkST._rt_allocator.delete(rtgt_num)
-            _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            try:
+                _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            except NoIdError:
+                _sandesh._logger.debug("NoIdError while trying to delete route-target %s" %
+                                       str(lr.route_target))
+            except RefsExistError as e:
+                err_msg = {'rt_name': lr.route_target,
+                           'lr_name': name,
+                           'exception': str(e)}
+                try:
+                    err_msg['rt_uuid'] = _vnc_lib.fq_name_to_id('route-target', lr.route_target)
+                except NoIdError:
+                    err_msg['rt_uuid'] = 'No found'
+                try:
+                    err_msg['lr_uuid'] = _vnc_lib.fq_name_to_id('logical-router', name.split(':'))
+                except NoIdError:
+                    err_msg['lr_uuid'] = 'No found'
+
+                url = re.search(r"Back-References (.*) still exist", str(e)).group(1)
+                err_msg['back_ref_type'] = url.split('/')[-2]
+                err_msg['back_ref_uuid'] = url.split('/')[-1]
+                try:
+                    err_msg['back_ref_name'] = ':'.join(_vnc_lib.id_to_fq_name(err_msg['back_ref_uuid']))
+                except NoIdError:
+                    err_msg['back_ref_name'] = 'No found'
+
+                msg = """Schema transformer: cannot clean route target properly during a deletion of the logical router:
+                         Exception: %(exception)s
+                         Trying to delete logical router %(lr_name)s (%(lr_uuid)s)
+                         Which uses route target %(rt_name)s (%(rt_uuid)s)
+                         But a %(back_ref_type)s back reference stills exists with %(back_ref_name)s (%(back_ref_uuid)s)"""
+
+                _sandesh._logger.error(msg % err_msg)
             for interface in lr.interfaces:
                 lr.delete_interface(interface)
             del cls._dict[name]
