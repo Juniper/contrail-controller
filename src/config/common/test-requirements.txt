@@ -1,2 +1,4 @@
 mock
+coverage
+python-subunit
 distribute>=0.7.3

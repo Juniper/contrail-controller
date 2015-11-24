@@ -263,7 +263,8 @@ class VirtualRouterSM(DBBaseSM):
 # end VirtualRouterSM
 
 
-class VirtualMachineInterfaceSM(DBBaseSM):
+class VirtualMachineInterface
+SM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
@@ -344,7 +345,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_template = None
         self.loadbalancer_pool = None
         self.virtual_machines = set()
-        self.virtual_machine_interfaces = set()
         self.params = None
         self.state = 'init'
         self.launch_count = 0
@@ -379,7 +379,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_multiple_refs('virtual_machine', obj)
-        self.update_multiple_refs('virtual_machine_interface', obj)
         self.id_perms = obj.get('id_perms', None)
         if not self.params:
             return obj

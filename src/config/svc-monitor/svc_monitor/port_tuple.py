@@ -21,11 +21,12 @@ from vnc_api.vnc_api import *
 from config_db import *
 from agent import Agent
 
+
 class PortTupleAgent(Agent):
 
     def __init__(self, svc_mon, vnc_lib, cassandra, config_section, logger):
         super(PortTupleAgent, self).__init__(svc_mon, vnc_lib,
-            cassandra, config_section)
+                                             cassandra, config_section)
         self._logger = logger
 
     def handle_service_type(self):
@@ -69,23 +70,24 @@ class PortTupleAgent(Agent):
 
     def set_port_allowed_address_pairs(self, port, vmi):
         if port['allowed-address-pairs']:
-            vmi_obj.set_virtual_machine_interface_allowed_address_pairs(port['allowed-address-pairs'])
+            vmi_obj.set_virtual_machine_interface_allowed_address_pairs(
+                port['allowed-address-pairs'])
             return True
         return False
 
-    def set_port_static_routes(self, st, si, port, vmi_obj):
-        #TODO
+    def set_port_static_routes(self, st, si, port, vmi, vmi_obj):
+        # TODO
         return False
 
     def set_port_service_chain_ip(self, port, vmi, vmi_obj):
-        if nic['shared-ip']:
+        if port['shared-ip']:
             self._allocate_shared_iip(port, vmi, vmi_obj)
             return
 
-        for iip_id in vmi.instance_ips:
-            iip = InstanceIpSM.get(iip_id)
+        if vmi.instance_ip:
+            iip = InstanceIpSM.get(vmi.instance_ip)
             if iip and not iip.service_instance_ip:
-                iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+                iip_obj = self._vnc_lib.instance_ip_read(id=vmi.instance_ip)
                 iip_obj.set_service_instance_ip(True)
                 self._vnc_lib.instance_ip_update(iip_obj)
 
@@ -130,15 +132,25 @@ class PortTupleAgent(Agent):
                 continue
             port = port_config[vmi.params.get('service_interface_type')]
             if not port:
-                #log TODO
+                # log TODO
                 continue
-
-            vmi_obj = VirtualMachineInterface(fq_name=vmi.fq_name, name=vmi.name)
+            proj_obj = None
+            for proj in ProjectSM.values():
+                if proj.fq_name == vmi.fq_name[:-1]:
+                    proj_obj = Project()
+                    proj_obj.uuid = proj.uuid
+                    proj_obj.name = proj.name
+                    proj_obj.fq_name = proj.fq_name
+                    break
+            if not proj_obj:
+                return
+            vmi_obj = VirtualMachineInterface(
+                parent_obj=proj_obj, fq_name=vmi.fq_name, name=vmi.name)
             vmi_obj.uuid = vmi.uuid
             self.set_port_service_chain_ip(port, vmi, vmi_obj)
-            update_vmi = self.set_port_allowed_address_pairs(port, vmi, vmi_obj)
-            update_vmi |= self.set_port_service_health_check(port, vmi, vmi_obj)
-            update_vmi |= self.set_port_static_routes(port, vmi, vmi_obj)
+            update_vmi = self.set_port_allowed_address_pairs(port, vmi)
+            update_vmi |= self.set_port_service_health_check(port, vmi)
+            update_vmi |= self.set_port_static_routes(st, si, port, vmi, vmi_obj)
             if update_vmi:
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
