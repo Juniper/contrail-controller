@@ -45,15 +45,10 @@ void ProtobufCollector::DbInitializeCb() {
 }
 
 void ProtobufCollector::SendStatistics(const std::string &name) {
-    ProtobufCollectorStats stats;
-    stats.set_name(name);
     std::vector<SocketIOStats> v_tx_stats;
     std::vector<SocketIOStats> v_rx_stats;
     std::vector<SocketEndpointMessageStats> v_rx_msg_stats;
     server_->GetStatistics(&v_tx_stats, &v_rx_stats, &v_rx_msg_stats);
-    stats.set_tx_socket_stats(v_tx_stats);
-    stats.set_rx_socket_stats(v_rx_stats);
-    stats.set_rx_message_stats(v_rx_msg_stats);
     // Database statistics
     std::vector<GenDb::DbTableInfo> v_dbti, v_stats_dbti;
     GenDb::DbErrors dbe;
@@ -61,12 +56,17 @@ void ProtobufCollector::SendStatistics(const std::string &name) {
     db_handler->GetStats(&v_dbti, &dbe, &v_stats_dbti);
     std::vector<GenDb::DbErrors> v_dbe;
     v_dbe.push_back(dbe);
-    stats.set_db_table_info(v_dbti);
-    stats.set_db_statistics_table_info(v_stats_dbti);
-    stats.set_db_errors(v_dbe);
     uint64_t db_queue_count, db_enqueues;
     db_handler->GetStats(&db_queue_count, &db_enqueues);
-    stats.set_db_queue_count(db_queue_count);
-    stats.set_db_enqueues(db_enqueues);
-    ProtobufCollectorStatsUve::Send(stats);
+    ProtobufCollectorStats * snh = PROTOBUF_COLLECTOR_STATS_CREATE();
+    snh->set_name(name);
+    snh->set_tx_socket_stats(v_tx_stats);
+    snh->set_rx_socket_stats(v_rx_stats);
+    snh->set_rx_message_stats(v_rx_msg_stats);
+    snh->set_db_table_info(v_dbti);
+    snh->set_db_statistics_table_info(v_stats_dbti);
+    snh->set_db_errors(v_dbe);
+    snh->set_db_queue_count(db_queue_count);
+    snh->set_db_enqueues(db_enqueues);
+    PROTOBUF_COLLECTOR_STATS_SEND_SANDESH(snh);
 }
