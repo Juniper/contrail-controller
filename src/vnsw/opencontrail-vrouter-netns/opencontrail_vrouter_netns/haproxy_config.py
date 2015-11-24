@@ -62,7 +62,7 @@ def build_config(conf_file, keystone_auth_conf_file):
 
 def _construct_config_block(lb_config, conf, custom_attr_section, custom_attributes):
     for key, value in custom_attributes.iteritems():
-        cmd = custom_attributes_dict['global'][key]['cmd']
+        cmd = custom_attributes_dict[custom_attr_section][key]['cmd']
         conf.append(cmd % value)
 
     res = "\n\t".join(conf)
@@ -70,8 +70,8 @@ def _construct_config_block(lb_config, conf, custom_attr_section, custom_attribu
 
 def _set_global_config(config, sock_path):
     global_custom_attributes = validator(config, 'global')
-    maxconn = global_custom_attributes.pop('maxconn', None) \
-        if 'maxconn' in global_custom_attributes else 65000
+    maxconn = global_custom_attributes.pop('max_conn', None) \
+        if 'max_conn' in global_custom_attributes else 65000
     ssl_ciphers = global_custom_attributes.pop('ssl_ciphers', None) \
         if 'ssl_ciphers' in global_custom_attributes else \
             'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:' \
