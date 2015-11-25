@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic_0'>
+        <term>
+            <from>
+                <community>22:13</community>
+            </from>
+            <then>
+                <action>reject</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-policy name='basic_1'>
+        <term>
+            <from>
+                <community>11:13</community>
+            </from>
+            <then>
+                <action>reject</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic_0">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <routing-policy to="basic_1">
+            <sequence>2.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

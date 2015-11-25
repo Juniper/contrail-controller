@@ -312,9 +312,10 @@ public:
 
     const std::string &name() const { return name_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
-    void add_term(RoutingPolicyTerm term) {
+    void add_term(const RoutingPolicyTerm &term) {
         terms_.push_back(term);
     }
+    const RoutingPolicyTermList &terms() const { return terms_;}
     void Clear();
 
 private:

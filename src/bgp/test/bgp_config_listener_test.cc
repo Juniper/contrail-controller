@@ -1492,6 +1492,315 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 }
 
+//
+// Validate that routing policy update triggers both routing-instance and
+// routing-policy change
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_0) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_11.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    string id_name = "basic_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
+    task_util::WaitForIdle();
+
+    // Routing policy is added to change list
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    // routing-instance is added to change list
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Update of routing instance doesn't trigger routing-policy
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_11.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    string id_name = "test";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Update of routing-instance-routing-policy triggers routing-instance,
+// routing-policy and routing-instance-routing-policy
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_2) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    content = ReadFile("controller/src/bgp/testdata/config_listener_test_9a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// If routing policy is linked to multiple routing instances,
+// a change of routing-policy will put both routing instances into change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_10.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on routing-policy which is linked to routing instance
+    string id_name = "basic_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Trigger edge change between routing policy and routing instance
+// Validate both routing instance and routing policy are added to change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    string id_name = "attr(basic_0,test)";
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+        "routing-instance-routing-policy", id_name, "routing-policy", "basic_0");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-instance-routing-policy"));
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Trigger edge change between routing policy and routing instance
+// Validate both routing instance and routing policy are added to change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    string id_name = "attr(basic_0,test)";
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+        "routing-instance-routing-policy", id_name, "routing-instance", "test");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-instance-routing-policy"));
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Update of IFMapNode representing the routing-instance-routing-policy,
+// puts routing-instance and routing-policy to change list along with
+// routing-instance-routing-policy
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    string id_name = "attr(basic_0,test)";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance-routing-policy",
+                                     id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// If multiple routing policies are linked to a routing instance,
+// a change of routing-policy will put only routing instance and routing policy
+// to change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on routing-policy which is linked to routing instance
+    string id_name = "basic_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+//
+// If multiple routing policies are linked to a routing instance,
+// a change of routing-instance will not put routing policies
+// to change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on routing-policy which is linked to routing instance
+    string id_name = "test";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

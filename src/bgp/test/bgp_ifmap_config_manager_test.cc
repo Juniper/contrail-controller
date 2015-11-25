@@ -7,6 +7,7 @@
 #include <bitset>
 #include <fstream>
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config_parser.h"
@@ -25,6 +26,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
+using boost::assign::map_list_of;
 using namespace std;
 
 static string FileRead(const string &filename) {
@@ -89,6 +91,16 @@ protected:
 
     const BgpIfmapPeeringConfig *FindPeeringConfig(const string peering_name) {
         return config_manager_->config()->FindPeering(peering_name);
+    }
+
+    const BgpIfmapRoutingPolicyConfig *
+        FindRoutingPolicyIfmapConfig(const string policy_name) {
+        return config_manager_->config()->FindRoutingPolicy(policy_name);
+    }
+
+    const BgpRoutingPolicyConfig *
+        FindRoutingPolicyBgpConfig(const string policy_name) {
+        return config_manager_->FindRoutingPolicy(policy_name);
     }
 
     DB db_;
@@ -1769,6 +1781,263 @@ TEST_F(BgpIfmapConfigManagerTest, RemoveParentLinkBeforeBgpRouter) {
     TASK_UTIL_EXPECT_EQ("10.1.1.100",
                         BgpIdentifierToString(protocol->identifier()));
     //TASK_UTIL_EXPECT_EQ("127.0.0.100", router_params.address);
+}
+
+//
+// Add and delete routing policy config
+// Validate the BgpRoutingPolicyConfig
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingPolicyAddDelete) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    ASSERT_EQ(policy_cfg->terms().size(), 1);
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+}
+
+//
+// Update routing policy config
+// Validate the BgpRoutingPolicyConfig
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingPolicyUpdate) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic");
+    ASSERT_TRUE(policy_cfg != NULL);
+    ASSERT_EQ(policy_cfg->terms().size(), 1);
+
+    // Update the routing policy with additional term
+    string content_b = FileRead("controller/src/bgp/testdata/routing_policy_0b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    policy_cfg = config_manager_->FindRoutingPolicy("basic");
+    ASSERT_TRUE(policy_cfg != NULL);
+    ASSERT_EQ(policy_cfg->terms().size(), 2);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+}
+
+//
+// Create routing instance and routing policy
+// Associate routing-policy to routing-instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+// Add one more routing policy link to routing-instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+
+    // Update the routing instance with two route policy
+    string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3d.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_1");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
+    BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
+
+    map<string, string> expect_list = map_list_of("basic_0", "1.0")("basic_1", "2.0");
+    map<string, string> current_list;
+    BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
+        current_list.insert(pair<string, string>(info.routing_policy_,
+                                              info.sequence_));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+
+    boost::replace_all(content_b, "<config>", "<delete>");
+    boost::replace_all(content_b, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_1");
+    ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Create routing instance and two routing policies
+// Associate routing-policies to routing-instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+// Update the sequence of routing policies on routing instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_4.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_1");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
+    BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
+
+    map<string, string> expect_list = map_list_of("basic_0", "1.0")("basic_1", "2.0");
+    map<string, string> current_list;
+    BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
+        current_list.insert(pair<string, string>(info.routing_policy_,
+                                              info.sequence_));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+
+    // Update the routing instance to update the order of routing policy
+    string content_b = FileRead("controller/src/bgp/testdata/routing_policy_4a.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
+    list = test_ri->routing_policy_list();
+
+    expect_list = map_list_of("basic_0", "2.0")("basic_1", "1.0");
+    current_list.clear();
+    BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
+        current_list.insert(pair<string, string>(info.routing_policy_,
+                                              info.sequence_));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_b, "<config>", "<delete>");
+    boost::replace_all(content_b, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_1");
+    ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Create routing instance and routing policy
+// Associate routing-policy to routing-instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+// Remove the routing policy from routing instance
+// Validate that routing instance is not associated any routing instance
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_2) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+
+    // Remove the link between the routing-instance and the routing-policy.
+    ifmap_test_util::IFMapMsgUnlink(&db_,
+        "routing-instance", "test",
+        "routing-policy", "basic_0", "routing-instance-routing-policy");
+    task_util::WaitForIdle();
+
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 0);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Create routing instance and routing policy
+// Associate routing-policy to routing-instance
+// Validate the routing instance and associate policy in BgpInstanceConfig
+// Remove the routing policy from routing instance
+// Validate that routing instance is not associated any routing instance
+//
+TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+
+    string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3c.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 0);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
 }
 
 class IFMapConfigTest : public ::testing::Test {

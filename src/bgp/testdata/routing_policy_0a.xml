@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <community>11:13</community>
+            </from>
+            <then>
+                <action>accept</action>
+            </then>
+        </term>
+    </routing-policy>
+</config>
