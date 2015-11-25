@@ -62,6 +62,38 @@
          dvn="vn1" action="pass" rpf_nh="12"/>
     </validate>
 
+    <virtual-machine-interface nova="1"
+     uuid="3" name="tap3" mac="00:00:00:00:03:03" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.3" fat-flow="53"
+     />
+    <vmi-vrf uuid="3" name="tap3-vm1" />
+    <validate name="validate-3">
+        <virtual-machine-interface name="tap3" uuid="2" present="1" active="1" />
+    </validate>
+
+    <packet uuid="1" id="1" name="l2-fat-flow-from-vm" intf="1" fwd_mode="l2"
+     smac="00:00:00:00:01:01" dmac="00:00:00:00:03:03"
+     sip="1.1.1.1" dip="1.1.1.3" proto="udp" sport="1800" dport="53"
+     type="flow" />
+    <packet uuid="1" id="1" name="l2-fat-flow-from-vm" intf="3" fwd_mode="l2"
+     smac="00:00:00:00:03:03" dmac="00:00:00:00:01:01"
+     sip="1.1.1.3" dip="1.1.1.1" proto="udp" sport="53" dport="1800"
+     type="flow" />
+    <validate name="validate-3">
+        <flow name="l2-fat-flow-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+         dip="1.1.1.3" proto="udp" sport="1800" dport="53" svn="vn1"
+         dvn="vn1" action="pass"/>
+        <flow name="l2-fat-flow-from-vm-2" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.3"
+         dip="1.1.1.1" proto="udp" sport="53" dport="0" svn="vn1"
+         dvn="vn1" action="pass"/>
+    </validate>
+
+    <virtual-machine-interface delete="1" nova="1"
+     uuid="3" name="tap3" mac="00:00:00:00:03:03" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.3" fat-flow="53"
+     />
+    <vmi-vrf delete="1" uuid="3" name="tap3-vm1" />
+
     <virtual-machine-interface delete="1" nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
@@ -70,7 +102,7 @@
     <virtual-machine-interface delete="1" nova="1"
      uuid="2" name="tap2" mac="00:00:00:00:01:02" vn-name="vn1" vn-uuid="1"
      vm-name="vm2" vm-uuid="2" vrf="vrf1" ip="1.1.1.2"
-    />
+     />
 
     <virtual-network delete="1" uuid="1" name="vn1"/>
     <virtual-machine delete="1" uuid="1" name="vm1"/>

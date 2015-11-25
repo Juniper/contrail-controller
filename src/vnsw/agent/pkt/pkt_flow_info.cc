@@ -1018,6 +1018,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    CalculatePort(pkt, in, out);
     // We always expect route for source-ip for ingress flows.
     // If route not present, return from here so that a short flow is added
     UpdateRoute(&in->rt_, in->vrf_, pkt->ip_saddr, pkt->smac,
@@ -1150,6 +1151,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
+        CalculatePort(pkt, in, out);
         const VmInterface *vm_intf = static_cast<const VmInterface *>(out->intf_);
         if (vm_intf->IsFloatingIp(pkt->ip_daddr)) {
             pkt->l3_forwarding = true;
@@ -1338,11 +1340,50 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     return true;
 }
 
+void PktFlowInfo::CalculatePort(const PktInfo *cpkt, const PktControlInfo *in,
+                                const PktControlInfo *out) {
+    const VmInterface *intf = NULL;
+    PktInfo *pkt = const_cast<PktInfo *>(cpkt);
+
+    if (ingress) {
+        intf = dynamic_cast<const VmInterface *>(in->intf_);
+    } else {
+        intf = dynamic_cast<const VmInterface *>(out->intf_);
+    }
+
+    if (intf == NULL) {
+        return;
+    }
+
+    if (pkt->sport < pkt->dport) {
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->sport)) {
+            pkt->dport = 0;
+            return;
+        }
+
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport)) {
+            pkt->sport = 0;
+            return;
+        }
+    }
+
+    if (intf->IsFatFlow(pkt->ip_proto, pkt->dport)) {
+        pkt->sport = 0;
+        return;
+    }
+
+    if (intf->IsFatFlow(pkt->ip_proto, pkt->sport)) {
+        pkt->dport = 0;
+        return;
+    }
+}
+
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
                 pkt->sport, pkt->dport);
     FlowEntryPtr flow;
+
     if (pkt->type != PktType::MESSAGE) {
         flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
     } else {
