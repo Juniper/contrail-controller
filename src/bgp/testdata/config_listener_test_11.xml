@@ -1,0 +1,20 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic_0'>
+        <term>
+            <from>
+                <community>23:13</community>
+            </from>
+            <then>
+                <action>accept</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic_0">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

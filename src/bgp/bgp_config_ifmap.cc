@@ -80,9 +80,8 @@ void BgpIfmapRoutingPolicyLinkConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     }
 }
 
-bool
-BgpIfmapRoutingPolicyLinkConfig::GetRoutingInstanceRoutingPolicyPair(DBGraph *graph,
-        IFMapNode *node, pair<IFMapNode *, IFMapNode *> *pair) {
+bool BgpIfmapRoutingPolicyLinkConfig::GetRoutingInstanceRoutingPolicyPair(
+        DBGraph *graph, IFMapNode *node, pair<IFMapNode *, IFMapNode *> *pair) {
     IFMapNode *routing_instance = NULL;
     IFMapNode *routing_policy = NULL;
 

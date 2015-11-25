@@ -308,6 +308,7 @@ public:
 
     void AddInstance(BgpIfmapInstanceConfig *rti);
     void RemoveInstance(BgpIfmapInstanceConfig *rti);
+
 private:
     friend class BgpConfigManagerTest;
 

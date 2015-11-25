@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<delete>
+    <routing-instance name="test">
+        <routing-policy to="basic_0">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <routing-policy to="basic_1">
+            <sequence>2.0</sequence>
+        </routing-policy>
+    </routing-instance>
+</delete>
