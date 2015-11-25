@@ -85,7 +85,8 @@ bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
-        const string &node_type) :
+        const string &node_type,
+        DbHandler * collector_gendb_handler) :
         Generator(),
         collector_(collector),
         state_machine_(state_machine),
@@ -96,20 +97,28 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
-        db_connect_timer_(NULL),
-        db_handler_(new DbHandler(
-            collector->event_manager(), boost::bind(
-                &SandeshGenerator::StartDbifReinit, this),
-            collector->cassandra_ips(), collector->cassandra_ports(),
-            source + ":" + node_type + ":" +
-                module + ":" + instance_id, collector->analytics_ttl_map(),
-            collector->cassandra_user(), collector->cassandra_password())) {
+        db_connect_timer_(NULL) {
+    if(!collector->use_collector_db_handler()) {
+        db_handler_.reset(new DbHandler(
+           collector->event_manager(), boost::bind(
+               &SandeshGenerator::StartDbifReinit, this),
+           collector->cassandra_ips(), collector->cassandra_ports(),
+           source + ":" + node_type + ":" +
+               module + ":" + instance_id, collector->analytics_ttl_map(),
+           collector->cassandra_user(), collector->cassandra_password()));
+    }
+    else {
+        //Use collector db_handler
+        db_handler_.reset(collector_gendb_handler);
+    }
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
-    Create_Db_Connect_Timer();
+    if(!collector->use_collector_db_handler()) {
+       Create_Db_Connect_Timer();
+    }
 }
 
 SandeshGenerator::~SandeshGenerator() {
@@ -174,7 +183,7 @@ void SandeshGenerator::Db_Connection_Uninit() {
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
-    if (!GetDbHandler()->Init(false, instance_)) {
+    if (!GetDbHandler()->Init(false, instance_, ToString())) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
@@ -235,7 +244,7 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
 }
 
 bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
-    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
+    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler(), ToString());
 }
 
 bool SandeshGenerator::GetSandeshStateMachineQueueCount(
@@ -267,7 +276,7 @@ bool SandeshGenerator::GetSandeshStateMachineStats(
 
 bool SandeshGenerator::GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
     std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const {
-    db_handler_->GetSandeshStats(drop_level, vdropmstats);
+    db_handler_->GetSandeshStats(drop_level, vdropmstats, ToString());
     return db_handler_->GetStats(queue_count, enqueues);
 }
 
@@ -275,7 +284,7 @@ void SandeshGenerator::SendDbStatistics() {
     // DB stats
     std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
     GenDb::DbErrors dbe;
-    db_handler_->GetStats(&vdbti, &dbe, &vstats_dbti);
+    db_handler_->GetStats(&vdbti, &dbe, &vstats_dbti, ToString());
     std::vector<GenDb::DbErrors> vdbe;
     vdbe.push_back(dbe);
     GeneratorDbStats gdbstats;
@@ -360,5 +369,5 @@ SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
 }
 
 bool SyslogGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
-    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
+    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler(), ToString());
 }

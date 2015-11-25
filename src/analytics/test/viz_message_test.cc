@@ -11,6 +11,7 @@
 #include <sandesh/sandesh_message_builder.h>
 
 #include "../viz_message.h"
+#include "../db_handler.h"
 #include "collector_uve_types.h"
 
 using namespace pugi;
@@ -73,6 +74,7 @@ protected:
     SandeshMessageBuilder *builder_;
     boost::uuids::random_generator rgen_;
     VizMsgStatistics stats_;
+    GeneratorMsgStatistics dropped_stats_;
 };
 
 VizMessageTest::SandeshXMLMessageTestBuilder
@@ -217,6 +219,11 @@ TEST_F(VizMessageTest, Stats) {
     EXPECT_EQ(1, vsmi[0].get_messages());
     EXPECT_EQ(xmlmessage_object.size(), vsmi[0].get_bytes());
     vsmi.clear();
+    //Test if generator dropped messages are recorded
+    std::string gen_name("test_generator");
+    dropped_stats_.Update(gen_name, &vmsgp_object);
+    dropped_stats_.Get(gen_name, &vsstats);
+    ASSERT_EQ(1, vsstats.size());
     // Delete message
     vmsgp_object.msg = NULL;
     delete msg;

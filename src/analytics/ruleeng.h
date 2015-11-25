@@ -32,7 +32,8 @@ class Ruleeng {
 
         bool rule_present(const VizMsg *vmsgp);
 
-        bool rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db);
+        bool rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
+                              const std::string& gen_name);
 
         void print(std::ostream& os) {
             rulelist_->print(os);
@@ -46,13 +47,15 @@ class Ruleeng {
         std::vector<std::string> rulesrc_;
 
         bool handle_uve_publish(const pugi::xml_node& parent,
-            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header);
+            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,
+            const std::string& gen_name);
 
         bool handle_flow_object(const pugi::xml_node& parent, DbHandler *db,
-            const SandeshHeader &header);
+            const SandeshHeader &header, const std::string& gen_name);
 
         void handle_object_log(const pugi::xml_node& parent,
-            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header);
+            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,
+            const std::string& gen_name);
 
         void remove_identifier(const pugi::xml_node& parent);
 };

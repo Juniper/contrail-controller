@@ -172,7 +172,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageTableOnlyInsert(&vmsgp);
+    db_handler()->MessageTableOnlyInsert(&vmsgp, db_handler()->GetName());
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -206,7 +206,7 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
         .WillOnce(Return(true));
 
     db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
-            hdr, "", unm, "");
+            hdr, "", unm, "", db_handler()->GetName());
 }
 
 TEST_F(DbHandlerTest, MessageTableInsertTest) {
@@ -353,7 +353,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .Times(6)
         .WillRepeatedly(Return(true));
 
-    db_handler()->MessageTableInsert(&vmsgp);
+    db_handler()->MessageTableInsert(&vmsgp, db_handler()->GetName());
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -455,7 +455,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
             .WillRepeatedly(Return(true));
       }
 
-    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
+    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp, db_handler()->GetName());
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -769,7 +769,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         }
 
         db_handler()->FlowTableInsert(msg->GetMessageNode(),
-                                      msg->GetHeader());
+                                      msg->GetHeader(), db_handler()->GetName());
     }
 }
 

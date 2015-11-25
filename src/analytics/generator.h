@@ -22,6 +22,7 @@ class Sandesh;
 class VizSession;
 class Collector;
 class SandeshStateMachineStats;
+class DbHandlerInitializer;
 
 class Generator {
 public:
@@ -51,7 +52,8 @@ public:
     SandeshGenerator(Collector * const collector, VizSession *session,
             SandeshStateMachine *state_machine,
             const std::string &source, const std::string &module,
-            const std::string &instance_id, const std::string &node_type);
+            const std::string &instance_id, const std::string &node_type,
+            DbHandler * collector_gendb_handler = NULL);
     ~SandeshGenerator();
 
     void ReceiveSandeshCtrlMsg(uint32_t connects);

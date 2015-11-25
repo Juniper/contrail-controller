@@ -39,7 +39,8 @@ public:
             uint16_t partitions,
             bool dup, const TtlMap &ttlmap,
             const std::string& cassandra_user,
-            const std::string& cassandra_password);
+            const std::string& cassandra_password,
+            bool use_collector_db_handler);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
     ~VizCollector();

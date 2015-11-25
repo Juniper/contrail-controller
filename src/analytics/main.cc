@@ -18,6 +18,7 @@
 #include "base/task_trigger.h"
 #include "base/timer.h"
 #include "base/connection_info.h"
+#include "base/misc_utils.h"
 #include "io/event_manager.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -323,6 +324,25 @@ int main(int argc, char *argv[])
     ttl_map.insert(std::make_pair(TtlType::GLOBAL_TTL,
                 options.analytics_data_ttl()));
 
+    //Get Platform info
+    //cql not supported in precise, centos 6.4 6.5
+    std::string release, version;
+    bool use_collector_db_handler = false;
+    if (!MiscUtils::GetPlatformInfo(release, version)) {
+        LOG(ERROR,"Unable to get platform information");
+        exit(1);
+    }
+    if (version.find("Ubuntu") != std::string::npos) {
+        if (release.find("3.8.0-29-generic") != std::string::npos) {
+            use_collector_db_handler = false;
+        }
+    }
+    else {
+        //centos or rhel
+        if (release.find("el6") != std::string::npos) {
+            use_collector_db_handler = false;
+        }
+    }
     VizCollector analytics(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
@@ -339,7 +359,8 @@ int main(int argc, char *argv[])
             options.partitions(),
             options.dup(),
             ttl_map, options.cassandra_user(),
-            options.cassandra_password());
+            options.cassandra_password(),
+            use_collector_db_handler);
 
 #if 0
     // initialize python/c++ API

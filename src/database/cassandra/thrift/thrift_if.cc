@@ -25,7 +25,8 @@ ThriftIf::~ThriftIf() {
 }
 
 // Init/Uninit
-bool ThriftIf::Db_Init(const std::string& task_id, int task_instance) {
+bool ThriftIf::Db_Init(const std::string& task_id, int task_instance,
+     const std::string& gen_name) {
     return impl_->Db_Init(task_id, task_instance);
 }
 
@@ -44,16 +45,19 @@ void ThriftIf::Db_SetInitDone(bool init_done) {
 
 // Tablespace
 bool ThriftIf::Db_AddTablespace(const std::string& tablespace,
-        const std::string& replication_factor) {
+        const std::string& replication_factor,
+        const std::string& gen_name) {
     return impl_->Db_AddTablespace(tablespace, replication_factor);
 }
 
-bool ThriftIf::Db_SetTablespace(const std::string& tablespace) {
+bool ThriftIf::Db_SetTablespace(const std::string& tablespace,
+        const std::string& gen_name) {
     return impl_->Db_SetTablespace(tablespace);
 }
 
 bool ThriftIf::Db_AddSetTablespace(const std::string& tablespace,
-        const std::string& replication_factor) {
+        const std::string& replication_factor,
+        const std::string& gen_name) {
     return impl_->Db_AddSetTablespace(tablespace, replication_factor);
 }
 
@@ -62,7 +66,8 @@ bool ThriftIf::Db_FindTablespace(const std::string& tablespace) {
 }
 
 // Column family
-bool ThriftIf::Db_AddColumnfamily(const GenDb::NewCf& cf) {
+bool ThriftIf::Db_AddColumnfamily(const GenDb::NewCf& cf,
+        const std::string& gen_name) {
     return impl_->Db_AddColumnfamily(cf);
 }
 
@@ -71,24 +76,28 @@ bool ThriftIf::Db_UseColumnfamily(const GenDb::NewCf& cf) {
 }
 
 // Column
-bool ThriftIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        const std::string& gen_name) {
     return impl_->Db_AddColumn(cl);
 }
 
-bool ThriftIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl,
+        const std::string& gen_name) {
     return impl_->Db_AddColumnSync(cl);
 }
 
 // Read
 bool ThriftIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
-        const GenDb::DbDataValueVec& rowkey) {
+        const GenDb::DbDataValueVec& rowkey,
+        const std::string& gen_name) {
     return impl_->Db_GetRow(ret, cfname, rowkey);
 }
 
 bool ThriftIf::Db_GetMultiRow(GenDb::ColListVec& ret,
         const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
-        GenDb::ColumnNameRange *crange_ptr) {
+        GenDb::ColumnNameRange *crange_ptr,
+        const std::string& gen_name) {
     return impl_->Db_GetMultiRow(ret, cfname, key, crange_ptr);
 }
 
@@ -109,7 +118,7 @@ void ThriftIf::Db_ResetQueueWaterMarks() {
 
 // Stats
 bool ThriftIf::Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
-        GenDb::DbErrors *dbe) {
+        GenDb::DbErrors *dbe, const std::string& gen_name) {
     return impl_->Db_GetStats(vdbti, dbe);
 }
 

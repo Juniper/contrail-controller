@@ -19,7 +19,9 @@ class ProtobufCollector {
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports, const TtlMap&,
         const std::string& cassandra_user,
-        const std::string& cassandra_password);
+        const std::string& cassandra_password,
+        const bool use_collector_db_handler,
+        DbHandler* collector_dbhandler);
     virtual ~ProtobufCollector();
     bool Initialize();
     void Shutdown();
@@ -33,6 +35,7 @@ class ProtobufCollector {
     static const std::string kDbTaskName;
 
     boost::scoped_ptr<DbHandlerInitializer> db_initializer_;
+    boost::scoped_ptr<DbHandler> db_handler_;
     boost::scoped_ptr<protobuf::ProtobufServer> server_;
 };
 

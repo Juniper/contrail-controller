@@ -372,11 +372,13 @@ void PopulateProtobufStats(const Message& message,
 void ProcessProtobufMessage(const Message& message,
     const uint64_t &timestamp,
     const boost::asio::ip::udp::endpoint &remote_endpoint,
-    StatWalker::StatTableInsertFn stat_db_callback) {
+    StatWalker::StatTableInsertFn stat_db_callback,
+    const std::string& gen_name) {
     const std::string &message_name(message.GetTypeName());
     StatWalker::TagMap top_tags;
     PopulateProtobufTopLevelTags(message, remote_endpoint, &top_tags);
-    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags);
+    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags,
+                           gen_name);
     PopulateProtobufStats(message, std::string(), &stat_walker);
 }
 
@@ -385,9 +387,10 @@ void ProcessProtobufMessage(const Message& message,
 class ProtobufServer::ProtobufServerImpl {
  public:
     ProtobufServerImpl(EventManager *evm, uint16_t udp_server_port,
-        StatWalker::StatTableInsertFn stat_db_callback) :
+        StatWalker::StatTableInsertFn stat_db_callback,
+        const std::string& gen_name) :
         udp_server_(new ProtobufUdpServer(evm, udp_server_port,
-            stat_db_callback)) {
+            stat_db_callback, gen_name)) {
     }
 
     bool Initialize() {
@@ -424,10 +427,12 @@ class ProtobufServer::ProtobufServerImpl {
     class ProtobufUdpServer : public UdpServer {
      public:
         ProtobufUdpServer(EventManager *evm, uint16_t port,
-            StatWalker::StatTableInsertFn stat_db_callback) :
+            StatWalker::StatTableInsertFn stat_db_callback,
+            const std::string& gen_name) :
             UdpServer(evm, kBufferSize),
             port_(port),
-            stat_db_callback_(stat_db_callback) {
+            stat_db_callback_(stat_db_callback),
+            gen_name_(gen_name) {
         }
 
         bool Initialize() {
@@ -463,7 +468,7 @@ class ProtobufServer::ProtobufServerImpl {
                 return;
             }
             protobuf::impl::ProcessProtobufMessage(*message, timestamp,
-                remote_endpoint, stat_db_callback_);
+                remote_endpoint, stat_db_callback_, gen_name_);
             const std::string &message_name(message->GetTypeName());
             msg_stats_.UpdateRx(remote_endpoint, message_name,
                 recv_buffer_size);
@@ -613,6 +618,7 @@ class ProtobufServer::ProtobufServerImpl {
         uint16_t port_;
         StatWalker::StatTableInsertFn stat_db_callback_;
         MessageStatistics msg_stats_;
+        const std::string& gen_name_;
     };
 
     ProtobufUdpServer *udp_server_;
@@ -651,11 +657,12 @@ void protobuf::impl::ProtobufLibraryLog(google::protobuf::LogLevel level,
 }
 
 ProtobufServer::ProtobufServer(EventManager *evm,
-    uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) :
+    uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn,
+    const std::string& gen_name) :
     shutdown_libprotobuf_on_delete_(true) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     google::protobuf::SetLogHandler(&protobuf::impl::ProtobufLibraryLog);
-    impl_ = new ProtobufServerImpl(evm, udp_server_port, stat_db_fn);
+    impl_ = new ProtobufServerImpl(evm, udp_server_port, stat_db_fn, gen_name);
 }
 
 ProtobufServer::~ProtobufServer() {

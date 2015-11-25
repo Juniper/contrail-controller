@@ -13,7 +13,7 @@
 class DbHandler;
 
 typedef boost::function<bool(const VizMsg*, bool,
-    DbHandler *)> VizCallback;
+    DbHandler *, const std::string)> VizCallback;
 
 class SyslogQueueEntry
 {
