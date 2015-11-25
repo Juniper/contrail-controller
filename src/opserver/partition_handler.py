@@ -15,7 +15,6 @@ import uuid
 import struct
 import socket
 import discoveryclient.client as client 
-from sandesh_common.vns.constants import ALARM_PARTITION_SERVICE_NAME
 from pysandesh.util import UTCTimestampUsec
 import select
 import redis
@@ -640,7 +639,7 @@ class UveStreamProc(PartitionHandler):
     #  rport     : redis server port
     #  disc      : discovery client to publish to
     def __init__(self, brokers, partition, uve_topic, logger, callback,
-            host_ip, rsc, aginst, rport, disc = None):
+            host_ip, rsc, aginst, rport):
         super(UveStreamProc, self).__init__(brokers, "workers",
             uve_topic, logger, False)
         self._uvedb = {}
@@ -653,8 +652,8 @@ class UveStreamProc(PartitionHandler):
         self.disc_rset = set()
         self._resource_cb = rsc
         self._aginst = aginst
-        self._disc = disc
         self._acq_time = UTCTimestampUsec() 
+        self._up = True
         self._rport = rport
 
     def reset_acq_time(self):
@@ -706,14 +705,7 @@ class UveStreamProc(PartitionHandler):
         else:
             # If all collectors are being cleared, clear resoures too
             self.disc_rset = set()
-            if self._disc:
-                # TODO: Unpublish instead of setting acq-time to 0
-                data = { 'instance-id' : self._aginst,
-                         'partition' : str(self._partno),
-                         'ip-address': self._host_ip, 
-                         'acq-time': "0",
-                         'port':str(self._rport)}
-                self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
+            self._up = False
 
         return partdb
 
@@ -721,13 +713,7 @@ class UveStreamProc(PartitionHandler):
         ''' This function loads the initial UVE database.
             for the partition
         '''
-        if self._disc:
-            data = { 'instance-id' : self._aginst,
-                     'partition' : str(self._partno),
-                     'ip-address': self._host_ip, 
-                     'acq-time': str(self._acq_time),
-                     'port':str(self._rport)}
-            self._disc.publish(ALARM_PARTITION_SERVICE_NAME, data)
+        self._up = True
         self._logger.error("Starting part %d collectors %s" % \
                 (self._partno, str(cbdb.keys())))
         uves  = {}

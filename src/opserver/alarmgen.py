@@ -221,21 +221,23 @@ class Controller(object):
         self._instance_id = self._conf.worker_id()
 
         self.disc = None
-        self._libpart_name = self._hostname + ":" + self._instance_id
+        self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
         self._partset = set()
         if self._conf.discovery()['server']:
             self._max_out_rows = 20
-            data = {
-                'ip-address': self._hostname ,
-                'port': self._instance_id
-            }
             self.disc = client.DiscoveryClient(
                 self._conf.discovery()['server'],
                 self._conf.discovery()['port'],
                 ModuleNames[Module.ALARM_GENERATOR])
-            print("Disc Publish to %s : %s"
-                          % (str(self._conf.discovery()), str(data)))
+            data = {
+                'ip-address': self._conf.host_ip(),
+                'instance-id': self._instance_id,
+                'redis-port': str(self._conf.redis_server_port()),
+                'partitions': json.dumps({})
+            }
+            print("Disc Publish to %s : %s" \
+                % (str(self._conf.discovery()), str(data)))
             self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
 
         is_collector = True
@@ -573,7 +575,25 @@ class Controller(object):
         """
 
         lredis = None
+        oldworkerset = {}
         while True:
+            workerset = {}
+            for part in self._workers.keys():
+                if self._workers[part]._up:
+                    workerset[part] = self._workers[part].acq_time()
+            if workerset != oldworkerset:
+                if self.disc:
+                    data = {
+                        'ip-address': self._conf.host_ip(),
+                        'instance-id': self._instance_id,
+                        'redis-port': str(self._conf.redis_server_port()),
+                        'partitions': json.dumps(workerset)
+                    }
+                    self._logger.error("Disc Publish to %s : %s"
+                                  % (str(self._conf.discovery()), str(data)))
+                    self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
+                oldworkerset = workerset
+             
             for part in self._uveqf.keys():
                 self._logger.error("Stop UVE processing for %d:%d" % \
                         (part, self._uveqf[part]))
@@ -999,8 +1019,7 @@ class Controller(object):
                         self.handle_uve_notifq, self._conf.host_ip(),
                         self.handle_resource_check,
                         self._instance_id,
-                        self._conf.redis_server_port(),
-                        cdisc)
+                        self._conf.redis_server_port())
                 ph.start()
                 self._workers[partno] = ph
                 self._uvestats[partno] = {}
@@ -1259,7 +1278,7 @@ class Controller(object):
         newlist = []
         for elem in alist:
             ipaddr = elem["ip-address"]
-            inst = elem["port"]
+            inst = elem["instance-id"]
             newlist.append(ipaddr + ":" + inst)
 
         # We should always include ourselves in the list of memebers
