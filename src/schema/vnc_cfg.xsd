@@ -1276,9 +1276,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('physical-router-snmp-credentials', 'physical-router') -->
 
 <xsd:complexType name="JunosServicePorts">
-         <xsd:all>
-             <xsd:element name="service-port" type="xsd:string" maxOccurs="unbounded"/>
-         </xsd:all>
+    <xsd:element name="service-port" type="xsd:string" maxOccurs="unbounded"/>
 </xsd:complexType>
 <xsd:element name="physical-router-junos-service-ports" type='JunosServicePorts'/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1289,6 +1287,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-interface-virtual-machine-interface',
           'logical-interface', 'virtual-machine-interface', ['ref']) -->
 
+<xsd:element name="bgp-as-a-service" type="ifmap:IdentityType"/>
+<xsd:element name="bgpaas-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-ip-address', 'bgp-as-a-service') -->
+
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -1298,10 +1301,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-router-ip-address', 'virtual-router') -->
 
-<xsd:element name="virtual-router-bgp-router"/>
+<xsd:complexType name="BgpAsAServiceParameters">
+    <xsd:element name="vrouter-ip-address" type="IpAddressType"/>
+    <xsd:element name="port" type="xsd:integer"/>
+</xsd:complexType>
+<xsd:element name="bgp-as-a-service-parameters" type="BgpAsAServiceParameters"/>
 <!--#IFMAP-SEMANTICS-IDL 
-    Link('virtual-router-bgp-router',
-         'virtual-router', 'bgp-router', ['ref']) -->
+     Property('bgp-as-a-service-parameters', 'bgp-router') -->
 
 <xsd:element name="virtual-router-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL 

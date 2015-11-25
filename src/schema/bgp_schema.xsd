@@ -72,6 +72,8 @@
         <xsd:enumeration value="control-node"/>
         <xsd:enumeration value="external-control-node"/>
         <xsd:enumeration value="router"/>
+        <xsd:enumeration value="bgpaas-server"/>
+        <xsd:enumeration value="bgpaas-client"/>
     </xsd:restriction>
 </xsd:simpleType>
 
