@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <stdint.h>
+#include <string>
 #include <net/ethernet.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
@@ -916,6 +917,7 @@ public:
         flow_stats_req_handler_ = req;
     }
 
+    static uint16_t ProtocolStringToInt(const std::string &str);
 private:
 
     AgentParam *params_;
