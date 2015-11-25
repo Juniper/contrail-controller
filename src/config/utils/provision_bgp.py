@@ -5,6 +5,7 @@
 
 import json
 import copy
+import time
 from netaddr import IPNetwork
 from pprint import pformat
 
@@ -137,7 +138,7 @@ class BgpProvisioner(object):
     # end del_bgp_router
 
     def add_route_target(self, rt_inst_fq_name, router_asn,
-                         route_target_number):
+                         route_target_number, route_target_import_export=None):
         vnc_lib = self._vnc_lib
 
         rtgt_val = "target:%s:%s" % (router_asn, route_target_number)
@@ -145,12 +146,39 @@ class BgpProvisioner(object):
         net_obj = vnc_lib.virtual_network_read(fq_name=rt_inst_fq_name[:-1])
         route_targets = net_obj.get_route_target_list()
         if route_targets:
-            route_targets.add_route_target(rtgt_val)
+            if rtgt_val not in route_targets.get_route_target():
+                route_targets.add_route_target(rtgt_val)
         else:
             route_targets = RouteTargetList([rtgt_val])
         net_obj.set_route_target_list(route_targets)
-
         vnc_lib.virtual_network_update(net_obj)
+
+        valid_import_export_values = ('import', 'export', None)
+        if route_target_import_export not in valid_import_export_values:
+            print "bad route-target import/export policy '%s' (valid values are: %s)" % \
+                   (route_target_import_export, valid_import_export_values)
+            return
+        # Wait for the schema to create the route-target
+        rtobj = None
+        tries = 0
+        while rtobj is None:
+            try:
+                rtobj = vnc_lib.route_target_read(fq_name_str=rtgt_val)
+            except NoIdError:
+                tries += 1
+                if tries > 4:
+                     print "failed to retrieve the route-target from the API. Is schema down ?"
+                time.sleep(1)
+        riobj = vnc_lib.routing_instance_read(fq_name=rt_inst_fq_name)
+        vnc_lib.ref_update('routing-instance', riobj.uuid,
+                           'route-target', rtobj.uuid, rtgt_val.split(':'),
+                           'DELETE')
+        attr = {
+            "import_export": route_target_import_export
+        }
+        vnc_lib.ref_update('routing-instance', riobj.uuid,
+                           'route-target', rtobj.uuid, rtgt_val.split(':'),
+                           'ADD', attr=attr)
     # end add_route_target
 
     def del_route_target(self, rt_inst_fq_name, router_asn,

@@ -22,9 +22,12 @@ class MxProvisioner(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip, self._args.api_server_port)
+        if self._args.route_target_import_export == 'None':
+            self._args.route_target_import_export = None
         bp_obj.add_route_target(self._args.routing_instance_name.split(':'),
                                 self._args.router_asn,
-                                self._args.route_target_number)
+                                self._args.route_target_number,
+                                route_target_import_export=self._args.route_target_import_export)
     # end __init__
 
     def _parse_args(self, args_str):
@@ -47,6 +50,7 @@ class MxProvisioner(object):
             'routing_instance_name':
             'default-domain:default-project:ip-fabric:__default__',
             'route_target_number': '45',
+            'route_target_import_export': None,
             'router_asn': '64513',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
@@ -79,6 +83,7 @@ class MxProvisioner(object):
             "--route_target_number",
             help="Route Target for MX interaction",required=True)
         parser.add_argument("--router_asn", help="AS Number the MX is in",required=True)
+        parser.add_argument("--route_target_import_export", help="Route Target import/export policy")
         parser.add_argument(
             "--api_server_ip", help="IP address of api server",required=True)
         parser.add_argument("--api_server_port", help="Port of api server",required=True)
