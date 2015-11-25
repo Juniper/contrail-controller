@@ -13,6 +13,69 @@ from cfgm_common import svc_info
 class DBBaseSM(DBBase):
     obj_type = __name__
 
+class LoadbalancerSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'loadbalancer'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_machine_interface = None
+        self.loadbalancer_listeners = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.display_name = obj.get('display_name', None)
+        self.params = obj.get('loadbalancer_properties', None)
+        self.update_single_ref('virtual_machine_interface', obj)
+        self.update_multiple_refs('loadbalancer_listener', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('virtual_machine_interface', {})
+        obj.update_multiple_refs('loadbalancer_listener', {})
+        del cls._dict[uuid]
+    # end delete
+# end class LoadbalancerSM
+
+class LoadbalancerListenerSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'loadbalancer_listener'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.loadbalancer = None
+        self.loadbalancer_pool = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.display_name = obj.get('display_name', None)
+        self.params = obj.get('loadbalancer_listener_properties', None)
+        self.update_single_ref('loadbalancer', obj)
+        self.update_single_ref('loadbalancer_pool', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('loadbalancer', {})
+        obj.update_single_ref('loadbalancer_listener', {})
+        del cls._dict[uuid]
+    # end delete
+# end class LoadbalancerListenerSM
 
 class LoadbalancerPoolSM(DBBaseSM):
     _dict = {}
@@ -25,6 +88,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.service_instance = None
         self.virtual_machine_interface = None
         self.virtual_ip = None
+        self.loadbalancer_listener = None
         self.update(obj_dict)
         self.last_sent = None
     # end __init__
@@ -43,6 +107,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.display_name = obj.get('display_name', None)
         self.update_single_ref('service_instance', obj)
         self.update_single_ref('virtual_ip', obj)
+        self.update_single_ref('loadbalancer_listener', obj)
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_healthmonitor', obj)
     # end update
@@ -55,6 +120,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         cls._manager.loadbalancer_agent.delete_loadbalancer_pool(obj)
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_ip', {})
+        obj.update_single_ref('loadbalancer_listener', {})
         obj.update_single_ref('virtual_machine_interface', {})
         obj.update_multiple_refs('loadbalancer_healthmonitor', {})
         del cls._dict[uuid]
