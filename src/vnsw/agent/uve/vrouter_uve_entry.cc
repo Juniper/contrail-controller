@@ -242,7 +242,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
             VrouterFlowRate flow_rate;
             flow_rate.set_added_flows(created_flows);
             flow_rate.set_max_flow_adds_per_second(max_add_rate);
-            flow_rate.set_max_flow_adds_per_second(min_add_rate);
+            flow_rate.set_min_flow_adds_per_second(min_add_rate);
             flow_rate.set_deleted_flows(aged_flows);
             flow_rate.set_max_flow_deletes_per_second(max_del_rate);
             flow_rate.set_min_flow_deletes_per_second(min_del_rate);

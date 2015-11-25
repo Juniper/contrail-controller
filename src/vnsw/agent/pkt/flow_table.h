@@ -118,7 +118,7 @@ public:
     FlowTableKSyncObject *ksync_object() const { return ksync_object_; }
 
     // Table managment routines
-    FlowEntry *Locate(FlowEntry *flow);
+    FlowEntry *Locate(FlowEntry *flow, uint64_t t);
     FlowEntry *Find(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     void Update(FlowEntry *flow, FlowEntry *rflow);
@@ -206,7 +206,7 @@ public:
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
 
-    void DeleteInternal(FlowEntryMap::iterator &it);
+    void DeleteInternal(FlowEntryMap::iterator &it, uint64_t t);
     void ResyncAFlow(FlowEntry *fe);
     void DeleteFlowInfo(FlowEntry *fe);
     void DeleteVmFlowInfo(FlowEntry *fe);
