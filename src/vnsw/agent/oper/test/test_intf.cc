@@ -3189,6 +3189,41 @@ TEST_F(IntfTest, MultipleIp3) {
     client->Reset();
 }
 
+TEST_F(IntfTest, IntfAddDel) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    InterfaceRef intf = static_cast<Interface *>(VmPortGet(1));
+    EXPECT_TRUE(RouteFind("vrf1", "1.1.1.1", 32));
+
+    DelLink("virtual-network", "vn1", "virtual-machine-interface",
+             "vnet1");
+    client->WaitForIdle();
+
+    NovaDel(1);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-machine-interface",
+            "vnet1");
+    client->WaitForIdle();
+
+    NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
+    AddNode("virtual-machine-interface", "vnet1", 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind("vrf1", "1.1.1.1", 32));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -3295,6 +3295,7 @@ void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
 
 void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
                                          const InstanceIp *rhs) {
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
@@ -3468,7 +3469,7 @@ void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
 
 void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
                                          const FloatingIp *rhs) {
-    // Nothing to do 
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
@@ -3565,6 +3566,7 @@ void VmInterface::StaticRouteList::Insert(const StaticRoute *rhs) {
 
 void VmInterface::StaticRouteList::Update(const StaticRoute *lhs,
                                           const StaticRoute *rhs) {
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
@@ -3726,6 +3728,7 @@ void VmInterface::AllowedAddressPairList::Insert(const AllowedAddressPair *rhs) 
 
 void VmInterface::AllowedAddressPairList::Update(const AllowedAddressPair *lhs,
                                           const AllowedAddressPair *rhs) {
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::AllowedAddressPairList::Remove(AllowedAddressPairSet::iterator &it) {
@@ -3877,6 +3880,7 @@ void VmInterface::ServiceVlanList::Insert(const ServiceVlan *rhs) {
 
 void VmInterface::ServiceVlanList::Update(const ServiceVlan *lhs,
                                           const ServiceVlan *rhs) {
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::ServiceVlanList::Remove(ServiceVlanSet::iterator &it) {
@@ -4039,6 +4043,7 @@ void VmInterface::VrfAssignRuleList::Insert(const VrfAssignRule *rhs) {
 
 void VmInterface::VrfAssignRuleList::Update(const VrfAssignRule *lhs,
                                             const VrfAssignRule *rhs) {
+    lhs->set_del_pending(false);
 }
 
 void VmInterface::VrfAssignRuleList::Remove(VrfAssignRuleSet::iterator &it) {
