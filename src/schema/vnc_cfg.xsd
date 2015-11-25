@@ -1490,6 +1490,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('interface-route-table-service-instance',
           'interface-route-table', 'service-instance', ['ref']) -->
 
+<xsd:element name="routing-policy-service-instance" type="ServiceInterfaceTag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('routing-policy-service-instance',
+          'bgp:routing-policy', 'service-instance', ['ref']) -->
+
+<xsd:element name="route-aggregate-service-instance" type="ServiceInterfaceTag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('route-aggregate-service-instance',
+          'bgp:route-aggregate', 'service-instance', ['ref']) -->
+
 <!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
 <xsd:complexType name='ServiceInstanceVirtualMachineInterfaceType'>
     <xsd:all>
