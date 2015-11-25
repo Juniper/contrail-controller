@@ -60,7 +60,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-    allowed_address_pair_list_(), vrf_assign_rule_list_(),
+    allowed_address_pair_list_(), fat_flow_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), vm_ip_gw_addr_(0), vm_ip6_gw_addr_(),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
@@ -406,6 +406,18 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
     }
 
     return;
+}
+
+static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
+                              IFMapNode *node) {
+    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
+                                       (node->GetObject());
+    for (FatFlowProtocols::const_iterator it = cfg->fat_flow_protocols().begin();
+            it != cfg->fat_flow_protocols().end(); it++) {
+        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
+        data->fat_flow_list_.list_.insert(VmInterface::FatFlowEntry(protocol,
+                                          it->port));
+    }
 }
 
 static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
@@ -798,6 +810,14 @@ bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) {
     return ((configurer_ & (1 << type)) != 0);
 }
 
+bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port) const {
+    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port)) !=
+                fat_flow_list_.list_.end()) {
+        return true;
+    }
+    return false;
+}
+
 static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
     int type = table->GetVmiToVmiType(u);
     if (type <= (int)VmInterface::VMI_TYPE_INVALID)
@@ -903,6 +923,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
     }
 
     UpdateAttributes(agent_, data);
+    BuildFatFlowTable(agent_, data, node);
 
     // Get DHCP enable flag from subnet
     if (vn_node && data->addr_.to_ulong()) {
@@ -1331,10 +1352,12 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     //DHCP MAC IP binding
     ApplyMacVmBindingConfig(old_vrf, old_l2_active,  old_dhcp_enable);
     //Security Group update
-    if (IsActive())
+    if (IsActive()) {
         UpdateSecurityGroup();
-    else
+    } else {
         DeleteSecurityGroup();
+        DeleteFatFlow();
+    }
 
 }
 
@@ -1728,6 +1751,16 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
          new_vrf_assign_list.end())) {
         ret = true;
      }
+
+    FatFlowEntrySet &old_fat_flow_entry_list = fat_flow_list_.list_;
+    const FatFlowEntrySet &new_fat_flow_entry_list =
+        data->fat_flow_list_.list_;
+    if (AuditList<FatFlowList, FatFlowEntrySet::iterator>
+        (fat_flow_list_, old_fat_flow_entry_list.begin(),
+         old_fat_flow_entry_list.end(), new_fat_flow_entry_list.begin(),
+         new_fat_flow_entry_list.end())) {
+        ret = true;
+    }
 
     InstanceIpSet &old_ipv4_list = instance_ipv4_list_.list_;
     InstanceIpSet new_ipv4_list = data->instance_ipv4_list_.list_;
@@ -2916,6 +2949,16 @@ void VmInterface::DeleteSecurityGroup() {
     }
 }
 
+void VmInterface::DeleteFatFlow() {
+    FatFlowEntrySet::iterator it = fat_flow_list_.list_.begin();
+    while (it != fat_flow_list_.list_.end()) {
+        FatFlowEntrySet::iterator prev = it++;
+        if (prev->del_pending_) {
+            fat_flow_list_.list_.erase(prev);
+        }
+    }
+}
+
 void VmInterface::UpdateL2TunnelId(bool force_update, bool policy_change) {
     AllocL2MplsLabel(force_update, policy_change);
 }
@@ -3297,6 +3340,18 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
     it->set_del_pending(true);
 }
 
+void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
+                                      const FatFlowEntry *rhs) {
+}
+
+void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
+    it->set_del_pending(true);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FloatingIp routines
 /////////////////////////////////////////////////////////////////////////////
@@ -3462,7 +3517,6 @@ void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
 
 void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
                                          const FloatingIp *rhs) {
-    // Nothing to do 
 }
 
 void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
