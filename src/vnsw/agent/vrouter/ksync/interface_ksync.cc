@@ -340,6 +340,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
+    {    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+        if (fat_flow_list_.list_ != vm_intf->fat_flow_list().list_) {
+            fat_flow_list_ = vm_intf->fat_flow_list();
+            ret = true;
+        }
+    }
     case Interface::PACKET:
         dmac = table->agent()->vrrp_mac();
         break;
