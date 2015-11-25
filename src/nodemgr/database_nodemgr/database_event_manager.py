@@ -24,6 +24,7 @@ from ConfigParser import NoOptionError
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -46,9 +47,6 @@ class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
                  hostip, minimum_diskgb, contrail_databases, cassandra_repair_interval):
-        EventManager.__init__(
-            self, rule_file, discovery_server,
-            discovery_port, collector_addr)
         self.node_type = "contrail-database"
         self.module = Module.DATABASE_NODE_MGR
         self.module_id = ModuleNames[self.module]
@@ -58,6 +56,23 @@ class DatabaseEventManager(EventManager):
         self.cassandra_repair_interval = cassandra_repair_interval
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         self.add_current_process()
+        node_type = Module2NodeType[self.module]
+        node_type_name = NodeTypeNames[node_type]
+        self.sandesh_global = sandesh_global
+        EventManager.__init__(
+            self, rule_file, discovery_server,
+            discovery_port, collector_addr, sandesh_global)
+        if self.rule_file is '':
+            self.rule_file = "/etc/contrail/" + \
+                "supervisord_database_files/contrail-database.rules"
+        json_file = open(self.rule_file)
+        self.rules_data = json.load(json_file)
+        _disc = self.get_discovery_client()
+        sandesh_global.init_generator(
+            self.module_id, socket.gethostname(), node_type_name,
+            self.instance_id, self.collector_addr, self.module_id, 8103,
+            ['database.sandesh'], _disc)
+        sandesh_global.set_logging_params(enable_local_log=True)
     # end __init__
 
     def _get_cassandra_config_option(self, config):
@@ -71,37 +86,30 @@ class DatabaseEventManager(EventManager):
         yamlstream.close()
         return cfg[config][0]
 
-    def process(self):
-        if self.rule_file is '':
-            self.rule_file = "/etc/contrail/" + \
-                "supervisord_database_files/contrail-database.rules"
-        json_file = open(self.rule_file)
-        self.rules_data = json.load(json_file)
-        node_type = Module2NodeType[self.module]
-        node_type_name = NodeTypeNames[node_type]
-        _disc = self.get_discovery_client()
-        sandesh_global.init_generator(
-            self.module_id, socket.gethostname(), node_type_name,
-            self.instance_id, self.collector_addr, self.module_id, 8103,
-            ['database.sandesh'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
-        self.sandesh_global = sandesh_global
+    def msg_log(self, msg, level):
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            level), msg)
 
+    def process(self):
         try:
             cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
             analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
             if os.path.exists(analytics_dir):
-                self.stderr.write("analytics_dir is " + analytics_dir + "\n")
+                msg = "analytics_dir is " + analytics_dir
+                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                 (disk_space_used, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$4}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                 (disk_space_available, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 popen_cmd = "set `du -skL " + analytics_dir + " | awk '{s+=$1}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                 (analytics_db_size, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 disk_space_total = int(disk_space_used) + int(disk_space_available)
@@ -116,7 +124,8 @@ class DatabaseEventManager(EventManager):
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
-            sys.stderr.write("Failed to get database usage" + "\n")
+            msg = "Failed to get database usage"
+            self.msg_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
     def send_process_state_db(self, group_names):
@@ -177,7 +186,8 @@ class DatabaseEventManager(EventManager):
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
-            sys.stderr.write("Failed to get database usage" + "\n")
+            msg = "Failed to get database usage"
+            self.msg_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cassandra_cli_cmd = "cassandra-cli --host " + self.hostip + \

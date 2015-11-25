@@ -22,6 +22,8 @@ from nodemgr.common.event_listener_protocol_nodemgr import \
 from nodemgr.common.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
 class EventManager(object):
@@ -35,7 +37,7 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr, sandesh_global):
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -54,7 +56,7 @@ class EventManager(object):
         self.discovery_port = discovery_port
         self.collector_addr = collector_addr
         self.listener_nodemgr = EventListenerProtocolNodeMgr()
-        self.sandesh_global = None
+        self.sandesh_global = sandesh_global
 
     # Get all the current processes in the node
     def get_current_process(self):
@@ -165,7 +167,9 @@ class EventManager(object):
             node_status.process_info = process_infos
             node_status.all_core_file_list = self.all_core_file_list
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	    msg = 'Sending UVE:' + str(node_status_uve) 
+            self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_INFO), msg)
             node_status_uve.send()
 
     def send_all_core_file(self):
@@ -293,7 +297,9 @@ class EventManager(object):
                 name=socket.gethostname(),
                 process_status=process_status_list)
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	    msg = 'Sending UVE:' + str(node_status_uve)
+	    self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_INFO), msg)
             node_status_uve.send()
 
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
@@ -326,7 +332,9 @@ class EventManager(object):
         node_status = NodeStatus(
             name=socket.gethostname(), disk_usage_info=disk_usage_infos)
         node_status_uve = NodeStatusUVE(data=node_status)
-        sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	msg = 'Sending UVE:' + str(node_status_uve)
+	self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_INFO), msg)
         node_status_uve.send()
     # end send_disk_usage_info
 
@@ -349,9 +357,9 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, pheaders, headers):
-        self.stderr.write("process:" + pheaders['processname'] + "," +
-                          "groupname:" + pheaders['groupname'] + "," +
-                          "eventname:" + headers['eventname'] + '\n')
+	msg = ("process:" + pheaders['processname'] + "," + "groupname:" + 
+		pheaders['groupname'] + "," + "eventname:" + headers['eventname'])
+	self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(SandeshLevel.SYS_DEBUG), msg)
         pname = pheaders['processname']
         if (pheaders['processname'] != pheaders['groupname']):
             pname = pheaders['groupname'] + ":" + pheaders['processname']
@@ -360,32 +368,39 @@ class EventManager(object):
             if 'processname' in rules:
                 if ((rules['processname'] == pheaders['groupname']) and
                    (rules['process_state'] == headers['eventname'])):
-                    self.stderr.write("got a hit with:" + str(rules) + '\n')
+		    msg = "got a hit with:" + str(rules)
+		    self.sandesh_global.logger().logger.log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_DEBUG), msg)
                     # do not make async calls
                     try:
                         ret_code = subprocess.call(
                             [rules['action']], shell=True,
                             stdout=self.stderr, stderr=self.stderr)
                     except Exception as e:
-                        self.stderr.write(
-                            'Failed to execute action: ' +
-                            rules['action'] + ' with err ' + str(e) + '\n')
+		        msg = ('Failed to execute action: ' + rules['action'] +
+				 ' with err ' + str(e))
+			self.sandesh_global.logger().logger.log(SandeshLogger.
+                                get_py_logger_level(SandeshLevel.SYS_ERR), msg)
                     else:
                         if ret_code:
-                            self.stderr.write(
-                                'Execution of action ' +
-                                rules['action'] + ' returned err ' +
-                                str(ret_code) + '\n')
+			    msg = ('Execution of action ' + rules['action'] + 
+					' returned err ' + str(ret_code))
+			    self.sandesh_global.logger().log(SandeshLogger.
+                                    get_py_logger_level(SandeshLevel.SYS_ERR), msg)
 
     def event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")
-        self.stderr.write("Flag:" + flag_and_value[0] +
-                          " Value:" + flag_and_value[2] + "\n")
+        msg = ("Flag:" + flag_and_value[0] +
+                " Value:" + flag_and_value[2])
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level
+                (SandeshLevel.SYS_DEBUG), msg)
         for rules in self.rules_data['Rules']:
             if 'flag_name' in rules:
                 if ((rules['flag_name'] == flag_and_value[0]) and
                    (rules['flag_value'].strip() == flag_and_value[2].strip())):
-                    self.stderr.write("got a hit with:" + str(rules) + '\n')
+                    msg = "got a hit with:" + str(rules)
+                    self.sandesh_global.logger().log(SandeshLogger.
+                            get_py_logger_level(SandeshLevel.SYS_DEBUG), msg)
                     cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
                     subprocess.Popen(cmd_and_args)
 
