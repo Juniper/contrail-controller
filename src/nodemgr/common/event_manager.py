@@ -22,6 +22,9 @@ from nodemgr.common.event_listener_protocol_nodemgr import \
 from nodemgr.common.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
+from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
 class EventManager(object):
@@ -131,7 +134,7 @@ class EventManager(object):
         self.send_nodemgr_process_status()
 
     def send_process_state_db_base(self, group_names, ProcessInfo,
-                                   NodeStatus, NodeStatusUVE):
+                                   NodeStatus, NodeStatusUVE, logger):
         name = socket.gethostname()
         for group in group_names:
             process_infos = []
@@ -165,7 +168,9 @@ class EventManager(object):
             node_status.process_info = process_infos
             node_status.all_core_file_list = self.all_core_file_list
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	    msg = 'Sending UVE:' + str(node_status_uve) 
+            logger.log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_ERR), msg)
             node_status_uve.send()
 
     def send_all_core_file(self):
@@ -279,7 +284,7 @@ class EventManager(object):
 
     def send_nodemgr_process_status_base(self, ProcessStateNames,
                                          ProcessState, ProcessStatus,
-                                         NodeStatus, NodeStatusUVE):
+                                         NodeStatus, NodeStatusUVE, logger):
         if (self.prev_fail_status_bits != self.fail_status_bits):
             self.prev_fail_status_bits = self.fail_status_bits
             fail_status_bits = self.fail_status_bits
@@ -293,11 +298,13 @@ class EventManager(object):
                 name=socket.gethostname(),
                 process_status=process_status_list)
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	    msg = 'Sending UVE:' + str(node_status_uve)
+	    logger.log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_ERR), msg)
             node_status_uve.send()
 
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
-                                  DiskPartitionUsageStats):
+                                  DiskPartitionUsageStats, logger):
         partition = subprocess.Popen(
             "df -T -t ext2 -t ext3 -t ext4 -t xfs",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -326,7 +333,9 @@ class EventManager(object):
         node_status = NodeStatus(
             name=socket.gethostname(), disk_usage_info=disk_usage_infos)
         node_status_uve = NodeStatusUVE(data=node_status)
-        sys.stderr.write('Sending UVE:' + str(node_status_uve))
+	msg = 'Sending UVE:' + str(node_status_uve)
+	logger.log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_ERR), msg)
         node_status_uve.send()
     # end send_disk_usage_info
 
@@ -348,10 +357,15 @@ class EventManager(object):
     def get_failbits_nodespecific_desc(self, fail_status_bits):
         return ""
 
-    def event_process_state(self, pheaders, headers):
-        self.stderr.write("process:" + pheaders['processname'] + "," +
-                          "groupname:" + pheaders['groupname'] + "," +
-                          "eventname:" + headers['eventname'] + '\n')
+    def event_process_state(self, pheaders, headers, logger = None):
+	if logger is not None:
+	    msg = ("process:" + pheaders['processname'] + "," + "groupname:" + 
+		pheaders['groupname'] + "," + "eventname:" + headers['eventname'])
+	    logger.log(SandeshLogger.get_py_logger_level(SandeshLevel.SYS_ERR), msg)
+	else:
+	    self.stderr.write("process:" + pheaders['processname'] + "," +
+		    "groupname:" + pheaders['groupname'] + "," +
+		    "eventname:" + headers['eventname'] + '\n')
         pname = pheaders['processname']
         if (pheaders['processname'] != pheaders['groupname']):
             pname = pheaders['groupname'] + ":" + pheaders['processname']
@@ -360,22 +374,39 @@ class EventManager(object):
             if 'processname' in rules:
                 if ((rules['processname'] == pheaders['groupname']) and
                    (rules['process_state'] == headers['eventname'])):
-                    self.stderr.write("got a hit with:" + str(rules) + '\n')
+		    if logger is not None:
+			msg = "got a hit with:" + str(rules)
+			logger.log(SandeshLogger.get_py_logger_level(
+			    SandeshLevel.SYS_ERR), msg)
+		    else:
+			self.stderr.write("got a hit with:" + str(rules) +
+				'\n')
                     # do not make async calls
                     try:
                         ret_code = subprocess.call(
                             [rules['action']], shell=True,
                             stdout=self.stderr, stderr=self.stderr)
                     except Exception as e:
-                        self.stderr.write(
-                            'Failed to execute action: ' +
-                            rules['action'] + ' with err ' + str(e) + '\n')
+			if logger is not None:
+			    msg = ('Failed to execute action: ' + rules['action'] +
+				 ' with err ' + str(e))
+			    logger.log(SandeshLogger.get_py_logger_level(
+			            SandeshLevel.SYS_ERR), msg)
+			else:
+			    self.stderr.write('Failed to execute action: ' +
+				    rules['action'] + ' with err ' + str(e) +
+				    '\n')
                     else:
                         if ret_code:
-                            self.stderr.write(
-                                'Execution of action ' +
-                                rules['action'] + ' returned err ' +
-                                str(ret_code) + '\n')
+			    if logger is not None:
+				msg = ('Execution of action ' + rules['action'] + 
+					' returned err ' + str(ret_code))
+				logger.log(SandeshLogger.get_py_logger_level(
+			            SandeshLevel.SYS_ERR), msg)
+			    else:
+				self.stderr.write('Execution of action ' +
+					rules['action'] + ' returned err '
+					+ str(ret_code) + '\n')
 
     def event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")

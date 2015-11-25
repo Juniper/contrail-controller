@@ -23,6 +23,8 @@ from ConfigParser import NoOptionError
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -65,17 +67,18 @@ class ConfigEventManager(EventManager):
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8100, ['cfgm_common.uve'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
+        sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo, NodeStatus, NodeStatusUVE,
+	    self.sandesh_global.logger())
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            NodeStatus, NodeStatusUVE, self.sandesh_global.logger())
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
@@ -83,4 +86,5 @@ class ConfigEventManager(EventManager):
 
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats,
+	    self.sandesh_global.logger())

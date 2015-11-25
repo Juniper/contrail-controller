@@ -24,6 +24,8 @@ from ConfigParser import NoOptionError
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -71,6 +73,10 @@ class DatabaseEventManager(EventManager):
         yamlstream.close()
         return cfg[config][0]
 
+    def config_log(self, msg, level):
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            level), msg)
+
     def process(self):
         if self.rule_file is '':
             self.rule_file = "/etc/contrail/" + \
@@ -84,24 +90,28 @@ class DatabaseEventManager(EventManager):
             self.module_id, socket.gethostname(), node_type_name,
             self.instance_id, self.collector_addr, self.module_id, 8103,
             ['database.sandesh'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
+        sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
         try:
             cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
             analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
             if os.path.exists(analytics_dir):
-                self.stderr.write("analytics_dir is " + analytics_dir + "\n")
+                msg = "analytics_dir is " + analytics_dir
+                self.config_log(msg, level=SandeshLevel.SYS_ERR)
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.config_log(msg, level=SandeshLevel.SYS_ERR)
                 (disk_space_used, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$4}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.config_log(msg, level=SandeshLevel.SYS_ERR)
                 (disk_space_available, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 popen_cmd = "set `du -skL " + analytics_dir + " | awk '{s+=$1}END{print s}'` && echo $1"
-                self.stderr.write("popen_cmd is " + popen_cmd + "\n")
+                msg = "popen_cmd is " + popen_cmd
+                self.config_log(msg, level=SandeshLevel.SYS_ERR)
                 (analytics_db_size, error_value) = \
                     Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
                 disk_space_total = int(disk_space_used) + int(disk_space_available)
@@ -116,17 +126,19 @@ class DatabaseEventManager(EventManager):
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
-            sys.stderr.write("Failed to get database usage" + "\n")
+            msg = "Failed to get database usage"
+            self.config_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo, NodeStatus, NodeStatusUVE,
+            self.sandesh_global.logger())
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            NodeStatus, NodeStatusUVE, self.sandesh_global.logger())
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
@@ -177,7 +189,8 @@ class DatabaseEventManager(EventManager):
             else:
                 self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
-            sys.stderr.write("Failed to get database usage" + "\n")
+            msg = "Failed to get database usage"
+            self.config_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cassandra_cli_cmd = "cassandra-cli --host " + self.hostip + \
@@ -203,7 +216,8 @@ class DatabaseEventManager(EventManager):
 
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats,
+            self.sandesh_global.logger())
 
     def runforever(self, test=False):
         prev_current_time = int(time.time())
@@ -222,7 +236,8 @@ class DatabaseEventManager(EventManager):
 
             # check for process state change events
             if headers['eventname'].startswith("PROCESS_STATE"):
-                self.event_process_state(pheaders, headers)
+                self.event_process_state(pheaders, headers,
+                        self.sandesh_global.logger())
             # check for flag value change events
             if headers['eventname'].startswith("PROCESS_COMMUNICATION"):
                 self.event_process_communication(pdata)

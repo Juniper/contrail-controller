@@ -24,6 +24,8 @@ from ConfigParser import NoOptionError
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -72,6 +74,10 @@ class VrouterEventManager(EventManager):
         self.lb_stats = LoadbalancerStats()
     # end __init__
 
+    def config_log(self, msg, level):
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            level), msg)
+
     def process(self):
         if self.rule_file is '':
             self.rule_file = \
@@ -86,17 +92,18 @@ class VrouterEventManager(EventManager):
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8102, ['vrouter.vrouter'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
+        sandesh_global.set_logging_params(enable_local_log=True)
         self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo, NodeStatus, NodeStatusUVE,
+	    self.sandesh_global.logger())
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            NodeStatus, NodeStatusUVE, self.sandesh_global.logger())
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
@@ -104,7 +111,8 @@ class VrouterEventManager(EventManager):
 
     def send_disk_usage_info(self):
         self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
+            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats,
+	    self.sandesh_global.logger())
 
     def get_process_stat_object(self, pname):
         return VrouterProcessStat(pname)
@@ -135,7 +143,8 @@ class VrouterEventManager(EventManager):
 
             # check for process state change events
             if headers['eventname'].startswith("PROCESS_STATE"):
-                self.event_process_state(pheaders, headers)
+                self.event_process_state(pheaders, headers,
+			self.sandesh_global.logger())
                 # check for addition / deletion of processes in the node.
                 # Tor Agent process can get added / deleted based on need.
                 self.update_current_process()
@@ -158,8 +167,9 @@ class VrouterEventManager(EventManager):
                     os_nova_comp_state = 'PROCESS_STATE_STOPPED'
                 if (os_nova_comp.process_state != os_nova_comp_state):
                     os_nova_comp.process_state = os_nova_comp_state.strip()
-                    msg = 'Openstack Nova Compute status changed to:'
-                    sys.stderr.write(msg + os_nova_comp.process_state + "\n")
+                    msg = ('Openstack Nova Compute status changed to:' +
+				os_nova_comp.process_state)
+		    self.config_log(msg, level=SandeshLevel.SYS_ERR)
                     if (os_nova_comp.process_state == 'PROCESS_STATE_RUNNING'):
                         os_nova_comp.start_time = \
                             str(int(time.time() * 1000000))
@@ -176,8 +186,9 @@ class VrouterEventManager(EventManager):
                         os_nova_comp
                     self.send_process_state_db('vrouter_group')
                 else:
-                    msg = 'Openstack Nova Compute status unchanged at:'
-                    sys.stderr.write(msg + os_nova_comp.process_state + "\n")
+                    msg = ('Openstack Nova Compute status unchanged at:' +
+				os_nova_comp.process_state)
+		    self.config_log(msg, level=SandeshLevel.SYS_ERR)
                 self.process_state_db['openstack-nova-compute'] = os_nova_comp
                 prev_current_time = self.event_tick_60(prev_current_time)
 
