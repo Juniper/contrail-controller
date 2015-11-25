@@ -126,6 +126,31 @@ public:
     uint64_t min_flow_deletes_per_second() const {
         return min_flow_deletes_per_second_;
     }
+
+    void set_prev_flow_add_time(uint64_t time) {
+        prev_flow_add_time_ = time;
+    }
+    void set_prev_flow_delete_time(uint64_t time) {
+        prev_flow_delete_time_ = time;
+    }
+    void set_prev_flow_created(uint64_t value) {
+        prev_flow_created_ = value;
+    }
+    void set_prev_flow_aged(uint64_t value) {
+        prev_flow_aged_ = value;
+    }
+    void set_max_flow_adds_per_second(uint64_t value) {
+        max_flow_adds_per_second_ = value;;
+    }
+    void set_min_flow_adds_per_second(uint64_t value) {
+        min_flow_adds_per_second_ = value;;
+    }
+    void set_max_flow_deletes_per_second(uint64_t value) {
+        max_flow_deletes_per_second_ = value;;
+    }
+    void set_min_flow_deletes_per_second(uint64_t value) {
+        min_flow_deletes_per_second_ = value;
+    }
     void UpdateFlowAddMinMaxStats(uint64_t time);
     void UpdateFlowDelMinMaxStats(uint64_t time);
     void ResetFlowAddMinMaxStats(uint64_t time);

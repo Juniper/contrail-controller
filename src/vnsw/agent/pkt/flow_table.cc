@@ -116,11 +116,12 @@ void FlowTable::Copy(FlowEntry *lhs, const FlowEntry *rhs) {
         lhs->Copy(rhs);
 }
 
-FlowEntry *FlowTable::Locate(FlowEntry *flow) {
+FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
         agent_->stats()->incr_flow_created();
+        agent_->stats()->UpdateFlowAddMinMaxStats(time);
         ret.first->second->set_on_tree();
         return flow;
     }
@@ -129,8 +130,9 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow) {
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
-    FlowEntry *new_flow = Locate(flow);
-    FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow) : NULL;
+    uint64_t time = UTCTimestampUsec();
+    FlowEntry *new_flow = Locate(flow, time);
+    FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
     Add(flow, new_flow, rflow, new_rflow, false);
 }
 
@@ -221,7 +223,7 @@ void FlowTable::Add(FlowEntry *flow_req, FlowEntry *flow,
     AddInternal(flow_req, flow, rflow_req, rflow, update);
 }
 
-void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
+void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time) {
     FlowEntry *fe = it->second;
     if (fe->deleted()) {
         /* Already deleted return from here. */
@@ -252,6 +254,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it) {
     }
 
     agent_->stats()->incr_flow_aged();
+    agent_->stats()->UpdateFlowDelMinMaxStats(time);
 }
 
 bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
@@ -269,8 +272,9 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
         reverse_flow = fe->reverse_flow_entry();
     }
 
+    uint64_t time = UTCTimestampUsec();
     /* Delete the forward flow */
-    DeleteInternal(it);
+    DeleteInternal(it, time);
 
     if (!reverse_flow) {
         return true;
@@ -278,7 +282,7 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
 
     it = flow_entry_map_.find(reverse_flow->key());
     if (it != flow_entry_map_.end()) {
-        DeleteInternal(it);
+        DeleteInternal(it, time);
         return true;
     }
     return false;
