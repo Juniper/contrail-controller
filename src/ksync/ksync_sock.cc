@@ -675,8 +675,8 @@ KSyncSockTcp::KSyncSockTcp(EventManager *evm,
 
 void KSyncSockTcp::Init(EventManager *evm, ip::address ip_addr,
                         int port) {
-    SetNetlinkFamilyId(10);
     KSyncSock::SetSockTableEntry(new KSyncSockTcp(evm, ip_addr, port));
+    SetNetlinkFamilyId(10);
     KSyncSock::Init(false);
 }
 
