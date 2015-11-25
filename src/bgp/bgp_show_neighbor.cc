@@ -5,11 +5,39 @@
 #include "bgp/bgp_show_handler.h"
 
 
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/routing-instance/peer_manager.h"
 
 using std::string;
 using std::vector;
+
+//
+// Build the list of BgpPeers in one shot for now. Look at the master instance
+// and at all peers in the BgpServer's EndpointToBgpPeerList. The latter is the
+// list of all bgpaas peers in non-master instances.
+//
+static bool FillBgpNeighborInfoList(const BgpSandeshContext *bsc,
+    bool summary, uint32_t page_limit, uint32_t iter_limit,
+    const string &start_neighbor, const string &search_string,
+    vector<BgpNeighborResp> *show_list, string *next_instance) {
+    const RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
+    const RoutingInstance *rtinstance = rim->GetDefaultRoutingInstance();
+    rtinstance->peer_manager()->FillBgpNeighborInfo(
+        bsc, show_list, search_string, summary);
+
+    BgpPeer *peer = bsc->bgp_server->FindNextPeer();
+    while (peer) {
+        if (search_string.empty() ||
+            (peer->peer_basename().find(search_string) != string::npos) ||
+            (peer->peer_address_string().find(search_string) != string::npos) ||
+            (search_string == "deleted" && peer->IsDeleted())) {
+            peer->FillNeighborInfo(bsc, show_list, summary);
+        }
+        peer = bsc->bgp_server->FindNextPeer(peer->remote_endpoint());
+    }
+    return true;
+}
 
 //
 // Specialization of BgpShowHandler<>::CallbackCommon for regular introspect.
@@ -25,13 +53,10 @@ bool BgpShowHandler<BgpNeighborReq, BgpNeighborReqIterate,
     uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
 
-    // Look only at the master instance since we don't have bgp neighbors in
-    // other instances currently.
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    const RoutingInstance *rtinstance = rim->GetDefaultRoutingInstance();
-    if (rtinstance && data->next_entry.empty()) {
-        rtinstance->peer_manager()->FillBgpNeighborInfo(
-            bsc, &data->show_list, data->search_string, false);
+    // Build the list of BgpPeers in one shot for now.
+    if (data->next_entry.empty()) {
+        FillBgpNeighborInfoList(bsc, false, page_limit, iter_limit, string(),
+            data->search_string, &data->show_list, NULL);
     }
 
     // Add xmpp neighbors.
@@ -68,13 +93,10 @@ bool BgpShowHandler<ShowBgpNeighborSummaryReq, ShowBgpNeighborSummaryReqIterate,
     uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
 
-    // Look only at the master instance since we don't have bgp neighbors in
-    // other instances currently.
-    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    const RoutingInstance *rtinstance = rim->GetDefaultRoutingInstance();
-    if (rtinstance && data->next_entry.empty()) {
-        rtinstance->peer_manager()->FillBgpNeighborInfo(
-            bsc, &data->show_list, data->search_string, true);
+    // Build the list of BgpPeers in one shot for now.
+    if (data->next_entry.empty()) {
+        FillBgpNeighborInfoList(bsc, true, page_limit, iter_limit, string(),
+            data->search_string, &data->show_list, NULL);
     }
 
     // Add xmpp neighbors.

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/util.h"
+#include "io/tcp_session.h"
 #include "net/address.h"
 
 class BgpServer;
@@ -184,6 +185,16 @@ public:
     int port() const { return port_; }
     void set_port(int port) { port_ = port; }
 
+    TcpSession::Endpoint remote_endpoint() const { return remote_endpoint_; }
+    void set_remote_endpoint(TcpSession::Endpoint remote_endpoint) {
+        remote_endpoint_ = remote_endpoint;
+    }
+
+    std::string router_type() const { return router_type_; }
+    void set_router_type(const std::string &router_type) {
+        router_type_ = router_type;
+    }
+
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
@@ -236,12 +247,14 @@ private:
     std::string instance_name_;
     std::string group_name_;
     Type type_;
+    std::string router_type_;
     bool admin_down_;
     bool passive_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
     int port_;
+    TcpSession::Endpoint remote_endpoint_;
     int hold_time_;
     uint8_t loop_count_;
     uint32_t local_as_;

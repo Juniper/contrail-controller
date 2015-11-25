@@ -24,6 +24,7 @@
 using boost::system::error_code;
 using process::ConnectionState;
 using std::boolalpha;
+using std::make_pair;
 using std::noboolalpha;
 using std::string;
 
@@ -176,9 +177,14 @@ public:
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
             BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
+            server_->RemovePeer(peer->remote_endpoint(), peer);
             peer->ConfigUpdate(neighbor_config);
+            server_->InsertPeer(peer->remote_endpoint(), peer);
         } else if (event == BgpConfigManager::CFG_DELETE) {
-            peer_manager->TriggerPeerDeletion(neighbor_config);
+            BgpPeer *peer = peer_manager->TriggerPeerDeletion(neighbor_config);
+            if (peer) {
+                server_->RemovePeer(peer->remote_endpoint(), peer);
+            }
         }
     }
 
@@ -373,6 +379,37 @@ void BgpServer::UnregisterPeer(BgpPeer *peer) {
 BgpPeer *BgpServer::FindPeer(const string &name) {
     BgpPeerList::iterator loc = peer_list_.find(name);
     return (loc != peer_list_.end() ? loc->second : NULL);
+}
+
+void BgpServer::InsertPeer(TcpSession::Endpoint remote, BgpPeer *peer) {
+    if (!remote.port() || remote.address().is_unspecified())
+        return;
+
+    EndpointToBgpPeerList::iterator loc = endpoint_peer_list_.find(remote);
+    if (loc != endpoint_peer_list_.end()) {
+        loc->second->Clear(BgpProto::Notification::PeerDeconfigured);
+        endpoint_peer_list_.erase(loc);
+    }
+    endpoint_peer_list_.insert(make_pair(remote, peer));
+}
+
+void BgpServer::RemovePeer(TcpSession::Endpoint remote, BgpPeer *peer) {
+    EndpointToBgpPeerList::iterator loc = endpoint_peer_list_.find(remote);
+    if (loc != endpoint_peer_list_.end() && loc->second == peer) {
+        endpoint_peer_list_.erase(loc);
+    }
+}
+
+BgpPeer *BgpServer::FindPeer(TcpSession::Endpoint remote) const {
+    EndpointToBgpPeerList::const_iterator loc =
+        endpoint_peer_list_.find(remote);
+    return (loc == endpoint_peer_list_.end() ? NULL : loc->second);
+}
+
+BgpPeer *BgpServer::FindNextPeer(TcpSession::Endpoint remote) const {
+    EndpointToBgpPeerList::const_iterator loc =
+        endpoint_peer_list_.upper_bound(remote);
+    return (loc == endpoint_peer_list_.end() ? NULL : loc->second);
 }
 
 const string &BgpServer::localname() const {

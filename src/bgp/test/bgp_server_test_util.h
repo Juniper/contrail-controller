@@ -279,7 +279,7 @@ public:
     PeerManagerTest(RoutingInstance *instance);
     virtual BgpPeer *PeerLocate(BgpServer *server,
                                 const BgpNeighborConfig *config);
-    virtual BgpPeer *PeerLookup(boost::asio::ip::tcp::endpoint remote_endpoint);
+    virtual BgpPeer *PeerLookup(TcpSession::Endpoint remote_endpoint) const;
     virtual void DestroyIPeer(IPeer *ipeer);
 
 private:

@@ -491,6 +491,7 @@ struct BgpPeerInfoData {
     2: optional bool deleted
     23: optional bool admin_down;
     24: optional bool passive;
+    25: optional string router_type;      // bgp_schema.xsd:BgpRouterType
     3: optional string peer_type;         // internal/external
     20: optional string peer_address;
     4: optional u32 local_asn;

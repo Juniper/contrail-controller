@@ -1307,14 +1307,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-router-ip-address', 'virtual-router') -->
 
-<xsd:complexType name="BgpAsAServiceParameters">
-    <xsd:element name="vrouter-ip-address" type="IpAddressType"/>
-    <xsd:element name="port" type="xsd:integer"/>
-</xsd:complexType>
-<xsd:element name="bgp-as-a-service-parameters" type="BgpAsAServiceParameters"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Property('bgp-as-a-service-parameters', 'bgp-router') -->
-
 <xsd:element name="virtual-router-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('virtual-router-virtual-machine',

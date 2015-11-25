@@ -216,8 +216,11 @@ static void NeighborSetSessionAttributes(
         const autogen::BgpSessionAttributes *attr = iter.operator->();
         if (attr->bgp_router.empty()) {
             common = attr;
-        } else if (attr->bgp_router == localname ||
-                   attr->bgp_router == "BGPaaS") {
+        } else if (neighbor->router_type() != "bgpaas-client" &&
+            attr->bgp_router == localname) {
+            local = attr;
+        } else if (neighbor->router_type() == "bgpaas-client" &&
+            attr->bgp_router == "bgpaas-server") {
             local = attr;
         }
     }
@@ -267,6 +270,7 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     // Store a copy of the remote bgp-router's autogen::BgpRouterParams and
     // derive the autogen::BgpSessionAttributes for the session.
     const autogen::BgpRouterParams &params = remote_router->parameters();
+    neighbor->set_router_type(params.router_type);
     if (params.admin_down) {
         neighbor->set_admin_down(true);
     }
@@ -291,12 +295,34 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     }
 
     neighbor->set_peer_identifier(IpAddressToBgpIdentifier(identifier));
-
     neighbor->set_port(params.port);
     neighbor->set_hold_time(params.hold_time);
 
     if (session != NULL) {
         NeighborSetSessionAttributes(neighbor, local_name, session);
+    }
+
+    // Get remote endpoint information for bgpaas-clients if appropriate.
+    if (params.router_type == "bgpaas-client" &&
+        remote_router->IsPropertySet(
+            autogen::BgpRouter::BGP_AS_A_SERVICE_PARAMETERS)) {
+        const autogen::BgpAsAServiceParameters &bgpaas_params =
+            remote_router->bgp_as_a_service_parameters();
+        Ip4Address vrouter_address =
+            Ip4Address::from_string(bgpaas_params.vrouter_ip_address, err);
+        if (err) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Invalid bgpaas-client vrouter ip address " <<
+                bgpaas_params.vrouter_ip_address <<
+                " for neighbor " << neighbor->name());
+        }
+        if (bgpaas_params.port < 0 || bgpaas_params.port > 65535) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Invalid bgpaas-client port " << bgpaas_params.port <<
+                " for neighbor " << neighbor->name());
+        }
+        neighbor->set_remote_endpoint(TcpSession::Endpoint(vrouter_address,
+            static_cast<uint16_t>(bgpaas_params.port)));
     }
 
     // Get the local identifier and local as from the master protocol config.
@@ -501,11 +527,17 @@ bool BgpIfmapPeeringConfig::GetRouterPair(DBGraph *db_graph,
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
         if (strcmp(adj->table()->Typename(), "bgp-router") != 0)
             continue;
+        autogen::BgpRouter *router =
+            static_cast<autogen::BgpRouter *>(adj->GetObject());
+        if (!router)
+            continue;
+        const autogen::BgpRouterParams &params = router->parameters();
         string instance_name(IdentifierParent(adj->name()));
         string name = adj->name().substr(instance_name.size() + 1);
-        if (name == localname ||
-            (instance_name != BgpConfigManager::kMasterInstance &&
-             name == "BGPaaS")) {
+        if (name == localname && params.router_type != "bgpaas-client") {
+            local = adj;
+        } else if (instance_name != BgpConfigManager::kMasterInstance &&
+            params.router_type == "bgpaas-server") {
             local = adj;
         } else {
             remote = adj;
