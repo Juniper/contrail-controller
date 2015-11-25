@@ -59,6 +59,7 @@ class BgpYamlConfigManager::Configuration {
     }
 
     virtual ~Configuration() {
+        STLDeleteElements(&routing_policies_);
         STLDeleteElements(&instances_);
         STLDeleteElements(&config_map_);
     }
@@ -96,6 +97,12 @@ class BgpYamlConfigManager::Configuration {
         return &instances_;
     }
 
+    const RoutingPolicyMap &GetRoutingPolicyMap() const {
+        return routing_policies_;
+    }
+    RoutingPolicyMap *RoutingPolicyMapMutable() {
+        return &routing_policies_;
+    }
   private:
     BgpInstanceConfig *LocateInstance(const std::string &name) {
         InstanceMap::iterator loc = instances_.find(name);
@@ -107,6 +114,17 @@ class BgpYamlConfigManager::Configuration {
                     make_pair(name, new BgpInstanceConfig(name)));
         return result.first->second;
 
+    }
+
+    BgpRoutingPolicyConfig *LocateRoutingPolicy(const std::string &name) {
+        RoutingPolicyMap::iterator loc = routing_policies_.find(name);
+        if (loc != routing_policies_.end()) {
+            return loc->second;
+        }
+        pair<RoutingPolicyMap::iterator, bool> result =
+                routing_policies_.insert(
+                    make_pair(name, new BgpRoutingPolicyConfig(name)));
+        return result.first->second;
     }
 
     YamlInstanceData *LocateInstanceData(const std::string &name) {
@@ -129,6 +147,7 @@ class BgpYamlConfigManager::Configuration {
     }
 
     BgpConfigManager::InstanceMap instances_;
+    BgpConfigManager::RoutingPolicyMap routing_policies_;
     InstanceDataMap config_map_;
 };
 
@@ -165,6 +184,13 @@ BgpConfigManager::InstanceMapRange
 BgpYamlConfigManager::InstanceMapItems(const string &start_name) const {
     const BgpConfigManager::InstanceMap &map = data_->GetInstanceMap();
     return make_pair(map.lower_bound(start_name), map.end());
+}
+
+BgpConfigManager::RoutingPolicyMapRange
+BgpYamlConfigManager::RoutingPolicyMapItems(
+                         const std::string &policy_name) const {
+    const BgpConfigManager::RoutingPolicyMap map = data_->GetRoutingPolicyMap();
+    return make_pair(map.begin(), map.end());
 }
 
 BgpConfigManager::NeighborMapRange BgpYamlConfigManager::NeighborMapItems(

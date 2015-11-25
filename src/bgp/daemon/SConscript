@@ -9,6 +9,7 @@ env = BuildEnv.Clone()
 libs = [
     'bgp',
     'routing_instance',
+    'routing_policy',
     'extended_community',
     'security_group',
     'tunnel_encap',
@@ -60,6 +61,7 @@ libpath = [
     '../l3vpn',
     '../origin-vn',
     '../routing-instance',
+    '../routing-policy',
     '../rtarget',
     '../security_group',
     '../tunnel_encap',

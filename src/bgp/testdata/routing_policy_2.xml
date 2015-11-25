@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <prefix>
+                    <prefix> 3.1.0.0/16 </prefix>
+                    <type> longer </type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <local-pref>102</local-pref>
+                </update>
+                <action>accept</action>
+            </then>
+        </term>
+        <term>
+            <from>
+                <prefix>
+                    <prefix> 3.1.1.1 </prefix>
+                    <type> exact </type>
+                </prefix>
+            </from>
+            <then>
+                <action>reject</action>
+            </then>
+        </term>
+        <term>
+            <from>
+                <prefix>
+                    <prefix> 1/8 </prefix>
+                    <type> orlonger </type>
+                </prefix>
+            </from>
+            <then>
+                <action>
+                    <update>
+                        <community>
+                            <add><community>11:44</community></add>
+                        </community>
+                    </update>
+                </action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

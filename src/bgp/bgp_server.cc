@@ -19,6 +19,7 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/routing-policy/routing_policy.h"
 
 using boost::system::error_code;
 using process::ConnectionState;
@@ -38,6 +39,8 @@ public:
             boost::bind(&ConfigUpdater::ProcessProtocolConfig, this, _1, _2);
         obs.neighbor =
             boost::bind(&ConfigUpdater::ProcessNeighborConfig, this, _1, _2);
+        obs.policy =
+            boost::bind(&ConfigUpdater::ProcessRoutingPolicyConfig, this, _1, _2);
 
         server->config_manager()->RegisterObservers(obs);
     }
@@ -179,6 +182,16 @@ public:
         }
     }
 
+    void ProcessRoutingPolicyConfig(const BgpRoutingPolicyConfig *policy_config,
+                               BgpConfigManager::EventType event) {
+        if (event == BgpConfigManager::CFG_ADD ||
+            event == BgpConfigManager::CFG_CHANGE) {
+            return;
+        } else if (event == BgpConfigManager::CFG_DELETE) {
+            return;
+        }
+    }
+
     void ProcessInstanceConfig(const BgpInstanceConfig *instance_config,
                                BgpConfigManager::EventType event) {
         RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
@@ -282,6 +295,7 @@ BgpServer::BgpServer(EventManager *evm)
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
       sched_mgr_(new SchedulingGroupManager),
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
+      policy_mgr_(BgpObjectFactory::Create<RoutingPolicyMgr>(this)),
       rtarget_group_mgr_(BgpObjectFactory::Create<RTargetGroupMgr>(this)),
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       inet_condition_listener_(new BgpConditionListener(this)),

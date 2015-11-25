@@ -65,6 +65,53 @@ void BgpIfmapPeeringConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     }
 }
 
+BgpIfmapRoutingPolicyLinkConfig::BgpIfmapRoutingPolicyLinkConfig(
+             BgpIfmapInstanceConfig *rti, BgpIfmapRoutingPolicyConfig *rtp) :
+     instance_(rti), policy_(rtp) {
+}
+
+BgpIfmapRoutingPolicyLinkConfig::~BgpIfmapRoutingPolicyLinkConfig() {
+}
+
+void BgpIfmapRoutingPolicyLinkConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
+    if (proxy != NULL) {
+        node_proxy_.Swap(proxy);
+        name_ = node_proxy_.node()->name();
+    }
+}
+
+bool
+BgpIfmapRoutingPolicyLinkConfig::GetRoutingInstanceRoutingPolicyPair(DBGraph *graph,
+        IFMapNode *node, pair<IFMapNode *, IFMapNode *> *pair) {
+    IFMapNode *routing_instance = NULL;
+    IFMapNode *routing_policy = NULL;
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (strcmp(adj->table()->Typename(), "routing-instance") == 0)
+            routing_instance = adj;
+        if (strcmp(adj->table()->Typename(), "routing-policy") == 0)
+            routing_policy = adj;
+    }
+    if (routing_policy == NULL || routing_instance == NULL) {
+        return false;
+    }
+
+    pair->first = routing_instance;
+    pair->second = routing_policy;
+    return true;
+}
+
+void BgpIfmapRoutingPolicyLinkConfig::Update(BgpIfmapConfigManager *manager,
+                           const autogen::RoutingInstanceRoutingPolicy *ri_rp) {
+    ri_rp_link_.reset(ri_rp);
+}
+
+void BgpIfmapRoutingPolicyLinkConfig::Delete(BgpIfmapConfigManager *manager) {
+    ri_rp_link_.reset();
+}
+
 static AuthenticationData::KeyType KeyChainType(const std::string &value) {
     // Case-insensitive comparison
     if (boost::iequals(value, "md5")) {
@@ -620,6 +667,28 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
 }
 
 //
+// Fill in all the routing-policies for a routing-instance.  The input
+// IFMapNode represents the routing-instance-routing-policy.  We traverse to
+// graph edges and look for routing-policy adjacency
+//
+static void GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
+        RoutingPolicyAttachInfo *routing_policy) {
+    std::string sequence;
+    const autogen::RoutingInstanceRoutingPolicy *policy =
+        static_cast<autogen::RoutingInstanceRoutingPolicy *>(node->GetObject());
+    const autogen::RoutingPolicyType &attach_info = policy->data();
+    routing_policy->sequence_ = attach_info.sequence;
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (strcmp(adj->table()->Typename(), "routing-policy") == 0) {
+            routing_policy->routing_policy_ = adj->name();
+            return;
+        }
+    }
+}
+
+//
 // Get the network id for a virtual-network.  The input IFMapNode represents
 // the virtual-network.
 //
@@ -736,6 +805,63 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
     rti->swap_service_chain_list(&list);
 }
 
+void BgpIfmapConfigManager::ProcessRoutingPolicyLink(const BgpConfigDelta &delta) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    BgpIfmapRoutingPolicyLinkConfig *ri_rp_link
+        = config_->FindRoutingPolicyLink(delta.id_name);
+    if (ri_rp_link == NULL) {
+        IFMapNodeProxy *proxy = delta.node.get();
+        if (proxy == NULL) {
+            return;
+        }
+        IFMapNode *node = proxy->node();
+        if (node == NULL || delta.obj.get() == NULL) {
+            return;
+        }
+
+        pair<IFMapNode *, IFMapNode *> ri_rp_pair;
+        if (!BgpIfmapRoutingPolicyLinkConfig::GetRoutingInstanceRoutingPolicyPair(
+                                              db_graph_, node, &ri_rp_pair)) {
+            return;
+        }
+
+        std::string instance_name = ri_rp_pair.first->name();
+        std::string policy_name = ri_rp_pair.second->name();
+
+        BgpIfmapInstanceConfig *rti  =
+            config_->FindInstance(instance_name);
+        BgpIfmapRoutingPolicyConfig *rtp  =
+            config_->FindRoutingPolicy(policy_name);
+        if (!rti || !rtp) {
+            return;
+        }
+
+        ri_rp_link = config_->CreateRoutingPolicyLink(rti, rtp, proxy);
+    } else {
+        const IFMapNode *node = ri_rp_link->node();
+        assert(node != NULL);
+        if (delta.obj.get() == NULL) {
+            BgpIfmapRoutingPolicyConfig *rtp = ri_rp_link->policy();
+            BgpIfmapInstanceConfig *rti = ri_rp_link->instance();
+            config_->DeleteRoutingPolicyLink(ri_rp_link);
+            if (rtp->DeleteIfEmpty(this)) {
+                config_->DeleteRoutingPolicy(rtp);
+            }
+            if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server(), rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
+                config_->DeleteInstance(rti);
+            }
+            return;
+        }
+    }
+
+    autogen::RoutingInstanceRoutingPolicy *ri_rp_link_cfg =
+            static_cast<autogen::RoutingInstanceRoutingPolicy *>(delta.obj.get());
+
+    ri_rp_link->Update(this, ri_rp_link_cfg);
+}
 //
 // Update BgpIfmapInstanceConfig based on a new autogen::RoutingInstance object.
 //
@@ -752,6 +878,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
 void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                                     const autogen::RoutingInstance *config) {
     BgpInstanceConfig::RouteTargetList import_list, export_list;
+    BgpInstanceConfig::RoutingPolicyList policy_list;
     data_.Clear();
 
     DBGraph *graph = manager->graph();
@@ -776,6 +903,11 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                     export_list.insert(target);
                 }
             }
+        } else if (strcmp(adj->table()->Typename(),
+                          "routing-instance-routing-policy") == 0) {
+            RoutingPolicyAttachInfo policy_info;
+            GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info);
+            policy_list.push_back(policy_info);
         } else if (strcmp(adj->table()->Typename(), "routing-instance") == 0) {
             vector<string> target_list;
             GetRoutingInstanceExportTargets(graph, adj, &target_list);
@@ -793,6 +925,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
 
     data_.set_import_list(import_list);
     data_.set_export_list(export_list);
+    data_.swap_routing_policy_list(&policy_list);
 
     if (config) {
         data_.set_has_pnf(config->has_pnf());
@@ -819,7 +952,8 @@ bool BgpIfmapInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     if (node() != NULL || protocol_.get() != NULL) {
         return false;
     }
-    if (!neighbors_.empty() || !peerings_.empty()) {
+    if (!neighbors_.empty() || !peerings_.empty() ||
+        !routing_policies_.empty()) {
         return false;
     }
 
@@ -920,6 +1054,20 @@ void BgpIfmapInstanceConfig::DeletePeering(BgpIfmapPeeringConfig *peering) {
 }
 
 //
+// Add a BgpIfmapRoutingPolicyConfig to this BgpIfmapInstanceConfig.
+//
+void BgpIfmapInstanceConfig::AddRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp) {
+    routing_policies_.insert(make_pair(rtp->name(), rtp));
+}
+
+//
+// Delete a BgpIfmapRoutingPolicyConfig from this BgpIfmapInstanceConfig.
+//
+void BgpIfmapInstanceConfig::DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp) {
+    routing_policies_.erase(rtp->name());
+}
+
+//
 // Constructor for BgpIfmapConfigData.
 //
 BgpIfmapConfigData::BgpIfmapConfigData() {
@@ -1000,6 +1148,69 @@ BgpIfmapInstanceConfig::NeighborMapItems() const {
 }
 
 //
+// Create a new BgpIfmapRoutingPolicyLinkConfig.
+//
+// The IFMapNodeProxy is a proxy for the IFMapNode which is the
+// midnode that represents the routing-instance-routing-policy. The newly created
+// BgpIfmapRoutingPolicyLinkConfig gets added to the IfmapRoutingPolicyLinkMap.
+//
+BgpIfmapRoutingPolicyLinkConfig *
+BgpIfmapConfigData::CreateRoutingPolicyLink(BgpIfmapInstanceConfig *rti,
+                                            BgpIfmapRoutingPolicyConfig *rtp,
+                                            IFMapNodeProxy *proxy) {
+    BgpIfmapRoutingPolicyLinkConfig *ri_rp_link =
+        new BgpIfmapRoutingPolicyLinkConfig(rti, rtp);
+    ri_rp_link->SetNodeProxy(proxy);
+    pair<IfmapRoutingPolicyLinkMap::iterator, bool> result =
+            ri_rp_links_.insert(make_pair(ri_rp_link->node()->name(), ri_rp_link));
+    assert(result.second);
+    ri_rp_link->instance()->AddRoutingPolicy(rtp);
+    ri_rp_link->policy()->AddInstance(rti);
+    return ri_rp_link;
+}
+
+//
+// Delete a BgpIfmapRoutingPolicyLinkConfig.
+//
+// The BgpIfmapRoutingPolicyLinkConfig is removed from the
+// IfmapRoutingPolicyLinkMap and then deleted.
+// Note that the reference to the IFMapNode for the routing-instance-routing-policy
+// gets released via the destructor when the IFMapNodeProxy is destroyed.
+//
+void BgpIfmapConfigData::DeleteRoutingPolicyLink(BgpIfmapRoutingPolicyLinkConfig
+                                                 *ri_rp_link) {
+    ri_rp_links_.erase(ri_rp_link->node()->name());
+    ri_rp_link->instance()->DeleteRoutingPolicy(ri_rp_link->policy());
+    ri_rp_link->policy()->RemoveInstance(ri_rp_link->instance());
+    delete ri_rp_link;
+}
+
+//
+// Find the BgpIfmapRoutingPolicyLinkConfig by name.
+//
+BgpIfmapRoutingPolicyLinkConfig *
+BgpIfmapConfigData::FindRoutingPolicyLink(const string &name) {
+    IfmapRoutingPolicyLinkMap::iterator loc = ri_rp_links_.find(name);
+    if (loc != ri_rp_links_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
+//
+// Find the BgpIfmapRoutingPolicyLinkConfig by name.
+// Const version.
+//
+const BgpIfmapRoutingPolicyLinkConfig *
+BgpIfmapConfigData::FindRoutingPolicyLink(const string &name) const {
+    IfmapRoutingPolicyLinkMap::const_iterator loc = ri_rp_links_.find(name);
+    if (loc != ri_rp_links_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
+//
 // Create a new BgpIfmapPeeringConfig.
 //
 // The IFMapNodeProxy is a proxy for the IFMapNode which is the
@@ -1060,6 +1271,66 @@ BgpIfmapConfigData::InstanceMapItems(const string &start_name) const {
         instance_config_map_.end());
 }
 
+BgpConfigManager::RoutingPolicyMapRange
+BgpIfmapConfigData::RoutingPolicyMapItems(const string &start_name) const {
+    return make_pair(routing_policy_config_map_.lower_bound(start_name),
+        routing_policy_config_map_.end());
+}
+
+//
+// Locate the BgpIfmapRoutingPolicyConfig by name, create it if not found.
+// The newly created BgpIfmapRoutingPolicyConfig gets added to the
+// IfmapRoutingPolicyMap.
+//
+BgpIfmapRoutingPolicyConfig *BgpIfmapConfigData::LocateRoutingPolicy(const string &name) {
+    BgpIfmapRoutingPolicyConfig *rtp = FindRoutingPolicy(name);
+    if (rtp != NULL) {
+        return rtp;
+    }
+    rtp = new BgpIfmapRoutingPolicyConfig(name);
+    pair<IfmapRoutingPolicyMap::iterator, bool> result =
+            routing_policies_.insert(make_pair(name, rtp));
+    assert(result.second);
+    pair<BgpRoutingPolicyMap::iterator, bool> result2 =
+            routing_policy_config_map_.insert(
+                make_pair(name, rtp->routing_policy_config()));
+    assert(result2.second);
+    return rtp;
+}
+
+//
+// Remove the given BgpIfmapRoutingPolicyConfig from the IfmapRoutingPolicyMap
+// and delete it.
+//
+void BgpIfmapConfigData::DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp) {
+    IfmapRoutingPolicyMap::iterator loc = routing_policies_.find(rtp->name());
+    assert(loc != routing_policies_.end());
+    routing_policies_.erase(loc);
+    BgpRoutingPolicyMap::iterator loc2 =
+        routing_policy_config_map_.find(rtp->name());
+    assert(loc2 != routing_policy_config_map_.end());
+    routing_policy_config_map_.erase(loc2);
+    delete rtp;
+}
+
+BgpIfmapRoutingPolicyConfig *BgpIfmapConfigData::FindRoutingPolicy(
+    const std::string &name) {
+    IfmapRoutingPolicyMap::iterator loc = routing_policies_.find(name);
+    if (loc != routing_policies_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
+const BgpIfmapRoutingPolicyConfig *BgpIfmapConfigData::FindRoutingPolicy(
+    const std::string &name) const {
+    IfmapRoutingPolicyMap::const_iterator loc = routing_policies_.find(name);
+    if (loc != routing_policies_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
 //
 // Constructor for BgpIfmapConfigManager.
 //
@@ -1110,6 +1381,11 @@ BgpIfmapConfigManager::InstanceMapItems(const string &start_name) const {
     return config_->InstanceMapItems(start_name);
 }
 
+BgpConfigManager::RoutingPolicyMapRange
+BgpIfmapConfigManager::RoutingPolicyMapItems(const string &start_name) const {
+    return config_->RoutingPolicyMapItems(start_name);
+}
+
 BgpConfigManager::NeighborMapRange
 BgpIfmapConfigManager::NeighborMapItems(
     const std::string &instance_name) const {
@@ -1128,6 +1404,126 @@ int BgpIfmapConfigManager::NeighborCount(
         return 0;
     }
     return rti->neighbors().size();
+}
+
+//
+// Constructor for BgpIfmapRoutingPolicyConfig.
+//
+BgpIfmapRoutingPolicyConfig::BgpIfmapRoutingPolicyConfig(const std::string &name)
+    : name_(name),
+      data_(name) {
+}
+
+//
+// Destructor for BgpIfmapRoutingPolicyConfig.
+//
+BgpIfmapRoutingPolicyConfig::~BgpIfmapRoutingPolicyConfig() {
+}
+
+//
+// Set the IFMapNodeProxy for the BgpIfmapRoutingPolicyConfig.
+//
+void BgpIfmapRoutingPolicyConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
+    if (proxy != NULL) {
+        node_proxy_.Swap(proxy);
+    }
+}
+
+void BgpIfmapRoutingPolicyConfig::Delete(BgpConfigManager *manager) {
+    manager->Notify(&data_, BgpConfigManager::CFG_DELETE);
+    routing_policy_.reset();
+}
+
+//
+// Return true if the BgpIfmapRoutingPolicyConfig is ready to be deleted.
+// The caller is responsible for actually deleting it.
+//
+bool BgpIfmapRoutingPolicyConfig::DeleteIfEmpty(BgpConfigManager *manager) {
+    if (node() != NULL) {
+        return false;
+    }
+    if (!instances_.empty()) {
+        return false;
+    }
+
+    Delete(manager);
+    return true;
+}
+
+//
+// Add a BgpIfmapInstanceConfig to BgpIfmapRoutingPolicyConfig.
+//
+void BgpIfmapRoutingPolicyConfig::AddInstance(BgpIfmapInstanceConfig *rti) {
+    instances_.insert(make_pair(rti->name(), rti));
+}
+
+//
+// Remove a BgpIfmapInstanceConfig to BgpIfmapRoutingPolicyConfig.
+//
+void BgpIfmapRoutingPolicyConfig::RemoveInstance(BgpIfmapInstanceConfig *rti) {
+    instances_.erase(rti->name());
+}
+
+
+static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
+                            RoutingPolicyTerm *term) {
+    term->match.community_match = cfg_term.fromxx.community;
+    term->match.prefix_match.prefix_to_match = cfg_term.fromxx.prefix.prefix;
+    term->match.prefix_match.prefix_match_type = cfg_term.fromxx.prefix.type_;
+    BOOST_FOREACH(const std::string community,
+                  cfg_term.then.update.community.add.community) {
+        term->action.update.community_add.push_back(community);
+    }
+    BOOST_FOREACH(const std::string community,
+                  cfg_term.then.update.community.remove.community) {
+        term->action.update.community_remove.push_back(community);
+    }
+    BOOST_FOREACH(const std::string community,
+                  cfg_term.then.update.community.set.community) {
+        term->action.update.community_set.push_back(community);
+    }
+    term->action.update.local_pref = cfg_term.then.update.local_pref;
+    term->action.action = RoutingPolicyAction::ACCEPT;
+    if (strcmp(cfg_term.then.action.c_str(), "reject") == 0) {
+        term->action.action = RoutingPolicyAction::REJECT;
+    } else if (strcmp(cfg_term.then.action.c_str(), "next") == 0) {
+        term->action.action = RoutingPolicyAction::NEXT_TERM;
+    }
+}
+
+static void BuildPolicyTerms(BgpRoutingPolicyConfig *policy_cfg,
+                             const autogen::RoutingPolicy *policy) {
+    std::vector<autogen::PolicyTerm> terms = policy->entries();
+    BOOST_FOREACH(autogen::PolicyTerm cfg_term, terms) {
+        RoutingPolicyTerm policy_term;
+        BuildPolicyTerm(cfg_term, &policy_term);
+        policy_cfg->add_term(policy_term);
+    }
+}
+
+void BgpIfmapRoutingPolicyConfig::Update(BgpIfmapConfigManager *manager,
+                                         const autogen::RoutingPolicy *policy) {
+    routing_policy_.reset(policy);
+    data_.Clear();
+    if (policy) {
+        BuildPolicyTerms(&data_, policy);
+    }
+}
+
+//
+// Reset IFMap related state in the BgpIfmapRoutingPolicyConfig.
+//
+void BgpIfmapRoutingPolicyConfig::ResetConfig() {
+    node_proxy_.Clear();
+}
+
+const BgpRoutingPolicyConfig *BgpIfmapConfigManager::FindRoutingPolicy(
+    const std::string &name) const {
+    BgpIfmapRoutingPolicyConfig *rtp = config_->FindRoutingPolicy(name);
+    if (rtp == NULL) {
+        return NULL;
+    }
+    return rtp->routing_policy_config();
 }
 
 const BgpInstanceConfig *BgpIfmapConfigManager::FindInstance(
@@ -1214,6 +1610,10 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
     id_map_.insert(make_pair("routing-instance",
             boost::bind(&BgpIfmapConfigManager::ProcessRoutingInstance,
                         this, _1)));
+    id_map_.insert(make_pair("routing-policy",
+            boost::bind(&BgpIfmapConfigManager::ProcessRoutingPolicy, this, _1)));
+    id_map_.insert(make_pair("routing-instance-routing-policy",
+            boost::bind(&BgpIfmapConfigManager::ProcessRoutingPolicyLink, this, _1)));
     id_map_.insert(make_pair("bgp-router",
             boost::bind(&BgpIfmapConfigManager::ProcessBgpRouter, this, _1)));
     id_map_.insert(make_pair("bgp-peering",
@@ -1407,6 +1807,54 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             families);
     }
 }
+
+//
+// Handler for routing policy objects.
+//
+// BgpConfigListener::DependencyTracker ensures associated routing instances
+// are present in the change list.
+//
+void BgpIfmapConfigManager::ProcessRoutingPolicy(const BgpConfigDelta &delta) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
+    string policy_name = delta.id_name;
+    BgpIfmapRoutingPolicyConfig *rtp = config_->FindRoutingPolicy(policy_name);
+    if (rtp == NULL) {
+        IFMapNodeProxy *proxy = delta.node.get();
+        if (proxy == NULL) {
+            return;
+        }
+        IFMapNode *node = proxy->node();
+        if (node == NULL || node->IsDeleted()) {
+            return;
+        }
+        event = BgpConfigManager::CFG_ADD;
+        rtp = config_->LocateRoutingPolicy(policy_name);
+        rtp->SetNodeProxy(proxy);
+    } else {
+        IFMapNode *node = rtp->node();
+        if (node == NULL) {
+            IFMapNodeProxy *proxy = delta.node.get();
+            if (proxy == NULL) {
+                return;
+            }
+            rtp->SetNodeProxy(proxy);
+        } else if (node->IsDeleted()) {
+            rtp->ResetConfig();
+            if (rtp->DeleteIfEmpty(this)) {
+                config_->DeleteRoutingPolicy(rtp);
+            }
+            return;
+        }
+    }
+
+    autogen::RoutingPolicy *rtp_config =
+        static_cast<autogen::RoutingPolicy *>(delta.obj.get());
+    rtp->Update(this, rtp_config);
+    Notify(rtp->routing_policy_config(), event);
+}
+
 
 //
 // Handler for bgp-router objects.

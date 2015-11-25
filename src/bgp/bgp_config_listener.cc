@@ -51,8 +51,20 @@ void BgpConfigListener::DependencyTrackerInit() {
     ReactionMap rt_instance_react = map_list_of<string, PropagateList>
         ("instance-target", list_of("self")("connection"))
         ("connection", list_of("self"))
-        ("virtual-network-routing-instance", list_of("self"));
+        ("virtual-network-routing-instance", list_of("self"))
+        ("routing-instance-routing-policy", list_of("self"));
     policy->insert(make_pair("routing-instance", rt_instance_react));
+
+    ReactionMap routing_policy_assoc_react = map_list_of<string, PropagateList>
+        ("self", list_of("routing-instance-routing-policy"))
+        ("routing-instance-routing-policy", list_of("routing-instance-routing-policy"));
+    policy->insert(make_pair("routing-instance-routing-policy",
+                             routing_policy_assoc_react));
+
+    ReactionMap routing_policy_react = map_list_of<string, PropagateList>
+        ("self", list_of("routing-instance-routing-policy"))
+        ("routing-instance-routing-policy", list_of("self"));
+    policy->insert(make_pair("routing-policy", routing_policy_react));
 
     ReactionMap virtual_network_react = map_list_of<string, PropagateList>
         ("self", list_of("virtual-network-routing-instance"));
