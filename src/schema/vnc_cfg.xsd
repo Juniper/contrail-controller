@@ -1288,13 +1288,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'logical-interface', 'virtual-machine-interface', ['ref']) -->
 
 <xsd:element name="bgp-as-a-service" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('virtual-network-bgpaas', 'virtual-network', 'bgp-as-a-service',
+         ['has']) -->
 <xsd:element name="bgpaas-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgpaas-ip-address', 'bgp-as-a-service') -->
+<xsd:element name="bgpaas-session-attributes" type="BgpSessionAttributes"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-session-attributes', 'bgp-as-a-service') -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('global-system-config-virtual-router', 
              'global-system-config', 'virtual-router', ['has']) -->
 <xsd:element name="virtual-router-ip-address" type="IpAddressType"/>
@@ -1306,33 +1312,33 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:element name="port" type="xsd:integer"/>
 </xsd:complexType>
 <xsd:element name="bgp-as-a-service-parameters" type="BgpAsAServiceParameters"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('bgp-as-a-service-parameters', 'bgp-router') -->
 
 <xsd:element name="virtual-router-virtual-machine"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
     Link('virtual-router-virtual-machine',
          'virtual-router', 'virtual-machine', ['ref']) -->
 
 <xsd:element name="virtual-network-routing-instance"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('virtual-network-routing-instance', ['backend']);
      Link('virtual-network-routing-instance',
           'virtual-network', 'bgp:routing-instance', ['has', 'derived']) -->
 <xsd:element name="customer-attachment-virtual-machine-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-virtual-machine-interface',
              ['backend', 'frontend']);
      Link('customer-attachment-virtual-machine-interface',
           'bgp:customer-attachment', 'virtual-machine-interface', ['ref']) -->
 <xsd:element name="customer-attachment-floating-ip"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-floating-ip',
              ['backend', 'frontend']);
      Link('customer-attachment-floating-ip',
           'bgp:customer-attachment', 'floating-ip', ['ref']) -->
 <xsd:element name="provider-attachment-virtual-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('provider-attachment-virtual-router',
              ['backend', 'frontend']);
      Link('provider-attachment-virtual-router',
