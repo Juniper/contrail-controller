@@ -42,14 +42,23 @@ from control_node.control_node.process_info.constants import \
 class ControlEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
-        EventManager.__init__(
-            self, rule_file, discovery_server,
-            discovery_port, collector_addr)
         self.node_type = "contrail-control"
         self.module = Module.CONTROL_NODE_MGR
         self.module_id = ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///tmp/supervisord_control.sock"
         self.add_current_process()
+        node_type = Module2NodeType[self.module]
+        node_type_name = NodeTypeNames[node_type]
+        self.sandesh_global = sandesh_global;
+        EventManager.__init__(
+            self, rule_file, discovery_server,
+            discovery_port, collector_addr, sandesh_global)
+        _disc = self.get_discovery_client()
+        sandesh_global.init_generator(
+            self.module_id, socket.gethostname(),
+            node_type_name, self.instance_id, self.collector_addr,
+            self.module_id, 8101, ['control_node.control_node'], _disc)
+        sandesh_global.set_logging_params(enable_local_log=True)
     # end __init__
 
     def process(self):
@@ -58,15 +67,6 @@ class ControlEventManager(EventManager):
                 "supervisord_control_files/contrail-control.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
-        node_type = Module2NodeType[self.module]
-        node_type_name = NodeTypeNames[node_type]
-        _disc = self.get_discovery_client()
-        sandesh_global.init_generator(
-            self.module_id, socket.gethostname(),
-            node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8101, ['control_node.control_node'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
-        self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(

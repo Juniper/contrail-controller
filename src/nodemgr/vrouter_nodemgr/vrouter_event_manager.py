@@ -24,7 +24,9 @@ from ConfigParser import NoOptionError
 from supervisor import childutils
 
 from pysandesh.sandesh_base import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_session import SandeshWriter
+from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
@@ -45,12 +47,21 @@ from loadbalancer_stats import LoadbalancerStats
 class VrouterEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
-        EventManager.__init__(self, rule_file, discovery_server,
-                              discovery_port, collector_addr)
-        self.node_type = "contrail-vrouter"
         self.module = Module.COMPUTE_NODE_MGR
         self.module_id = ModuleNames[self.module]
 
+        node_type = Module2NodeType[self.module]
+        node_type_name = NodeTypeNames[node_type]
+        self.sandesh_global = sandesh_global
+        EventManager.__init__(self, rule_file, discovery_server,
+                              discovery_port, collector_addr, sandesh_global)
+        self.node_type = "contrail-vrouter"
+        _disc = self.get_discovery_client()
+        sandesh_global.init_generator(
+            self.module_id, socket.gethostname(),
+            node_type_name, self.instance_id, self.collector_addr,
+            self.module_id, 8102, ['vrouter.vrouter'], _disc)
+        sandesh_global.set_logging_params(enable_local_log=True)
         self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
         self.add_current_process()
 
@@ -72,6 +83,10 @@ class VrouterEventManager(EventManager):
         self.lb_stats = LoadbalancerStats()
     # end __init__
 
+    def msg_log(self, msg, level):
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            level), msg)
+
     def process(self):
         if self.rule_file is '':
             self.rule_file = \
@@ -79,15 +94,6 @@ class VrouterEventManager(EventManager):
                 "contrail-vrouter.rules"
         json_file = open(self.rule_file)
         self.rules_data = json.load(json_file)
-        node_type = Module2NodeType[self.module]
-        node_type_name = NodeTypeNames[node_type]
-        _disc = self.get_discovery_client()
-        sandesh_global.init_generator(
-            self.module_id, socket.gethostname(),
-            node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8102, ['vrouter.vrouter'], _disc)
-        # sandesh_global.set_logging_params(enable_local_log=True)
-        self.sandesh_global = sandesh_global
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
@@ -158,8 +164,9 @@ class VrouterEventManager(EventManager):
                     os_nova_comp_state = 'PROCESS_STATE_STOPPED'
                 if (os_nova_comp.process_state != os_nova_comp_state):
                     os_nova_comp.process_state = os_nova_comp_state.strip()
-                    msg = 'Openstack Nova Compute status changed to:'
-                    sys.stderr.write(msg + os_nova_comp.process_state + "\n")
+                    msg = ('Openstack Nova Compute status changed to:' +
+				os_nova_comp.process_state)
+		    self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                     if (os_nova_comp.process_state == 'PROCESS_STATE_RUNNING'):
                         os_nova_comp.start_time = \
                             str(int(time.time() * 1000000))
@@ -176,8 +183,9 @@ class VrouterEventManager(EventManager):
                         os_nova_comp
                     self.send_process_state_db('vrouter_group')
                 else:
-                    msg = 'Openstack Nova Compute status unchanged at:'
-                    sys.stderr.write(msg + os_nova_comp.process_state + "\n")
+                    msg = ('Openstack Nova Compute status unchanged at:' +
+				os_nova_comp.process_state)
+		    self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                 self.process_state_db['openstack-nova-compute'] = os_nova_comp
                 prev_current_time = self.event_tick_60(prev_current_time)
 
