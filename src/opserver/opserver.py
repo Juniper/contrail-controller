@@ -48,7 +48,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
-     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_PARTITION_SERVICE_NAME
+     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -2210,18 +2210,20 @@ class OpServer(object):
     def disc_agp(self, clist):
         new_agp = {}
         for elem in clist:
-            if int(elem['acq-time']) == 0:
-                continue
-            pi = PartInfo(instance_id = elem['instance-id'],
-                          ip_address = elem['ip-address'],
-                          acq_time = int(elem['acq-time']),
-                          port = int(elem['port']))
-            partno = int(elem['partition'])
-            if partno not in new_agp:
-                new_agp[partno] = pi
-            else:
-                if pi.acq_time > new_agp[partno].acq_time:
+            instance_id = elem['instance-id']
+            port = int(elem['redis-port']) 
+            ip_address = elem['ip-address']
+            parts = json.loads(elem['partitions'])
+            for partno,acq_time in parts.iteritems():
+                pi = PartInfo(instance_id = instance_id,
+                              ip_address = ip_address,
+                              acq_time = acq_time,
+                              port = port)
+                if partno not in new_agp:
                     new_agp[partno] = pi
+                else:
+                    if pi.acq_time > new_agp[partno].acq_time:
+                        new_agp[partno] = pi
         if len(new_agp) == self._args.partitions and \
                 len(self.agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
@@ -2254,7 +2256,7 @@ class OpServer(object):
             self.gevs.append(sp)
 
             sp2 = ServicePoller(self._logger, CollectorTrace, \
-                                self.disc, ALARM_PARTITION_SERVICE_NAME, \
+                                self.disc, ALARM_GENERATOR_SERVICE_NAME, \
                                 self.disc_agp, self._sandesh)
             sp2.start()
             self.gevs.append(sp2)
