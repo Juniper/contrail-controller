@@ -21,6 +21,22 @@
 <!--#IFMAP-SEMANTICS-IDL 
     Link('instance-target', 'routing-instance', 'route-target', ['ref']) -->
 
+<xsd:element name="route-aggregate" type="ifmap:IdentityType"/>
+
+<xsd:complexType name='AggregateRouteType'>
+    <xsd:element name='prefix' type='xsd:string'/>
+    <xsd:element name='nexthop' type='xsd:string'/>
+</xsd:complexType>
+
+<xsd:element name='aggregate-route' type='AggregateRouteType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('aggregate-route', 'route-aggregate') -->
+
+<xsd:element name="routing-instance-route-aggregate"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('routing-instance-route-aggregate',
+          'routing-instance', 'route-aggregate', ['ref']) -->
+
 <xsd:complexType name="RoutingPolicyType">
     <xsd:annotation>
         <xsd:documentation>
