@@ -62,14 +62,16 @@ public:
     const static int kQSizeHighWaterMark;
     const static int kQSizeLowWaterMark;
 
-    typedef boost::function<bool(const VizMsg*, bool, DbHandler *)> VizCallback;
+    typedef boost::function<bool(const VizMsg*, bool, DbHandler *,
+                                 const std::string&)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
               std::vector<std::string> cassandra_ips,
               std::vector<int> cassandra_ports, const TtlMap& ttl_map,
               const std::string& cassandra_user,
-              const std::string& cassandra_password);
+              const std::string& cassandra_password,
+              bool use_collector_dbhandler);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -133,6 +135,7 @@ public:
     }
 
     std::string DbGlobalName(bool dup=false);
+    bool use_collector_db_handler() { return use_collector_db_handler_;}
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -170,6 +173,7 @@ private:
     int db_task_id_;
     std::string cassandra_user_;
     std::string cassandra_password_;
+    bool use_collector_db_handler_;
 
     // SandeshGenerator map
     typedef boost::ptr_map<SandeshGenerator::GeneratorId, SandeshGenerator> GeneratorMap;

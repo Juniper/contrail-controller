@@ -148,3 +148,24 @@ void VizMsgStatistics::Get(std::vector<SandeshMessageInfo> *smv) {
     }
     type_level_map.clear();
 }
+
+void GeneratorMsgStatistics::Update(const std::string gen_name,
+                                    const VizMsg *vmsg) {
+    GeneratorMsgStatsMap::iterator it =
+        generator_dropped_msg_stats_map.find(gen_name);
+    if (it == generator_dropped_msg_stats_map.end()) {
+        it = (generator_dropped_msg_stats_map.insert(gen_name, new VizMsgStatistics)).first;
+    }
+    VizMsgStatistics *dropped_msgstats = it->second;
+    dropped_msgstats->Update(vmsg);
+}
+
+void GeneratorMsgStatistics::Get(const std::string &gen_name,
+                                 std::vector<SandeshStats> *ssv) const {
+    GeneratorMsgStatsMap::const_iterator it =
+        generator_dropped_msg_stats_map.find(gen_name);
+    if (it != generator_dropped_msg_stats_map.end()) {
+        const VizMsgStatistics *dropped_msgstats = it->second;
+        dropped_msgstats->Get(ssv);
+    }
+}

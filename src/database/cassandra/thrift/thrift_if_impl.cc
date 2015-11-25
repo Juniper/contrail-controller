@@ -1038,7 +1038,8 @@ void ThriftIfImpl::Db_ResetQueueWaterMarks() {
 }
 
 bool ThriftIfImpl::Db_AddTablespace(const std::string& tablespace,
-    const std::string& replication_factor) {
+    const std::string& replication_factor,
+    const std::string& gen_name) {
     if (!Db_FindTablespace(tablespace)) {
         KsDef ks_def;
         ks_def.__set_name(tablespace);
@@ -1058,7 +1059,8 @@ bool ThriftIfImpl::Db_AddTablespace(const std::string& tablespace,
     return true;
 }
 
-bool ThriftIfImpl::Db_SetTablespace(const std::string& tablespace) {
+bool ThriftIfImpl::Db_SetTablespace(const std::string& tablespace,
+    const std::string& gen_name) {
     if (!Db_FindTablespace(tablespace)) {
         THRIFTIF_LOG_ERR_RETURN_FALSE("Tablespace: " << tablespace <<
             "NOT FOUND");
@@ -1084,7 +1086,7 @@ bool ThriftIfImpl::Db_SetTablespace(const std::string& tablespace) {
 }
 
 bool ThriftIfImpl::Db_AddSetTablespace(const std::string& tablespace,
-    const std::string& replication_factor) {
+    const std::string& replication_factor, const std::string& gen_name) {
     if (!Db_AddTablespace(tablespace, replication_factor)) {
         stats_.IncrementErrors(
             ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
@@ -1174,7 +1176,8 @@ bool ThriftIfImpl::DbDataValueFromString(GenDb::DbDataValue& res,
 }
 
 
-bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
+bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf,
+    const std::string& gen_name) {
     if (Db_FindColumnfamily(cf.cfname_)) {
         return true;
     }
@@ -1456,7 +1459,8 @@ void ThriftIfImpl::Db_BatchAddColumn(bool done) {
     mutation_map_.clear();
 }
 
-bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+    const std::string& gen_name) {
     tbb::mutex::scoped_lock lock(q_mutex_);
     if (!Db_IsInitDone() || !q_.get()) {
         UpdateCfWriteFailStats(cl->cfname_);
@@ -1468,7 +1472,8 @@ bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
     return true;
 }
 
-bool ThriftIfImpl::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIfImpl::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl,
+    const std::string& gen_name) {
     ThriftIfColList qentry;
     std::string cfname(cl->cfname_);
     qentry.gendb_cl = cl.release();
@@ -1527,7 +1532,7 @@ bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
 }
 
 bool ThriftIfImpl::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
-        const DbDataValueVec& rowkey) {
+        const DbDataValueVec& rowkey, const std::string& gen_name) {
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
@@ -1566,7 +1571,8 @@ bool ThriftIfImpl::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
 
 bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
     const std::vector<DbDataValueVec>& rowkeys,
-    GenDb::ColumnNameRange *crange_ptr) {
+    GenDb::ColumnNameRange *crange_ptr,
+    const std::string& gen_name) {
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
@@ -1655,7 +1661,8 @@ bool ThriftIfImpl::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) c
     return true;
 }
 
-bool ThriftIfImpl::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
+bool ThriftIfImpl::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe,
+    const std::string& gen_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.Get(vdbti, dbe);
     return true;

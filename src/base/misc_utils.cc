@@ -17,6 +17,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+#include <sys/utsname.h>
 
 using namespace std;
 namespace fs = boost::filesystem;
@@ -153,4 +154,21 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
     d.Accept(writer);
     result = strbuf.GetString();
     return ret;
+}
+
+/*
+ * centos:
+ * version - 2.6.32-358.el6.x86_64 release - #1 SMP Fri Feb 22 00:31:26 UTC 2013
+ * ubuntu:
+ * version - 3.8.0-29-generic release - #42~precise1-Ubuntu SMP Wed Aug 14 16:19:23 UTC 2013
+ */
+bool MiscUtils::GetPlatformInfo(std::string &release, std::string &version) {
+    struct utsname buf;
+    int ret =  uname(&buf);
+    if (ret != 0) {
+        return false;
+    }
+    release = buf.release;
+    version = buf.version;
+    return true;
 }

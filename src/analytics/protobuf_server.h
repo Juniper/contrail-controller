@@ -23,7 +23,8 @@ namespace protobuf {
 class ProtobufServer {
  public:
     ProtobufServer(EventManager *evm, uint16_t udp_server_port,
-        StatWalker::StatTableInsertFn stat_db_cb);
+        StatWalker::StatTableInsertFn stat_db_cb,
+        const std::string& gen_name);
     virtual ~ProtobufServer();
     bool Initialize();
     void Shutdown();

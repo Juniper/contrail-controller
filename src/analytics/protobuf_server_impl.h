@@ -41,7 +41,8 @@ class ProtobufReader {
 void ProcessProtobufMessage(const ::google::protobuf::Message& message,
     const uint64_t &timestamp,
     const boost::asio::ip::udp::endpoint &remote_endpoint,
-    StatWalker::StatTableInsertFn stat_db_callback);
+    StatWalker::StatTableInsertFn stat_db_callback,
+    const std::string& gen_name);
 
 void ProtobufLibraryLog(::google::protobuf::LogLevel level,
     const char* filename, int line, const std::string& message);

@@ -71,7 +71,8 @@ Collector::Collector(EventManager *evm, short server_port,
         std::vector<std::string> cassandra_ips,
         std::vector<int> cassandra_ports, const TtlMap& ttl_map,
         const std::string &cassandra_user,
-        const std::string &cassandra_password) :
+        const std::string &cassandra_password,
+        bool use_collector_dbhandler) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -83,6 +84,7 @@ Collector::Collector(EventManager *evm, short server_port,
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         cassandra_user_(cassandra_user),
         cassandra_password_(cassandra_password),
+        use_collector_db_handler_(use_collector_dbhandler),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
 
@@ -243,7 +245,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     GeneratorMap::iterator gen_it = gen_map_.find(id);
     if (gen_it == gen_map_.end()) {
         gen = new SandeshGenerator(this, vsession, state_machine, id.get<0>(),
-                id.get<1>(), id.get<2>(), id.get<3>());
+                id.get<1>(), id.get<2>(), id.get<3>(),db_handler_);
         gen_map_.insert(id, gen);
     } else {
         // Update the generator if needed
@@ -335,7 +337,7 @@ void Collector::TestDatabaseConnection() {
         cassandra_ips_, cassandra_ports_, db_handler_->GetName(), true,
         cassandra_user_, cassandra_password_));
 
-    if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
+    if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_, "test_dbif")) {
         if (dbConnStatus_ != ConnectionStatus::DOWN) {
             LOG(ERROR, "Connection to DB FAILED");
             dbConnStatus_ = ConnectionStatus::DOWN;
