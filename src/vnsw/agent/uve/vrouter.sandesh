@@ -92,6 +92,7 @@ struct VrouterAgent {  // Agent info
    48: optional string mode;
    49: optional list<string> unmanaged_if_list;
    50: optional u32 vn_count; //being sent for UI dashboard optimization
+   51: optional string platform;
 }
 
 uve sandesh UveVrouterAgent {

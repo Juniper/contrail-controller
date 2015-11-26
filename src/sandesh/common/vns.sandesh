@@ -208,6 +208,18 @@ const map<byte, string> VrouterAgentTypeMap = {
     VrouterAgentType.VROUTER_AGENT_EMBEDDED: 'VROUTER'
 }
 
+enum VrouterAgentPlatformType {
+    VROUTER_AGENT_ON_NIC,
+    VROUTER_AGENT_ON_HOST_DPDK,
+    VROUTER_AGENT_ON_HOST
+}
+
+const map<byte, string> VrouterAgentPlatformTypeMap = {
+    VrouterAgentPlatformType.VROUTER_AGENT_ON_NIC        : 'NIC',
+    VrouterAgentPlatformType.VROUTER_AGENT_ON_HOST_DPDK  : 'HOST_DPDK',
+    VrouterAgentPlatformType.VROUTER_AGENT_ON_HOST       : 'HOST'
+}
+
 const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
 const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
 const string MODULE_API_SERVER_NAME = "contrail-api"
