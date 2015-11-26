@@ -169,7 +169,7 @@ class VRouterDocker(object):
         self._client.stop(vm_name)
 
         netns_path = "/var/run/netns/%s" % docker_pid
-        if os.path.exists(netns_path):
+        if os.path.islink(netns_path):
             os.remove(netns_path)
 
     def create(self):

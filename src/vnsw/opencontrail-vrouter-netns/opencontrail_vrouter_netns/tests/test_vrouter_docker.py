@@ -78,15 +78,21 @@ class DockerTest(unittest.TestCase):
 
 
     @mock.patch('opencontrail_vrouter_netns.vrouter_docker.NetnsManager')
-    def test_delete(self, mock_netns):
+    @mock.patch('opencontrail_vrouter_netns.vrouter_docker.os')
+    def test_delete(self, mock_os, mock_netns):
         cmd = "destroy"
         cmd += " " + self.VM_ID
         cmd += " --vmi-left-id " + self.VMI_LEFT['id']
         cmd += " --vmi-right-id " + self.VMI_RIGHT['id']
         cmd += " --vmi-management-id " + self.VMI_LEFT['id']
         app = self.mock_app(cmd)
+        mock_os.path.islink.return_value = True
         app.args.func()
+
         app._client.inspect_container.assert_called_with(self.VM_ID)
         mocked_netns = mock_netns.return_value
         mocked_netns.unplug_namespace_interface.assert_called_with()
         mocked_netns.destroy.assert_called_with()
+        docker_pid = self.MOCK_CONTAINER["State"]["Pid"]
+        mock_os.remove.assert_called_once_with("/var/run/netns/%s" % docker_pid)
+        mock_os.path.islink.assert_called_once_with("/var/run/netns/%s" % docker_pid)
