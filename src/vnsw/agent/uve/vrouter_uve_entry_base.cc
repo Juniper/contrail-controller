@@ -626,6 +626,23 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
                 (VrouterAgentType::VROUTER_AGENT_EMBEDDED));
         }
 
+        if (agent_->vrouter_on_nic_mode()) {
+            vrouter_agent.set_platform(vnsVrouterType.
+                                       VrouterAgentPlatformTypeMap.at
+                                       (VrouterAgentPlatformType::
+                                        VROUTER_AGENT_ON_NIC));
+        } else if (agent_->vrouter_on_host_dpdk()) {
+            vrouter_agent.set_platform(vnsVrouterType.
+                                       VrouterAgentPlatformTypeMap.at
+                                       (VrouterAgentPlatformType::
+                                        VROUTER_AGENT_ON_HOST_DPDK));
+        } else if (agent_->vrouter_on_host()) {
+            vrouter_agent.set_platform(vnsVrouterType.
+                                       VrouterAgentPlatformTypeMap.at
+                                       (VrouterAgentPlatformType::
+                                        VROUTER_AGENT_ON_HOST));
+        }
+
         first = false;
         changed = true;
     }
