@@ -1262,6 +1262,10 @@ class VncApiServer(object):
             'loadbalancer-healthmonitor').generate_default_instance = False
         self.get_resource_class(
             'virtual-ip').generate_default_instance = False
+        self.get_resource_class(
+            'loadbalancer').generate_default_instance = False
+        self.get_resource_class(
+            'loadbalancer-listener').generate_default_instance = False
         self.get_resource_class('config-node').generate_default_instance = False
         self.get_resource_class('analytics-node').generate_default_instance = False
         self.get_resource_class('database-node').generate_default_instance = False

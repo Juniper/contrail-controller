@@ -74,6 +74,7 @@ class SvcMonitor(object):
         "loadbalancer_pool": {
             'self': [],
             'virtual_ip': [],
+            'loadbalancer_listener': [],
             'loadbalancer_member': [],
             'loadbalancer_healthmonitor': [],
         },
@@ -84,6 +85,15 @@ class SvcMonitor(object):
         "virtual_ip": {
             'self': ['loadbalancer_pool'],
             'loadbalancer_pool': []
+        },
+        "loadbalancer_listener": {
+            'self': ['loadbalancer_pool'],
+            'loadbalancer_pool': [],
+            'loadbalancer': []
+        },
+        "loadbalancer": {
+            'self': ['loadbalancer_listener'],
+            'loadbalancer_listener': []
         },
         "loadbalancer_healthmonitor": {
             'self': ['loadbalancer_pool'],
