@@ -640,6 +640,7 @@ public:
     virtual bool OperEntryDelete(const FlowMgmtRequest *req, FlowMgmtKey *key);
     virtual bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
 private:
+    void SetDBEntry(const FlowMgmtRequest *req, FlowMgmtKey *key);
     DISALLOW_COPY_AND_ASSIGN(RouteFlowMgmtTree);
 };
 

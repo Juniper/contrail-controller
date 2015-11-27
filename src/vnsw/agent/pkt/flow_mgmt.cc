@@ -1077,8 +1077,26 @@ bool RouteFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
     return ret;
 }
 
+void RouteFlowMgmtTree::SetDBEntry(const FlowMgmtRequest *req,
+                                   FlowMgmtKey *key) {
+    Tree::iterator it = tree_.find(key);
+    if (it == tree_.end()) {
+        return;
+    }
+
+    if (it->first->db_entry()) {
+        assert(it->first->db_entry() == req->db_entry());
+        return;
+    }
+    it->first->set_db_entry(req->db_entry());
+    return;
+}
+
 bool RouteFlowMgmtTree::OperEntryDelete(const FlowMgmtRequest *req,
                                         FlowMgmtKey *key) {
+    // Set the db_entry if it was not set earlier. It is needed to send the
+    // FreeDBState message
+    SetDBEntry(req, key);
     bool ret = FlowMgmtTree::OperEntryDelete(req, key);
     RouteFlowMgmtKey *route_key = static_cast<RouteFlowMgmtKey *>(key);
     mgr_->RetryVrfDelete(route_key->vrf_id());
@@ -1091,10 +1109,8 @@ bool RouteFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
     if (req->db_entry() == NULL)
         return ret;
 
-    Tree::iterator it = tree_.find(key);
-    if (it != tree_.end()) {
-        it->first->set_db_entry(req->db_entry());
-    }
+    // Set the DBEntry in the flow-mgmt-entry
+    SetDBEntry(req, key);
     return ret;
 }
 
