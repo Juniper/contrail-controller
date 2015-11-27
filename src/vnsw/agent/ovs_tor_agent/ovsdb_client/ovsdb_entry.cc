@@ -243,3 +243,7 @@ void OvsdbDBEntry::Ack(bool success) {
         }
     }
 }
+
+void OvsdbDBEntry::TriggerDeleteAdd() {
+    GetObject()->SafeNotifyEvent(this, KSyncEntry::DEL_ADD_REQ);
+}

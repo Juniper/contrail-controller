@@ -28,14 +28,16 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         uint16_t vlan_tag, const std::string &logical_switch) :
     OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
     physical_port_name_(physical_port), physical_device_name_(physical_device),
-    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vlan_(vlan_tag), vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
     logical_switch_name_(), physical_port_name_(entry->phy_intf_display_name()),
     physical_device_name_(entry->phy_dev_display_name()), vlan_(entry->vlan()),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
@@ -43,7 +45,8 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
     logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
     physical_device_name_(key->physical_device_name_), vlan_(key->vlan_),
-    vmi_uuid_(nil_uuid()), old_logical_switch_name_() {
+    vmi_uuid_(nil_uuid()), old_logical_switch_name_(),
+    logical_switch_(NULL, this) {
 }
 
 void VlanPortBindingEntry::PreAddChange() {
@@ -51,7 +54,8 @@ void VlanPortBindingEntry::PreAddChange() {
         LogicalSwitchTable *l_table =
             table_->client_idl()->logical_switch_table();
         LogicalSwitchEntry ls_key(l_table, logical_switch_name_.c_str());
-        logical_switch_ = l_table->GetReference(&ls_key);
+        logical_switch_ =
+            static_cast<LogicalSwitchEntry *>(l_table->GetReference(&ls_key));
     } else {
         logical_switch_ = NULL;
     }

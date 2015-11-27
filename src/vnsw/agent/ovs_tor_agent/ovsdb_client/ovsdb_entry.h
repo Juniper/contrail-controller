@@ -95,6 +95,8 @@ public:
     KSyncObject* GetObject();
     virtual void Ack(bool success);
 
+    void TriggerDeleteAdd();
+
 protected:
     // by default create transaction for all entries
     virtual bool IsNoTxnEntry() { return false; }

@@ -17,8 +17,16 @@ public:
                          KSyncEntry *entry);
     virtual ~OvsdbResourceVxLanId();
 
+    // Acquire given VxLan ID, returns true on success
+    // on failure returns false and later once the VxLan ID
+    // is available it triggers Change on the KSyncEntry to
+    // notify
     bool AcquireVxLanId(uint32_t vxlan_id);
+
+    // Release the Acquired/Active VxLan ID
     void ReleaseVxLanId(bool active);
+
+    // set VxLAN ID actively in use
     void set_active_vxlan_id(uint32_t vxlan_id);
 
     uint32_t VxLanId() const;

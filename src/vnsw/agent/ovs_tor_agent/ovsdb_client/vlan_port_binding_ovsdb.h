@@ -58,7 +58,6 @@ protected:
 
 private:
     friend class VlanPortBindingTable;
-    KSyncEntryPtr logical_switch_;
     KSyncEntryPtr physical_port_;
     std::string logical_switch_name_;
     std::string physical_port_name_;
@@ -66,6 +65,7 @@ private:
     uint16_t vlan_;
     boost::uuids::uuid vmi_uuid_;
     std::string old_logical_switch_name_;
+    LogicalSwitchRef logical_switch_;
     DISALLOW_COPY_AND_ASSIGN(VlanPortBindingEntry);
 };
 };

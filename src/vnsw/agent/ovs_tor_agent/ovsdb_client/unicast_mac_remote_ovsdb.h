@@ -115,11 +115,11 @@ private:
     std::string logical_switch_name_;
     std::string dest_ip_;
     bool self_exported_route_;
-    KSyncEntryPtr logical_switch_;
     OvsdbDupIdlList dup_list_;
     uint32_t sequence_;
     uint32_t self_sequence_;
     bool ecmp_suppressed_;
+    LogicalSwitchRef logical_switch_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteEntry);
 };
 };
