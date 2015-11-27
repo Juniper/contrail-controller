@@ -97,7 +97,7 @@ protected:
     typedef IFMapDependencyTracker::NodeList NodeList;
     typedef IFMapDependencyTracker::EdgeDescriptorList EdgeList;
 
-    BgpConfigListenerTest() : server_(&evm_), parser_(&db_) {
+    BgpConfigListenerTest() : server_(&evm_), tracker_(NULL), parser_(&db_) {
         config_manager_ = static_cast<BgpIfmapConfigManager *>(
             server_.config_manager());
         listener_ = new BgpConfigListenerMock(config_manager_);
@@ -390,110 +390,119 @@ TEST_F(BgpConfigListenerTest, UninterestingLinkEvent) {
 // to get added to the edge list multiple times per current implementation.
 //
 TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
-    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_12.xml");
     EXPECT_TRUE(parser_.Parse(content));
-    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
-        "routing-instance", "blue", "connection");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
+    // Pause propagation, notify virtual-network-routing-instance link 3 times.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
-    task_util::WaitForIdle();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
-    task_util::WaitForIdle();
+    for (int idx = 0; idx < 3; ++idx) {
+        ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+            "virtual-network", "red-vn", "routing-instance", "red");
+        task_util::WaitForIdle();
+    }
 
+    // Edge list should have 3 entries. Note that virtual-network doesn't have
+    // a RectionMap entry for virtual-network-routing-instance.
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(4, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(3, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 }
 
 //
-// Link event for a link whose associated nodes have already been deleted.
-// The associated edges should not get on the edge list.
+// Link event for a link whose associated node(s) have already been deleted.
+// The associated edge(s) should not get on the edge list.
+//
+// In this case, the routing-instance is deleted so the edge with metadata
+// virtual-network-routing-instance is ignored. The reverse edge from the
+// virtual-network is not in the reaction-map anyway.
 //
 TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
-    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_7a.xml");
+    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_13a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
-    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
-        "routing-instance", "blue", "connection");
+    ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", "red-vn",
+        "routing-instance", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
-    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_7b.xml");
+    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_13b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
-    task_util::WaitForIdle();
-    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "red",
-        "routing-instance", "blue", "connection");
+    ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-network", "red-vn",
+        "routing-instance", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
 
-    IFMapNode *node1 =
+    IFMapNode *node =
         ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
-    TASK_UTIL_EXPECT_TRUE(node1->IsDeleted());
-    IFMapNode *node2 =
-        ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "blue");
-    TASK_UTIL_EXPECT_TRUE(node2->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
 
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 }
 
 //
-// Link event for a link whose associated nodes have already been deleted
-// and where the associated edges are already on the edge list.  When the
+// Link event for a link whose associated node(s) have already been deleted
+// and where the associated edge(s) are already on the edge list.  When the
 // edge list is processed, they won't be propagated since the associated
 // nodes are marked as deleted.
 //
+// In this case, the routing-instance is deleted so the edge with metadata
+// virtual-network-routing-instance is ignored during propagation. The reverse
+// edge from the virtual-network is not in the reaction-map and so will not
+// be in the edge list to begin with.
+//
 TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
-    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_7a.xml");
+    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_13a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
-    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
-        "routing-instance", "blue", "connection");
+    ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", "red-vn",
+        "routing-instance", "red", "virtual-network-routing-instance");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
-    task_util::WaitForIdle();
-    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_7b.xml");
-    EXPECT_TRUE(parser_.Parse(content_b));
-    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "red",
-        "routing-instance", "blue", "connection");
+        "virtual-network", "red-vn", "routing-instance", "red");
     task_util::WaitForIdle();
 
-    IFMapNode *node1 =
-        ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
-    TASK_UTIL_EXPECT_TRUE(node1->IsDeleted());
-    IFMapNode *node2 =
-        ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "blue");
-    TASK_UTIL_EXPECT_TRUE(node2->IsDeleted());
-
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+
+    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_13b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-network", "red-vn",
+        "routing-instance", "red", "virtual-network-routing-instance");
+    task_util::WaitForIdle();
+
+    IFMapNode *node =
+        ifmap_test_util::IFMapNodeLookup(&db_, "routing-instance", "red");
+    TASK_UTIL_EXPECT_TRUE(node->IsDeleted());
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
 
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -883,8 +892,8 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange1) {
     // connection. The red instance gets added because of self and the other
     // instances get added because of further propagation via the connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -939,8 +948,8 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange2) {
     // instance gets added because of further propagation via the connection.
     // The green instance doesn't get added to the change list.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1004,18 +1013,26 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange3) {
     // routing-instance propagate list for connection only contains self, but
     // not connection.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount("routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 }
 
 //
-// Link event for a connection link of a routing-instance object that is
+// Link event for an uninteresting link of the connection object.  There's
+// no such links since the connection object is a middle node that has no
+// links other than connection.
+//
+TEST_F(BgpConfigListenerTest, ConnectionUninterestingLinkChange) {
+}
+
+//
+// Node event for a connection node of a routing-instance object that is
 // connected to some but not all other routing-instances.
 //
-TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange1) {
+TEST_F(BgpConfigListenerTest, ConnectionChange1) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connection between (red, blue).
@@ -1028,12 +1045,144 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange1) {
 
     // Pause propagation, notify routing-instance connection (red, blue).
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
+    ifmap_test_util::IFMapNodeNotify(&db_, "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
-    // Both edges of the link should be on the change list since there's an
-    // entry for connection in the reaction map for routing-instance.
+    // Connection node should be on the change list and node list.
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    // Perform propagation and verify change list.
+    // Connection node should be on the change list.
+    // The red and blue routing-instances should be on the change list since
+    // the propagate list for connection in the routing-instance contains self.
+    // The red routing-instance gets added to the change list twice.
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+}
+
+//
+// Node event for a connection node of a routing-instance object that is
+// connected to all other routing-instances.
+//
+TEST_F(BgpConfigListenerTest, ConnectionChange2) {
+
+    // Initialize config with 3 routing-instances - red, blue and green.
+    // Add connections between (red, blue) and (red, green).
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
+        "routing-instance", "blue", "connection");
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
+        "routing-instance", "green", "connection");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    // Pause propagation, notify routing-instance connection (red, blue).
+    PauseChangeListPropagation();
+    ifmap_test_util::IFMapNodeNotify(&db_, "connection", "attr(blue,red)");
+    task_util::WaitForIdle();
+
+    // Connection node should be on the change list and node list.
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    // Perform propagation and verify change list.
+    // Connection node should be on the change list.
+    // The red and blue routing-instances should be on the change list since
+    // the propagate list for connection in the routing-instance contains self.
+    // The red routing-instance gets added to the change list twice.
+    //
+    // The green instance shouldn't be on the change list since the propagate
+    // list for connection in the routing-instance doesn't contain connection.
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+}
+
+//
+// Node event for a connection node of a routing-instance object that is
+// connected to some but not all routing-instances. The routing-instance
+// is connected to another routing-instance which in turn is connected to
+// a third routing-instance.
+//
+// Intent is to verify that we do no propagate the change transitively to
+// the third routing-instance.
+//
+TEST_F(BgpConfigListenerTest, ConnectionChange3) {
+
+    // Initialize config with 3 routing-instances - red, blue and green.
+    // Add connection between (red, blue) and (blue, green).
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
+        "routing-instance", "blue", "connection");
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "blue",
+        "routing-instance", "green", "connection");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    // Pause propagation, notify routing-instance connection (red, blue).
+    PauseChangeListPropagation();
+    ifmap_test_util::IFMapNodeNotify(&db_, "connection", "attr(blue,red)");
+    task_util::WaitForIdle();
+
+    // Connection node should be on the change list and node list.
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    // Perform propagation and verify change list.
+    // Connection node should be on the change list.
+    // The red and blue routing-instances should be on the change list since
+    // the propagate list for connection in the routing-instance contains self.
+    // The red routing-instance gets added to the change list twice.
+    //
+    // The green routing-instance does not get on the change list because the
+    // routing-instance propagate list for connection only contains self, but
+    // not connection.
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("connection"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+}
+
+//
+// Link event for a connection link of a routing-instance object that is
+// connected to some but not all other routing-instances.
+//
+TEST_F(BgpConfigListenerTest, ConnectionChange4) {
+
+    // Initialize config with 3 routing-instances - red, blue and green.
+    // Add connection between (red, blue).
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
+        "routing-instance", "blue", "connection");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    // Pause propagation, notify connection between red and attr(blue, red).
+    PauseChangeListPropagation();
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+        "routing-instance", "red", "connection", "attr(blue,red)");
+    task_util::WaitForIdle();
+
+    // Both edges between midnode and routing-instance should be on edge list.
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
@@ -1053,7 +1202,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange1) {
 // Link event for a connection link of a routing-instance object that is
 // connected to all other routing-instances.
 //
-TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange2) {
+TEST_F(BgpConfigListenerTest, ConnectionChange5) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connections between (red, blue) and (red, green).
@@ -1066,14 +1215,13 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange2) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
-    // Pause propagation, notify routing-instance connection (red, blue).
+    // Pause propagation, notify connection between red and attr(blue, red).
     PauseChangeListPropagation();
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
+        "routing-instance", "red", "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
-    // Both edges of the link should be on the change list since there's an
-    // entry for connection in the reaction map for routing-instance.
+    // Both edges between midnode and routing-instance should be on edge list.
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
@@ -1081,6 +1229,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange2) {
     // Perform propagation and verify change list.
     // The red and blue routing-instances should be on the change list since
     // the propagate list for connection in the routing-instance contains self.
+    //
     // The green instance shouldn't be on the change list since the propagate
     // list for connection in the routing-instance doesn't contain connection.
     PerformChangeListPropagation();
@@ -1100,7 +1249,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange2) {
 // Intent is to verify that we do no propagate the change transitively to
 // the third routing-instance.
 //
-TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange3) {
+TEST_F(BgpConfigListenerTest, ConnectionChange6) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connection between (red, blue) and (blue, green).
@@ -1113,14 +1262,13 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange3) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
-    // Pause propagation, notify routing-instance connection (red, blue).
+    // Both edges between midnode and routing-instance should be on edge list.
     PauseChangeListPropagation();
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance", "red", "routing-instance", "blue");
+        "routing-instance", "red", "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
-    // Both edges of the link should be on the change list since there's an
-    // entry for connection in the reaction map for routing-instance.
+    // Both edges between midnode and routing-instance should be on edge list.
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());

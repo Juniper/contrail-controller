@@ -815,7 +815,7 @@ TEST_F(BgpConfigTest, InstanceTargetImport2) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-TEST_F(BgpConfigTest, Instances) {
+TEST_F(BgpConfigTest, Instances1) {
     string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -905,11 +905,13 @@ TEST_F(BgpConfigTest, Instances2) {
 
     RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
 
+    // Verify number of export and import targets in red.
     RoutingInstance *red = mgr->GetRoutingInstance("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
 
+    // Verify number of export and import targets in green.
     RoutingInstance *green = mgr->GetRoutingInstance("green");
     TASK_UTIL_ASSERT_TRUE(green != NULL);
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
@@ -917,18 +919,56 @@ TEST_F(BgpConfigTest, Instances2) {
 
     TASK_UTIL_EXPECT_EQ(3, mgr->count());
 
+    // Add a connection between red and green.
     ifmap_test_util::IFMapMsgLink(&config_db_,
                                   "routing-instance", "red",
                                   "routing-instance", "green",
                                   "connection");
     task_util::WaitForIdle();
 
+    // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
 
+    // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
 
+    // Change the connection to a unidirectional one from green to red.
+    autogen::ConnectionType *connection_type1 = new autogen::ConnectionType;
+    connection_type1->destination_instance = "red";
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+                                  "routing-instance", "red",
+                                  "routing-instance", "green",
+                                  "connection", 0, connection_type1);
+    task_util::WaitForIdle();
+
+    // Verify number of export and import targets in red.
+    TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
+
+    // Verify number of export and import targets in green.
+    TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+
+    // Change the connection to a unidirectional one from red to green.
+    autogen::ConnectionType *connection_type2 = new autogen::ConnectionType;
+    connection_type2->destination_instance = "green";
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+                                  "routing-instance", "red",
+                                  "routing-instance", "green",
+                                  "connection", 0, connection_type2);
+    task_util::WaitForIdle();
+
+    // Verify number of export and import targets in red.
+    TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+
+    // Verify number of export and import targets in green.
+    TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+
+    // Clean up.
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                     "routing-instance", "red",
                                     "routing-instance", "green",
@@ -951,11 +991,13 @@ TEST_F(BgpConfigTest, Instances3) {
 
     RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
 
+    // Verify number of export and import targets in red.
     RoutingInstance *red = mgr->GetRoutingInstance("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
 
+    // Verify number of export and import targets in green.
     RoutingInstance *green = mgr->GetRoutingInstance("green");
     TASK_UTIL_ASSERT_TRUE(green != NULL);
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
@@ -963,18 +1005,56 @@ TEST_F(BgpConfigTest, Instances3) {
 
     TASK_UTIL_EXPECT_EQ(3, mgr->count());
 
+    // Add a connection between red and green.
     ifmap_test_util::IFMapMsgLink(&config_db_,
                                   "routing-instance", "red",
                                   "routing-instance", "green",
                                   "connection");
     task_util::WaitForIdle();
 
+    // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
 
+    // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
     TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
 
+    // Change the connection to a unidirectional one from green to red.
+    autogen::ConnectionType *connection_type1 = new autogen::ConnectionType;
+    connection_type1->destination_instance = "red";
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+                                  "routing-instance", "red",
+                                  "routing-instance", "green",
+                                  "connection", 0, connection_type1);
+    task_util::WaitForIdle();
+
+    // Verify number of export and import targets in red.
+    TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+
+    // Verify number of export and import targets in green.
+    TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+
+    // Change the connection to a unidirectional one from red to green.
+    autogen::ConnectionType *connection_type2 = new autogen::ConnectionType;
+    connection_type2->destination_instance = "green";
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+                                  "routing-instance", "red",
+                                  "routing-instance", "green",
+                                  "connection", 0, connection_type2);
+    task_util::WaitForIdle();
+
+    // Verify number of export and import targets in red.
+    TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+
+    // Verify number of export and import targets in green.
+    TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
+    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+
+    // Clean up.
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                     "routing-instance", "red",
                                     "routing-instance", "green",
