@@ -3670,8 +3670,9 @@ FlowTable::FlowTable(Agent *agent) :
     inet4_route_key_(NULL, Ip4Address(), 32, false),
     inet6_route_key_(NULL, Ip6Address(), 128, false),
     delete_queue_(new WorkQueue<FlowKey>(
-                    TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"), 0,
-                                boost::bind(&FlowTable::FlowDelete, this, _1))) {
+                  TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"),
+                  PktHandler::FLOW,
+                  boost::bind(&FlowTable::FlowDelete, this, _1))) {
     max_vm_flows_ = (uint32_t)
         (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
          agent->params()->max_vm_flows()) / 100;
