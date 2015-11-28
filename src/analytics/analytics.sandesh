@@ -78,6 +78,7 @@ struct QueryStats {
     8: u32                         final_merge_time;
     9: u32                         time
     10: u32                        rows
+    11: string                     error
 }
 
 struct QueryPerfInfo {
