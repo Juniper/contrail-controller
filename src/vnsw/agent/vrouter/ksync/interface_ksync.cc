@@ -540,6 +540,16 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                      ((const int8_t *)smac(),
                                       (const int8_t *)smac() + smac().size()));
         }
+
+        if (fat_flow_list_.list_.size() != 0) {
+            std::vector<int32_t> fat_flow_list;
+            for (VmInterface::FatFlowEntrySet::const_iterator it =
+                 fat_flow_list_.list_.begin(); it != fat_flow_list_.list_.end();
+                 it++) {
+                fat_flow_list.push_back(it->protocol << 16 | it->port);
+            }
+            encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
+        }
         break;
     }
 

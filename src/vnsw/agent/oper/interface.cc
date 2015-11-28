@@ -951,6 +951,17 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_fixed_ip6_list(fixed_ip6_list);
 
+        std::vector<std::string> fat_flow_list;
+        VmInterface::FatFlowEntrySet::iterator fat_flow_it =
+            vintf->fat_flow_list().list_.begin();
+        while (fat_flow_it != vintf->fat_flow_list().list_.end()) {
+            ostringstream str;
+            str << (int)fat_flow_it->protocol << ":" << (int)fat_flow_it->port<<"";
+            fat_flow_list.push_back(str.str());
+            fat_flow_it++;
+        }
+        data.set_fat_flow_list(fat_flow_list);
+
         if (vintf->fabric_port()) {
             data.set_fabric_port("FabricPort");
         } else {

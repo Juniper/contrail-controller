@@ -104,8 +104,9 @@ struct ItfSandeshData {
    49: optional string ipv4_active;
    50: list<string> fixed_ip4_list;
    51: list<string> fixed_ip6_list;
-   52: optional string health_check_active;
-   53: optional string metadata_ip_active;
+   52: list<string> fat_flow_list;
+   53: optional string health_check_active;
+   54: optional string metadata_ip_active;
 }
 
 struct VnIpamData {
