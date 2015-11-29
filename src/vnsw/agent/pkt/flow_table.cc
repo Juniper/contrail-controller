@@ -906,9 +906,10 @@ void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
     //Actual msg would not be sent to kernel
     if (update == false) {
         if (ksync_entry_ != NULL) {
+            bool vrouter_evicted_flow = data_.vrouter_evicted_flow_;
             data_.vrouter_evicted_flow_ = true;
             ksync_obj->Delete(ksync_entry_);
-            data_.vrouter_evicted_flow_ = false;
+            data_.vrouter_evicted_flow_ = vrouter_evicted_flow;
             ksync_entry_ = NULL;
         }
     }
@@ -1024,6 +1025,23 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     //
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
+
+    if (update == false) {
+        const FlowEntry *fe = FindByIndex(flow->flow_handle_);
+        if (fe == flow) {
+            bool vrouter_evicted_flow = rflow->data().vrouter_evicted_flow_;
+            rflow->data().vrouter_evicted_flow_ = true;
+            FlowTableKSyncObject *ksync_obj =
+                        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+            if (rflow->ksync_entry_) {
+                ksync_obj->Delete(rflow->ksync_entry_);
+                rflow->ksync_entry_ = NULL;
+            }
+            DeleteByIndex(rflow->flow_handle_, rflow);
+            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+            rflow->data().vrouter_evicted_flow_ = vrouter_evicted_flow;
+        }
+    }
 
     if (rflow) {
         rflow->GetPolicyInfo();
