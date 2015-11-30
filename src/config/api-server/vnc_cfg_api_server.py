@@ -717,7 +717,10 @@ class VncApiServer(VncApiServerGen):
         apiConfig.identifier_name=':'.join(fq_name)
         apiConfig.identifier_uuid = obj_uuid
         apiConfig.operation = 'ref-update'
-        apiConfig.body = str(bottle.request.json)
+        try:
+            apiConfig.body = json.dumps(bottle.request.json)
+        except:
+            apiConfig.body = str(bottle.request.json)
 
         self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
@@ -1235,7 +1238,10 @@ class VncApiServer(VncApiServerGen):
         if apiConfig.domain.lower() == 'none':
             apiConfig.domain = 'default-domain'
         if int(bottle.request.headers.get('Content-Length', 0)) > 0:
-            apiConfig.body = str(bottle.request.json)
+            try:
+                apiConfig.body = json.dumps(bottle.request.json)
+            except:
+                apiConfig.body = str(bottle.request.json)
     # end _set_api_audit_info
 
     # uuid is parent's for collections
@@ -1427,7 +1433,11 @@ class VncApiServer(VncApiServerGen):
         apiConfig.identifier_name=fq_name_str
         apiConfig.identifier_uuid = uuid_in_req
         apiConfig.operation = 'post'
-        apiConfig.body = str(request.json)
+        try:
+            body = json.dumps(request.json)
+        except:
+            body = str(request.json)
+        apiConfig.body = body
         if uuid_in_req:
             if uuid_in_req != str(uuid.UUID(uuid_in_req)):
                 bottle.abort(400, 'Invalid UUID format: ' + uuid_in_req)
