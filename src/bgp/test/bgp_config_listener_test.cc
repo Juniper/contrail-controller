@@ -1629,6 +1629,8 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
 
 //
 // Trigger edge change between routing policy and routing instance
+// In this test, modify link between mid-node(routing-instance-routing-policy)
+// routing-policy
 // Validate both routing instance and routing policy are added to change list
 //
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
@@ -1663,6 +1665,8 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
 
 //
 // Trigger edge change between routing policy and routing instance
+// In this test, modify link between mid-node(routing-instance-routing-policy)
+// routing-instance
 // Validate both routing instance and routing policy are added to change list
 //
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
@@ -1766,7 +1770,6 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
 }
 
 //
-//
 // If multiple routing policies are linked to a routing instance,
 // a change of routing-instance will not put routing policies
 // to change list
@@ -1790,6 +1793,65 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// RI1 --> RP1 <-- RI2
+// |                |
+//  -----> RP2 <----
+// Routing instance refers to two routing policies and each routing policy is
+// referred by two routing instances
+// Now update the one routing policy and verify that both routing instances are
+// in change list
+//
+TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_12.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on routing-policy which is linked to two routing instances
+    string id_name = "basic_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on other routing-policy which is linked to
+    // two routing instances
+    id_name = "basic_1";
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
 
     ResumeChangeListPropagation();

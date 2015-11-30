@@ -79,8 +79,8 @@ public:
     const RoutingInstanceMgr *routing_instance_mgr() const {
         return inst_mgr_.get();
     }
-    RoutingPolicyMgr *route_policy_mgr() { return policy_mgr_.get(); }
-    const RoutingPolicyMgr *route_policy_mgr() const {
+    RoutingPolicyMgr *routing_policy_mgr() { return policy_mgr_.get(); }
+    const RoutingPolicyMgr *routing_policy_mgr() const {
         return policy_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }

@@ -183,12 +183,14 @@ public:
     }
 
     void ProcessRoutingPolicyConfig(const BgpRoutingPolicyConfig *policy_config,
-                               BgpConfigManager::EventType event) {
-        if (event == BgpConfigManager::CFG_ADD ||
-            event == BgpConfigManager::CFG_CHANGE) {
-            return;
+                                    BgpConfigManager::EventType event) {
+        RoutingPolicyMgr *mgr = server_->routing_policy_mgr();
+        if (event == BgpConfigManager::CFG_ADD) {
+            mgr->CreateRoutingPolicy(policy_config);
+        } else if (event == BgpConfigManager::CFG_CHANGE) {
+            mgr->UpdateRoutingPolicy(policy_config);
         } else if (event == BgpConfigManager::CFG_DELETE) {
-            return;
+            mgr->DeleteRoutingPolicy(policy_config->name());
         }
     }
 

@@ -64,6 +64,30 @@ void Community::Append(uint32_t value) {
     sort(communities_.begin(), communities_.end());
 }
 
+void Community::Append(const std::vector<uint32_t> &communities) {
+    BOOST_FOREACH(uint32_t community, communities) {
+        communities_.push_back(community);
+    }
+    sort(communities_.begin(), communities_.end());
+    vector<uint32_t>::iterator it =
+        unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
+}
+
+void Community::Set(const std::vector<uint32_t> &communities) {
+    communities_.clear();
+    BOOST_FOREACH(uint32_t community, communities) {
+        communities_.push_back(community);
+    }
+}
+
+void Community::Remove(const std::vector<uint32_t> &communities) {
+    BOOST_FOREACH(uint32_t community, communities) {
+        communities_.erase(
+               std::remove(communities_.begin(), communities_.end(), community),
+               communities_.end());
+    }
+}
 void Community::Remove() {
     comm_db_->Delete(this);
 }
@@ -96,6 +120,45 @@ CommunityPtr CommunityDB::AppendAndLocate(const Community *src,
     }
 
     clone->Append(value);
+    return Locate(clone);
+}
+
+CommunityPtr CommunityDB::AppendAndLocate(const Community *src,
+    const std::vector<uint32_t> &value) {
+    Community *clone;
+    if (src) {
+        clone = new Community(*src);
+    } else {
+        clone = new Community(this);
+    }
+
+    clone->Append(value);
+    return Locate(clone);
+}
+
+CommunityPtr CommunityDB::SetAndLocate(const Community *src,
+    const std::vector<uint32_t> &value) {
+    Community *clone;
+    if (src) {
+        clone = new Community(*src);
+    } else {
+        clone = new Community(this);
+    }
+
+    clone->Set(value);
+    return Locate(clone);
+}
+
+CommunityPtr CommunityDB::RemoveAndLocate(const Community *src,
+    const std::vector<uint32_t> &value) {
+    Community *clone;
+    if (src) {
+        clone = new Community(*src);
+    } else {
+        clone = new Community(this);
+    }
+
+    clone->Remove(value);
     return Locate(clone);
 }
 

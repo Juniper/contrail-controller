@@ -6,6 +6,7 @@
 
 #include <boost/foreach.hpp>
 
+#include "base/string_util.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_log.h"
@@ -670,21 +671,26 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
 // IFMapNode represents the routing-instance-routing-policy.  We traverse to
 // graph edges and look for routing-policy adjacency
 //
-static void GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
-        RoutingPolicyAttachInfo *routing_policy) {
+static bool GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
+        RoutingPolicyAttachInfo *ri_rp_link) {
     std::string sequence;
     const autogen::RoutingInstanceRoutingPolicy *policy =
         static_cast<autogen::RoutingInstanceRoutingPolicy *>(node->GetObject());
     const autogen::RoutingPolicyType &attach_info = policy->data();
-    routing_policy->sequence_ = attach_info.sequence;
+
+    if (!stringToInteger(attach_info.sequence, ri_rp_link->sequence_)) {
+        return false;
+    }
+
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
         if (strcmp(adj->table()->Typename(), "routing-policy") == 0) {
-            routing_policy->routing_policy_ = adj->name();
-            return;
+            ri_rp_link->routing_policy_ = adj->name();
+            return true;
         }
     }
+    return false;
 }
 
 //
@@ -861,6 +867,11 @@ void BgpIfmapConfigManager::ProcessRoutingPolicyLink(const BgpConfigDelta &delta
 
     ri_rp_link->Update(this, ri_rp_link_cfg);
 }
+
+static bool CompareRoutingPolicyOrder(const RoutingPolicyAttachInfo &lhs,
+                                      const RoutingPolicyAttachInfo &rhs) {
+    return (lhs.sequence_ < rhs.sequence_);
+}
 //
 // Update BgpIfmapInstanceConfig based on a new autogen::RoutingInstance object.
 //
@@ -905,8 +916,9 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
         } else if (strcmp(adj->table()->Typename(),
                           "routing-instance-routing-policy") == 0) {
             RoutingPolicyAttachInfo policy_info;
-            GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info);
-            policy_list.push_back(policy_info);
+            if (GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info)) {
+                policy_list.push_back(policy_info);
+            }
         } else if (strcmp(adj->table()->Typename(), "routing-instance") == 0) {
             vector<string> target_list;
             GetRoutingInstanceExportTargets(graph, adj, &target_list);
@@ -924,6 +936,8 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
 
     data_.set_import_list(import_list);
     data_.set_export_list(export_list);
+
+    std::sort(policy_list.begin(), policy_list.end(), CompareRoutingPolicyOrder);
     data_.swap_routing_policy_list(&policy_list);
 
     if (config) {
@@ -1482,11 +1496,11 @@ static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
         term->action.update.community_set.push_back(community);
     }
     term->action.update.local_pref = cfg_term.then.update.local_pref;
-    term->action.action = RoutingPolicyAction::ACCEPT;
+    term->action.action = RoutingPolicyActionConfig::ACCEPT;
     if (strcmp(cfg_term.then.action.c_str(), "reject") == 0) {
-        term->action.action = RoutingPolicyAction::REJECT;
+        term->action.action = RoutingPolicyActionConfig::REJECT;
     } else if (strcmp(cfg_term.then.action.c_str(), "next") == 0) {
-        term->action.action = RoutingPolicyAction::NEXT_TERM;
+        term->action.action = RoutingPolicyActionConfig::NEXT_TERM;
     }
 }
 

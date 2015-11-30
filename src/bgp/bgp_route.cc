@@ -43,12 +43,16 @@ void BgpRoute::InsertPath(BgpPath *path) {
     assert(!IsDeleted());
     const Path *prev_front = front();
 
+    BgpTable *table = static_cast<BgpTable *>(get_table());
+    if (table) {
+        RoutingInstance *rtinstance = table->routing_instance();
+        rtinstance->ProcessRoutingPolicy(this, path);
+    }
     insert(path);
 
     Sort(&BgpTable::PathSelection, prev_front);
 
     // Update counters.
-    BgpTable *table = static_cast<BgpTable *>(get_table());
     if (table) table->UpdatePathCount(path, +1);
     path->UpdatePeerRefCount(+1);
 }

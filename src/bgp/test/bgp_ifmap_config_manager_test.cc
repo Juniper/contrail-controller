@@ -10,6 +10,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
+#include "base/string_util.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_ifmap_sandesh.h"
@@ -26,7 +27,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
-using boost::assign::map_list_of;
+using boost::assign::list_of;
 using namespace std;
 
 static string FileRead(const string &filename) {
@@ -1851,7 +1852,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
 
     // Update the routing instance with two route policy
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3d.xml");
@@ -1867,11 +1868,10 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
 
-    map<string, string> expect_list = map_list_of("basic_0", "1.0")("basic_1", "2.0");
-    map<string, string> current_list;
+    vector<string> expect_list = list_of("basic_0")("basic_1");
+    vector<string> current_list;
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
-        current_list.insert(pair<string, string>(info.routing_policy_,
-                                              info.sequence_));
+        current_list.push_back(info.routing_policy_);
     }
 
     ASSERT_TRUE(current_list.size() == expect_list.size());
@@ -1915,11 +1915,10 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
 
-    map<string, string> expect_list = map_list_of("basic_0", "1.0")("basic_1", "2.0");
-    map<string, string> current_list;
+    vector<string> expect_list = list_of("basic_0")("basic_1");
+    vector<string> current_list;
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
-        current_list.insert(pair<string, string>(info.routing_policy_,
-                                              info.sequence_));
+        current_list.push_back(info.routing_policy_);
     }
 
     ASSERT_TRUE(current_list.size() == expect_list.size());
@@ -1936,11 +1935,10 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     list = test_ri->routing_policy_list();
 
-    expect_list = map_list_of("basic_0", "2.0")("basic_1", "1.0");
+    expect_list = list_of("basic_1")("basic_0");
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
-        current_list.insert(pair<string, string>(info.routing_policy_,
-                                              info.sequence_));
+        current_list.push_back(info.routing_policy_);
     }
 
     ASSERT_TRUE(current_list.size() == expect_list.size());
@@ -1979,7 +1977,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_2) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
 
     // Remove the link between the routing-instance and the routing-policy.
     ifmap_test_util::IFMapMsgUnlink(&db_,
@@ -2021,7 +2019,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
 
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3c.xml");
     EXPECT_TRUE(parser_.Parse(content_b));

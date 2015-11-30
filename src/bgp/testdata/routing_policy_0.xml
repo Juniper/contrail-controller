@@ -3,7 +3,10 @@
     <routing-policy name='basic'>
         <term>
             <from>
-                <community>23:13</community>
+                <prefix>
+                    <prefix>10.0.1.1/32</prefix>
+                    <type> exact </type>
+                </prefix>
             </from>
             <then>
                 <update>
