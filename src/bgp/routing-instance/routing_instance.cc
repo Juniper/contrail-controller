@@ -16,6 +16,7 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance_log.h"
+#include "bgp/routing-policy/routing_policy.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/rtarget/rtarget_route.h"
 
@@ -486,6 +487,25 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
 RoutingInstance::~RoutingInstance() {
 }
 
+void RoutingInstance::AddRoutingPolicy(RoutingPolicyPtr policy) {
+    routing_policies_.push_back(policy);
+}
+
+void RoutingInstance::ProcessRoutingPolicyConfig() {
+    BOOST_FOREACH(RoutingPolicyAttachInfo info,
+                  config_->routing_policy_list()) {
+        RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
+        RoutingPolicy *policy =
+            policy_mgr->GetRoutingPolicy(info.routing_policy_);
+        if (policy) {
+            AddRoutingPolicy(policy);
+        }
+    }
+}
+
+void RoutingInstance::UpdateRoutingPolicyConfig() {
+}
+
 void RoutingInstance::ProcessServiceChainConfig() {
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
@@ -590,6 +610,7 @@ void RoutingInstance::ProcessConfig() {
 
     ProcessServiceChainConfig();
     ProcessStaticRouteConfig();
+    ProcessRoutingPolicyConfig();
 }
 
 void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
@@ -668,6 +689,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     ProcessServiceChainConfig();
     UpdateStaticRouteConfig();
+    UpdateRoutingPolicyConfig();
 }
 
 void RoutingInstance::ClearConfig() {
@@ -1076,4 +1098,23 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
     }
 
     return false;
+}
+
+bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
+                                           BgpPath *path) const {
+    const RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
+    BgpAttr *out_attr = new BgpAttr(*(path->GetAttr()));
+    BOOST_FOREACH(RoutingPolicyPtr policy, routing_policies()) {
+        RoutingPolicy::PolicyResult result =
+            policy_mgr->ApplyPolicy(policy.get(), route, out_attr);
+        if (result.first) {
+            if (!result.second) path->SetPolicyReject();
+            BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
+            path->SetAttr(modified_attr, path->GetAttr());
+            return result.second;
+        }
+    }
+    BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
+    path->SetAttr(modified_attr, path->GetAttr());
+    return true;
 }
