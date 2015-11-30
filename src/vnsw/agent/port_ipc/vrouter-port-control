@@ -11,6 +11,7 @@ import json
 import os
 import errno
 import datetime
+import re
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
@@ -78,7 +79,9 @@ class VrouterPortControl(object):
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
 
-        args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+        args, remaining_argv = conf_parser.parse_known_args(
+            re.compile("\s+(?=\-\-)").split(args_str)
+            )
 
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
