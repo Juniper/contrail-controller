@@ -51,7 +51,7 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent()->pkt()->get_flow_proto()->FlowCount());
+        WAIT_FOR(1000, 1000, (0U == agent()->pkt()->get_flow_proto()->FlowCount()));
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,

@@ -158,9 +158,46 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         if (flow->deleted() || flow->IsShortFlow()) {
             return;
         }
+    } else {
+        /* If a new flow with keys same as existing flow is getting added again
+         * (possible because vrouter has deleted old flow - TCP Flow eviction)
+         * with or without same index, before ADD_ACK is received for the old
+         * flow, then we ignore the new flow add request. ADD_ACK is received or
+         * not is figured out by checking if the flow is in SYNC_WAIT state.
+         * (FIXME). This is a temporary fix to avoid agent crashes and causes
+         * hold entries being lined up.
+         */
+
+        if (((flow_req != flow) || (rflow && rflow_req != rflow))) {
+            FlowTableKSyncEntry *f_ksync = flow->ksync_entry();
+            if (f_ksync) {
+                if ((f_ksync->GetState() == KSyncEntry::SYNC_WAIT) ||
+                    (f_ksync->GetState() == KSyncEntry::RENEW_WAIT) ||
+                    (f_ksync->GetState() == KSyncEntry::DEL_ACK_WAIT)) {
+                    flow->MakeShortFlow(FlowEntry::SHORT_DUPLICATE_ADD_WITHOUT_ACK);
+                    return;
+                }
+            }
+            FlowTableKSyncEntry *r_ksync = NULL;
+            if (rflow) {
+                r_ksync = rflow->ksync_entry();
+            }
+            if (r_ksync) {
+                if ((r_ksync->GetState() == KSyncEntry::SYNC_WAIT) ||
+                    (r_ksync->GetState() == KSyncEntry::RENEW_WAIT) ||
+                    (r_ksync->GetState() == KSyncEntry::DEL_ACK_WAIT)) {
+                    rflow->MakeShortFlow(FlowEntry::SHORT_DUPLICATE_ADD_WITHOUT_ACK);
+                    return;
+                }
+            }
+        }
     }
 
     if (flow_req != flow) {
+        if ((flow_req->flow_handle_ != flow->flow_handle_) &&
+            (!flow->deleted())) {
+            DeleteByIndex(flow->flow_handle(), flow);
+        }
         Copy(flow, flow_req);
         flow->set_deleted(false);
     }
@@ -189,7 +226,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     UpdateReverseFlow(flow, rflow);
-    AddIndexFlowInfo(flow, flow->flow_handle_);
+    bool ksync_updated = AddIndexFlowInfo(flow, flow_req->flow_handle_, update);
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -208,7 +245,9 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         AddFlowInfo(rflow);
     }
 
-    UpdateKSync(flow, update);
+    if (!ksync_updated) {
+        UpdateKSync(flow, update);
+    }
     AddFlowInfo(flow);
 }
 
@@ -492,7 +531,7 @@ void FlowTable::DeleteVrouterEvictedFlow(FlowEntry *flow) {
     Delete(flow->key(), true);
 }
 
-void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
+bool FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
     if (flow_handle != FlowEntry::kInvalidFlowHandle &&
         flow->deleted() == false) {
         if (flow_index_tree_[flow_handle] &&
@@ -500,7 +539,9 @@ void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
             assert(0);
         }
         flow_index_tree_[flow_handle] = flow;
+        return true;
     }
+    return false;
 }
 
 void FlowTable::DeleteByIndex(uint32_t flow_handle, FlowEntry *fe) {
@@ -936,7 +977,7 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
 
     if (flow->flow_handle() != flow_handle) {
         update_rflow = true;
-        AddIndexFlowInfo(flow, flow_handle);
+        AddIndexFlowInfo(flow, flow_handle, true);
         NotifyFlowStatsCollector(flow);
     }
 
@@ -972,9 +1013,10 @@ void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
     }
 }
 
-void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
+bool FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle,
+                                 bool update) {
     if (flow_handle == FlowEntry::kInvalidFlowHandle) {
-        return;
+        return false;
     }
 
     FlowEntry *flow = FindByIndex(flow_handle);
@@ -982,8 +1024,11 @@ void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
         DeleteVrouterEvictedFlow(flow);
     }
 
-    InsertByIndex(flow_handle, fe);
-    fe->set_flow_handle(flow_handle);
+    bool inserted = InsertByIndex(flow_handle, fe);
+    if (inserted) {
+        return fe->set_flow_handle(flow_handle, update);
+    }
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////

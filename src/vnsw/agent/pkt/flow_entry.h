@@ -261,6 +261,7 @@ class FlowEntry {
         SHORT_FLOW_LIMIT,
         SHORT_LINKLOCAL_SRC_NAT,
         SHORT_FAILED_VROUTER_INSTALL,
+        SHORT_DUPLICATE_ADD_WITHOUT_ACK,
         SHORT_MAX
     };
 
@@ -346,7 +347,7 @@ class FlowEntry {
     FlowTable *flow_table() const { return flow_table_; }
     bool l3_flow() const { return l3_flow_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle);
+    bool set_flow_handle(uint32_t flow_handle, bool update);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
     uint32_t flags() const { return flags_; }
     const FlowEntry *reverse_flow_entry() const {
