@@ -34,6 +34,7 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr,
     RoutingInstanceMgr);
 
 #include "bgp/routing-policy/routing_policy.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingPolicy, RoutingPolicy);
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingPolicyMgr, RoutingPolicyMgr);
 
 #include "bgp/routing-instance/rtarget_group_mgr.h"

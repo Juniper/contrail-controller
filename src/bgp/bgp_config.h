@@ -289,7 +289,7 @@ struct PrefixMatch {
     std::string prefix_match_type;
 };
 
-struct RoutingPolicyMatch {
+struct RoutingPolicyMatchConfig {
     std::string community_match;
     PrefixMatch prefix_match;
 };
@@ -301,7 +301,7 @@ struct ActionUpdate {
     uint32_t local_pref;
 };
 
-struct RoutingPolicyAction {
+struct RoutingPolicyActionConfig {
     enum ActionType {
         ACCEPT,
         REJECT,
@@ -312,8 +312,8 @@ struct RoutingPolicyAction {
 };
 
 struct RoutingPolicyTerm {
-    RoutingPolicyMatch match;
-    RoutingPolicyAction action;
+    RoutingPolicyMatchConfig match;
+    RoutingPolicyActionConfig action;
 };
 
 // Route Policy configuration.
@@ -339,7 +339,7 @@ private:
 };
 
 struct RoutingPolicyAttachInfo {
-    std::string sequence_;
+    double sequence_;
     std::string routing_policy_;
 };
 

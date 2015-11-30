@@ -24,6 +24,7 @@ public:
         NoTunnelEncap = 1 << 3,
         OriginatorIdLooped = 1 << 4,
         ResolveNexthop = 1 << 5,
+        RoutingPolicyReject = 1 << 6,
     };
 
     // Ordered in the ascending order of path preference
@@ -37,7 +38,8 @@ public:
     };
 
     static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
-        NoNeighborAs | NoTunnelEncap | OriginatorIdLooped | ResolveNexthop);
+        NoNeighborAs | NoTunnelEncap | OriginatorIdLooped | ResolveNexthop |
+        RoutingPolicyReject);
 
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
@@ -80,8 +82,17 @@ public:
         peer_->UpdatePrimaryPathCount(count);
     }
 
+    void SetAttr(const BgpAttrPtr attr, const BgpAttrPtr original_attr) {
+        attr_ = attr;
+        original_attr_ = original_attr;
+    }
+
     const BgpAttr *GetAttr() const {
         return attr_.get();
+    }
+
+    const BgpAttr *GetOriginalPathAttr() const {
+        return original_attr_.get();
     }
 
     uint32_t GetLabel() const {
@@ -109,6 +120,16 @@ public:
         return ((flags_ & Stale) != 0);
     }
 
+    // Mark a path as rejected by Routing policy
+    void SetPolicyReject() {
+        flags_ |= RoutingPolicyReject;
+    }
+
+    // Reset a path as active from Routing Policy
+    void ResetPolicyReject() {
+        flags_ &= ~RoutingPolicyReject;
+    }
+
     // Mark a path as stale
     void SetStale() {
         flags_ |= Stale;
@@ -133,7 +154,11 @@ private:
     const IPeer *peer_;
     const uint32_t path_id_;
     const PathSource source_;
-    const BgpAttrPtr attr_;
+    // Attribute for the BgpPath. If routing policy updates the path attribute,
+    // this member contains the attribute after policy update
+    BgpAttrPtr attr_;
+    // Original path attribute before applying routing policy
+    BgpAttrPtr original_attr_;
     uint32_t flags_;
     uint32_t label_;
 };

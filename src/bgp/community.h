@@ -55,6 +55,9 @@ public:
     virtual ~Community() { }
 
     void Append(uint32_t value);
+    void Append(const std::vector<uint32_t> &communities);
+    void Set(const std::vector<uint32_t> &communities);
+    void Remove(const std::vector<uint32_t> &communities);
     virtual void Remove();
     int CompareTo(const Community &rhs) const;
     bool ContainsValue(uint32_t value) const;
@@ -113,6 +116,12 @@ public:
     virtual ~CommunityDB() { }
 
     CommunityPtr AppendAndLocate(const Community *src, uint32_t value);
+    CommunityPtr AppendAndLocate(const Community *src,
+                                 const std::vector<uint32_t> &value);
+    CommunityPtr SetAndLocate(const Community *src,
+                                 const std::vector<uint32_t> &value);
+    CommunityPtr RemoveAndLocate(const Community *src,
+                                 const std::vector<uint32_t> &value);
 
 private:
 };
