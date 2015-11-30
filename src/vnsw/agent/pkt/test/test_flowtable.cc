@@ -5,8 +5,20 @@
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "ksync/ksync_sock_user.h"
+#include "pkt/test/test_flow_util.h"
 
 #define MAX_VNET 4
+
+#define vm1_ip "11.1.1.1"
+#define vm2_ip "11.1.1.2"
+
+struct PortInfo input[] = {
+        {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
+        {"flow10", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
+};
+
+VmInterface *flow0;
+VmInterface *flow10;
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -102,6 +114,36 @@ static void FlowAdd(FlowEntryPtr fwd, FlowEntryPtr rev) {
 
 class FlowTableTest : public ::testing::Test {
 public:
+    FlowTableTest() {
+        proto = Agent::GetInstance()->pkt()->get_flow_proto();
+    }
+    void FlowSetUp() {
+        EXPECT_EQ(0U, proto->FlowCount());
+        client->Reset();
+        CreateVmportEnv(input, 2, 1);
+        client->WaitForIdle(5);
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortActive(input, 1));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 0)));
+        WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 1)));
+
+        flow0 = VmInterfaceGet(input[0].intf_id);
+        assert(flow0);
+        flow10 = VmInterfaceGet(input[1].intf_id);
+        assert(flow10);
+    }
+
+    void FlowTearDown() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle(10);
+        client->Reset();
+        DeleteVmportEnv(input, 2, true, 1);
+        client->WaitForIdle(3);
+        WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
+        WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
+        WAIT_FOR(1000, 1000, (0U == proto->FlowCount()));
+    }
     bool FlowTableWait(int count) {
         int i = 100000;
         while (i > 0) {
@@ -502,6 +544,55 @@ TEST_F(FlowTableTest, RevFlowDelete_before_KSyncAck) {
     scheduler->Enqueue(task);
     client->WaitForIdle();
 
+}
+
+/* Two flow-Adds with same key, back to back such that second flow add is done
+ * before ADD ack is received for the first flow. Both the adds are done with
+ * the same flow index */
+TEST_F(FlowTableTest, SameIndexFlowAdd) {
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    client->Reset();
+
+    KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, ksock->flow_map.size());
+    FlowSetUp();
+
+    TestFlowPkt pkt1(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                     "vrf5", flow0->id(), 1);
+    TestFlowPkt pkt2(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                     "vrf5", flow0->id(), 1);
+    pkt1.SendIngressFlow();
+    pkt2.SendIngressFlow();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 3000, (2U == proto->FlowCount()));
+
+    //cleanup
+    FlowTearDown();
+}
+
+/* Two flow-Adds with same key, back to back such that second flow add is done
+ * before ADD ack is received for the first flow. Both the adds are done with
+ * different flow indices */
+TEST_F(FlowTableTest, DifferentIdxFlowAdd) {
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    client->Reset();
+    KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, ksock->flow_map.size());
+    FlowSetUp();
+
+    TestFlowPkt pkt1(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                     "vrf5", flow0->id(), 1);
+    TestFlowPkt pkt2(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                     "vrf5", flow0->id(), 2);
+    pkt1.SendIngressFlow();
+    pkt2.SendIngressFlow();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 3000, (2U == proto->FlowCount()));
+
+    //cleanup
+    FlowTearDown();
 }
 
 int main(int argc, char *argv[]) {

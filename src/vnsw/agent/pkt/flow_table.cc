@@ -158,6 +158,17 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         if (flow->deleted() || flow->IsShortFlow()) {
             return;
         }
+    } else {
+        /* If a new flow with keys same as existing flow is getting added again
+         * (possible because vrouter has deleted old flow - TCP Flow eviction)
+         * with or without same index, before ADD_ACK is received for the old
+         * flow, then we ignore the new flow add request. ADD_ACK is received or
+         * not is figured out by checking index of reverse flow.
+         */
+        if (flow_req != flow && flow->ksync_entry() != NULL &&
+            rflow && rflow->flow_handle_ == FlowEntry::kInvalidFlowHandle) {
+            return;
+        }
     }
 
     if (flow_req != flow) {
