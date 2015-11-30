@@ -36,8 +36,8 @@ def str_to_class(class_name):
 
 def compare_refs(old_refs, new_refs):
     # compare refs in an object
-    old_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in old_refs}
-    new_ref_dict = {':'.join(ref['to']): ref['attr'] for ref in new_refs}
+    old_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in old_refs)
+    new_ref_dict = dict((':'.join(ref['to']), ref['attr']) for ref in new_refs)
     return old_ref_dict == new_ref_dict
 # end compare_refs
 
