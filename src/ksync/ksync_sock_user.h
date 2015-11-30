@@ -172,6 +172,7 @@ public:
     static vr_flow_entry *FlowMmapAlloc(int size);
     static void FlowMmapFree();
     static vr_flow_entry *GetFlowEntry(int idx);
+    static void RemoveFlowEntry(int idx);
     static void SetFlowEntry(vr_flow_req *req, bool set);
     static void IncrFlowStats(int idx, int pkts, int bytes);
     static void SetTcpFlag(int idx, uint32_t flags);

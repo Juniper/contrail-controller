@@ -82,6 +82,8 @@ const std::map<uint16_t, const char*>
          "SHORT_LINKLOCAL_SRC_NAT")
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "SHORT_FAILED_VROUTER_INST")
+        ((uint16_t)SHORT_DUPLICATE_ADD_WITHOUT_ACK,
+         "SHORT_DUPLICATE_ADD_WITHOUT_ACK")
         ((uint16_t)DROP_POLICY,              "DROP_POLICY")
         ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
         ((uint16_t)DROP_SG,                  "DROP_SG")
@@ -448,7 +450,7 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+bool FlowEntry::set_flow_handle(uint32_t flow_handle, bool update) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         // Skip ksync index manipulation, for deleted flow entry
@@ -457,8 +459,10 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle) {
             flow_table_->UpdateFlowHandle(this, flow_handle);
         }
         flow_handle_ = flow_handle;
-        flow_table_->UpdateKSync(this, true);
+        flow_table_->UpdateKSync(this, update);
+        return true;
     }
+    return false;
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {

@@ -586,6 +586,20 @@ vr_flow_entry *KSyncSockTypeMap::GetFlowEntry(int idx) {
     return &flow_table_[idx];
 }
 
+void KSyncSockTypeMap::RemoveFlowEntry(int idx) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    vr_flow_req req;
+    req.set_fr_index(idx);
+    req.set_fr_flags(0);
+
+    boost::unordered_map<int, vr_flow_req>::iterator it = sock->flow_map.find(idx);
+    if (it != sock->flow_map.end()) {
+        sock->flow_map.erase(idx);
+        //Deactivate the flow-entry in flow mmap
+        KSyncSockTypeMap::SetFlowEntry(&req, false);
+    }
+}
+
 void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     uint32_t idx = req->get_fr_index();
 
