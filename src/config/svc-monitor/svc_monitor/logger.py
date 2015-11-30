@@ -137,11 +137,14 @@ class ServiceMonitorLogger(object):
 
                 ha_str = "active"
                 if vm.index < len(si.local_preference):
-                    ha = si.local_preference[vm.index]
-                    if ha and int(ha) == svc_info.get_standby_preference():
-                        ha_str = "standby"
-                    if ha:
-                        ha_str = ha_str + ': ' + str(ha)
+                    if vm.index >= 0:
+                        ha = si.local_preference[vm.index]
+                        if ha and int(ha) == svc_info.get_standby_preference():
+                            ha_str = "standby"
+                        if ha:
+                            ha_str = ha_str + ': ' + str(ha)
+                    else:
+                        ha_str = "unknown"
 
                 vm = sandesh.ServiceInstanceVM(name=vm_str,
                     vr_name=vr_name, ha=ha_str)
