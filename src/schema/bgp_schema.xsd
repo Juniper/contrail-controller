@@ -171,7 +171,7 @@
 
 <xsd:simpleType name='BgpAsPathLoopCount'>
      <xsd:restriction base='xsd:integer'>
-         <xsd:minInclusive value='1'/>
+         <xsd:minInclusive value='0'/>
          <xsd:maxInclusive value='16'/>
      </xsd:restriction>
 </xsd:simpleType> 
