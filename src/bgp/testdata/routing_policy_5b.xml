@@ -1,26 +1,25 @@
+
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <routing-policy name='basic'>
         <term>
             <from>
                 <prefix>
-                    <prefix>10.0.1.1/32</prefix>
-                    <type> exact </type>
+                    <prefix>1.1.0.0/16</prefix>
+                    <type>exact</type>
                 </prefix>
             </from>
             <then>
                 <update>
-                    <local-pref>102</local-pref>
+                    <community>
+                        <set>
+                            <community>11:22</community>
+                            <community>22:44</community>
+                            <community>44:88</community>
+                        </set>
+                    </community>
                 </update>
                 <action>accept</action>
-            </then>
-        </term>
-        <term>
-            <from>
-                <community>11:13</community>
-            </from>
-            <then>
-                <action>reject</action>
             </then>
         </term>
     </routing-policy>

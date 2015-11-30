@@ -2,24 +2,17 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
-                <prefix>
-                    <prefix>3.1.0.0/16</prefix>
-                    <type>longer</type>
-                </prefix>
-            </from>
             <then>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
-                <action>accept</action>
             </then>
         </term>
         <term>
             <from>
                 <prefix>
-                    <prefix>3.1.1.1/32</prefix>
-                    <type>exact</type>
+                    <prefix> 3.1.1.1 </prefix>
+                    <type> exact </type>
                 </prefix>
             </from>
             <then>
@@ -29,17 +22,19 @@
         <term>
             <from>
                 <prefix>
-                    <prefix>1/8</prefix>
-                    <type>orlonger</type>
+                    <prefix> 1/8 </prefix>
+                    <type> orlonger </type>
                 </prefix>
             </from>
             <then>
+                <action>reject</action>
+            </then>
+        </term>
+        <term>
+            <then>
                 <update>
-                    <community>
-                        <add><community>11:44</community></add>
-                    </community>
+                    <local-pref>103</local-pref>
                 </update>
-                <action>accept</action>
             </then>
         </term>
     </routing-policy>

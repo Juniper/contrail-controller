@@ -12,5 +12,8 @@ env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/db'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
 
-librouting_policy = env.Library('routing_policy', ['routing_policy.cc'])
+librouting_policy = env.Library('routing_policy',
+                                ['routing_policy.cc',
+                                'routing_policy_action.cc',
+                                'routing_policy_match.cc'])
 
