@@ -1,35 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
-    <routing-policy name='basic_0'>
+    <routing-policy name='basic'>
         <term>
             <from>
-                <community>23:13</community>
+                <prefix>
+                    <prefix>1.1.1.1/32</prefix>
+                    <type>exact</type>
+                </prefix>
             </from>
             <then>
                 <update>
-                    <local-pref>102</local-pref>
+                    <community>
+                        <add><community>11:22</community></add>
+                    </community>
                 </update>
-                <action>accept</action>
             </then>
         </term>
-    </routing-policy>
-    <routing-policy name='basic_1'>
         <term>
             <from>
-                <community>23:11</community>
+                <community>11:22</community>
             </from>
             <then>
                 <action>reject</action>
             </then>
         </term>
     </routing-policy>
-
     <routing-instance name="test">
-        <routing-policy to="basic_0">
-            <sequence>1.1</sequence>
-        </routing-policy>
-        <routing-policy to="basic_1">
-            <sequence>1.01</sequence>
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
         </routing-policy>
         <vrf-target>target:1:103</vrf-target>
     </routing-instance>

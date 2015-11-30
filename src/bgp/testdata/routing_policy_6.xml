@@ -4,42 +4,43 @@
         <term>
             <from>
                 <prefix>
-                    <prefix>3.1.0.0/16</prefix>
-                    <type>longer</type>
-                </prefix>
-            </from>
-            <then>
-                <update>
-                    <local-pref>102</local-pref>
-                </update>
-                <action>accept</action>
-            </then>
-        </term>
-        <term>
-            <from>
-                <prefix>
-                    <prefix>3.1.1.1/32</prefix>
+                    <prefix>1.1.1.1/32</prefix>
                     <type>exact</type>
-                </prefix>
-            </from>
-            <then>
-                <action>reject</action>
-            </then>
-        </term>
-        <term>
-            <from>
-                <prefix>
-                    <prefix>1/8</prefix>
-                    <type>orlonger</type>
                 </prefix>
             </from>
             <then>
                 <update>
                     <community>
-                        <add><community>11:44</community></add>
+                        <add><community>11:22</community></add>
                     </community>
                 </update>
-                <action>accept</action>
+            </then>
+        </term>
+        <term>
+            <from>
+                <community>11:13</community>
+            </from>
+            <then>
+                <update>
+                    <community>
+                        <add><community>22:44</community></add>
+                    </community>
+                </update>
+            </then>
+        </term>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>1.1.0.0/16</prefix>
+                    <type>longer</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <community>
+                        <add><community>44:88</community></add>
+                    </community>
+                </update>
             </then>
         </term>
     </routing-policy>

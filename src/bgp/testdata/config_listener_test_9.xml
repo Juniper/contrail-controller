@@ -4,6 +4,10 @@
         <term>
             <from>
                 <community>23:13</community>
+                <prefix>
+                    <prefix> 1/8 </prefix>
+                    <type> orlonger </type>
+                </prefix>
             </from>
             <then>
                 <update>
@@ -17,6 +21,10 @@
         <term>
             <from>
                 <community>23:11</community>
+                <prefix>
+                    <prefix> 2001:db8:85a3:aaaa::b:c:d/64 </prefix>
+                    <type> longer </type>
+                </prefix>
             </from>
             <then>
                 <action>reject</action>

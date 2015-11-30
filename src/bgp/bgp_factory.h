@@ -16,6 +16,7 @@ class BgpConfigListener;
 class BgpConfigManager;
 class BgpExport;
 class BgpInstanceConfig;
+class BgpRoutingPolicyConfig;
 class BgpMessageBuilder;
 class BgpNeighborConfig;
 class BgpPeer;
@@ -37,6 +38,7 @@ class RibOut;
 class RibOutUpdates;
 class RoutingInstance;
 class RoutingInstanceMgr;
+class RoutingPolicy;
 class RoutingPolicyMgr;
 class RTargetGroupMgr;
 class SchedulingGroup;
@@ -63,6 +65,9 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N4(BgpObjectFactory, RoutingInstance,
                     std::string, BgpServer *, RoutingInstanceMgr *,
                     const BgpInstanceConfig *);
+    FACTORY_TYPE_N4(BgpObjectFactory, RoutingPolicy,
+                    std::string, BgpServer *, RoutingPolicyMgr *,
+                    const BgpRoutingPolicyConfig *);
     FACTORY_TYPE_N0(BgpObjectFactory, BgpMessageBuilder);
     FACTORY_TYPE_N0(BgpObjectFactory, BgpXmppMessageBuilder);
 

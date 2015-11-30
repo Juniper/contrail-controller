@@ -62,7 +62,8 @@ void BgpConfigListener::DependencyTrackerInit() {
 
     ReactionMap routing_policy_assoc_react = map_list_of<string, PropagateList>
         ("self", list_of("routing-instance-routing-policy"))
-        ("routing-instance-routing-policy", list_of("routing-instance-routing-policy"));
+        ("routing-instance-routing-policy",
+         list_of("routing-instance-routing-policy"));
     policy->insert(make_pair("routing-instance-routing-policy",
                              routing_policy_assoc_react));
 
