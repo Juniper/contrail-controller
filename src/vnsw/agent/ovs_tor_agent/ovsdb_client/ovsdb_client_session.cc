@@ -30,8 +30,7 @@ OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
     idl_inited_ = false;
     // initialize ovsdb_io task id on first constructor.
     if (ovsdb_io_task_id_ == -1) {
-        ovsdb_io_task_id_ =
-            TaskScheduler::GetInstance()->GetTaskId("OVSDB::IO");
+        ovsdb_io_task_id_ = agent->task_scheduler()->GetTaskId("OVSDB::IO");
     }
 }
 

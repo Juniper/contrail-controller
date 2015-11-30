@@ -1,0 +1,86 @@
+OVSDB Client
+------------
+OVSDB client in Contrail solution is part of the ToR Agent, where it is
+responsible to interface Contrail config with ToR switches used OVSDB
+
+it connects to OVSDB using either of the following
+- TCP where ToR hosts tcp port for connection, this is a non-secure mode
+  and is deprecated
+- PSSL where ToR agent will host an ssl port and switch initiates connection
+
+Currently ovsdb client supports only the hw_vtep OVSDB schema, which is used
+to manage ToR switches
+
+OVSDB Client translates the OpenContrail configuration to OVSDB and populates
+the relevant OVSDB table entries in the TOR switch.
+The following table maps the OpenContrail configuration objects to
+the OVSDB tables.
+
+   Contrail Objects          |     OVSDB Tables
+-----------------------------|------------------------------
+    Physical Device          |    Physical Switch
+    Physical Interface       |    Physical Port
+    Virtual Networks         |    Logical Switch
+    Logical Interface        |    <Vlan, Physical Port> binding to Logical Switch
+    L2 Unicast Route table   |    Unicast Remote and Local Table
+    -                        |    Multicast Remote Table
+    -                        |    Multicast Local Table
+    -                        |    Physical Locator Table
+    -                        |    Physical Locator Set Table
+
+Basic Functionality
+-------------------
+The TOR Agent receives the EVPN entries (routes) for the virtual networks in
+which the TOR switch ports are members. These are added to the unicast remote
+table in the OVSDB.
+
+MAC addresses learnt in the TOR switch in different logical switches (entries
+from local table in OVSDB) are propagated to the TOR Agent. TOR Agent exports
+them to the control node in the corresponding EVPN tables, which are further
+distributed to other controllers and subsequently to compute nodes and other
+EVPN nodes in the cluster.
+
+The TSN node receives the replication tree for each virtual network from the
+control node. The other compute nodes also receive the replication tree from
+the control node and this tree includes the TSN node.
+
+Local MAC Address Cleanup
+-------------------------
+Per OVSDB schema Local MAC address unicast and multicast table is owned by ToR
+So deletion of Logical Switch has to wait for ToR Switch to withdraw all its
+local MAC which is usually bound with programming and withdrawing of vlan-port
+bindings.
+If ToR fails to withdraw is local MAC within 15 mins it results into VRF delete
+timeout due to failure of deletion of logical-switch, VN and VRF
+
+HA Solution
+-----------
+when ToR agent stops or OVSDB connection flaps, peer routes are withdrawn
+immediately, which results in traffic disrupption for existing unicast stream
+To Avoid this disrupption ToR agent runs a HA stale peer for all the ToRs
+managed by ToR Agent(both active and backup), which publish a low priority
+route. this in turn ensures that in failure scenarios we hold on to the routes
+exported by ToR for the timeout window to allow unicast traffic to continue 
+
+As a side effect any MAC aging will result in Stale route of low priority to
+be present for an extended configured timeout
+
+VxLAN ID reuse
+--------------
+OVSDB schema doesnot use VxLAN ID as the key how ever QFX and may be other ToRs
+implementation will not be able to handle duplication of VxLAN ID for different
+Logical switches. In case of QFX it leads to commit failures.
+
+OVSDB client implements resource management infra for VxLAN ID to ensure that
+it doesn't send duplicate VxLAN ID to OVSDB server at any point of time,
+avoiding possible ambiguities. In case a VxLAN ID is already in use new logical
+switch waits in a queue for resource to get free'd before using it and
+programming to OVSDB database.
+
+In case logical switch fails to get newly assigned VxLAN ID (because of in-use)
+it starts clean up of logical switch by deleting vlan-port bindings and remote
+MAC addresses to free up exiting used VxLAN ID to avoid cyclic dependencies
+for VxLAN ID. if new VxLAN ID is available before the deletion went through
+completely OVSDB client cancels the deletion and update the new VxLAN ID to
+OVSDB server freeing old VxLAN ID.
+

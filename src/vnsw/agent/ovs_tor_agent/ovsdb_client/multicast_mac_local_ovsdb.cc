@@ -176,7 +176,7 @@ const std::string &MulticastMacLocalEntry::logical_switch_name() const {
 MulticastMacLocalOvsdb::MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     OvsdbObject(idl), peer_(peer) {
     vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
-              TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+              idl->agent()->task_scheduler()->GetTaskId("Agent::KSync"), 0,
               boost::bind(&MulticastMacLocalOvsdb::VrfReEval, this, _1));
     // register to listen updates for multicast mac local
     idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
