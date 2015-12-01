@@ -507,7 +507,7 @@ void FlowTable::DeleteByIndex(uint32_t flow_handle, FlowEntry *fe) {
     if (flow_handle != FlowEntry::kInvalidFlowHandle) {
         if (flow_index_tree_[flow_handle].get() == fe) {
             flow_index_tree_[flow_handle] = NULL;
-        } else {
+        } else if (fe->data().vrouter_evicted_flow == false) {
             assert(0);
         }
     }
@@ -882,9 +882,10 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
     //Actual msg would not be sent to kernel
     if (update == false) {
         if (flow->ksync_entry() != NULL) {
+            bool vrouter_evicted_flow = flow->data().vrouter_evicted_flow;
             flow->data().vrouter_evicted_flow = true;
             ksync_object_->Delete(flow->ksync_entry());
-            flow->data().vrouter_evicted_flow = false;
+            flow->data().vrouter_evicted_flow = vrouter_evicted_flow;
             flow->set_ksync_entry(NULL);
         }
     }
