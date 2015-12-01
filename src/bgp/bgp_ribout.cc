@@ -307,7 +307,8 @@ void RibOut::Deactivate(IPeerUpdate *peer) {
 }
 
 bool RibOut::IsActive(IPeerUpdate *peer) const {
-    return active_peerset_.test(GetPeerIndex(peer));
+    int index = GetPeerIndex(peer);
+    return (index < 0 ? false : active_peerset_.test(index));
 }
 
 // Return the number of peers this route has been advertised to.
@@ -387,5 +388,5 @@ IPeerUpdate *RibOut::GetPeer(int index) const {
 //
 int RibOut::GetPeerIndex(IPeerUpdate *peer) const {
     PeerState *ps = state_map_.Find(peer);
-    return ps->index;
+    return (ps ? ps->index : -1);
 }

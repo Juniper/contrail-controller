@@ -95,16 +95,21 @@ bool BgpSessionManager::ProcessWriteReady(TcpSessionPtr tcp_session) {
 
 //
 // Search for a matching BgpPeer.
-// First look for an exact match in the EndpointToBgpPeerList in BgpServer.
-// Then look for a matching address in the master instance.
+// First look for a matching address in the master instance.
+// Then look for a matching port in the EndpointToBgpPeerList in BgpServer.
 //
 BgpPeer *BgpSessionManager::FindPeer(Endpoint remote) {
-    BgpPeer *peer = server_->FindPeer(remote);
-    if (peer)
-        return peer;
+    BgpPeer *peer = NULL;
     const RoutingInstance *instance =
         server_->routing_instance_mgr()->GetDefaultRoutingInstance();
-    return (instance ? instance->peer_manager()->PeerLookup(remote) : NULL);
+    if (instance) {
+        peer = instance->peer_manager()->PeerLookup(remote);
+    }
+    if (!peer) {
+        peer = server_->FindPeer(
+            TcpSession::Endpoint(Ip4Address(), remote.port()));
+    }
+    return peer;
 }
 
 //

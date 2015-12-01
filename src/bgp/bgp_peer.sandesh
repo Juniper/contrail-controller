@@ -21,10 +21,6 @@ traceobject sandesh BgpPeerObjectTrace {
     1: BgpPeerInfo peer;
 }
 
-request sandesh BgpNeighborReq {
-    1: string search_string;
-}
-
 struct BgpNeighborRoutingInstance {
     1: string name;
     2: string state;
@@ -54,8 +50,11 @@ struct BgpNeighborResp {
     2: string peer_address (link="BgpNeighborReq");
     25: string peer_id;
     3: u32 peer_asn;
+    50: u32 peer_port;
+    51: string transport_address;
     6: string encoding;         // BGP/XMPP
     7: string peer_type         // internal/external
+    52: string router_type;     // bgp_schema.xsd:BgpRouterType
     8: string state;
     4: string local_address;    // local ip address and port
     26: string local_id;
@@ -90,6 +89,10 @@ response sandesh BgpNeighborListResp {
     1: list<BgpNeighborResp> neighbors;
     2: optional string next_batch (link="BgpNeighborReqIterate",
                                    link_title="next_batch");
+}
+
+request sandesh BgpNeighborReq {
+    1: string search_string;
 }
 
 response sandesh ShowBgpNeighborSummaryResp {
@@ -461,12 +464,14 @@ struct ShowBgpNeighborConfig {
     2: string name;
     13: bool admin_down;
     15: bool passive;
+    18: string router_type;
     8: string local_identifier;
     9: i32 local_as;
     3: string vendor;
     4: i32 autonomous_system;
     5: string identifier;
     6: string address;
+    19: u32 port;
     14: i32 hold_time;
     16: i32 loop_count;
     10: string last_change_at;

@@ -137,10 +137,12 @@ public:
         return peer_key_.endpoint.address().to_string();
     }
     const BgpPeerKey &peer_key() const { return peer_key_; }
-    TcpSession::Endpoint remote_endpoint() const { return remote_endpoint_; }
+    uint16_t peer_port() const { return peer_key_.endpoint.port(); }
+    std::string transport_address_string() const;
     const std::string &peer_name() const { return peer_name_; }
     const std::string &peer_basename() const { return peer_basename_; }
     std::string router_type() const { return router_type_; }
+    TcpSession::Endpoint endpoint() const { return endpoint_; }
 
     StateMachine::State GetState() const;
     virtual const std::string GetStateName() const;
@@ -184,8 +186,8 @@ public:
     const BgpNeighborConfig *config() const { return config_; }
 
     virtual void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
-    void FillNeighborInfo(const BgpSandeshContext *bsc,
-            std::vector<BgpNeighborResp> *nbr_list, bool summary) const;
+    void FillNeighborInfo(const BgpSandeshContext *bsc, BgpNeighborResp *bnr,
+        bool summary) const;
 
     // thread-safe
     bool IsDeleted() const;
@@ -256,7 +258,8 @@ public:
     uint64_t get_open_error() const;
     uint64_t get_update_error() const;
 
-    static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
+    static void FillBgpNeighborDebugState(BgpNeighborResp *bnr,
+        const IPeerDebugStats *peer);
 
     bool ResumeClose();
     void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
@@ -325,6 +328,7 @@ private:
     void ResetInuseAuthKeyInfo();
 
     bool ProcessFamilyAttributesConfig(const BgpNeighborConfig *config);
+    void ProcessEndpointConfig(const BgpNeighborConfig *config);
 
     void PostCloseRelease();
     void CustomClose();
@@ -336,8 +340,8 @@ private:
     BgpServer *server_;
     // Backpointer to routing instance
     RoutingInstance *rtinstance_;
+    TcpSession::Endpoint endpoint_;
     BgpPeerKey peer_key_;
-    TcpSession::Endpoint remote_endpoint_;
     std::string peer_name_;
     std::string peer_basename_;
     std::string router_type_;         // bgp_schema.xsd:BgpRouterType

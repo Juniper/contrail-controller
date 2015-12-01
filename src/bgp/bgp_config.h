@@ -185,11 +185,6 @@ public:
     int port() const { return port_; }
     void set_port(int port) { port_ = port; }
 
-    TcpSession::Endpoint remote_endpoint() const { return remote_endpoint_; }
-    void set_remote_endpoint(TcpSession::Endpoint remote_endpoint) {
-        remote_endpoint_ = remote_endpoint;
-    }
-
     std::string router_type() const { return router_type_; }
     void set_router_type(const std::string &router_type) {
         router_type_ = router_type;

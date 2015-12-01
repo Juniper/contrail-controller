@@ -302,29 +302,6 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         NeighborSetSessionAttributes(neighbor, local_name, session);
     }
 
-    // Get remote endpoint information for bgpaas-clients if appropriate.
-    if (params.router_type == "bgpaas-client" &&
-        remote_router->IsPropertySet(
-            autogen::BgpRouter::BGP_AS_A_SERVICE_PARAMETERS)) {
-        const autogen::BgpAsAServiceParameters &bgpaas_params =
-            remote_router->bgp_as_a_service_parameters();
-        Ip4Address vrouter_address =
-            Ip4Address::from_string(bgpaas_params.vrouter_ip_address, err);
-        if (err) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Invalid bgpaas-client vrouter ip address " <<
-                bgpaas_params.vrouter_ip_address <<
-                " for neighbor " << neighbor->name());
-        }
-        if (bgpaas_params.port < 0 || bgpaas_params.port > 65535) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Invalid bgpaas-client port " << bgpaas_params.port <<
-                " for neighbor " << neighbor->name());
-        }
-        neighbor->set_remote_endpoint(TcpSession::Endpoint(vrouter_address,
-            static_cast<uint16_t>(bgpaas_params.port)));
-    }
-
     // Get the local identifier and local as from the master protocol config.
     const BgpIfmapProtocolConfig *master_protocol =
         master_instance->protocol_config();

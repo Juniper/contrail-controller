@@ -33,6 +33,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bool summary) {
     bnr->set_peer(bx_channel->ToString());
     bnr->set_peer_address(bx_channel->remote_endpoint().address().to_string());
+    bnr->set_transport_address(bx_channel->transport_address_string());
     bnr->set_deleted(bx_channel->peer_deleted());
     bnr->set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
     bnr->set_local_address(bx_channel->local_endpoint().address().to_string());
@@ -55,7 +56,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bx_channel->FillTableMembershipInfo(bnr);
     bx_channel->FillInstanceMembershipInfo(bnr);
 
-    BgpPeer::FillBgpNeighborDebugState(*bnr, bx_channel->Peer()->peer_stats());
+    BgpPeer::FillBgpNeighborDebugState(bnr, bx_channel->Peer()->peer_stats());
 }
 
 static bool ShowXmppNeighbor(const BgpSandeshContext *bsc, bool summary,
