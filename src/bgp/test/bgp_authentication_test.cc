@@ -465,7 +465,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithDifferentKeys) {
 }
 
 // Change keys multiple times but with the same keys for all peers.
-TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
+TEST_F(BgpAuthenticationTest, DISABLED_2CnsWithChangingSameKeys) {
     StateMachineTest::set_keepalive_time_msecs(10);
     string uuid = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     vector<autogen::AuthenticationKeyItem> no_auth_keys;
@@ -799,7 +799,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 // 2 keys. Change keys so that sometimes the keys are the same and sometimes
 // they are different. Check that peering is up when they are the keys are the
 // same and that peering is degraded when the keys are different.
-TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
+TEST_F(BgpAuthenticationTest, DISABLED_SameDifferentMultipleKeyChanges) {
     StateMachineTest::set_keepalive_time_msecs(10);
     string uuid = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     vector<autogen::AuthenticationKeyItem> no_auth_keys;
@@ -1014,7 +1014,7 @@ TEST_F(BgpAuthenticationTest, MultipleRouterKeyChanges) {
 
 // Let the peering come up with no key. Then change keys on both sides multiple
 // times on the BgpRouter node.
-TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
+TEST_F(BgpAuthenticationTest, DISABLED_NoKeyToRouterKey) {
     StateMachineTest::set_keepalive_time_msecs(10);
     string uuid = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     vector<autogen::AuthenticationKeyItem> no_auth_keys;
