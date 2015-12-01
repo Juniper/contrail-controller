@@ -117,6 +117,114 @@ do {                                                                           \
     }                                                                          \
 } while (false)
 
+#define TASK_UTIL_WAIT_GT(object1, object2, wait, retry, msg)                  \
+do {                                                                           \
+    std::ostringstream ostream;                                                \
+                                                                               \
+    size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
+    for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
+        if ((object1) > (object2)) {                                           \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        usleep(wait);                                                          \
+        _j++;                                                                  \
+        if ((_j * wait < 2000000UL)) continue;                                 \
+        if ((object1) > (object2)) {                                           \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        _j = 0;                                                                \
+        TASK_UTIL_WAIT_MSG(_i, object2, object1, wait, " to be greater than ", \
+                           msg);                                               \
+    }                                                                          \
+    if (!_satisfied) {                                                         \
+        EXPECT_GT(object1, object2);                                           \
+    }                                                                          \
+} while (false)
+
+#define TASK_UTIL_WAIT_GE(object1, object2, wait, retry, msg)                  \
+do {                                                                           \
+    std::ostringstream ostream;                                                \
+                                                                               \
+    size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
+    for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
+        if ((object1) >= (object2)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        usleep(wait);                                                          \
+        _j++;                                                                  \
+        if ((_j * wait < 2000000UL)) continue;                                 \
+        if ((object1) >= (object2)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        _j = 0;                                                                \
+        TASK_UTIL_WAIT_MSG(_i, object2, object1, wait,                         \
+                           " to be greater than or equal to ", msg);           \
+    }                                                                          \
+    if (!_satisfied) {                                                         \
+        EXPECT_GE(object1, object2);                                           \
+    }                                                                          \
+} while (false)
+
+#define TASK_UTIL_WAIT_LT(object1, object2, wait, retry, msg)                  \
+do {                                                                           \
+    std::ostringstream ostream;                                                \
+                                                                               \
+    size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
+    for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
+        if ((object1) < (object2)) {                                           \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        usleep(wait);                                                          \
+        _j++;                                                                  \
+        if ((_j * wait < 2000000UL)) continue;                                 \
+        if ((object1) < (object2)) {                                           \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        _j = 0;                                                                \
+        TASK_UTIL_WAIT_MSG(_i, object2, object1, wait, " to be less than ",    \
+                           msg);                                               \
+    }                                                                          \
+    if (!_satisfied) {                                                         \
+        EXPECT_LT(object1, object2);                                           \
+    }                                                                          \
+} while (false)
+
+#define TASK_UTIL_WAIT_LE(object1, object2, wait, retry, msg)                  \
+do {                                                                           \
+    std::ostringstream ostream;                                                \
+                                                                               \
+    size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
+    for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
+        if ((object1) <= (object2)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        usleep(wait);                                                          \
+        _j++;                                                                  \
+        if ((_j * wait < 2000000UL)) continue;                                 \
+        if ((object1) <= (object2)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
+        _j = 0;                                                                \
+        TASK_UTIL_WAIT_MSG(_i, object2, object1, wait,                         \
+                           " to be less than or equal to ", msg);              \
+    }                                                                          \
+    if (!_satisfied) {                                                         \
+        EXPECT_LE(object1, object2);                                           \
+    }                                                                          \
+} while (false)
+
 #define TASK_UTIL_EXPECT_VECTOR_EQ(actual, expected)             \
     do {                                                         \
         TASK_UTIL_EXPECT_EQ((expected).size(), (actual).size()); \
@@ -161,7 +269,6 @@ static inline unsigned long long int task_util_retry_count() {
 #define TASK_UTIL_EXPECT_EQ(expected, actual) \
     TASK_UTIL_WAIT_EQ(expected, actual, task_util_wait_time(), \
                       task_util_retry_count(), "")
-
 #define TASK_UTIL_EXPECT_EQ_MSG(expected, actual, msg) \
     TASK_UTIL_WAIT_EQ(expected, actual, task_util_wait_time(), \
                       task_util_retry_count(), msg)
@@ -171,6 +278,36 @@ static inline unsigned long long int task_util_retry_count() {
                       task_util_retry_count(), "")
 #define TASK_UTIL_EXPECT_NE_MSG(expected, actual, msg) \
     TASK_UTIL_WAIT_NE(expected, actual, task_util_wait_time(), \
+                      task_util_retry_count(), msg)
+
+#define TASK_UTIL_EXPECT_GT(object1, object2) \
+    TASK_UTIL_WAIT_GT(object1, object2, task_util_wait_time(), \
+                      task_util_retry_count(), "")
+#define TASK_UTIL_EXPECT_GT_MSG(object1, object2, msg) \
+    TASK_UTIL_WAIT_GT(object1, object2, task_util_wait_time(), \
+                      task_util_retry_count(), msg)
+#define TASK_UTIL_EXPECT_GT_PARAMS1(object1, object2, wait_time, msg) \
+    TASK_UTIL_WAIT_GT(object1, object2, wait_time, task_util_retry_count(), msg)
+
+#define TASK_UTIL_EXPECT_GE(object1, object2) \
+    TASK_UTIL_WAIT_GE(object1, object2, task_util_wait_time(), \
+                      task_util_retry_count(), "")
+#define TASK_UTIL_EXPECT_GE_MSG(object1, object2, msg) \
+    TASK_UTIL_WAIT_GE(object1, object2, task_util_wait_time(), \
+                      task_util_retry_count(), msg)
+
+#define TASK_UTIL_EXPECT_LT(expected, actual) \
+    TASK_UTIL_WAIT_LT(expected, actual, task_util_wait_time(), \
+                      task_util_retry_count(), "")
+#define TASK_UTIL_EXPECT_LT_MSG(expected, actual, msg) \
+    TASK_UTIL_WAIT_LT(expected, actual, task_util_wait_time(), \
+                      task_util_retry_count(), msg)
+
+#define TASK_UTIL_EXPECT_LE(expected, actual) \
+    TASK_UTIL_WAIT_LE(expected, actual, task_util_wait_time(), \
+                      task_util_retry_count(), "")
+#define TASK_UTIL_EXPECT_LE_MSG(expected, actual, msg) \
+    TASK_UTIL_WAIT_LE(expected, actual, task_util_wait_time(), \
                       task_util_retry_count(), msg)
 
 #define TASK_UTIL_EXPECT_TRUE(condition) \

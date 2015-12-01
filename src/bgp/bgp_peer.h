@@ -279,9 +279,10 @@ public:
     const StateMachine *state_machine() const { return state_machine_.get(); }
 
     bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
-    void InstallAuthKeys(TcpSession *session);
+    bool InstallAuthKeys(TcpSession *session);
     std::string GetInuseAuthKeyValue() const;
-    void SetListenSocketAuthKey(const AuthenticationKey &auth_key);
+    void SetListenSocketAuthKey(const AuthenticationKey &auth_key,
+                                KeyType key_type);
     void ClearListenSocketAuthKey();
 
 private:
@@ -321,7 +322,7 @@ private:
         const BgpMpNlri *nlri, BgpAttrPtr attr, uint32_t flags);
 
     bool GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) const;
-    void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
+    bool ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
     void LogInstallAuthKeys(const std::string &oper,
                             const AuthenticationKey &auth_key, KeyType key_type);
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
