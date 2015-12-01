@@ -160,6 +160,19 @@ class DBBase(object):
         return key
     # end _get_ref_key
 
+    def get_single_ref_attr(self, ref_type, obj):
+        if isinstance(obj, dict):
+            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+        else:
+            refs = (getattr(obj, ref_type+'_refs', None) or
+                    getattr(obj, ref_type+'_back_refs', None))
+
+        if refs:
+            ref_attr = refs[0].get('attr', None)
+            return ref_attr
+        return None
+    # end get_single_ref_attr
+
     def update_single_ref(self, ref_type, obj):
         if isinstance(obj, dict):
             refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
