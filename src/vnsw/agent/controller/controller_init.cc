@@ -78,9 +78,9 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);
-            xmpp_cfg->auth_enabled = agent_->xmpp_auth_enabled(count);
+            xmpp_cfg->auth_enabled = agent_->xmpp_auth_enabled();
             if (xmpp_cfg->auth_enabled) {
-                xmpp_cfg->path_to_server_cert =  agent_->xmpp_server_cert(count);
+                xmpp_cfg->path_to_server_cert =  agent_->xmpp_server_cert();
             }
             uint32_t port = agent_->controller_ifmap_xmpp_port(count);
             if (!port) {
@@ -154,9 +154,9 @@ void VNController::DnsXmppServerConnect() {
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
             xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
-            xmpp_cfg_dns->auth_enabled = agent_->dns_auth_enabled(count);
+            xmpp_cfg_dns->auth_enabled = agent_->dns_auth_enabled();
             if (xmpp_cfg_dns->auth_enabled) {
-                xmpp_cfg_dns->path_to_server_cert = agent_->dns_server_cert(count);
+                xmpp_cfg_dns->path_to_server_cert = agent_->dns_server_cert();
             }
 
             // Create Xmpp Client

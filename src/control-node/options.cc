@@ -263,7 +263,6 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<int>(var_map, tcp_hold_time_, "DEFAULT.tcp_hold_time");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
-    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,

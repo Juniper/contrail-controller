@@ -220,46 +220,32 @@ void Agent::CopyConfig(AgentParam *params) {
     int count = 0;
     int dns_count = 0;
 
+    xs_auth_enable_ = params_->xmpp_auth_enabled();
+    xs_server_cert_ = params_->xmpp_server_cert();
+
     if (params_->xmpp_server_1().to_ulong()) {
         xs_addr_[count] = params_->xmpp_server_1().to_string();
-        xs_auth_enable_[count] = params_->xmpp_auth_enabled_1();
-        xs_server_cert_[count] = params_->xmpp_server_cert_1();
         count++;
-    } else {
-        xs_auth_enable_[0] = params_->xmpp_auth_enabled_1();
-        xs_server_cert_[0] = params_->xmpp_server_cert_1();
     }
 
     if (params_->xmpp_server_2().to_ulong()) {
         xs_addr_[count] = params_->xmpp_server_2().to_string();
-        xs_auth_enable_[count] = params_->xmpp_auth_enabled_2();
-        xs_server_cert_[count] = params_->xmpp_server_cert_2();
         count++;
-    } else {
-        xs_auth_enable_[1] = params_->xmpp_auth_enabled_2();
-        xs_server_cert_[1] = params_->xmpp_server_cert_2();
     }
+
+    dns_auth_enable_ = params_->xmpp_dns_auth_enabled();
+    dns_server_cert_ = params_->xmpp_dns_server_cert();
 
     if (params_->dns_server_1().to_ulong()) {
         dns_port_[dns_count] = params_->dns_port_1();
         dns_addr_[dns_count] = params_->dns_server_1().to_string();
-        dns_auth_enable_[dns_count] = params_->xmpp_dns_auth_enabled_1();
-        dns_server_cert_[dns_count] = params_->xmpp_dns_server_cert_1();
         dns_count++;
-    } else {
-        dns_auth_enable_[0] = params_->xmpp_dns_auth_enabled_1();
-        dns_server_cert_[0] = params_->xmpp_dns_server_cert_1();
     }
 
     if (params_->dns_server_2().to_ulong()) {
         dns_port_[dns_count] = params_->dns_port_2();
         dns_addr_[dns_count] = params_->dns_server_2().to_string();
-        dns_auth_enable_[dns_count] = params_->xmpp_dns_auth_enabled_2();
-        dns_server_cert_[dns_count] = params_->xmpp_dns_server_cert_2();
         dns_count++;
-    } else {
-        dns_auth_enable_[1] = params_->xmpp_dns_auth_enabled_2();
-        dns_server_cert_[1] = params_->xmpp_dns_server_cert_2();
     }
 
     dss_addr_ = params_->discovery_server();
