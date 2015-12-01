@@ -508,7 +508,7 @@ void BgpStressTest::SetUp() {
         xs_cfg.auth_enabled = true;
         xs_cfg.path_to_server_cert =
             "controller/src/xmpp/testdata/server-build02.pem";
-        xs_cfg.path_to_pvt_key =
+        xs_cfg.path_to_server_priv_key =
             "controller/src/xmpp/testdata/server-build02.key";
         xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV,
                                                &xs_cfg);

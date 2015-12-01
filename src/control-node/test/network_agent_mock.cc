@@ -859,7 +859,7 @@ XmppChannelConfig *NetworkAgentMock::CreateXmppConfig() {
         config->auth_enabled = true;
         config->path_to_server_cert =
             "controller/src/xmpp/testdata/server-build02.pem";
-        config->path_to_pvt_key =
+        config->path_to_server_priv_key =
             "controller/src/xmpp/testdata/server-build02.key";
     } else {
         config->auth_enabled = false;

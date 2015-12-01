@@ -298,8 +298,10 @@ void AgentParam::ParseVirtualHost() {
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
     GetValueFromTree<uint16_t>(dss_port_, "DISCOVERY.port");
-    GetValueFromTree<uint16_t>(xmpp_instance_count_,
-                               "DISCOVERY.max_control_nodes");
+    if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
+                                    "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = MAX_XMPP_SERVERS;
+    }
 }
 
 void AgentParam::ParseNetworks() {
@@ -443,22 +445,30 @@ void AgentParam::ParseDefaultSection() {
         log_property_file_ = "";
     }
 
-    GetValueFromTree<bool>(xmpp_auth_enable_1_, "DEFAULT.xmpp_auth_enable_1");
-    GetValueFromTree<bool>(xmpp_auth_enable_2_, "DEFAULT.xmpp_auth_enable_2");
-    if (!GetValueFromTree<string>(xmpp_server_cert_1_, "DEFAULT.xmpp_server_cert_1")) {
-        xmpp_server_cert_1_ = "/etc/contrail/ssl/certs/control-node-cert.pem";
-    }
-    if (!GetValueFromTree<string>(xmpp_server_cert_2_, "DEFAULT.xmpp_server_cert_2")) {
-        xmpp_server_cert_2_ = "/etc/contrail/ssl/certs/control-node-cert.pem";
+    if (!GetValueFromTree<bool>(xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable")) {
+        // set defaults
+        xmpp_auth_enable_ = false;
     }
 
-    GetValueFromTree<bool>(xmpp_dns_auth_enable_1_, "DEFAULT.xmpp_dns_auth_enable_1");
-    GetValueFromTree<bool>(xmpp_dns_auth_enable_2_, "DEFAULT.xmpp_dns_auth_enable_2");
-    if (!GetValueFromTree<string>(xmpp_dns_server_cert_1_, "DEFAULT.xmpp_server_cert_1")) {
-        xmpp_dns_server_cert_1_ = "/etc/contrail/ssl/certs/dns-cert.pem";
+    if (!GetValueFromTree<string>(xmpp_server_cert_, "DEFAULT.xmpp_server_cert")) {
+        // set defaults
+        xmpp_server_cert_ = "/etc/contrail/ssl/certs/server.pem";
     }
-    if (!GetValueFromTree<string>(xmpp_dns_server_cert_2_, "DEFAULT.xmpp_server_cert_2")) {
-        xmpp_dns_server_cert_2_ = "/etc/contrail/ssl/certs/dns-cert.pem";
+
+    if (!GetValueFromTree<string>(xmpp_server_key_, "DEFAULT.xmpp_server_key")) {
+        // set defaults
+        xmpp_server_key_ = "/etc/contrail/ssl/private/server-privkey.pem";
+    }
+
+    if (!GetValueFromTree<string>(xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert")) {
+        // set defaults
+        xmpp_ca_cert_ = "/etc/contrail/ssl/certs/ca-cert.pem";
+    }
+
+    if (!GetValueFromTree<bool>(xmpp_dns_auth_enable_,
+                                "DEFAULT.xmpp_dns_auth_enable")) {
+        // set defaults
+        xmpp_dns_auth_enable_ = false;
     }
 
     if (!GetValueFromTree<uint32_t>(send_ratelimit_,
@@ -580,10 +590,8 @@ void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
     GetOptValue<uint16_t>(var_map, dss_port_, "DISCOVERY.port");
-    if (!GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
-                          "DISCOVERY.max_control_nodes")) {
-        xmpp_instance_count_ = MAX_XMPP_SERVERS;
-    }
+    GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
+                          "DISCOVERY.max_control_nodes");
 }
 
 void AgentParam::ParseNetworksArguments
@@ -665,15 +673,14 @@ void AgentParam::ParseDefaultSectionArguments
     if (var_map.count("DEFAULT.log_flow")) {
          log_flow_ = true;
     }
-    GetOptValue<bool>(var_map, xmpp_auth_enable_1_, "DEFAULT.xmpp_auth_enable_1");
-    GetOptValue<bool>(var_map, xmpp_auth_enable_2_, "DEFAULT.xmpp_auth_enable_2");
-    GetOptValue<string>(var_map, xmpp_server_cert_1_, "DEFAULT.xmpp_server_cert_1");
-    GetOptValue<string>(var_map, xmpp_server_cert_2_, "DEFAULT.xmpp_server_cert_2");
 
-    GetOptValue<bool>(var_map, xmpp_dns_auth_enable_1_, "DEFAULT.xmpp_dns_auth_enable_1");
-    GetOptValue<bool>(var_map, xmpp_dns_auth_enable_2_, "DEFAULT.xmpp_dns_auth_enable_2");
-    GetOptValue<string>(var_map, xmpp_dns_server_cert_1_, "DEFAULT.xmpp_dns_server_cert_1");
-    GetOptValue<string>(var_map, xmpp_dns_server_cert_2_, "DEFAULT.xmpp_dns_server_cert_2");
+    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
+    GetOptValue<bool>(var_map, xmpp_dns_auth_enable_, 
+                      "DEFAULT.xmpp_dns_auth_enable");
+    GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
+    GetOptValue<string>(var_map, xmpp_server_key_, 
+                        "DEFAULT.xmpp_server_key");
+    GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
 
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                           "DEFAULT.sandesh_send_rate_limit");
@@ -1019,28 +1026,25 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Ethernet port               : " << eth_port_);
 
     LOG(DEBUG, "XMPP Server-1               : " << xmpp_server_1_);
-    LOG(DEBUG, "Xmpp Authentication-1       : " << xmpp_auth_enable_1_);
-    if (xmpp_auth_enable_1_) {
-        LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_1_);
-    }
     LOG(DEBUG, "XMPP Server-2               : " << xmpp_server_2_);
-    LOG(DEBUG, "Xmpp Authentication-2       : " << xmpp_auth_enable_2_);
-    if (xmpp_auth_enable_2_) {
-        LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_2_);
-
+    LOG(DEBUG, "Xmpp Authentication         : " << xmpp_auth_enable_);
+    if (xmpp_auth_enable_) {
+        LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
+        LOG(DEBUG, "Xmpp Server Key         : " << xmpp_server_key_);
+        LOG(DEBUG, "Xmpp CA Certificate     : " << xmpp_ca_cert_);
     }
+
     LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
     LOG(DEBUG, "DNS Port-1                  : " << dns_port_1_);
-    LOG(DEBUG, "Xmpp Dns Authentication-1   : " << xmpp_dns_auth_enable_1_);
-    if (xmpp_dns_auth_enable_1_) {
-        LOG(DEBUG, "Xmpp Dns Server Certificate : " << xmpp_dns_server_cert_1_);
-    }
     LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
     LOG(DEBUG, "DNS Port-2                  : " << dns_port_2_);
-    LOG(DEBUG, "Xmpp Dns Authentication-2   : " << xmpp_auth_enable_2_);
-    if (xmpp_dns_auth_enable_2_) {
-        LOG(DEBUG, "Xmpp Dns Server Certificate : " << xmpp_dns_server_cert_2_);
+    LOG(DEBUG, "Xmpp Dns Authentication     : " << xmpp_dns_auth_enable_);
+    if (xmpp_dns_auth_enable_) {
+        LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
+        LOG(DEBUG, "Xmpp Server Key         : " << xmpp_server_key_);
+        LOG(DEBUG, "Xmpp CA Certificate     : " << xmpp_ca_cert_);
     }
+
     LOG(DEBUG, "Discovery Server:Port       : " << dss_server_ << ":" << dss_port_);
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
@@ -1150,10 +1154,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), dhcp_relay_mode_(false),
-        xmpp_auth_enable_1_(false), xmpp_auth_enable_2_(false),
-        xmpp_server_cert_1_(""), xmpp_server_cert_2_(""),
-        xmpp_dns_auth_enable_1_(false), xmpp_dns_auth_enable_2_(false),
-        xmpp_dns_server_cert_1_(""), xmpp_dns_server_cert_2_(""),
+        xmpp_auth_enable_(false),
+        xmpp_server_cert_(""), xmpp_server_key_(""), xmpp_ca_cert_(""),
+        xmpp_dns_auth_enable_(false), 
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_lb_ssl_cert_path_(),
@@ -1217,30 +1220,22 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
-        ("DEFAULT.xmpp_auth_enable_1", opt::value<bool>(),
-         "Enable authentication over Xmpp Server 1")
-        ("DEFAULT.xmpp_auth_enable_2", opt::value<bool>(),
-         "Enable authentication over Xmpp Server 2")
-        ("DEFAULT.xmpp_server_cert_1",
+        ("DEFAULT.xmpp_auth_enable", opt::value<bool>()->default_value(false),
+         "Enable Xmpp over TLS")
+        ("DEFAULT.xmpp_server_cert",
           opt::value<string>()->default_value(
-          "/etc/contrail/ssl/certs/control-node-cert.pem"),
+          "/etc/contrail/ssl/certs/server.pem"),
           "XMPP Server ssl certificate")
-        ("DEFAULT.xmpp_server_cert_2",
+        ("DEFAULT.xmpp_server_key",
           opt::value<string>()->default_value(
-          "/etc/contrail/ssl/certs/control-node-cert.pem"),
-          "XMPP Server ssl certificate")
-        ("DEFAULT.xmpp_dns_auth_enable_1", opt::value<bool>(),
-         "Enable authentication over Xmpp Dns Server 1")
-        ("DEFAULT.xmpp_dns_auth_enable_2", opt::value<bool>(),
-         "Enable authentication over Xmpp Dns Server 2")
-        ("DEFAULT.xmpp_dns_server_cert_1",
+          "/etc/contrail/ssl/private/server-privkey.pem"),
+          "XMPP Server ssl private key")
+        ("DEFAULT.xmpp_ca_cert",
           opt::value<string>()->default_value(
-          "/etc/contrail/ssl/certs/dns-cert.pem"),
-          "XMPP Dns Server ssl certificate")
-        ("DEFAULT.xmpp_dns_server_cert_2",
-          opt::value<string>()->default_value(
-          "/etc/contrail/ssl/certs/dns-cert.pem"),
-          "XMPP Dns Server ssl certificate")
+          "/etc/contrail/ssl/certs/ca.pem"),
+          "XMPP CA ssl certificate")
+        ("DEFAULT.xmpp_dns_auth_enable", opt::value<bool>()->default_value(false),
+         "Enable Xmpp over TLS for DNS")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
         ("NETWORKS.control_network_ip", opt::value<string>(),
