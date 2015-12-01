@@ -89,7 +89,8 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
 
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
-        xmpp_cfg->path_to_pvt_key = options->xmpp_server_key();
+        xmpp_cfg->path_to_server_priv_key = options->xmpp_server_key();
+        xmpp_cfg->path_to_ca_cert = options->xmpp_ca_cert();
     }
 
     // Create XmppServer

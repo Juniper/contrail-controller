@@ -438,11 +438,17 @@ public:
         xs_addr_[idx].clear();
         xs_port_[idx] = 0;
     }
-    const bool xmpp_auth_enabled(uint8_t idx) const {
-        return xs_auth_enable_[idx];
+    const bool xmpp_auth_enabled() const {
+        return xs_auth_enable_;
     }
-    const std::string &xmpp_server_cert(uint8_t idx) const {
-        return xs_server_cert_[idx];
+    const std::string &xmpp_server_cert() const {
+        return xs_server_cert_;
+    }
+    const std::string &xmpp_server_key() const {
+        return xs_server_key_;
+    }
+    const std::string &xmpp_ca_cert() const {
+        return xs_ca_cert_;
     }
 
     const uint32_t controller_ifmap_xmpp_port(uint8_t idx) const {
@@ -523,11 +529,8 @@ public:
    }
 
     // DNS XMPP Server
-    const bool dns_auth_enabled(uint8_t idx) const {
-        return dns_auth_enable_[idx];
-    }
-    const std::string &dns_server_cert(uint8_t idx) const {
-        return dns_server_cert_[idx];
+    const bool dns_auth_enabled() const {
+        return dns_auth_enable_;
     }
 
     XmppInit *dns_xmpp_init(uint8_t idx) const {
@@ -1019,13 +1022,14 @@ private:
     std::string xs_addr_[MAX_XMPP_SERVERS];
     uint32_t xs_port_[MAX_XMPP_SERVERS];
     uint64_t xs_stime_[MAX_XMPP_SERVERS];
-    bool xs_auth_enable_[MAX_XMPP_SERVERS];
-    std::string xs_server_cert_[MAX_XMPP_SERVERS];
+    bool xs_auth_enable_;
+    std::string xs_server_cert_;
+    std::string xs_server_key_;
+    std::string xs_ca_cert_;
     int8_t xs_dns_idx_;
     std::string dns_addr_[MAX_XMPP_SERVERS];
     uint32_t dns_port_[MAX_XMPP_SERVERS];
-    bool dns_auth_enable_[MAX_XMPP_SERVERS];
-    std::string dns_server_cert_[MAX_XMPP_SERVERS];
+    bool dns_auth_enable_;
     // Discovery Responses
     std::vector<DSResponse>ds_response_;
     std::vector<DSResponse>ds_dns_response_;

@@ -198,7 +198,8 @@ int main(int argc, char *argv[]) {
 
     if (!DnsAgentXmppManager::Init(options.xmpp_auth_enabled(),
                                    options.xmpp_server_cert(),
-                                   options.xmpp_server_key())) {
+                                   options.xmpp_server_key(),
+                                   options.xmpp_ca_cert())) {
         LOG(ERROR, "Address already in use " << ContrailPorts::DnsXmpp());
         exit(1);
     }

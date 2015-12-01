@@ -13,7 +13,7 @@ using namespace std;
 
 XmppChannelConfig::XmppChannelConfig(bool isClient) : 
      ToAddr(""), FromAddr(""), NodeAddr(""), logUVE(false), auth_enabled(false),
-     path_to_server_cert(""), path_to_pvt_key(""),
+     path_to_server_cert(""), path_to_server_priv_key(""), path_to_ca_cert(""),
      tcp_hold_time(XmppChannelConfig::kTcpHoldTime),
      isClient_(isClient)  {
 }
