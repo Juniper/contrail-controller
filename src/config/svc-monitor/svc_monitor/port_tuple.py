@@ -31,13 +31,12 @@ class PortTupleAgent(Agent):
     def handle_service_type(self):
         return 'port-tuple'
 
-    def _allocate_iip_for_family(self, vn_obj, iip_name, iip_family, vmi_obj):
-        iip_name = iip_name + '-' + iip_family
+    def _allocate_iip_for_family(self, vn_obj, iip_family, si, port):
+        iip_name = si.uuid + '-' + port['type'] + '-' + iip_family
         iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
         iip_obj.add_virtual_network(vn_obj)
         iip_obj.set_service_instance_ip(True)
-        iip_obj.set_secondary_ip(True)
-        iip_obj.add_virtual_machine_interface(vmi_obj)
+        iip_obj.set_instance_ip_secondary(True)
         for iip in InstanceIpSM.values():
             if iip.name == iip_name:
                 iip_obj.uuid = iip.uuid
@@ -47,47 +46,49 @@ class PortTupleAgent(Agent):
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
-                iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
+                self._vnc_lib.instance_ip_update(iip_obj)
             except HttpError:
                 return None
 
+        tag = ServiceInterfaceTag(interface_type=port['type'])
+        self._vnc_lib.ref_update('service-instance', si.uuid,
+            'instance-ip', iip_obj.uuid, None, 'ADD', tag)
         InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
 
-    def _allocate_shared_iip(self, port, vmi, vmi_obj):
+    def _allocate_shared_iip(self, si, port, vmi, vmi_obj):
         vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
-        iip_name = si.uuid + '-' + port['type']
-        self._allocate_iip_for_family(vn_obj, iip_name, 'v4', vmi_obj)
-        self._allocate_iip_for_family(vn_obj, iip_name, 'v6', vmi_obj)
+        iip_obj = self._allocate_iip_for_family(vn_obj, 'v4', si, port)
+        self._vnc_lib.ref_update('instance-ip', iip_obj.uuid,
+            'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
         return
 
-    def set_port_service_health_check(self, port, vmi):
+    def set_port_service_health_check(self, port, vmi_obj):
         if port['service-health-check']:
-            vmi_obj.set_service_health_check(port['service-health-check'])
-            return True
-        return False
+            self._vnc_lib.ref_update('virtual-machine-interface', vmi_obj.uuid,
+                'service-health-check', port['service-health-check'], None, 'ADD')
 
-    def set_port_allowed_address_pairs(self, port, vmi):
+    def set_port_static_routes(self, port, vmi_obj):
+        if port['interface-route-table']:
+            self._vnc_lib.ref_update('virtual-machine-interface', vmi_obj.uuid,
+                'interface-route-table', port['interface-route-table'], None, 'ADD')
+
+    def set_port_allowed_address_pairs(self, port, vmi_obj):
         if port['allowed-address-pairs']:
-            vmi_obj.set_virtual_machine_interface_allowed_address_pairs(port['allowed-address-pairs'])
-            return True
-        return False
+            vmi_obj.set_virtual_machine_interface_allowed_address_pairs(
+                port['allowed-address-pairs'])
+            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
-    def set_port_static_routes(self, st, si, port, vmi_obj):
-        #TODO
-        return False
-
-    def set_port_service_chain_ip(self, port, vmi, vmi_obj):
-        if nic['shared-ip']:
-            self._allocate_shared_iip(port, vmi, vmi_obj)
+    def set_port_service_chain_ip(self, si, port, vmi, vmi_obj):
+        if port['shared-ip']:
+            self._allocate_shared_iip(si, port, vmi, vmi_obj)
             return
 
-        for iip_id in vmi.instance_ips:
-            iip = InstanceIpSM.get(iip_id)
-            if iip and not iip.service_instance_ip:
-                iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
-                iip_obj.set_service_instance_ip(True)
-                self._vnc_lib.instance_ip_update(iip_obj)
+        iip = InstanceIpSM.get(vmi.instance_ip)
+        if iip and not iip.service_instance_ip:
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
+            iip_obj.set_service_instance_ip(True)
+            self._vnc_lib.instance_ip_update(iip_obj)
 
     def get_port_config(self, st, si):
         st_if_list = st.params.get('interface_type', [])
@@ -105,9 +106,18 @@ class PortTupleAgent(Agent):
             port['type'] = st_if.get('service_interface_type')
             port['shared-ip'] = st_if.get('shared_ip')
             port['static-route-enable'] = st_if.get('static_route_enable')
-            port['static-routes'] = si_if.get('static_routes')
             port['allowed-address-pairs'] = si_if.get('allowed_address_pairs')
-            port['service-health-check'] = si_if.get('service_health_check')
+            port['interface-route-table'] = None
+            for irt_id in si.interface_route_tables:
+                irt = InterfaceRouteTableSM.get(irt_id)
+                if irt.service_interface_tag == port['type']:
+                   port['interface-route-table'] = irt_id
+            port['service-health-check'] = None
+            for health_id in si.service_health_checks:
+                health = ServiceHealthCheckSM.get(health_id)
+                if health.service_interface_tag == port['type']:
+                   port['service-health-check'] = health_id
+
             port_config[st_if.get('service_interface_type')] = port
 
         return port_config
@@ -133,14 +143,14 @@ class PortTupleAgent(Agent):
                 #log TODO
                 continue
 
-            vmi_obj = VirtualMachineInterface(fq_name=vmi.fq_name, name=vmi.name)
+            vmi_obj = VirtualMachineInterface(fq_name=vmi.fq_name,
+                name=vmi.name, parent_type='project')
             vmi_obj.uuid = vmi.uuid
-            self.set_port_service_chain_ip(port, vmi, vmi_obj)
-            update_vmi = self.set_port_allowed_address_pairs(port, vmi, vmi_obj)
-            update_vmi |= self.set_port_service_health_check(port, vmi, vmi_obj)
-            update_vmi |= self.set_port_static_routes(port, vmi, vmi_obj)
-            if update_vmi:
-                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+            self.set_port_service_chain_ip(si, port, vmi, vmi_obj)
+            self.set_port_allowed_address_pairs(port, vmi_obj)
+            self.set_port_service_health_check(port, vmi_obj)
+            self.set_port_static_routes(port, vmi_obj)
 
     def update_port_tuples(self):
         for si in ServiceInstanceSM.values():

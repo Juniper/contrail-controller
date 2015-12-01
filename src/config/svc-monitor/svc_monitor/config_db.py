@@ -409,6 +409,8 @@ class ServiceInstanceSM(DBBaseSM):
         self.uuid = uuid
         self.service_template = None
         self.loadbalancer_pool = None
+        self.interface_route_tables = set()
+        self.service_health_checks = set()
         self.virtual_machines = set()
         self.virtual_machine_interfaces = set()
         self.params = None
@@ -444,6 +446,8 @@ class ServiceInstanceSM(DBBaseSM):
         self.params = obj.get('service_instance_properties', None)
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
+        self.update_multiple_refs('interface_route_table', obj)
+        self.update_multiple_refs('service_health_check', obj)
         self.update_multiple_refs('virtual_machine', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.id_perms = obj.get('id_perms', None)
@@ -486,6 +490,8 @@ class ServiceInstanceSM(DBBaseSM):
         obj = cls._dict[uuid]
         obj.update_single_ref('service_template', {})
         obj.update_single_ref('loadbalancer_pool', {})
+        obj.update_multiple_refs('interface_route_table', {})
+        obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('virtual_machine_interface',{})
         obj.update_multiple_refs('virtual_machine', {})
         obj.remove_from_parent()
@@ -839,6 +845,8 @@ class InterfaceRouteTableSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.service_instance = None
+        self.service_interface_tag = None
         self.update(obj_dict)
     # end __init__
 
@@ -848,6 +856,10 @@ class InterfaceRouteTableSM(DBBaseSM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_single_ref('service_instance', obj)
+        ref_attr = self.get_single_ref_attr('service_instance', obj)
+        if ref_attr:
+            self.service_interface_tag = ref_attr['interface_type']
     # end update
 
     @classmethod
@@ -856,6 +868,7 @@ class InterfaceRouteTableSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_single_ref('service_instance', {})
         del cls._dict[uuid]
     # end delete
 # end InterfaceRouteTableSM
@@ -1018,3 +1031,35 @@ class PortTupleSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 # end PortTupleSM
+
+class ServiceHealthCheckSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'service_health_check'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_instance = None
+        self.service_interface_tag = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.parent_uuid = obj['parent_uuid']
+        self.name = obj['fq_name'][-1]
+        self.update_single_ref('service_instance', obj)
+        ref_attr = self.get_single_ref_attr('service_instance', obj)
+        if ref_attr:
+            self.service_interface_tag = ref_attr['interface_type']
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('service_instance', {})
+        del cls._dict[uuid]
+    # end delete
+# end ServiceHealthCheckSM
