@@ -52,6 +52,7 @@ public:
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
     typedef std::set<IStaticRouteMgr *> StaticRouteMgrList;
+
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
 
@@ -62,6 +63,11 @@ public:
     int RegisterPeer(BgpPeer *peer);
     void UnregisterPeer(BgpPeer *peer);
     BgpPeer *FindPeer(const std::string &name);
+    void InsertPeer(TcpSession::Endpoint remote, BgpPeer *peer);
+    void RemovePeer(TcpSession::Endpoint remote, BgpPeer *peer);
+    BgpPeer *FindPeer(TcpSession::Endpoint remote) const;
+    BgpPeer *FindNextPeer(
+        TcpSession::Endpoint remote = TcpSession::Endpoint()) const;
 
     void Shutdown();
 
@@ -209,6 +215,7 @@ private:
     typedef std::vector<AdminDownCb> AdminDownListenersList;
     typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
     typedef std::vector<IdentifierUpdateCb> IdentifierUpdateListenersList;
+    typedef std::map<TcpSession::Endpoint, BgpPeer *> EndpointToBgpPeerList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
 
@@ -232,6 +239,7 @@ private:
     tbb::atomic<uint32_t> num_up_peer_;
     tbb::atomic<uint32_t> closing_count_;
     BgpPeerList peer_list_;
+    EndpointToBgpPeerList endpoint_peer_list_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;

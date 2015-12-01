@@ -297,7 +297,8 @@ void PeerManagerTest::DestroyIPeer(IPeer *ipeer) {
 //
 // Server side peer lookup logic. Look into the global map to identify the peer
 //
-BgpPeer *PeerManagerTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
+BgpPeer *PeerManagerTest::PeerLookup(
+    TcpSession::Endpoint remote_endpoint) const {
     BgpPeerKey peer_key;
     bool present;
 
@@ -322,7 +323,7 @@ BgpPeer *PeerManagerTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
                   "remote_endpoint: " << remote_endpoint);
     }
 
-    PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer_key.uuid);
+    PeerByUuidMap::const_iterator loc = peers_by_uuid_.find(peer_key.uuid);
     if (loc == peers_by_uuid_.end()) {
         return NULL;
     }

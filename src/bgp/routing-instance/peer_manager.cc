@@ -66,12 +66,12 @@ void PeerManager::PeerResurrect(string name) {
 //
 // Delete the BgpPeer corresponding to the given BgpNeighborConfig.
 //
-void PeerManager::TriggerPeerDeletion(const BgpNeighborConfig *config) {
+BgpPeer *PeerManager::TriggerPeerDeletion(const BgpNeighborConfig *config) {
     CHECK_CONCURRENCY("bgp::Config");
 
     BgpPeerNameMap::iterator loc = peers_by_name_.find(config->name());
     if (loc == peers_by_name_.end())
-        return;
+        return NULL;
 
     BgpPeer *peer = loc->second;
     peer->ManagedDelete();
@@ -86,6 +86,7 @@ void PeerManager::TriggerPeerDeletion(const BgpNeighborConfig *config) {
     // Configuration is deleted by the config manager (parser)
     // Do not hold reference to it any more
     peer->ClearConfig();
+    return peer;
 }
 
 //
@@ -148,7 +149,7 @@ void PeerManager::RemovePeerByName(const string name, BgpPeer *peer) {
     peers_by_name_.erase(loc);
 }
 
-BgpPeer *PeerManager::PeerFind(string ip_address) {
+BgpPeer *PeerManager::PeerFind(string ip_address) const {
     if (ip_address.empty())
         return NULL;
 
@@ -161,8 +162,8 @@ BgpPeer *PeerManager::PeerFind(string ip_address) {
     return PeerLookup(endpoint);
 }
 
-BgpPeer *PeerManager::PeerLookup(string name) {
-    BgpPeerNameMap::iterator loc = peers_by_name_.find(name);
+BgpPeer *PeerManager::PeerLookup(string name) const {
+    BgpPeerNameMap::const_iterator loc = peers_by_name_.find(name);
     return (loc != peers_by_name_.end() ? loc->second : NULL);
 }
 
@@ -185,8 +186,7 @@ size_t PeerManager::GetNeighborCount(string up_or_down) {
 //
 // Concurrency: Called from state machine thread
 //
-BgpPeer *PeerManager::PeerLookup(
-    boost::asio::ip::tcp::endpoint remote_endpoint) {
+BgpPeer *PeerManager::PeerLookup(TcpSession::Endpoint remote_endpoint) const {
     BgpPeer    *peer = NULL;
     BgpPeerKey  peer_key;
 
@@ -197,7 +197,7 @@ BgpPeer *PeerManager::PeerLookup(
     peer_key.endpoint.address(remote_endpoint.address());
 
     // Do a partial match, as we do not know the peer's port yet.
-    BgpPeerKeyMap::iterator loc = peers_by_key_.lower_bound(peer_key);
+    BgpPeerKeyMap::const_iterator loc = peers_by_key_.lower_bound(peer_key);
     while (loc != peers_by_key_.end()) {
         // Check if the address does indeed match as we are doing a partial
         // match here

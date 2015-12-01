@@ -65,6 +65,8 @@ protected:
         return (peer->family_attributes_list_[family]);
     }
 
+    bool GetPeerResolvePaths(BgpPeer *peer) { return peer->resolve_paths_; }
+
     EventManager evm_;
     BgpServer server_;
     DB config_db_;
@@ -315,7 +317,7 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
 }
 
-TEST_F(BgpConfigTest, InstanceBGPaaSNeighbors) {
+TEST_F(BgpConfigTest, BGPaaSNeighbors1) {
     string content;
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -326,19 +328,23 @@ TEST_F(BgpConfigTest, InstanceBGPaaSNeighbors) {
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
 
-    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
     BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
     TASK_UTIL_EXPECT_EQ(64512, peer1->local_as());
     TASK_UTIL_EXPECT_EQ("192.168.1.1", peer1->local_bgp_identifier_string());
     TASK_UTIL_EXPECT_EQ(65001, peer1->peer_as());
     TASK_UTIL_EXPECT_EQ("10.0.0.1", peer1->peer_address_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
 
-    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
     BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
     TASK_UTIL_EXPECT_EQ(64512, peer2->local_as());
     TASK_UTIL_EXPECT_EQ("192.168.1.1", peer2->local_bgp_identifier_string());
     TASK_UTIL_EXPECT_EQ(65002, peer2->peer_as());
     TASK_UTIL_EXPECT_EQ("10.0.0.2", peer2->peer_address_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
 
     // Change asn and identifier for master.
     content = FileRead("controller/src/bgp/testdata/config_test_36b.xml");
@@ -348,9 +354,187 @@ TEST_F(BgpConfigTest, InstanceBGPaaSNeighbors) {
     // Verify that instance neighbors use the new values.
     TASK_UTIL_EXPECT_EQ(64513, peer1->local_as());
     TASK_UTIL_EXPECT_EQ("192.168.1.2", peer1->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
     TASK_UTIL_EXPECT_EQ(64513, peer2->local_as());
     TASK_UTIL_EXPECT_EQ("192.168.1.2", peer2->local_bgp_identifier_string());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
 
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+}
+
+TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ("0.0.0.0",
+        peer1->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(0, peer1->remote_endpoint().port());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ("0.0.0.0",
+        peer2->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(0, peer2->remote_endpoint().port());
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+
+    // Set BgpAsAServiceParameters for router test:vm1.
+    autogen::BgpAsAServiceParameters *bgpaas_params1 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm1.
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer1->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1024, peer1->remote_endpoint().port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->remote_endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+
+    // Set BgpAsAServiceParameters for router test:vm2.
+    autogen::BgpAsAServiceParameters *bgpaas_params2 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm2.
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer2->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1025, peer2->remote_endpoint().port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->remote_endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "bgp-router", "test:vm1", "bgp-as-a-service-parameters");
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "bgp-router", "test:vm2", "bgp-as-a-service-parameters");
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+}
+
+TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    // Set BgpAsAServiceParameters for router test:vm1.
+    autogen::BgpAsAServiceParameters *bgpaas_params1 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+
+    // Set BgpAsAServiceParameters for router test:vm2.
+    autogen::BgpAsAServiceParameters *bgpaas_params2 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+
+    // Wait for configs to be updated.
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    // Verify that the vrouter ip address and port are set for test:vm1.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer1->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1024, peer1->remote_endpoint().port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->remote_endpoint()));
+
+    // Verify that the vrouter ip address and port are set for test:vm2.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer2->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1025, peer2->remote_endpoint().port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->remote_endpoint()));
+
+    // Save the old remote endpoint for peer1.
+    TcpSession::Endpoint old_peer1_remote_endpoint = peer1->remote_endpoint();
+
+    // Set test::vm1 port to be same as port for test:vm2.
+    bgpaas_params1 = new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm1.
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer1->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1025, peer1->remote_endpoint().port());
+
+    // Verify that the vrouter ip address and port are identical for test:vm2.
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer2->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1025, peer2->remote_endpoint().port());
+
+    // Verify that test:vm1 is inserted into BgpServer::EndpointToBgpPeerList.
+    // Verify that there's no entry for the old remote endpoint for test:vm1.
+    // Note that test:vm2 is removed from BgpServer::EndpointToBgpPeerList when
+    // test:vm1 is inserted with the same remote endpoint.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->remote_endpoint()));
+    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(old_peer1_remote_endpoint) == NULL);
+
+    // Set test::vm2 port to be same as old port for test:vm2.
+    bgpaas_params2 = new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm2.
+    TASK_UTIL_EXPECT_EQ("172.16.1.99",
+        peer2->remote_endpoint().address().to_string());
+    TASK_UTIL_EXPECT_EQ(1024, peer2->remote_endpoint().port());
+
+    // Verify that test:vm1 is inserted into BgpServer::EndpointToBgpPeerList.
+    // Verify that test:vm2 is inserted into BgpServer::EndpointToBgpPeerList.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->remote_endpoint()));
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->remote_endpoint()));
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "bgp-router", "test:vm1", "bgp-as-a-service-parameters");
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "bgp-router", "test:vm2", "bgp-as-a-service-parameters");
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");

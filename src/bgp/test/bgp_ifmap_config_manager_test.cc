@@ -1309,7 +1309,7 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceNeighbors) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-TEST_F(BgpIfmapConfigManagerTest, InstanceBGPaaSNeighbors) {
+TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     string content;
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1322,18 +1322,24 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceBGPaaSNeighbors) {
     const BgpNeighborConfig *nbr_config1;
     nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
     EXPECT_TRUE(nbr_config1 != NULL);
+    EXPECT_EQ("bgpaas-client", nbr_config1->router_type());
     EXPECT_EQ(64512, nbr_config1->local_as());
     EXPECT_EQ("192.168.1.1", nbr_config1->local_identifier_string());
     EXPECT_EQ(65001, nbr_config1->peer_as());
     EXPECT_EQ("10.0.0.1", nbr_config1->peer_address_string());
+    EXPECT_EQ("0.0.0.0", nbr_config1->remote_endpoint().address().to_string());
+    EXPECT_EQ(0, nbr_config1->remote_endpoint().port());
 
     const BgpNeighborConfig *nbr_config2;
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
     EXPECT_TRUE(nbr_config2 != NULL);
+    EXPECT_EQ("bgpaas-client", nbr_config2->router_type());
     EXPECT_EQ(64512, nbr_config2->local_as());
     EXPECT_EQ("192.168.1.1", nbr_config2->local_identifier_string());
     EXPECT_EQ(65002, nbr_config2->peer_as());
     EXPECT_EQ("10.0.0.2", nbr_config2->peer_address_string());
+    EXPECT_EQ("0.0.0.0", nbr_config2->remote_endpoint().address().to_string());
+    EXPECT_EQ(0, nbr_config2->remote_endpoint().port());
 
     // Change asn and identifier for master.
     content = FileRead("controller/src/bgp/testdata/config_test_36b.xml");
@@ -1350,6 +1356,161 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceBGPaaSNeighbors) {
     EXPECT_EQ(64513, nbr_config2->local_as());
     EXPECT_EQ("192.168.1.2", nbr_config1->local_identifier_string());
 
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0, config_manager_->NeighborCount("test"));
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors2) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *rti = FindInstanceConfig("test");
+    EXPECT_TRUE(rti != NULL);
+    EXPECT_EQ(2, config_manager_->NeighborCount("test"));
+
+    // Verify that the vrouter ip address and port are not set for test:vm1.
+    const BgpNeighborConfig *nbr_config1;
+    nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
+    EXPECT_TRUE(nbr_config1 != NULL);
+    EXPECT_EQ("bgpaas-client", nbr_config1->router_type());
+    EXPECT_EQ("0.0.0.0", nbr_config1->remote_endpoint().address().to_string());
+    EXPECT_EQ(0, nbr_config1->remote_endpoint().port());
+
+    // Verify that the vrouter ip address and port are not set for test:vm2.
+    const BgpNeighborConfig *nbr_config2;
+    nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
+    EXPECT_TRUE(nbr_config2 != NULL);
+    EXPECT_EQ("bgpaas-client", nbr_config2->router_type());
+    EXPECT_EQ("0.0.0.0", nbr_config2->remote_endpoint().address().to_string());
+    EXPECT_EQ(0, nbr_config2->remote_endpoint().port());
+
+    // Set BgpAsAServiceParameters for router test:vm1.
+    autogen::BgpAsAServiceParameters *bgpaas_params1 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm1.
+    nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config1->remote_endpoint().address().to_string());
+    EXPECT_EQ(1024, nbr_config1->remote_endpoint().port());
+
+    // Set BgpAsAServiceParameters for router test:vm2.
+    autogen::BgpAsAServiceParameters *bgpaas_params2 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm2.
+    nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config2->remote_endpoint().address().to_string());
+    EXPECT_EQ(1025, nbr_config2->remote_endpoint().port());
+
+    // Cleanup.
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters");
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters");
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());
+    TASK_UTIL_EXPECT_EQ(0, config_manager_->NeighborCount("test"));
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors3) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    // Set BgpAsAServiceParameters for router test:vm1.
+    autogen::BgpAsAServiceParameters *bgpaas_params1 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+
+    // Set BgpAsAServiceParameters for router test:vm2.
+    autogen::BgpAsAServiceParameters *bgpaas_params2 =
+        new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+
+    task_util::WaitForIdle();
+    const BgpInstanceConfig *rti = FindInstanceConfig("test");
+    EXPECT_TRUE(rti != NULL);
+    EXPECT_EQ(2, config_manager_->NeighborCount("test"));
+
+    // Verify that the vrouter ip address and port are set for test:vm1.
+    const BgpNeighborConfig *nbr_config1;
+    nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config1->remote_endpoint().address().to_string());
+    EXPECT_EQ(1024, nbr_config1->remote_endpoint().port());
+
+    // Verify that the vrouter ip address and port are set for test:vm2.
+    const BgpNeighborConfig *nbr_config2;
+    nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config2->remote_endpoint().address().to_string());
+    EXPECT_EQ(1025, nbr_config2->remote_endpoint().port());
+
+    // Update BgpAsAServiceParameters for router test:vm1.
+    bgpaas_params1 = new autogen::BgpAsAServiceParameters;
+    bgpaas_params1->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params1->port = 1025;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters", bgpaas_params1);
+
+    // Update BgpAsAServiceParameters for router test:vm2.
+    bgpaas_params2 = new autogen::BgpAsAServiceParameters;
+    bgpaas_params2->vrouter_ip_address = "172.16.1.99";
+    bgpaas_params2->port = 1024;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters", bgpaas_params2);
+
+    // Wait for the configs to get updated.
+    task_util::WaitForIdle();
+
+    // Verify that the vrouter ip address and port are updated for test:vm1.
+    nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config1->remote_endpoint().address().to_string());
+    EXPECT_EQ(1025, nbr_config1->remote_endpoint().port());
+
+    // Verify that the vrouter ip address and port are updated for test:vm2.
+    nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
+    EXPECT_EQ("172.16.1.99",
+        nbr_config2->remote_endpoint().address().to_string());
+    EXPECT_EQ(1024, nbr_config2->remote_endpoint().port());
+
+    // Cleanup.
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "bgp-router", "test:vm1",
+        "bgp-as-a-service-parameters");
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "bgp-router", "test:vm2",
+        "bgp-as-a-service-parameters");
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1687,7 +1848,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSPeerings) {
     for (int idx = 1; idx <= 2; ++idx) {
         char full_name[1024];
         snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s%d)",
-            "test", "BGPaaS", "test", "vm", idx);
+            "test", "bgpaas-server", "test", "vm", idx);
         TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
         const BgpIfmapPeeringConfig *config = FindPeeringConfig(full_name);
         TASK_UTIL_EXPECT_EQ(1, config->size());

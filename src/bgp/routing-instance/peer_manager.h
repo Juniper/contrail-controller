@@ -29,13 +29,13 @@ public:
     explicit PeerManager(RoutingInstance *instance) : instance_(instance) { }
     virtual ~PeerManager() { }
 
-    virtual BgpPeer *PeerFind(std::string address);
-    virtual BgpPeer *PeerLookup(std::string name);
-    virtual BgpPeer *PeerLookup(boost::asio::ip::tcp::endpoint remote_endpoint);
+    virtual BgpPeer *PeerFind(std::string address) const;
+    virtual BgpPeer *PeerLookup(std::string name) const;
+    virtual BgpPeer *PeerLookup(TcpSession::Endpoint remote_endpoint) const;
     virtual BgpPeer *PeerLocate(BgpServer *server,
                                 const BgpNeighborConfig *config);
     void PeerResurrect(std::string name);
-    void TriggerPeerDeletion(const BgpNeighborConfig *config);
+    BgpPeer *TriggerPeerDeletion(const BgpNeighborConfig *config);
     virtual void DestroyIPeer(IPeer *ipeer);
 
     virtual BgpPeer *NextPeer(BgpPeerKey &key);

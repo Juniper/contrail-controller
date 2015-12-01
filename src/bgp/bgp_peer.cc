@@ -343,7 +343,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         : server_(server),
           rtinstance_(instance),
           peer_key_(config),
+          remote_endpoint_(config->remote_endpoint()),
           peer_name_(config->name()),
+          router_type_(config->router_type()),
           config_(config),
           index_(server->RegisterPeer(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
@@ -359,6 +361,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           send_ready_(true),
           admin_down_(config->admin_down()),
           passive_(config->passive()),
+          resolve_paths_(config->router_type() == "bgpaas-client"),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
@@ -575,6 +578,13 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
+    if (router_type_ != config->router_type()) {
+        router_type_ = config->router_type();
+        peer_info.set_router_type(router_type_);
+        resolve_paths_ = (config->router_type() == "bgpaas-client"),
+        clear_session = true;
+    }
+
     // Check if there is any change in the peer address.
     // If the peer address is changing, remove the key for the older address.
     // Update with the new peer address and then process the key chain info
@@ -591,6 +601,11 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     // Check if there is any change in the configured address families.
     if (ProcessFamilyAttributesConfig(config)) {
         peer_info.set_configured_families(configured_families_);
+        clear_session = true;
+    }
+
+    if (remote_endpoint_ != config->remote_endpoint()) {
+        remote_endpoint_ = config->remote_endpoint();
         clear_session = true;
     }
 
@@ -624,8 +639,8 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     peer_type_ = (peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP;
 
     if (old_type != PeerType()) {
-        peer_info.set_peer_type(PeerType() == BgpProto::IBGP ?
-                                "internal" : "external");
+        peer_info.set_peer_type(
+            PeerType() == BgpProto::IBGP ? "internal" : "external");
         policy_.type = peer_type_;
         policy_.as_number = peer_as_;
         clear_session = true;
@@ -1118,7 +1133,7 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
 
 uint32_t BgpPeer::GetPathFlags(Address::Family family,
     const BgpAttr *attr) const {
-    uint32_t flags = 0;
+    uint32_t flags = resolve_paths_ ? BgpPath::ResolveNexthop : 0;
 
     // Check for OriginatorId loop in case we are an RR client.
     if (peer_type_ == BgpProto::IBGP &&

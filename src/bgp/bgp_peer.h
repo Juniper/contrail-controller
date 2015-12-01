@@ -137,8 +137,10 @@ public:
         return peer_key_.endpoint.address().to_string();
     }
     const BgpPeerKey &peer_key() const { return peer_key_; }
+    TcpSession::Endpoint remote_endpoint() const { return remote_endpoint_; }
     const std::string &peer_name() const { return peer_name_; }
     const std::string &peer_basename() const { return peer_basename_; }
+    std::string router_type() const { return router_type_; }
 
     StateMachine::State GetState() const;
     virtual const std::string GetStateName() const;
@@ -335,9 +337,12 @@ private:
     // Backpointer to routing instance
     RoutingInstance *rtinstance_;
     BgpPeerKey peer_key_;
+    TcpSession::Endpoint remote_endpoint_;
     std::string peer_name_;
     std::string peer_basename_;
+    std::string router_type_;         // bgp_schema.xsd:BgpRouterType
     const BgpNeighborConfig *config_;
+
     // Global peer index
     int index_;
     TaskTrigger trigger_;
@@ -368,6 +373,7 @@ private:
     bool send_ready_;
     bool admin_down_;
     bool passive_;
+    bool resolve_paths_;
 
     boost::scoped_ptr<StateMachine> state_machine_;
     uint64_t membership_req_pending_;

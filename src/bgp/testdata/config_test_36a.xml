@@ -7,8 +7,9 @@
     </bgp-router>
     <routing-instance name="test">
         <vrf-target>target:64512:1</vrf-target>
-        <bgp-router name='BGPaaS'>
-	    <autonomous-system>64512</autonomous-system>
+        <bgp-router name='bgpaas-server'>
+            <router-type>bgpaas-server</router-type>
+            <autonomous-system>64512</autonomous-system>
             <session to='vm1:0'>
                 <family-attributes>
                     <address-family>inet</address-family>
@@ -33,9 +34,10 @@
             </session>
         </bgp-router>
         <bgp-router name='vm1'>
+            <router-type>bgpaas-client</router-type>
             <autonomous-system>65001</autonomous-system>
             <address>10.0.0.1</address>
-            <session to='BGPaaS:0'>
+            <session to='bgpaas-server:0'>
                 <family-attributes>
                     <address-family>inet</address-family>
                 </family-attributes>
@@ -48,9 +50,10 @@
             </session>
         </bgp-router>
         <bgp-router name='vm2'>
+            <router-type>bgpaas-client</router-type>
             <autonomous-system>65002</autonomous-system>
             <address>10.0.0.2</address>
-            <session to='BGPaaS:0'>
+            <session to='bgpaas-server:0'>
                 <family-attributes>
                     <address-family>inet</address-family>
                 </family-attributes>
