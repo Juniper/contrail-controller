@@ -154,12 +154,16 @@ void Options::Initialize(EventManager &evm,
              "Enable authentication over Xmpp")
         ("DEFAULT.xmpp_server_cert",
              opt::value<string>()->default_value(
-             "/etc/contrail/ssl/certs/dns-cert.pem"),
+             "/etc/contrail/ssl/certs/server.pem"),
              "XMPP Server ssl certificate")
         ("DEFAULT.xmpp_server_key",
              opt::value<string>()->default_value(
-             "/etc/contrail/ssl/private/dns-privkey.pem"),
+             "/etc/contrail/ssl/private/server_privkey.pem"),
              "XMPP Server ssl private key")
+        ("DEFAULT.xmpp_ca_cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/ca-cert.pem"),
+             "XMPP CA ssl certificate")
         ;
 
     config_file_options_.add(config);

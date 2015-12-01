@@ -14,7 +14,8 @@ using namespace boost::asio;
 
 bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
                                const std::string &xmpp_server_cert,
-                               const std::string &xmpp_server_key) {
+                               const std::string &xmpp_server_key,
+                               const std::string &xmpp_ca_cert) {
     uint32_t port = Dns::GetXmppServerPort();
     if (!port)
         port = ContrailPorts::DnsXmpp();
@@ -26,7 +27,8 @@ bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
     xmpp_cfg.auth_enabled = xmpp_auth_enabled;
     if (xmpp_cfg.auth_enabled) {
         xmpp_cfg.path_to_server_cert = xmpp_server_cert;
-        xmpp_cfg.path_to_pvt_key = xmpp_server_key;
+        xmpp_cfg.path_to_server_priv_key = xmpp_server_key;
+        xmpp_cfg.path_to_ca_cert = xmpp_ca_cert;
     }
 
     // Create XmppServer
