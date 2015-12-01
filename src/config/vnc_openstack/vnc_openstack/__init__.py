@@ -139,6 +139,12 @@ def fill_keystone_opts(obj, conf_sections):
     except ConfigParser.NoOptionError:
         obj._project_name = obj._admin_tenant
 
+    try:
+        # Get the endpoint_type
+        obj._endpoint_type = conf_sections.get('KEYSTONE', 'endpoint_type')
+    except ConfigParser.NoOptionError:
+        obj._endpoint_type = None
+
 def _create_default_security_group(vnc_lib, proj_obj):
     def _get_rule(ingress, sg, prefix, ethertype):
         sgr_uuid = str(uuid.uuid4())
@@ -407,6 +413,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                                    password=self._auth_passwd,
                                                    tenant_name=self._admin_tenant,
                                                    auth_url=self._auth_url)
+
+            if self._endpoint_type and self._ks.service_catalog:
+                self._ks.management_url = \
+                    self._ks.service_catalog.get_urls(
+                        service_type='identity',
+                        endpoint_type=self._endpoint_type)[0]
     # end _ksv3_get_conn
 
     def _ksv3_domains_list(self):
