@@ -447,20 +447,20 @@ bool BgpPeer::GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) con
     return true;
 }
 
-void BgpPeer::ProcessAuthKeyChainConfig(const BgpNeighborConfig *config) {
+bool BgpPeer::ProcessAuthKeyChainConfig(const BgpNeighborConfig *config) {
     const AuthenticationData &input_auth_data = config->auth_data();
 
     if (auth_data_ == input_auth_data) {
-        return;
+        return false;
     }
 
     auth_data_ = input_auth_data;
-    InstallAuthKeys(session_);
+    return InstallAuthKeys(session_);
 }
 
-void BgpPeer::InstallAuthKeys(TcpSession *session) {
+bool BgpPeer::InstallAuthKeys(TcpSession *session) {
     if (!PeerAddress()) {
-        return;
+        return false;
     }
 
     AuthenticationKey auth_key;
@@ -469,11 +469,11 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
     if (valid) {
         if (key_type == AuthenticationData::MD5) {
             LogInstallAuthKeys("add", auth_key, key_type);
-            SetInuseAuthKeyInfo(auth_key, AuthenticationData::MD5);
             if (session) {
                 session->SetMd5SocketOption(PeerAddress(), auth_key.value);
             }
-            SetListenSocketAuthKey(auth_key);
+            SetListenSocketAuthKey(auth_key, key_type);
+            SetInuseAuthKeyInfo(auth_key, key_type);
         }
     } else {
         // If there are no valid available keys but an older one is currently
@@ -484,9 +484,11 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
             if (session) {
                 session->ClearMd5SocketOption(PeerAddress());
             }
+            // Resetting the key information must be done last.
             ResetInuseAuthKeyInfo();
         }
     }
+    return true;
 }
 
 void BgpPeer::SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type) {
@@ -499,8 +501,9 @@ void BgpPeer::ResetInuseAuthKeyInfo() {
     inuse_authkey_type_ = AuthenticationData::NIL;
 }
 
-void BgpPeer::SetListenSocketAuthKey(const AuthenticationKey &auth_key) {
-    if (inuse_authkey_type_ == AuthenticationData::MD5) {
+void BgpPeer::SetListenSocketAuthKey(const AuthenticationKey &auth_key,
+                                     KeyType key_type) {
+    if (key_type == AuthenticationData::MD5) {
         server_->session_manager()->
             SetListenSocketMd5Option(PeerAddress(), auth_key.value);
     }
@@ -608,7 +611,9 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
         clear_session = true;
     }
-    ProcessAuthKeyChainConfig(config);
+    if (ProcessAuthKeyChainConfig(config)) {
+        clear_session = true;
+    }
 
     if (peer_port_ != config->source_port()) {
         peer_port_ = config->source_port();
