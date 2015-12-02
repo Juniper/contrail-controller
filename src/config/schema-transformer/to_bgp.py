@@ -288,7 +288,7 @@ class VirtualNetworkST(DBBase):
                 continue
             ri = vn.get_primary_routing_instance()
             ri_fq_name = ri.get_fq_name_str()
-            rtgt_num = self._cassandra.get_route_target(ri_fq_name)
+            rtgt_num = cls._cassandra.get_route_target(ri_fq_name)
             old_rtgt_name = "target:%d:%d" % (cls._autonomous_system, rtgt_num)
             new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
             new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
