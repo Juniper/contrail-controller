@@ -58,8 +58,8 @@ from cfgm_common.exceptions import *
 from vnc_quota import *
 import gen
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-    ConnectionType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace, \
@@ -115,7 +115,7 @@ class VncIfmapClient(object):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
 
-        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+        ConnectionState.update(conn_type = ConnType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.INIT, message = '',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
@@ -344,7 +344,7 @@ class VncIfmapClient(object):
             except socket.error as e:
                 time.sleep(3)
 
-        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+        ConnectionState.update(conn_type = ConnType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.UP, message = '',
             server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                        self._ifmap_srv_port)])
@@ -512,7 +512,7 @@ class VncIfmapClient(object):
                     oper_body)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 ConnectionState.update(
-                    conn_type=ConnectionType.IFMAP,
+                    conn_type=ConnType.IFMAP,
                     name='IfMap', status=ConnectionStatus.DOWN, message='',
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])

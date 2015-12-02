@@ -29,8 +29,8 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
-    ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 import discoveryclient.client as client
 from vnc_api.common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
@@ -271,7 +271,7 @@ class DeviceManager(object):
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
-            conn_type=ConnectionType.APISERVER, name='ApiServer',
+            conn_type=ConnType.APISERVER, name='ApiServer',
             status=status, message=message or '',
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])

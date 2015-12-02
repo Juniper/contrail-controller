@@ -44,8 +44,8 @@ from schema_transformer.sandesh.traces.ttypes import MessageBusNotifyTrace,\
     DependencyTrackerResource
 import discoveryclient.client as client
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
-    ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from cStringIO import StringIO
 from db import SchemaTransformerDB
@@ -735,7 +735,7 @@ def run_schema_transformer(args):
 
     def connection_state_update(status, message=None):
         ConnectionState.update(
-            conn_type=ConnectionType.APISERVER, name='ApiServer',
+            conn_type=ConnType.APISERVER, name='ApiServer',
             status=status, message=message or '',
             server_addrs=['%s:%s' % (args.api_server_ip,
                                      args.api_server_port)])
