@@ -1668,7 +1668,7 @@ class VncApiServer(object):
         # invoke the extension
         try:
             pre_func = 'pre_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
+            self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, obj_dict)
         except Exception as e:
             pass
 
