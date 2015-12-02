@@ -342,8 +342,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.virtual_machine = None
         self.loadbalancer_pool = None
         self.logical_interface = None
-        self.instance_ip = None
-        self.floating_ip = None
+        self.instance_ips = set()
+        self.floating_ips = set()
         self.interface_route_table = None
         self.security_group = None
         self.service_instance = None
@@ -364,8 +364,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
             self.if_type = self.params.get('service_interface_type', None)
         self.update_single_ref('virtual_ip', obj)
         self.update_single_ref('loadbalancer_pool', obj)
-        self.update_single_ref('instance_ip', obj)
-        self.update_single_ref('floating_ip', obj)
+        self.update_multiple_refs('instance_ip', obj)
+        self.update_multiple_refs('floating_ip', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('virtual_machine', obj)
         self.update_single_ref('logical_interface', obj)
@@ -387,8 +387,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj = cls._dict[uuid]
         obj.update_single_ref('virtual_ip', {})
         obj.update_single_ref('loadbalancer_pool', {})
-        obj.update_single_ref('instance_ip', {})
-        obj.update_single_ref('floating_ip', {})
+        obj.update_multiple_refs('instance_ip', {})
+        obj.update_multiple_refs('floating_ip', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('virtual_machine', {})
         obj.update_single_ref('logical_interface', {})

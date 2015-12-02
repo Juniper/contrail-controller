@@ -45,11 +45,10 @@ class OpencontrailLoadbalancerDriver(
                 return
 
     def _get_interface_address(self, vmi):
-        iip = vmi.instance_ip
-        instance_ip = InstanceIpSM.get(iip)
-        if instance_ip is None:
-            return None
-        return instance_ip.address
+        for iip_id in  vmi.instance_ips:
+            instance_ip = InstanceIpSM.get(iip_id)
+            return instance_ip.address
+        return None
 
     def _calculate_instance_properties(self, pool, vip):
         """ ServiceInstance settings

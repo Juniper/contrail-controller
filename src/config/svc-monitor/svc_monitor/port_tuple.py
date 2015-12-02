@@ -84,11 +84,12 @@ class PortTupleAgent(Agent):
             self._allocate_shared_iip(si, port, vmi, vmi_obj)
             return
 
-        iip = InstanceIpSM.get(vmi.instance_ip)
-        if iip and not iip.service_instance_ip:
-            iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
-            iip_obj.set_service_instance_ip(True)
-            self._vnc_lib.instance_ip_update(iip_obj)
+        for iip_id in vmi.instance_ips:
+            iip = InstanceIpSM.get(iip_id)
+            if iip and not iip.service_instance_ip:
+                iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
+                iip_obj.set_service_instance_ip(True)
+                self._vnc_lib.instance_ip_update(iip_obj)
 
     def get_port_config(self, st, si):
         st_if_list = st.params.get('interface_type', [])

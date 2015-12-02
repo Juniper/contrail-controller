@@ -898,7 +898,8 @@ class OpencontrailF5LoadbalancerDriver(
             self._api.logical_interface_delete(id=pool_info[u'mx_ifl'])
 
             vmi = VirtualMachineInterfaceSM.get(pool_info[u'self_ip'][2])
-            self._api.instance_ip_delete(id=vmi.instance_ip)
+            for iip_id in vmi.instance_ips:
+                self._api.instance_ip_delete(id=iip_id)
             self._api.virtual_machine_interface_delete(id=pool_info[u'self_ip'][2])
             del(self.ifl_list[ifl_uuid])
 
@@ -910,7 +911,8 @@ class OpencontrailF5LoadbalancerDriver(
             del(self.subnet_snat_list[subnet_id])
             for snat_ip in pool_info['snat_vmi'].keys() or []:
                 vmi = VirtualMachineInterfaceSM.get(pool_info['snat_vmi'][snat_ip][1])
-                self._api.instance_ip_delete(id=vmi.instance_ip)
+                for iip_id in vmi.instance_ips:
+                    self._api.instance_ip_delete(id=iip_id)
                 self._api.virtual_machine_interface_delete(id=pool_info['snat_vmi'][snat_ip][1])
                 bigips = self.__bigips.values()
                 for set_bigip in bigips:
@@ -941,7 +943,8 @@ class OpencontrailF5LoadbalancerDriver(
 
             # delete the VMI
             vmi = VirtualMachineInterfaceSM.get(pool_info['vip'][u'self_ip'][2])
-            self._api.instance_ip_delete(id=vmi.instance_ip)
+            for iip_id in vmi.instance_ips:
+                self._api.instance_ip_delete(id=iip_id)
             self._api.virtual_machine_interface_delete(id=pool_info['vip'][u'self_ip'][2])
             del(self.ifl_list[ifl_uuid])
 
@@ -953,7 +956,8 @@ class OpencontrailF5LoadbalancerDriver(
             del(self.subnet_snat_list[subnet_id])
             for snat_ip in pool_info['vip']['snat_vmi'].keys() or []:
                 vmi = VirtualMachineInterfaceSM.get(pool_info['vip']['snat_vmi'][snat_ip][1])
-                self._api.instance_ip_delete(id=vmi.instance_ip)
+                for iip_id in vmi.instance_ips:
+                    self._api.instance_ip_delete(id=iip_id)
                 self._api.virtual_machine_interface_delete(id=pool_info['vip']['snat_vmi'][snat_ip][1])
                 bigips = self.__bigips.values()
                 for set_bigip in bigips:
@@ -1063,7 +1067,8 @@ class OpencontrailF5LoadbalancerDriver(
                     self._api.logical_interface_update(ifl)
             else:
                 vmi = VirtualMachineInterfaceSM.get(ifl.virtual_machine_interface)
-                ports_created[InstanceIpSM.get(vmi.instance_ip).address] = vmi
+                for iip_id in vmi.instance_ips:
+                    ports_created[InstanceIpSM.get(iip_id).address] = vmi
             new_pool_info[u'mx_ifl'] = ifl.uuid
             new_pool_info[u'vlan_tag'] = ifl.logical_interface_vlan_tag
             new_pool_info[u'self_ip'] = (vmi.name, ports_created.keys()[0], ports_created.values()[0].uuid)
@@ -1081,7 +1086,8 @@ class OpencontrailF5LoadbalancerDriver(
                     pool_snat_list = {}
                     for port in self.subnet_snat_list[pool_subnet_id]['vmi_list'] or []:
                         vmi = VirtualMachineInterfaceSM.get(port)
-                        pool_snat_list[InstanceIpSM.get(vmi.instance_ip).address] = (vmi.name, port)
+                        for iip_id in vmi.instance_ips:
+                            pool_snat_list[InstanceIpSM.get(iip_id).address] = (vmi.name, port)
                 new_pool_info[u'snat_vmi'] = pool_snat_list
         else:
             new_pool_info[u'mx_ifl'] = pool_in_db[u'mx_ifl']
@@ -1118,7 +1124,8 @@ class OpencontrailF5LoadbalancerDriver(
                     self._api.logical_interface_update(ifl)
             else:
                 vmi = VirtualMachineInterfaceSM.get(ifl.virtual_machine_interface)
-                ports_created[InstanceIpSM.get(vmi.instance_ip).address] = vmi
+                for iip_id in vmi.instance_ips:
+                    ports_created[InstanceIpSM.get(iip_id).address] = vmi
             ifl_uuid = ifl.uuid
             vip_info[u'mx_ifl'] = ifl_uuid
             vip_info[u'vlan_tag'] = ifl.logical_interface_vlan_tag
@@ -1135,7 +1142,8 @@ class OpencontrailF5LoadbalancerDriver(
                     vip_snat_list = {}
                     for port in self.subnet_snat_list[vip_subnet_id]['vmi_list'] or []:
                         vmi = VirtualMachineInterfaceSM.get(port)
-                        vip_snat_list[InstanceIpSM.get(vmi.instance_ip).address] = (vmi.name, port)
+                        for iip_id in vmi.instance_ips:
+                            vip_snat_list[InstanceIpSM.get(iip_id).address] = (vmi.name, port)
                 vip_info[u'snat_vmi'] = vip_snat_list
         else:
             vip_info[u'mx_ifl'] = pool_in_db[u'vip'][u'mx_ifl']

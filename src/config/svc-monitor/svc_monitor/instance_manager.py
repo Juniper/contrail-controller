@@ -699,7 +699,11 @@ class NetworkNamespaceManager(VRouterHostedManager):
                                      st_name=(':').join(st.fq_name))
 
     def add_fip_to_vip_vmi(self, vmi, fip):
-        iip = InstanceIpSM.get(vmi.instance_ip)
+        iip = None
+        for iip_id in vmi.instance_ips:
+            iip = InstanceIpSM.get(iip_id)
+            if iip:
+                break
         if not iip:
             return
 

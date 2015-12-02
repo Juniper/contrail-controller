@@ -37,8 +37,12 @@ class LoadbalancerAgent(Agent):
         for nic in si.vn_info:
            if nic['type'] == svc_info.get_right_if_str():
                 vmi = self._get_vip_vmi(si)
-                nic['iip-id'] = vmi.instance_ip
-                nic['fip-id'] = vmi.floating_ip
+                for iip_id in vmi.instance_ips:
+                    nic['iip-id'] = iip_id
+                    break
+                for fip_id in vmi.floating_ips:
+                    nic['fip-id'] = fip_id
+                    break
                 nic['user-visible'] = False
 
     def _get_vip_vmi(self, si):
@@ -266,9 +270,8 @@ class LoadbalancerAgent(Agent):
 
         if not props['address']:
             vmi = VirtualMachineInterfaceSM.get(port_id)
-            ip_refs = vmi.instance_ip
-            if ip_refs:
-                iip = InstanceIpSM.get(ip_refs)
+            for iip_id in vmi.instance_ips:
+                iip = InstanceIpSM.get(iip_id)
                 props['address'] = iip.address
 
         return port_id

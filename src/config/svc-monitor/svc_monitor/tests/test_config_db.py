@@ -205,7 +205,7 @@ class ConfigDBTest(unittest.TestCase):
         self.assertIsNotNone(iip)
         self.assertEqual(len(iip.virtual_machine_interfaces), 1)
         self.assertTrue('vmi' in iip.virtual_machine_interfaces)
-        self.assertEqual(vmi.instance_ip, 'iip')
+        self.assertEqual(list(vmi.instance_ips)[0], 'iip')
 
         config_db.InstanceIpSM.delete('iip')
         config_db.VirtualMachineInterfaceSM.delete('vmi')
@@ -382,7 +382,7 @@ class ConfigDBTest(unittest.TestCase):
         self.assertEqual(len(fip.virtual_machine_interfaces), 1)
         self.assertTrue('vmi' in fip.virtual_machine_interfaces)
         self.assertEqual(fip.address, "1.2.3.33")
-        self.assertEqual(vmi.floating_ip, 'fip')
+        self.assertEqual(list(vmi.floating_ips)[0], 'fip')
 
         config_db.FloatingIpSM.delete('fip')
         config_db.VirtualMachineInterfaceSM.delete('vmi')
