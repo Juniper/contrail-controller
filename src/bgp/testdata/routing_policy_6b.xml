@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>1.1.1.1/32</prefix>
+                    <type>exact</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <community>
+                        <add><community>11:22</community></add>
+                    </community>
+                </update>
+            </then>
+        </term>
+        <term>
+            <from>
+                <community>11:22</community>
+            </from>
+            <then>
+                <action>reject</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>
