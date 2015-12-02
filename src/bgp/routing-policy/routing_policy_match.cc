@@ -68,7 +68,8 @@ MatchPrefix<T>::~MatchPrefix() {
 template <typename T>
 bool MatchPrefix<T>::Match(const BgpRoute *route,
                                 const BgpAttr *attr) const {
-    const RouteT *in_route = static_cast<const RouteT *>(route);
+    const RouteT *in_route = dynamic_cast<const RouteT *>(route);
+    if (in_route == NULL) return false;
     const PrefixT &prefix = in_route->GetPrefix();
     if (match_type_ == EXACT) {
         if (prefix == match_prefix_) return true;
