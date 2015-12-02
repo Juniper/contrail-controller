@@ -575,7 +575,7 @@ def main():
         querier = LogQuerier()
         if querier.parse_args() != 0:
             return
-        if querier._args.f:
+        if querier._args.tail:
             start_time = UTCTimestampUsec() - 10*pow(10,6)
             while True:
                 querier._start_time = start_time
