@@ -69,13 +69,9 @@
 <!-- #IFMAP-SEMANTICS-IDL
      Property('bgp-router-parameters', 'bgp-router') -->
 
-<xsd:complexType name="BgpAsAServiceParameters">
-    <xsd:element name="vrouter-ip-address" type="IpAddressType"/>
-    <xsd:element name="port" type="xsd:integer"/>
-</xsd:complexType>
-<xsd:element name="bgp-as-a-service-parameters" type="BgpAsAServiceParameters"/>
+<xsd:element name="bgp-as-a-service-port" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bgp-as-a-service-parameters', 'bgp-router') -->
+     Property('bgp-as-a-service-port', 'bgp-router') -->
 
 <xsd:simpleType name='BgpHoldTime'>
     <xsd:annotation>
