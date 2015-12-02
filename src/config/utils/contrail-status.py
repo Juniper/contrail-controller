@@ -179,7 +179,7 @@ def service_status(svc, initd_svc):
     p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
     cmdout = p.communicate()[0]
     if initd_svc:
-        if p.returncode == 0:
+        if p.returncode == 0 or 'Active: active' in cmdout:
             return 'active'
         else:
             return 'inactive'
