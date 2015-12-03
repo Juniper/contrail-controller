@@ -37,7 +37,7 @@
             <router-type>bgpaas-client</router-type>
             <autonomous-system>65001</autonomous-system>
             <address>10.0.0.1</address>
-            <port>1025</port>
+            <source-port>1025</source-port>
             <session to='bgpaas-server:0'>
                 <family-attributes>
                     <address-family>inet</address-family>
@@ -54,7 +54,7 @@
             <router-type>bgpaas-client</router-type>
             <autonomous-system>65002</autonomous-system>
             <address>10.0.0.2</address>
-            <port>1025</port>
+            <source-port>1025</source-port>
             <session to='bgpaas-server:0'>
                 <family-attributes>
                     <address-family>inet</address-family>

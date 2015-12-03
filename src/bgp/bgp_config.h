@@ -182,8 +182,11 @@ public:
         return Ip4Address(ntohl(identifier_)).to_string();
     }
 
-    int port() const { return port_; }
-    void set_port(int port) { port_ = port; }
+    uint16_t port() const { return port_; }
+    void set_port(uint16_t port) { port_ = port; }
+
+    uint16_t source_port() const { return source_port_; }
+    void set_source_port(uint16_t source_port) { source_port_ = source_port; }
 
     std::string router_type() const { return router_type_; }
     void set_router_type(const std::string &router_type) {
@@ -248,7 +251,8 @@ private:
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
-    int port_;
+    uint16_t port_;
+    uint16_t source_port_;
     TcpSession::Endpoint remote_endpoint_;
     int hold_time_;
     uint8_t loop_count_;

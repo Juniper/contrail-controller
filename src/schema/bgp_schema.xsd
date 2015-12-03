@@ -100,6 +100,7 @@
     <xsd:element name='identifier' type='smi:IpAddress'/>
     <xsd:element name='address' type='smi:IpAddress'/>
     <xsd:element name='port' type='xsd:integer'/>
+    <xsd:element name='source-port' type='xsd:integer'/>
     <xsd:element name='hold-time' type='BgpHoldTime' default='90'/>
     <xsd:element name='address-families' type='AddressFamilies'/>
     <xsd:element name='auth-data' type='AuthenticationData'/>

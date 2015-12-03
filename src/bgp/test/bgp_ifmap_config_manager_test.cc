@@ -1327,7 +1327,7 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     EXPECT_EQ("192.168.1.1", nbr_config1->local_identifier_string());
     EXPECT_EQ(65001, nbr_config1->peer_as());
     EXPECT_EQ("10.0.0.1", nbr_config1->peer_address_string());
-    EXPECT_EQ(1024, nbr_config1->port());
+    EXPECT_EQ(1024, nbr_config1->source_port());
 
     const BgpNeighborConfig *nbr_config2;
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
@@ -1337,7 +1337,7 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors1) {
     EXPECT_EQ("192.168.1.1", nbr_config2->local_identifier_string());
     EXPECT_EQ(65002, nbr_config2->peer_as());
     EXPECT_EQ("10.0.0.2", nbr_config2->peer_address_string());
-    EXPECT_EQ(1025, nbr_config2->port());
+    EXPECT_EQ(1025, nbr_config2->source_port());
 
     // Change asn and identifier for master.
     content = FileRead("controller/src/bgp/testdata/config_test_36b.xml");
@@ -1378,12 +1378,12 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors2) {
     // Verify that the port is set for test:vm1.
     const BgpNeighborConfig *nbr_config1;
     nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
-    EXPECT_EQ(1024, nbr_config1->port());
+    EXPECT_EQ(1024, nbr_config1->source_port());
 
     // Verify that the port is set for test:vm2.
     const BgpNeighborConfig *nbr_config2;
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
-    EXPECT_EQ(1025, nbr_config2->port());
+    EXPECT_EQ(1025, nbr_config2->source_port());
 
     // Update port numbers.
     content = FileRead("controller/src/bgp/testdata/config_test_36d.xml");
@@ -1392,11 +1392,11 @@ TEST_F(BgpIfmapConfigManagerTest, BGPaaSNeighbors2) {
 
     // Verify that the port is updated for test:vm1.
     nbr_config1 = config_manager_->FindNeighbor("test", "test:vm1:0");
-    EXPECT_EQ(1025, nbr_config1->port());
+    EXPECT_EQ(1025, nbr_config1->source_port());
 
     // Verify that the port is updated for test:vm2.
     nbr_config2 = config_manager_->FindNeighbor("test", "test:vm2:0");
-    EXPECT_EQ(1024, nbr_config2->port());
+    EXPECT_EQ(1024, nbr_config2->source_port());
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");

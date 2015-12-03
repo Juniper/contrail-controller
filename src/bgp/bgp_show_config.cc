@@ -187,7 +187,7 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
     sbnc->set_autonomous_system(neighbor->peer_as());
     sbnc->set_identifier(neighbor->peer_identifier_string());
     sbnc->set_address(neighbor->peer_address().to_string());
-    sbnc->set_port(neighbor->port());
+    sbnc->set_source_port(neighbor->source_port());
     sbnc->set_address_families(neighbor->GetAddressFamilies());
     sbnc->set_hold_time(neighbor->hold_time());
     sbnc->set_loop_count(neighbor->loop_count());

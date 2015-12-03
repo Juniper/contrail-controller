@@ -471,7 +471,7 @@ struct ShowBgpNeighborConfig {
     4: i32 autonomous_system;
     5: string identifier;
     6: string address;
-    19: u32 port;
+    19: u32 source_port;
     14: i32 hold_time;
     16: i32 loop_count;
     10: string last_change_at;
@@ -501,6 +501,7 @@ struct BgpPeerInfoData {
     20: optional string peer_address;
     4: optional u32 local_asn;
     5: optional u32 peer_asn;
+    26: optional u32 peer_port;
     6: optional u32 hold_time;
     7: optional string notification_in;
     8: optional u64 notification_in_at;

@@ -137,7 +137,7 @@ public:
         return peer_key_.endpoint.address().to_string();
     }
     const BgpPeerKey &peer_key() const { return peer_key_; }
-    uint16_t peer_port() const { return peer_key_.endpoint.port(); }
+    uint16_t peer_port() const { return peer_port_; }
     std::string transport_address_string() const;
     const std::string &peer_name() const { return peer_name_; }
     const std::string &peer_basename() const { return peer_basename_; }
@@ -342,6 +342,7 @@ private:
     RoutingInstance *rtinstance_;
     TcpSession::Endpoint endpoint_;
     BgpPeerKey peer_key_;
+    uint16_t peer_port_;
     std::string peer_name_;
     std::string peer_basename_;
     std::string router_type_;         // bgp_schema.xsd:BgpRouterType

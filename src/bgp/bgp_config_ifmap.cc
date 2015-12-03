@@ -296,6 +296,7 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
 
     neighbor->set_peer_identifier(IpAddressToBgpIdentifier(identifier));
     neighbor->set_port(params.port);
+    neighbor->set_source_port(params.source_port);
     neighbor->set_hold_time(params.hold_time);
 
     if (session != NULL) {

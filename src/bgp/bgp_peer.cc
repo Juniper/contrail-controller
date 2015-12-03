@@ -343,6 +343,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         : server_(server),
           rtinstance_(instance),
           peer_key_(config),
+          peer_port_(config->source_port()),
           peer_name_(config->name()),
           router_type_(config->router_type()),
           config_(config),
@@ -401,10 +402,13 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_name(ToUVEKey());
     peer_info.set_admin_down(admin_down_);
     peer_info.set_passive(passive_);
+    peer_info.set_router_type(router_type_);
     peer_info.set_peer_type(
         PeerType() == BgpProto::IBGP ? "internal" : "external");
     peer_info.set_local_asn(local_as_);
     peer_info.set_peer_asn(peer_as_);
+    peer_info.set_peer_port(peer_port_);
+    peer_info.set_hold_time(hold_time_);
     peer_info.set_local_id(local_bgp_id_);
     peer_info.set_configured_families(config->GetAddressFamilies());
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
@@ -552,7 +556,7 @@ bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
 
 void BgpPeer::ProcessEndpointConfig(const BgpNeighborConfig *config) {
     if (config->router_type() == "bgpaas-client") {
-        endpoint_ = TcpSession::Endpoint(Ip4Address(), config->port());
+        endpoint_ = TcpSession::Endpoint(Ip4Address(), config->source_port());
     } else {
         endpoint_ = TcpSession::Endpoint();
     }
@@ -604,8 +608,14 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
         clear_session = true;
     }
-    ProcessEndpointConfig(config);
     ProcessAuthKeyChainConfig(config);
+
+    if (peer_port_ != config->source_port()) {
+        peer_port_ = config->source_port();
+        peer_info.set_peer_port(peer_port_);
+        clear_session = true;
+    }
+    ProcessEndpointConfig(config);
 
     // Check if there is any change in the configured address families.
     if (ProcessFamilyAttributesConfig(config)) {

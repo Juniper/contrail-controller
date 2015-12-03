@@ -143,6 +143,7 @@ BgpNeighborConfig::BgpNeighborConfig()
           peer_as_(0),
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
+          source_port_(0),
           hold_time_(0),
           loop_count_(0),
           local_as_(0),
@@ -160,6 +161,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
     port_ = rhs.port_;
+    source_port_ = rhs.source_port_;
     hold_time_ = rhs.hold_time_;
     loop_count_ = rhs.loop_count_;
     local_as_ = rhs.local_as_;
@@ -179,6 +181,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);
     KEY_COMPARE(port_, rhs.port_);
+    KEY_COMPARE(source_port_, rhs.source_port_);
     KEY_COMPARE(hold_time_, rhs.hold_time_);
     KEY_COMPARE(loop_count_, rhs.loop_count_);
     KEY_COMPARE(local_as_, rhs.local_as_);
