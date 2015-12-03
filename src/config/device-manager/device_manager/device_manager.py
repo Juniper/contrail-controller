@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
@@ -90,17 +90,22 @@ class DeviceManager(object):
                      'virtual_network',
                      'floating_ip',
                      'instance_ip',
-                     'service_instance'],
+                     'port_tuple'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface'],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
-            'routing_instance': ['physical_interface'],
-            'service_instance': ['physical_interface']
+            'routing_instance': ['port_tuple','physical_interface'],
+            'port_tuple': ['physical_interface']
         },
         'service_instance': {
-            'self': ['virtual_machine_interface'],
-            'virtual_machine_interface': []
+            'self': ['port_tuple'],
+            'port_tuple':[],
+        },
+        'port_tuple':{
+            'self':['virtual_machine_interface','service_instance'],
+            'service_instance':['virtual_machine_interface'],
+            'virtual_machine_interface':['service_instance']
         },
         'virtual_network': {
             'self': ['physical_router',
@@ -230,6 +235,9 @@ class DeviceManager(object):
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
         self._cassandra.handle_pr_deletes(pr_uuid_set)
 
+        for obj in PortTupleDM.list_obj():
+            PortTupleDM.locate(obj['uuid'],obj)
+
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
             li_set = pr.logical_interfaces
@@ -271,7 +279,7 @@ class DeviceManager(object):
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
-            conn_type=ConnType.APISERVER, name='ApiServer',
+            conn_type=ConnectionType.APISERVER, name='ApiServer',
             status=status, message=message or '',
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
