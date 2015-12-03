@@ -38,49 +38,40 @@ class UpdateInfoSList;
 //
 class RibOutAttr {
 public:
+    // This nested class represents an ecmp element for a ribout entry. A
+    // ribout entry keeps a vector of these elements. Each element stores
+    // all per nexthop properties in addition to the nexthop address and
+    // label.
+    //
+    // The origin_vn_index keeps track of the index of the VN from which
+    // the BgpPath originated.
+    // A value of -1 means that the VN is unknown.
+    // A value of 0 means the VN for the table to which the ribout belongs.
+    // Values greater than 0 are actual VN indexes.
     class NextHop {
         public:
             NextHop(IpAddress address, uint32_t label,
-                    const ExtCommunity *ext_community)
-                : address_(address), label_(label) {
-                if (ext_community)
-                    encap_ = ext_community->GetTunnelEncap();
-            }
+                    const ExtCommunity *ext_community, bool vrf_originated);
+
             const IpAddress address() const { return address_; }
             uint32_t label() const { return label_; }
+            int origin_vn_index() const { return origin_vn_index_; }
             std::vector<std::string> encap() const { return encap_; }
 
-            int CompareTo(const NextHop &rhs) const {
-                if (address_ < rhs.address_) return -1;
-                if (address_ > rhs.address_) return 1;
-                if (label_ < rhs.label_) return -1;
-                if (label_ > rhs.label_) return 1;
-                if (encap_.size() < rhs.encap_.size()) return -1;
-                if (encap_.size() > rhs.encap_.size()) return 1;
-                for (size_t idx = 0; idx < encap_.size(); idx++) {
-                    if (encap_[idx] < rhs.encap_[idx]) return -1;
-                    if (encap_[idx] > rhs.encap_[idx]) return 1;
-                }
-                return 0;
-            }
-
-            bool operator==(const NextHop &rhs) const {
-                return CompareTo(rhs) == 0;
-            }
-
-            bool operator!=(const NextHop &rhs) const {
-                return CompareTo(rhs) != 0;
-            }
+            int CompareTo(const NextHop &rhs) const;
+            bool operator==(const NextHop &rhs) const;
+            bool operator!=(const NextHop &rhs) const;
 
         private:
             IpAddress address_;
             uint32_t  label_;
+            int origin_vn_index_;
             std::vector<std::string> encap_;
     };
 
     typedef std::vector<NextHop> NextHopList;
 
-    RibOutAttr() : attr_out_(NULL), vrf_originated_(false) { }
+    RibOutAttr() : attr_out_(NULL) { }
     RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh = true);
     RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
@@ -90,7 +81,8 @@ public:
 
     const NextHopList &nexthop_list() const { return nexthop_list_; }
     const BgpAttr *attr() const { return attr_out_.get(); }
-    void set_attr(const BgpAttrPtr &attrp, uint32_t label = 0);
+    void set_attr(const BgpAttrPtr &attrp, uint32_t label = 0,
+        bool vrf_originated = false);
 
     void clear() {
         attr_out_.reset();
@@ -99,14 +91,12 @@ public:
     uint32_t label() const {
         return nexthop_list_.empty() ? 0 : nexthop_list_.at(0).label();
     }
-    bool vrf_originated() const { return vrf_originated_; }
 
 private:
     int CompareTo(const RibOutAttr &rhs) const;
 
     BgpAttrPtr attr_out_;
     NextHopList nexthop_list_;
-    bool vrf_originated_;
 };
 
 //

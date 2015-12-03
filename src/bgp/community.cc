@@ -12,6 +12,7 @@
 #include "base/string_util.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "net/community_type.h"
 
 using std::sort;
@@ -327,6 +328,17 @@ bool ExtCommunity::ContainsTunnelEncapVxlan() const {
             return true;
     }
     return false;
+}
+
+int ExtCommunity::GetOriginVnIndex() const {
+    for (ExtCommunityList::const_iterator iter = communities_.begin();
+         iter != communities_.end(); ++iter) {
+        if (!ExtCommunity::is_origin_vn(*iter))
+            continue;
+        OriginVn origin_vn(*iter);
+        return origin_vn.vn_index();
+    }
+    return -1;
 }
 
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,

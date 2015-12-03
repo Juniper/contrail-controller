@@ -260,10 +260,18 @@ static const char *config_tmpl1 = "\
         <address>127.0.0.101</address>\
         <port>%d</port>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
@@ -1302,10 +1310,18 @@ static const char *config_tmpl2 = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
@@ -1780,7 +1796,11 @@ static const char *config_tmpl2_new = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
 </config>\
@@ -1915,7 +1935,11 @@ static const char *config_tmpl22_x = "\
         <address>127.0.0.101</address>\
         <port>%d</port>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
 </config>\
@@ -1928,7 +1952,11 @@ static const char *config_tmpl22_y = "\
         <address>127.0.0.102</address>\
         <port>%d</port>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
 </config>\
@@ -2193,7 +2221,11 @@ static const char *config_tmpl23_bgp = "\
 
 static const char *config_tmpl23_instance = "\
 <config>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
 </config>\
@@ -2348,10 +2380,18 @@ static const char *config_tmpl3 = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
