@@ -88,7 +88,6 @@ public:
     //Add flow entry to particular aging table
     void AddEvent(FlowEntry *flow);
     void DeleteEvent(FlowEntry *flow);
-    uint32_t flow_export_msg_drops() { return 0;}
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);
     void Shutdown();
