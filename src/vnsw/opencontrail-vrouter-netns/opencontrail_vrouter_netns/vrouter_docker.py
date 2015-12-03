@@ -5,6 +5,7 @@ import os
 import uuid
 import docker
 import sys
+import logging
 from docker.errors import APIError
 from vrouter_netns import validate_uuid, NetnsManager
 
@@ -195,21 +196,22 @@ class VRouterDocker(object):
         else:
             # use container default
             command = None
-        docker_id = None
         try:
-            result = self._client.create_container(
-                image=image_name, name=vm_name, command=command, detach=True,
-                stdin_open=True, tty=True)  # keep the container running
-            docker_id = result["Id"]
-            self._stop(vm_name, self.args.vmi_left_id, self.args.vmi_right_id,
-                       self.args.vmi_management_id)
+            container = self._client.inspect_container(vm_name)
+            docker_id = container["Id"]
         except APIError as e:
-            if e.response.status_code == 409:
-                if self.args.update:
-                    container = self._client.inspect_container(vm_name)
-                    docker_id = container["Id"]
-                else:
-                    raise
+            if e.response.status_code == 404:
+                result = self._client.create_container(
+                    image=image_name, name=vm_name, command=command, detach=True,
+                    stdin_open=True, tty=True)  # keep the container running
+                docker_id = result["Id"]
+            else:
+                logging.error('Error when inspecting docker '
+                              'container: %s, status code %d, error: %s',
+                              vm_name, e.response.status_code, str(e))
+                raise
+        self._stop(vm_name, self.args.vmi_left_id, self.args.vmi_right_id,
+                   self.args.vmi_management_id)
 
         if self.args.vmi_left_id is not None:
             nic_left = self._create_nic_def(self.args.vmi_left_id,
