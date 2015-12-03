@@ -20,13 +20,12 @@ import platform
 import time
 import pycassa
 from pycassa.pool import ConnectionPool
+import platform
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
-cassandra_version = '1.2.11'
 cassandra_bdir = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
-cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
 def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_password = None):
     '''
@@ -34,6 +33,22 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
+    def cassandra_old():
+        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+        if PLATFORM.lower() == 'ubuntu':
+            if VERSION.find('12.') == 0:
+                return True
+        if PLATFORM.lower() == 'centos':
+            if VERSION.find('6.') == 0:
+                return True
+        return False
+
+    if cassandra_old():
+        cassandra_version = '1.2.11'
+    else:
+        cassandra_version = '2.1.9'
+    cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
+
     if not os.path.exists(cassandra_bdir):
         output,_ = call_command_("mkdir " + cassandra_bdir)
 
@@ -93,9 +108,13 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
             [("authenticator: AllowAllAuthenticator",  \
               "authenticator: PasswordAuthenticator")])
 
-    replace_string_(confdir + "log4j-server.properties", \
-       [("/var/log/cassandra/system.log", cassbase + "system.log"),
-        ("INFO","DEBUG")])
+    if cassandra_old():
+        replace_string_(confdir + "log4j-server.properties", \
+           [("/var/log/cassandra/system.log", cassbase + "system.log"),
+            ("INFO","DEBUG")])
+    else:
+        replace_string_(confdir + "logback.xml",\
+            [('level="INFO"','level="DEBUG"')])
 
     replace_string_(confdir + "cassandra-env.sh", \
         [('JMX_PORT="7199"', 'JMX_PORT="' + str(jport) + '"')])
