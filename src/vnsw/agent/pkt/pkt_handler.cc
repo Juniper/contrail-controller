@@ -511,7 +511,8 @@ int PktHandler::ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt) {
     int len = 0;
     if (pkt_info->dport == VXLAN_UDP_DEST_PORT)
         len = ParseVxlan(pkt_info, (pkt + len));
-    else if (pkt_info->dport == MPLS_OVER_UDP_DEST_PORT)
+    else if (pkt_info->dport == MPLS_OVER_UDP_DEST_PORT ||
+             pkt_info->dport == IANA_MPLS_OVER_UDP_DEST_PORT)
         len = ParseMPLSoUDP(pkt_info, (pkt + len));
 
     return len;
