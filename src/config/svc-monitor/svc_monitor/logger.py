@@ -23,8 +23,8 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeN
 from sandesh.svc_mon_introspect import ttypes as sandesh
 
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
-    ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
@@ -101,13 +101,13 @@ class ServiceMonitorLogger(object):
         self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
 
     def api_conn_status_update(self, status, msg=None):
-        ConnectionState.update(conn_type=ConnectionType.APISERVER,
+        ConnectionState.update(conn_type=ConnType.APISERVER,
             name='ApiServer', status=status, message=msg,
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
 
     def db_conn_status_update(self, status, servers, msg=None):
-        ConnectionState.update(conn_type=ConnectionType.DATABASE,
+        ConnectionState.update(conn_type=ConnType.DATABASE,
             name='Database', status=status, message=msg,
             server_addrs=servers)
 

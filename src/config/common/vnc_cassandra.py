@@ -12,8 +12,8 @@ import gevent
 from vnc_api import vnc_api
 from exceptions import NoIdError, DatabaseUnavailableError
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-    ConnectionType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import API_SERVER_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
@@ -114,7 +114,7 @@ class VncCassandraClient(object):
     #end
 
     def _update_sandesh_status(self, status, msg=''):
-        ConnectionState.update(conn_type=ConnectionType.DATABASE,
+        ConnectionState.update(conn_type=ConnType.DATABASE,
             name='Cassandra', status=status, message=msg,
             server_addrs=self._server_list)
 
@@ -236,7 +236,7 @@ class VncCassandraClient(object):
                     pool, cf, read_consistency_level = rd_consistency,
                     write_consistency_level = wr_consistency)
 
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+        ConnectionState.update(conn_type = ConnType.DATABASE,
             name = 'Cassandra', status = ConnectionStatus.UP, message = '',
             server_addrs = self._server_list)
         self._conn_state = ConnectionStatus.UP

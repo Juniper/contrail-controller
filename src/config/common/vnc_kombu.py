@@ -17,8 +17,8 @@ except ImportError:
     from gevent.coros import Semaphore
 
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-    ConnectionType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 __all__ = "VncKombuClient"
@@ -26,7 +26,7 @@ __all__ = "VncKombuClient"
 
 class VncKombuClientBase(object):
     def _update_sandesh_status(self, status, msg=''):
-        ConnectionState.update(conn_type=ConnectionType.DATABASE,
+        ConnectionState.update(conn_type=ConnType.DATABASE,
             name='RabbitMQ', status=status, message=msg,
             server_addrs=["%s:%s" % (self._rabbit_ip, self._rabbit_port)])
     # end _update_sandesh_status
