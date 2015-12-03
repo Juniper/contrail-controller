@@ -698,6 +698,39 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
 }
 
 //
+// Fill in all the export route targets of the routing-instance at the other
+// end of a connection.  The src_node is the routing-instance from which we
+// reached the connection node. The name of the source routing-instance is
+// src_instance.
+//
+// If the connection is unidirectional and the destination-instance for the
+// connection is not the routing-instance from which we started, we should
+// not get any targets from this connection.  This is what a unidirectional
+// connection means.
+//
+static void GetConnectionExportTargets(DBGraph *graph, IFMapNode *src_node,
+        const string &src_instance, IFMapNode *node,
+        vector<string> *target_list) {
+    const autogen::Connection *conn =
+        dynamic_cast<autogen::Connection *>(node->GetObject());
+    if (!conn)
+        return;
+    const autogen::ConnectionType &conn_type = conn->data();
+    if (!conn_type.destination_instance.empty() &&
+         conn_type.destination_instance != src_instance)
+        return;
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (adj == src_node)
+            continue;
+        if (strcmp(adj->table()->Typename(), "routing-instance") != 0)
+            continue;
+        GetRoutingInstanceExportTargets(graph, adj, target_list);
+    }
+}
+
+//
 // Fill in all the routing-policies for a routing-instance.  The input
 // IFMapNode represents the routing-instance-routing-policy.  We traverse to
 // graph edges and look for routing-policy adjacency
@@ -939,9 +972,9 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
             RoutingPolicyAttachInfo policy_info;
             GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info);
             policy_list.push_back(policy_info);
-        } else if (strcmp(adj->table()->Typename(), "routing-instance") == 0) {
+        } else if (strcmp(adj->table()->Typename(), "connection") == 0) {
             vector<string> target_list;
-            GetRoutingInstanceExportTargets(graph, adj, &target_list);
+            GetConnectionExportTargets(graph, node, name_, adj, &target_list);
             BOOST_FOREACH(string target, target_list) {
                 import_list.insert(target);
             }

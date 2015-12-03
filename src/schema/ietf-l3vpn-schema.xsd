@@ -39,9 +39,9 @@ targetNamespace="http://www.contrailsystems.com/2012/BGP-CONFIG/0">
 </xsd:complexType>
 
 <xsd:complexType name="ConnectionType">
-    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
-    </xsd:attributeGroup>
+    <xsd:element name="destination-instance" type="xsd:string"/>
 </xsd:complexType>
+
 <!-- connectivity between routing-instances -->
 <xsd:element name="connection" type="ConnectionType"/>
 
