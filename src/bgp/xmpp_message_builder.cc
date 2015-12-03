@@ -48,7 +48,8 @@ private:
     static const uint32_t kMaxReachCount = 32;
     static const uint32_t kMaxUnreachCount = 256;
 
-    void EncodeNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
+    void EncodeNextHop(const BgpRoute *route,
+                       const RibOutAttr::NextHop &nexthop,
                        autogen::ItemType *item);
     void AddIpReach(const BgpRoute *route, const RibOutAttr *roattr);
     void AddIpUnreach(const BgpRoute *route);
@@ -56,7 +57,8 @@ private:
 
     bool AddInet6Route(const BgpRoute *route, const RibOutAttr *roattr);
 
-    void EncodeEnetNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
+    void EncodeEnetNextHop(const BgpRoute *route,
+                           const RibOutAttr::NextHop &nexthop,
                            autogen::EnetItemType *item);
     void AddEnetReach(const BgpRoute *route, const RibOutAttr *roattr);
     void AddEnetUnreach(const BgpRoute *route);
@@ -73,6 +75,7 @@ private:
             community_list_.push_back(CommunityType::CommunityToString(value));
         }
     }
+
     void ProcessExtCommunity(const ExtCommunity *ext_community) {
         if (ext_community == NULL)
             return;
@@ -86,31 +89,25 @@ private:
                 if (sg.as_number() != as_number && !sg.IsGlobal())
                     continue;
                 security_group_list_.push_back(sg.security_group_id());
-            }
-            if (ExtCommunity::is_mac_mobility(*iter)) {
+            } else if (ExtCommunity::is_mac_mobility(*iter)) {
                 MacMobility mm(*iter);
                 sequence_number_ = mm.sequence_number();
-            }
-            if (ExtCommunity::is_origin_vn(*iter)) {
-                OriginVn origin_vn(*iter);
-                const RoutingInstanceMgr *manager =
-                    table_->routing_instance()->manager();
-                virtual_network_ =
-                    manager->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
             } else if (ExtCommunity::is_load_balance(*iter)) {
                 LoadBalance load_balance(*iter);
                 load_balance.FillAttribute(&load_balance_attribute_);
             }
         }
     }
-    string GetVirtualNetwork(const BgpRoute *route) const;
+
+    string GetVirtualNetwork(const RibOutAttr::NextHop &nexthop) const;
+    string GetVirtualNetwork(const BgpRoute *route,
+                             const RibOutAttr *roattr) const;
 
     const BgpTable *table_;
     bool is_reachable_;
     xml_document xdoc_;
     xml_node xitems_;
     uint32_t sequence_number_;
-    string virtual_network_;
     vector<int> security_group_list_;
     vector<string> community_list_;
     string repr_;
@@ -135,10 +132,6 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
         const BgpAttr *attr = roattr->attr();
         ProcessCommunity(attr->community());
         ProcessExtCommunity(attr->ext_community());
-        if (virtual_network_.empty() && roattr->vrf_originated()) {
-            virtual_network_ =
-                table_->routing_instance()->GetVirtualNetworkName();
-        }
     }
 
     stringstream ss;
@@ -178,13 +171,14 @@ bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
 }
 
 void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
-                                   RibOutAttr::NextHop nexthop,
+                                   const RibOutAttr::NextHop &nexthop,
                                    autogen::ItemType *item) {
     autogen::NextHopType item_nexthop;
 
     item_nexthop.af = route->NexthopAfi();
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
+    item_nexthop.virtual_network = GetVirtualNetwork(nexthop);
 
     // If encap list is empty use mpls over gre as default encap.
     vector<string> &encap_list =
@@ -206,7 +200,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
-    item.entry.virtual_network = GetVirtualNetwork(route);
+    item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.med = roattr->attr()->med();
     item.entry.sequence_number = sequence_number_;
@@ -216,7 +210,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     //
     // Encode all next-hops in the list
     //
-    BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
+    BOOST_FOREACH(const RibOutAttr::NextHop &nexthop, roattr->nexthop_list()) {
         EncodeNextHop(route, nexthop, &item);
     }
 
@@ -268,7 +262,7 @@ bool BgpXmppMessage::AddInet6Route(const BgpRoute *route,
 }
 
 void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
-                                       RibOutAttr::NextHop nexthop,
+                                       const RibOutAttr::NextHop &nexthop,
                                        autogen::EnetItemType *item) {
     autogen::EnetNextHopType item_nexthop;
 
@@ -300,7 +294,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     item.entry.nlri.mac = evpn_prefix.mac_addr().ToString();
     item.entry.nlri.address = evpn_prefix.ip_address().to_string() + "/" +
         integerToString(evpn_prefix.ip_address_length());
-    item.entry.virtual_network = GetVirtualNetwork(route);
+    item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.med = roattr->attr()->med();
     item.entry.sequence_number = sequence_number_;
@@ -340,7 +334,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         }
     }
 
-    BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
+    BOOST_FOREACH(const RibOutAttr::NextHop &nexthop, roattr->nexthop_list()) {
         EncodeEnetNextHop(route, nexthop, &item);
     }
 
@@ -442,12 +436,34 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
     return reinterpret_cast<const uint8_t *>(repr_.c_str());
 }
 
-string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route) const {
-    if (!is_reachable_)
+string BgpXmppMessage::GetVirtualNetwork(
+    const RibOutAttr::NextHop &nexthop) const {
+    int index = nexthop.origin_vn_index();
+    if (index > 0) {
+        const RoutingInstanceMgr *manager =
+            table_->routing_instance()->manager();
+        return manager->GetVirtualNetworkByVnIndex(index);
+    } else if (index == 0) {
+        return table_->routing_instance()->GetVirtualNetworkName();
+    } else {
         return "unresolved";
-    if (!virtual_network_.empty())
-        return virtual_network_;
-    return "unresolved";
+    }
+}
+
+string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route,
+    const RibOutAttr *roattr) const {
+    if (!is_reachable_) {
+        return "unresolved";
+    } else if (roattr->nexthop_list().empty()) {
+        const BgpPath *path = route->BestPath();
+        if (path && path->IsVrfOriginated()) {
+            return table_->routing_instance()->GetVirtualNetworkName();
+        } else {
+            return "unresolved";
+        }
+    } else {
+        return GetVirtualNetwork(roattr->nexthop_list().front());
+    }
 }
 
 Message *BgpXmppMessageBuilder::Create(const BgpTable *table,

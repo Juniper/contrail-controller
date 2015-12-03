@@ -575,7 +575,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
             // that's in the set of export RouteTargets for the dest instance.
             // If so, we set the origin vn for the replicated route to be the
             // vn for the dest instance.
-            if (!vn_index &&
+            if (!vn_index && dest_rtinstance->virtual_network_index() &&
                 dest_rtinstance->HasExportTarget(ext_community)) {
                 int dest_vn_index = dest_rtinstance->virtual_network_index();
                 OriginVn origin_vn(server_->autonomous_system(), dest_vn_index);

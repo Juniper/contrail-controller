@@ -23,6 +23,69 @@
 using namespace std;
 using boost::assign::list_of;
 
+static const char *config_1_control_node_2_vns = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
+        <vrf-target>target:1:2</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_2_control_nodes_2_vns = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
+        <vrf-target>target:1:2</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 static const char *config_2_control_nodes = "\
 <config>\
     <bgp-router name=\'X\'>\
@@ -240,8 +303,8 @@ protected:
         bs_y_->Configure(config);
     }
 
-    void AddRouteTarget(BgpServerTestPtr server, const string name,
-        const string target) {
+    void AddRouteTarget(BgpServerTestPtr server, const string &name,
+        const string &target) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             server->routing_instance_mgr()->GetRoutingInstance(name));
 
@@ -251,8 +314,8 @@ protected:
                                       "instance-target");
     }
 
-    void RemoveRouteTarget(BgpServerTestPtr server, const string name,
-        const string target) {
+    void RemoveRouteTarget(BgpServerTestPtr server, const string &name,
+        const string &target) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             server->routing_instance_mgr()->GetRoutingInstance(name));
 
@@ -260,6 +323,22 @@ protected:
                                       "routing-instance", name,
                                       "route-target", target,
                                       "instance-target");
+    }
+
+    void AddConnection(BgpServerTestPtr server,
+        const string &name1, const string &name2) {
+        ifmap_test_util::IFMapMsgLink(server->config_db(),
+                                      "routing-instance", name1,
+                                      "routing-instance", name2,
+                                      "connection");
+    }
+
+    void RemoveConnection(BgpServerTestPtr server,
+        const string &name1, const string &name2) {
+        ifmap_test_util::IFMapMsgUnlink(server->config_db(),
+                                        "routing-instance", name1,
+                                        "routing-instance", name2,
+                                        "connection");
     }
 
     size_t GetExportRouteTargetListSize(BgpServerTestPtr server,
@@ -363,6 +442,27 @@ protected:
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
         string prefix) {
         TASK_UTIL_EXPECT_TRUE(agent->RouteLookup(net, prefix) == NULL);
+    }
+
+    bool CheckPath(test::NetworkAgentMockPtr agent, const string &net,
+        const string &prefix, const string &nexthop, const string &origin_vn) {
+        task_util::TaskSchedulerLock lock;
+        const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
+        if (!rt)
+            return false;
+        BOOST_FOREACH(const autogen::NextHopType &nh, rt->entry.next_hops) {
+            if (nh.address == nexthop) {
+                if (nh.virtual_network == origin_vn)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    void VerifyPath(test::NetworkAgentMockPtr agent, const string &net,
+        const string &prefix, const string &nexthop, const string &origin_vn) {
+        TASK_UTIL_EXPECT_TRUE(
+            CheckPath(agent, net, prefix, nexthop, origin_vn));
     }
 
     const BgpPeer *VerifyPeerExists(BgpServerTestPtr s1, BgpServerTestPtr s2) {
@@ -1903,6 +2003,229 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, PeerDelete) {
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
 
     // Close the session from agent B.
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that each path/nexthop in an ECMP route has it's own virtual_network.
+// Single control node, paths sourced in different VNs.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, EcmpOriginVn1) {
+    // Configure and add connection between blue and pink on bgp server X.
+    Configure(bs_x_, config_1_control_node_2_vns);
+    AddConnection(bs_x_, "blue", "pink");
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to pink instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("pink", 2);
+
+    // Add blue path from agent A.
+    // Add pink path from agent B.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    agent_b_->AddRoute("pink", route_a.str(), "192.168.1.2", 100);
+    task_util::WaitForIdle();
+
+    // Verify origin vn for all paths on agents A and B.
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.2", "pink");
+    VerifyPath(agent_b_, "pink", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_b_, "pink", route_a.str(), "192.168.1.2", "pink");
+
+    // Delete blue path from agent A.
+    // Delete pink path from agent B.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    agent_b_->DeleteRoute("pink", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "pink", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that each path/nexthop in an ECMP route has it's own virtual_network.
+// Single control node, paths sourced in same VN.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, EcmpOriginVn2) {
+    // Configure bgp server X.
+    Configure(bs_x_, config_1_control_node_2_vns);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 2);
+
+    // Add blue path from agent A.
+    // Add blue path from agent B.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    agent_b_->AddRoute("blue", route_a.str(), "192.168.1.2", 100);
+    task_util::WaitForIdle();
+
+    // Verify origin vn for all paths on agents A and B.
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.2", "blue");
+    VerifyPath(agent_b_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_b_, "blue", route_a.str(), "192.168.1.2", "blue");
+
+    // Delete blue path from agent A.
+    // Delete blue path from agent B.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    agent_b_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that each path/nexthop in an ECMP route has it's own virtual_network.
+// Two control nodes, paths sourced in different VNs.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, EcmpOriginVn3) {
+    // Configure and add connection between blue and pink on both bgp servers.
+    Configure(config_2_control_nodes_2_vns);
+    AddConnection(bs_x_, "blue", "pink");
+    AddConnection(bs_y_, "blue", "pink");
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to pink instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("pink", 2);
+
+    // Add blue path from agent A.
+    // Add pink path from agent B.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    agent_b_->AddRoute("pink", route_a.str(), "192.168.1.2", 100);
+    task_util::WaitForIdle();
+
+    // Verify origin vn for all paths on agents A and B.
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.2", "pink");
+    VerifyPath(agent_b_, "pink", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_b_, "pink", route_a.str(), "192.168.1.2", "pink");
+
+    // Delete blue path from agent A.
+    // Delete pink path from agent B.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    agent_b_->DeleteRoute("pink", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "pink", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that each path/nexthop in an ECMP route has it's own virtual_network.
+// Two control nodes, paths sourced in same VN.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, EcmpOriginVn4) {
+    // Configure both bgp servers.
+    Configure(config_2_control_nodes_2_vns);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 2);
+
+    // Add blue path from agent A.
+    // Add blue path from agent B.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    agent_b_->AddRoute("blue", route_a.str(), "192.168.1.2", 100);
+    task_util::WaitForIdle();
+
+    // Verify origin vn for all paths on agents A and B.
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_a_, "blue", route_a.str(), "192.168.1.2", "blue");
+    VerifyPath(agent_b_, "blue", route_a.str(), "192.168.1.1", "blue");
+    VerifyPath(agent_b_, "blue", route_a.str(), "192.168.1.2", "blue");
+
+    // Delete blue path from agent A.
+    // Delete blue path from agent B.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    agent_b_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
     agent_b_->SessionDown();
 }
 
