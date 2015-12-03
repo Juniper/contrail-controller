@@ -294,10 +294,17 @@ void IPeerRib::RibOutLeave(DBTablePartBase *root, DBEntryBase *db_entry,
     if (!(action_mask & MembershipRequest::RIBOUT_DELETE)) {
         return;
     }
+    if (!ribout_registered_) {
+        return;
+    }
+
+    int index = ribout_->GetPeerIndex(ipeer_);
+    if (index < 0) {
+        return;
+    }
 
     RibPeerSet lmask;
-    lmask.set(ribout_->GetPeerIndex(ipeer_));
-
+    lmask.set(index);
     ribout_->bgp_export()->Leave(root, lmask, db_entry);
 }
 

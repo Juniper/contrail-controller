@@ -52,6 +52,7 @@ using pugi::xml_node;
 using std::auto_ptr;
 using std::make_pair;
 using std::numeric_limits;
+using std::ostringstream;
 using std::pair;
 using std::set;
 using std::string;
@@ -395,7 +396,7 @@ public:
     }
 
     virtual uint32_t bgp_identifier() const {
-        const boost::asio::ip::tcp::endpoint &remote = parent_->endpoint();
+        const TcpSession::Endpoint &remote = parent_->endpoint();
         if (remote.address().is_v4()) {
             return remote.address().to_v4().to_ulong();
         }
@@ -741,7 +742,7 @@ const IPeer *BgpXmppChannel::Peer() const {
     return peer_.get();
 }
 
-boost::asio::ip::tcp::endpoint BgpXmppChannel::endpoint() const {
+TcpSession::Endpoint BgpXmppChannel::endpoint() const {
     return channel_->connection()->endpoint();
 }
 
@@ -2439,23 +2440,33 @@ void BgpXmppChannel::Close() {
 //
 // Return connection's remote tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::remote_endpoint() const {
+TcpSession::Endpoint BgpXmppChannel::remote_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->remote_endpoint();
     }
-    return boost::asio::ip::tcp::endpoint();
+    return TcpSession::Endpoint();
 }
 
 //
 // Return connection's local tcp endpoint if available
 //
-boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() const {
+TcpSession::Endpoint BgpXmppChannel::local_endpoint() const {
     const XmppSession *session = GetSession();
     if (session) {
         return session->local_endpoint();
     }
-    return boost::asio::ip::tcp::endpoint();
+    return TcpSession::Endpoint();
+}
+
+//
+// Return connection's remote tcp endpoint string.
+//
+string BgpXmppChannel::transport_address_string() const {
+    TcpSession::Endpoint endpoint = remote_endpoint();
+    ostringstream oss;
+    oss << endpoint;
+    return oss.str();
 }
 
 //

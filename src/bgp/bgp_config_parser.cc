@@ -369,10 +369,10 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
     }
 
     if (add_change) {
-        MapObjectSetProperty("bgp-router", fqname,
-            "bgp-router-parameters", property.release(), requests);
         MapObjectLink("routing-instance", instance,
             "bgp-router", fqname, "instance-bgp-router", requests);
+        MapObjectSetProperty("bgp-router", fqname,
+            "bgp-router-parameters", property.release(), requests);
     } else {
         MapObjectClearProperty("bgp-router", fqname,
             "bgp-router-parameters", requests);

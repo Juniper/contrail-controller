@@ -181,11 +181,13 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
     sbnc->set_name(neighbor->name());
     sbnc->set_admin_down(neighbor->admin_down());
     sbnc->set_passive(neighbor->passive());
+    sbnc->set_router_type(neighbor->router_type());
     sbnc->set_local_identifier(neighbor->local_identifier_string());
     sbnc->set_local_as(neighbor->local_as());
     sbnc->set_autonomous_system(neighbor->peer_as());
     sbnc->set_identifier(neighbor->peer_identifier_string());
     sbnc->set_address(neighbor->peer_address().to_string());
+    sbnc->set_port(neighbor->port());
     sbnc->set_address_families(neighbor->GetAddressFamilies());
     sbnc->set_hold_time(neighbor->hold_time());
     sbnc->set_loop_count(neighbor->loop_count());

@@ -80,13 +80,14 @@ public:
     void Close();
     IPeer *Peer();
     const IPeer *Peer() const;
-    virtual boost::asio::ip::tcp::endpoint endpoint() const;
+    virtual TcpSession::Endpoint endpoint() const;
 
     std::string ToString() const;
     std::string ToUVEKey() const;
     std::string StateName() const;
-    boost::asio::ip::tcp::endpoint remote_endpoint() const;
-    boost::asio::ip::tcp::endpoint local_endpoint() const;
+    TcpSession::Endpoint remote_endpoint() const;
+    TcpSession::Endpoint local_endpoint() const;
+    std::string transport_address_string() const;
 
     void set_peer_deleted(); // For unit testing only.
     bool peer_deleted() const;

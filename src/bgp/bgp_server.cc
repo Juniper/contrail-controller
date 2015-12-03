@@ -177,13 +177,13 @@ public:
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
             BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
-            server_->RemovePeer(peer->remote_endpoint(), peer);
+            server_->RemovePeer(peer->endpoint(), peer);
             peer->ConfigUpdate(neighbor_config);
-            server_->InsertPeer(peer->remote_endpoint(), peer);
+            server_->InsertPeer(peer->endpoint(), peer);
         } else if (event == BgpConfigManager::CFG_DELETE) {
             BgpPeer *peer = peer_manager->TriggerPeerDeletion(neighbor_config);
             if (peer) {
-                server_->RemovePeer(peer->remote_endpoint(), peer);
+                server_->RemovePeer(peer->endpoint(), peer);
             }
         }
     }
@@ -382,7 +382,7 @@ BgpPeer *BgpServer::FindPeer(const string &name) {
 }
 
 void BgpServer::InsertPeer(TcpSession::Endpoint remote, BgpPeer *peer) {
-    if (!remote.port() || remote.address().is_unspecified())
+    if (!remote.port() && remote.address().is_unspecified())
         return;
 
     EndpointToBgpPeerList::iterator loc = endpoint_peer_list_.find(remote);

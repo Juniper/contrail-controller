@@ -7,6 +7,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 
 struct BgpSandeshContext;
@@ -238,7 +239,7 @@ const BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) const {
 }
 
 void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,
-        vector<BgpNeighborResp> *nbr_list, const string &search_string,
+        vector<BgpNeighborResp> *bnr_list, const string &search_string,
         bool summary) const {
     BgpPeerKey key = BgpPeerKey();
     while (const BgpPeer *peer = NextPeer(key)) {
@@ -246,7 +247,9 @@ void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,
             (peer->peer_basename().find(search_string) != string::npos) ||
             (peer->peer_address_string().find(search_string) != string::npos) ||
             (search_string == "deleted" && peer->IsDeleted())) {
-            peer->FillNeighborInfo(bsc, nbr_list, summary);
+            BgpNeighborResp bnr;
+            peer->FillNeighborInfo(bsc, &bnr, summary);
+            bnr_list->push_back(bnr);
         }
     }
 }

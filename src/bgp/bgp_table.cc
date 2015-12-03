@@ -187,6 +187,12 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             attr_ptr = attr->attr_db()->Locate(clone);
             attr = attr_ptr.get();
         } else if (ribout->peer_type() == BgpProto::EBGP) {
+            // Don't advertise any routes from non-master instances.
+            // The ribout can only be for bgpaas-clients since that's
+            // the only case with bgp peers in non-master instance.
+            if (!rtinstance_->IsDefaultRoutingInstance())
+                return NULL;
+
             // Sender side AS path loop check.
             if (attr->as_path() &&
                 attr->as_path()->path().AsPathLoop(ribout->peer_as())) {

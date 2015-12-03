@@ -343,7 +343,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         : server_(server),
           rtinstance_(instance),
           peer_key_(config),
-          remote_endpoint_(config->remote_endpoint()),
           peer_name_(config->name()),
           router_type_(config->router_type()),
           config_(config),
@@ -394,6 +393,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     refcount_ = 0;
     primary_path_count_ = 0;
 
+    ProcessEndpointConfig(config);
     ProcessAuthKeyChainConfig(config);
     ProcessFamilyAttributesConfig(config);
 
@@ -550,6 +550,14 @@ bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
     return (ret != 0);
 }
 
+void BgpPeer::ProcessEndpointConfig(const BgpNeighborConfig *config) {
+    if (config->router_type() == "bgpaas-client") {
+        endpoint_ = TcpSession::Endpoint(Ip4Address(), config->port());
+    } else {
+        endpoint_ = TcpSession::Endpoint();
+    }
+}
+
 void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (IsDeleted())
         return;
@@ -596,16 +604,12 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
         clear_session = true;
     }
+    ProcessEndpointConfig(config);
     ProcessAuthKeyChainConfig(config);
 
     // Check if there is any change in the configured address families.
     if (ProcessFamilyAttributesConfig(config)) {
         peer_info.set_configured_families(configured_families_);
-        clear_session = true;
-    }
-
-    if (remote_endpoint_ != config->remote_endpoint()) {
-        remote_endpoint_ = config->remote_endpoint();
         clear_session = true;
     }
 
@@ -722,6 +726,15 @@ uint32_t BgpPeer::bgp_identifier() const {
 
 string BgpPeer::bgp_identifier_string() const {
     return Ip4Address(ntohl(peer_bgp_id_)).to_string();
+}
+
+string BgpPeer::transport_address_string() const {
+    TcpSession::Endpoint endpoint;
+    ostringstream oss;
+    if (session_)
+        endpoint = session_->remote_endpoint();
+    oss << endpoint;
+    return oss.str();
 }
 
 //
@@ -1605,45 +1618,45 @@ static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
     }
 }
 
-void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
+void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp *bnr,
                                         const IPeerDebugStats *peer_state) {
-    resp.set_last_state(peer_state->last_state());
-    resp.set_last_event(peer_state->last_event());
-    resp.set_last_error(peer_state->last_error());
-    resp.set_last_state_at(peer_state->last_state_change_at());
-    resp.set_flap_count(peer_state->num_flaps());
-    resp.set_flap_time(peer_state->last_flap());
+    bnr->set_last_state(peer_state->last_state());
+    bnr->set_last_event(peer_state->last_event());
+    bnr->set_last_error(peer_state->last_error());
+    bnr->set_last_state_at(peer_state->last_state_change_at());
+    bnr->set_flap_count(peer_state->num_flaps());
+    bnr->set_flap_time(peer_state->last_flap());
 
     IPeerDebugStats::ProtoStats stats;
     PeerProtoStats proto_stats;
     peer_state->GetRxProtoStats(&stats);
     FillProtoStats(stats, proto_stats);
-    resp.set_rx_proto_stats(proto_stats);
+    bnr->set_rx_proto_stats(proto_stats);
 
     peer_state->GetTxProtoStats(&stats);
     FillProtoStats(stats, proto_stats);
-    resp.set_tx_proto_stats(proto_stats);
+    bnr->set_tx_proto_stats(proto_stats);
 
     IPeerDebugStats::UpdateStats update_stats;
     PeerUpdateStats rt_stats;
     peer_state->GetRxRouteUpdateStats(&update_stats);
     FillRouteUpdateStats(update_stats, rt_stats);
-    resp.set_rx_update_stats(rt_stats);
+    bnr->set_rx_update_stats(rt_stats);
 
     peer_state->GetTxRouteUpdateStats(&update_stats);
     FillRouteUpdateStats(update_stats, rt_stats);
-    resp.set_tx_update_stats(rt_stats);
+    bnr->set_tx_update_stats(rt_stats);
 
     IPeerDebugStats::SocketStats socket_stats;
     PeerSocketStats peer_socket_stats;
 
     peer_state->GetRxSocketStats(&socket_stats);
     FillSocketStats(socket_stats, peer_socket_stats);
-    resp.set_rx_socket_stats(peer_socket_stats);
+    bnr->set_rx_socket_stats(peer_socket_stats);
 
     peer_state->GetTxSocketStats(&socket_stats);
     FillSocketStats(socket_stats, peer_socket_stats);
-    resp.set_tx_socket_stats(peer_socket_stats);
+    bnr->set_tx_socket_stats(peer_socket_stats);
 }
 
 void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
@@ -1664,43 +1677,43 @@ void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
 }
 
 void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
-        vector<BgpNeighborResp> *nbr_list, bool summary) const {
-    BgpNeighborResp nbr;
-    nbr.set_peer(peer_basename_);
-    nbr.set_deleted(IsDeleted());
-    nbr.set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
-    nbr.set_admin_down(admin_down_);
-    nbr.set_passive(passive_);
-    nbr.set_peer_address(peer_key_.endpoint.address().to_string());
-    nbr.set_peer_id(bgp_identifier_string());
-    nbr.set_peer_asn(peer_as());
-    nbr.set_encoding("BGP");
-    nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
-    nbr.set_state(state_machine_->StateName());
-    nbr.set_local_address(server_->ToString());
-    nbr.set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
-    nbr.set_local_asn(local_as());
-    nbr.set_negotiated_hold_time(state_machine_->hold_time());
-    nbr.set_primary_path_count(GetPrimaryPathCount());
-    nbr.set_auth_type(AuthenticationData::KeyTypeToString(inuse_authkey_type_));
+    BgpNeighborResp *bnr, bool summary) const {
+    bnr->set_peer(peer_basename_);
+    bnr->set_deleted(IsDeleted());
+    bnr->set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
+    bnr->set_admin_down(admin_down_);
+    bnr->set_passive(passive_);
+    bnr->set_peer_address(peer_address_string());
+    bnr->set_peer_id(bgp_identifier_string());
+    bnr->set_peer_asn(peer_as());
+    bnr->set_peer_port(peer_port());
+    bnr->set_transport_address(transport_address_string());
+    bnr->set_encoding("BGP");
+    bnr->set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
+    bnr->set_router_type(router_type_);
+    bnr->set_state(state_machine_->StateName());
+    bnr->set_local_address(server_->ToString());
+    bnr->set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
+    bnr->set_local_asn(local_as());
+    bnr->set_negotiated_hold_time(state_machine_->hold_time());
+    bnr->set_primary_path_count(GetPrimaryPathCount());
+    bnr->set_auth_type(
+        AuthenticationData::KeyTypeToString(inuse_authkey_type_));
     if (bsc->test_mode()) {
-        nbr.set_auth_keys(auth_data_.KeysToStringDetail());
+        bnr->set_auth_keys(auth_data_.KeysToStringDetail());
     }
 
-    if (summary) {
-        nbr_list->push_back(nbr);
+    if (summary)
         return;
-    }
 
-    nbr.set_configured_address_families(configured_families_);
-    nbr.set_negotiated_address_families(negotiated_families_);
-    nbr.set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
-    FillBgpNeighborFamilyAttributes(&nbr);
-    FillBgpNeighborDebugState(nbr, peer_stats_.get());
+    bnr->set_configured_address_families(configured_families_);
+    bnr->set_negotiated_address_families(negotiated_families_);
+    bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
+    FillBgpNeighborFamilyAttributes(bnr);
+    FillBgpNeighborDebugState(bnr, peer_stats_.get());
     PeerRibMembershipManager *mgr = server_->membership_mgr();
-    mgr->FillPeerMembershipInfo(this, &nbr);
-    nbr.set_routing_instances(vector<BgpNeighborRoutingInstance>());
-    nbr_list->push_back(nbr);
+    mgr->FillPeerMembershipInfo(this, bnr);
+    bnr->set_routing_instances(vector<BgpNeighborRoutingInstance>());
 }
 
 void BgpPeer::inc_rx_open() {

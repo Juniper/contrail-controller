@@ -32,9 +32,11 @@ static bool FillBgpNeighborInfoList(const BgpSandeshContext *bsc,
             (peer->peer_basename().find(search_string) != string::npos) ||
             (peer->peer_address_string().find(search_string) != string::npos) ||
             (search_string == "deleted" && peer->IsDeleted())) {
-            peer->FillNeighborInfo(bsc, show_list, summary);
+            BgpNeighborResp bnr;
+            peer->FillNeighborInfo(bsc, &bnr, summary);
+            show_list->push_back(bnr);
         }
-        peer = bsc->bgp_server->FindNextPeer(peer->remote_endpoint());
+        peer = bsc->bgp_server->FindNextPeer(peer->endpoint());
     }
     return true;
 }
