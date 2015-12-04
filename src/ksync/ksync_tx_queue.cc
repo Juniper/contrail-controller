@@ -105,7 +105,17 @@ bool KSyncTxQueue::EnqueueInternal(IoContext *io_context) {
 bool KSyncTxQueue::Run() {
     while (1) {
         uint64_t u = 0;
-        assert(read(event_fd_, &u, sizeof(u)) >= (int)sizeof(u));
+        ssize_t num = 0;
+        while (1) {
+            num = read(event_fd_, &u, sizeof(u));
+            if (num >= (int)sizeof(u)) {
+                break;
+            }
+            LOG(ERROR, "KsyncTxQueue read failure : " << errno << " : "
+                << strerror(errno));
+            if (errno != EINTR && errno != EIO)
+                assert(0);
+        }
         IoContext *io_context = NULL;
         while (queue_.try_pop(io_context)) {
             dequeues_++;
