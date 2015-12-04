@@ -365,6 +365,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         /* The knob disable_flow_collection is retained for backward
          * compatability purpose only. The recommended way is to use the knob
          * available in global-vrouter-config. */
+        flow_stats_manager_->flow_export_msg_drops_++;
         return;
     }
 
