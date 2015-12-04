@@ -2,6 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+struct KSyncIntfFatFlowInfo {
+    1: u16 protocol;
+    2: u16 port;
+}
+
 struct KSyncIntfInfo {
     1: u32 idx;
     2: string name;
@@ -13,6 +18,7 @@ struct KSyncIntfInfo {
     8: optional u32 service_enabled;
     9: optional string analyzer_name;
    10: optional u32 l2_active;
+   11: optional list<KSyncIntfFatFlowInfo> fat_flows;
 }
 
 traceobject sandesh KSyncIntf {

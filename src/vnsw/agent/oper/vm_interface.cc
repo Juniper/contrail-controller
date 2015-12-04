@@ -1354,6 +1354,7 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     //Security Group update
     if (IsActive()) {
         UpdateSecurityGroup();
+        UpdateFatFlow();
     } else {
         DeleteSecurityGroup();
         DeleteFatFlow();
@@ -2945,6 +2946,16 @@ void VmInterface::DeleteSecurityGroup() {
         SecurityGroupEntrySet::iterator prev = it++;
         if (prev->del_pending_) {
             sg_list_.list_.erase(prev);
+        }
+    }
+}
+
+void VmInterface::UpdateFatFlow() {
+    FatFlowEntrySet::iterator it = fat_flow_list_.list_.begin();
+    while (it != fat_flow_list_.list_.end()) {
+        FatFlowEntrySet::iterator prev = it++;
+        if (prev->del_pending_) {
+            fat_flow_list_.list_.erase(prev);
         }
     }
 }

@@ -383,7 +383,7 @@ public:
 
     struct FatFlowList {
         FatFlowList(): list_() {}
-        ~FatFlowList() {};
+        ~FatFlowList() {}
         void Insert(const FatFlowEntry *rhs);
         void Update(const FatFlowEntry *lhs, const FatFlowEntry *rhs);
         void Remove(FatFlowEntrySet::iterator &it);
@@ -727,6 +727,7 @@ private:
     void DeleteAllowedAddressPair(bool l2);
     void UpdateSecurityGroup();
     void DeleteSecurityGroup();
+    void UpdateFatFlow();
     void DeleteFatFlow();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
