@@ -345,6 +345,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.instance_ips = set()
         self.floating_ips = set()
         self.interface_route_table = None
+        self.service_health_check = None
         self.security_group = None
         self.service_instance = None
         self.instance_id = None
@@ -370,6 +371,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('virtual_machine', obj)
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('interface_route_table', obj)
+        self.update_single_ref('service_health_check', obj)
         self.update_single_ref('physical_interface',obj)
         self.update_single_ref('security_group', obj)
         self.update_single_ref('port_tuple', obj)
@@ -393,6 +395,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_single_ref('virtual_machine', {})
         obj.update_single_ref('logical_interface', {})
         obj.update_single_ref('interface_route_table', {})
+        obj.update_single_ref('service_health_check', {})
         obj.update_single_ref('security_group', {})
         obj.update_single_ref('port_tuple', {})
         obj.remove_from_parent()
@@ -409,8 +412,9 @@ class ServiceInstanceSM(DBBaseSM):
         self.uuid = uuid
         self.service_template = None
         self.loadbalancer_pool = None
-        self.interface_route_tables = set()
-        self.service_health_checks = set()
+        self.interface_route_table = None
+        self.service_health_check = None
+        self.instance_ip = None
         self.virtual_machines = set()
         self.virtual_machine_interfaces = set()
         self.params = None
@@ -446,8 +450,9 @@ class ServiceInstanceSM(DBBaseSM):
         self.params = obj.get('service_instance_properties', None)
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
-        self.update_multiple_refs('interface_route_table', obj)
-        self.update_multiple_refs('service_health_check', obj)
+        self.update_single_ref('interface_route_table', obj)
+        self.update_single_ref('service_health_check', obj)
+        self.update_single_ref('instance_ip', obj)
         self.update_multiple_refs('virtual_machine', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.id_perms = obj.get('id_perms', None)
@@ -490,8 +495,9 @@ class ServiceInstanceSM(DBBaseSM):
         obj = cls._dict[uuid]
         obj.update_single_ref('service_template', {})
         obj.update_single_ref('loadbalancer_pool', {})
-        obj.update_multiple_refs('interface_route_table', {})
-        obj.update_multiple_refs('service_health_check', {})
+        obj.update_single_ref('interface_route_table', {})
+        obj.update_single_ref('service_health_check', {})
+        obj.update_single_ref('instance_ip', {})
         obj.update_multiple_refs('virtual_machine_interface',{})
         obj.update_multiple_refs('virtual_machine', {})
         obj.remove_from_parent()
@@ -1009,7 +1015,7 @@ class PortTupleSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        obj = self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
 
@@ -1019,6 +1025,7 @@ class PortTupleSM(DBBaseSM):
         self.parent_uuid = obj['parent_uuid']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
+        return obj
     # end update
 
     @classmethod
