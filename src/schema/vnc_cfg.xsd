@@ -1625,6 +1625,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-service-health-check',
           'project', 'service-health-check', ['has']) -->
+<xsd:element name="service-port-health-check"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-port-health-check',
+          'virtual-machine-interface', 'service-health-check', ['ref']) -->
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
