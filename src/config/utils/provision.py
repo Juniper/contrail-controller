@@ -58,35 +58,21 @@ class VncProvisioner(object):
                      'ip-fabric', '__default__'])
         self._fab_rt_inst_obj = rt_inst_obj
 
-        vrouter_hosts = []
         for host in prov_info['hosts']:
             for role in host['roles']:
                 if role['type'] == 'bgp':
-                    param = role['params']
                     self.add_bgp_router(host['name'], host['ip'])
                 elif role['type'] == 'compute':
-                    vrouter_hosts.append((host, role))
-
-        for host, role in vrouter_hosts:
-            param = role['params']
-            self.add_vrouter(host['name'], host['ip'], param['bgp'])
+                    self.add_vrouter(host['name'], host['ip'])
 
     # end __init__
 
-    def add_vrouter(self, name, ip, bgps):
+    def add_vrouter(self, name, ip):
         vnc_lib = self._vnc_lib
         gsc_obj = self._global_system_config_obj
 
         vrouter_obj = VirtualRouter(
             name, gsc_obj, virtual_router_ip_address=ip)
-        for bgp in bgps:
-            bgp_router_fq_name = copy.deepcopy(
-                self._fab_rt_inst_obj.get_fq_name())
-            bgp_router_fq_name.append(bgp)
-            bgp_router_obj = vnc_lib.bgp_router_read(
-                fq_name=bgp_router_fq_name)
-            vrouter_obj.add_bgp_router(bgp_router_obj)
-
         vnc_lib.virtual_router_create(vrouter_obj)
 
     # end add_vrouter
