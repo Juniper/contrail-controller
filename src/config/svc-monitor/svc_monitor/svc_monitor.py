@@ -100,7 +100,7 @@ class SvcMonitor(object):
             'loadbalancer_pool': []
         },
         "service_instance": {
-            'self': ['virtual_machine', 'port_tuple', 'virtual_machine_interface'],
+            'self': ['virtual_machine', 'port_tuple'],
             'virtual_machine': [],
             'port_tuple': [],
             'virtual_machine_interface' : []
@@ -120,7 +120,7 @@ class SvcMonitor(object):
         "physical_interface": {
             'self': [],
             'service_appliance':['virtual_machine_interface'],
-            'virtual_machine_interfaces':['service_appliance'],
+            'virtual_machine_interface':['service_appliance'],
         },
         "logical_interface": {
             'self': [],
@@ -145,8 +145,7 @@ class SvcMonitor(object):
             'self': ['interface_route_table', 'virtual_machine', 'port_tuple'],
             'interface_route_table': [],
             'virtual_machine': [],
-            'port_tuple': [],
-            'service_instance': ['physical_interface'],
+            'port_tuple': ['physical_interface'],
             'physical_interface': ['service_instance']
         },
         "interface_route_table": {
@@ -306,8 +305,8 @@ class SvcMonitor(object):
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
                     self.port_delete_or_si_link(vm, vmi)
-                if vmi.port_tuple:
-                    self.port_tuple_agent.update_port_tuple(vmi.port_tuple)
+                    #if vmi.port_tuple:
+                    #    self.port_tuple_agent.update_port_tuple(vmi.port_tuple)
             else:
                 for irt_id in dependency_tracker.resources.get(
                         'interface_route_table', []):
@@ -478,7 +477,7 @@ class SvcMonitor(object):
                 self.port_delete_or_si_link(vm, vmi)
 
         # invoke port tuple handling
-        self.port_tuple_agent.update_port_tuples()
+        # self.port_tuple_agent.update_port_tuples()
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()

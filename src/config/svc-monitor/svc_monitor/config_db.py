@@ -77,6 +77,7 @@ class LoadbalancerListenerSM(DBBaseSM):
     # end delete
 # end class LoadbalancerListenerSM
 
+
 class LoadbalancerPoolSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
@@ -416,7 +417,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_health_checks = set()
         self.instance_ips = set()
         self.virtual_machines = set()
-        self.virtual_machine_interfaces = set()
         self.params = None
         self.state = 'init'
         self.launch_count = 0
@@ -454,7 +454,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_multiple_refs('service_health_check', obj)
         self.update_multiple_refs('instance_ip', obj)
         self.update_multiple_refs('virtual_machine', obj)
-        self.update_multiple_refs('virtual_machine_interface', obj)
         self.id_perms = obj.get('id_perms', None)
         if not self.params:
             return obj
@@ -498,7 +497,6 @@ class ServiceInstanceSM(DBBaseSM):
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('instance_ip', {})
-        obj.update_multiple_refs('virtual_machine_interface',{})
         obj.update_multiple_refs('virtual_machine', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
@@ -1015,8 +1013,8 @@ class PortTupleSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        obj_dict = self.update(obj_dict)
-        self.add_to_parent(obj_dict)
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj)
     # end __init__
 
     def update(self, obj=None):
