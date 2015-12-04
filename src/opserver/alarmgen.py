@@ -394,7 +394,7 @@ class Controller(object):
             pc = PartitionClient("alarmgen",
                     self._libpart_name, ag_list,
                     self._conf.partitions(), self.libpart_cb,
-                    ','.join(self._conf.zk_list()))
+                    ','.join(self._conf.zk_list()), self._logger)
             self._logger.error('Started PC')
             return pc
         except Exception as e:

@@ -45,7 +45,7 @@ class PartitionClient(object):
     """
     def __init__(
             self, app_name, self_name, cluster_list, max_partition,
-            partition_update_cb, zk_server):
+            partition_update_cb, zk_server, logger = None):
        
         # Initialize local variables
         self._zk_server = zk_server
@@ -62,7 +62,11 @@ class PartitionClient(object):
             raise ValueError('cluster list is missing local server name')
 
         # initialize logging and other stuff
-        logging.basicConfig()
+        if logger is None:
+            logging.basicConfig()
+            self._logger = logging
+        else:
+            self._logger = logger
         self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
 
@@ -96,6 +100,8 @@ class PartitionClient(object):
 
         # initialize partition # to lock acquire greenlet dictionary
         self._part_lock_task_dict = {}
+       
+        self._logger.error("initial servers:" + str(self._cluster_list))
 
         # update target partition ownership list
         for part in range(0, self._max_partition):
@@ -122,11 +128,11 @@ class PartitionClient(object):
         if (self._conn_state and self._conn_state != ConnectionStatus.DOWN and
                 new_conn_state == ConnectionStatus.DOWN):
             msg = 'Connection to Zookeeper down: %s' %(message)
-            logging.error(msg)
+            self._logger.error(msg)
         if (self._conn_state and self._conn_state != new_conn_state and
                 new_conn_state == ConnectionStatus.UP):
             msg = 'Connection to Zookeeper ESTABLISHED'
-            logging.info(msg)
+            self._logger.error(msg)
 
         self._conn_state = new_conn_state
     # end _sandesh_connection_info_update
@@ -141,7 +147,7 @@ class PartitionClient(object):
         while True:
             if (l.cancelled == True):
                 # a lock acquisition is getting cancelled let's wait
-                logging.info("lock acquisition is getting cancelled, \
+                self._logger.error("lock acquisition is getting cancelled, \
                         lets wait")
                 gevent.sleep(1)
             else:
@@ -152,7 +158,7 @@ class PartitionClient(object):
             ret = l.acquire(blocking=False)
             if ret == True:
 
-                logging.info("Acquired lock for:" + str(part))
+                self._logger.error("Acquired lock for:" + str(part))
                 self._curr_part_ownership_list.append(part)
                 self._update_cb(self._curr_part_ownership_list)
                 return ret
@@ -178,18 +184,20 @@ class PartitionClient(object):
         # list of partitions for which locks have to be released
         release_lock_list = []
 
+        self._logger.error("known servers: %s" % self._con_hash.get_all_nodes())
+
         for part in range(0, self._max_partition):
             if (part in self._target_part_ownership_list):
                 if (part in self._curr_part_ownership_list):
                     # do nothing, I already have ownership of this partition
-                    logging.info("No need to acquire ownership of:" +
+                    self._logger.error("No need to acquire ownership of:" +
                             str(part))
                 else:
                     # I need to acquire lock for this partition before I own
                     if (part in self._part_lock_task_dict.keys()):
                         # do nothing there is already a greenlet running to
                         # acquire the lock
-                        logging.info("Already a greenlet running to" 
+                        self._logger.error("Already a greenlet running to" 
                                 " acquire:" + str(part))
                     else:
                         # launch the greenlet to acquire the loc, k
@@ -206,7 +214,7 @@ class PartitionClient(object):
                     self._part_lock_task_dict[part].kill()
                     del self._part_lock_task_dict[part]
 
-                    logging.info("canceling lock acquisition going on \
+                    self._logger.error("canceling lock acquisition going on \
                             for:" + str(part))
                     try:
                         self._part_locks[part].cancel()
@@ -217,7 +225,7 @@ class PartitionClient(object):
                     release_lock_list.append(part)
                     self._curr_part_ownership_list.remove(part)
                     updated_curr_ownership = True
-                    logging.info("giving up ownership of:" + str(part))
+                    self._logger.error("giving up ownership of:" + str(part))
 
         if (updated_curr_ownership is True):
             # current partition membership was updated call the callback 
@@ -226,11 +234,11 @@ class PartitionClient(object):
         if (len(release_lock_list) != 0):
             # release locks which were acquired
             for part in release_lock_list:
-                logging.info("release the lock which was acquired:" + \
+                self._logger.error("release the lock which was acquired:" + \
                         str(part))
                 try:
                     self._part_locks[part].release()
-                    logging.info("fully gave up ownership of:" + str(part))
+                    self._logger.error("fully gave up ownership of:" + str(part))
                 except:
                     pass
     #end _acquire_partition_ownership
@@ -252,9 +260,9 @@ class PartitionClient(object):
             self._cluster_list))
         deleted_servers = list(set(self._cluster_list).difference(
             new_cluster_list)) 
-        self._cluster_list = cluster_list
-        logging.info("deleted servers:" + str(deleted_servers))
-        logging.info("new servers:" + str(new_servers))
+        self._cluster_list = set(cluster_list)
+        self._logger.error("deleted servers:" + str(deleted_servers))
+        self._logger.error("new servers:" + str(new_servers))
 
         # update the hash structure
         if new_servers:
