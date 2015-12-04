@@ -306,6 +306,8 @@ class SvcMonitor(object):
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
                     self.port_delete_or_si_link(vm, vmi)
+                if vmi.port_tuple:
+                    self.port_tuple_agent.update_port_tuple(vmi.port_tuple)
             else:
                 for irt_id in dependency_tracker.resources.get(
                         'interface_route_table', []):
@@ -579,6 +581,8 @@ class SvcMonitor(object):
         if not vmi.if_type:
             return
 
+        if len(vmi.name.split('__')) < 4:
+            return
         si_fq_name = vmi.name.split('__')[0:3]
         index = int(vmi.name.split('__')[3]) - 1
         for si in ServiceInstanceSM.values():
