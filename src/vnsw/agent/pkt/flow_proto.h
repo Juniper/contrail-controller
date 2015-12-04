@@ -49,6 +49,8 @@ public:
     void CreateAuditEntry(FlowEntry *flow);
     bool FlowEventHandler(const FlowEvent &req);
 
+    void DisableFlowEventQueue(uint32_t index, bool disabled);
+    void DisableFlowMgmtQueue(bool disabled);
 private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
