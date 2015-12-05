@@ -144,17 +144,8 @@ class VrouterProvisioner(object):
         try:
             vrouter_obj = self._vnc_lib.virtual_router_read(
                 fq_name=vrouter_obj.get_fq_name())
-            vrouter_obj.set_bgp_router_list([])
         except NoIdError:
             vrouter_exists = False
-
-        for bgp in self._args.control_names:
-            bgp_router_fq_name = copy.deepcopy(
-                self._fab_rt_inst_obj.get_fq_name())
-            bgp_router_fq_name.append(bgp)
-            bgp_router_obj = vnc_lib.bgp_router_read(
-                fq_name=bgp_router_fq_name)
-            vrouter_obj.add_bgp_router(bgp_router_obj)
 
         # Configure router type
         if self._args.router_type:
