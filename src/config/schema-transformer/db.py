@@ -35,6 +35,7 @@ class SchemaTransformerDB(VncCassandraClient):
     _SERVICE_CHAIN_MAX_VLAN = 4093
     _SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
 
+    _BGPAAS_PORT_ALLOC_PATH = "/id/bgpaas/port/"
 
     @classmethod
     def get_db_info(cls):
@@ -98,6 +99,11 @@ class SchemaTransformerDB(VncCassandraClient):
         self._rt_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
             self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
+
+        self._bgpaas_port_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
+            self._args.bgpaas_port_end - self._args.bgpaas_port_start,
+            self._args.bgpaas_port_start)
 
         self._sc_vlan_allocator_dict = {}
         self._upgrade_vlan_alloc_path()
@@ -260,3 +266,13 @@ class SchemaTransformerDB(VncCassandraClient):
 
     def free_vn_id(self, vn_id):
         self._vn_id_allocator.delete(vn_id)
+
+    def get_bgpaas_port(self, port):
+        return self._bgpaas_allocator.read(port)
+
+    def alloc_bgpaas_port(self, name):
+        return self._bgpaas_port_allocator.alloc(name)
+
+    def free_bgpaas_port(self, port):
+        self._bgpaas_port_allocator.delete(port)
+

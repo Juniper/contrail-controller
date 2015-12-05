@@ -2495,21 +2495,33 @@ class BgpRouterST(DBBaseST):
     def __init__(self, name, obj=None):
         self.name = name
         self.asn = None
+        self.bgp_as_a_service = None
         self.update(obj)
     # end __init__
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         self.set_params(self.obj.get_bgp_router_parameters())
+        self.update_single_ref('bgp_as_a_service', self.obj)
     # end update
+
+    def delete_obj(self):
+        self.update_single_ref('bgp_as_a_service', {})
+        if self.router_type == 'bgpaas-client':
+            self._cassandra.free_bgpaas_port(self.source_port)
+    # end delete_ref
 
     def set_params(self, params):
         self.vendor = (params.vendor or 'contrail').lower()
         self.identifier = params.identifier
-        if self.vendor == 'contrail':
-            self.update_global_asn(GlobalSystemConfigST.get_autonomous_system())
-        else:
-            self.update_autonomous_system(params.autonomous_system)
+        self.router_type = params.router_type
+        self.source_port = params.source_port
+        if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
+            if self.vendor == 'contrail':
+                self.update_global_asn(
+                    GlobalSystemConfigST.get_autonomous_system())
+            else:
+                self.update_autonomous_system(params.autonomous_system)
     # end set_params
 
     def update_global_asn(self, asn):
@@ -2531,7 +2543,62 @@ class BgpRouterST(DBBaseST):
     # end update_autonomous_system
 
     def evaluate(self):
-        self.update_peering()
+        if self.router_type == 'bgpaas-client':
+            bgpaas = BgpAsAServiceST.get(self.bgp_as_a_service)
+            ret = self.update_bgpaas_client(bgpaas)
+            if ret == -1:
+                if bgpaas:
+                    bgpaas.obj.del_bgp_router(self.obj)
+                    try:
+                        self._vnc_lib.bgp_as_a_service_update(bgpaas.obj)
+                    except NoIdError:
+                        pass
+                self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
+            elif ret:
+                self._vnc_lib.bgp_router_update(self.obj)
+        elif self.router_type != 'bgpaas-server':
+            self.update_peering()
+    # end evaluate
+
+    def update_bgpaas_client(self, bgpaas):
+        if not bgpaas:
+            return -1
+        for vmi_name, router in bgpaas.bgpaas_clients.items():
+            if router == self.name:
+                break
+        else:
+            return -1
+        if vmi_name not in bgpaas.virtual_machine_interfaces:
+            del bgpaas.bgpaas_clients[vmi_name]
+            return -1
+        vmi = VirtualMachineInterfaceST.get(vmi_name)
+        if vmi is None or vmi.virtual_network is None:
+            del bgpaas.bgpaas_clients[vmi_name]
+            return -1
+        vn = VirtualNetworkST.get(vmi.virtual_network)
+        if not vn or self.obj.get_parent_fq_name_str() != vn._default_ri_name:
+            del bgpaas.bgpaas_clients[vmi_name]
+            return -1
+        update = False
+        params = self.obj.get_bgp_router_parameters()
+        if self.asn != bgpaas.asn:
+            params.autonomous_system = bgpaas.asn
+            self.asn = bgpaas.asn
+            update = True
+        if params.address != bgpaas.ip_address:
+            params.address = bgpaas.ip_address
+            update = True
+        if params.identifier != bgpaas.ip_address:
+            params.identifier = bgpaas.ip_address
+            update = True
+        router_refs = self.obj.get_bgp_router_refs()
+        peering_attribs = router_refs[0]['attr']
+        if peering_attribs != bgpaas.peering_attribs:
+            self.obj.set_bgp_router_list([router_refs[0]['to']],
+                                         [bgpaas.peering_attribs])
+            update = True
+        return update
+    # end update_bgpaas_client
 
     def update_peering(self):
         if not GlobalSystemConfigST.get_ibgp_auto_mesh():
@@ -2582,6 +2649,102 @@ class BgpRouterST(DBBaseST):
 # end class BgpRouterST
 
 
+class BgpAsAServiceST(DBBaseST):
+    _dict = {}
+    obj_type = 'bgp_as_a_service'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.obj = obj or self.read_vnc_obj(fq_name=name)
+        self.virtual_machine_interfaces = set()
+        self.bgp_routers = set()
+        self.bgpaas_clients = {}
+        self.update(self.obj)
+    # end __init__
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.ip_address = self.obj.get_bgpaas_ip_address()
+        self.asn = self.obj.get_autonomous_system()
+        session_attrib = self.obj.get_bgpaas_session_attributes()
+        bgp_session = BgpSession()
+        if session_attrib:
+            bgp_session.attributes=[self.session_attrib]
+        self.peering_attribs = BgpPeeringAttributes(session=[bgp_session])
+        self.update_multiple_refs('virtual_machine_interface', self.obj)
+        self.update_multiple_refs('bgp_router', self.obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('bgp_router', {})
+    # end delete_obj
+
+    def evaluate(self):
+        for name in (self.virtual_machine_interfaces -
+                     set(self.bgpaas_clients.keys())):
+            self.create_bgp_router(name)
+    # end evaluate
+
+    def create_bgp_router(self, name):
+        vmi = VirtualMachineInterfaceST.get(name)
+        if not vmi:
+            self.virtual_machine_interfaces.discard(name)
+            return
+        vn = VirtualNetworkST.get(vmi.virtual_network)
+        if not vn:
+            return
+        ri = vn.get_primary_routing_instance()
+        if not ri:
+            return
+        router_fq_name = ri.obj.get_fq_name_str() + ':' + vmi.obj.name
+        if router_fq_name in BgpRouterST:
+            self.bgp_routers.add(router_fq_name)
+            self.bgpaas_clients[name] = router_fq_name
+            return
+        server_fq_name = ri.obj.get_fq_name_str() + ':bgpaas-server'
+        server_router = BgpRouterST.get(server_fq_name)
+        if not server_router:
+            server_router = BgpRouter('bgpaas-server', parent_obj=ri.obj)
+            params = BgpRouterParams(router_type='bgpaas-server')
+            server_router.set_bgp_router_parameters(params)
+            self._vnc_lib.bgp_router_create(server_router)
+            BgpRouterST.locate(server_fq_name, server_router)
+        else:
+            server_router = server_router.obj
+        bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
+        params = BgpRouterParams(
+            autonomous_system=self.asn,
+            ip_address=self.ip_address,
+            identifier=self.ip_address,
+            source_port=self._cassandra.alloc_bgpaas_port(router_fq_name),
+            router_type='bgpaas-client')
+        bgp_router.set_bgp_router_parameters(params)
+        bgp_router.set_bgp_router(server_router, self.peering_attribs)
+        self._vnc_lib.bgp_router_create(bgp_router)
+        bgpr = BgpRouterST.locate(router_fq_name, bgp_router)
+        self.obj.add_bgp_router(bgp_router)
+        self._vnc_lib.bgp_as_a_service_update(self.obj)
+        self.bgp_routers.add(router_fq_name)
+        bgpr.bgp_as_a_service = self.name
+        self.bgpaas_clients[name] = router_fq_name
+    # end create_bgp_router
+
+    def handle_st_object_req(self):
+        resp = DBBaseST.handle_st_object_req()
+        resp.obj_refs = [
+            sandesh.RefsList('virtual_machine_interface',
+                             self.virtual_machine_interfaces),
+            sandesh.RefsList('bgp_router', self.bgp_routers)
+        ]
+        resp.properties = [
+            sandesh.PropList('ip_address', self.ip_address),
+            sandesh.PropList('asn', self.asn)
+        ]
+        return resp
+    # end handle_st_object_req
+# end class BgpAsAService
+
 class VirtualMachineInterfaceST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_machine_interface'
@@ -2593,6 +2756,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.virtual_network = None
         self.virtual_machine = None
         self.logical_router = None
+        self.bgp_as_a_service = None
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
@@ -2614,6 +2778,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         else:
             self.update_single_ref('virtual_machine', self.obj)
         self.update_single_ref('logical_router', self.obj)
+        self.update_single_ref('bgp_as_a_service', self.obj)
         self.set_properties()
         self.update_routing_instances(self.obj.get_routing_instance_refs())
     # end update
@@ -2624,6 +2789,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
+        self.update_multiple_refs('bgp_as_a_service', {})
         self.update_routing_instances([])
     # end delete_obj
 
