@@ -32,6 +32,18 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 
+struct GeneratorDbTableStatistics {
+    GeneratorDbTableStatistics() {}
+    void Update(const std::string &gen_name, const std::string &table_name,
+        bool write, bool fail);
+    void Get(const std::string &gen_name,
+        std::vector<GenDb::DbTableInfo> *vdbti);
+ private:
+        typedef boost::ptr_map<const std::string, GenDb::DbTableStatistics>
+            GeneratorDbTableStatsMap;
+        GeneratorDbTableStatsMap generator_db_table_stats_map_;
+};
+
 class DbHandler {
 public:
     static const int DefaultDbTTL = 0;
@@ -93,23 +105,28 @@ public:
             TtlType::type type);
     static uint64_t GetTtlFromMap(const TtlMap& ttl_map,
             TtlType::type type);
-    bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
-    bool Init(bool initial, int instance);
+    bool DropMessage(const std::string &gen_name, const SandeshHeader &header,
+            const VizMsg *vmsg);
+    bool Init(const std::string &gen_name, bool initial, int instance);
     void UnInit(int instance);
     void UnInitUnlocked(int instance);
 
     bool AllowMessageTableInsert(const SandeshHeader &header);
-    bool MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword);
-    virtual void MessageTableInsert(const VizMsg *vmsgp);
-    void MessageTableOnlyInsert(const VizMsg *vmsgp);
-    void FieldNamesTableInsert(uint64_t timestamp,
+    bool MessageIndexTableInsert(const std::string &gen_name,
+        const std::string& cfname, const SandeshHeader& header,
+        const std::string& message_type, const boost::uuids::uuid& unm,
+        const std::string keyword);
+    virtual void MessageTableInsert(const std::string &gen_name,
+        const VizMsg *vmsgp);
+    void MessageTableOnlyInsert(const std::string &gen_name,
+        const VizMsg *vmsgp);
+    void FieldNamesTableInsert(const std::string &gen_name, uint64_t timestamp,
         const std::string& table_name,
         const std::string& field_name, const std::string& field_val, int ttl);
     void GetRuleMap(RuleMap& rulemap);
 
-    void ObjectTableInsert(const std::string &table, const std::string &rowkey,
+    void ObjectTableInsert(const std::string &gen_name,
+        const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm,
         const VizMsg *vmsgp);
 
@@ -117,27 +134,29 @@ public:
             const std::string& statName, const std::string& statAttr,
             const AttribMap & attribs);
 
-    void StatTableInsert(uint64_t ts, 
+    void StatTableInsert(const std::string& genName, uint64_t ts,
             const std::string& statName,
             const std::string& statAttr,
             const TagMap & attribs_tag,
             const AttribMap & attribs_all);
 
-    void StatTableInsertTtl(uint64_t ts, 
+    void StatTableInsertTtl(const std::string& genName, uint64_t ts,
             const std::string& statName,
             const std::string& statAttr,
             const TagMap & attribs_tag,
             const AttribMap & attribs_all, int ttl);
 
-    bool FlowTableInsert(const pugi::xml_node& parent,
+    bool FlowTableInsert(const std::string &gen_name,
+        const pugi::xml_node& parent,
         const SandeshHeader &header);
     bool UnderlayFlowSampleInsert(const UFlowData& flow_data,
         uint64_t timestamp);
     bool GetStats(uint64_t *queue_count, uint64_t *enqueues) const;
-    bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+    bool GetStats(const std::string gen_name,
+        std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
-    void GetSandeshStats(std::string *drop_level,
-        std::vector<SandeshStats> *vdropmstats) const;
+    void GetSandeshStats( const std::string gen_name, std::string *drop_level,
+        std::vector<SandeshStats> *vdropmstat) const;
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
         boost::function<void (void)> defer_undefer_cb);
@@ -147,18 +166,19 @@ public:
     std::string GetName() const;
 
 private:
-    bool CreateTables();
+    bool CreateTables(const std::string &gen_name);
     void SetDropLevel(size_t queue_count, SandeshLevel::type level,
         boost::function<void (void)> cb);
-    bool Setup(int instance);
-    bool Initialize(int instance);
-    bool StatTableWrite(uint32_t t2,
+    bool Setup(const std::string& genName, int instance);
+    bool Initialize(const std::string& genName, int instance);
+    bool StatTableWrite(const std::string& genName, uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
         const std::string& jsonline, int ttl);
-    bool FlowSampleAdd(const pugi::xml_node& flowdata,
+    bool FlowSampleAdd(const std::string& genName,
+        const pugi::xml_node& flowdata,
         const SandeshHeader& header);
     uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
@@ -171,8 +191,8 @@ private:
     std::string name_;
     std::string col_name_;
     SandeshLevel::type drop_level_;
-    VizMsgStatistics dropped_msg_stats_;
-    GenDb::DbTableStatistics stable_stats_;
+    GeneratorMsgStatistics dropped_msg_stats_;
+    GeneratorDbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
     static uint32_t field_cache_t2_;
@@ -181,6 +201,8 @@ private:
  
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
+
+typedef boost::shared_ptr<DbHandler> DbHandlerPtr;
 
 inline std::ostream& operator<<(std::ostream& out, const DbHandler::Var& value) {
     switch (value.type) {
@@ -217,11 +239,11 @@ class DbHandlerInitializer {
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
-        DbHandler *db_handler);
+        DbHandlerPtr db_handler);
     virtual ~DbHandlerInitializer();
     bool Initialize();
     void Shutdown();
-    DbHandler* GetDbHandler() const;
+    DbHandlerPtr GetDbHandler() const;
 
  private:
     bool InitTimerExpired();
@@ -233,7 +255,7 @@ class DbHandlerInitializer {
     static const int kInitRetryInterval = 10 * 1000; // in ms
     const std::string db_name_;
     const int db_task_instance_;
-    boost::scoped_ptr<DbHandler> db_handler_;
+    DbHandlerPtr db_handler_;
     InitializeDoneCb callback_;
     Timer *db_init_timer_;
 };

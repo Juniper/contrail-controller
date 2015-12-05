@@ -21,6 +21,7 @@
 class StatWalker {
 public:
     typedef boost::function<void(
+        const std::string& genName,
         const uint64_t& timestamp,
         const std::string& statName,
         const std::string& statAttr,
@@ -46,11 +47,13 @@ public:
     void Pop(void);
 
     StatWalker(StatTableInsertFn fn, const uint64_t &timestamp,
-               const std::string& statName, const TagMap& tags) :
+               const std::string& statName, const TagMap& tags,
+               const std::string& genName) :
             timestamp_(timestamp),
             stat_name_(statName),
             fn_(fn),
-            top_tags_(tags)  {}
+            top_tags_(tags),
+            gen_name_(genName)  {}
     ~StatWalker();
 private:
     struct StatNode {
@@ -68,6 +71,7 @@ private:
     const StatTableInsertFn fn_;
     const TagMap top_tags_;
     std::vector<StatNode> nodes_;
+    std::string gen_name_;
 };
 
 #endif

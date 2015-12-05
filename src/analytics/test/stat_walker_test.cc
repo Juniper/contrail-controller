@@ -30,7 +30,8 @@ public:
         }
     }
 
-    void Cb(const uint64_t &timestamp,
+    void Cb(const std::string &gen_name,
+            const uint64_t &timestamp,
             const std::string& statName,
             const std::string& statAttr,
             const DbHandler::TagMap & attribs_tag,
@@ -104,7 +105,9 @@ TEST_F(StatWalkerTest, Simple) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
+    const std::string gen_name = "DbHandler:Collector";
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6),
+                  0, statName, m1, gen_name);
     DbHandler::AttribMap attribs = map_list_of("mem", DbHandler::Var((uint64_t)1000000));
     sw.Push("virt", m2, attribs);
     sw.Pop(); 
@@ -137,7 +140,9 @@ TEST_F(StatWalkerTest, SingleTag) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
+    const std::string gen_name="DbHandler:Collector";
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6),
+                  0, statName, m1, gen_name);
     DbHandler::AttribMap attribs = map_list_of(
         "mem", DbHandler::Var((uint64_t)1000000))(
         "bank", string("bank1"));
@@ -177,7 +182,9 @@ TEST_F(StatWalkerTest, DoubleTag) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
+    const std::string gen_name = "DbHandler:Collector";
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6),
+                  0, statName, m1, gen_name);
     DbHandler::AttribMap attribs = map_list_of(
         "mem", DbHandler::Var((uint64_t)1000000))(
         "bank", string("bank1"));

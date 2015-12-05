@@ -7,7 +7,8 @@
 #include "sflow_generator.h"
 
 SFlowCollector::SFlowCollector(EventManager* evm,
-            DbHandler* db_handler, const std::string& ip_address, int port)
+            DbHandlerPtr db_handler,
+            const std::string& ip_address, int port)
     : UdpServer(evm),
       db_handler_(db_handler),
       ip_address_(ip_address),

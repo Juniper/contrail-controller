@@ -18,7 +18,7 @@ class Ruleeng {
         static int RuleBuilderID;
         static int RuleWorkerID;
 
-        Ruleeng(DbHandler *, OpServerProxy *);
+        Ruleeng(DbHandlerPtr, OpServerProxy *);
         virtual ~Ruleeng();
 
         void Init();
@@ -32,7 +32,9 @@ class Ruleeng {
 
         bool rule_present(const VizMsg *vmsgp);
 
-        bool rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db);
+        bool rule_execute(const VizMsg *vmsgp, bool uveproc,
+                              DbHandlerPtr db,
+                              const std::string &gen_name);
 
         void print(std::ostream& os) {
             rulelist_->print(os);
@@ -40,19 +42,24 @@ class Ruleeng {
 
         OpServerProxy * GetOSP() { return osp_; }
     private:
-        DbHandler *db_handler_;
+        DbHandlerPtr db_handler_;
         OpServerProxy *osp_;
         t_rulelist *rulelist_;
         std::vector<std::string> rulesrc_;
 
         bool handle_uve_publish(const pugi::xml_node& parent,
-            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header);
+            const VizMsg *rmsg, DbHandlerPtr db,
+            const SandeshHeader &header,
+            const std::string &gen_name);
 
-        bool handle_flow_object(const pugi::xml_node& parent, DbHandler *db,
-            const SandeshHeader &header);
+        bool handle_flow_object(const pugi::xml_node& parent,
+            DbHandlerPtr db,
+            const SandeshHeader &header, const std::string &gen_name);
 
         void handle_object_log(const pugi::xml_node& parent,
-            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header);
+            const VizMsg *rmsg, DbHandlerPtr db,
+            const SandeshHeader &header,
+            const std::string &gen_name);
 
         void remove_identifier(const pugi::xml_node& parent);
 };

@@ -36,7 +36,7 @@ const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
 const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
 const string MESSAGE_TABLE_KEYWORD = "MessageTableKeyword"
 const string OBJECT_ID              = "ObjectId"
-
+const string QE_GENERATOR_NAME      = "qe::DbHandler"
 const string ROWTIMESTAMP           = "RowTimeStamp"
 
 const string OBJECT_VALUE_TABLE     = "ObjectValueTable"

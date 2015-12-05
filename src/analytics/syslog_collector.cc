@@ -625,7 +625,8 @@ void SyslogUDPListener::HandleReceive (
 
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
-            DbHandler *db_handler, std::string ipaddress, int port):
+            DbHandlerPtr db_handler, std::string ipaddress,
+            int port):
               parser_(new SyslogParser (this)),
               udp_listener_(new SyslogUDPListener(evm,
                             boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
@@ -640,7 +641,7 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 }
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandler *db_handler, int port):
+        DbHandlerPtr db_handler, int port):
           parser_(new SyslogParser (this)),
           udp_listener_(new SyslogUDPListener(evm,
                         boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
