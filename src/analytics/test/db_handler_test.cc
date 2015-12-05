@@ -42,7 +42,7 @@ public:
     }
 
     ~DbHandlerTest() {
-        delete db_handler_;
+        db_handler_.reset();
     }
 
     virtual void SetUp() {
@@ -55,7 +55,7 @@ public:
         return dbif_mock_;
     }
 
-    DbHandler *db_handler() {
+    DbHandlerPtr db_handler() {
         return db_handler_;
     }
 
@@ -112,7 +112,7 @@ private:
 
     EventManager evm_;
     ThriftIfMock *dbif_mock_;
-    DbHandler *db_handler_;
+    DbHandlerPtr db_handler_;
 };
 
 
@@ -172,7 +172,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageTableOnlyInsert(&vmsgp);
+    db_handler()->MessageTableOnlyInsert(db_handler()->GetName(), &vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -205,7 +205,8 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
+    db_handler()->MessageIndexTableInsert(db_handler()->GetName(),
+            g_viz_constants.MESSAGE_TABLE_SOURCE,
             hdr, "", unm, "");
 }
 
@@ -353,7 +354,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .Times(6)
         .WillRepeatedly(Return(true));
 
-    db_handler()->MessageTableInsert(&vmsgp);
+    db_handler()->MessageTableInsert(db_handler()->GetName(), &vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -455,7 +456,8 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
             .WillRepeatedly(Return(true));
       }
 
-    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
+    db_handler()->ObjectTableInsert(db_handler()->GetName(), table, rowkey_str,
+         timestamp, unm, &vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -769,7 +771,8 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
             }
         }
 
-        db_handler()->FlowTableInsert(msg->GetMessageNode(),
+        db_handler()->FlowTableInsert(db_handler()->GetName(),
+                                      msg->GetMessageNode(),
                                       msg->GetHeader());
     }
 }

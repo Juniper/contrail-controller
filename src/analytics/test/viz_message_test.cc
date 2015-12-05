@@ -11,6 +11,7 @@
 #include <sandesh/sandesh_message_builder.h>
 
 #include "../viz_message.h"
+#include "../db_handler.h"
 #include "collector_uve_types.h"
 
 using namespace pugi;
@@ -73,6 +74,8 @@ protected:
     SandeshMessageBuilder *builder_;
     boost::uuids::random_generator rgen_;
     VizMsgStatistics stats_;
+    GeneratorMsgStatistics dropped_stats_;
+    GeneratorDbTableStatistics db_table_stats_;
 };
 
 VizMessageTest::SandeshXMLMessageTestBuilder
@@ -218,6 +221,45 @@ TEST_F(VizMessageTest, Stats) {
     EXPECT_EQ(xmlmessage_object.size(), vsmi[0].get_bytes());
     vsmi.clear();
     // Delete message
+    vmsgp_object.msg = NULL;
+    delete msg;
+    msg = NULL;
+}
+
+TEST_F(VizMessageTest, GeneratorStats) {
+    // Create a vizmsg object
+    SandeshHeader hdr;
+    hdr.set_Level(static_cast<int32_t>(SandeshLevel::INVALID));
+    hdr.set_Type(SandeshType::OBJECT);
+    std::string xmlmessage_object = "<VNSwitchErrorMsgObject type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">3</field3></VNSwitchErrorMsgObject>";
+    boost::uuids::uuid unm(rgen_());
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+        reinterpret_cast<const uint8_t *>(xmlmessage_object.c_str()),
+        xmlmessage_object.size()));
+    msg->SetHeader(hdr);
+    VizMsg vmsgp_object(msg, unm);
+    // Test if generator dropped msg stats are recorded
+    std::vector<SandeshStats> vsstats;
+    std::string gen_name1("test_generator1");
+    dropped_stats_.Update(gen_name1, &vmsgp_object);
+    dropped_stats_.Get(gen_name1, &vsstats);
+    ASSERT_EQ(1, vsstats.size());
+    // Test if generator statistics are recorded
+    std::string gen_name2("test_generator2");
+    std::string gen_name3("test_generator3");
+    const std::string stat_field1("FieldNames:fields");
+    const std::string stat_field2("UFlowData:flow");
+    db_table_stats_.Update(gen_name1, stat_field1 , true, true);
+    db_table_stats_.Update(gen_name2, stat_field1 , true, true);
+    std::vector<GenDb::DbTableInfo> vstats_dbti;
+    db_table_stats_.Get(gen_name2, &vstats_dbti);
+    ASSERT_EQ(1,vstats_dbti.size());
+    db_table_stats_.Get(gen_name1, &vstats_dbti);
+    ASSERT_EQ(2, vstats_dbti.size());
+    // Fetching stats for generator that does not exist
+    db_table_stats_.Get(gen_name3, &vstats_dbti);
+    ASSERT_EQ(2, vstats_dbti.size());
     vmsgp_object.msg = NULL;
     delete msg;
     msg = NULL;
