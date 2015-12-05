@@ -16,7 +16,8 @@ class SFlowGenerator;
 
 class SFlowCollector : public UdpServer {
 public:
-    explicit SFlowCollector(EventManager* evm, DbHandler* db_handler,
+    explicit SFlowCollector(EventManager* evm,
+                            DbHandlerPtr db_handler,
                             const std::string& ip_address, int port);
     ~SFlowCollector();
     virtual void Start();
@@ -34,7 +35,7 @@ private:
 
     typedef boost::ptr_map<std::string, SFlowGenerator> SFlowGeneratorMap;
    
-    DbHandler* const db_handler_;
+    DbHandlerPtr const db_handler_;
     std::string ip_address_;
     int port_;
     SFlowGeneratorMap generator_map_;

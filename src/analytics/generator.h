@@ -29,7 +29,7 @@ public:
 
     virtual const std::string ToString() const = 0;
     virtual bool ProcessRules(const VizMsg *vmsg, bool rsc) = 0;
-    virtual DbHandler *GetDbHandler() = 0; // db_handler_;
+    virtual DbHandlerPtr GetDbHandler() const = 0; // db_handler_;
     
     bool ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc);
     void SendSandeshMessageStatistics();
@@ -51,7 +51,9 @@ public:
     SandeshGenerator(Collector * const collector, VizSession *session,
             SandeshStateMachine *state_machine,
             const std::string &source, const std::string &module,
-            const std::string &instance_id, const std::string &node_type);
+            const std::string &instance_id, const std::string &node_type,
+            DbHandlerPtr global_db_handler,
+            bool use_global_dbhandler);
     ~SandeshGenerator();
 
     void ReceiveSandeshCtrlMsg(uint32_t connects);
@@ -86,7 +88,8 @@ public:
     void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetSmQueueWaterMarkInfo();
     void StartDbifReinit();
-    virtual DbHandler *GetDbHandler() { return db_handler_.get (); }
+    virtual DbHandlerPtr GetDbHandler() const { return db_handler_; }
+    bool UseGlobalDbHandler() const { return use_global_dbhandler_; }
 
 private:
     virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
@@ -126,7 +129,8 @@ private:
 
     Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;
-    boost::scoped_ptr<DbHandler> db_handler_;
+    DbHandlerPtr db_handler_;
+    bool use_global_dbhandler_;
     mutable tbb::mutex mutex_;
 };
 
@@ -137,7 +141,7 @@ class SyslogGenerator : public Generator {
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
-    virtual DbHandler *GetDbHandler() { return db_handler_; }
+    virtual DbHandlerPtr GetDbHandler() const { return db_handler_; }
 
   private:
     virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
@@ -146,7 +150,7 @@ class SyslogGenerator : public Generator {
     const std::string source_;
     const std::string module_;
     const std::string name_;
-    DbHandler *db_handler_;
+    DbHandlerPtr db_handler_;
 };
 
 #endif

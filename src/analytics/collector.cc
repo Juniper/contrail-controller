@@ -67,11 +67,12 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
         (Collector::kQSizeLowWaterMark, SandeshLevel::INVALID, false, true);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
+        DbHandlerPtr db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
         std::vector<int> cassandra_ports, const TtlMap& ttl_map,
         const std::string &cassandra_user,
-        const std::string &cassandra_password) :
+        const std::string &cassandra_password,
+        bool use_global_dbhandler) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -83,6 +84,7 @@ Collector::Collector(EventManager *evm, short server_port,
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         cassandra_user_(cassandra_user),
         cassandra_password_(cassandra_password),
+        use_global_db_handler_(use_global_dbhandler),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
 
@@ -243,7 +245,8 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     GeneratorMap::iterator gen_it = gen_map_.find(id);
     if (gen_it == gen_map_.end()) {
         gen = new SandeshGenerator(this, vsession, state_machine, id.get<0>(),
-                id.get<1>(), id.get<2>(), id.get<3>());
+                id.get<1>(), id.get<2>(), id.get<3>(), db_handler_,
+                UseGlobalDbHandler());
         gen_map_.insert(id, gen);
     } else {
         // Update the generator if needed

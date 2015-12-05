@@ -646,7 +646,8 @@ public:
             match_.push_back(false);
         }
     }
-    void Cb(const uint64_t &timestamp,
+    void Cb(const std::string &gen_name,
+            const uint64_t &timestamp,
             const std::string& statName,
             const std::string& statAttr,
             const DbHandler::TagMap & attribs_tag,
@@ -1022,7 +1023,7 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6));
     delete msg;
 }
 
@@ -1054,7 +1055,7 @@ TEST_F(ProtobufStatWalkerTest, Extensions) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6));
     delete msg;
 }
 
@@ -1192,7 +1193,7 @@ TEST_F(ProtobufStatWalkerTest, ExtensionsInnerMessage) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6));
     delete msg;
 }
 
@@ -1226,7 +1227,7 @@ TEST_F(ProtobufStatWalkerTest, AllTypes) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5, _6));
     delete msg;
 }
 
@@ -1274,8 +1275,8 @@ class ProtobufServerStatsTest : public ::testing::Test {
         }
         evm_.reset(new EventManager());
         server_.reset(new protobuf::ProtobufServer(evm_.get(), 0,
-            boost::bind(&StatCbTester::Cb, &stats_tester_, _1, _2, _3,
-            _4, _5)));
+            boost::bind(&StatCbTester::Cb, &stats_tester_, _1, _2, _3, _4, _5,
+                        _6)));
         // Set libprotobuf shutdown on delete to false since that can happen
         // only once in the lifetime of a binary
         server_->SetShutdownLibProtobufOnDelete(false);
@@ -1444,6 +1445,7 @@ class ProtobufServerTest : public ::testing::Test {
     std::auto_ptr<protobuf::ProtobufServer> server_;
     ProtobufMockClient *client_;
     std::auto_ptr<EventManager> evm_;
+    std::string gen_name_;
 };
 
 TEST_F(ProtobufServerTest, MessageSize) {
