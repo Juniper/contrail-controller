@@ -169,7 +169,7 @@ typedef boost::intrusive::list<IoContext, KSyncSockNode> IoContextList;
  */
 class KSyncBulkSandeshContext : public AgentSandeshContext {
 public:
-    KSyncBulkSandeshContext();
+    KSyncBulkSandeshContext(IoContext::IoContextWorkQId io_context_type);
     KSyncBulkSandeshContext(const KSyncBulkSandeshContext &rhs);
     virtual ~KSyncBulkSandeshContext();
 
@@ -193,6 +193,12 @@ public:
     void IoContextDone();
     void Insert(IoContext *ioc);
     void Data(KSyncBufferList *iovec);
+    IoContext::IoContextWorkQId io_context_type() const {
+        return io_context_type_;
+    }
+    void set_io_context_type(IoContext::IoContextWorkQId io_context_type) {
+        io_context_type_ = io_context_type;
+    }
 private:
 
     // Number of VrResponseMsg seen
@@ -201,6 +207,7 @@ private:
     IoContextList::iterator io_context_list_it_;
     // List of IoContext to be processed in this context
     IoContextList io_context_list_;
+    IoContext::IoContextWorkQId io_context_type_;
 };
 
 class KSyncSock {
@@ -234,7 +241,8 @@ public:
     int AllocSeqNo(bool is_uve);
 
     // Bulk Messaging methods
-    KSyncBulkSandeshContext *LocateBulkContext(uint32_t seqno);
+    KSyncBulkSandeshContext *LocateBulkContext(uint32_t seqno,
+                             IoContext::IoContextWorkQId io_context_type);
     int SendBulkMessage(KSyncBulkSandeshContext *bulk_context, uint32_t seqno);
     bool TryAddToBulk(KSyncBulkSandeshContext *bulk_context, IoContext *ioc);
     void OnEmptyQueue(bool done);
