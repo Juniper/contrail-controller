@@ -12,8 +12,10 @@
 
 class DbHandler;
 
+typedef boost::shared_ptr<DbHandler> DbHandlerPtr;
+
 typedef boost::function<bool(const VizMsg*, bool,
-    DbHandler *)> VizCallback;
+    DbHandlerPtr, const std::string&)> VizCallback;
 
 class SyslogQueueEntry
 {
@@ -71,15 +73,15 @@ class SyslogListeners
     public:
       static const int kDefaultSyslogPort = 514;
       SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandler *db_handler, std::string ipaddress,
+        DbHandlerPtr db_handler, std::string ipaddress,
         int port=kDefaultSyslogPort);
       SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandler *db_handler, int port=kDefaultSyslogPort);
+        DbHandlerPtr db_handler, int port=kDefaultSyslogPort);
       virtual void Start ();
       virtual void Shutdown ();
       bool IsRunning ();
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
-      DbHandler *GetDbHandler () { return db_handler_; }
+      DbHandlerPtr GetDbHandler () const { return db_handler_; }
       SandeshMessageBuilder *GetBuilder () const { return builder_; }
       int GetTcpPort();
       int GetUdpPort();
@@ -91,7 +93,7 @@ class SyslogListeners
       std::string   ipaddress_;
       bool          inited_;
       VizCallback   cb_;
-      DbHandler    *db_handler_;
+      DbHandlerPtr    db_handler_;
       SandeshMessageBuilder *builder_;
 };
 

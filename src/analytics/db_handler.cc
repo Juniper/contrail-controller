@@ -109,12 +109,13 @@ int DbHandler::GetPort() const {
     return dbif_->Db_GetPort();
 }
 
-bool DbHandler::DropMessage(const SandeshHeader &header,
+bool DbHandler::DropMessage(const std::string &gen_name,
+    const SandeshHeader &header,
     const VizMsg *vmsg) {
     bool drop(DoDropSandeshMessage(header, drop_level_));
     if (drop) {
         tbb::mutex::scoped_lock lock(smutex_);
-        dropped_msg_stats_.Update(vmsg);
+        dropped_msg_stats_.Update(gen_name, vmsg);
     }
     return drop;
 }
@@ -133,10 +134,10 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
     }
 }
 
-bool DbHandler::CreateTables() {
+bool DbHandler::CreateTables(const std::string &gen_name) {
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(gen_name, *it)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -144,7 +145,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(gen_name, *it)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -152,7 +153,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
             it != vizd_stat_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(gen_name, *it)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -164,7 +165,7 @@ bool DbHandler::CreateTables() {
     key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
     bool init_done = false;
-    if (dbif_->Db_GetRow(col_list, cfname, key)) {
+    if (dbif_->Db_GetRow(gen_name, col_list, cfname, key)) {
         for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                 it != col_list.columns_.end(); it++) {
             std::string col_name;
@@ -209,7 +210,7 @@ bool DbHandler::CreateTables() {
             g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, current_tm, 0));
         columns.push_back(stat_col);
 
-        if (!dbif_->Db_AddColumnSync(col_list)) {
+        if (!dbif_->Db_AddColumnSync(gen_name, col_list)) {
             VIZD_ASSERT(0);
         }
     }
@@ -244,7 +245,7 @@ bool DbHandler::CreateTables() {
             g_viz_constants.SYSTEM_OBJECT_GLOBAL_DATA_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::GLOBAL_TTL), 0));
         columns.push_back(stat_col);
 
-        if (!dbif_->Db_AddColumnSync(col_list)) {
+        if (!dbif_->Db_AddColumnSync(gen_name, col_list)) {
             VIZD_ASSERT(0);
         }
     }
@@ -264,16 +265,16 @@ void DbHandler::UnInitUnlocked(int instance) {
     dbif_->Db_SetInitDone(false);
 }
 
-bool DbHandler::Init(bool initial, int instance) {
+bool DbHandler::Init(const std::string &gen_name, bool initial, int instance) {
     SetDropLevel(0, SandeshLevel::INVALID, NULL);
     if (initial) {
-        return Initialize(instance);
+        return Initialize(gen_name, instance);
     } else {
-        return Setup(instance);
+        return Setup(gen_name, instance);
     }
 }
 
-bool DbHandler::Initialize(int instance) {
+bool DbHandler::Initialize(const std::string &gen_name, int instance) {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
@@ -284,13 +285,14 @@ bool DbHandler::Initialize(int instance) {
         return false;
     }
 
-    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
+    if (!dbif_->Db_AddSetTablespace(gen_name,
+                                    g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
         DB_LOG(ERROR, "Create/Set KEYSPACE: " <<
             g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
     }
 
-    if (!CreateTables()) {
+    if (!CreateTables(gen_name)) {
         DB_LOG(ERROR, "CreateTables FAILED");
         return false;
     }
@@ -301,14 +303,15 @@ bool DbHandler::Initialize(int instance) {
     return true;
 }
 
-bool DbHandler::Setup(int instance) {
+bool DbHandler::Setup(const std::string &gen_name, int instance) {
     DB_LOG(DEBUG, "Setup..");
     if (!dbif_->Db_Init("analytics::DbHandler", 
                        instance)) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
-    if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif_->Db_SetTablespace(gen_name,
+                                 g_viz_constants.COLLECTOR_KEYSPACE)) {
         DB_LOG(ERROR, "Set KEYSPACE: " <<
                 g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
@@ -352,12 +355,13 @@ void DbHandler::ResetDbQueueWaterMarkInfo() {
     dbif_->Db_ResetQueueWaterMarks();
 }
 
-void DbHandler::GetSandeshStats(std::string *drop_level,
+void DbHandler::GetSandeshStats(const std::string gen_name,
+    std::string *drop_level,
     std::vector<SandeshStats> *vdropmstats) const {
     *drop_level = Sandesh::LevelToString(drop_level_);
     if (vdropmstats) {
         tbb::mutex::scoped_lock lock(smutex_);
-        dropped_msg_stats_.Get(vdropmstats);
+        dropped_msg_stats_.Get(gen_name, vdropmstats);
     }
 }
 
@@ -365,20 +369,22 @@ bool DbHandler::GetStats(uint64_t *queue_count, uint64_t *enqueues) const {
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 
-bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+bool DbHandler::GetStats(const std::string gen_name,
+    std::vector<GenDb::DbTableInfo> *vdbti,
     GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Get(vstats_dbti);
+        stable_stats_.Get(gen_name, vstats_dbti);
     }
-    return dbif_->Db_GetStats(vdbti, dbe);
+    return dbif_->Db_GetStats(gen_name, vdbti, dbe);
 }
 
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
     return header.get_Type() != SandeshType::FLOW;
 }
 
-bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
+bool DbHandler::MessageIndexTableInsert(const std::string& gen_name,
+        const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
         const boost::uuids::uuid& unm,
@@ -423,7 +429,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     }
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(gen_name, col_list)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
@@ -432,7 +438,8 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     return true;
 }
 
-void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
+void DbHandler::MessageTableOnlyInsert(const std::string &gen_name,
+    const VizMsg *vmsgp) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
     uint64_t temp_u64;
@@ -503,32 +510,33 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage(), ttl));
 
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(gen_name, col_list)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
     }
 }
 
-void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
+void DbHandler::MessageTableInsert(const std::string &gen_name,
+                                   const VizMsg *vmsgp) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
 
     if (!AllowMessageTableInsert(header))
         return;
 
-    MessageTableOnlyInsert(vmsgp);
+    MessageTableOnlyInsert(gen_name, vmsgp);
 
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
-            message_type, vmsgp->unm, "");
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
-            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(gen_name, g_viz_constants.MESSAGE_TABLE_SOURCE,
+            header, message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(gen_name, g_viz_constants.MESSAGE_TABLE_MODULE_ID,
+            header, message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(gen_name, g_viz_constants.MESSAGE_TABLE_CATEGORY,
+            header, message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(gen_name, g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE,
+            header, message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(gen_name, g_viz_constants.MESSAGE_TABLE_TIMESTAMP,
+            header, message_type, vmsgp->unm, "");
 
     const SandeshType::type &stype(header.get_Type());
     std::string s;
@@ -549,7 +557,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
                 i != words.end(); i++) {
             // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
             bool r = MessageIndexTableInsert(
-                    g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                    gen_name, g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
                     message_type, vmsgp->unm, *i);
             if (!r)
                 DB_LOG(ERROR, "Failed to parse:" << s);
@@ -565,13 +573,13 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
         //Insert only if sandesh type is a SYSTEM LOG or SYSLOG
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
         int ttl = GetTtl(TtlType::GLOBAL_TTL);
-        FieldNamesTableInsert(header.get_Timestamp(),
+        FieldNamesTableInsert(gen_name, header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":Messagetype", message_type, ttl);
-        FieldNamesTableInsert(header.get_Timestamp(),
+        FieldNamesTableInsert(gen_name, header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":ModuleId", header.get_Module(), ttl);
-        FieldNamesTableInsert(header.get_Timestamp(),
+        FieldNamesTableInsert(gen_name, header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":Source", header.get_Source(), ttl);
     }
@@ -581,8 +589,8 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
  * This function takes field name and field value as arguments and inserts
  * into the FieldNames stats table
  */
-void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
-    const std::string& table_prefix, 
+void DbHandler::FieldNamesTableInsert(const std::string& gen_name,
+    uint64_t timestamp, const std::string& table_prefix,
     const std::string& field_name, const std::string& field_val, int ttl) {
     /*
      * Insert the message types in the stat table
@@ -636,7 +644,8 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     tmap.insert(make_pair("Source",make_pair(pv,amap))); 
     attribs.insert(make_pair(string("Source"),pv));
 
-    StatTableInsertTtl(timestamp, "FieldNames","fields",tmap,attribs, ttl);
+    StatTableInsertTtl(gen_name, timestamp, "FieldNames","fields",tmap,attribs,
+                       ttl);
 
 }
 
@@ -650,8 +659,10 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
  *  name: <key>:T1 (value in timestamp)
  *  value: uuid (of the corresponding global message)
  */
-void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
-        uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
+void DbHandler::ObjectTableInsert(const std::string &gen_name,
+        const std::string &table, const std::string &objectkey_str,
+        uint64_t &timestamp, const boost::uuids::uuid& unm,
+        const VizMsg *vmsgp) {
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -682,7 +693,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list)) {
+        if (!dbif_->Db_AddColumn(gen_name, col_list)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
@@ -703,7 +714,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list)) {
+        if (!dbif_->Db_AddColumn(gen_name, col_list)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
@@ -716,18 +727,18 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         const SandeshHeader &header(vmsgp->msg->GetHeader());
         const std::string &message_type(vmsgp->msg->GetMessageType());
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
-        FieldNamesTableInsert(timestamp,
+        FieldNamesTableInsert(gen_name, timestamp,
                 table, ":ObjectId", objectkey_str, ttl);
-        FieldNamesTableInsert(timestamp,
+        FieldNamesTableInsert(gen_name, timestamp,
                 table, ":Messagetype", message_type, ttl);
-        FieldNamesTableInsert(timestamp,
+        FieldNamesTableInsert(gen_name, timestamp,
                 table, ":ModuleId", header.get_Module(), ttl);
-        FieldNamesTableInsert(timestamp,
+        FieldNamesTableInsert(gen_name, timestamp,
                 table, ":Source", header.get_Source(), ttl);
     }
 }
 
-bool DbHandler::StatTableWrite(uint32_t t2,
+bool DbHandler::StatTableWrite(const std::string& genName, uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,
         const std::pair<std::string,DbHandler::Var>& stag,
@@ -783,7 +794,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
             break;
         default:
             tbb::mutex::scoped_lock lock(smutex_);
-            stable_stats_.Update(statName + ":" + statAttr, true, true);
+            stable_stats_.Update(genName, statName + ":" + statAttr, true, true);
             DB_LOG(ERROR, "Bad Prefix Tag " << statName <<
                     ", " << statAttr <<  " tag " << ptag.first <<
                     ":" << stag.first << " jsonline " << jsonline);
@@ -791,7 +802,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     }
     if (bad_suffix) {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true);
+        stable_stats_.Update(genName, statName + ":" + statAttr, true, true);
         DB_LOG(ERROR, "Bad Suffix Tag " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " jsonline " << jsonline);
@@ -838,17 +849,17 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(genName, col_list)) {
         DB_LOG(ERROR, "Addition of " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " into table " <<
                 cfname <<" FAILED");
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true);
+        stable_stats_.Update(genName, statName + ":" + statAttr, true, true);
         return false;
     } else {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, false);
+        stable_stats_.Update(genName, statName + ":" + statAttr, true, true);
         return true;
     }
 }
@@ -887,18 +898,19 @@ DbHandler::StatTableSelectStr(
     return aggstr;
 }
 void
-DbHandler::StatTableInsert(uint64_t ts, 
+DbHandler::StatTableInsert(const std::string& genName, uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
         const AttribMap & attribs) {
     int ttl = GetTtl(TtlType::STATSDATA_TTL);
-    StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl);
+    StatTableInsertTtl(genName, ts, statName, statAttr, attribs_tag, attribs,
+                       ttl);
 }
 
 // This function writes Stats samples to the DB.
 void
-DbHandler::StatTableInsertTtl(uint64_t ts, 
+DbHandler::StatTableInsertTtl(const std::string& genName, uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
@@ -986,19 +998,19 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
            and if we are not recording a fieldNames stats entry itself */
         if ((ptag.second.type == DbHandler::STRING) &&
                 (statName.compare("FieldNames") != 0)) {
-            FieldNamesTableInsert(ts, std::string("StatTable.") +
+            FieldNamesTableInsert(genName, ts, std::string("StatTable.") +
                     statName + "." + statAttr,
                     std::string(":") + ptag.first, ptag.second.str, ttl);
         }
 
         if (it->second.second.empty()) {
             pair<string,DbHandler::Var> stag;
-            StatTableWrite(temp_u32, statName, statAttr,
+            StatTableWrite(genName, temp_u32, statName, statAttr,
                                 ptag, stag, t1, unm, jsonline, ttl);
         } else {
             for (AttribMap::const_iterator jt = it->second.second.begin();
                     jt != it->second.second.end(); jt++) {
-                StatTableWrite(temp_u32, statName, statAttr,
+                StatTableWrite(genName, temp_u32, statName, statAttr,
                                     ptag, *jt, t1, unm, jsonline, ttl);
             }
         }
@@ -1082,7 +1094,8 @@ static void PopulateFlowRecordTableRowKey(
     rkey.push_back(flowu);
 }
 
-static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
+static bool PopulateFlowRecordTable(const std::string &gen_name,
+    FlowValueArray &fvalues,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
     boost::function<void (const std::string&,const std::string&,int)> fncb) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
@@ -1090,7 +1103,7 @@ static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
         colList->columns_, ttl_map, fncb);
-    return dbif->Db_AddColumn(colList);
+    return dbif->Db_AddColumn(gen_name, colList);
 }
 
 static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
@@ -1214,7 +1227,8 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
     columns.push_back(col);
 }
 
-static bool PopulateFlowIndexTables(FlowValueArray &fvalues, 
+static bool PopulateFlowIndexTables(const std::string &gen_name,
+    FlowValueArray &fvalues,
     uint32_t &T2, uint32_t &T1, uint8_t partition_no,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
     boost::function<void (const std::string&,const std::string&,int)> fncb) {
@@ -1235,7 +1249,7 @@ static bool PopulateFlowIndexTables(FlowValueArray &fvalues,
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, colList->columns_,
             cvalues, ttl_map);
-        if (!dbif->Db_AddColumn(colList)) {
+        if (!dbif->Db_AddColumn(gen_name, colList)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
                 " FAILED");
         }
@@ -1319,7 +1333,8 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
 /*
  * process the flow sample and insert into the appropriate tables
  */
-bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
+bool DbHandler::FlowSampleAdd(const std::string& gen_name,
+                              const pugi::xml_node& flow_sample,
                               const SandeshHeader& header) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
@@ -1355,9 +1370,9 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     
     boost::function<void (const std::string&,const std::string&,int)> fncb =
             boost::bind(&DbHandler::FieldNamesTableInsert,
-            this, timestamp, g_viz_constants.FLOW_TABLE, _1,_2,_3);
-    if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_,
-            fncb)) {
+            this, gen_name, timestamp, g_viz_constants.FLOW_TABLE, _1,_2,_3);
+    if (!PopulateFlowRecordTable(gen_name, flow_entry_values, dbif_.get(),
+            ttl_map_, fncb)) {
         DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     GenDb::DbDataValue &diff_bytes(
@@ -1368,11 +1383,12 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     // FLOWREC_DIFF_PACKETS are present
     boost::function<void (const std::string&,const std::string&,int)> fncb2 =
             boost::bind(&DbHandler::FieldNamesTableInsert,
-            this, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1,_2,_3);
+            this, gen_name, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1,
+            _2,_3);
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
-       if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
-                dbif_.get(), ttl_map_, fncb2)) {
+       if (!PopulateFlowIndexTables(gen_name, flow_entry_values, T2, T1,
+                partition_no, dbif_.get(), ttl_map_, fncb2)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
@@ -1382,7 +1398,8 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
 /*
  * process the flow sandesh message
  */
-bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
+bool DbHandler::FlowTableInsert(const std::string &gen_name,
+    const pugi::xml_node &parent,
     const SandeshHeader& header) {
     pugi::xml_node flowdata(parent.child("flowdata"));
     // Flow sandesh message may contain a list of flow samples or
@@ -1391,10 +1408,10 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         pugi::xml_node flow_list = flowdata.child("list");
         for (pugi::xml_node fsample = flow_list.first_child(); fsample;
             fsample = fsample.next_sibling()) {
-            FlowSampleAdd(fsample, header);
+            FlowSampleAdd(gen_name, fsample, header);
         }
     } else {
-        FlowSampleAdd(flowdata.first_child(), header);
+        FlowSampleAdd(gen_name, flowdata.first_child(), header);
     }
     return true;
 }
@@ -1445,9 +1462,33 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
         amap_protocol_dport.insert(std::make_pair("flow.dport", dport));
         tmap.insert(std::make_pair("flow.protocol",
                 std::make_pair(protocol, amap_protocol_dport)));
-        StatTableInsert(timestamp, "UFlowData", "flow", tmap, amap);
+        StatTableInsert(flow_data.get_name(), timestamp, "UFlowData", "flow",
+                        tmap, amap);
     }
     return true;
+}
+
+void GeneratorDbTableStatistics::Update(const std::string &gen_name,
+                                        const std::string &table_name,
+                                        bool write, bool fail) {
+    GeneratorDbTableStatsMap::iterator it =
+        generator_db_table_stats_map_.find(gen_name);
+    if (it == generator_db_table_stats_map_.end()) {
+        it = (generator_db_table_stats_map_.insert(gen_name,
+                  new GenDb::DbTableStatistics)).first;
+    }
+    GenDb::DbTableStatistics *generator_db_table_stats = it->second;
+    generator_db_table_stats->Update(table_name, write, fail);
+}
+
+void GeneratorDbTableStatistics::Get(const std::string &gen_name,
+                                     std::vector<GenDb::DbTableInfo> *vdbti) {
+    GeneratorDbTableStatsMap::iterator it =
+        generator_db_table_stats_map_.find(gen_name);
+    if (it != generator_db_table_stats_map_.end()) {
+        GenDb::DbTableStatistics* gen_db_table_stats = it->second;
+        gen_db_table_stats->Get(vdbti);
+    }
 }
 
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
@@ -1472,7 +1513,8 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &db_name, int db_task_instance,
     const std::string &timer_task_name,
-    DbHandlerInitializer::InitializeDoneCb callback, DbHandler *db_handler) :
+    DbHandlerInitializer::InitializeDoneCb callback,
+    DbHandlerPtr db_handler) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(db_handler),
@@ -1487,7 +1529,7 @@ DbHandlerInitializer::~DbHandlerInitializer() {
 
 bool DbHandlerInitializer::Initialize() {
     boost::system::error_code ec;
-    if (!db_handler_->Init(true, db_task_instance_)) {
+    if (!db_handler_->Init(db_name_, true, db_task_instance_)) {
         // Update connection info
         boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
             db_handler_->GetHost(), ec));
@@ -1513,8 +1555,8 @@ bool DbHandlerInitializer::Initialize() {
     return true;
 }
 
-DbHandler* DbHandlerInitializer::GetDbHandler() const {
-    return db_handler_.get();
+DbHandlerPtr DbHandlerInitializer::GetDbHandler() const {
+    return db_handler_;
 }
 
 void DbHandlerInitializer::Shutdown() {

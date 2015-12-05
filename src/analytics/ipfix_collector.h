@@ -19,7 +19,8 @@ struct ipfix_datarecord;
 class IpfixCollector : public UdpServer {
 public:
     explicit IpfixCollector(EventManager* evm,
-        DbHandler* db_handler, std::string ip_address, int port);
+        DbHandlerPtr db_handler, std::string ip_address,
+        int port);
     ~IpfixCollector();
     virtual void Start();
     virtual void Shutdown();
@@ -36,7 +37,7 @@ public:
     int ExportTrecord(ipfixs_node *s, ipfixt_node *t, void *arg);
 private:
    
-    DbHandler* const db_handler_;
+    DbHandlerPtr const db_handler_;
     std::string ip_address_;
     int port_;
     uint64_t num_packets_;
