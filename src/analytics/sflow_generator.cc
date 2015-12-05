@@ -20,7 +20,7 @@ SFlowQueueEntry::~SFlowQueueEntry() {
 
 SFlowGenerator::SFlowGenerator(const std::string& ip_address,
                                SFlowCollector* sflow_collector,
-                               DbHandler* db_handler)
+                               DbHandlerPtr db_handler)
     : ip_address_(ip_address),
       sflow_collector_(sflow_collector),
       db_handler_(db_handler),

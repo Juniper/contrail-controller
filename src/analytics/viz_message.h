@@ -93,5 +93,15 @@ private:
     pugi::xml_node message_node_;
 };
 
+struct GeneratorMsgStatistics {
+public:
+    GeneratorMsgStatistics() {}
+    void Update(const std::string &gen_name, const VizMsg *vmsg);
+    void Get(const std::string &gen_name, std::vector<SandeshStats>* ssv) const;
+private:
+    typedef boost::ptr_map<const std::string, VizMsgStatistics> GeneratorMsgStatsMap;
+    GeneratorMsgStatsMap generator_dropped_msg_stats_map;
+};
+
 #endif // __VIZ_MESSAGE_H__
 

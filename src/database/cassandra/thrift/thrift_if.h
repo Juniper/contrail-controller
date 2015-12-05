@@ -24,22 +24,30 @@ class ThriftIf : public GenDb::GenDbIf {
         int task_instance);
     virtual void Db_SetInitDone(bool);
     // Tablespace
-    virtual bool Db_AddTablespace(const std::string& tablespace,
+    virtual bool Db_AddTablespace(const std::string& gen_name,
+        const std::string& tablespace,
         const std::string& replication_factor);
-    virtual bool Db_SetTablespace(const std::string& tablespace);
-    virtual bool Db_AddSetTablespace(const std::string& tablespace,
+    virtual bool Db_SetTablespace(const std::string& gen_name,
+        const std::string& tablespace);
+    virtual bool Db_AddSetTablespace(const std::string& gen_name,
+        const std::string& tablespace,
         const std::string& replication_factor = "1");
     virtual bool Db_FindTablespace(const std::string& tablespace);
     // Column family
-    virtual bool Db_AddColumnfamily(const GenDb::NewCf& cf);
+    virtual bool Db_AddColumnfamily(const std::string& gen_name,
+        const GenDb::NewCf& cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf& cf);
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumn(const std::string& gen_name,
+        std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumnSync(const std::string& gen_name,
+        std::auto_ptr<GenDb::ColList> cl);
     // Read
-    virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
+    virtual bool Db_GetRow(const std::string& gen_name, GenDb::ColList& ret,
+        const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey);
-    virtual bool Db_GetMultiRow(GenDb::ColListVec& ret,
+    virtual bool Db_GetMultiRow(const std::string& gen_name,
+        GenDb::ColListVec& ret,
         const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
         GenDb::ColumnNameRange *crange_ptr = NULL);
@@ -50,7 +58,8 @@ class ThriftIf : public GenDb::GenDbIf {
         DbQueueWaterMarkCb cb);
     virtual void Db_ResetQueueWaterMarks();
     // Stats
-    virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+    virtual bool Db_GetStats(const std::string& gen_name,
+        std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
     // Connection
     virtual std::string Db_GetHost() const;

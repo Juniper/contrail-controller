@@ -117,18 +117,10 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
 }
 
 void PopulateProtobufTopLevelTags(const Message& message,
-    const boost::asio::ip::udp::endpoint &remote_endpoint,
-    StatWalker::TagMap *top_tags) {
+    const std::string &remote_endpoint, StatWalker::TagMap *top_tags) {
     // Insert the remote endpoint address as a tag
-    boost::asio::ip::address remote_address(remote_endpoint.address());
-    boost::system::error_code ec;
-    const std::string saddr(remote_address.to_string(ec));
-    if (ec) {
-        LOG(ERROR, "Remote endpoint: " << remote_endpoint <<
-            " address to string FAILED: " << ec);
-    }
     StatWalker::TagVal tvalue;
-    tvalue.val = saddr;
+    tvalue.val = remote_endpoint;
     top_tags->insert(make_pair("Source", tvalue));
     // At the top level all elemental fields are inserted into the tag map
     const Reflection *reflection(message.GetReflection());
@@ -374,9 +366,17 @@ void ProcessProtobufMessage(const Message& message,
     const boost::asio::ip::udp::endpoint &remote_endpoint,
     StatWalker::StatTableInsertFn stat_db_callback) {
     const std::string &message_name(message.GetTypeName());
+    boost::asio::ip::address remote_address(remote_endpoint.address());
+    boost::system::error_code ec;
+    const std::string raddr(remote_address.to_string(ec));
+    if (ec) {
+        LOG(ERROR, "Remote endpoint: " << remote_endpoint <<
+            " address to string FAILED: " << ec);
+    }
     StatWalker::TagMap top_tags;
-    PopulateProtobufTopLevelTags(message, remote_endpoint, &top_tags);
-    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags);
+    PopulateProtobufTopLevelTags(message, raddr, &top_tags);
+    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags,
+                           "ProtobufCollector");
     PopulateProtobufStats(message, std::string(), &stat_walker);
 }
 
@@ -385,7 +385,7 @@ void ProcessProtobufMessage(const Message& message,
 class ProtobufServer::ProtobufServerImpl {
  public:
     ProtobufServerImpl(EventManager *evm, uint16_t udp_server_port,
-        StatWalker::StatTableInsertFn stat_db_callback) :
+        StatWalker::StatTableInsertFn stat_db_callback):
         udp_server_(new ProtobufUdpServer(evm, udp_server_port,
             stat_db_callback)) {
     }

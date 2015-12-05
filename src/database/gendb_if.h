@@ -164,22 +164,29 @@ public:
         int task_instance) = 0;
     virtual void Db_SetInitDone(bool init_done) = 0;
     // Tablespace
-    virtual bool Db_AddTablespace(const std::string& tablespace,
+    virtual bool Db_AddTablespace(const std::string& gen_name,
+        const std::string& tablespace,
         const std::string& replication_factor) = 0;
-    virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
-    virtual bool Db_AddSetTablespace(const std::string& tablespace,
+    virtual bool Db_SetTablespace(const std::string& gen_name,
+        const std::string& tablespace) = 0;
+    virtual bool Db_AddSetTablespace(const std::string& gen_name,
+        const std::string& tablespace,
         const std::string& replication_factor="1") = 0;
     virtual bool Db_FindTablespace(const std::string& tablespace) = 0;
     // Column family
-    virtual bool Db_AddColumnfamily(const NewCf& cf) = 0;
+    virtual bool Db_AddColumnfamily(const std::string& gen_name,
+        const NewCf& cf) = 0;
     virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl) = 0;
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
+    virtual bool Db_AddColumn(const std::string& gen_name,
+        std::auto_ptr<ColList> cl) = 0;
+    virtual bool Db_AddColumnSync(const std::string& gen_name,
+        std::auto_ptr<GenDb::ColList> cl) = 0;
     // Read/Get
-    virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
+    virtual bool Db_GetRow(const std::string& gen_name, ColList& ret,
+        const std::string& cfname,
         const DbDataValueVec& rowkey) = 0;
-    virtual bool Db_GetMultiRow(ColListVec& ret,
+    virtual bool Db_GetMultiRow(const std::string& gen_name, ColListVec& ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
         GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
     // Queue
@@ -189,7 +196,8 @@ public:
         DbQueueWaterMarkCb cb) = 0;
     virtual void Db_ResetQueueWaterMarks() = 0;
     // Stats
-    virtual bool Db_GetStats(std::vector<DbTableInfo> *vdbti,
+    virtual bool Db_GetStats(const std::string& gen_name,
+        std::vector<DbTableInfo> *vdbti,
         DbErrors *dbe) = 0;
     // Connection
     virtual std::string Db_GetHost() const = 0;
