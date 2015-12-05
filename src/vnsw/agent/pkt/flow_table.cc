@@ -80,6 +80,7 @@ const std::map<uint16_t, const char*>
          "SHORT_LINKLOCAL_SRC_NAT")
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "SHORT_FAILED_VROUTER_INST")
+        ((uint16_t)SHORT_INVALID_L2_FLOW,    "SHORT_INVALID_L2_FLOW")
         ((uint16_t)DROP_POLICY,              "DROP_POLICY")
         ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
         ((uint16_t)DROP_SG,                  "DROP_SG")
@@ -152,6 +153,16 @@ FlowEntry::~FlowEntry() {
     }
     alloc_count_.fetch_and_decrement();
 }
+
+std::string FlowEntry::DropReasonStr(uint16_t reason) {
+    std::map<uint16_t, const char*>::const_iterator it =
+        FlowDropReasonStr.find(reason);
+    if (it != FlowDropReasonStr.end()) {
+        return string(it->second);
+    }
+    return "UNKNOWN";
+}
+
 
 void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     const AgentPath *path = NULL;

@@ -266,6 +266,8 @@ struct FlowData {
 
 class FlowEntry {
     public:
+    /* Please update FlowEntry::FlowDropReasonStr whenever entries are added
+     * to the below enum */
     enum FlowShortReason {
         SHORT_UNKNOWN = 0,
         SHORT_UNAVIALABLE_INTERFACE,
@@ -285,6 +287,8 @@ class FlowEntry {
         SHORT_MAX
     };
 
+    /* Please update FlowEntry::FlowDropReasonStr whenever entries are added
+     * to the below enum */
     enum FlowDropReason {
         DROP_UNKNOWN = 0,
         DROP_POLICY = SHORT_MAX,
@@ -336,6 +340,7 @@ class FlowEntry {
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry();
 
+    static std::string DropReasonStr(uint16_t reason);
     bool ActionRecompute();
     void UpdateKSync(FlowTable* table, bool update);
     int GetRefCount() { return refcount_; }
