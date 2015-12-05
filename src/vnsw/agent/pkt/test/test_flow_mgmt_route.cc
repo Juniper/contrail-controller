@@ -2,6 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <netinet/in.h>
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
@@ -160,6 +161,89 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_2) {
     client->WaitForIdle();
 
     DeleteRoute(vrf_name.c_str(), remote_subnet.to_string().c_str(), 24, peer_);
+}
+
+TEST_F(FlowMgmtRouteTest, RouteDelete_3) {
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+
+    boost::system::error_code ec;
+    Ip4Address remote_subnet = Ip4Address::from_string("10.10.10.0", ec);
+    Ip4Address remote_ip = Ip4Address::from_string("10.10.10.1", ec);
+    Ip4Address remote_compute = Ip4Address::from_string("1.1.1.1", ec);
+
+    string vrf_name = vif0->vrf()->GetName();
+    string vn_name = vif0->vn()->GetName();
+    Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
+                        TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
+                        PathPreference());
+    client->WaitForIdle();
+
+    char router_id[80];
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+    TxIpMplsPacket(eth->id(), remote_compute.to_string().c_str(),
+                   router_id, vif0->label(), remote_ip.to_string().c_str(),
+                   vm1_ip, 1, 1);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = vif0->vrf_id();
+    FlowEntry *flow = FlowGet(vrf_id, remote_ip.to_string().c_str(),
+                              vm1_ip, 1, 0, 0, vif0->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+
+    flow_mgmt_->DeleteEvent(flow);
+    client->WaitForIdle();
+
+    DeleteRoute(vrf_name.c_str(), remote_subnet.to_string().c_str(), 24, peer_);
+    client->WaitForIdle();
+}
+
+TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+
+    boost::system::error_code ec;
+    Ip4Address remote_subnet = Ip4Address::from_string("10.10.10.0", ec);
+    Ip4Address remote_ip = Ip4Address::from_string("10.10.10.1", ec);
+    Ip4Address remote_compute = Ip4Address::from_string("1.1.1.1", ec);
+    char router_id[80];
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+
+    string vrf_name = vif0->vrf()->GetName();
+    string vn_name = vif0->vn()->GetName();
+    Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
+                        TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
+                        PathPreference());
+    client->WaitForIdle();
+
+    TxIpMplsPacket(eth->id(), remote_compute.to_string().c_str(),
+                   router_id, vif0->label(), remote_ip.to_string().c_str(),
+                   vm1_ip, 1, 1);
+    client->WaitForIdle();
+    FlowEntry *flow = FlowGet(vif0->vrf_id(), remote_ip.to_string().c_str(),
+                              vm1_ip, 1, 0, 0, vif0->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+
+    FlowMgmtManager *mgr = agent_->pkt()->flow_mgmt_manager();
+    flow_proto_->DisableFlowEventQueue(0, true);
+
+    VrfDelReq("vrf1");
+    client->WaitForIdle(10);
+
+    flow_proto_->DisableFlowMgmtQueue(true);
+    flow_mgmt_->DeleteEvent(flow);
+    flow_mgmt_->DeleteEvent(flow->reverse_flow_entry());
+    flow_mgmt_->AddEvent(flow);
+    flow_mgmt_->AddEvent(flow->reverse_flow_entry());
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 3, true, 1);
+    client->WaitForIdle(3);
+
+    flow_proto_->DisableFlowMgmtQueue(false);
+    mgr->DisableWorkQueue(false);
+    client->WaitForIdle(10);
+
+    flow_proto_->DisableFlowEventQueue(0, false);
+    client->WaitForIdle(10);
 }
 
 int main(int argc, char *argv[]) {

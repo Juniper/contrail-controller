@@ -97,6 +97,14 @@ bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
     return ret;
 }
 
+void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
+    flow_event_queue_[index]->set_disable(disabled);
+}
+
+void FlowProto::DisableFlowMgmtQueue(bool disabled) {
+    flow_update_queue_.set_disable(disabled);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable related routines
 /////////////////////////////////////////////////////////////////////////////

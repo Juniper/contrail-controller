@@ -967,6 +967,8 @@ public:
     FlowMgmtDbClient *flow_mgmt_dbclient() const {
         return flow_mgmt_dbclient_.get();
     }
+
+    void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);

@@ -1120,6 +1120,11 @@ bool RouteFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
 void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
                                         uint32_t vrf, const IpAddress &ip,
                                         uint8_t plen) {
+    // We do not support renewal of VRF, so skip flow if VRF is deleted
+    if (mgr_->agent()->vrf_table()->FindVrfFromId(vrf) == NULL) {
+        return;
+    }
+
     InetRouteFlowMgmtKey *key = NULL;
     if (ip.is_v4()) {
         Ip4Address ip4 = Address::GetIp4SubnetAddress(ip.to_v4(), plen);
@@ -1229,16 +1234,18 @@ void BridgeRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
     if (flow->l3_flow() == true)
         return;
 
-    if (flow->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+    VrfTable *table = mgr_->agent()->vrf_table();
+    uint32_t vrf = flow->data().flow_source_vrf;
+    if (vrf != VrfEntry::kInvalidIndex && table->FindVrfFromId(vrf) != NULL) {
         BridgeRouteFlowMgmtKey *key =
-            new BridgeRouteFlowMgmtKey(flow->data().flow_source_vrf,
-                                       flow->data().smac);
+            new BridgeRouteFlowMgmtKey(vrf, flow->data().smac);
         AddFlowMgmtKey(tree, key);
     }
-    if (flow->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
+
+    vrf = flow->data().flow_dest_vrf;
+    if (vrf != VrfEntry::kInvalidIndex && table->FindVrfFromId(vrf) != NULL) {
         BridgeRouteFlowMgmtKey *key =
-            new BridgeRouteFlowMgmtKey(flow->data().flow_dest_vrf,
-                                       flow->data().smac);
+            new BridgeRouteFlowMgmtKey(vrf, flow->data().smac);
         AddFlowMgmtKey(tree, key);
     }
 }
