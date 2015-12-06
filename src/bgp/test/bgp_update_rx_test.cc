@@ -371,7 +371,6 @@ TEST_P(BgpUpdateRxParamTest2, AsPathLoop) {
     ps->path_segment.push_back(64512);
     path_spec->path_segments.push_back(ps);
     update.path_attributes.push_back(path_spec);
-    uint32_t identifier = local_identifier_.to_ulong();
 
     BgpMpNlri *mp_nlri = new BgpMpNlri;
     BgpProtoPrefix *bpp = new BgpProtoPrefix;
