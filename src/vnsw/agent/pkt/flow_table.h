@@ -59,6 +59,16 @@ class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 
+struct RevFlowDepParams {
+    uuid rev_uuid_;
+    IpAddress sip_;
+    RevFlowDepParams() : rev_uuid_(), sip_() {
+    }
+    RevFlowDepParams(const uuid &uuid, IpAddress sip) : rev_uuid_(uuid),
+        sip_(sip) {
+    }
+};
+
 struct FlowTaskMsg : public InterTaskMsg {
     FlowTaskMsg(FlowEntry * fe) : InterTaskMsg(0), fe_ptr(fe) {}
     ~FlowTaskMsg() {}
@@ -112,6 +122,30 @@ struct FlowKey {
             return src_port < key.src_port;
 
         return dst_port < key.dst_port;
+    }
+
+    bool IsEqual(const FlowKey &key) const {
+        if (family != key.family)
+            return false;
+
+        if (nh != key.nh)
+            return false;
+
+        if (src_addr != key.src_addr)
+            return false;
+
+        if (dst_addr != key.dst_addr)
+            return false;
+
+        if (protocol != key.protocol)
+            return false;
+
+        if (src_port != key.src_port)
+            return false;
+
+        if (dst_port != key.dst_port)
+            return false;
+        return true;
     }
 
     void Reset() {
@@ -742,6 +776,7 @@ public:
     FlowEntry *FindByIndex(uint32_t flow_handle);
     void DeleteVrouterEvictedFlow(FlowEntry *flow);
     void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
+    void RevFlowDepInfo(FlowEntry *flow, RevFlowDepParams *params);
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class PktSandeshFlowStats;
@@ -824,9 +859,8 @@ private:
     void AddRouteFlowInfo(FlowEntry *fe);
 
     void DeleteAclFlows(const AclDBEntry *acl);
-    void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time);
-    void SendFlows(FlowEntry *flow, FlowEntry *rflow, uint64_t time);
-    void SendFlowInternal(FlowEntry *fe, uint64_t time);
+    void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
+                        const RevFlowDepParams &params);
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
     bool FlowDelete(FlowKey key);
     void DeleteEnqueue(FlowEntry *fe);

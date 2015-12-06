@@ -87,7 +87,9 @@ public:
 
     //Add flow entry to particular aging table
     void AddEvent(FlowEntry *flow);
-    void DeleteEvent(FlowEntry *flow);
+    void DeleteEvent(FlowEntry *flow, uint64_t time,
+                     const RevFlowDepParams &params);
+    void FlowExportEvent(FlowEntry *flow);
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);
     void Shutdown();
@@ -138,6 +140,9 @@ public:
     static void FlowStatsReqHandler(Agent *agent, uint32_t proto,
                                     uint32_t port,
                                     uint64_t protocol);
+    void UpdateStatsEvent(FlowEntry *flow, uint32_t bytes,
+                          uint32_t packets, uint32_t oflow_bytes,
+                          FlowTable *table);
     void FreeIndex(uint32_t idx);
 
     friend class AgentUtXmlFlowThreshold;
