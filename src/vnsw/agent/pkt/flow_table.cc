@@ -167,6 +167,17 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
 
     if (rflow && rflow_req != rflow) {
         Copy(rflow, rflow_req);
+        // if the reverse flow was marked delete, reset its flow handle
+        // to invalid index to assure it is attempted to reprogram using
+        // kInvalidFlowHandle, this also ensures that flow entry wont
+        // give fake notion of being available in the flow index tree
+        // delete for which has already happend while triggering delete
+        // for flow entry
+        // TODO(prabhjot): check if we can avoid accessing FlowEntry
+        // member variable
+        if (rflow->deleted()) {
+            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+        }
         rflow->set_deleted(false);
     }
 
@@ -181,15 +192,23 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     //      Unexpected case. Continue with flow as forward flow
     // flow has ReverseFlow reset, rflow has ReverseFlow set
     //      No change in forward/reverse flow. Continue as forward-flow
+    bool rflow_swap = false;
     if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
         rflow && !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
         FlowEntry *tmp = flow;
         flow = rflow;
         rflow = tmp;
+        rflow_swap = true;
     }
 
     UpdateReverseFlow(flow, rflow);
-    AddIndexFlowInfo(flow, flow->flow_handle_);
+    if (rflow_swap) {
+        // reverse flow swapped with forward flow
+        // trigger Add index for reverse flow
+        AddIndexFlowInfo(rflow, flow->flow_handle_);
+    } else {
+        AddIndexFlowInfo(flow, flow->flow_handle_);
+    }
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
