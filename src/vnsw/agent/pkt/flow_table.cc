@@ -1799,8 +1799,13 @@ void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
 {
     FlowStatsCollector *fec = agent_->flow_stats_manager()->
                                   default_flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+    uint64_t diff_bytes = 0, diff_packets = 0;
+
+    /* Don't read stats from shared memory for evicted flows as they point to
+     * new flow occupying that index */
+    if (fe->data().vrouter_evicted_flow_) {
+        fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+    }
 
     fe->stats_.teardown_time = time;
     fec->FlowExport(fe, diff_bytes, diff_packets);
