@@ -78,8 +78,9 @@ public:
     bool DoEventTrace(void) { return false; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
-                                            bool ignore_active_status);
+                                            bool ignore_active_status) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
+    const vr_flow_entry *GetValidKFlowEntry(FlowEntry *fe) const;
 
     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
     bool AuditProcess();
@@ -101,6 +102,8 @@ public:
     void GetFlowTableSize();
     void StartAuditTimer();
 private:
+    bool IsEvictionMarked(const vr_flow_entry *entry) const;
+    void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
     friend class KSyncSandeshContext;
     KSync *ksync_;
     int major_devid_;

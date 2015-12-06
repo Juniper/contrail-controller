@@ -536,8 +536,54 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
     return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
 }
 
+void FlowTableKSyncObject::KFlow2FlowKey(const vr_flow_entry *entry,
+                                         FlowKey *key) const {
+    key->nh = entry->fe_key.flow4_nh_id;
+    // TODO : IPv6
+    key->src_addr = Ip4Address(ntohl(entry->fe_key.flow4_sip));
+    key->dst_addr = Ip4Address(ntohl(entry->fe_key.flow4_dip));
+    key->src_port = ntohs(entry->fe_key.flow4_sport);
+    key->dst_port = ntohs(entry->fe_key.flow4_dport);
+    key->protocol = entry->fe_key.flow4_proto;
+    //TODO : Pick family from kernel flow entry, once
+    //family field is present in vr flow entry
+    key->family   = Address::INET;
+}
+
+bool FlowTableKSyncObject::IsEvictionMarked(const vr_flow_entry *entry) const {
+    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+        return true;
+    }
+    if (entry->fe_flags & VR_FLOW_FLAG_EVICT_CANDIDATE) {
+        return true;
+    }
+    return false;
+}
+
+const vr_flow_entry *FlowTableKSyncObject::GetValidKFlowEntry
+    (FlowEntry *fe) const {
+    const vr_flow_entry *kflow = GetKernelFlowEntry(fe->flow_handle(), false);
+    if (!kflow) {
+        return NULL;
+    }
+    if (fe->key().protocol == IPPROTO_TCP) {
+        if (fe->data().vrouter_evicted_flow_ && !IsEvictionMarked(kflow)) {
+            return NULL;
+        }
+        FlowKey rhs;
+        KFlow2FlowKey(kflow, &rhs);
+        if (fe->key().IsEqual(rhs)) {
+            return NULL;
+        }
+        /* TODO: If a flow is evicted from vrouter and later flow with same
+         * key is assigned with same index, then we may end up reading
+         * wrong stats */
+    }
+    return kflow;
+}
+
 const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
-    (uint32_t idx, bool ignore_active_status) { 
+    (uint32_t idx, bool ignore_active_status) const {
     if (idx == FlowEntry::kInvalidFlowHandle) {
         return NULL;
     }

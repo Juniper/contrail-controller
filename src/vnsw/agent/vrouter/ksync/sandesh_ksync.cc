@@ -12,6 +12,7 @@
 #include <pkt/flow_table.h>
 #include <oper/mirror_table.h>
 #include <vrouter/ksync/ksync_init.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 void vr_interface_req::Process(SandeshContext *context) {
      AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
@@ -120,9 +121,19 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             if ((int)entry->flow_handle() != r->get_fr_index()) {
                 update_rev_flow = true;
             }
-            flow_ksync_->ksync()->agent()->pkt()->flow_table()->
-                AddIndexFlowInfo(entry, r->get_fr_index());
 
+            FlowTable *flow_table =
+                flow_ksync_->ksync()->agent()->pkt()->flow_table();
+
+            FlowStatsManager *sm = flow_table->agent()->flow_stats_manager();
+            FlowEntry *flow = flow_table->FindByIndex(r->get_fr_index());
+            if (flow && flow->deleted() == false) {
+                sm->UpdateStatsEvent(flow, r->get_fr_flow_bytes(),
+                        r->get_fr_flow_packets(), r->get_fr_flow_stats_oflow(),
+                        flow_table);
+            }
+
+            flow_table->AddIndexFlowInfo(entry, r->get_fr_index());
             FlowEntry *rev_flow = entry->reverse_flow_entry();
             //Tie forward flow and reverse flow
             if (rev_flow && update_rev_flow) {

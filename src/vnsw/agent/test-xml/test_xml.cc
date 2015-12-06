@@ -29,7 +29,7 @@ public:
     virtual bool Run() {
         FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_manager()->
                                       default_flow_stats_collector();
-        fec->FlowExport(fe_, bytes_, pkts_);
+        fec->FlowExport(fe_, bytes_, pkts_, NULL);
         return true;
     }
 private:
