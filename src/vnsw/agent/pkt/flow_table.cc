@@ -1799,11 +1799,11 @@ void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
 {
     FlowStatsCollector *fec = agent_->flow_stats_manager()->
                                   default_flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
-
-    fe->stats_.teardown_time = time;
-    fec->FlowExport(fe, diff_bytes, diff_packets);
+    /* If teardown time is already set, flow-stats are already exported as part
+     * of vrouter flow eviction stats update */
+    if (!fe->stats_.teardown_time) {
+        fec->UpdateAndExportFlowStats(fe, time);
+    }
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */

@@ -138,6 +138,8 @@ public:
     static void FlowStatsReqHandler(Agent *agent, uint32_t proto,
                                     uint32_t port,
                                     uint64_t protocol);
+    void UpdateStatsEvent(FlowEntry *flow, uint32_t bytes,
+                          uint32_t packets, uint32_t oflow_bytes);
     void FreeIndex(uint32_t idx);
 
     friend class AgentUtXmlFlowThreshold;

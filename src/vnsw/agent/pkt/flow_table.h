@@ -114,6 +114,30 @@ struct FlowKey {
         return dst_port < key.dst_port;
     }
 
+    bool IsEqual(const FlowKey &key) const {
+        if (family != key.family)
+            return false;
+
+        if (nh != key.nh)
+            return false;
+
+        if (src_addr != key.src_addr)
+            return false;
+
+        if (dst_addr != key.dst_addr)
+            return false;
+
+        if (protocol != key.protocol)
+            return false;
+
+        if (src_port != key.src_port)
+            return false;
+
+        if (dst_port != key.dst_port)
+            return false;
+        return true;
+    }
+
     void Reset() {
         family = Address::UNSPEC;
         nh = -1;

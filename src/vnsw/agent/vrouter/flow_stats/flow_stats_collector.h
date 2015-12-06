@@ -75,6 +75,7 @@ public:
 
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                          uint64_t &diff_pkts);
+    void UpdateAndExportFlowStats(FlowEntry *flow, uint64_t time);
     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
                                uint64_t pkts);
     void Shutdown();
@@ -113,6 +114,10 @@ public:
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsManager;
 private:
+    void UpdateAndExportInternal(FlowEntry *flow, uint32_t bytes,
+                                 uint16_t oflow_bytes, uint32_t pkts,
+                                 uint16_t oflow_pkts, uint64_t time,
+                                 bool teardown_time);
     void UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
@@ -125,10 +130,10 @@ private:
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    bool RequestHandler(boost::shared_ptr<FlowExportReq> req);
+    bool RequestHandler(boost::shared_ptr<FlowExportReq> &req);
     void AddFlow(FlowEntryPtr ptr);
     void DeleteFlow(FlowEntryPtr ptr);
-    void UpdateFlowIndex(const FlowKey &key, uint32_t idx);
+    void UpdateFlowStats(boost::shared_ptr<FlowExportReq> &req);
 
     AgentUveBase *agent_uve_;
     FlowEntry* flow_iteration_key_;

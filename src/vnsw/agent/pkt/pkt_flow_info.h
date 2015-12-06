@@ -91,6 +91,7 @@ public:
                             const PktControlInfo *in_info,
                             const PktControlInfo *out_info);
 public:
+    void UpdateEvictedFlowStats(FlowTable* table, const PktInfo *pkt);
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
