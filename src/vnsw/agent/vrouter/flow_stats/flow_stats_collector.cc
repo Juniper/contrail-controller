@@ -252,18 +252,11 @@ void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
     const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
         (flow->flow_handle(), false);
     if (k_flow) {
-        uint64_t k_bytes, k_packets, bytes, packets;
-        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
-                               k_flow->fe_stats.flow_bytes);
-        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
-                                 k_flow->fe_stats.flow_packets);
-        FlowStats *stats = &(flow->stats_);
-        bytes = GetUpdatedFlowBytes(stats, k_bytes);
-        packets = GetUpdatedFlowPackets(stats, k_packets);
-        diff_bytes = bytes - stats->bytes;
-        diff_packets = packets - stats->packets;
-        stats->bytes = bytes;
-        stats->packets = packets;
+        UpdateFlowStatsInternal(flow, k_flow->fe_stats.flow_bytes,
+                                k_flow->fe_stats.flow_bytes_oflow,
+                                k_flow->fe_stats.flow_packets,
+                                k_flow->fe_stats.flow_packets_oflow,
+                                &diff_bytes, &diff_packets);
     } else {
         diff_bytes = 0;
         diff_packets = 0;
@@ -507,7 +500,6 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         DispatchFlowMsg(level, s_flow);
         flow_stats_manager_->flow_export_count_++;
     }
-
 }
 
 void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
@@ -568,7 +560,7 @@ bool FlowStatsManager::UpdateFlowThreshold() {
     return true;
 }
 
-bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
+bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> &req) {
     switch (req->event()) {
     case FlowExportReq::ADD_FLOW: {
         AddFlow(req->flow());
@@ -578,6 +570,12 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     case FlowExportReq::DELETE_FLOW: {
         /* Remove the entry from our tree */
         DeleteFlow(req->flow());
+        break;
+    }
+
+    case FlowExportReq::UPDATE_FLOW_STATS: {
+        /* Update stats for evicted flow */
+        UpdateFlowStats(req);
         break;
     }
 
@@ -600,6 +598,52 @@ void FlowStatsCollector::AddFlow(FlowEntryPtr ptr) {
 
 void FlowStatsCollector::DeleteFlow(FlowEntryPtr ptr) {
     flow_tree_.erase(ptr.get());
+}
+
+void FlowStatsCollector::UpdateFlowStatsInternal(FlowEntry *flow,
+                                                 uint32_t bytes,
+                                                 uint16_t oflow_bytes,
+                                                 uint32_t pkts,
+                                                 uint16_t oflow_pkts,
+                                                 uint64_t *diff_bytes,
+                                                 uint64_t *diff_pkts) {
+    uint64_t k_bytes, k_packets, total_bytes, total_packets;
+    k_bytes = GetFlowStats(oflow_bytes, bytes);
+    k_packets = GetFlowStats(oflow_pkts, pkts);
+
+    FlowStats *stats = &(flow->stats_);
+    total_bytes = GetUpdatedFlowBytes(stats, k_bytes);
+    total_packets = GetUpdatedFlowPackets(stats, k_packets);
+    *diff_bytes = total_bytes - stats->bytes;
+    *diff_pkts = total_packets - stats->packets;
+    stats->bytes = total_bytes;
+    stats->packets = total_packets;
+}
+
+void FlowStatsCollector::UpdateEvictedFlowStats(FlowEntry *flow,
+                                                uint32_t bytes,
+                                                uint16_t oflow_bytes,
+                                                uint32_t pkts,
+                                                uint16_t oflow_pkts) {
+    uint64_t diff_bytes, diff_pkts;
+    UpdateFlowStatsInternal(flow, bytes, oflow_bytes, pkts, oflow_pkts,
+                            &diff_bytes, &diff_pkts);
+    //Update Inter-VN stats
+    UpdateInterVnStats(flow, diff_bytes, diff_pkts);
+    //Update Floating-IP stats
+    UpdateFloatingIpStats(flow, diff_bytes, diff_pkts);
+    FlowExport(flow, diff_bytes, diff_pkts);
+    /* Reset stats and teardown_time after these information is exported during
+     * flow delete so that if the flow entry is reused they point to right
+     * values */
+    flow->ResetStats();
+    flow->stats_.teardown_time = 0;
+}
+
+void FlowStatsCollector::UpdateFlowStats(boost::shared_ptr<FlowExportReq> &req) {
+    UpdateEvictedFlowStats(req->flow(), req->bytes(),
+                           req->oflow_bytes() & 0xFFFF,
+                           req->packets(), req->oflow_bytes() & 0xFFFF0000);
 }
 
 uint32_t FlowStatsCollector::threshold() const {

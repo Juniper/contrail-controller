@@ -174,6 +174,22 @@ void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
     protocol_list_[req->key.proto] = NULL;
 }
 
+void FlowStatsManager::UpdateStatsEvent(FlowEntry *fe, uint32_t bytes,
+                                        uint32_t packets, uint32_t oflow_bytes) {
+    FlowStatsCollector *fsc = fe->stats_.fsc;
+    if (fsc == NULL) {
+        return;
+    }
+
+    if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
+        return;
+    }
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, fe,
+                    bytes, packets, oflow_bytes));
+    fsc->request_queue_.Enqueue(req);
+}
+
 void FlowStatsManager::Add(const FlowAgingTableKey &key,
                           uint64_t flow_stats_interval,
                           uint64_t flow_cache_timeout) {
