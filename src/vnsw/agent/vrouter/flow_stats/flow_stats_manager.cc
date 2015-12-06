@@ -174,6 +174,25 @@ void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
     protocol_list_[req->key.proto] = NULL;
 }
 
+void FlowStatsManager::UpdateStatsEvent(FlowEntry *fe, uint32_t bytes,
+                                        uint32_t packets, uint32_t oflow_bytes,
+                                        FlowTable *table) {
+    FlowStatsCollector *fsc = fe->stats_.fsc;
+    if (fsc == NULL) {
+        return;
+    }
+
+    if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
+        return;
+    }
+    RevFlowDepParams params;
+    table->RevFlowDepInfo(fe, &params);
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, fe,
+                bytes, packets, oflow_bytes, params));
+    fsc->request_queue_.Enqueue(req);
+}
+
 void FlowStatsManager::Add(const FlowAgingTableKey &key,
                           uint64_t flow_stats_interval,
                           uint64_t flow_cache_timeout) {
@@ -276,15 +295,33 @@ void FlowStatsManager::AddEvent(FlowEntry *flow) {
     fsc->request_queue_.Enqueue(req);
 }
 
-void FlowStatsManager::DeleteEvent(FlowEntry *flow) {
+void FlowStatsManager::FlowExportEvent(FlowEntry *flow) {
+    if (flow == NULL) {
+        return;
+    }
+
+    FlowStatsCollector *fsc = NULL;
+    if (flow->stats_.fsc == NULL) {
+        fsc = GetFlowStatsCollector(flow->key());
+        flow->stats_.fsc = fsc;
+    } else {
+        fsc = flow->stats_.fsc;
+    }
+
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::EXPORT_FLOW, flow));
+    fsc->request_queue_.Enqueue(req);
+}
+
+void FlowStatsManager::DeleteEvent(FlowEntry *flow, uint64_t time,
+                                   const RevFlowDepParams &params) {
     if (flow == NULL) {
         return;
     }
     FlowStatsCollector *fsc = flow->stats_.fsc;
     assert(fsc != NULL);
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::DELETE_FLOW, flow,
-                              UTCTimestampUsec()));
+        req(new FlowExportReq(FlowExportReq::DELETE_FLOW, flow, time, params));
     fsc->request_queue_.Enqueue(req);
 }
 

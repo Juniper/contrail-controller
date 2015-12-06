@@ -902,9 +902,8 @@ void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector *fec = table->agent()->flow_stats_manager()->
-                                      default_flow_stats_collector();
-        fec->FlowExport(this, 0, 0);
+        FlowStatsManager *sm = table->agent()->flow_stats_manager();
+        sm->FlowExportEvent(this);
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -1713,8 +1712,8 @@ RouteFlowInfo *FlowTable::RouteFlowInfoFind(RouteFlowKey &key) {
     return route_flow_tree_.Find(&rt_key);
 }
 
-void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time)
-{
+void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
+                               const RevFlowDepParams &params) {
     FlowInfo flow_info;
     FlowEntry *fe = it->second;
     if (fe->deleted()) {
@@ -1753,14 +1752,32 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time)
     agent_->stats()->UpdateFlowDelMinMaxStats(time);
 
     //enqueue a request to delete flow from aging tree
-    agent_->flow_stats_manager()->DeleteEvent(fe);
+    agent_->flow_stats_manager()->DeleteEvent(fe, time, params);
+}
+
+void FlowTable::RevFlowDepInfo(FlowEntry *flow, RevFlowDepParams *params) {
+
+    if (flow->key().family != Address::INET) {
+        return;
+    }
+    params->sip_ = flow->key().src_addr.to_v4().to_ulong();
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
+    if (rev_flow) {
+        params->rev_uuid_ = to_string(rev_flow->flow_uuid());
+        if (flow->is_flags_set(FlowEntry::NatFlow) &&
+            flow->is_flags_set(FlowEntry::IngressDir)) {
+            const FlowKey *nat_key = &rev_flow->key();
+            if (flow->key().src_addr != nat_key->dst_addr) {
+                params->sip_ = nat_key->dst_addr.to_v4().to_ulong();
+            }
+        }
+    }
 }
 
 bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 {
     FlowEntryMap::iterator it;
     FlowEntry *fe;
-    uint64_t time = 0;
 
     it = flow_entry_map_.find(key);
     if (it == flow_entry_map_.end()) {
@@ -1773,16 +1790,18 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
         reverse_flow = fe->reverse_flow_entry();
     }
 
-    /* Send flow log messages for both forward and reverse flows before we
-     * delete any flows because we need relationship between forward and
-     * reverse flow during FlowExport. This relationship will be broken if
-     * either of forward or reverse flow is deleted */
-    if (!fe->deleted() || (reverse_flow && !reverse_flow->deleted())) {
-        time = UTCTimestampUsec();
-        SendFlows(fe, reverse_flow, time);
+    /* Fetch info dependent on reverse flows before the relationship between
+     * forward and reverse flows are broken */
+    RevFlowDepParams f_params, r_params;
+    if (!fe->deleted()) {
+        RevFlowDepInfo(fe, &f_params);
     }
+    if (reverse_flow && !reverse_flow->deleted()) {
+        RevFlowDepInfo(reverse_flow, &r_params);
+    }
+    uint64_t time = UTCTimestampUsec();
     /* Delete the forward flow */
-    DeleteInternal(it, time);
+    DeleteInternal(it, time, f_params);
 
     if (!reverse_flow) {
         return true;
@@ -1790,34 +1809,10 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 
     it = flow_entry_map_.find(reverse_flow->key());
     if (it != flow_entry_map_.end()) {
-        DeleteInternal(it, time);
+        DeleteInternal(it, time, r_params);
         return true;
     }
     return false;
-}
-
-void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
-{
-    FlowStatsCollector *fec = agent_->flow_stats_manager()->
-                                  default_flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
-
-    fe->stats_.teardown_time = time;
-    fec->FlowExport(fe, diff_bytes, diff_packets);
-    /* Reset stats and teardown_time after these information is exported during
-     * flow delete so that if the flow entry is reused they point to right
-     * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
-}
-
-void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow, uint64_t time)
-{
-    SendFlowInternal(flow, time);
-    if (rflow) {
-        SendFlowInternal(rflow, time);
-    }
 }
 
 void FlowTable::DeleteAll()

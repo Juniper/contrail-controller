@@ -1,0 +1,572 @@
+commit 2c483d0f50619c1061d0ab22ae56273cccbf4ad2
+Author: Ashok Singh <ashoksr@juniper.net>
+Date:   Sun Dec 6 09:36:06 2015 -0800
+
+    Send Evicted flow stats from agent.
+    
+    Vrouter informs agent about stats of evicted flow when the index is reused by some other flow.
+    The stats are sent along with flow trap message and index update message to agent. If the flow is
+    already deleted from agent when the stats message comes, we don't update the stats.
+    
+    Change-Id: Ibee7efb0c302f6cd32e30c38d5e50f3786f7a137
+    Partial-Bug: #1521872
+
+diff --git a/src/vnsw/agent/pkt/flow_table.cc b/src/vnsw/agent/pkt/flow_table.cc
+index 4098e94..93029de 100644
+--- a/src/vnsw/agent/pkt/flow_table.cc
++++ b/src/vnsw/agent/pkt/flow_table.cc
+@@ -1799,11 +1799,11 @@ void FlowTable::SendFlowInternal(FlowEntry *fe, uint64_t time)
+ {
+     FlowStatsCollector *fec = agent_->flow_stats_manager()->
+                                   default_flow_stats_collector();
+-    uint64_t diff_bytes, diff_packets;
+-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+-
+-    fe->stats_.teardown_time = time;
+-    fec->FlowExport(fe, diff_bytes, diff_packets);
++    /* If teardown time is already set, flow-stats are already exported as part
++     * of vrouter flow eviction stats update */
++    if (!fe->stats_.teardown_time) {
++        fec->UpdateAndExportFlowStats(fe, time);
++    }
+     /* Reset stats and teardown_time after these information is exported during
+      * flow delete so that if the flow entry is reused they point to right
+      * values */
+diff --git a/src/vnsw/agent/pkt/flow_table.h b/src/vnsw/agent/pkt/flow_table.h
+index 1c6dd35..35a0d91 100644
+--- a/src/vnsw/agent/pkt/flow_table.h
++++ b/src/vnsw/agent/pkt/flow_table.h
+@@ -114,6 +114,30 @@ struct FlowKey {
+         return dst_port < key.dst_port;
+     }
+ 
++    bool IsEqual(const FlowKey &key) const {
++        if (family != key.family)
++            return false;
++
++        if (nh != key.nh)
++            return false;
++
++        if (src_addr != key.src_addr)
++            return false;
++
++        if (dst_addr != key.dst_addr)
++            return false;
++
++        if (protocol != key.protocol)
++            return false;
++
++        if (src_port != key.src_port)
++            return false;
++
++        if (dst_port != key.dst_port)
++            return false;
++        return true;
++    }
++
+     void Reset() {
+         family = Address::UNSPEC;
+         nh = -1;
+diff --git a/src/vnsw/agent/pkt/pkt_flow_info.cc b/src/vnsw/agent/pkt/pkt_flow_info.cc
+index 41348bb..e56e02e 100644
+--- a/src/vnsw/agent/pkt/pkt_flow_info.cc
++++ b/src/vnsw/agent/pkt/pkt_flow_info.cc
+@@ -33,6 +33,7 @@
+ #include "pkt/agent_stats.h"
+ #include <vrouter/ksync/flowtable_ksync.h>
+ #include <vrouter/ksync/ksync_init.h>
++#include <vrouter/flow_stats/flow_stats_collector.h>
+ 
+ static void LogError(const PktInfo *pkt, const char *str) {
+     if (pkt->family == Address::INET) {
+@@ -1499,16 +1500,19 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
+     if (pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
+         update = false;
+     }
++
++    FlowTable* flow_table = Agent::GetInstance()->pkt()->flow_table();
++    if (update == false) {
++        UpdateEvictedFlowStats(flow_table, pkt);
++    }
+     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
+      * both forward and reverse flows are not not linked to each other yet.
+      * We need both forward and reverse flows to update Fip stats info */
+     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
+     if (swap_flows) {
+-        Agent::GetInstance()->pkt()->flow_table()->Add(rflow.get(), flow.get(),
+-                                                       update);
++        flow_table->Add(rflow.get(), flow.get(), update);
+     } else {
+-        Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get(),
+-                                                       update);
++        flow_table->Add(flow.get(), rflow.get(), update);
+     }
+ }
+ 
+@@ -1612,3 +1616,14 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
+     }
+     return;
+ }
++
++void PktFlowInfo::UpdateEvictedFlowStats(FlowTable* table, const PktInfo *pkt) {
++    FlowStatsManager *sm = table->agent()->flow_stats_manager();
++    FlowEntry *flow = table->FindByIndex(pkt->agent_hdr.cmd_param);
++
++    if (flow && flow->deleted() == false) {
++        sm->UpdateStatsEvent(flow, pkt->agent_hdr.cmd_param_2,
++                pkt->agent_hdr.cmd_param_3,
++                pkt->agent_hdr.cmd_param_4);
++    }
++}
+diff --git a/src/vnsw/agent/pkt/pkt_flow_info.h b/src/vnsw/agent/pkt/pkt_flow_info.h
+index 18c4acd..3365d4c 100644
+--- a/src/vnsw/agent/pkt/pkt_flow_info.h
++++ b/src/vnsw/agent/pkt/pkt_flow_info.h
+@@ -91,6 +91,7 @@ public:
+                             const PktControlInfo *in_info,
+                             const PktControlInfo *out_info);
+ public:
++    void UpdateEvictedFlowStats(FlowTable* table, const PktInfo *pkt);
+     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
+                      const IpAddress &addr, const MacAddress &mac,
+                      FlowRouteRefMap &ref_map);
+diff --git a/src/vnsw/agent/pkt/pkt_handler.h b/src/vnsw/agent/pkt/pkt_handler.h
+index a8f7396..b4d23bf 100644
+--- a/src/vnsw/agent/pkt/pkt_handler.h
++++ b/src/vnsw/agent/pkt/pkt_handler.h
+@@ -129,16 +129,19 @@ struct AgentHdr {
+ 
+     AgentHdr() :
+         ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), cmd_param_1(-1),
++        cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
+         nh(-1), flow_index(-1), mtu(0) {}
+ 
+     AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p) :
+         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1),
+-        cmd_param_1(-1), nh(-1), flow_index(-1), mtu(0) {}
++        cmd_param_1(-1), cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
++        nh(-1), flow_index(-1), mtu(0) {}
+ 
+     AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p,
+              uint32_t param1, uint32_t param2) :
+         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(param1),
+-        cmd_param_1(param2), nh(-1), flow_index(-1), mtu(0) {}
++        cmd_param_1(param2), cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
++        nh(-1), flow_index(-1), mtu(0) {}
+ 
+     ~AgentHdr() {}
+ 
+@@ -148,6 +151,9 @@ struct AgentHdr {
+     uint16_t            cmd;
+     uint32_t            cmd_param;
+     uint32_t            cmd_param_1;
++    uint32_t            cmd_param_2;
++    uint32_t            cmd_param_3;
++    uint32_t            cmd_param_4;
+     uint32_t            nh;
+     uint32_t            flow_index;
+     uint16_t            mtu;
+diff --git a/src/vnsw/agent/pkt/vrouter_interface.h b/src/vnsw/agent/pkt/vrouter_interface.h
+index 13008f9..ecf5c6d 100644
+--- a/src/vnsw/agent/pkt/vrouter_interface.h
++++ b/src/vnsw/agent/pkt/vrouter_interface.h
+@@ -83,6 +83,9 @@ public:
+         hdr->cmd = VrCmdToAgentCmd(ntohs(vr_agent_hdr->hdr_cmd));
+         hdr->cmd_param = ntohl(vr_agent_hdr->hdr_cmd_param);
+         hdr->nh = ntohl(vr_agent_hdr->hdr_cmd_param_1);
++        hdr->cmd_param_2 = ntohl(vr_agent_hdr->hdr_cmd_param_2);
++        hdr->cmd_param_3 = ntohl(vr_agent_hdr->hdr_cmd_param_3);
++        hdr->cmd_param_4 = ntohl(vr_agent_hdr->hdr_cmd_param_4);
+         if (hdr->cmd == AGENT_TRAP_HANDLE_DF) {
+             hdr->mtu = ntohl(vr_agent_hdr->hdr_cmd_param);
+             hdr->flow_index = ntohl(vr_agent_hdr->hdr_cmd_param_1);
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_export_request.h b/src/vnsw/agent/vrouter/flow_stats/flow_export_request.h
+index f41b842..2a7e0bd 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_export_request.h
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_export_request.h
+@@ -15,7 +15,7 @@ public:
+         INVALID,
+         ADD_FLOW,
+         DELETE_FLOW,
+-        UPDATE_FLOW_INDEX
++        UPDATE_FLOW_STATS,
+     };
+ 
+     FlowExportReq(Event event, FlowEntry *ptr) :
+@@ -26,16 +26,28 @@ public:
+         event_(event), flow_(ptr), time_(time) {
+     }
+ 
++    FlowExportReq(Event event, FlowEntry *ptr,
++                  uint32_t bytes, uint32_t packets, uint32_t oflow_bytes):
++                  event_(event), flow_(ptr), bytes_(bytes),
++                  packets_(packets), oflow_bytes_(oflow_bytes) {
++    }
++
+     ~FlowExportReq() { }
+ 
+     Event event() const { return event_; }
+     FlowEntry* flow() const { return flow_.get(); }
+     uint64_t time() const { return time_; }
++    uint32_t bytes() const { return bytes_;}
++    uint32_t packets() const { return packets_;}
++    uint32_t oflow_bytes() const { return oflow_bytes_;}
+ 
+ private:
+     Event event_;
+     FlowEntryPtr flow_;
+     uint64_t time_;
++    uint32_t bytes_;
++    uint32_t packets_;
++    uint32_t oflow_bytes_;
+ 
+     DISALLOW_COPY_AND_ASSIGN(FlowExportReq);
+ };
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
+index c158d4c..8741e36 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.cc
+@@ -244,30 +244,22 @@ void FlowStatsCollector::UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes,
+     }
+ }
+ 
+-void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
+-                                         uint64_t &diff_packets) {
++void FlowStatsCollector::UpdateAndExportFlowStats(FlowEntry *flow,
++                                                  uint64_t time) {
+     FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
+                                          flowtable_ksync_obj();
+-
+-    const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
+-        (flow->flow_handle(), false);
++    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(flow);
+     if (k_flow) {
+-        uint64_t k_bytes, k_packets, bytes, packets;
+-        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
+-                               k_flow->fe_stats.flow_bytes);
+-        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
+-                                 k_flow->fe_stats.flow_packets);
+-        FlowStats *stats = &(flow->stats_);
+-        bytes = GetUpdatedFlowBytes(stats, k_bytes);
+-        packets = GetUpdatedFlowPackets(stats, k_packets);
+-        diff_bytes = bytes - stats->bytes;
+-        diff_packets = packets - stats->packets;
+-        stats->bytes = bytes;
+-        stats->packets = packets;
+-    } else {
+-        diff_bytes = 0;
+-        diff_packets = 0;
++        UpdateAndExportInternal(flow, k_flow->fe_stats.flow_bytes,
++                                k_flow->fe_stats.flow_bytes_oflow,
++                                k_flow->fe_stats.flow_packets,
++                                k_flow->fe_stats.flow_packets_oflow, time,
++                                true);
++        return;
+     }
++    /* If reading of stats fails, send a message with just teardown time */
++    flow->stats_.teardown_time = time;
++    FlowExport(flow, 0, 0);
+ }
+ 
+ bool FlowStatsCollector::SetUnderlayPort(FlowEntry *flow,
+@@ -507,7 +499,6 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
+         DispatchFlowMsg(level, s_flow);
+         flow_stats_manager_->flow_export_count_++;
+     }
+-
+ }
+ 
+ void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
+@@ -568,7 +559,7 @@ bool FlowStatsManager::UpdateFlowThreshold() {
+     return true;
+ }
+ 
+-bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
++bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> &req) {
+     switch (req->event()) {
+     case FlowExportReq::ADD_FLOW: {
+         AddFlow(req->flow());
+@@ -581,6 +572,12 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
+         break;
+     }
+ 
++    case FlowExportReq::UPDATE_FLOW_STATS: {
++        /* Update stats for evicted flow */
++        UpdateFlowStats(req);
++        break;
++    }
++
+     default:
+          assert(0);
+ 
+@@ -602,6 +599,45 @@ void FlowStatsCollector::DeleteFlow(FlowEntryPtr ptr) {
+     flow_tree_.erase(ptr.get());
+ }
+ 
++void FlowStatsCollector::UpdateAndExportInternal(FlowEntry *flow,
++                                                 uint32_t bytes,
++                                                 uint16_t oflow_bytes,
++                                                 uint32_t pkts,
++                                                 uint16_t oflow_pkts,
++                                                 uint64_t time,
++                                                 bool teardown_time) {
++    uint64_t k_bytes, k_packets, total_bytes, total_packets;
++    uint64_t diff_bytes, diff_pkts;
++    k_bytes = GetFlowStats(oflow_bytes, bytes);
++    k_packets = GetFlowStats(oflow_pkts, pkts);
++
++    FlowStats *stats = &(flow->stats_);
++    total_bytes = GetUpdatedFlowBytes(stats, k_bytes);
++    total_packets = GetUpdatedFlowPackets(stats, k_packets);
++    diff_bytes = total_bytes - stats->bytes;
++    diff_pkts = total_packets - stats->packets;
++    stats->bytes = total_bytes;
++    stats->packets = total_packets;
++
++    //Update Inter-VN stats
++    UpdateInterVnStats(flow, diff_bytes, diff_pkts);
++    //Update Floating-IP stats
++    UpdateFloatingIpStats(flow, diff_bytes, diff_pkts);
++    if (teardown_time) {
++        flow->stats_.teardown_time = time;
++    } else {
++        flow->stats_.last_modified_time = time;
++    }
++    FlowExport(flow, diff_bytes, diff_pkts);
++}
++
++void FlowStatsCollector::UpdateFlowStats(boost::shared_ptr<FlowExportReq> &req) {
++    UpdateAndExportInternal(req->flow(), req->bytes(),
++                            req->oflow_bytes() & 0xFFFF,
++                            req->packets(), req->oflow_bytes() & 0xFFFF0000,
++                            UTCTimestampUsec(), true);
++}
++
+ uint32_t FlowStatsCollector::threshold() const {
+     return flow_stats_manager_->threshold();
+ }
+@@ -612,7 +648,6 @@ bool FlowStatsCollector::Run() {
+     FlowStats *stats = NULL;
+     uint32_t count = 0;
+     bool key_updation_reqd = true, deleted;
+-    uint64_t diff_bytes, diff_pkts;
+ 
+     run_counter_++;
+     if (!flow_tree_.size()) {
+@@ -687,22 +722,11 @@ bool FlowStatsCollector::Run() {
+             /* Don't account for agent overflow bits while comparing change in
+              * stats */
+             if (bytes != k_bytes) {
+-                uint64_t packets, k_packets;
+-
+-                k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
+-                                         k_flow->fe_stats.flow_packets);
+-                bytes = GetUpdatedFlowBytes(stats, k_bytes);
+-                packets = GetUpdatedFlowPackets(stats, k_packets);
+-                diff_bytes = bytes - stats->bytes;
+-                diff_pkts = packets - stats->packets;
+-                //Update Inter-VN stats
+-                UpdateInterVnStats(entry, diff_bytes, diff_pkts);
+-                //Update Floating-IP stats
+-                UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
+-                stats->bytes = bytes;
+-                stats->packets = packets;
+-                stats->last_modified_time = curr_time;
+-                FlowExport(entry, diff_bytes, diff_pkts);
++                UpdateAndExportInternal(entry, k_flow->fe_stats.flow_bytes,
++                                        k_flow->fe_stats.flow_bytes_oflow,
++                                        k_flow->fe_stats.flow_packets,
++                                        k_flow->fe_stats.flow_packets_oflow,
++                                        curr_time, false);
+             } else if (!stats->exported && !entry->deleted()) {
+                 /* export flow (reverse) for which traffic is not seen yet. */
+                 FlowExport(entry, 0, 0);
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.h b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.h
+index 8aeaf40..4cb97f1 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.h
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_stats_collector.h
+@@ -75,6 +75,7 @@ public:
+ 
+     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
+                          uint64_t &diff_pkts);
++    void UpdateAndExportFlowStats(FlowEntry *flow, uint64_t time);
+     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
+                                uint64_t pkts);
+     void Shutdown();
+@@ -113,6 +114,10 @@ public:
+     friend class AgentUtXmlFlowThresholdValidate;
+     friend class FlowStatsManager;
+ private:
++    void UpdateAndExportInternal(FlowEntry *flow, uint32_t bytes,
++                                 uint16_t oflow_bytes, uint32_t pkts,
++                                 uint16_t oflow_pkts, uint64_t time,
++                                 bool teardown_time);
+     void UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes, uint64_t pkts);
+     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
+     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
+@@ -125,10 +130,10 @@ private:
+     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
+     bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
+-    bool RequestHandler(boost::shared_ptr<FlowExportReq> req);
++    bool RequestHandler(boost::shared_ptr<FlowExportReq> &req);
+     void AddFlow(FlowEntryPtr ptr);
+     void DeleteFlow(FlowEntryPtr ptr);
+-    void UpdateFlowIndex(const FlowKey &key, uint32_t idx);
++    void UpdateFlowStats(boost::shared_ptr<FlowExportReq> &req);
+ 
+     AgentUveBase *agent_uve_;
+     FlowEntry* flow_iteration_key_;
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.cc b/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.cc
+index 5527f53..d582c65 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.cc
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.cc
+@@ -174,6 +174,22 @@ void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
+     protocol_list_[req->key.proto] = NULL;
+ }
+ 
++void FlowStatsManager::UpdateStatsEvent(FlowEntry *fe, uint32_t bytes,
++                                        uint32_t packets, uint32_t oflow_bytes) {
++    FlowStatsCollector *fsc = fe->stats_.fsc;
++    if (fsc == NULL) {
++        return;
++    }
++
++    if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
++        return;
++    }
++    boost::shared_ptr<FlowExportReq>
++        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, fe,
++                    bytes, packets, oflow_bytes));
++    fsc->request_queue_.Enqueue(req);
++}
++
+ void FlowStatsManager::Add(const FlowAgingTableKey &key,
+                           uint64_t flow_stats_interval,
+                           uint64_t flow_cache_timeout) {
+diff --git a/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.h b/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.h
+index e30e8c5..194ad55 100644
+--- a/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.h
++++ b/src/vnsw/agent/vrouter/flow_stats/flow_stats_manager.h
+@@ -138,6 +138,8 @@ public:
+     static void FlowStatsReqHandler(Agent *agent, uint32_t proto,
+                                     uint32_t port,
+                                     uint64_t protocol);
++    void UpdateStatsEvent(FlowEntry *flow, uint32_t bytes,
++                          uint32_t packets, uint32_t oflow_bytes);
+     void FreeIndex(uint32_t idx);
+ 
+     friend class AgentUtXmlFlowThreshold;
+diff --git a/src/vnsw/agent/vrouter/ksync/flowtable_ksync.cc b/src/vnsw/agent/vrouter/ksync/flowtable_ksync.cc
+index ca06013..ea5b41c 100644
+--- a/src/vnsw/agent/vrouter/ksync/flowtable_ksync.cc
++++ b/src/vnsw/agent/vrouter/ksync/flowtable_ksync.cc
+@@ -536,8 +536,50 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
+     return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
+ }
+ 
++FlowKey FlowTableKSyncObject::GetFlowKey(const vr_flow_entry *entry) const {
++    Ip4Address sip(ntohl(entry->fe_key.flow4_sip));
++    Ip4Address dip(ntohl(entry->fe_key.flow4_dip));
++
++    FlowKey key(entry->fe_key.flow4_nh_id, sip, dip, entry->fe_key.flow4_proto,
++                ntohs(entry->fe_key.flow4_sport),
++                ntohs(entry->fe_key.flow4_dport));
++    return key;
++}
++
++bool FlowTableKSyncObject::IsEvictionMarked(const vr_flow_entry *entry) const {
++    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
++        return true;
++    }
++    if (entry->fe_flags & VR_FLOW_FLAG_EVICT_CANDIDATE) {
++        return true;
++    }
++    return false;
++}
++
++const vr_flow_entry *FlowTableKSyncObject::GetValidKFlowEntry
++    (FlowEntry *fe) const {
++    const vr_flow_entry *kflow = GetKernelFlowEntry(fe->flow_handle(), false);
++    if (!kflow) {
++        return NULL;
++    }
++    if (fe->key().protocol == IPPROTO_TCP) {
++        if (fe->data().vrouter_evicted_flow_ && !IsEvictionMarked(kflow)) {
++            return NULL;
++        }
++        const FlowKey &k1 = fe->key();
++        const FlowKey k2 = GetFlowKey(kflow);
++        if (!k1.IsEqual(k2)) {
++            return NULL;
++        }
++        /* TODO: If a flow is evicted from vrouter and later flow with same
++         * key is assigned with same index, then we may end up reading
++         * wrong stats */
++    }
++    return kflow;
++}
++
+ const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
+-    (uint32_t idx, bool ignore_active_status) { 
++    (uint32_t idx, bool ignore_active_status) const {
+     if (idx == FlowEntry::kInvalidFlowHandle) {
+         return NULL;
+     }
+diff --git a/src/vnsw/agent/vrouter/ksync/flowtable_ksync.h b/src/vnsw/agent/vrouter/ksync/flowtable_ksync.h
+index 02f9620..667d85d 100644
+--- a/src/vnsw/agent/vrouter/ksync/flowtable_ksync.h
++++ b/src/vnsw/agent/vrouter/ksync/flowtable_ksync.h
+@@ -78,8 +78,9 @@ public:
+     bool DoEventTrace(void) { return false; }
+     FlowTableKSyncEntry *Find(FlowEntry *key);
+     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
+-                                            bool ignore_active_status);
++                                            bool ignore_active_status) const;
+     bool GetFlowKey(uint32_t index, FlowKey *key);
++    const vr_flow_entry *GetValidKFlowEntry(FlowEntry *fe) const;
+ 
+     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
+     bool AuditProcess();
+@@ -101,6 +102,8 @@ public:
+     void GetFlowTableSize();
+     void StartAuditTimer();
+ private:
++    bool IsEvictionMarked(const vr_flow_entry *entry) const;
++    FlowKey GetFlowKey(const vr_flow_entry *entry) const;
+     friend class KSyncSandeshContext;
+     KSync *ksync_;
+     int major_devid_;
+diff --git a/src/vnsw/agent/vrouter/ksync/sandesh_ksync.cc b/src/vnsw/agent/vrouter/ksync/sandesh_ksync.cc
+index 481a9fb..247923f 100644
+--- a/src/vnsw/agent/vrouter/ksync/sandesh_ksync.cc
++++ b/src/vnsw/agent/vrouter/ksync/sandesh_ksync.cc
+@@ -12,6 +12,7 @@
+ #include <pkt/flow_table.h>
+ #include <oper/mirror_table.h>
+ #include <vrouter/ksync/ksync_init.h>
++#include <vrouter/flow_stats/flow_stats_collector.h>
+ 
+ void vr_interface_req::Process(SandeshContext *context) {
+      AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+@@ -120,9 +121,18 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
+             if ((int)entry->flow_handle() != r->get_fr_index()) {
+                 update_rev_flow = true;
+             }
+-            flow_ksync_->ksync()->agent()->pkt()->flow_table()->
+-                AddIndexFlowInfo(entry, r->get_fr_index());
+ 
++            FlowTable *flow_table =
++                flow_ksync_->ksync()->agent()->pkt()->flow_table();
++
++            FlowStatsManager *sm = flow_table->agent()->flow_stats_manager();
++            FlowEntry *flow = flow_table->FindByIndex(r->get_fr_index());
++            if (flow && flow->deleted() == false) {
++                sm->UpdateStatsEvent(flow, r->get_fr_flow_bytes(),
++                        r->get_fr_flow_packets(), r->get_fr_flow_stats_oflow());
++            }
++
++            flow_table->AddIndexFlowInfo(entry, r->get_fr_index());
+             FlowEntry *rev_flow = entry->reverse_flow_entry();
+             //Tie forward flow and reverse flow
+             if (rev_flow && update_rev_flow) {
