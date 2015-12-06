@@ -4,6 +4,10 @@
 
 
 #include <fstream>
+#include <vector>
+
+#include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config_ifmap.h"
@@ -12,6 +16,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-policy/routing_policy.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
@@ -1477,10 +1482,22 @@ TEST_F(BgpConfigTest, AddressFamilies3) {
 }
 
 TEST_F(BgpConfigTest, RoutePolicy_0) {
-    string content = FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
+    RoutingPolicy *policy =
+        server_.routing_policy_mgr()->GetRoutingPolicy("basic");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+    TASK_UTIL_ASSERT_EQ(policy->terms().size(), 2);
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+
+    RoutingInstance::RoutingPolicyList policies = rti->routing_policies();
+    TASK_UTIL_ASSERT_TRUE(policies.size() == 1);
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1490,10 +1507,31 @@ TEST_F(BgpConfigTest, RoutePolicy_0) {
 }
 
 TEST_F(BgpConfigTest, RoutePolicy_1) {
-    string content = FileRead("controller/src/bgp/testdata/routing_policy_1.xml");
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
+    RoutingPolicy *policy =
+        server_.routing_policy_mgr()->GetRoutingPolicy("basic_0");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+
+    policy = server_.routing_policy_mgr()->GetRoutingPolicy("basic_1");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+    TASK_UTIL_ASSERT_EQ(policy->terms().size(), 1);
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+
+    vector<string> expect_list = boost::assign::list_of("basic_1")("basic_0");
+    vector<string> current_list;
+    RoutingInstance::RoutingPolicyList policies = rti->routing_policies();
+    BOOST_FOREACH(RoutingPolicyPtr ptr, policies) {
+        current_list.push_back(ptr->name());
+    }
+    TASK_UTIL_ASSERT_TRUE(policies.size() == 2);
+    TASK_UTIL_ASSERT_TRUE(current_list == expect_list);
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1503,9 +1541,22 @@ TEST_F(BgpConfigTest, RoutePolicy_1) {
 }
 
 TEST_F(BgpConfigTest, RoutePolicy_2) {
-    string content = FileRead("controller/src/bgp/testdata/routing_policy_2.xml");
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+
+    RoutingPolicy *policy =
+        server_.routing_policy_mgr()->GetRoutingPolicy("basic");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+    TASK_UTIL_ASSERT_EQ(policy->terms().size(), 3);
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+
+    RoutingInstance::RoutingPolicyList policies = rti->routing_policies();
+    TASK_UTIL_ASSERT_TRUE(policies.size() == 1);
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1514,6 +1565,68 @@ TEST_F(BgpConfigTest, RoutePolicy_2) {
 
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
+
+TEST_F(BgpConfigTest, RoutePolicy_3) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_1a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingPolicy *policy =
+        server_.routing_policy_mgr()->GetRoutingPolicy("basic_0");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+
+    policy = server_.routing_policy_mgr()->GetRoutingPolicy("basic_1");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+    TASK_UTIL_ASSERT_EQ(policy->terms().size(), 1);
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+
+    vector<string> expect_list = boost::assign::list_of("basic_0")("basic_1");
+    vector<string> current_list;
+    RoutingInstance::RoutingPolicyList policies = rti->routing_policies();
+    BOOST_FOREACH(RoutingPolicyPtr ptr, policies) {
+        current_list.push_back(ptr->name());
+    }
+    TASK_UTIL_ASSERT_TRUE(policies.size() == 2);
+    TASK_UTIL_ASSERT_TRUE(current_list == expect_list);
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+
+TEST_F(BgpConfigTest, RoutePolicy_4) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_2a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingPolicy *policy =
+        server_.routing_policy_mgr()->GetRoutingPolicy("basic");
+    TASK_UTIL_ASSERT_TRUE(policy != NULL);
+    TASK_UTIL_ASSERT_EQ(policy->terms().size(), 4);
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+
+    RoutingInstance::RoutingPolicyList policies = rti->routing_policies();
+    TASK_UTIL_ASSERT_TRUE(policies.size() == 1);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

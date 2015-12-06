@@ -4,23 +4,17 @@
         <term>
             <from>
                 <prefix>
-                    <prefix>10.0.1.1/32</prefix>
-                    <type> exact </type>
+                    <prefix>2001:db8:85a3::8a2e:370:7334/128</prefix>
+                    <type>exact</type>
                 </prefix>
-            </from>
-            <then>
-                <update>
-                    <local-pref>102</local-pref>
-                </update>
-                <action>accept</action>
-            </then>
-        </term>
-        <term>
-            <from>
                 <community>11:13</community>
             </from>
             <then>
-                <action>reject</action>
+                <update>
+                    <community>
+                        <add><community>11:22</community></add>
+                    </community>
+                </update>
             </then>
         </term>
     </routing-policy>

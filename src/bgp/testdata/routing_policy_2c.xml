@@ -4,23 +4,17 @@
         <term>
             <from>
                 <prefix>
-                    <prefix>10.0.1.1/32</prefix>
-                    <type> exact </type>
+                    <prefix>1/8</prefix>
+                    <type>orlonger</type>
                 </prefix>
             </from>
             <then>
                 <update>
-                    <local-pref>102</local-pref>
+                    <community>
+                        <set><community>11:13</community></set>
+                    </community>
                 </update>
                 <action>accept</action>
-            </then>
-        </term>
-        <term>
-            <from>
-                <community>11:13</community>
-            </from>
-            <then>
-                <action>reject</action>
             </then>
         </term>
     </routing-policy>
