@@ -20,6 +20,9 @@
     Link('connection', 'routing-instance', 'routing-instance', ['ref']) -->
 <!--#IFMAP-SEMANTICS-IDL 
     Link('instance-target', 'routing-instance', 'route-target', ['ref']) -->
+<xsd:element name="bgpaas-bgp-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('bgpaas-bgp-router', 'bgp-as-a-service', 'bgp-router', ['ref']) -->
 
 <xsd:element name="route-aggregate" type="ifmap:IdentityType"/>
 
