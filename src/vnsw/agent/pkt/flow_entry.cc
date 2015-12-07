@@ -451,11 +451,14 @@ bool FlowEntry::set_pending_recompute(bool value) {
 void FlowEntry::set_flow_handle(uint32_t flow_handle) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
+        // TODO(prabhjot): enable when we handle ChangeKey failures
+#if 0
         // Skip ksync index manipulation, for deleted flow entry
         // as ksync entry is not available for deleted flow
         if (!deleted_ && flow_handle_ == kInvalidFlowHandle) {
             flow_table_->UpdateFlowHandle(this, flow_handle);
         }
+#endif
         flow_handle_ = flow_handle;
         flow_table_->UpdateKSync(this, true);
     }

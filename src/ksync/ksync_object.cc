@@ -115,7 +115,14 @@ KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
     } else {
         entry = Alloc(key, KSyncEntry::kInvalidIndex);
     }
-    tree_.insert(*entry);
+    std::pair<Tree::iterator, bool> ret = tree_.insert(*entry);
+    if (ret.second == false) {
+        // entry with same key already exists in the Ksync tree
+        // delete the allocated entry and use the entry available
+        // in ksync tree
+        delete entry;
+        entry = ret.first.operator->();
+    }
     intrusive_ptr_add_ref(entry);
     return entry;
 }
@@ -212,7 +219,8 @@ void KSyncObject::ChangeKey(KSyncEntry *entry, uint32_t arg) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     assert(tree_.erase(*entry) > 0);
     UpdateKey(entry, arg);
-    tree_.insert(*entry);
+    // assert for tree insertion failures till we handle it
+    assert(tree_.insert(*entry).second == true);
 }
 
 void KSyncObject::FreeInd(KSyncEntry *entry, uint32_t index) {
