@@ -68,7 +68,7 @@ protected:
         XmppChannelConfig server_cfg(false); // isClient_ = false
         server_cfg.auth_enabled = true;
         server_cfg.path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
-        server_cfg.path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+        server_cfg.path_to_server_priv_key = "controller/src/xmpp/testdata/server-build02.key";
 
         server_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV, &server_cfg);
         server_->Initialize(0, false);
@@ -100,7 +100,7 @@ protected:
         cfg.endpoint = remote_endpoint;
         cfg.auth_enabled = true;
         cfg.path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
-        cfg.path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+        cfg.path_to_server_priv_key = "controller/src/xmpp/testdata/server-build02.key";
 
         /* Create XmppClient */
         client_ = new XmppClientTest(evm_.get(), &cfg);

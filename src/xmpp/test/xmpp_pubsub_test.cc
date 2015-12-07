@@ -82,8 +82,10 @@ protected:
 
         XmppChannelConfig server_cfg(false);
         server_cfg.auth_enabled = true;
-        server_cfg.path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
-        server_cfg.path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+        server_cfg.path_to_server_cert = 
+            "controller/src/xmpp/testdata/server-build02.pem";
+        server_cfg.path_to_server_priv_key = 
+            "controller/src/xmpp/testdata/server-build02.key";
         a_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV, &server_cfg);
         thread_.reset(new ServerThread(evm_.get()));
 
@@ -206,8 +208,10 @@ TEST_F(XmppPubSubTest, SSl_Connection) {
     cfg->ToAddr = XMPP_CONTROL_SERV;
     cfg->FromAddr = SUB_ADDR;
     cfg->auth_enabled = true;
-    cfg->path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
-    cfg->path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+    cfg->path_to_server_cert = 
+        "controller/src/xmpp/testdata/server-build02.pem";
+    cfg->path_to_server_priv_key = 
+        "controller/src/xmpp/testdata/server-build02.key";
 
     b_ = new XmppClient(evm_.get(), cfg);
     cfg_b->AddXmppChannelConfig(cfg);

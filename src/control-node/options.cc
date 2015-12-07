@@ -125,12 +125,16 @@ void Options::Initialize(EventManager &evm,
              "Enable authentication over Xmpp")
         ("DEFAULT.xmpp_server_cert",
              opt::value<string>()->default_value(
-             "/etc/contrail/ssl/certs/control-node-cert.pem"),
+             "/etc/contrail/ssl/certs/server.pem"),
              "XMPP Server ssl certificate")
         ("DEFAULT.xmpp_server_key",
              opt::value<string>()->default_value(
-             "/etc/contrail/ssl/private/control-node-privkey.pem"),
+             "/etc/contrail/ssl/private/server-privkey.pem"),
              "XMPP Server ssl private key")
+        ("DEFAULT.xmpp_ca_cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/ca-cert.pem"),
+             "XMPP CA ssl certificate")
         ("DEFAULT.sandesh_send_rate_limit",
               opt::value<uint32_t>()->default_value(
               Sandesh::get_send_rate_limit()),
@@ -263,9 +267,9 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<int>(var_map, tcp_hold_time_, "DEFAULT.tcp_hold_time");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
-    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
+    GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
 

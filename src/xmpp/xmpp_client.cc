@@ -70,13 +70,47 @@ XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config)
         //set mode
         ctx->set_options(ssl::context::default_workarounds |
                          ssl::context::no_sslv3 | ssl::context::no_sslv2, ec);
-        assert(ec.value() == 0);
+        if (ec.value() != 0) {
+            LOG(ERROR, "Error : " << ec.message() << ", setting ssl options");
+            exit(EINVAL);
+        }
 
-        // Verify server to have a valid certificate
-        ctx->load_verify_file(config->path_to_server_cert, ec);
-        assert(ec.value() == 0);
-        ctx->set_verify_mode(boost::asio::ssl::verify_peer, ec);
-        assert(ec.value() == 0);
+        // CA certificate, used to verify if the peer certificate
+        // is signed by a trusted CA
+        std::string ca_cert_filename = config->path_to_ca_cert;
+        if (!ca_cert_filename.empty()) {
+
+            // Verify peer has CA signed certificate
+            ctx->set_verify_mode(boost::asio::ssl::verify_peer, ec);
+            assert(ec.value() == 0);
+
+            ctx->load_verify_file(config->path_to_ca_cert, ec);
+            if (ec.value() != 0) {
+                LOG(ERROR, "Error : " << ec.message()
+                    << ", while using cacert file : "
+                    << config->path_to_ca_cert);
+                exit(EINVAL);
+            }
+        }
+     
+        // server certificate
+        ctx->use_certificate_chain_file(config->path_to_server_cert, ec);
+        if (ec.value() != 0) {
+            LOG(ERROR, "Error : " << ec.message() <<
+                ", while using server cert file : "
+                << config->path_to_server_cert);
+            exit(EINVAL);
+        }
+
+        // server private key
+        ctx->use_private_key_file(config->path_to_server_priv_key,
+                                  boost::asio::ssl::context::pem, ec);
+        if (ec.value() != 0) {
+            LOG(ERROR, "Error : " << ec.message()
+                << ", while using privkey file : "
+                << config->path_to_server_priv_key);
+            exit(EINVAL);
+        }
     }
 }
 

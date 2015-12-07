@@ -47,6 +47,7 @@ public:
     const bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
     const std::string xmpp_server_cert() const { return xmpp_server_cert_; }
     const std::string xmpp_server_key() const { return xmpp_server_key_; }
+    const std::string xmpp_ca_cert() const { return xmpp_ca_cert_; }
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
     const uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
@@ -103,6 +104,7 @@ private:
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;
     std::string xmpp_server_key_;
+    std::string xmpp_ca_cert_;
     bool test_mode_;
     bool collectors_configured_;
     std::vector<std::string> default_collector_server_list_;
