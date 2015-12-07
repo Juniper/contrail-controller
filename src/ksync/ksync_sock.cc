@@ -424,13 +424,15 @@ int KSyncSock::SendBulkMessage(KSyncBulkSandeshContext *bulk_context,
 }
 
 // Get the bulk-context for sequence-number
-KSyncBulkSandeshContext *KSyncSock::LocateBulkContext(uint32_t seqno) {
+KSyncBulkSandeshContext *KSyncSock::LocateBulkContext(uint32_t seqno,
+                              IoContext::IoContextWorkQId io_context_type) {
     tbb::mutex::scoped_lock lock(mutex_);
     if (bulk_seq_no_ == -1) {
         bulk_seq_no_ = seqno;
         bulk_buf_size_ = 0;
         bulk_msg_count_ = 0;
-        wait_tree_.insert(WaitTreePair(seqno, KSyncBulkSandeshContext()));
+        wait_tree_.insert(WaitTreePair(seqno,
+                              KSyncBulkSandeshContext(io_context_type)));
     }
 
     WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
@@ -449,6 +451,10 @@ bool KSyncSock::TryAddToBulk(KSyncBulkSandeshContext *bulk_context,
     if (bulk_msg_count_ >= max_bulk_msg_count_)
         return false;
 
+    if (bulk_context->io_context_type() !=
+        ioc->GetWorkQId())
+        return false;
+
     bulk_buf_size_ += ioc->GetMsgLen();
     bulk_msg_count_++;
 
@@ -457,7 +463,8 @@ bool KSyncSock::TryAddToBulk(KSyncBulkSandeshContext *bulk_context,
 }
 
 bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
-    KSyncBulkSandeshContext *bulk_context = LocateBulkContext(ioc->GetSeqno());
+    KSyncBulkSandeshContext *bulk_context = LocateBulkContext(ioc->GetSeqno(),
+                                            ioc->GetWorkQId());
     // Try adding message to bulk-message list
     if (TryAddToBulk(bulk_context, ioc)) {
         // Message added to bulk-list. Nothing more to do
@@ -468,7 +475,8 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
     SendBulkMessage(bulk_context, bulk_seq_no_);
 
     // Allocate a new context and add message to it
-    bulk_context = LocateBulkContext(ioc->GetSeqno());
+    bulk_context = LocateBulkContext(ioc->GetSeqno(),
+                                     ioc->GetWorkQId());
     assert(TryAddToBulk(bulk_context, ioc));
     return true;
 }
@@ -869,15 +877,16 @@ void KSyncIoContext::ErrorHandler(int err) {
 /////////////////////////////////////////////////////////////////////////////
 // Routines for KSyncBulkSandeshContext
 /////////////////////////////////////////////////////////////////////////////
-KSyncBulkSandeshContext::KSyncBulkSandeshContext() :
+KSyncBulkSandeshContext::KSyncBulkSandeshContext
+(IoContext::IoContextWorkQId io_context_type) :
     AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
-    io_context_list_() {
+    io_context_list_(), io_context_type_(io_context_type) {
 }
 
 KSyncBulkSandeshContext::KSyncBulkSandeshContext
 (const KSyncBulkSandeshContext &rhs) :
     AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
-    io_context_list_() {
+    io_context_list_(), io_context_type_(rhs.io_context_type_) {
 }
 
 struct IoContextDisposer {
