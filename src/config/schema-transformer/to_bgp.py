@@ -115,10 +115,11 @@ class SchemaTransformer(object):
         },
         'bgp_as_a_service': {
             'self': ['bgp_router'],
-            'virtual_machine)interface': ['bgp_router']
+            'virtual_machine_interface': ['bgp_router']
         },
         'bgp_router': {
             'self': [],
+            'bgp_as_a_service': [],
         },
         'global_system_config': {
             'self': [],
@@ -610,8 +611,8 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
-        'bgpaas_port_start': '50000',
-        'bgpaas_port_end': '50256',
+        'bgpaas_port_start': 50000,
+        'bgpaas_port_end': 50256,
     }
     secopts = {
         'use_certs': False,
@@ -724,9 +725,9 @@ def parse_args(args_str):
     parser.add_argument("--rabbit_password", help="password for rabbit")
     parser.add_argument("--rabbit_ha_mode", action='store_true',
         help="True if the rabbitmq cluster is mirroring all queue")
-    parser.add_argument("--bgpaas_port_start",
+    parser.add_argument("--bgpaas_port_start", type=int,
                         help="Start port for bgp-as-a-service proxy")
-    parser.add_argument("--bgpaas_port_end",
+    parser.add_argument("--bgpaas_port_end", type=int,
                         help="End port for bgp-as-a-service proxy")
 
     args = parser.parse_args(remaining_argv)
