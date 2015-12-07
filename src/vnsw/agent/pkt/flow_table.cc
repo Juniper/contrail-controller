@@ -1269,6 +1269,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_l3_flow(l3_flow_);
     info.set_smac(data_.smac.ToString());
     info.set_dmac(data_.dmac.ToString());
+    info.set_drop_reason(FlowEntry::DropReasonStr(data_.drop_reason));
 }
 
 void FlowEntry::UpdateReflexiveAction() {

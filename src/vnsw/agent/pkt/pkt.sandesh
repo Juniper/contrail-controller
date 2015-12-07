@@ -215,6 +215,7 @@ struct FlowInfo {
    32: bool l3_flow;
    33: string smac;
    34: string dmac;
+   35: string drop_reason;
 }
 
 traceobject sandesh FlowTrace {
