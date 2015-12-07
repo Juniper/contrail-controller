@@ -6,7 +6,11 @@
                 <community>22:13</community>
             </from>
             <then>
-                <action>accept</action>
+                <update>
+                    <community>
+                        <add><community>11:22</community></add>
+                    </community>
+                </update>
             </then>
         </term>
     </routing-policy>
@@ -22,10 +26,10 @@
     </routing-policy>
     <routing-instance name="test">
         <routing-policy to="basic_0">
-            <sequence>2.0</sequence>
+            <sequence>1.0</sequence>
         </routing-policy>
         <routing-policy to="basic_1">
-            <sequence>1.0</sequence>
+            <sequence>2.0</sequence>
         </routing-policy>
     </routing-instance>
 </config>

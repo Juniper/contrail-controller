@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 class BgpAttr;
@@ -18,6 +19,12 @@ public:
     virtual bool terminal()  const = 0;
     virtual bool accept()  const = 0;
     virtual std::string ToString() const = 0;
+    virtual bool operator==(const RoutingPolicyAction &action) const {
+        if (typeid(*this) == typeid(action))
+            return IsEqual(action);
+        return false;
+    }
+    virtual bool IsEqual(const RoutingPolicyAction &action) const = 0;
 };
 
 class RoutingPolicyUpdateAction : public RoutingPolicyAction {
@@ -36,6 +43,9 @@ public:
     std::string ToString() const {
         return "accept";
     }
+    virtual bool IsEqual(const RoutingPolicyAction &action) const {
+        return true;
+    }
 };
 
 class RoutingPolicyRejectAction : public RoutingPolicyAction {
@@ -46,6 +56,9 @@ public:
     std::string ToString() const {
         return "reject";
     }
+    virtual bool IsEqual(const RoutingPolicyAction &action) const {
+        return true;
+    }
 };
 
 class RoutingPolicyNexTermAction : public RoutingPolicyAction {
@@ -55,6 +68,9 @@ public:
     bool accept() const { return false; }
     std::string ToString() const {
         return "next-term";
+    }
+    virtual bool IsEqual(const RoutingPolicyAction &action) const {
+        return true;
     }
 };
 
@@ -70,6 +86,10 @@ public:
     virtual ~UpdateCommunity() {};
     virtual void operator()(BgpAttr *out_attr) const;
     std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyAction &community) const;
+    const CommunityList &communities() const {
+        return communities_;
+    }
 private:
     CommunityList communities_;
     CommunityUpdateOp op_;
@@ -81,6 +101,7 @@ public:
     virtual ~UpdateLocalPref() {}
     virtual void operator()(BgpAttr *out_attr) const;
     std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyAction &local_pref) const;
 private:
     uint32_t local_pref_;
 };
