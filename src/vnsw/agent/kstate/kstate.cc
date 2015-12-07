@@ -139,8 +139,8 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     }
     data.set_vrf(r->get_nhr_vrf());
     if (r->get_nhr_type() == NH_TUNNEL) {
-        Ip4Address sip((uint32_t)r->get_nhr_tun_sip());
-        Ip4Address dip((uint32_t)r->get_nhr_tun_dip());
+        Ip4Address sip(htonl((uint32_t)r->get_nhr_tun_sip()));
+        Ip4Address dip(htonl((uint32_t)r->get_nhr_tun_dip()));
         data.set_tun_sip(sip.to_string());
         data.set_tun_dip(dip.to_string());
         if (r->get_nhr_flags() & NH_FLAG_TUNNEL_UDP) {
