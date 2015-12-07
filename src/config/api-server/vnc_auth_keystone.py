@@ -36,6 +36,7 @@ class LocalAuth(object):
         self._http_app = bottle.Bottle()
         self._http_app.merge(app.routes)
         self._http_app.config.local_auth = True
+        self._http_app.error_handler = app.error_handler
         self._conf_info = conf_info
 
         # 2 decorators below due to change in api between bottle 0.11.6
