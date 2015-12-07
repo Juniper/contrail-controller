@@ -161,12 +161,27 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     if (flow_req != flow) {
+        if ((flow_req->flow_handle_ != flow->flow_handle_) &&
+            (!flow->deleted())) {
+            DeleteByIndex(flow->flow_handle(), flow);
+        }
         Copy(flow, flow_req);
         flow->set_deleted(false);
     }
 
     if (rflow && rflow_req != rflow) {
         Copy(rflow, rflow_req);
+        // if the reverse flow was marked delete, reset its flow handle
+        // to invalid index to assure it is attempted to reprogram using
+        // kInvalidFlowHandle, this also ensures that flow entry wont
+        // give fake notion of being available in the flow index tree
+        // delete for which has already happend while triggering delete
+        // for flow entry
+        // TODO(prabhjot): check if we can avoid accessing FlowEntry
+        // member variable
+        if (rflow->deleted()) {
+            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+        }
         rflow->set_deleted(false);
     }
 
@@ -181,15 +196,24 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     //      Unexpected case. Continue with flow as forward flow
     // flow has ReverseFlow reset, rflow has ReverseFlow set
     //      No change in forward/reverse flow. Continue as forward-flow
+    bool rflow_swap = false;
     if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
         rflow && !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
         FlowEntry *tmp = flow;
         flow = rflow;
         rflow = tmp;
+        rflow_swap = true;
     }
 
     UpdateReverseFlow(flow, rflow);
-    AddIndexFlowInfo(flow, flow->flow_handle_);
+    bool ksync_updated = false;
+    if (rflow_swap) {
+        // reverse flow swapped with forward flow
+        // trigger Add index for reverse flow
+        ksync_updated = AddIndexFlowInfo(rflow, flow_req->flow_handle_, update);
+    } else {
+        ksync_updated = AddIndexFlowInfo(flow, flow_req->flow_handle_, update);
+    }
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -204,11 +228,16 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        UpdateKSync(rflow, update);
+        if (!rflow_swap || !ksync_updated) {
+            UpdateKSync(rflow, update);
+        }
         AddFlowInfo(rflow);
     }
 
-    UpdateKSync(flow, update);
+    // trigger update KSync if rflow is swapped or ksync is not updated
+    if (rflow_swap || !ksync_updated) {
+        UpdateKSync(flow, update);
+    }
     AddFlowInfo(flow);
 }
 
@@ -493,8 +522,7 @@ void FlowTable::DeleteVrouterEvictedFlow(FlowEntry *flow) {
 }
 
 void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
-    if (flow_handle != FlowEntry::kInvalidFlowHandle &&
-        flow->deleted() == false) {
+    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
         if (flow_index_tree_[flow_handle] &&
             flow_index_tree_[flow_handle] != flow) {
             assert(0);
@@ -935,8 +963,11 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
     if (flow->flow_handle() != flow_handle) {
+        if (!flow->deleted()) {
+            DeleteByIndex(flow->flow_handle(), flow);
+        }
         update_rflow = true;
-        AddIndexFlowInfo(flow, flow_handle);
+        AddIndexFlowInfo(flow, flow_handle, true);
         NotifyFlowStatsCollector(flow);
     }
 
@@ -972,18 +1003,17 @@ void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
     }
 }
 
-void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
-    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
-        return;
-    }
+bool FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle,
+                                 bool update) {
+    if (!fe->deleted()) {
+        FlowEntry *flow = FindByIndex(flow_handle);
+        if (flow && flow != fe) {
+            DeleteVrouterEvictedFlow(flow);
+        }
 
-    FlowEntry *flow = FindByIndex(flow_handle);
-    if (flow && flow != fe) {
-        DeleteVrouterEvictedFlow(flow);
+        InsertByIndex(flow_handle, fe);
     }
-
-    InsertByIndex(flow_handle, fe);
-    fe->set_flow_handle(flow_handle);
+    return fe->set_flow_handle(flow_handle, update);
 }
 
 /////////////////////////////////////////////////////////////////////////////

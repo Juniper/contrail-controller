@@ -448,7 +448,7 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+bool FlowEntry::set_flow_handle(uint32_t flow_handle, bool update) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         // TODO(prabhjot): enable when we handle ChangeKey failures
@@ -460,8 +460,10 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle) {
         }
 #endif
         flow_handle_ = flow_handle;
-        flow_table_->UpdateKSync(this, true);
+        flow_table_->UpdateKSync(this, update);
+        return true;
     }
+    return false;
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {
