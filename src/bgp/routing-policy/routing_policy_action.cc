@@ -57,6 +57,14 @@ std::string UpdateCommunity::ToString() const {
     return "Update Community";
 }
 
+bool UpdateCommunity::IsEqual(const RoutingPolicyAction &community) const {
+    const UpdateCommunity in_comm =
+        static_cast<const UpdateCommunity&>(community);
+    if (op_ == in_comm.op_)
+        return (communities() == in_comm.communities());
+    return false;
+}
+
 UpdateLocalPref::UpdateLocalPref(uint32_t local_pref)
     : local_pref_(local_pref) {
 }
@@ -66,5 +74,11 @@ void UpdateLocalPref::operator()(BgpAttr *attr) const {
 }
 
 std::string UpdateLocalPref::ToString() const {
-    return "Update Community";
+    return "Update LocalPref";
+}
+
+bool UpdateLocalPref::IsEqual(const RoutingPolicyAction &local_pref) const {
+    const UpdateLocalPref in_lp =
+        static_cast<const UpdateLocalPref&>(local_pref);
+    return (local_pref_ == in_lp.local_pref_);
 }

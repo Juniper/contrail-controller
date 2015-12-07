@@ -488,13 +488,13 @@ RoutingInstance::~RoutingInstance() {
 }
 
 void RoutingInstance::AddRoutingPolicy(RoutingPolicyPtr policy) {
-    routing_policies_.push_back(policy);
+    routing_policies_.push_back(make_pair(policy, policy->generation()));
 }
 
 void RoutingInstance::ProcessRoutingPolicyConfig() {
+    RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
     BOOST_FOREACH(RoutingPolicyAttachInfo info,
                   config_->routing_policy_list()) {
-        RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
         RoutingPolicy *policy =
             policy_mgr->GetRoutingPolicy(info.routing_policy_);
         if (policy) {
@@ -503,7 +503,75 @@ void RoutingInstance::ProcessRoutingPolicyConfig() {
     }
 }
 
+//
+// Update the routing policy on the instance
+// 1. New policy is added
+// 2. Policy order changed
+// 3. Policy is removed
+// 4. Existing policy gets updated(terms in the policy got modified)
+// In any of the above cases, we call routing policy manager to re-evaluate the
+// routes in the BgpTables of this routing instance with new set of policies
+//
 void RoutingInstance::UpdateRoutingPolicyConfig() {
+    CHECK_CONCURRENCY("bgp::Config");
+    bool update_policy = false;
+    RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
+    // Number of routing policies is different
+    if (routing_policies()->size() != config_->routing_policy_list().size())
+        update_policy = true;
+
+    RoutingPolicyList::iterator oper_it = routing_policies()->begin(), oper_next;
+    BgpInstanceConfig::RoutingPolicyList::const_iterator
+        config_it = config_->routing_policy_list().begin();
+    while (oper_it != routing_policies()->end() &&
+           config_it != config_->routing_policy_list().end()) {
+        // Compare the configured routing policies on the routing-instance
+        // with operational data.
+        if (oper_it->first->name() == config_it->routing_policy_) {
+            if (oper_it->second != oper_it->first->generation()) {
+                // Policy content is updated
+                oper_it->second = oper_it->first->generation();
+                update_policy = true;
+            }
+            ++oper_it;
+            ++config_it;
+        } else {
+            // Policy Order is updated or new policy is added
+            // or policy is deleted
+            RoutingPolicy *policy =
+                policy_mgr->GetRoutingPolicy(config_it->routing_policy_);
+            if (policy) {
+                *oper_it = make_pair(policy, policy->generation());
+                ++oper_it;
+                ++config_it;
+                update_policy = true;
+            } else {
+                // points to routing policy that doesn't exists
+                // will revisit in next config notification
+                ++config_it;
+            }
+        }
+    }
+    for (oper_next = oper_it; oper_it != routing_policies()->end();
+         oper_it = oper_next) {
+        // Existing policy(ies) are removed
+        ++oper_next;
+        routing_policies()->erase(oper_it);
+        update_policy = true;
+    }
+    for (; config_it != config_->routing_policy_list().end(); ++config_it) {
+        // new policy(ies) are added
+        RoutingPolicy *policy =
+            policy_mgr->GetRoutingPolicy(config_it->routing_policy_);
+        if (policy) {
+            AddRoutingPolicy(policy);
+        }
+        update_policy = true;
+    }
+    if (update_policy) {
+        // Let RoutingPolicyMgr handle update of routing policy on the instance
+        policy_mgr->ApplyRoutingPolicy(this);
+    }
 }
 
 void RoutingInstance::ProcessServiceChainConfig() {
@@ -1100,21 +1168,46 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
     return false;
 }
 
+//
+// On given route/path apply the routing policy
+//    Called from 
+//        * InsertPath [While adding the path for the first time]
+//        * While walking the routing table to apply updating routing policy
+//
+
 bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
                                            BgpPath *path) const {
     const RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
-    BgpAttr *out_attr = new BgpAttr(*(path->GetAttr()));
-    BOOST_FOREACH(RoutingPolicyPtr policy, routing_policies()) {
+    // Take snapshot of original attribute
+    BgpAttr *out_attr = new BgpAttr(*(path->GetOriginalAttr()));
+    BOOST_FOREACH(RoutingPolicyInfo info, routing_policies()) {
+        RoutingPolicyPtr policy = info.first;
+        // Process the routing policy on original attribute and prefix
+        // Update of the attribute based on routing policy action is done
+        // on the snapshot of original attribute passed to this function
         RoutingPolicy::PolicyResult result =
-            policy_mgr->ApplyPolicy(policy.get(), route, out_attr);
+            policy_mgr->ExecuteRoutingPolicy(policy.get(), route, out_attr);
         if (result.first) {
-            if (!result.second) path->SetPolicyReject();
+            // Hit a terminal policy
+            if (!result.second) {
+                // Result of the policy is reject
+                path->SetPolicyReject();
+            } else if (path->IsPolicyReject()) {
+                // Result of the policy is Accept
+                // Clear the reject flag is marked before
+                path->ResetPolicyReject();
+            }
             BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
-            path->SetAttr(modified_attr, path->GetAttr());
+            // Update the path with new set of attributes
+            path->SetAttr(modified_attr, path->GetOriginalAttr());
             return result.second;
         }
     }
+    // After processing all the routing policy,,
+    // We are here means, all the routing policies have accepted the route
     BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
-    path->SetAttr(modified_attr, path->GetAttr());
+    path->SetAttr(modified_attr, path->GetOriginalAttr());
+    // Clear the reject if marked so in past
+    if (path->IsPolicyReject()) path->ResetPolicyReject();
     return true;
 }

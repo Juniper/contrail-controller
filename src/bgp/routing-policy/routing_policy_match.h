@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string>
+#include <typeinfo>
 
 #include <stdint.h>
 
@@ -26,6 +27,12 @@ public:
         return Match(route, attr);
     }
     virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const = 0;
+    virtual bool operator==(const RoutingPolicyMatch &match) const {
+        if (typeid(match) == typeid(*this))
+            return(IsEqual(match));
+        return false;
+    }
+    virtual bool IsEqual(const RoutingPolicyMatch &match) const = 0;
 };
 
 class MatchCommunity: public RoutingPolicyMatch {
@@ -35,6 +42,10 @@ public:
     virtual ~MatchCommunity();
     virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const;
     virtual std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyMatch &community) const;
+    const CommunityList &communities() const {
+        return to_match_;
+    }
 private:
     CommunityList to_match_;
 };
@@ -66,6 +77,7 @@ public:
     virtual ~MatchPrefix();
     virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const;
     virtual std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyMatch &prefix) const;
 private:
     PrefixT match_prefix_;
     MatchType match_type_;
