@@ -62,7 +62,7 @@ def build_config(conf_file, keystone_auth_conf_file):
 
 def _construct_config_block(lb_config, conf, custom_attr_section, custom_attributes):
     for key, value in custom_attributes.iteritems():
-        cmd = custom_attributes_dict['global'][key]['cmd']
+        cmd = custom_attributes_dict[custom_attr_section][key]['cmd']
         conf.append(cmd % value)
 
     res = "\n\t".join(conf)
