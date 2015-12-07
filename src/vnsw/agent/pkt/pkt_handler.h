@@ -269,6 +269,14 @@ public:
         void PktQThresholdExceeded(PktModuleName mod);
     };
 
+    struct PacketBufferEnqueueItem {
+        const AgentHdr hdr;
+        const PacketBufferPtr buff;
+
+        PacketBufferEnqueueItem(const AgentHdr &h, const PacketBufferPtr &b)
+            : hdr(h), buff(b) {}
+    };
+
     PktHandler(Agent *, PktModule *pkt_module);
     virtual ~PktHandler();
 
@@ -281,6 +289,7 @@ public:
     int ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                      PktType::Type &pkt_type, uint8_t *pkt);
     // identify pkt type and send to the registered handler
+    bool ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
@@ -335,6 +344,7 @@ private:
 
     Agent *agent_;
     PktModule *pkt_module_;
+    WorkQueue<boost::shared_ptr<PacketBufferEnqueueItem> > work_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };

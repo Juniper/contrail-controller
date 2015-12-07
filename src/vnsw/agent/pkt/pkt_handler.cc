@@ -41,7 +41,9 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
-    stats_(), agent_(agent), pkt_module_(pkt_module) {
+    stats_(), agent_(agent), pkt_module_(pkt_module),
+    work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::PktHandler"), 0,
+                boost::bind(&PktHandler::ProcessPacket, this, _1)) {
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)
@@ -52,6 +54,7 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
 }
 
 PktHandler::~PktHandler() {
+    work_queue_.Shutdown();
 }
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
@@ -189,6 +192,14 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 }
 
 void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
+    boost::shared_ptr<PacketBufferEnqueueItem>
+        info(new PacketBufferEnqueueItem(hdr, buff));
+    work_queue_.Enqueue(info);
+}
+
+bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
+    const AgentHdr &hdr = item->hdr;
+    const PacketBufferPtr &buff = item->buff;
     boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
     uint8_t *pkt = buff->data();
 
@@ -199,13 +210,13 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
                                    &pkt_info->agent_hdr);
     if (mod == INVALID) {
         agent_->stats()->incr_pkt_dropped();
-        return;
+        return true;
     }
 
     if (!(enqueue_cb_.at(mod))(pkt_info)) {
         stats_.PktQThresholdExceeded(mod);
     }
-    return;
+    return true;
 }
 
 // Compute L2/L3 forwarding mode for pacekt.
