@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Sundaresan Rajangam <srajanga@juniper.net>
+Code-Review+2: Sundaresan Rajangam <srajanga@juniper.net>
+Code-Review-1: David Peet <dpeet@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Sun, 06 Dec 2015 20:32:30 -0800
+Reviewed-on: https://review.opencontrail.org/15419
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
