@@ -54,6 +54,7 @@ class LoadbalancerListenerSM(DBBaseSM):
         self.loadbalancer = None
         self.loadbalancer_pool = None
         self.update(obj_dict)
+        self.last_sent = None
     # end __init__
 
     def update(self, obj=None):
@@ -61,6 +62,8 @@ class LoadbalancerListenerSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.display_name = obj.get('display_name', None)
+        self.parent_uuid = obj['parent_uuid']
+        self.id_perms = obj.get('id_perms', None)
         self.params = obj.get('loadbalancer_listener_properties', None)
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
@@ -141,6 +144,12 @@ class LoadbalancerPoolSM(DBBaseSM):
             if vip_obj:
                 vip_obj.last_sent = \
                     self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
+
+        if self.loadbalancer_listener:
+            ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
+            if ll_obj:
+                ll_obj.last_sent = \
+                    self._manager.loadbalancer_agent.listener_add(ll_obj)
     # end add
 # end class LoadbalancerPoolSM
 
