@@ -622,8 +622,26 @@ const string Agent::BuildDiscoveryClientName(string mod_name, string id) {
     return (mod_name + ":" + id);
 }
 
+void Agent::FillMcastLabelRange(uint32_t *start_idx,
+                                uint32_t *end_idx,
+                                uint8_t idx) const {
+    uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
+    uint32_t mc_label_count = 0;
+    if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
+        mc_label_count = vrouter_max_vrfs_;
+    } else {
+        mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
+    }
+
+    *start_idx = vrouter_max_labels_ - ((idx + 1) * mc_label_count);
+    *end_idx = (vrouter_max_labels_ - ((idx) * mc_label_count) - 1);
+}
+
 void Agent::SetAgentMcastLabelRange(uint8_t idx) {
+    uint32_t start = 0;
+    uint32_t end = 0;
     std::stringstream str;
+
     //Logic for multicast label allocation
     //  1> Reserve minimum 4k label for unicast
     //  2> In the remaining label space
@@ -639,16 +657,7 @@ void Agent::SetAgentMcastLabelRange(uint8_t idx) {
         return;
     }
 
-    uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
-    uint32_t mc_label_count = 0;
-    if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
-        mc_label_count = vrouter_max_vrfs_;
-    } else {
-        mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
-    }
-
-    uint32_t start = vrouter_max_labels_ - ((idx + 1) * mc_label_count);
-    uint32_t end = (vrouter_max_labels_ - ((idx) * mc_label_count) - 1);
+    FillMcastLabelRange(&start, &end, idx);
     str << start << "-" << end;
 
     mpls_table_->ReserveLabel(start, end + 1);

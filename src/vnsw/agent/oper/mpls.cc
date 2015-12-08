@@ -21,7 +21,7 @@ MplsLabel::~MplsLabel() {
     if (label_ == MplsTable::kInvalidLabel) {
         return;
     }
-    if ((type_ != MplsLabel::MCAST_NH) &&
+    if (!IsMulticastReservedLabel() &&
         free_label_) {
         agent_->mpls_table()->FreeLabel(label_);
     }
@@ -49,7 +49,7 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
 
     mpls->free_label_ = true;
-    if (mpls->type_ != MplsLabel::MCAST_NH) {
+    if (!mpls->IsMulticastReservedLabel()) {
         UpdateLabel(key->label_, mpls);
     }
     ChangeHandler(mpls, req);
@@ -282,6 +282,18 @@ void MplsLabel::DeleteReq(const Agent *agent, uint32_t label) {
     agent->mpls_table()->Enqueue(&req);
 }
 
+bool MplsLabel::IsMulticastReservedLabel() const {
+    if (type_ != MplsLabel::MCAST_NH)
+        return false;
+
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        uint32_t start = 0;
+        uint32_t end = 0;
+        agent_->FillMcastLabelRange(&start, &end, count);
+        if ((label_ >= start) && (label_ <= end)) return true;
+    }
+    return false;
+}
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);

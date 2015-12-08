@@ -73,6 +73,7 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
     void SyncDependentPath();
+    bool IsMulticastReservedLabel() const;
 
 private:
     const Agent *agent_;
