@@ -912,6 +912,7 @@ class VirtualNetworkST(DBBaseST):
             svn = saddr.virtual_network
             spol = saddr.network_policy
             s_cidr = saddr.subnet
+            s_cidr_list = saddr.subnet_list
             if svn == "local":
                 svn = self.name
                 saddr_match.virtual_network = self.name
@@ -920,7 +921,7 @@ class VirtualNetworkST(DBBaseST):
                 dvn = daddr.virtual_network
                 dpol = daddr.network_policy
                 d_cidr = daddr.subnet
-
+                d_cidr_list = daddr.subnet_list
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
@@ -954,7 +955,7 @@ class VirtualNetworkST(DBBaseST):
                             dvn or dpol)
                         continue
                 elif (not svn and not dvn and not spol and not dpol and
-                      s_cidr and d_cidr):
+                      (s_cidr or s_cidr_list) and (d_cidr or d_cidr_list)):
                     if prule.action_list.apply_service:
                         self._logger.error(
                             "service chains not allowed in cidr only rules "
