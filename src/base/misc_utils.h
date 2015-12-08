@@ -59,6 +59,7 @@ public:
     static bool GetBuildInfo(BuildModule id, const std::string &build_info, std::string &result);
     static void GetHostIp(const std::string name, std::vector<std::string> &ip_list);
     static void LogVersionInfo(const std::string str, Category::type categ);
+    static bool GetPlatformInfo(std::string &distro, std::string &code_name);
 private:
     static bool GetContrailVersionInfo(BuildModule id, std::string &rpm_version, std::string &build_num);
     static std::string BaseName(std::string filename);

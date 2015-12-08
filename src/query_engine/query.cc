@@ -907,7 +907,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         this->status_details = EIO;
     }
 
-    if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif->Db_SetTablespace(g_viz_constants.QE_GENERATOR_NAME,
+                                g_viz_constants.COLLECTOR_KEYSPACE)) {
         QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
            g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         this->status_details = EIO;
@@ -1027,7 +1028,8 @@ QueryEngine::QueryEngine(EventManager *evm,
         }
 
         if (!retry) {
-            if (!db_if->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+            if (!db_if->Db_SetTablespace(g_viz_constants.QE_GENERATOR_NAME,
+                                         g_viz_constants.COLLECTOR_KEYSPACE)) {
                 QE_LOG_NOQID(ERROR,  ": Create/Set KEYSPACE: " <<
                         g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
                 retry = true;
@@ -1082,7 +1084,8 @@ QueryEngine::QueryEngine(EventManager *evm,
             for (int ttli=0; ttli<=TtlType::GLOBAL_TTL; ttli++)
                 ttl_cached[ttli] = false;
 
-            if (dbif_->Db_GetRow(col_list, cfname, key)) {
+            if (dbif_->Db_GetRow(g_viz_constants.QE_GENERATOR_NAME,
+                                 col_list, cfname, key)) {
                 for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;

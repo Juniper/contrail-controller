@@ -38,7 +38,7 @@ int Ruleeng::RuleWorkerID = 0;
 
 SandeshTraceBufferPtr UVETraceBuf(SandeshTraceBufferCreate("UveTrace", 25000));
 
-Ruleeng::Ruleeng(DbHandler *db_handler, OpServerProxy *osp) :
+Ruleeng::Ruleeng(DbHandlerPtr db_handler, OpServerProxy *osp) :
     db_handler_(db_handler), osp_(osp), rulelist_(new t_rulelist()) {
 }
 
@@ -335,11 +335,12 @@ static bool DomStatWalker(StatWalker& sw,
 */
 
 static bool DomTopStatWalker(const pugi::xml_node& object,
-        DbHandler *db,
+        DbHandlerPtr db,
         uint64_t timestamp,
         const pugi::xml_node& node,
         StatWalker::TagMap tmap,
-        const std::string& source) {
+        const std::string& source,
+        const std::string& gen_name) {
 
     vector<pugi::xml_node> elem_list;
     string ltype;
@@ -372,7 +373,7 @@ static bool DomTopStatWalker(const pugi::xml_node& object,
         } 
         
         StatWalker sw(boost::bind(&DbHandler::StatTableInsert, db,
-            _1, _2, _3, _4, _5), timestamp, object.name(), m1);
+            _1, _2, _3, _4, _5, _6), timestamp, object.name(), m1, gen_name);
 
         vector<pair<string, pugi::xml_node> > parent_chain;
         parent_chain.push_back(make_pair(object.name(),object));
@@ -402,7 +403,8 @@ static bool DomTopStatWalker(const pugi::xml_node& object,
  * Write to the objectlog accordingly
  */
 static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
-        DbHandler *db, uint64_t timestamp) {
+        DbHandlerPtr db, uint64_t timestamp,
+        const std::string &gen_name) {
     std::map<std::string, std::string> keymap;
     std::map<std::string, std::string>::iterator it;
     const char *table;
@@ -427,12 +429,12 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
         }
     }
     for (it = keymap.begin(); it != keymap.end(); it++) {
-        db->ObjectTableInsert(it->first, it->second, 
+        db->ObjectTableInsert(gen_name, it->first, it->second,
             timestamp, rmsg->unm, rmsg);
     }
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
-        DomObjectWalk(node, rmsg, db, timestamp);
+        DomObjectWalk(node, rmsg, db, timestamp, gen_name);
     }
     return keymap.size();
 }
@@ -444,7 +446,8 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
  * field
  */
 void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg,
-        DbHandler *db, const SandeshHeader &header) {
+        DbHandlerPtr db, const SandeshHeader &header,
+        const std::string &gen_name) {
     if (!(header.get_Hints() & g_sandesh_constants.SANDESH_KEY_HINT)) {
         return;
     }
@@ -456,7 +459,7 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
     std::string node_type(header.get_NodeType());
     SandeshType::type sandesh_type(header.get_Type());
 
-    DomObjectWalk(parent, rmsg, db, timestamp);
+    DomObjectWalk(parent, rmsg, db, timestamp, gen_name);
 
     // UVE related stats are not processed here. See handle_uve_publish.
     if (sandesh_type == SandeshType::UVE) {
@@ -488,13 +491,15 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
 
         if (!node.attribute("tags").empty()) {
            DomTopStatWalker(object, db, timestamp, node,
-                   m1, source);
+                   m1, source, gen_name);
         }
     }
 }
 
 bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
-    const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header) {
+    const VizMsg *rmsg, DbHandlerPtr db,
+    const SandeshHeader& header,
+    const std::string& gen_name) {
     const SandeshType::type& sandesh_type(header.get_Type());
     if ((sandesh_type != SandeshType::UVE) &&
         (sandesh_type != SandeshType::ALARM)) {
@@ -615,7 +620,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
             // We will always index by Source and UVE key (name) 
             // Other indexes depend on the "tags" attribute
             if (!DomTopStatWalker(object, db, ts, node,
-                    m1, source)) {
+                    m1, source, gen_name)) {
                 continue;
             }
 
@@ -650,24 +655,27 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
 // handle flow message
 bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
-    DbHandler *db, const SandeshHeader &header) {
+    DbHandlerPtr db, const SandeshHeader &header,
+    const std::string &gen_name) {
     if (header.get_Type() != SandeshType::FLOW) {
         return true;
     }
 
-    if (!(db->FlowTableInsert(parent, header))) {
+    if (!(db->FlowTableInsert(gen_name, parent, header))) {
         return false;
     }
     return true;
 }
 
-bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db) {
+bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc,
+                           DbHandlerPtr db,
+                           const std::string &gen_name) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
-    if (db->DropMessage(header, vmsgp)) {
+    if (db->DropMessage(gen_name, header, vmsgp)) {
         return true;
     }
     // Insert into the message and message index tables
-    db->MessageTableInsert(vmsgp);
+    db->MessageTableInsert(gen_name, vmsgp);
     /*
      *  We would like to execute some actions globally here, before going
      *  through the ruleeng rules
@@ -679,11 +687,11 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db) {
 
     remove_identifier(parent);
 
-    handle_object_log(parent, vmsgp, db, header);
+    handle_object_log(parent, vmsgp, db, header, gen_name);
 
-    if (uveproc) handle_uve_publish(parent, vmsgp, db, header);
+    if (uveproc) handle_uve_publish(parent, vmsgp, db, header, gen_name);
 
-    handle_flow_object(parent, db, header);
+    handle_flow_object(parent, db, header, gen_name);
 
     RuleMsg rmsg(vmsgp); 
     rulelist_->rule_execute(rmsg);

@@ -120,7 +120,7 @@ class SyslogCollectorTest : public ::testing::Test
         db_handler_.reset(new DbHandlerMock(evm_.get(), ttl_map));
         listener_.reset(new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
-            db_handler_.get(), 0));
+            db_handler_, 0));
         gen_ = new SyslogMsgGen(evm_.get()->io_service(),
             listener_->GetUdpPort());
         gen_->Initialize(0);
@@ -131,7 +131,7 @@ class SyslogCollectorTest : public ::testing::Test
         thread_->Start();
     }
 
-    bool myTestCb(const VizMsg *v, bool b, DbHandler *d) {
+    bool myTestCb(const VizMsg *v, bool b, DbHandlerPtr d) {
         EXPECT_STREQ(v->msg->GetMessageType().c_str(), "Syslog");
         return true;
     }
@@ -159,7 +159,7 @@ class SyslogCollectorTest : public ::testing::Test
     }
     SyslogMsgGen                   *gen_;
     std::auto_ptr<SyslogListeners> listener_;
-    std::auto_ptr<DbHandlerMock>   db_handler_;
+    boost::shared_ptr<DbHandlerMock> db_handler_;
     std::auto_ptr<EventManager>    evm_;
     std::auto_ptr<ServerThread>    thread_;
 };

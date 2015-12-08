@@ -154,3 +154,42 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
     result = strbuf.GetString();
     return ret;
 }
+
+bool MiscUtils::GetPlatformInfo(std::string &distro, std::string &code_name) {
+    FILE *fp;
+    char line[512];
+    fp = popen("cat /etc/*release", "r");
+    if (fp == NULL) {
+        return false;
+    }
+    std::string result = "";
+    while (!feof(fp)) {
+        if (fgets(line, 512, fp) != NULL) {
+             result += line;
+        }
+    }
+
+    // parse the strings for centos 6.4, 6.5, trusty, precise..
+    if (result.find("trusty") != std::string::npos) {
+        distro = "Ubuntu";
+        code_name = "Trusty";
+    } else if (result.find("precise") != std::string::npos) {
+        distro = "Ubuntu";
+        code_name = "Precise";
+    } else if (result.find("rhel") != std::string::npos) {
+        distro = "rhel";
+        code_name = "7.0";
+    } else if (result.find("CentOS distro 6.4") != std::string::npos) {
+        distro = "CentOS";
+        code_name = "6.4";
+    } else if (result.find("CentOS distro 6.5") != std::string::npos) {
+        distro = "CentOS";
+        code_name = "6.5";
+    } else if (result.find("CentOS Linux release 7") != std::string::npos) {
+        distro = "CentOS";
+        code_name = "7.1.1503";
+    } else {
+        return false;
+    }
+    return true;
+}
