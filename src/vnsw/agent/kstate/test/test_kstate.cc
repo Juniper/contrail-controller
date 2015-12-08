@@ -317,13 +317,11 @@ TEST_F(KStateTest, MplsGetTest) {
     client->KStateResponseWait(1);
     mpls_count = TestKStateBase::fetched_count_;
 
-    uint32_t old_vn_count = agent_->vn_table()->Size();
     CreatePorts(0, 0, 0);
-    uint32_t vn_count = agent_->vn_table()->Size() - old_vn_count;
-    for (int i = 0; i < MAX_TEST_FD; i++) {
-        //TODO Why this 8 needed?
-        TestMplsKState::Init(MplsTable::kStartLabel + mpls_count + vn_count +
-                             i + 8);
+    //Total labels = 2*No of VM(1 for L2 and 1 for L3) +
+    //               1(Multicast EVPN label)
+    for (int i = 0; i <= (2 * MAX_TEST_FD); i++) {
+        TestMplsKState::Init(MplsTable::kStartLabel + mpls_count + i);
         client->WaitForIdle();
         client->KStateResponseWait(1);
     }
