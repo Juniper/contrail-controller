@@ -45,6 +45,8 @@ class AnalyticApiClient(object):
             self.get_base()
         if self.base and 'uves' in self.base:
             return self.base['uves']
+        else:
+            self.base = None
 
     def get_uves(self, ob=None, defult=None):
         if not self._uves:
