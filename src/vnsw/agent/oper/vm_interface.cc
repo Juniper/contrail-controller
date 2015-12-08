@@ -2396,6 +2396,8 @@ void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
         return;
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (old_vrf->GetBridgeRouteTable());
+    if (table == NULL)
+        return;
     Agent *agent = table->agent();
     table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
                                    old_vrf->GetName(),
@@ -3014,6 +3016,8 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
 
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (old_vrf->GetEvpnRouteTable());
+    if (table == NULL)
+        return;
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
                            this, old_v4_addr,
                            old_ethernet_tag);
@@ -3411,9 +3415,11 @@ void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
 
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
-    evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
-                                MacAddress::FromString(interface->vm_mac()),
-                                interface, floating_ip_, ethernet_tag_);
+    if (evpn_table) {
+        evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
+                                    MacAddress::FromString(interface->vm_mac()),
+                                    interface, floating_ip_, ethernet_tag_);
+    }
     ethernet_tag_ = 0;
     l2_installed_ = false;
 }
@@ -3952,10 +3958,10 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
     // Delete the L2 Recive routes added for smac_ and dmac_
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (entry.vrf_->GetBridgeRouteTable());
-    table->Delete(peer_.get(), entry.vrf_->GetName(), entry.dmac_,
-                  0);
-    table->Delete(peer_.get(), entry.vrf_->GetName(), entry.smac_,
-                  0);
+    if (table) {
+        table->Delete(peer_.get(), entry.vrf_->GetName(), entry.dmac_, 0);
+        table->Delete(peer_.get(), entry.vrf_->GetName(), entry.smac_, 0);
+    }
     entry.installed_ = false;
     return;
 }
