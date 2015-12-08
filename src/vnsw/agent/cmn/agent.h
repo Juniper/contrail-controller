@@ -600,6 +600,9 @@ public:
 
         label_range_[idx].clear();
     }
+    void FillMcastLabelRange(uint32_t *star_idx,
+                             uint32_t *end_idx,
+                             uint8_t idx) const;
 
     AgentXmppChannel* mulitcast_builder() {
         return cn_mcast_builder_;

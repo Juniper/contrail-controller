@@ -65,6 +65,7 @@ void VNController::XmppServerConnect() {
     uint8_t count = 0;
 
     while (count < MAX_XMPP_SERVERS) {
+        agent_->SetAgentMcastLabelRange(count);
         if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
 
             AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
@@ -105,7 +106,6 @@ void VNController::XmppServerConnect() {
 
             XmppInit *xmpp = new XmppInit();
             xmpp->AddXmppChannelConfig(xmpp_cfg);
-            agent_->SetAgentMcastLabelRange(count);
             // create bgp peer
             AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_,
                               agent_->controller_ifmap_xmpp_server(count),
