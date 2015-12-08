@@ -217,6 +217,20 @@ class VirtualNetworkST(DBBaseST):
                 RouteTargetST.locate(rt)
         else:
             self.rt_list = set()
+        import_rt_list = self.obj.get_import_route_target_list()
+        if import_rt_list:
+            self.import_rt_list = set(rt_list.get_route_target())
+            for rt in self.import_rt_list:
+                RouteTargetST.locate(rt)
+        else:
+            self.import_rt_list = set()
+        export_rt_list = self.obj.get_export_route_target_list()
+        if export_rt_list:
+            self.export_rt_list = set(rt_list.get_route_target())
+            for rt in self.export_rt_list:
+                RouteTargetST.locate(rt)
+        else:
+            self.export_rt_list = set()
         self._route_target = None
         self.route_tables = set()
         self.routes = {}
@@ -272,7 +286,7 @@ class VirtualNetworkST(DBBaseST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.set_properties(prop)
-        self.set_route_target_list(self.obj.get_route_target_list())
+        self.set_route_target_list(self.obj)
         mpsce = self.obj.get_multi_policy_service_chains_enabled()
         if mpsce != self.multi_policy_service_chains_enabled:
             self.multi_policy_service_chains_enabled = mpsce
@@ -361,8 +375,8 @@ class VirtualNetworkST(DBBaseST):
             left_ri = self._get_routing_instance_from_route(nexthop)
             if left_ri is None:
                 continue
-            left_ri.update_route_target_list([new_rtgt_name], [old_rtgt_name],
-                                             "import")
+            left_ri.update_route_target_list(rt_add_import=[new_rtgt_name],
+                                             rt_del=[old_rtgt_name])
             static_route_entries = left_ri.obj.get_static_route_entries()
             if static_route_entries is None:
                 continue
@@ -591,39 +605,59 @@ class VirtualNetworkST(DBBaseST):
                 if self.allow_transit:
                     # if the network is now a transit network, add the VN's
                     # route target to all service RIs
-                    ri.update_route_target_list([self.get_route_target()], [],
-                                                import_export='export')
+                    ri.update_route_target_list(
+                        rt_add_export=[self.get_route_target()])
                 else:
                     # if the network is not a transit network any more, then we
                     # need to delete the route target from service RIs
-                    ri.update_route_target_list([], [self.get_route_target()])
+                    ri.update_route_target_list(rt_del=[self.get_route_target()])
     # end set_properties
 
-    def set_route_target_list(self, rt_list):
+    def set_route_target_list(self, obj):
         ri = self.get_primary_routing_instance()
         old_rt_list = self.rt_list
+        rt_list = obj.get_route_target_list()
         if rt_list:
             self.rt_list = set(rt_list.get_route_target())
         else:
             self.rt_list = set()
+        old_import_rt_list = self.import_rt_list
+        rt_list = obj.get_import_route_target_list()
+        if rt_list:
+            self.import_rt_list = set(rt_list.get_route_target())
+        else:
+            self.import_rt_list = set()
+        old_export_rt_list = self.export_rt_list
+        rt_list = obj.get_export_route_target_list()
+        if rt_list:
+            self.export_rt_list = set(rt_list.get_route_target())
+        else:
+            self.export_rt_list = set()
+
         rt_add = self.rt_list - old_rt_list
-        rt_del = old_rt_list - self.rt_list
-        if len(rt_add) == 0 and len(rt_del) == 0:
+        rt_add_export = self.export_rt_list - old_export_rt_list
+        rt_add_import = self.import_rt_list - old_import_rt_list
+        rt_del = ((old_rt_list - self.rt_list) |
+                  (old_export_rt_list - self.export_rt_list) |
+                  (old_import_rt_list - self.import_rt_list))
+        if not (rt_add or rt_add_export or rt_add_import or rt_del):
             return
-        for rt in rt_add:
+        for rt in itertools.chain(rt_add, rt_add_export, rt_add_import):
             RouteTargetST.locate(rt)
-        ri.update_route_target_list(rt_add, rt_del)
+        if ri:
+            ri.update_route_target_list(rt_add=rt_add, rt_add_import=rt_add_import,
+                                        rt_add_export=rt_add_export, rt_del=rt_del)
         for ri_name in self.routing_instances:
             if self._ri_needs_external_rt(self.name, ri_name):
                 service_ri = RoutingInstanceST.get(ri_name)
-                service_ri.update_route_target_list(rt_add, rt_del,
-                                                import_export='export')
+                service_ri.update_route_target_list(
+                    rt_add_export=rt_add|rt_add_export, rt_del=rt_del)
         for (prefix, nexthop) in self.routes.items():
             left_ri = self._get_routing_instance_from_route(nexthop)
             if left_ri is None:
                 continue
-            left_ri.update_route_target_list(rt_add, rt_del,
-                                             import_export='import')
+            left_ri.update_route_target_list(rt_add_import=rt_add|rt_add_import,
+                                             rt_del=rt_del)
             static_route_entries = left_ri.obj.get_static_route_entries()
             update = False
             for static_route in static_route_entries.get_route() or []:
@@ -633,7 +667,7 @@ class VirtualNetworkST(DBBaseST):
                     if rt in static_route.route_target:
                         static_route.route_target.remove(rt)
                         update = True
-                for rt in rt_add:
+                for rt in rt_add | rt_add_import:
                     if rt not in static_route.route_target:
                         static_route.route_target.append(rt)
                         update = True
@@ -643,7 +677,7 @@ class VirtualNetworkST(DBBaseST):
             if update:
                 left_ri.obj.set_static_route_entries(static_route_entries)
                 self._vnc_lib.routing_instance_update(left_ri.obj)
-        for rt in rt_del:
+        for rt in rt_del - (rt_add | rt_add_export | rt_add_import):
             try:
                 RouteTargetST.delete(rt)
             except RefsExistError:
@@ -698,27 +732,26 @@ class VirtualNetworkST(DBBaseST):
             return
         sc_address = service_info.get_service_chain_address()
         static_route_entries = left_ri.obj.get_static_route_entries(
-        ) or StaticRouteEntriesType()
+            ) or StaticRouteEntriesType()
         update = False
+        rt_list = self.rt_list | self.import_rt_list
+        rt_list.add(self.get_route_target())
         for static_route in static_route_entries.get_route() or []:
             if prefix == static_route.prefix:
-                for rt in self.rt_list | set([self.get_route_target()]):
-                    if rt not in static_route.route_target:
-                        static_route.route_target.append(rt)
-                        update = True
+                rt_diff = rt_list - set(static_route.route_target)
+                if rt_diff:
+                    static_route.route_target.extend(rt_diff)
+                    update = True
                 break
         else:
-            rt_list = list(self.rt_list | set([self.get_route_target()]))
             static_route = StaticRouteType(prefix=prefix, next_hop=sc_address,
-                                           route_target=rt_list)
+                                           route_target=list(rt_list))
             static_route_entries.add_route(static_route)
             update = True
         if update:
             left_ri.obj.set_static_route_entries(static_route_entries)
             self._vnc_lib.routing_instance_update(left_ri.obj)
-        left_ri.update_route_target_list(
-            rt_add=self.rt_list | set([self.get_route_target()]),
-            import_export="import")
+        left_ri.update_route_target_list(rt_add_import=rt_list)
     # end add_route
 
     def delete_route(self, prefix):
@@ -729,10 +762,9 @@ class VirtualNetworkST(DBBaseST):
         left_ri = self._get_routing_instance_from_route(next_hop)
         if left_ri is None:
             return
-        left_ri.update_route_target_list(rt_add=set(),
-                                         rt_del=self.rt_list | set(
-                                             [self.get_route_target()]),
-                                         import_export="import")
+        rt_list = self.rt_list | self.import_rt_list
+        rt_list.add(self.get_route_target())
+        left_ri.update_route_target_list(rt_del=rt_list)
         update = False
         static_route_entries = left_ri.obj.get_static_route_entries()
         if static_route_entries is None:
@@ -740,10 +772,10 @@ class VirtualNetworkST(DBBaseST):
         for static_route in static_route_entries.get_route() or []:
             if static_route.prefix != prefix:
                 continue
-            for rt in self.rt_list | set([self.get_route_target()]):
-                if rt in static_route.route_target:
-                    static_route.route_target.remove(rt)
-                    update = True
+            rt_diff = set(static_route.route_target) - rt_list
+            if rt_list & set(static_route.route_target):
+                static_route.route_target = list(rt_diff)
+                update = True
             if static_route.route_target == []:
                 static_route_entries.delete_route(static_route)
                 update = True
@@ -1808,9 +1840,18 @@ class RoutingInstanceST(DBBaseST):
                 self.obj.set_route_target(rtgt_obj, InstanceTargetType())
                 if inst_tgt_data:
                     for rt in vn.rt_list:
-                        rtgt_obj = RouteTarget(rt)
-                        self.obj.add_route_target(rtgt_obj, inst_tgt_data)
-                    if not self.is_default and vn.allow_transit:
+                        rtgt_obj = RouteTargetST.locate(rt)
+                        self.obj.add_route_target(rtgt_obj.obj, inst_tgt_data)
+                    for rt in vn.export_rt_list:
+                        rtgt_obj = RouteTargetST.locate(rt)
+                        self.obj.add_route_target(rtgt_obj.obj,
+                                                  InstanceTargetType('export'))
+                    if self.is_default:
+                        for rt in vn.import_rt_list:
+                            rtgt_obj = RouteTargetST.locate(rt)
+                            self.obj.add_route_target(
+                                rtgt_obj.obj, InstanceTargetType('import'))
+                    elif vn.allow_transit:
                         rtgt_obj = RouteTarget(vn._route_target)
                         rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                 if not compare_refs(self.obj.get_route_target_refs(),
@@ -1897,16 +1938,24 @@ class RoutingInstanceST(DBBaseST):
         self.obj.set_ipv6_service_chain_information(v6_info)
     # end add_service_info
 
-    def update_route_target_list(self, rt_add, rt_del=None,
-                                 import_export=None):
-        for rt in rt_add:
-            rtgt_obj = RouteTargetST.locate(rt).obj
-            inst_tgt_data = InstanceTargetType(import_export=import_export)
-            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+    def update_route_target_list(self, rt_add=None, rt_add_import=None,
+                                 rt_add_export=None, rt_del=None):
         for rt in rt_del or []:
             rtgt_obj = RouteTarget(rt)
             self.obj.del_route_target(rtgt_obj)
-        if rt_add or rt_del:
+        for rt in rt_add or []:
+            rtgt_obj = RouteTargetST.locate(rt).obj
+            inst_tgt_data = InstanceTargetType(import_export=None)
+            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+        for rt in rt_add_import or []:
+            rtgt_obj = RouteTargetST.locate(rt).obj
+            inst_tgt_data = InstanceTargetType(import_export='import')
+            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+        for rt in rt_add_export or []:
+            rtgt_obj = RouteTargetST.locate(rt).obj
+            inst_tgt_data = InstanceTargetType(import_export='export')
+            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+        if rt_add or rt_add_export or rt_add_import or rt_del:
             try:
                 self._vnc_lib.routing_instance_update(self.obj)
             except NoIdError:
@@ -1932,7 +1981,7 @@ class RoutingInstanceST(DBBaseST):
                 vn = VirtualNetworkST.get(vn_name)
                 if vn is None:
                     continue
-                route_targets = route_targets.union(vn.rt_list)
+                route_targets = route_targets | vn.rt_list | vn.import_rt_list
                 route_targets.add(vn.get_route_target())
             for route in route_table.routes:
                 if route.next_hop != si_name:
@@ -1944,7 +1993,7 @@ class RoutingInstanceST(DBBaseST):
                 all_route_targets != route_targets
 
         self.obj.set_static_route_entries(static_routes)
-        self.update_route_target_list(rt_add=all_route_targets, import_export="import")
+        self.update_route_target_list(rt_add_import=all_route_targets)
     # end update_static_routes
 
     def delete_obj(self):
@@ -2256,11 +2305,10 @@ class ServiceChain(DBBaseST):
 
             if first_node:
                 first_node = False
-                rt_list = set(vn1_obj.rt_list)
+                rt_list = vn1_obj.rt_list | vn1_obj.export_rt_list
                 if vn1_obj.allow_transit:
                     rt_list.add(vn1_obj.get_route_target())
-                service_ri1.update_route_target_list(rt_list,
-                                                     import_export='export')
+                service_ri1.update_route_target_list(rt_add_export=rt_list)
 
             mode = si_info[service]['mode']
             nat_service = (mode == "in-network-nat")
@@ -2295,10 +2343,10 @@ class ServiceChain(DBBaseST):
             self._vnc_lib.routing_instance_update(service_ri1.obj)
             self._vnc_lib.routing_instance_update(service_ri2.obj)
 
-        rt_list = set(vn2_obj.rt_list)
+        rt_list = vn2_obj.rt_list | vn2_obj.export_rt_list
         if vn2_obj.allow_transit:
             rt_list.add(vn2_obj.get_route_target())
-        service_ri2.update_route_target_list(rt_list, import_export='export')
+        service_ri2.update_route_target_list(rt_add_export=rt_list)
 
         if not vn2_obj.multi_policy_service_chains_enabled:
             service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
