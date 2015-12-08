@@ -617,6 +617,7 @@ static ThriftIfTypeMapDef ThriftIfTypeMap =
                 DbEncodeStringNonComposite,
                 DbDecodeStringNonComposite));
 
+
 //
 // Encode / Decode Functions
 //
@@ -1481,8 +1482,8 @@ bool ThriftIfImpl::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     return true;
 }
 
-bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
-        std::vector<cassandra::ColumnOrSuperColumn>& result,
+bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList *ret,
+        const std::vector<cassandra::ColumnOrSuperColumn>& result,
         const std::string& cfname) {
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
@@ -1490,8 +1491,8 @@ bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
         THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
     if (cf->cftype_ == NewCf::COLUMN_FAMILY_SQL) {
-        NewColVec& columns = ret.columns_;
-        std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
+        NewColVec& columns = ret->columns_;
+        std::vector<cassandra::ColumnOrSuperColumn>::const_iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             GenDb::DbDataValue res;
             if (!DbDataValueFromString(res, cfname, citer->column.name,
@@ -1504,8 +1505,8 @@ bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
             columns.push_back(col);
         }
     } else if (cf->cftype_ == NewCf::COLUMN_FAMILY_NOSQL) {
-        NewColVec& columns = ret.columns_;
-        std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
+        NewColVec& columns = ret->columns_;
+        std::vector<cassandra::ColumnOrSuperColumn>::const_iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             std::auto_ptr<GenDb::DbDataValueVec> name(new GenDb::DbDataValueVec);
             if (!DbDataValueVecFromString(*name, cf->comparator_type,
@@ -1526,7 +1527,7 @@ bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList& ret,
     return true;
 }
 
-bool ThriftIfImpl::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
+bool ThriftIfImpl::Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
         const DbDataValueVec& rowkey) {
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
@@ -1564,7 +1565,7 @@ bool ThriftIfImpl::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
     return success;
 }
 
-bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfname,
+bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret, const std::string& cfname,
     const std::vector<DbDataValueVec>& rowkeys,
     GenDb::ColumnNameRange *crange_ptr) {
     ThriftIfCfInfo *info;
@@ -1635,10 +1636,10 @@ bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec& ret, const std::string& cfn
                 THRIFTIF_LOG_ERR(cfname << ": Key decode FAILED");
                 continue;
             }
-            if (!ColListFromColumnOrSuper(*col_list, it->second, cfname)) {
+            if (!ColListFromColumnOrSuper(col_list.get(), it->second, cfname)) {
                 THRIFTIF_LOG_ERR(cfname << ": Column decode FAILED");
             }
-            ret.push_back(col_list);
+            ret->push_back(col_list);
         }
     } // while loop
     return true;

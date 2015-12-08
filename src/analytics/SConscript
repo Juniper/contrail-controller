@@ -39,9 +39,6 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'http',
         'http_parser',
         'curl',
-        'cassandra_thrift',
-        'thrift',
-        'gendb',
         'ruleparser',
         'xml',
         'process_info',
@@ -58,6 +55,16 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'rdkafka',
         'boost_filesystem',
         'boost_program_options'])
+
+#if AnalyticsEnv.UseCassandraCql():
+#    database_libs = ['cassandra_cql', 'cassandra', 'cassandra_thrift', 'thrift']
+#    AnalyticsEnv.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
+#else:
+#    database_libs = ['cassandra_thrift', 'thrift']
+
+database_libs = ['cassandra_thrift', 'thrift']
+database_libs.append('gendb')
+AnalyticsEnv.Prepend(LIBS=database_libs)
 
 if sys.platform != 'darwin':
     AnalyticsEnv.Append(LIBS=['rt'])

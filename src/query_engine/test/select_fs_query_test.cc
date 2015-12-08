@@ -777,6 +777,87 @@ TEST_F(SelectFSQueryTest, SelectTSFlowTupleStats) {
     verify_select_fs_query_result(&expected_res, select_query->result_.get());
 }
 
+class FlowColumnValuesTest : public ::testing::Test {
+};
+
+TEST_F(FlowColumnValuesTest, Json) {
+    std::stringstream ss;
+    ss << "{";
+    // Diff bytes
+    uint64_t diff_bytes(10000);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIFF_BYTES]
+        << "\":" << diff_bytes << ",";
+    // Diff packeets
+    uint64_t diff_packets(100);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIFF_PACKETS]
+        << "\":" << diff_packets << ",";
+    // Short flow
+    bool short_flow(true);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SHORT_FLOW]
+        << "\":" << short_flow << ",";
+    // Flow UUID
+    boost::uuids::uuid exp_flow_uuid;
+    exp_flow_uuid = boost::uuids::random_generator()();
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_FLOWUUID] <<
+        "\":\"" << to_string(exp_flow_uuid) << "\",";
+    // VRouter
+    std::string vrouter("VRouter");
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER] <<
+        "\":\"" << vrouter << "\",";
+    // Source VN
+    std::string source_vn("SourceVN");
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN] <<
+        "\":\"" << source_vn << "\",";
+    // Destination VN
+    std::string dest_vn("DestVN");
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN] <<
+        "\":\"" << dest_vn << "\",";
+    // Source IP
+    std::string source_ip("1.1.1.1");
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
+        "\":\"" << source_ip << "\",";
+    // Destination IP
+    std::string dest_ip("2.2.2.2");
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
+        "\":\"" << dest_ip << "\",";
+    // Protocol
+    int protocol(6);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL] <<
+        "\":" << protocol << ",";
+    // Source port
+    uint16_t source_port(12345);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT] <<
+        "\":" << source_port << ",";
+    // Destination  port
+    uint16_t dest_port(80);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT] <<
+        "\":" << dest_port << "}";
+    std::string jsonline(ss.str());
+    flow_stats exp_stats(diff_bytes, diff_packets, short_flow);
+    flow_tuple exp_tuple(vrouter, source_vn, dest_vn, 0x01010101, 0x02020202,
+        protocol, source_port, dest_port, 0);
+    boost::uuids::uuid act_flow_uuid;
+    flow_stats act_stats;
+    flow_tuple act_tuple;
+    get_uuid_stats_8tuple_from_json(jsonline, &act_flow_uuid, &act_stats,
+        &act_tuple);
+    EXPECT_EQ(exp_flow_uuid, act_flow_uuid);
+    EXPECT_EQ(exp_stats, act_stats);
+    EXPECT_EQ(exp_tuple, act_tuple);
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

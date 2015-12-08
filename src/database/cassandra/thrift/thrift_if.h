@@ -24,12 +24,9 @@ class ThriftIf : public GenDb::GenDbIf {
         int task_instance);
     virtual void Db_SetInitDone(bool);
     // Tablespace
-    virtual bool Db_AddTablespace(const std::string& tablespace,
-        const std::string& replication_factor);
     virtual bool Db_SetTablespace(const std::string& tablespace);
     virtual bool Db_AddSetTablespace(const std::string& tablespace,
         const std::string& replication_factor = "1");
-    virtual bool Db_FindTablespace(const std::string& tablespace);
     // Column family
     virtual bool Db_AddColumnfamily(const GenDb::NewCf& cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf& cf);
@@ -37,9 +34,9 @@ class ThriftIf : public GenDb::GenDbIf {
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
     virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
     // Read
-    virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
+    virtual bool Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey);
-    virtual bool Db_GetMultiRow(GenDb::ColListVec& ret,
+    virtual bool Db_GetMultiRow(GenDb::ColListVec *ret,
         const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
         GenDb::ColumnNameRange *crange_ptr = NULL);

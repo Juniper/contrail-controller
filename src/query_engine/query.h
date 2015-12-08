@@ -185,6 +185,12 @@ struct flow_stats {
     flow_stats(uint64_t ibytes=0, uint64_t ipkts=0, bool ishort_flow=false) : 
         bytes(ibytes), pkts(ipkts), short_flow(ishort_flow) {
     }
+    bool operator==(const flow_stats &rhs) const {
+        return bytes == rhs.bytes &&
+            pkts == rhs.pkts &&
+            short_flow == rhs.short_flow &&
+            flow_list == rhs.flow_list;
+    }
     uint64_t bytes;
     uint64_t pkts;
     bool short_flow;
@@ -940,5 +946,8 @@ private:
     std::string cassandra_password_;
     TtlMap ttlmap_;
 };
+
+void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
+    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple);
 
 #endif

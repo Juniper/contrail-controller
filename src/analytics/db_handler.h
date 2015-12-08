@@ -85,7 +85,8 @@ public:
         const std::vector<int> &cassandra_ports,
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
-        const std::string& cassandra_password);
+        const std::string& cassandra_password,
+        bool use_cql);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -145,6 +146,7 @@ public:
     std::string GetHost() const;
     int GetPort() const;
     std::string GetName() const;
+    bool UseCql() const;
 
 private:
     bool CreateTables();
@@ -178,6 +180,8 @@ private:
     static uint32_t field_cache_t2_;
     static std::set<std::string> field_cache_set_;
     static tbb::mutex fmutex_;
+    bool use_cql_;
+    std::string tablespace_;
  
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

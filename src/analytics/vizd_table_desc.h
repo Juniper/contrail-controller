@@ -19,6 +19,6 @@ typedef boost::tuple<FlowRecordFields::type, GenDb::DbDataType::type> FlowTypeIn
 typedef std::map<std::string, FlowTypeInfo> FlowTypeMap;
 extern FlowTypeMap flow_msg2type_map;
 
-void init_vizd_tables();
+void init_vizd_tables(bool use_cql);
 
 #endif // __VIZD_TABLE_DESC_H__

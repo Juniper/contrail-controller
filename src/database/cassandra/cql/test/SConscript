@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('CqlIfEnv')
+
+env = CqlIfEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: env['TOP'] + '/' + x, list)
+
+libs = ['cassandra_cql', 'gendb', 'base', 'cassandra', 'gunit']
+env.Prepend(LIBS=libs)
+libpaths=['base']
+env.Append(LIBPATH = [MapBuildDir(libpaths)])
+
+cql_if_test = env.UnitTest('cql_if_test',
+                          ['cql_if_test.cc'])
+
+test_suite = [ cql_if_test ]
+test = env.TestSuite('cqlif_test_suite', test_suite)
+env.Alias('controller/src/database/cassandra/cql:test', test)
+
+flaky_test_suite = []
+flaky_test = env.TestSuite('cqlif_flaky_test_suite', flaky_test_suite)
+env.Alias('controller/src/database/cassandra/cql:flaky-test', flaky_test)

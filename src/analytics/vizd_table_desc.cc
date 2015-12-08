@@ -15,7 +15,7 @@ std::vector<GenDb::NewCf> vizd_flow_tables;
 std::vector<GenDb::NewCf> vizd_stat_tables;
 FlowTypeMap flow_msg2type_map;
 
-void init_vizd_tables() {
+void init_vizd_tables(bool use_cql) {
     static bool init_done = false;
 
     if (init_done)
@@ -99,7 +99,7 @@ void init_vizd_tables() {
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
-                (GenDb::DbDataType::LexicalUUIDType)))
+                      (GenDb::DbDataType::LexicalUUIDType)))
         (GenDb::NewCf(g_viz_constants.OBJECT_VALUE_TABLE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
@@ -153,6 +153,31 @@ void init_vizd_tables() {
  * the following are flow index tables - for SVN:SIP, DVN:DIP, ...
  *
  */
+    GenDb::DbDataTypeVec flow_series_value_cql = boost::assign::list_of
+        (GenDb::DbDataType::UTF8Type);
+
+    GenDb::DbDataTypeVec flow_series_value_thrift = boost::assign::list_of
+        (GenDb::DbDataType::Unsigned64Type)
+        (GenDb::DbDataType::Unsigned64Type)
+        (GenDb::DbDataType::Unsigned8Type)
+        (GenDb::DbDataType::LexicalUUIDType)
+        (GenDb::DbDataType::UTF8Type)
+        (GenDb::DbDataType::UTF8Type)
+        (GenDb::DbDataType::UTF8Type)
+        (GenDb::DbDataType::Unsigned32Type)
+        (GenDb::DbDataType::Unsigned32Type)
+        (GenDb::DbDataType::Unsigned8Type)
+        (GenDb::DbDataType::Unsigned16Type)
+        (GenDb::DbDataType::Unsigned16Type)
+        (GenDb::DbDataType::UTF8Type);
+
+    GenDb::DbDataTypeVec flow_series_value;
+    if (use_cql) {
+        flow_series_value = flow_series_value_cql;
+    } else {
+        flow_series_value = flow_series_value_thrift;
+    }
+
     vizd_flow_tables =
         boost::assign::list_of<GenDb::NewCf>
 
@@ -187,11 +212,19 @@ void init_vizd_tables() {
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN],
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP],
+#ifdef USE_CASSANDRA_CQL
+                       GenDb::DbDataType::InetType)
+#else // USE_CASSANDRA_CQL
                        GenDb::DbDataType::Unsigned32Type)
+#endif // !USE_CASSANDRA_CQL
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN],
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP],
+#ifdef USE_CASSANDRA_CQL
+                       GenDb::DbDataType::InetType)
+#else // USE_CASSANDRA_CQL
                        GenDb::DbDataType::Unsigned32Type)
+#endif // !USE_CASSANDRA_CQL
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL],
                        GenDb::DbDataType::Unsigned8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT],
@@ -258,53 +291,31 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::UTF8Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::InetType)
+#else // USE_CASSANDRA_CQL
                       (GenDb::DbDataType::Unsigned32Type)
+#endif // !USE_CASSANDRA_CQL
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
-                      boost::assign::list_of
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::UTF8Type)
-                     ))
-
-    /* (DVN,DIP) index table */
-    (GenDb::NewCf(g_viz_constants.FLOW_TABLE_DVN_DIP,
+                      flow_series_value))
+        /* (DVN,DIP) index table */
+        (GenDb::NewCf(g_viz_constants.FLOW_TABLE_DVN_DIP,
                   boost::assign::list_of
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::Unsigned8Type),
                   boost::assign::list_of
                   (GenDb::DbDataType::UTF8Type)
+#ifdef USE_CASSANDRA_CQL
+                  (GenDb::DbDataType::InetType)
+#else // USE_CASSANDRA_CQL
                   (GenDb::DbDataType::Unsigned32Type)
+#endif // !USE_CASSANDRA_CQL
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::LexicalUUIDType),
-                  boost::assign::list_of
-                  (GenDb::DbDataType::Unsigned64Type)
-                  (GenDb::DbDataType::Unsigned64Type)
-                  (GenDb::DbDataType::Unsigned8Type)
-                  (GenDb::DbDataType::LexicalUUIDType)
-                  (GenDb::DbDataType::UTF8Type)
-                  (GenDb::DbDataType::UTF8Type)
-                  (GenDb::DbDataType::UTF8Type)
-                  (GenDb::DbDataType::Unsigned32Type)
-                  (GenDb::DbDataType::Unsigned32Type)
-                  (GenDb::DbDataType::Unsigned8Type)
-                  (GenDb::DbDataType::Unsigned16Type)
-                  (GenDb::DbDataType::Unsigned16Type)
-                  (GenDb::DbDataType::UTF8Type)
-                 ))
-
- /* (PROT, SP) index table */
+                  flow_series_value))
+        /* (PROT, SP) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_PROT_SP,
                 boost::assign::list_of
                 (GenDb::DbDataType::Unsigned32Type)
@@ -315,21 +326,7 @@ void init_vizd_tables() {
                 (GenDb::DbDataType::Unsigned16Type)
                 (GenDb::DbDataType::Unsigned32Type)
                 (GenDb::DbDataType::LexicalUUIDType),
-                boost::assign::list_of
-                (GenDb::DbDataType::Unsigned64Type)
-                (GenDb::DbDataType::Unsigned64Type)
-                (GenDb::DbDataType::Unsigned8Type)
-                (GenDb::DbDataType::LexicalUUIDType)
-                (GenDb::DbDataType::UTF8Type)
-                (GenDb::DbDataType::UTF8Type)
-                (GenDb::DbDataType::UTF8Type)
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::Unsigned8Type)
-                (GenDb::DbDataType::Unsigned16Type)
-                (GenDb::DbDataType::Unsigned16Type)
-                (GenDb::DbDataType::UTF8Type)
-                ))
+                flow_series_value))
         /* (PROT, DP) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_PROT_DP,
                       boost::assign::list_of
@@ -341,22 +338,8 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned16Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
-                      boost::assign::list_of
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::UTF8Type)
-                     ))
- /* (VROUTER) index table */
+                      flow_series_value))
+        /* (VROUTER) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_VROUTER,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
@@ -366,21 +349,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
-                      boost::assign::list_of
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::UTF8Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::UTF8Type)
-                     ))
+                      flow_series_value))
         ;
 
 /*  For Stat Tables that have a single tag
@@ -519,11 +488,19 @@ void init_vizd_tables() {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]] =
+#ifdef USE_CASSANDRA_CQL
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::InetType);
+#else // USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
+#endif // !USE_CASSANDRA_CQL
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]] =
+#ifdef USE_CASSANDRA_CQL
+         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::InetType);
+#else // USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
+#endif // !USE_CASSANDRA_CQL
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_PROTOCOL, GenDb::DbDataType::Unsigned8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]] =

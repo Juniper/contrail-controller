@@ -1,28 +1,31 @@
-/*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
- */
+//
+// Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+//
 
-#ifndef ANALYTICS_TEST_THRIFT_IF_MOCK_H_
-#define ANALYTICS_TEST_THRIFT_IF_MOCK_H_
+#ifndef ANALYTICS_TEST_CQL_IF_MOCK_H_
+#define ANALYTICS_TEST_CQL_IF_MOCK_H_
 
-#include <database/cassandra/thrift/thrift_if.h>
+#include <database/cassandra/cql/cql_if.h>
 
-class ThriftIfMock : public ThriftIf {
-public:
-    ThriftIfMock() :
-        ThriftIf() {
+class CqlIfMock : public cass::cql::CqlIf {
+ public:
+    CqlIfMock() :
+        CqlIf() {
     }
-    ~ThriftIfMock() {}
+
+    ~CqlIfMock() {}
 
     bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
         return Db_AddColumnProxy(cl.get());
     }
+
     bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
         return Db_AddColumnSyncProxy(cl.get());
     }
 
     MOCK_METHOD0(Db_Init, bool());
     MOCK_METHOD0(Db_Uninit, void());
+
     MOCK_METHOD2(Db_AddTablespace, bool(const std::string&,const std::string&));
     MOCK_METHOD1(Db_SetTablespace, bool(const std::string&));
     MOCK_METHOD2(Db_AddSetTablespace, bool(const std::string&,const std::string&));
@@ -33,4 +36,4 @@ public:
     MOCK_METHOD1(Db_AddColumnSyncProxy, bool(GenDb::ColList *cl));
 };
 
-#endif // ANALYTICS_TEST_THRIFT_IF_MOCK_H_
+#endif // ANALYTICS_TEST_CQL_IF_MOCK_H_

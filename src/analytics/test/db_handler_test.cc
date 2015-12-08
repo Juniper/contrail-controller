@@ -3,21 +3,29 @@
  */
 
 #include <pthread.h>
+
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/ptr_list_of.hpp>
 #include <boost/uuid/uuid.hpp>
-#include "testing/gunit.h"
-#include "base/logging.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
-#include "sandesh/sandesh_message_builder.h"
-#include "../viz_types.h"
-#include "../viz_constants.h"
-#include "../db_handler.h"
-#include "thrift_if_mock.h"
-#include "../vizd_table_desc.h"
-#include "sandesh/common/flow_types.h"
+
+#include <testing/gunit.h>
+#include <base/logging.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_message_builder.h>
+#include <sandesh/common/flow_types.h>
+
+#include <analytics/viz_types.h>
+#include <analytics/viz_constants.h>
+#include <analytics/db_handler.h>
+#include <analytics/db_handler_impl.h>
+#include <analytics/vizd_table_desc.h>
+
+#include <analytics/test/thrift_if_mock.h>
+#ifdef USE_CASSANDRA_CQL
+#include <analytics/test/cql_if_mock.h>
+#endif // USE_CASSANDRA_CQL
 
 using ::testing::Return;
 using ::testing::Field;
@@ -37,7 +45,11 @@ class DbHandlerTest : public ::testing::Test {
 public:
     DbHandlerTest() :
         builder_(SandeshXMLMessageTestBuilder::GetInstance()),
+#ifdef USE_CASSANDRA_CQL
+        dbif_mock_(new CqlIfMock()),
+#else // USE_CASSANDRA_CQL
         dbif_mock_(new ThriftIfMock()),
+#endif // !USE_CASSANDRA_CQL
         db_handler_(new DbHandler(dbif_mock_, ttl_map)) {
     }
 
@@ -51,7 +63,11 @@ public:
     virtual void TearDown() {
     }
 
+#ifdef USE_CASSANDRA_CQL
+    CqlIfMock* dbif_mock() {
+#else // USE_CASSANDRA_CQL
     ThriftIfMock *dbif_mock() {
+#endif // !USE_CASSANDRA_CQL
         return dbif_mock_;
     }
 
@@ -111,7 +127,11 @@ private:
     }
 
     EventManager evm_;
+#ifdef USE_CASSANDRA_CQL
+    CqlIfMock *dbif_mock_;
+#else // USE_CASSANDRA_CQL
     ThriftIfMock *dbif_mock_;
+#endif // !USE_CASSANDRA_CQL
     DbHandler *db_handler_;
 };
 
@@ -460,8 +480,21 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     delete msg;
 }
 
+#ifdef USE_CASSANDRA_CQL
+static bool ipv4_address_to_string(uint32_t v4, std::string *v4_s) {
+    boost::asio::ip::address_v4 ipv4_addr(v4);
+    boost::system::error_code ec;
+    *v4_s = ipv4_addr.to_string(ec);
+    return ec == 0;
+}
+#endif // USE_CASSANDRA_CQL
+
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
-    init_vizd_tables();
+#ifdef USE_CASSANDRA_CQL
+    init_vizd_tables(true);
+#else // USE_CASSANDRA_CQL
+    init_vizd_tables(false);
+#endif // !USE_CASSANDRA_CQL
 
     SandeshHeader hdr;
     hdr.set_Timestamp(UTCTimestampUsec());
@@ -585,6 +618,47 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
 
             int ttl = ttl_map.find(TtlType::FLOWDATA_TTL)->second;
             GenDb::DbDataValueVec ocolvalue;
+#ifdef USE_CASSANDRA_CQL
+            std::ostringstream cv_ss;
+            const std::vector<std::string> &frnames(
+                g_viz_constants.FlowRecordNames);
+            cv_ss << "{";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DIFF_BYTES]
+                << "\":" << (uint64_t)dit->get_diff_bytes() << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DIFF_PACKETS]
+                << "\":" << (uint64_t)dit->get_diff_packets() << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SHORT_FLOW]
+                << "\":" << 0 << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_FLOWUUID]
+                << "\":\"" << to_string(flowu) << "\",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_VROUTER]
+                << "\":\"" << hdr.get_Source() << "\",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEVN]
+                << "\":\"" << dit->get_sourcevn() << "\",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTVN]
+                << "\":\"" << dit->get_destvn() << "\",";
+            std::string source_ip_s;
+            EXPECT_TRUE(ipv4_address_to_string(dit->get_sourceip(),
+                &source_ip_s));
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEIP]
+                << "\":\"" << source_ip_s << "\",";
+            std::string dest_ip_s;
+            EXPECT_TRUE(ipv4_address_to_string(dit->get_destip(),
+                &dest_ip_s));
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP]
+                << "\":\"" << dest_ip_s << "\",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_PROTOCOL]
+                << "\":" << (uint16_t)dit->get_protocol() << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SPORT]
+                << "\":" << (uint16_t)dit->get_sport() << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DPORT]
+                << "\":" << (uint16_t)dit->get_dport() << ",";
+            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_JSON]
+                << "\":" << "\"\"";
+            cv_ss << "}";
+            std::string ocolvalue_s(cv_ss.str());
+            ocolvalue.push_back(ocolvalue_s);
+#else // USE_CASSANDRA_CQL
             ocolvalue.push_back((uint64_t)dit->get_diff_bytes());
             ocolvalue.push_back((uint64_t)dit->get_diff_packets());
             ocolvalue.push_back((uint8_t)0); // short flow
@@ -598,13 +672,21 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
             ocolvalue.push_back((uint16_t)dit->get_sport());
             ocolvalue.push_back((uint16_t)dit->get_dport());
             ocolvalue.push_back(""); // json
+#endif // !USE_CASSANDRA_CQL
 
             // set expectations for FLOW_TABLE_SVN_SIP
             {
                 GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
                 colname->reserve(4);
                 colname->push_back(dit->get_sourcevn());
+#ifdef USE_CASSANDRA_CQL
+                std::string source_ip_s;
+                EXPECT_TRUE(ipv4_address_to_string(dit->get_sourceip(),
+                    &source_ip_s));
+                colname->push_back(source_ip_s);
+#else // USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)dit->get_sourceip());
+#endif // !USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)(hdr.get_Timestamp() &
                                               g_viz_constants.RowTimeInMask));
                 colname->push_back(flowu);
@@ -638,7 +720,14 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec);
                 colname->reserve(4);
                 colname->push_back(dit->get_destvn());
+#ifdef USE_CASSANDRA_CQL
+                std::string dest_ip_s;
+                EXPECT_TRUE(ipv4_address_to_string(dit->get_destip(),
+                    &dest_ip_s));
+                colname->push_back(dest_ip_s);
+#else // USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)dit->get_destip());
+#endif // !USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)(hdr.get_Timestamp() &
                                               g_viz_constants.RowTimeInMask));
                 colname->push_back(flowu);
@@ -772,6 +861,117 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         db_handler()->FlowTableInsert(msg->GetMessageNode(),
                                       msg->GetHeader());
     }
+}
+
+class FlowTableTest: public ::testing::Test {
+};
+
+static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
+    boost::assign::list_of
+    (FlowRecordFields::FLOWREC_DIFF_BYTES)
+    (FlowRecordFields::FLOWREC_DIFF_PACKETS)
+    (FlowRecordFields::FLOWREC_SHORT_FLOW)
+    (FlowRecordFields::FLOWREC_FLOWUUID)
+    (FlowRecordFields::FLOWREC_VROUTER)
+    (FlowRecordFields::FLOWREC_SOURCEVN)
+    (FlowRecordFields::FLOWREC_DESTVN)
+    (FlowRecordFields::FLOWREC_SOURCEIP)
+    (FlowRecordFields::FLOWREC_DESTIP)
+    (FlowRecordFields::FLOWREC_PROTOCOL)
+    (FlowRecordFields::FLOWREC_SPORT)
+    (FlowRecordFields::FLOWREC_DPORT)
+    (FlowRecordFields::FLOWREC_JSON);
+
+static const uint64_t diff_bytes_(123456789);
+static const uint64_t diff_packets_(512);
+static const uint8_t short_flow_(1);
+static const boost::uuids::uuid flow_uuid_ = boost::uuids::random_generator()();
+static const std::string flow_uuid_s_(to_string(flow_uuid_));
+static const std::string vrouter_("VRouter");
+static const std::string source_vn_("SourceVN");
+static const std::string dest_vn_("DestVN");
+#ifdef USE_CASSANDRA_CQL
+static const std::string source_ip_("1.1.1.1");
+static const std::string dest_ip_("2.2.2.2");
+#else // USE_CASSANDRA_CQL
+static const uint32_t source_ip_(0x01010101);
+static const uint32_t dest_ip_(0x02020202);
+#endif // !USE_CASSANDRA_CQL
+static const uint8_t protocol_(6);
+static const uint16_t sport_(65535);
+static const uint16_t dport_(80);
+static const std::string json_("");
+
+static const GenDb::DbDataValueVec FlowIndexTableColumnDbValues =
+    boost::assign::list_of
+    (GenDb::DbDataValue(diff_bytes_))
+    (GenDb::DbDataValue(diff_packets_))
+    (GenDb::DbDataValue(short_flow_))
+    (GenDb::DbDataValue(flow_uuid_))
+    (GenDb::DbDataValue(vrouter_))
+    (GenDb::DbDataValue(source_vn_))
+    (GenDb::DbDataValue(dest_vn_))
+    (GenDb::DbDataValue(source_ip_))
+    (GenDb::DbDataValue(dest_ip_))
+    (GenDb::DbDataValue(protocol_))
+    (GenDb::DbDataValue(sport_))
+    (GenDb::DbDataValue(dport_))
+    (GenDb::DbDataValue(json_));
+
+static const std::vector<std::string> FlowIndexTableColumnDbValuesJson =
+    boost::assign::list_of
+    (integerToString(diff_bytes_))
+    (integerToString(diff_packets_))
+    (integerToString(short_flow_))
+    ("\"" + flow_uuid_s_ + "\"")
+    ("\"" + vrouter_ + "\"")
+    ("\"" + source_vn_ + "\"")
+    ("\"" + dest_vn_ + "\"")
+#ifdef USE_CASSANDRA_CQL
+    ("\"" + source_ip_ + "\"")
+    ("\"" + dest_ip_ + "\"")
+#else // USE_CASSANDRA_CQL
+    (integerToString(source_ip_))
+    (integerToString(dest_ip_))
+#endif // !USE_CASSANDRA_CQL
+    (integerToString(protocol_))
+    (integerToString(sport_))
+    (integerToString(dport_))
+    ("\"" + json_ + "\"");
+
+TEST_F(FlowTableTest, ColumnValues) {
+    FlowValueArray fvalues;
+    EXPECT_EQ(FlowIndexTableColumnValues.size(),
+        FlowIndexTableColumnDbValues.size());
+    EXPECT_EQ(FlowIndexTableColumnDbValues.size(),
+        FlowIndexTableColumnDbValuesJson.size());
+    for (int i = 0; i < (int)FlowIndexTableColumnValues.size(); i++) {
+        fvalues[FlowIndexTableColumnValues[i]] =
+            FlowIndexTableColumnDbValues[i];
+    }
+    GenDb::DbDataValueVec actual_db_values;
+    PopulateFlowIndexTableColumnValues(FlowIndexTableColumnValues, fvalues,
+        &actual_db_values, -1, NULL);
+#ifdef USE_CASSANDRA_CQL
+    EXPECT_EQ(1, actual_db_values.size());
+    std::ostringstream expected_ss;
+    expected_ss << "{";
+    for (int i = 0; i < (int)FlowIndexTableColumnDbValuesJson.size(); i++) {
+        if (i) {
+            expected_ss << ",";
+        }
+        expected_ss << "\"" <<
+            g_viz_constants.FlowRecordNames[FlowIndexTableColumnValues[i]] <<
+            "\":" << FlowIndexTableColumnDbValuesJson[i];
+    }
+    expected_ss << "}";
+    EXPECT_EQ(GenDb::DB_VALUE_STRING, actual_db_values[0].which());
+    std::ostringstream actual_ss;
+    actual_ss << actual_db_values[0];
+    EXPECT_EQ(expected_ss.str(), actual_ss.str());
+#else // USE_CASSANDRA_CQL
+    EXPECT_EQ(FlowIndexTableColumnDbValues, actual_db_values);
+#endif // !USE_CASSANDRA_CQL
 }
 
 class UUIDRandomGenTest : public ::testing::Test {

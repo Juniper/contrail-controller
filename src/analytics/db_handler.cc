@@ -4,9 +4,9 @@
 
 #include <exception>
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <boost/array.hpp>
 #include <boost/uuid/name_generator.hpp>
 
 #include <rapidjson/document.h>
@@ -21,12 +21,16 @@
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>
 #include <database/cassandra/thrift/thrift_if.h>
+#ifdef USE_CASSANDRA_CQL
+#include <database/cassandra/cql/cql_if.h>
+#endif //  USE_CASSANDRA_CQL
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
 #include "collector.h"
 #include "db_handler.h"
 #include "parser_util.h"
+#include "db_handler_impl.h"
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -59,15 +63,29 @@ DbHandler::DbHandler(EventManager *evm,
         const std::vector<int> &cassandra_ports,
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
-        const std::string& cassandra_password) :
+        const std::string& cassandra_password,
+        bool use_cql) :
     name_(name),
-    drop_level_(SandeshLevel::INVALID), ttl_map_(ttl_map) {
+    drop_level_(SandeshLevel::INVALID),
+    ttl_map_(ttl_map),
+    use_cql_(use_cql),
+    tablespace_() {
+#ifdef USE_CASSANDRA_CQL
+    if (use_cql) {
+        dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
+            cassandra_ports[0], cassandra_user, cassandra_password));
+        tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
+    } else {
+#endif //  USE_CASSANDRA_CQL
         dbif_.reset(new ThriftIf(err_handler,
-          cassandra_ips, cassandra_ports, name, false,
-          cassandra_user, cassandra_password));
-
-        error_code error;
-        col_name_ = boost::asio::ip::host_name(error);
+            cassandra_ips, cassandra_ports, name, false,
+            cassandra_user, cassandra_password));
+        tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE;
+#ifdef USE_CASSANDRA_CQL
+    }
+#endif //  USE_CASSANDRA_CQL
+    error_code error;
+    col_name_ = boost::asio::ip::host_name(error);
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
@@ -164,7 +182,7 @@ bool DbHandler::CreateTables() {
     key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
     bool init_done = false;
-    if (dbif_->Db_GetRow(col_list, cfname, key)) {
+    if (dbif_->Db_GetRow(&col_list, cfname, key)) {
         for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                 it != col_list.columns_.end(); it++) {
             std::string col_name;
@@ -277,16 +295,15 @@ bool DbHandler::Initialize(int instance) {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
-    init_vizd_tables();
+    init_vizd_tables(use_cql_);
 
     if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
 
-    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
-        DB_LOG(ERROR, "Create/Set KEYSPACE: " <<
-            g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+    if (!dbif_->Db_AddSetTablespace(tablespace_, "2")) {
+        DB_LOG(ERROR, "Create/Set KEYSPACE: " << tablespace_ << " FAILED");
         return false;
     }
 
@@ -308,9 +325,8 @@ bool DbHandler::Setup(int instance) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
-    if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
-        DB_LOG(ERROR, "Set KEYSPACE: " <<
-                g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+    if (!dbif_->Db_SetTablespace(tablespace_)) {
+        DB_LOG(ERROR, "Set KEYSPACE: " << tablespace_ << " FAILED");
         return false;
     }   
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
@@ -338,6 +354,10 @@ bool DbHandler::Setup(int instance) {
     dbif_->Db_SetInitDone(true);
     DB_LOG(DEBUG, "Setup Done");
     return true;
+}
+
+bool DbHandler::UseCql() const {
+    return use_cql_;
 }
 
 void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
@@ -1007,9 +1027,6 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
 
 }
 
-typedef boost::array<GenDb::DbDataValue,
-    FlowRecordFields::FLOWREC_MAX> FlowValueArray;
-
 static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     boost::assign::list_of
     (FlowRecordFields::FLOWREC_VROUTER)
@@ -1049,26 +1066,33 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
 
 boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
 
+static void PopulateFlowFieldValues(FlowRecordFields::type ftype,
+    const GenDb::DbDataValue &db_value, int ttl, FlowFieldValuesCb fncb) {
+    if (ftype == FlowRecordFields::FLOWREC_VROUTER ||
+        ftype == FlowRecordFields::FLOWREC_SOURCEVN ||
+        ftype == FlowRecordFields::FLOWREC_DESTVN) {
+        assert(db_value.which() == GenDb::DB_VALUE_STRING);
+        std::string sval(boost::get<std::string>(db_value));
+        if (!fncb.empty()) {
+            fncb(std::string(":") + g_viz_constants.FlowRecordNames[ftype],
+                sval, ttl);
+        }
+    }
+}
+ 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
     FlowValueArray &fvalues, GenDb::NewColVec& columns, const TtlMap& ttl_map,
-    boost::function<void (const std::string&,const std::string&,int)> fncb) {
+    FlowFieldValuesCb fncb) {
     int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
     columns.reserve(frvt.size());
-    for (std::vector<FlowRecordFields::type>::const_iterator it = frvt.begin();
-         it != frvt.end(); it++) {
-        GenDb::DbDataValue &db_value(fvalues[(*it)]);
+    BOOST_FOREACH(const FlowRecordFields::type &fvt, frvt) {
+        const GenDb::DbDataValue &db_value(fvalues[fvt]);
         if (db_value.which() != GenDb::DB_VALUE_BLANK) {
             GenDb::NewCol *col(new GenDb::NewCol(
-                g_viz_constants.FlowRecordNames[(*it)], db_value, ttl));
+                g_viz_constants.FlowRecordNames[fvt], db_value, ttl));
             columns.push_back(col);
-            if ((*it==FlowRecordFields::FLOWREC_VROUTER)||
-                (*it==FlowRecordFields::FLOWREC_SOURCEVN)||
-                (*it==FlowRecordFields::FLOWREC_DESTVN)) {
-                std::string sval = boost::get<std::string>(db_value);
-                fncb(std::string(":")+g_viz_constants.FlowRecordNames[(*it)],
-                     sval, ttl);
-            }
+            PopulateFlowFieldValues(fvt, db_value, ttl, fncb);
         }
     }
 }
@@ -1084,7 +1108,7 @@ static void PopulateFlowRecordTableRowKey(
 
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    boost::function<void (const std::string&,const std::string&,int)> fncb) {
+    FlowFieldValuesCb fncb) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
@@ -1135,41 +1159,107 @@ static const std::string& FlowIndexTable2String(FlowIndexTableType ttype) {
         return g_viz_constants.FLOW_TABLE_INVALID;
     }
 }
- 
-static void PopulateFlowIndexTableColumnValues(
+
+class FlowValueJsonPrinter : public boost::static_visitor<> {
+ public:
+    FlowValueJsonPrinter() :
+        name_() {
+        dd_.SetObject();
+    }
+    void operator()(const boost::uuids::uuid &tuuid) {
+        std::string tuuid_s(to_string(tuuid));
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(tuuid_s.c_str(), dd_.GetAllocator());
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const std::string &tstring) {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(tstring.c_str(), dd_.GetAllocator());
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const uint8_t &t8) {
+        rapidjson::Value val(rapidjson::kNumberType);
+        val.SetUint(t8);
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const uint16_t &t16) {
+        rapidjson::Value val(rapidjson::kNumberType);
+        val.SetUint(t16);
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const uint32_t &tu32) {
+        rapidjson::Value val(rapidjson::kNumberType);
+        val.SetUint(tu32);
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const uint64_t &tu64) {
+        rapidjson::Value val(rapidjson::kNumberType);
+        val.SetUint64(tu64);
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const double &tdouble) {
+        rapidjson::Value val(rapidjson::kNumberType);
+        val.SetDouble(tdouble);
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
+    void operator()(const boost::blank &tblank) {
+    }
+    void SetName(const std::string &name) {
+        name_ = name;
+    }
+    std::string GetJson() {
+        rapidjson::StringBuffer sb;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+        dd_.Accept(writer);
+        return sb.GetString();
+    }
+ private:
+    rapidjson::Document dd_;
+    std::string name_;
+};
+
+void PopulateFlowIndexTableColumnValues(
     const std::vector<FlowRecordFields::type> &frvt,
-    FlowValueArray &fvalues, GenDb::DbDataValueVec &cvalues, int ttl,
-    boost::function<void (const std::string&,const std::string&,int)> fncb) {
-    cvalues.reserve(frvt.size());
-    for (std::vector<FlowRecordFields::type>::const_iterator it = frvt.begin();
-         it != frvt.end(); it++) {
-        GenDb::DbDataValue &db_value(fvalues[(*it)]);
+    const FlowValueArray &fvalues, GenDb::DbDataValueVec *cvalues, int ttl,
+    FlowFieldValuesCb fncb) {
+#ifdef USE_CASSANDRA_CQL
+    cvalues->reserve(1);
+    FlowValueJsonPrinter jprinter;
+    BOOST_FOREACH(const FlowRecordFields::type &fvt, frvt) {
+        const GenDb::DbDataValue &db_value(fvalues[fvt]);
         if (db_value.which() != GenDb::DB_VALUE_BLANK) {
-            cvalues.push_back(db_value);
-            if ((*it==FlowRecordFields::FLOWREC_VROUTER)||
-                (*it==FlowRecordFields::FLOWREC_SOURCEVN)||
-                (*it==FlowRecordFields::FLOWREC_DESTVN)) {
-                std::string sval = boost::get<std::string>(db_value);
-                fncb(std::string(":")+g_viz_constants.FlowRecordNames[(*it)],
-                     sval, ttl);
-            }
+            jprinter.SetName(g_viz_constants.FlowRecordNames[fvt]);
+            boost::apply_visitor(jprinter, db_value);
+            PopulateFlowFieldValues(fvt, db_value, ttl, fncb);
         }
     }
+    std::string jsonline(jprinter.GetJson());
+    cvalues->push_back(jsonline);
+#else // USE_CASSANDRA_CQL
+    cvalues->reserve(frvt.size());
+    BOOST_FOREACH(const FlowRecordFields::type &fvt, frvt) {
+        const GenDb::DbDataValue &db_value(fvalues[fvt]);
+        if (db_value.which() != GenDb::DB_VALUE_BLANK) {
+            cvalues->push_back(db_value);
+            PopulateFlowFieldValues(fvt, db_value, ttl, fncb);
+        }
+    }
+#endif // !USE_CASSANDRA_CQL
 }
 
 // T2, Partition No, Direction
-static void PopulateFlowIndexTableRowKey(
-    FlowValueArray &fvalues, uint32_t &T2, uint8_t &partition_no,
-    GenDb::DbDataValueVec &rkey) {
-    rkey.reserve(3);
-    rkey.push_back(T2);
-    rkey.push_back(partition_no);
-    rkey.push_back(fvalues[FlowRecordFields::FLOWREC_DIRECTION_ING]);
+static void PopulateFlowIndexTableRowKey(const FlowValueArray &fvalues,
+    const uint32_t &T2, const uint8_t &partition_no,
+    GenDb::DbDataValueVec *rkey) {
+    rkey->reserve(3);
+    rkey->push_back(T2);
+    rkey->push_back(partition_no);
+    rkey->push_back(fvalues[FlowRecordFields::FLOWREC_DIRECTION_ING]);
 }
 
 // SVN/DVN/Protocol, SIP/DIP/SPORT/DPORT, T1, FLOW_UUID
 static void PopulateFlowIndexTableColumnNames(FlowIndexTableType ftype,
-    FlowValueArray &fvalues, uint32_t &T1,
+    const FlowValueArray &fvalues, const uint32_t &T1,
     GenDb::DbDataValueVec *cnames) {
     cnames->reserve(4);
     switch(ftype) {
@@ -1201,8 +1291,8 @@ static void PopulateFlowIndexTableColumnNames(FlowIndexTableType ftype,
 }
 
 static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
-    FlowValueArray &fvalues, uint32_t &T1,
-    GenDb::NewColVec &columns, const GenDb::DbDataValueVec &cvalues,
+    const FlowValueArray &fvalues, const uint32_t &T1,
+    GenDb::NewColVec *columns, const GenDb::DbDataValueVec &cvalues,
     const TtlMap& ttl_map) {
     int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
 
@@ -1210,22 +1300,22 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
     PopulateFlowIndexTableColumnNames(ftype, fvalues, T1, names);
     GenDb::DbDataValueVec *values(new GenDb::DbDataValueVec(cvalues));
     GenDb::NewCol *col(new GenDb::NewCol(names, values, ttl));
-    columns.reserve(1);
-    columns.push_back(col);
+    columns->reserve(1);
+    columns->push_back(col);
 }
 
-static bool PopulateFlowIndexTables(FlowValueArray &fvalues, 
-    uint32_t &T2, uint32_t &T1, uint8_t partition_no,
+static bool PopulateFlowIndexTables(const FlowValueArray &fvalues, 
+    const uint32_t &T2, const uint32_t &T1, uint8_t partition_no,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    boost::function<void (const std::string&,const std::string&,int)> fncb) {
+    FlowFieldValuesCb fncb) {
     // Populate row key and column values (same for all flow index
     // tables)
     GenDb::DbDataValueVec rkey;
-    PopulateFlowIndexTableRowKey(fvalues, T2, partition_no, rkey);
+    PopulateFlowIndexTableRowKey(fvalues, T2, partition_no, &rkey);
     GenDb::DbDataValueVec cvalues;
     int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
     PopulateFlowIndexTableColumnValues(FlowIndexTableColumnValues, fvalues,
-        cvalues, ttl, fncb);
+        &cvalues, ttl, fncb);
     // Populate the Flow Index Tables
     for (int tid = FLOW_INDEX_TABLE_MIN;
          tid < FLOW_INDEX_TABLE_MAX_PLUS_1; ++tid) {
@@ -1233,7 +1323,7 @@ static bool PopulateFlowIndexTables(FlowValueArray &fvalues,
         std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
         colList->cfname_ = FlowIndexTable2String(fitt);
         colList->rowkey_ = rkey;
-        PopulateFlowIndexTableColumns(fitt, fvalues, T1, colList->columns_,
+        PopulateFlowIndexTableColumns(fitt, fvalues, T1, &colList->columns_,
             cvalues, ttl_map);
         if (!dbif->Db_AddColumn(colList)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
@@ -1308,6 +1398,22 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
                 values_[ftinfo.get<0>()] = val;
                 break;
             }
+#ifdef USE_CASSANDRA_CQL
+        case GenDb::DbDataType::InetType:
+            {
+                uint32_t v4;
+                stringToInteger(node.child_value(), v4);
+                boost::asio::ip::address_v4 v4_addr(v4);
+                boost::system::error_code ec;
+                std::string v4_addr_s(v4_addr.to_string(ec));
+                if (ec) {
+                    LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
+                        node.child_value() << ") INVALID");
+                }
+                values_[ftinfo.get<0>()] = v4_addr_s;
+                break;
+            }
+#endif // USE_CASSANDRA_CQL
         default:
             VIZD_ASSERT(0);
             break;
@@ -1352,8 +1458,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     // Partition no
     uint8_t partition_no = 0;
     // Populate Flow Record Table
-    
-    boost::function<void (const std::string&,const std::string&,int)> fncb =
+    FlowFieldValuesCb fncb =
             boost::bind(&DbHandler::FieldNamesTableInsert,
             this, timestamp, g_viz_constants.FLOW_TABLE, _1,_2,_3);
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_,
@@ -1366,7 +1471,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
         flow_entry_values[FlowRecordFields::FLOWREC_DIFF_PACKETS]);
     // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     // FLOWREC_DIFF_PACKETS are present
-    boost::function<void (const std::string&,const std::string&,int)> fncb2 =
+    FlowFieldValuesCb fncb2 =
             boost::bind(&DbHandler::FieldNamesTableInsert,
             this, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1,_2,_3);
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
@@ -1462,7 +1567,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
-        cassandra_user, cassandra_password)),
+        cassandra_user, cassandra_password, false)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",

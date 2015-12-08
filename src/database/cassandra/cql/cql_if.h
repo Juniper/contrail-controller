@@ -1,0 +1,71 @@
+//
+// Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+//
+
+#ifndef DATABASE_CASSANDRA_CQL_CQL_IF_H_
+#define DATABASE_CASSANDRA_CQL_CQL_IF_H_
+
+#include <string>
+#include <vector>
+
+#include <database/gendb_if.h>
+
+class EventManager;
+
+namespace cass {
+namespace cql {
+
+class CqlIf : public GenDb::GenDbIf {
+ public:
+    CqlIf(EventManager *evm,
+        const std::vector<std::string> &cassandra_ips,
+        int cassandra_port,
+        const std::string &cassandra_user,
+        const std::string &cassandra_password);
+    CqlIf();
+    virtual ~CqlIf();
+    // Init/Uninit
+    virtual bool Db_Init(const std::string &task_id, int task_instance);
+    virtual void Db_Uninit(const std::string &task_id, int task_instance);
+    virtual void Db_UninitUnlocked(const std::string &task_id,
+        int task_instance);
+    virtual void Db_SetInitDone(bool);
+    // Tablespace
+    virtual bool Db_SetTablespace(const std::string &tablespace);
+    virtual bool Db_AddSetTablespace(const std::string &tablespace,
+        const std::string &replication_factor = "1");
+    // Column family
+    virtual bool Db_AddColumnfamily(const GenDb::NewCf &cf);
+    virtual bool Db_UseColumnfamily(const GenDb::NewCf &cf);
+    // Column
+    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
+    // Read
+    virtual bool Db_GetRow(GenDb::ColList *out, const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey);
+    virtual bool Db_GetMultiRow(GenDb::ColListVec *out,
+        const std::string &cfname,
+        const std::vector<GenDb::DbDataValueVec> &key,
+        GenDb::ColumnNameRange *crange_ptr = NULL);
+    // Queue
+    virtual bool Db_GetQueueStats(uint64_t *queue_count,
+        uint64_t *enqueues) const;
+    virtual void Db_SetQueueWaterMark(bool high, size_t queue_count,
+        DbQueueWaterMarkCb cb);
+    virtual void Db_ResetQueueWaterMarks();
+    // Stats
+    virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe);
+    // Connection
+    virtual std::string Db_GetHost() const;
+    virtual int Db_GetPort() const;
+
+ private:
+    class CqlIfImpl;
+    CqlIfImpl *impl_;
+};
+
+} // namespace cql
+} // namespace cass
+
+#endif // DATABASE_CASSANDRA_CQL_CQL_IF_H_

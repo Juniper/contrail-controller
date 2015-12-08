@@ -16,7 +16,10 @@ enum DbDataType {
     Unsigned64Type    = 7, // uint64_t
 
     DoubleType        = 8, // double
-    UTF8Type          = 9, //utf-8 string
+    UTF8Type          = 9, // utf-8 string
+    InetType          = 10, // IPv4 or IPv6 addresses
+    IntegerType       = 11, // varint
+    BlobType          = 12, // blob / bytes
 }
 
 struct DbTableInfo {
