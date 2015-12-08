@@ -50,7 +50,7 @@ class OpencontrailLoadbalancerDriver(
             return instance_ip.address
         return None
 
-    def _calculate_instance_properties(self, pool, vip):
+    def _calculate_instance_properties(self, pool, vip_vmi, listener_id=None):
         """ ServiceInstance settings
         - right network: public side, determined by the vip
         - left network: backend, determined by the pool subnet
@@ -59,14 +59,11 @@ class OpencontrailLoadbalancerDriver(
         if_list = []
 
         # Calculate the Right Interface from virtual ip property
-        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
-        if not vmi:
-            return None
-        right_ip_address = self._get_interface_address(vmi)
+        right_ip_address = self._get_interface_address(vip_vmi)
         if right_ip_address is None:
             return None
 
-        vip_vn = VirtualNetworkSM.get(vmi.virtual_network)
+        vip_vn = VirtualNetworkSM.get(vip_vmi.virtual_network)
         if vip_vn is None:
             return None
         right_virtual_network = ':'.join(vip_vn.fq_name)
@@ -77,14 +74,15 @@ class OpencontrailLoadbalancerDriver(
         if_list.append(right_if)
 
         # Calculate the Left Interface from Pool property
-        pool_attrs = pool.params
-        pool_vn_id = self._api.kv_retrieve(pool_attrs['subnet_id']).split()[0]
-        if pool_vn_id != vip_vn.uuid:
-            pool_vn = VirtualNetworkSM.get(pool_vn_id)
-            left_virtual_network = ':'.join(pool_vn.fq_name)
-            left_if = ServiceInstanceInterfaceType(
-                virtual_network=left_virtual_network)
-            if_list.append(left_if)
+        if not listener_id:
+            pool_attrs = pool.params
+            pool_vn_id = self._api.kv_retrieve(pool_attrs['subnet_id']).split()[0]
+            if pool_vn_id != vip_vn.uuid:
+                pool_vn = VirtualNetworkSM.get(pool_vn_id)
+                left_virtual_network = ':'.join(pool_vn.fq_name)
+                left_if = ServiceInstanceInterfaceType(
+                    virtual_network=left_virtual_network)
+                if_list.append(left_if)
 
         # set interfaces and ha
         props.set_interface_list(if_list)
@@ -116,7 +114,32 @@ class OpencontrailLoadbalancerDriver(
             self._api.service_instance_update(si_obj)
             si.update()
 
-    def _update_loadbalancer_instance(self, pool_id, vip_id):
+    def _get_vip_vmi(self, pool, vip_id=None, listener_id=None):
+        vmi_id = None
+        if listener_id:
+            listener = LoadbalancerListenerSM.get(listener_id)
+            if not listener:
+                msg = ('Unable to retrieve listener %s' % listener_id)
+                self._svc_manager.logger.log_error(msg)
+                return
+            lb = LoadbalancerSM.get(listener.loadbalancer)
+            if not lb:
+                msg = ('Unable to retrieve loadbalancer for listener %s' % listener_id)
+                self._svc_manager.logger.log_error(msg)
+                return
+            vmi_id = lb.virtual_machine_interface
+        elif vip_id:
+            vip = VirtualIpSM.get(vip_id)
+            if not vip:
+                msg = ('Unable to retrieve vip %s' % vip_id)
+                self._svc_manager.logger.log_error(msg)
+                return
+            vmi_id = vip.virtual_machine_interface
+ 
+        vmi = VirtualMachineInterfaceSM.get(vmi_id)
+        return vmi
+
+    def _update_loadbalancer_instance(self, pool_id, vip_id=None, listener_id=None):
         """ Update the loadbalancer service instance.
 
         Prerequisites:
@@ -128,9 +151,9 @@ class OpencontrailLoadbalancerDriver(
             self._svc_manager.logger.log_error(msg)
             return
 
-        vip = VirtualIpSM.get(vip_id)
-        if vip is None:
-            msg = ('Unable to retrieve virtual ip %s' % vip_id)
+        vip_vmi = self._get_vip_vmi(pool, vip_id, listener_id)
+        if vip_vmi is None:
+            msg = ('Unable to retrieve vip port for pool %s' % pool.uuid)
             self._svc_manager.logger.log_error(msg)
             return
 
@@ -139,7 +162,7 @@ class OpencontrailLoadbalancerDriver(
 
         si_refs = pool.service_instance
         si_obj = ServiceInstanceSM.get(si_refs)
-        props = self._calculate_instance_properties(pool, vip)
+        props = self._calculate_instance_properties(pool, vip_vmi, listener_id)
         if props is None:
             try:
                 self._api.service_instance_delete(id=si_refs)
@@ -184,6 +207,25 @@ class OpencontrailLoadbalancerDriver(
             self._svc_manager.logger.log_error(str(ex))
         self.db.pool_remove(pool_id, ['service_instance'])
 
+    def create_listener(self, listener):
+        self._get_template()
+        if listener['pool_id']:
+            self._update_loadbalancer_instance(listener['pool_id'],
+                listener_id=listener['id'])
+
+    def update_listener(self, old_listener, listener):
+        if old_listener['pool_id'] != listener['pool_id']:
+            self._clear_loadbalancer_instance(
+                old_listener['tenant_id'], old_listener['pool_id'])
+
+        if listener['pool_id']:
+            self._update_loadbalancer_instance(listener['pool_id'],
+                listener_id=listener['id'])
+
+    def delete_listener(self, listener):
+        if listener['pool_id']:
+            self._clear_loadbalancer_instance(listener['tenant_id'], listener['pool_id'])
+
     def create_vip(self, vip):
         """A real driver would invoke a call to his backend
         and set the Vip status to ACTIVE/ERROR according
@@ -193,7 +235,7 @@ class OpencontrailLoadbalancerDriver(
         """
         self._get_template()
         if vip['pool_id']:
-            self._update_loadbalancer_instance(vip['pool_id'], vip['id'])
+            self._update_loadbalancer_instance(vip['pool_id'], vip_id=vip['id'])
 
     def update_vip(self, old_vip, vip):
         """Driver may call the code below in order to update the status.
@@ -204,7 +246,7 @@ class OpencontrailLoadbalancerDriver(
                 old_vip['tenant_id'], old_vip['pool_id'])
 
         if vip['pool_id']:
-            self._update_loadbalancer_instance(vip['pool_id'], vip['id'])
+            self._update_loadbalancer_instance(vip['pool_id'], vip_id=vip['id'])
 
     def delete_vip(self, vip):
         """A real driver would invoke a call to his backend
@@ -221,8 +263,12 @@ class OpencontrailLoadbalancerDriver(
                                   constants.ACTIVE)
         """
         self._get_template()
-        if pool.get('vip_id'):
-            self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
+        if pool.get('listener_id', None):
+            self._update_loadbalancer_instance(pool['id'],
+                listener_id=pool['listener_id'])
+        elif pool.get('vip_id', None):
+            self._update_loadbalancer_instance(pool['id'],
+                vip_id=pool['vip_id'])
 
     def update_pool(self, old_pool, pool):
         """Driver may call the code below in order to update the status.
@@ -230,8 +276,12 @@ class OpencontrailLoadbalancerDriver(
                                   Pool,
                                   pool["id"], constants.ACTIVE)
         """
-        if pool['vip_id']:
-            self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
+        if pool.get('listener_id', None):
+            self._update_loadbalancer_instance(pool['id'],
+                listener_id=pool['listener_id'])
+        elif pool.get('vip_id', None):
+            self._update_loadbalancer_instance(pool['id'],
+                vip_id=pool['vip_id'])
 
     def delete_pool(self, pool):
         """Driver can call the code below in order to delete the pool.
