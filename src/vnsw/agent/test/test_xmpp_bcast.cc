@@ -234,8 +234,6 @@ protected:
         Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 0);
-        Agent::GetInstance()->ResetAgentMcastLabelRange(0);
-        Agent::GetInstance()->ResetAgentMcastLabelRange(1);
         xc->Shutdown();
         client->WaitForIdle();
 

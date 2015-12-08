@@ -74,6 +74,7 @@ public:
     void SendObjectLog(const AgentDBTable *table,
                        AgentLogEvent::type event) const;
     void SyncDependentPath();
+    bool IsFabricMulticastReservedLabel() const;
 
 private:
     const Agent *agent_;
@@ -196,6 +197,9 @@ public:
         mpls_shift_bits_ = shift;
     }
     void ReserveLabel(uint32_t start, uint32_t end);
+    void ReserveMulticastLabel(uint32_t start, uint32_t end, uint8_t idx);
+    bool IsFabricMulticastLabel(uint32_t label) const;
+
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
@@ -209,6 +213,8 @@ private:
     //other word. Mpls label are allocated such that lower 4 bits are 0,
     //so that remaining MSB can uniquely identify the queue
     uint32_t mpls_shift_bits_;
+    uint32_t multicast_label_start_[MAX_XMPP_SERVERS];
+    uint32_t multicast_label_end_[MAX_XMPP_SERVERS];
     DISALLOW_COPY_AND_ASSIGN(MplsTable);
 };
 

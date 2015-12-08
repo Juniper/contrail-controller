@@ -242,6 +242,27 @@ TEST_F(CfgTest, VrfChangeVxlanTest) {
     EXPECT_FALSE(VrfFind("vrf1"));
 }
 
+TEST_F(CfgTest, mcast_mpls_label_check) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    BridgeRouteEntry *l2_flood_rt = L2RouteGet("vrf1",
+                                               MacAddress::BroadcastMac());
+    uint32_t label = l2_flood_rt->GetActiveLabel();
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->FindMplsLabel(label) != NULL);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->FindMplsLabel(label) == NULL);
+    client->WaitForIdle();
+}
+
 TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},

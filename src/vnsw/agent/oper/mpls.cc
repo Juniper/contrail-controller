@@ -21,7 +21,7 @@ MplsLabel::~MplsLabel() {
     if (label_ == MplsTable::kInvalidLabel) {
         return;
     }
-    if ((type_ != MplsLabel::MCAST_NH) &&
+    if (!IsFabricMulticastReservedLabel() &&
         free_label_) {
         agent_->mpls_table()->FreeLabel(label_);
     }
@@ -49,7 +49,7 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
 
     mpls->free_label_ = true;
-    if (mpls->type_ != MplsLabel::MCAST_NH) {
+    if (!mpls->IsFabricMulticastReservedLabel()) {
         UpdateLabel(key->label_, mpls);
     }
     ChangeHandler(mpls, req);
@@ -282,6 +282,13 @@ void MplsLabel::DeleteReq(const Agent *agent, uint32_t label) {
     agent->mpls_table()->Enqueue(&req);
 }
 
+bool MplsLabel::IsFabricMulticastReservedLabel() const {
+    if (type_ != MplsLabel::MCAST_NH)
+        return false;
+
+    return (agent_->mpls_table()->
+            IsFabricMulticastLabel(label_));
+}
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);
@@ -415,4 +422,20 @@ AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                            const std::string &context) {
     return AgentSandeshPtr(new AgentMplsSandesh(context,
                                            args->GetString("type"), args->GetString("label")));
+}
+
+void MplsTable::ReserveMulticastLabel(uint32_t start,
+                                      uint32_t end,
+                                      uint8_t idx) {
+    multicast_label_start_[idx] = start;
+    multicast_label_end_[idx] = end;
+    ReserveLabel(start, end);
+}
+
+bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if ((label >= multicast_label_start_[count]) &&
+            (label <= multicast_label_end_[count])) return true;
+    }
+    return false;
 }

@@ -627,16 +627,6 @@ public:
     const std::string &module_name() const { return module_name_; }
     void set_module_name(const std::string &name) { module_name_ = name; }
 
-    // Multicast related
-    const std::string &multicast_label_range(uint8_t idx) { 
-        return label_range_[idx]; 
-    }
-    void SetAgentMcastLabelRange(uint8_t idx);
-    void ResetAgentMcastLabelRange(uint8_t idx) {
-
-        label_range_[idx].clear();
-    }
-
     AgentXmppChannel* mulitcast_builder() {
         return cn_mcast_builder_;
     };
@@ -1065,7 +1055,6 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
-    std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;
     std::string pkt_interface_name_;
