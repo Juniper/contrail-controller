@@ -82,7 +82,19 @@ public:
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
     typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
+    typedef std::list<boost::shared_ptr<BgpPeer> > BgpPeerList;
+    typedef BgpPeerList::const_iterator BgpPeerConstIterator;
     typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
+
+    struct FabricMulticastLabelRange {
+        FabricMulticastLabelRange() : start(), end(), fabric_multicast_label_range_str() {};
+        ~FabricMulticastLabelRange() {};
+
+        uint32_t start;
+        uint32_t end;
+        std::string fabric_multicast_label_range_str;
+    };
+
     VNController(Agent *agent);
     virtual ~VNController();
     void Connect();
@@ -113,6 +125,9 @@ public:
         return decommissioned_peer_list_.size();
     }
     void AddToDecommissionedPeerList(boost::shared_ptr<BgpPeer> peer);
+    const BgpPeerList &decommissioned_peer_list() const {
+        return decommissioned_peer_list_;
+    }
 
     //Unicast timer related routines
     void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
@@ -140,6 +155,13 @@ public:
     Agent *agent() {return agent_;}
     void Enqueue(ControllerWorkQueueDataType data);
     void DeleteAgentXmppChannel(AgentXmppChannel *ch);
+    void SetAgentMcastLabelRange(uint8_t idx);
+    void FillMcastLabelRange(uint32_t *star_idx,
+                             uint32_t *end_idx,
+                             uint8_t idx) const;
+    const FabricMulticastLabelRange &fabric_multicast_label_range(uint8_t idx) const {
+        return fabric_multicast_label_range_[idx];
+    }
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -158,6 +180,7 @@ private:
     MulticastCleanupTimer multicast_cleanup_timer_;
     ConfigCleanupTimer config_cleanup_timer_;
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
+    FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
 };
 
 extern SandeshTraceBufferPtr ControllerInfoTraceBuf;

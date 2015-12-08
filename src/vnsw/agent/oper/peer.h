@@ -82,7 +82,8 @@ class BgpPeer : public Peer {
 public:
     typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
-            AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id,
+            boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer,
+            DBTableBase::ListenerId id,
             Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
     virtual bool NeedValidityCheck() const {return true;}
@@ -95,8 +96,10 @@ public:
     // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
-    AgentXmppChannel *GetBgpXmppPeer() { return bgp_xmpp_peer_; }    
-    const AgentXmppChannel *GetBgpXmppPeerConst() const {return bgp_xmpp_peer_;}
+    AgentXmppChannel *GetBgpXmppPeer() const { return bgp_xmpp_peer_.get(); }
+    const AgentXmppChannel *GetBgpXmppPeerConst() const {
+        return bgp_xmpp_peer_.get();
+    }
 
     // Table Walkers
     void DelPeerRoutes(DelPeerDone walk_done_cb);
@@ -126,7 +129,7 @@ private:
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
-    AgentXmppChannel *bgp_xmpp_peer_;
+    boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer_;
     tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);

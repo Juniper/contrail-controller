@@ -123,19 +123,32 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
                                        DBEntryBase *entry) {
     AgentRoute *route = static_cast<InetUnicastRouteEntry *>(entry);
     if (route && !route->IsDeleted()) {
+        std::list<AgentPath *> to_be_deleted_path_list;
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end();) {
             AgentPath *path =
                 static_cast<AgentPath *>(it.operator->());
             const Peer *peer = path->peer();
             it++;
+            if (path->is_stale()) continue;
+
             if (peer && peer->GetType() == Peer::BGP_PEER) {
-                DeletePathFromPeer(part, route, path);
+                to_be_deleted_path_list.push_back(path);
             }
             if (peer && peer->GetType() == Peer::MULTICAST_FABRIC_TREE_BUILDER) {
-                DeletePathFromPeer(part, route, path);
+                to_be_deleted_path_list.push_back(path);
             }
         }
+        //Now delete all selected paths.
+        std::list<AgentPath *>::iterator to_be_deleted_path_list_it =
+            to_be_deleted_path_list.begin();
+        while (to_be_deleted_path_list_it != to_be_deleted_path_list.end()) {
+            AgentPath *path =
+                static_cast<AgentPath *>(*to_be_deleted_path_list_it);
+            DeletePathFromPeer(part, route, path);
+            to_be_deleted_path_list_it++;
+        }
+        route->SquashStalePaths(NULL);
     }
     return true;
 }

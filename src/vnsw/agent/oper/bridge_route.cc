@@ -526,8 +526,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     bool tor_path = false;
 
     //Delete path label
-    if (del) {
-        MplsLabel::DeleteReq(agent, path->label());
+    if (del && (path->peer()->GetType() != Peer::BGP_PEER)) {
+        agent->mpls_table()->DeleteMcastLabel(path->label());
     }
 
     const CompositeNH *cnh =
@@ -686,7 +686,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         vxlan_id = tor_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
         label = tor_peer_path->label();
-        evpn_label = label;
     } else if (fabric_peer_path) {
         dest_vn_name = fabric_peer_path->dest_vn_name();
         unresolved = fabric_peer_path->unresolved();
@@ -699,7 +698,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         vxlan_id = evpn_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
         label = evpn_peer_path->label();
-        evpn_label = label;
     }
 
     //Mpls label selection needs to be overridden by fabric label
@@ -719,23 +717,22 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //Bake all MPLS label
     if (fabric_peer_path) {
         //Add new label
-        MplsLabel::CreateMcastLabelReq(agent,
-                                       fabric_peer_path->label(),
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
+        agent->mpls_table()->CreateMcastLabel(fabric_peer_path->label(),
+                                              Composite::L2COMP,
+                                              component_nh_list,
+                                              vrf()->GetName());
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            MplsLabel::DeleteReq(agent, old_fabric_mpls_label);
+            agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label);
         }
     }
 
-    if (evpn_label != 0) {
-        MplsLabel::CreateMcastLabelReq(agent,
-                                       evpn_label,
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
+    //Populate label only when local vm peer path is present.
+    if (evpn_label != 0 && local_vm_peer_path) {
+        agent->mpls_table()->CreateMcastLabel(evpn_label,
+                                              Composite::L2COMP,
+                                              component_nh_list,
+                                              vrf()->GetName());
     }
     return ret;
 }

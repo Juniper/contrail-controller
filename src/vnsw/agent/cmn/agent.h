@@ -510,13 +510,13 @@ public:
         xs_stime_[idx] = time;
     }
  
+    boost::shared_ptr<AgentXmppChannel> controller_xmpp_channel_ref(uint8_t idx);
     AgentXmppChannel *controller_xmpp_channel(uint8_t idx) const {
-        return agent_xmpp_channel_[idx];
+        return (agent_xmpp_channel_[idx]).get();
     }
 
-    void set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
-        agent_xmpp_channel_[idx] = channel;
-    };
+    void set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx);
+    void reset_controller_xmpp_channel(uint8_t idx);
 
     // Service instance
    ServiceInstanceTable *service_instance_table() const {
@@ -626,16 +626,6 @@ public:
 
     const std::string &module_name() const { return module_name_; }
     void set_module_name(const std::string &name) { module_name_ = name; }
-
-    // Multicast related
-    const std::string &multicast_label_range(uint8_t idx) { 
-        return label_range_[idx]; 
-    }
-    void SetAgentMcastLabelRange(uint8_t idx);
-    void ResetAgentMcastLabelRange(uint8_t idx) {
-
-        label_range_[idx].clear();
-    }
 
     AgentXmppChannel* mulitcast_builder() {
         return cn_mcast_builder_;
@@ -978,7 +968,7 @@ private:
     VNController *controller_;
 
     EventManager *event_mgr_;
-    AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
+    boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
     AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
     XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
     XmppInit *xmpp_init_[MAX_XMPP_SERVERS];
@@ -1065,7 +1055,6 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
-    std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;
     std::string pkt_interface_name_;

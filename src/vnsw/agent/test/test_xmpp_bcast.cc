@@ -231,11 +231,9 @@ protected:
         xs->Shutdown();
         bgp_peer.reset();
         client->WaitForIdle();
-        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
+        Agent::GetInstance()->reset_controller_xmpp_channel(0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 0);
-        Agent::GetInstance()->ResetAgentMcastLabelRange(0);
-        Agent::GetInstance()->ResetAgentMcastLabelRange(1);
         xc->Shutdown();
         client->WaitForIdle();
 
@@ -1635,7 +1633,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     TcpServerManager::DeleteServer(xc_s);
     client->WaitForIdle();
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("", 1);
-    Agent::GetInstance()->set_controller_xmpp_channel(NULL, 1);
+    Agent::GetInstance()->reset_controller_xmpp_channel(1);
 }
 
 TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_vn_vrf_link_del) {
