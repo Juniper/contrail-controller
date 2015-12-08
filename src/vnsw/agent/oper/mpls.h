@@ -53,15 +53,9 @@ public:
                                          const string &ifname,
                                          bool policy,
                                          InterfaceNHFlags::Type type);
-    static void CreateMcastLabelReq(const Agent *agent,
-                                    uint32_t src_label,
-                                    COMPOSITETYPE type,
-                                    ComponentNHKeyList &component_nh_key_list,
-                                    const std::string vrf_name);
     static void CreateEcmpLabel(const Agent *agent, uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
                                 const std::string vrf_name);
-    static void DeleteMcastLabelReq(const Agent *agent, uint32_t src_label);
     // Delete MPLS Label entry
     static void DeleteReq(const Agent *agent, uint32_t label);
     static void Delete(const Agent *agent, uint32_t label);
@@ -74,6 +68,7 @@ public:
     void SendObjectLog(const AgentDBTable *table,
                        AgentLogEvent::type event) const;
     void SyncDependentPath();
+    bool IsFabricMulticastReservedLabel() const;
 
 private:
     const Agent *agent_;
@@ -159,6 +154,11 @@ public:
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
+    void CreateMcastLabel(uint32_t src_label,
+                          COMPOSITETYPE type,
+                          ComponentNHKeyList &component_nh_key_list,
+                          const std::string vrf_name);
+    void DeleteMcastLabel(uint32_t src_label);
 
     // Allocate and Free label from the label_table
     uint32_t AllocLabel() {
@@ -196,6 +196,9 @@ public:
         mpls_shift_bits_ = shift;
     }
     void ReserveLabel(uint32_t start, uint32_t end);
+    void ReserveMulticastLabel(uint32_t start, uint32_t end, uint8_t idx);
+    bool IsFabricMulticastLabel(uint32_t label) const;
+
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
@@ -209,6 +212,8 @@ private:
     //other word. Mpls label are allocated such that lower 4 bits are 0,
     //so that remaining MSB can uniquely identify the queue
     uint32_t mpls_shift_bits_;
+    uint32_t multicast_label_start_[MAX_XMPP_SERVERS];
+    uint32_t multicast_label_end_[MAX_XMPP_SERVERS];
     DISALLOW_COPY_AND_ASSIGN(MplsTable);
 };
 
