@@ -31,6 +31,7 @@
 #include <oper/peer.h>
 
 #include <filter/acl.h>
+#include <controller/controller_init.h>
 
 #include <cmn/agent_factory.h>
 
@@ -410,7 +411,7 @@ Agent::Agent() :
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
     discovery_client_name_(),
-    label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
@@ -612,39 +613,6 @@ const string Agent::BuildDiscoveryClientName(string mod_name, string id) {
     return (mod_name + ":" + id);
 }
 
-void Agent::SetAgentMcastLabelRange(uint8_t idx) {
-    std::stringstream str;
-    //Logic for multicast label allocation
-    //  1> Reserve minimum 4k label for unicast
-    //  2> In the remaining label space
-    //       * Try allocating labels equal to no. of VN
-    //         for each control node
-    //       * If label space is not huge enough
-    //         split remaining unicast label for both control
-    //         node
-    //  Remaining label would be used for unicast mpls label
-    if (vrouter_max_labels_ == 0) {
-        str << 0 << "-" << 0;
-        label_range_[idx] = str.str();
-        return;
-    }
-
-    uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
-    uint32_t mc_label_count = 0;
-    if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
-        mc_label_count = vrouter_max_vrfs_;
-    } else {
-        mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
-    }
-
-    uint32_t start = vrouter_max_labels_ - ((idx + 1) * mc_label_count);
-    uint32_t end = (vrouter_max_labels_ - ((idx) * mc_label_count) - 1);
-    str << start << "-" << end;
-
-    mpls_table_->ReserveLabel(start, end + 1);
-    label_range_[idx] = str.str();
-}
-
 Agent::ForwardingMode Agent::TranslateForwardingMode
 (const std::string &mode) const {
     if (mode == "l2")
@@ -655,4 +623,22 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
         return Agent::L2_L3;
 
     return Agent::NONE;
+}
+
+const void Agent::fabric_multicast_label_range(uint8_t idx,
+                                               uint32_t *start,
+                                               uint32_t *end) {
+    if (controller_) {
+        *start = controller_->fabric_multicast_label_range(idx).start;
+        *end = controller_->fabric_multicast_label_range(idx).end;
+    }
+}
+
+bool Agent::IsFabricMulticastLabel(uint32_t label) const {
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        uint32_t start = controller_->fabric_multicast_label_range(count).start;
+        uint32_t end = controller_->fabric_multicast_label_range(count).end;
+        if ((label >= start) && (label <= end)) return true;
+    }
+    return false;
 }
