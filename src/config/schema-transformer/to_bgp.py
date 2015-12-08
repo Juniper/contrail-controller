@@ -1207,9 +1207,6 @@ class SecurityGroupST(DBBase):
         else:
             do_alloc = False
             if sg_id is not None:
-                if sg_id < SGID_MIN_ALLOC:
-                    if self.name == self._sg_id_allocator.read(sg_id):
-                        self.obj.set_security_group_id(sg_id + SGID_MIN_ALLOC)
                 if int(sg_id) < SGID_MIN_ALLOC:
                     if self.name == self._cassanda.get_sg_from_id(int(sg_id)):
                         self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
