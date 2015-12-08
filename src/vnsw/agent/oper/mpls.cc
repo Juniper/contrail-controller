@@ -21,7 +21,7 @@ MplsLabel::~MplsLabel() {
     if (label_ == MplsTable::kInvalidLabel) {
         return;
     }
-    if ((type_ != MplsLabel::MCAST_NH) &&
+    if (!IsFabricMulticastReservedLabel() &&
         free_label_) {
         agent_->mpls_table()->FreeLabel(label_);
     }
@@ -49,7 +49,7 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
 
     mpls->free_label_ = true;
-    if (mpls->type_ != MplsLabel::MCAST_NH) {
+    if (!mpls->IsFabricMulticastReservedLabel()) {
         UpdateLabel(key->label_, mpls);
     }
     ChangeHandler(mpls, req);
@@ -282,6 +282,12 @@ void MplsLabel::DeleteReq(const Agent *agent, uint32_t label) {
     agent->mpls_table()->Enqueue(&req);
 }
 
+bool MplsLabel::IsFabricMulticastReservedLabel() const {
+    if (type_ != MplsLabel::MCAST_NH)
+        return false;
+
+    return agent_->IsFabricMulticastLabel(label_);
+}
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);
