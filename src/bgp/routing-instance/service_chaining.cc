@@ -421,8 +421,8 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
 
     BgpAttrDB *attr_db = server->attr_db();
     CommunityDB *comm_db = server->comm_db();
-    CommunityPtr new_community =
-        comm_db->AppendAndLocate(orig_community, CommunityType::AcceptOwn);
+    CommunityPtr new_community = comm_db->AppendAndLocate(
+        orig_community, CommunityType::AcceptOwnNexthop);
     ExtCommunityDB *extcomm_db = server->extcomm_db();
     PeerRibMembershipManager *membership_mgr = server->membership_mgr();
     OriginVnPathDB *ovnpath_db = server->ovnpath_db();

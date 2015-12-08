@@ -709,7 +709,7 @@ protected:
         const string &prefix, const string &path_id, const string &origin_vn,
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
             SiteOfOrigin(), commlist, vector<string>()));
@@ -754,7 +754,7 @@ protected:
 
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>(), lb));
@@ -765,7 +765,7 @@ protected:
         int label = 0) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>()));
@@ -774,7 +774,7 @@ protected:
     void VerifyRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn) {
         task_util::WaitForIdle();
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, vector<string>()));
@@ -785,7 +785,7 @@ protected:
         const vector<uint32_t> sg_ids) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
             SiteOfOrigin(), commlist, vector<string>()));
@@ -796,7 +796,7 @@ protected:
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             tunnel_encaps, SiteOfOrigin(), commlist, vector<string>()));
@@ -807,7 +807,7 @@ protected:
         const SiteOfOrigin &soo) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), soo, commlist, vector<string>()));
@@ -829,7 +829,7 @@ protected:
         const vector<string> &origin_vn_path) {
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
-        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwn);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commlist, origin_vn_path));
@@ -3459,7 +3459,7 @@ TYPED_TEST(ServiceChainTest, ValidateCommunityExtRoute) {
 
     // Check for ExtConnect route
     CommunitySpec commspec;
-    commspec.communities.push_back(CommunityType::AcceptOwn);
+    commspec.communities.push_back(CommunityType::AcceptOwnNexthop);
     commspec.communities.insert(
         commspec.communities.end(), commlist.begin(), commlist.end());
     this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
