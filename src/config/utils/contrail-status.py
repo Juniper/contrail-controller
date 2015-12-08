@@ -399,7 +399,7 @@ def main():
     analytics = package_installed('contrail-analytics')
     agent = package_installed('contrail-vrouter')
     capi = package_installed('contrail-config')
-    cwebui = package_installed('contrail-web-core')
+    cwebui = package_installed('contrail-web-controller')
     database = (package_installed('contrail-openstack-database') or
                 package_installed('contrail-database'))
     storage = package_installed('contrail-storage')
