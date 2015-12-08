@@ -369,7 +369,7 @@ class EventManager(object):
                 if ((rules['processname'] == pheaders['groupname']) and
                    (rules['process_state'] == headers['eventname'])):
 		    msg = "got a hit with:" + str(rules)
-		    self.sandesh_global.logger().logger.log(SandeshLogger.get_py_logger_level(
+		    self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
 			    SandeshLevel.SYS_DEBUG), msg)
                     # do not make async calls
                     try:
