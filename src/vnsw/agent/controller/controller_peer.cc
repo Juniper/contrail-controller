@@ -1763,6 +1763,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     }
 
     item.entry.version = 1; //TODO
+    item.entry.med = 0;
     item.entry.virtual_network = vn;
 
     //Set sequence number and preference of route
@@ -1911,6 +1912,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
     }
 
     item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
     //item.entry.version = 1; //TODO
     //item.entry.virtual_network = vn;
     return true;
@@ -1995,6 +1997,7 @@ bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
     }
 
     item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
     //item.entry.version = 1; //TODO
     //item.entry.virtual_network = vn;
     return true;
@@ -2066,6 +2069,7 @@ bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
     }
 
     item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
     //item.entry.version = 1; //TODO
     //item.entry.virtual_network = vn;
 
