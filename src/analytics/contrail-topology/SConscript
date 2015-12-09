@@ -25,18 +25,24 @@ sources = [
     'contrail_topology/topology_uve.py',
     ]
 
-src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/')
+src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/', False)
+analytics_pkg = env.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'contrail_topology/', False)
+cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_topology/analytics/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_topology/analytics/', False)
 
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
 #    version = f.read().split(",")[0][1:]
 
+sdist_depends = [ analytics_pkg, cpu_info_pkg, process_info_pkg]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \
         + version + '.tar.gz',
         sources + src_sandesh, cd_cmd + 'python setup.py sdist')
+env.Depends(sdist_gen, sdist_depends)
 env.Alias('controller/src/analytics/contrail-topology/' + \
         'contrail_topology:sdist', sdist_gen)
+
 
 src_rules = [env.Install(Dir("."),
     '#controller/src/analytics/contrail-topology/' + f) for f in sources]
@@ -111,6 +117,7 @@ if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources + src_sandesh,
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 env.Alias('install', env.Install(env['INSTALL_CONF'],
             'contrail-topology.conf'))
