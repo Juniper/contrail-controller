@@ -81,7 +81,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType> 
 
 <xsd:complexType name="AllowedAddressPairs">
-    <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
+    <xsd:all>
+        <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
+    </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="UuidType">
@@ -108,23 +110,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:complexType name="VirtualNetworkPolicyType">
-    <xsd:element name="sequence" type="SequenceType"/>
-    <xsd:element name="timer" type="TimerType"/>
+    <xsd:all>
+        <xsd:element name="sequence" type="SequenceType"/>
+        <xsd:element name="timer" type="TimerType"/>
+    </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="AddressType">
-    <xsd:element name="subnet" type="SubnetType"/> <!-- Deprecated in favor of subnet-list -->
-    <xsd:element name="virtual-network" type="xsd:string" />
-    <xsd:element name="security-group" type="xsd:string" />
-    <xsd:element name="network-policy" type="xsd:string"/>
-    <xsd:element name="subnet-list" type="SubnetType" maxOccurs="unbounded"/>
+    <xsd:choice>
+        <xsd:element name="subnet" type="SubnetType"/>
+        <xsd:element name="virtual-network" type="xsd:string" />
+        <xsd:element name="security-group" type="xsd:string" />
+        <xsd:element name="network-policy" type="xsd:string"/>
+    </xsd:choice>
 </xsd:complexType>
 
 <xsd:simpleType name="L4PortType">
-    <xsd:restriction base="xsd:integer">
-        <xsd:minInclusive value="-1"/>
-        <xsd:maxInclusive value="65535"/>
-    </xsd:restriction>
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="-1"/>
+         <xsd:maxInclusive value="65535"/>
+     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name="PortType">
@@ -773,6 +778,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name='ProviderDetails'>
+    <xsd:all>
+        <xsd:element name='segmentation-id' type="xsd:integer"/>
+        <xsd:element name='physical-network' type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+
 <xsd:element name="forwarding-mode" type="ForwardingModeType"/>
 <!--#IFMAP-SEMANTICS-IDL
     Property('forwarding-mode', 'global-vrouter-config') -->
@@ -808,6 +821,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('is-shared', ['backend']);
      Property('is-shared', 'virtual-network') -->
+
+<xsd:element name="provider-properties" type="ProviderDetails"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('provider-properties', 'virtual-network') -->
+
 
 <xsd:element name="external-ipam" type="xsd:boolean"/>
     <xsd:annotation>
@@ -1284,13 +1302,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="bgp-as-a-service" type="ifmap:IdentityType"/>
 <!--#IFMAP-SEMANTICS-IDL
-    Link('project-bgpaas', 'project', 'bgp-as-a-service', ['has']) -->
-<xsd:element name="bgpaas-virtual-machine-interface"/>
-<!--#IFMAP-SEMANTICS-IDL
-    Link('bgpaas-virtual-machine-interface', 'bgp-as-a-service',
-            'virtual-machine-interface', ['ref']) -->
-<!--#IFMAP-SEMANTICS-IDL
-     Property('autonomous-system', 'bgp-as-a-service') -->
+    Link('virtual-network-bgpaas', 'virtual-network', 'bgp-as-a-service',
+         ['has']) -->
 <xsd:element name="bgpaas-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgpaas-ip-address', 'bgp-as-a-service') -->
@@ -1306,6 +1319,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-router-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-router-ip-address', 'virtual-router') -->
+
+<xsd:complexType name="BgpAsAServiceParameters">
+    <xsd:element name="vrouter-ip-address" type="IpAddressType"/>
+    <xsd:element name="port" type="xsd:integer"/>
+</xsd:complexType>
+<xsd:element name="bgp-as-a-service-parameters" type="BgpAsAServiceParameters"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgp-as-a-service-parameters', 'bgp-router') -->
 
 <xsd:element name="virtual-router-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1621,10 +1642,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-service-health-check',
           'project', 'service-health-check', ['has']) -->
-<xsd:element name="service-port-health-check"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('service-port-health-check',
-          'virtual-machine-interface', 'service-health-check', ['ref']) -->
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
