@@ -150,7 +150,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
 
-    if (flow_entry_->data().vrouter_evicted_flow == true) {
+    if (flow_entry_->ksync_index_entry()->IsEvicted() == true) {
         return 0;
     }
 
@@ -503,6 +503,12 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
 }
 
 FlowTableKSyncObject::~FlowTableKSyncObject() {
+}
+
+void FlowTableKSyncObject::PreFree(KSyncEntry *entry) {
+    FlowTableKSyncEntry *flow_ksync = static_cast<FlowTableKSyncEntry *>(entry);
+    FlowEntry *flow = flow_ksync->flow_entry().get();
+    ksync_->ksync_flow_index_manager()->ReleaseRequest(flow);
 }
 
 KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {

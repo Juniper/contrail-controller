@@ -615,7 +615,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
-                        remote_router_ip, intf->label()),
+                        remote_router_ip, intf->label(), 1),
             { 
                 new VerifyVn("vn3", "vn5"),
             }
@@ -623,7 +623,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
         //Send a TCP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, IPPROTO_TCP,
-                        1006, 1007, "vrf5", remote_router_ip, intf->label()),
+                        1006, 1007, "vrf5", remote_router_ip, intf->label(), 2),
             {
                 new VerifyVn("vn3", "vn5"),
             }
@@ -654,6 +654,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
 
     //Delete a flow
     DeleteFlow(flow, 1);
+    client->WaitForIdle();
     WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 2U)));
 
     //Trigger VN UVE send

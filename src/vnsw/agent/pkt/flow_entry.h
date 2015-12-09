@@ -35,6 +35,7 @@
 class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
+class KSyncFlowIndexEntry;
 
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
@@ -199,8 +200,7 @@ struct FlowData {
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false), pending_recompute(false),
-        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen),
-        vrouter_evicted_flow(false){
+        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen) {
     }
 
     MacAddress smac;
@@ -238,7 +238,6 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
-    bool vrouter_evicted_flow;
     std::string vm_cfg_name;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
@@ -346,7 +345,7 @@ class FlowEntry {
     FlowTable *flow_table() const { return flow_table_; }
     bool l3_flow() const { return l3_flow_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    bool set_flow_handle(uint32_t flow_handle, bool update);
+    void set_flow_handle(uint32_t flow_handle);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
     uint32_t flags() const { return flags_; }
     const FlowEntry *reverse_flow_entry() const {
@@ -388,10 +387,6 @@ class FlowEntry {
     void set_on_tree() { on_tree_ = true; }
     tbb::mutex &mutex() { return mutex_; }
 
-    FlowTableKSyncEntry *ksync_entry() const { return ksync_entry_; }
-    void set_ksync_entry(FlowTableKSyncEntry *ksync_entry) {
-        ksync_entry_ = ksync_entry;
-    }
     const Interface *intf_entry() const { return data_.intf_entry.get(); }
     const VnEntry *vn_entry() const { return data_.vn_entry.get(); }
     const VmEntry *in_vm_entry() const { return data_.in_vm_entry.get(); }
@@ -441,6 +436,7 @@ class FlowEntry {
                                FlowSandeshData &fe_sandesh_data,
                                Agent *agent) const;
     uint32_t InterfaceKeyToId(Agent *agent, const VmInterfaceKey &key);
+    KSyncFlowIndexEntry *ksync_index_entry() { return ksync_index_entry_.get();}
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -461,7 +457,6 @@ private:
     bool l3_flow_;
     uint32_t flow_handle_;
     FlowEntryPtr reverse_flow_entry_;
-    FlowTableKSyncEntry *ksync_entry_;
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
@@ -482,6 +477,8 @@ private:
     // Following fields are required for FIP stats accounting
     uint32_t fip_;
     VmInterfaceKey fip_vmi_;
+    // KSync state for the flow
+    std::auto_ptr<KSyncFlowIndexEntry> ksync_index_entry_;
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;

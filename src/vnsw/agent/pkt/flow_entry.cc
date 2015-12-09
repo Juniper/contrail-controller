@@ -18,8 +18,7 @@
 #include <pkt/flow_table.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
-#include <ksync/ksync_entry.h>
-#include <vrouter/ksync/flowtable_ksync.h>
+#include <vrouter/ksync/ksync_flow_index_manager.h>
 
 #include <route/route.h>
 #include <cmn/agent_cmn.h>
@@ -105,7 +104,6 @@ FlowEntry::FlowEntry(const FlowKey &k, FlowTable *flow_table) :
     data_(),
     l3_flow_(true),
     flow_handle_(kInvalidFlowHandle),
-    ksync_entry_(NULL),
     deleted_(false),
     flags_(0),
     short_flow_reason_(SHORT_UNKNOWN),
@@ -114,7 +112,7 @@ FlowEntry::FlowEntry(const FlowKey &k, FlowTable *flow_table) :
     peer_vrouter_(),
     tunnel_type_(TunnelType::INVALID),
     on_tree_(false), fip_(0),
-    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), ksync_index_entry_() {
     refcount_ = 0;
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
@@ -145,7 +143,10 @@ void FlowEntry::Init() {
 }
 
 FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
-    return new FlowEntry(key, flow_table);
+    FlowEntry *flow = new FlowEntry(key, flow_table);
+    flow->ksync_index_entry_ = std::auto_ptr<KSyncFlowIndexEntry>
+        (new KSyncFlowIndexEntry());
+    return flow;
 }
 
 // selectively copy fields from RHS
@@ -159,6 +160,7 @@ void FlowEntry::Copy(const FlowEntry *rhs) {
     tunnel_type_ = rhs->tunnel_type_;
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
+    flow_handle_ = rhs->flow_handle_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -224,8 +226,6 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.in_vm_entry = ctrl->vm_ ? ctrl->vm_ : NULL;
     data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
     l3_flow_ = info->l3_flow;
-    data_.vrouter_evicted_flow = false;
-
     return true;
 }
 
@@ -233,14 +233,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl,
                             FlowEntry *rflow, Agent *agent) {
-    if (flow_handle_ != pkt->GetAgentHdr().cmd_param) {
-        if (flow_handle_ != FlowEntry::kInvalidFlowHandle) {
-            LOG(DEBUG, "Flow index changed from " << flow_handle_ 
-                << " to " << pkt->GetAgentHdr().cmd_param);
-        }
-        flow_handle_ = pkt->GetAgentHdr().cmd_param;
-    }
-
+    flow_handle_ = pkt->GetAgentHdr().cmd_param;
     if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
         return;
     }
@@ -448,22 +441,11 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-bool FlowEntry::set_flow_handle(uint32_t flow_handle, bool update) {
-    /* trigger update KSync on flow handle change */
+void FlowEntry::set_flow_handle(uint32_t flow_handle) {
     if (flow_handle_ != flow_handle) {
-        // TODO(prabhjot): enable when we handle ChangeKey failures
-#if 0
-        // Skip ksync index manipulation, for deleted flow entry
-        // as ksync entry is not available for deleted flow
-        if (!deleted_ && flow_handle_ == kInvalidFlowHandle) {
-            flow_table_->UpdateFlowHandle(this, flow_handle);
-        }
-#endif
+        assert(flow_handle_ == kInvalidFlowHandle);
         flow_handle_ = flow_handle;
-        flow_table_->UpdateKSync(this, update);
-        return true;
     }
-    return false;
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {

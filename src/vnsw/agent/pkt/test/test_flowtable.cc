@@ -116,6 +116,7 @@ public:
     }
 
     void FlushFlowTable() {
+        client->WaitForIdle();
         client->EnqueueFlowFlush();
         EXPECT_TRUE(FlowTableWait(0));
     }
@@ -406,6 +407,7 @@ class SetupTask : public Task {
             test_->flow1 = FlowInit(test_->key1,
                                     test_->key1->GetFlowTable(proto));
             test_->flow1->set_flags(FlowEntry::LocalFlow);
+            test_->flow1->set_flow_handle(1);
 
             test_->flow1_r = FlowInit(test_->key1_r,
                                       test_->key1_r->GetFlowTable(proto));
@@ -420,6 +422,7 @@ class SetupTask : public Task {
             test_->flow2 = FlowInit(test_->key2,
                                     test_->key2->GetFlowTable(proto));
             test_->flow2->reset_flags(FlowEntry::LocalFlow);
+            test_->flow2->set_flow_handle(2);
 
             test_->flow2_r = FlowInit(test_->key2_r,
                                       test_->key2_r->GetFlowTable(proto));
@@ -484,7 +487,7 @@ TEST_F(FlowTableTest, RevFlowDelete_before_KSyncAck) {
     FlushFlowTable();
 
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    sock->SetBlockMsgProcessing(true);
+    sock->DisableReceiveQueue(true);
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     SetupTask * task = new SetupTask(this);
@@ -494,7 +497,7 @@ TEST_F(FlowTableTest, RevFlowDelete_before_KSyncAck) {
     client->EnqueueFlowFlush();
     client->WaitForIdle();
 
-    sock->SetBlockMsgProcessing(false);
+    sock->DisableReceiveQueue(false);
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
 

@@ -55,7 +55,8 @@ KSync::KSync(Agent *agent)
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
-      ksync_flow_memory_(new KSyncFlowMemory(this)) {
+      ksync_flow_memory_(new KSyncFlowMemory(this)),
+      ksync_flow_index_manager_(new KSyncFlowIndexManager(this)) {
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
           flow_table_ksync_obj_list_.push_back(obj);
@@ -102,6 +103,8 @@ void KSync::InitDone() {
         flow_table_ksync_obj_list_[i]->set_flow_table(flow_table);
         flow_table->set_ksync_object(flow_table_ksync_obj_list_[i]);
     }
+    uint32_t count = ksync_flow_memory_->flow_table_entries_count();
+    ksync_flow_index_manager_->InitDone(count);
 }
 
 void KSync::InitFlowMem() {

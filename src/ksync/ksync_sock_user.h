@@ -132,6 +132,7 @@ public:
     virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
+    void PurgeTxBuffer();
     void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void set_error_code(int code) { error_code_ = code; }
     static int error_code() { return error_code_; }
@@ -199,6 +200,7 @@ public:
     // Add a response in nl_client into tx_buff_list_
     void AddNetlinkTxBuff(struct nl_client *cl);
     void InitNetlinkDoneMsg(struct nlmsghdr *nlh, int seq_num);
+    void DisableReceiveQueue(bool disable);
 private:
     void PurgeBlockedMsg();
     udp::socket sock_;

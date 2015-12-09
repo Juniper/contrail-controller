@@ -249,12 +249,13 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60,
+    //Verify the updated flow stats. Flow was deleted and re-added when
+    //reverse packet was setn
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
                                flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 2, 60,
                                flow1->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60,
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
                                flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60,
                                flow1->flow_key_nh()->id()));
@@ -305,10 +306,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of vrouter-Test1 */
     //Decrement the stats so that they become 0
-    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                 flow0->flow_key_nh()->id());
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), -1, -30);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
 
-    KSyncSockTypeMap::SetOFlowStats(1, 1, 1);
+    KSyncSockTypeMap::SetOFlowStats(f1->flow_handle(), 1, 1);
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 1, 1);
 
     //Invoke FlowStatsCollector to update the stats
@@ -324,7 +327,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test2 */
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), 1, 0x10);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
@@ -340,7 +343,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test3 */
-    KSyncSockTypeMap::SetOFlowStats(1, 2, 3);
+    KSyncSockTypeMap::SetOFlowStats(f1->flow_handle(), 2, 3);
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 4, 5);
 
     //Invoke FlowStatsCollector to update the stats
@@ -356,10 +359,10 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test4 */
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), 1, 0x10);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
-    KSyncSockTypeMap::SetOFlowStats(1, 0xA, 0xB);
+    KSyncSockTypeMap::SetOFlowStats(f1->flow_handle(), 0xA, 0xB);
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0xC, 0xD);
 
     //Invoke FlowStatsCollector to update the stats
@@ -376,7 +379,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of agent-Test1 */
     //Decrement flow stats
-    KSyncSockTypeMap::IncrFlowStats(1, -1, -0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), -1, -0x10);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -0x10);
 
     //Invoke FlowStatsCollector to update the stats
@@ -392,7 +395,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent-Test2 */
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), 1, 0x10);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
@@ -408,7 +411,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent-Test3 */
-    KSyncSockTypeMap::SetOFlowStats(1, 0xA1, 0xB1);
+    KSyncSockTypeMap::SetOFlowStats(f1->flow_handle(), 0xA1, 0xB1);
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0xC1, 0xD1);
 
     //Invoke FlowStatsCollector to update the stats
@@ -424,7 +427,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                                flow1->flow_key_nh()->id()));
 
     //cleanup
-    KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
+    KSyncSockTypeMap::SetOFlowStats(f1->flow_handle(), 0, 0);
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0, 0);
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
@@ -472,7 +475,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
 
     /* Verify overflow counter of agent */
     //Decrement the stats so that they become 0
-    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), -1, -30);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
 
     //Invoke FlowStatsCollector to update the stats
@@ -549,7 +552,7 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     EXPECT_TRUE((rinfo->tcp_flags() == 0));
 
     //Change the stats
-    KSyncSockTypeMap::SetFlowTcpFlags(1, VR_FLOW_TCP_SYN);
+    KSyncSockTypeMap::SetFlowTcpFlags(f2->flow_handle(), VR_FLOW_TCP_SYN);
     KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_SYN);
 
     //Invoke FlowStatsCollector to update the TCP flags
@@ -664,7 +667,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
 
     //(2) Inter-VN stats updation when flow stats are updated
     //Change the stats
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), 1, 30);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
     client->WaitForIdle(10);
 

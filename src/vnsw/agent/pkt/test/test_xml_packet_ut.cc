@@ -152,6 +152,25 @@ TEST_F(TestPkt, tcp) {
     client->agent()->flow_stats_collector()->set_delete_short_flow(false);
 }
 
+TEST_F(TestPkt, flow_eviction) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-eviction.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+    client->WaitForIdle();
+    client->agent()->flow_stats_collector()->set_delete_short_flow(true);
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+    WAIT_FOR(0, 1000, (0U == proto_->FlowCount()));
+    client->agent()->flow_stats_collector()->set_delete_short_flow(false);
+}
+
 
 TEST_F(TestPkt, flow_tsn_mode_1) {
     Agent *agent = Agent::GetInstance();

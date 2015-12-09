@@ -14,8 +14,7 @@
 #include <net/address_util.h>
 #include <pkt/flow_table.h>
 #include <vrouter/ksync/ksync_init.h>
-#include <ksync/ksync_entry.h>
-#include <vrouter/ksync/flowtable_ksync.h>
+#include <vrouter/ksync/ksync_flow_index_manager.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -71,9 +70,6 @@ void FlowTable::Init() {
 }
 
 void FlowTable::InitDone() {
-    flow_index_tree_.resize(
-        agent_->ksync()->ksync_flow_memory()->flow_table_entries_count(),
-        NULL);
 }
 
 void FlowTable::Shutdown() {
@@ -161,10 +157,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     if (flow_req != flow) {
-        if ((flow_req->flow_handle_ != flow->flow_handle_) &&
-            (!flow->deleted())) {
-            DeleteByIndex(flow);
-        }
         Copy(flow, flow_req);
         flow->set_deleted(false);
     }
@@ -194,25 +186,14 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     //      Unexpected case. Continue with flow as forward flow
     // flow has ReverseFlow reset, rflow has ReverseFlow set
     //      No change in forward/reverse flow. Continue as forward-flow
-    bool rflow_swap = false;
     if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
         rflow && !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
         FlowEntry *tmp = flow;
         flow = rflow;
         rflow = tmp;
-        rflow_swap = true;
     }
 
     UpdateReverseFlow(flow, rflow);
-    bool flow_ksync_updated = false;
-    bool rflow_ksync_updated = false;
-    if (rflow_swap) {
-        // reverse flow swapped with forward flow
-        // trigger Add index for reverse flow
-        rflow_ksync_updated = AddIndexFlowInfo(rflow, flow_req->flow_handle_, update);
-    } else {
-        flow_ksync_updated = AddIndexFlowInfo(flow, flow_req->flow_handle_, update);
-    }
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -227,16 +208,11 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        if (!rflow_ksync_updated) {
-            UpdateKSync(rflow, update);
-        }
+        UpdateKSync(rflow, update);
         AddFlowInfo(rflow);
     }
 
-    // trigger update KSync if rflow is swapped or ksync is not updated
-    if (!flow_ksync_updated) {
-        UpdateKSync(flow, update);
-    }
+    UpdateKSync(flow, update);
     AddFlowInfo(flow);
 }
 
@@ -267,19 +243,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time) {
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
-    DeleteByIndex(fe);
-
-    FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
-    KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
-    if (ksync_entry) {
-        ksync_object_->Delete(ksync_entry);
-        fe->ksync_entry_ = NULL;
-    } else {
-        FLOW_TRACE(Err, fe->flow_handle(), "Entry not found in ksync");
-        if (fe->reverse_flow_entry() != NULL) {
-            fe->set_reverse_flow_entry(NULL);
-        }
-    }
+    DeleteKSync(fe);
 
     agent_->stats()->incr_flow_aged();
     agent_->stats()->UpdateFlowDelMinMaxStats(time);
@@ -512,41 +476,6 @@ uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {
     return 0;
 }
 
-void FlowTable::DeleteVrouterEvictedFlow(FlowEntry *flow) {
-    flow->data().vrouter_evicted_flow = true;
-    if (flow->reverse_flow_entry()) {
-        flow->reverse_flow_entry()->data().vrouter_evicted_flow = true;
-    }
-    Delete(flow->key(), true);
-}
-
-void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
-    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
-        assert(!flow->deleted());
-        if (flow_index_tree_[flow_handle] &&
-            flow_index_tree_[flow_handle] != flow) {
-            assert(0);
-        }
-        flow_index_tree_[flow_handle] = flow;
-    }
-}
-
-void FlowTable::DeleteByIndex(FlowEntry *fe) {
-    if (fe->flow_handle() != FlowEntry::kInvalidFlowHandle) {
-        if (flow_index_tree_[fe->flow_handle()].get() == fe) {
-            flow_index_tree_[fe->flow_handle()] = NULL;
-        } else {
-            assert(0);
-        }
-    }
-}
-
-FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
-    if (flow_handle <= flow_index_tree_.size()) {
-        return flow_index_tree_[flow_handle].get();
-    }
-    return NULL;
-}
 ////////////////////////////////////////////////////////////////////////////
 // Flow Info tree management
 ////////////////////////////////////////////////////////////////////////////
@@ -810,7 +739,6 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
     }
 
     if (flow->set_pending_recompute(true)) {
-        cout << "Recomputing flow " << flow << endl;
         agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
                                                   new FlowTaskMsg(flow));
     }
@@ -897,59 +825,23 @@ bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
 /////////////////////////////////////////////////////////////////////////////
 // KSync Routines
 /////////////////////////////////////////////////////////////////////////////
-void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
-    //In case of TCP flow eviction there is a chance
-    //that same flow with same flow key could be evicted
-    //and reused, in that case, we force programming of
-    //flow by deleting the entry in ksync and readding it
-    //Since flag vrouter flow evicted would be set
-    //Actual msg would not be sent to kernel
-    if (update == false) {
-        if (flow->ksync_entry() != NULL) {
-            bool vrouter_evicted_flow = flow->data().vrouter_evicted_flow;
-            flow->data().vrouter_evicted_flow = true;
-            ksync_object_->Delete(flow->ksync_entry());
-            flow->data().vrouter_evicted_flow = vrouter_evicted_flow;
-            flow->set_ksync_entry(NULL);
-        }
-    }
+void FlowTable::DeleteKSync(FlowEntry *flow) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    mgr->Delete(flow);
+}
 
-    if (flow->ksync_entry() == NULL) {
-        FlowTableKSyncEntry key(ksync_object_, flow, flow->flow_handle());
-        flow->set_ksync_entry
-            (static_cast<FlowTableKSyncEntry *>
-             (ksync_object_->Create(&key, true)));
-        if (flow->deleted()) {
-            /*
-             * Create and delete a KSync Entry when update ksync entry is
-             * triggered for a deleted flow entry.
-             * This happens when Reverse flow deleted  is deleted before
-             * getting an ACK from vrouter.
-             */
-            ksync_object_->Delete(flow->ksync_entry());
-            flow->set_ksync_entry(NULL);
-        }
-    } else {
-        if (flow->flow_handle() != flow->ksync_entry()->hash_id()) {
-            /*
-             * if flow handle changes delete the previous record from
-             * vrouter and install new
-             */
-            ksync_object_->Delete(flow->ksync_entry());
-            FlowTableKSyncEntry key(ksync_object_, flow, flow->flow_handle());
-            flow->set_ksync_entry
-                (static_cast<FlowTableKSyncEntry *>
-                 (ksync_object_->Create(&key)));
-        } else {
-            ksync_object_->Change(flow->ksync_entry());
-        }
+void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    if (update) {
+        mgr->Change(flow);
+        return;
     }
+    mgr->Add(flow);
 }
 
 // Update FlowHandle for a flow
 void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     FlowEntry *rflow = flow->reverse_flow_entry();
-    bool update_rflow = false;
     assert(flow_handle != FlowEntry::kInvalidFlowHandle);
 
     tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2;
@@ -958,22 +850,20 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     tbb::mutex::scoped_lock lock1(*mutex_ptr_1);
     tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
-    if (flow->flow_handle() != flow_handle) {
-        if (!flow->deleted()) {
-            DeleteByIndex(flow);
-        }
-        update_rflow = true;
-        AddIndexFlowInfo(flow, flow_handle, true);
-        NotifyFlowStatsCollector(flow);
+    if (flow->flow_handle() == flow_handle) {
+        return;
     }
+    assert(flow->flow_handle() == FlowEntry::kInvalidFlowHandle);
+    flow->set_flow_handle(flow_handle);
 
-    if (rflow && update_rflow) {
+    // flow-handle changed. We will need to update ksync-entry for flow with
+    // new flow-handle
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    mgr->UpdateFlowHandle(flow);
+    NotifyFlowStatsCollector(flow);
+    if (rflow) {
         UpdateKSync(rflow, true);
     }
-}
-
-void FlowTable::UpdateFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
-    ksync_object_->UpdateFlowHandle(flow->ksync_entry(), flow_handle);
 }
 
 void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
@@ -983,33 +873,6 @@ void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
      * event reaching FlowStatsCollector before Flow Add
      */
     agent_->pkt()->flow_mgmt_manager()->FlowIndexUpdateEvent(fe);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Flow Eviction and Index management
-/////////////////////////////////////////////////////////////////////////////
-void FlowTable::EvictVrouterFlow(FlowEntry *fe, uint32_t flow_handle) {
-    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
-        return;
-    }
-
-    FlowEntry *flow = FindByIndex(flow_handle);
-    if (flow && flow != fe) {
-        DeleteVrouterEvictedFlow(flow);
-    }
-}
-
-bool FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle,
-                                 bool update) {
-    if (!fe->deleted()) {
-        FlowEntry *flow = FindByIndex(flow_handle);
-        if (flow && flow != fe) {
-            DeleteVrouterEvictedFlow(flow);
-        }
-
-        InsertByIndex(flow_handle, fe);
-    }
-    return fe->set_flow_handle(flow_handle, update);
 }
 
 /////////////////////////////////////////////////////////////////////////////

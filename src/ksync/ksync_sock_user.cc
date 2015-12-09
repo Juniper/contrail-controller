@@ -83,6 +83,10 @@ void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
         decode_buf_len -= decode_len;
     }
 
+    PurgeTxBuffer();
+}
+
+void KSyncSockTypeMap::PurgeTxBuffer() {
     // All responses are stored in tx_buff_list_
     // Make io-vector of all responses and transmit them
     // If there are more than one responses, they are sent as NETLINK MULTI
@@ -111,7 +115,8 @@ void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
         iovec.push_back(buffer((uint8_t *)&nlh, NLMSG_HDRLEN));
     } else {
         // Single buffer. Reset the MULTI flag
-        last_nlh->nlmsg_flags &= (~NLM_F_MULTI);
+        if (last_nlh)
+            last_nlh->nlmsg_flags &= (~NLM_F_MULTI);
     }
 
     // Send a message for each entry in io-vector
@@ -208,6 +213,12 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
 
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     sock->AddNetlinkTxBuff(&cl);
+}
+
+void KSyncSockTypeMap::DisableReceiveQueue(bool disable) {
+    for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
+        receive_work_queue[i]->set_disable(disable);
+    }
 }
 
 void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
@@ -683,6 +694,7 @@ void KSyncSockTypeMap::PurgeBlockedMsg() {
         delete ctx_queue_.front();
         ctx_queue_.pop();
     }
+    PurgeTxBuffer();
 }
 
 void KSyncSockTypeMap::SetBlockMsgProcessing(bool enable) {
