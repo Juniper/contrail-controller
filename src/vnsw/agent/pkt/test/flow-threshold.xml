@@ -34,7 +34,7 @@
     <validate name="validate-4">
         <!-- Each of two local flows are exported twice, once in each
              direction -->
-        <flow-threshold name="t1-validate-4" threshold="62" />
+        <flow-threshold name="t1-validate-4" threshold="500" />
     </validate>
 
     <flow-threshold name="t1" uuid="1" flow-export-count="400"
@@ -43,7 +43,7 @@
     <validate name="validate-5">
         <!-- Each of two local flows are exported twice, once in each
              direction -->
-        <flow-threshold name="t1-validate-5" threshold="125" />
+        <flow-threshold name="t1-validate-5" threshold="500" />
     </validate>
 
     <flow-threshold name="t1" uuid="1" flow-export-count="700"
@@ -52,7 +52,7 @@
     <validate name="validate-6">
         <!-- Each of two local flows are exported twice, once in each
              direction -->
-        <flow-threshold name="t1-validate-6" threshold="250" />
+        <flow-threshold name="t1-validate-6" threshold="500" />
     </validate>
 
 </test>
