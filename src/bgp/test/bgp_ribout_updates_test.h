@@ -204,22 +204,22 @@ protected:
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(101);
         attrA_ = server_.attr_db()->Locate(attribute);
-        roattrA_.set_attr(attrA_);
+        roattrA_.set_attr(&table_, attrA_);
 
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(102);
         attrB_ = server_.attr_db()->Locate(attribute);
-        roattrB_.set_attr(attrB_);
+        roattrB_.set_attr(&table_, attrB_);
 
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(103);
         attrC_ = server_.attr_db()->Locate(attribute);
-        roattrC_.set_attr(attrC_);
+        roattrC_.set_attr(&table_, attrC_);
 
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(199);
         attrZ_ = server_.attr_db()->Locate(attribute);
-        roattrZ_.set_attr(attrZ_);
+        roattrZ_.set_attr(&table_, attrZ_);
 
         for (int i = 0; i < kAttrCount; i++) {
             attribute = new BgpAttr(server_.attr_db());
@@ -263,7 +263,7 @@ protected:
             int label, int start_idx, int end_idx) {
         RibPeerSet target;
         BuildPeerSet(target, start_idx, end_idx);
-        RibOutAttr roattr(attrX.get(), label);
+        RibOutAttr roattr(&table_, attrX.get(), label);
         UpdateInfo *uinfo = new UpdateInfo(target, roattr);
         uinfo_slist->push_front(*uinfo);
     }
@@ -279,7 +279,7 @@ protected:
         for (int idx = start_idx; idx <= end_idx; idx++) {
             RibPeerSet target;
             target.set(ribout_.GetPeerIndex(peers_[idx]));
-            RibOutAttr roattr(attrvec[idx].get(), label);
+            RibOutAttr roattr(&table_, attrvec[idx].get(), label);
             UpdateInfo *uinfo = new UpdateInfo(target, roattr);
             uinfo_slist->push_front(*uinfo);
         }
@@ -480,7 +480,7 @@ protected:
         BuildPeerSet(uinfo_peerset, start_idx, end_idx);
         EXPECT_TRUE(rt_update != NULL);
         EXPECT_EQ(count, rt_update->Updates()->size());
-        RibOutAttr roattrX(attrX.get(), 0);
+        RibOutAttr roattrX(&table_, attrX.get(), 0);
         const UpdateInfo *uinfo = rt_update->FindUpdateInfo(roattrX);
         EXPECT_TRUE(uinfo != NULL);
         EXPECT_TRUE(uinfo->target == uinfo_peerset);
@@ -491,7 +491,7 @@ protected:
         EXPECT_EQ(end_idx-start_idx+1, rt_update->Updates()->size());
 
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            RibOutAttr roattrX(attrvec[idx].get(), 0);
+            RibOutAttr roattrX(&table_, attrvec[idx].get(), 0);
             const UpdateInfo *uinfo = rt_update->FindUpdateInfo(roattrX);
             EXPECT_TRUE(uinfo != NULL);
             RibPeerSet target;
@@ -500,7 +500,7 @@ protected:
         }
     }
 
-    void VerifyHistory(RouteState *rstate, RibOutAttr roattrX,
+    void VerifyHistory(RouteState *rstate, RibOutAttr &roattrX,
             int start_idx, int end_idx, int count = 1) {
         RibPeerSet adv_peerset;
         BuildPeerSet(adv_peerset, start_idx, end_idx);
@@ -512,7 +512,7 @@ protected:
 
     void VerifyHistory(RouteState *rstate, BgpAttrPtr attrX,
             int start_idx, int end_idx, int count = 1) {
-        RibOutAttr roattrX(attrX.get(), 0);
+        RibOutAttr roattrX(&table_, attrX.get(), 0);
         VerifyHistory(rstate, roattrX, start_idx, end_idx, count);
     }
 
@@ -521,7 +521,7 @@ protected:
         EXPECT_EQ(end_idx-start_idx+1, rstate->Advertised()->size());
 
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            RibOutAttr roattrX(attrvec[idx].get(), label);
+            RibOutAttr roattrX(&table_, attrvec[idx].get(), label);
             const AdvertiseInfo *ainfo = rstate->FindHistory(roattrX);
             EXPECT_TRUE(ainfo != NULL);
             RibPeerSet bitset;
@@ -544,7 +544,7 @@ protected:
         RibPeerSet adv_peerset;
         BuildPeerSet(adv_peerset, start_idx, end_idx);
         EXPECT_EQ(count, rt_update->History()->size());
-        RibOutAttr roattrX(attrX.get(), 0);
+        RibOutAttr roattrX(&table_, attrX.get(), 0);
         const AdvertiseInfo *ainfo = rt_update->FindHistory(roattrX);
         EXPECT_TRUE(ainfo != NULL);
         EXPECT_TRUE(ainfo->bitset == adv_peerset);
@@ -555,7 +555,7 @@ protected:
         EXPECT_EQ(end_idx-start_idx+1, rt_update->History()->size());
 
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            RibOutAttr roattrX(attrvec[idx].get(), 0);
+            RibOutAttr roattrX(&table_, attrvec[idx].get(), 0);
             const AdvertiseInfo *ainfo = rt_update->FindHistory(roattrX);
             EXPECT_TRUE(ainfo != NULL);
             RibPeerSet bitset;

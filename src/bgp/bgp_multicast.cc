@@ -342,7 +342,7 @@ UpdateInfo *McastForwarder::GetUpdateInfo(ErmVpnTable *table) {
     BgpAttrPtr attr = table->server()->attr_db()->Locate(attr_spec);
 
     UpdateInfo *uinfo = new UpdateInfo;
-    uinfo->roattr = RibOutAttr(attr.get(), label_);
+    uinfo->roattr = RibOutAttr(table, attr.get(), label_);
     return uinfo;
 }
 

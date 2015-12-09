@@ -134,7 +134,7 @@ bool Inet6Table::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
             BgpAttrPtr new_attr =
                 attr_db->ReplaceExtCommunityAndLocate(
                     uinfo->roattr.attr(), NULL);
-            uinfo->roattr.set_attr(new_attr);
+            uinfo->roattr.set_attr(this, new_attr);
         }
     }
     uinfo_slist->push_front(*uinfo);

@@ -229,7 +229,7 @@ const char *XmppEcmpTest::config_tmpl = "\
 ";
 
 
-// Initialize mock agents and from xmpp sessions with the control-node.
+// Initialize mock agents and form xmpp sessions with the control-node.
 void XmppEcmpTest::Initialize() {
     const char *ri_1 = "red";
     const char *ri_2 = "blue";
@@ -462,19 +462,28 @@ void XmppEcmpTest::InitializeNextHops() {
 
         // Prepend to first nibble to generate different nexthops.
         NextHop n2 = n;
+
         n2.address_ = "1" + n.address_;
+        n.virtual_network_ = "red";
+        n2.virtual_network_ = "red";
         nexthops_a.push_back(n2);
         nexthops_a.push_back(n);
 
         n2.address_ = "2" + n.address_;
+        n.virtual_network_ = "blue";
+        n2.virtual_network_ = "blue";
         nexthops_b.push_back(n2);
         nexthops_b.push_back(n);
 
         n2.address_ = "3" + n.address_;
+        n.virtual_network_ = "red";
+        n2.virtual_network_ = "red";
         nexthops_c.push_back(n2);
         nexthops_c.push_back(n);
 
         n2.address_ = "4" + n.address_;
+        n.virtual_network_ = "blue";
+        n2.virtual_network_ = "blue";
         nexthops_d.push_back(n2);
         nexthops_d.push_back(n);
     }
