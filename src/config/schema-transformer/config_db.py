@@ -2790,7 +2790,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
-        self.update_multiple_refs('bgp_as_a_service', {})
+        self.update_single_ref('bgp_as_a_service', {})
         self.update_routing_instances([])
     # end delete_obj
 
