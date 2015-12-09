@@ -1215,6 +1215,17 @@ class DBInterface(object):
         if 'name' in network_q and network_q['name']:
             net_obj.display_name = network_q['name']
 
+        physical_network = ''
+        if 'provider:physical_network' in network_q:
+            physical_network = network_q['provider:physical_network']
+
+        segmentation_id = -1
+        if 'provider:segmentation_id' in network_q:
+            segmentation_id = network_q['provider:segmentation_id']
+
+        if segmentation_id != -1 or physical_network != '':
+            net_obj.set_provider_properties(ProviderDetails(segmentation_id, physical_network))
+
         id_perms = net_obj.get_id_perms()
         if 'admin_state_up' in network_q:
             id_perms.enable = network_q['admin_state_up']
@@ -1278,6 +1289,10 @@ class DBInterface(object):
             net_q_dict['router:external'] = True
         else:
             net_q_dict['router:external'] = False
+
+        if net_obj.provider_properties:
+            net_q_dict['provider:physical_network'] = net_obj.provider_properties.physical_network
+            net_q_dict['provider:segmentation_id'] = net_obj.provider_properties.segmentation_id
 
         if net_repr == 'SHOW' or net_repr == 'LIST':
             extra_dict['contrail:instance_count'] = 0
@@ -1802,6 +1817,39 @@ class DBInterface(object):
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
 
+        bindings = port_obj.get_virtual_machine_interface_bindings()
+        if not bindings:
+            kvp = []
+            vnic_type = port_q.get('binding:vnic_type', 'normal')
+            kvp.append(KeyValuePair('vnic_type', vnic_type))
+            port_obj.virtual_machine_interface_bindings = KeyValuePairs(kvp)
+            bindings = port_obj.get_virtual_machine_interface_bindings()
+
+        host_id_modify = profile_modify = vnic_type_modify = False
+
+        kvps = bindings.get_key_value_pair()
+        for kvp in kvps:
+
+            if kvp.key == 'host_id':
+               kvp.value = port_q.get('binding:host_id', kvp.value)
+               host_id_modify = True
+
+            if kvp.key == 'profile':
+                kvp.value = port_q.get('binding:profile', kvp.value)
+                profile_modify = True
+
+            if kvp.key == 'vnic_type':
+                kvp.value = port_q.get('binding:vnic_type', kvp.value)
+                vnic_type_modify = True
+
+        if (not host_id_modify) and (port_q.has_key('binding:host_id')):
+            bindings.add_key_value_pair(KeyValuePair('host_id', port_q['binding:host_id']))
+        if (not profile_modify) and (port_q.has_key('binding:profile')):
+            bindings.add_key_value_pair(KeyValuePair('profile', port_q['binding:profile']))
+
+
+        port_obj.set_virtual_machine_interface_bindings(bindings)
+
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])
             for sg_id in port_q.get('security_groups') or []:
@@ -1974,6 +2022,12 @@ class DBInterface(object):
         mac_refs = port_obj.get_virtual_machine_interface_mac_addresses()
         if mac_refs:
             port_q_dict['mac_address'] = mac_refs.mac_address[0]
+
+        bindings = port_obj.get_virtual_machine_interface_bindings()
+        if bindings:
+            kvps = bindings.get_key_value_pair()
+            for kvp in kvps:
+                port_q_dict['binding:'+kvp.key] = kvp.value
 
         dhcp_options_list = port_obj.get_virtual_machine_interface_dhcp_option_list()
         if dhcp_options_list and dhcp_options_list.dhcp_option:
