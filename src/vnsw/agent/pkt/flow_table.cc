@@ -523,14 +523,10 @@ FlowEntry* FlowTable::FindByIndex(uint32_t flow_handle) {
 // Flow Info tree management
 ////////////////////////////////////////////////////////////////////////////
 void FlowTable::AddFlowInfo(FlowEntry *fe) {
-    // Add VmFlowTree
-    AddVmFlowInfo(fe);
     agent_->pkt()->flow_mgmt_manager()->AddEvent(fe);
 }
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) {
-    // Remove from VmFlowTree
-    DeleteVmFlowInfo(fe);
     agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe);
 }
 
