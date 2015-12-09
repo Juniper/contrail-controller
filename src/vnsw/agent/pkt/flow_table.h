@@ -186,11 +186,11 @@ public:
     bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
 
     // Update flow port bucket information
-    void DeleteByIndex(uint32_t flow_handle, FlowEntry *fe);
+    void DeleteByIndex(FlowEntry *flow);
     void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
     FlowEntry *FindByIndex(uint32_t flow_handle);
     void DeleteVrouterEvictedFlow(FlowEntry *flow);
-    void AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index);
+    bool AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index, bool update);
     void EvictVrouterFlow(FlowEntry *fe, uint32_t flow_index);
     void UpdateKSync(FlowEntry *flow, bool update);
 
