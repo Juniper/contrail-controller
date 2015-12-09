@@ -794,8 +794,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="VlanIdType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="4094"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='ProviderDetails'>
-        <xsd:element name='segmentation-id' type="xsd:integer"/>
+        <xsd:element name='segmentation-id' type="VlanIdType"/>
         <xsd:element name='physical-network' type="xsd:string"/>
 </xsd:complexType>
 
