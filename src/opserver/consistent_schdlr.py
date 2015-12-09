@@ -6,10 +6,10 @@ import gevent
 import hashlib
 import logging
 from kazoo.client import KazooClient
+from kazoo.client import KazooState
 from random import randint
 import struct
 import traceback
-
 
 class ConsistentScheduler(object):
     '''
@@ -44,15 +44,66 @@ class ConsistentScheduler(object):
         self._zk_path = '/'.join(['/contrail_cs', self._service_name])
         self._zk = KazooClient(self._zookeeper_srvr)
         self._zk.add_listener(self._zk_lstnr)
-        self._zk.start()
+        self._conn_state = None
+        while True:
+            try:
+                self._zk.start()
+                break
+            except gevent.event.Timeout as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                gevent.sleep(1)
         self._pc = self._zk.SetPartitioner(path=self._zk_path,
                                            set=self._partition_set,
                                            partition_func=self._partitioner)
         self._wait_allocation = 0
         gevent.sleep(0)
 
+    def _sandesh_connection_info_update(self, status, message):
+        from pysandesh.connection_info import ConnectionState
+        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+            ConnectionType
+
+        new_conn_state = getattr(ConnectionStatus, status)
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = new_conn_state,
+                message = message,
+                server_addrs = self._zookeeper_srvr.split(','))
+
+        if ((self._conn_state and self._conn_state != ConnectionStatus.DOWN) and
+            new_conn_state == ConnectionStatus.DOWN):
+            msg = 'Connection to Zookeeper down: %s' %(message)
+            self._supress_log(msg)
+        if (self._conn_state and self._conn_state != new_conn_state and
+            new_conn_state == ConnectionStatus.UP):
+            msg = 'Connection to Zookeeper ESTABLISHED'
+            self._supress_log(msg)
+
+        self._conn_state = new_conn_state
+    # end _sandesh_connection_info_update
+
     def _zk_lstnr(self, state):
-        self._supress_log('zk state change to %s' % str(state))
+        if state == KazooState.CONNECTED:
+            # Update connection info
+            self._sandesh_connection_info_update(status='UP', message='')
+        elif state == KazooState.LOST:
+            # Lost the session with ZooKeeper Server
+            # Best of option we have is to exit the process and restart all 
+            # over again
+            self._sandesh_connection_info_update(status='DOWN',
+                                      message='Connection to Zookeeper lost')
+            os._exit(2)
+        elif state == KazooState.SUSPENDED:
+            # Update connection info
+            self._sandesh_connection_info_update(status='INIT',
+                message = 'Connection to zookeeper lost. Retrying')
 
     def schedule(self, items, lock_timeout=30):
         gevent.sleep(0)
