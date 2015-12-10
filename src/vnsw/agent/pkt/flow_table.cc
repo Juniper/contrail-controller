@@ -171,6 +171,15 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
 
     if (rflow && rflow_req != rflow) {
         Copy(rflow, rflow_req);
+        // if the reverse flow was marked delete, reset its flow handle
+        // to invalid index to assure it is attempted to reprogram using
+        // kInvalidFlowHandle, this also ensures that flow entry wont
+        // give fake notion of being available in the flow index tree
+        // delete for which has already happend while triggering delete
+        // for flow entry
+        if (rflow->deleted()) {
+            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+        }
         rflow->set_deleted(false);
     }
 
@@ -258,6 +267,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time) {
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
+    DeleteByIndex(fe);
 
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
@@ -270,9 +280,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time) {
             fe->set_reverse_flow_entry(NULL);
         }
     }
-
-    // flow index is not available after triggering DeleteByIndex
-    DeleteByIndex(fe);
 
     agent_->stats()->incr_flow_aged();
     agent_->stats()->UpdateFlowDelMinMaxStats(time);
@@ -531,9 +538,6 @@ void FlowTable::DeleteByIndex(FlowEntry *fe) {
         } else {
             assert(0);
         }
-        // reset flow handle to kInvalidFlowHandle, upon deleting from
-        // flow index tree
-        fe->flow_handle_ = FlowEntry::kInvalidFlowHandle;
     }
 }
 
