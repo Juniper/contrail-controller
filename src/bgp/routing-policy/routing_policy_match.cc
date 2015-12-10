@@ -47,6 +47,12 @@ std::string MatchCommunity::ToString() const {
     return "Match community";
 }
 
+bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
+    const MatchCommunity in_comm =
+        static_cast<const MatchCommunity&>(community);
+    return (communities() == in_comm.communities());
+}
+
 template <typename T>
 MatchPrefix<T>::MatchPrefix(const std::string &prefix,
                           const std::string &match_type) {
@@ -80,6 +86,15 @@ bool MatchPrefix<T>::Match(const BgpRoute *route,
         if (prefix.IsMoreSpecific(match_prefix_)) return true;
     }
     return false;
+}
+
+template <typename T>
+bool MatchPrefix<T>::IsEqual(const RoutingPolicyMatch &prefix) const {
+    const MatchPrefix in_prefix =
+        static_cast<const MatchPrefix&>(prefix);
+    if (match_type_ == in_prefix.match_type_)
+        return (match_prefix_ == in_prefix.match_prefix_);
+    return true;
 }
 
 template <typename T>

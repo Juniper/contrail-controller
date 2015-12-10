@@ -48,7 +48,9 @@ class RoutingInstance {
 public:
     typedef std::set<RouteTarget> RouteTargetList;
     typedef std::map<std::string, BgpTable *> RouteTableList;
-    typedef std::vector<RoutingPolicyPtr> RoutingPolicyList;
+    // Routing Policy pointer + Generation of routing policies linked
+    typedef std::pair<RoutingPolicyPtr, uint32_t> RoutingPolicyInfo;
+    typedef std::list<RoutingPolicyInfo> RoutingPolicyList;
 
     RoutingInstance(std::string name, BgpServer *server,
                     RoutingInstanceMgr *mgr,
@@ -135,7 +137,7 @@ public:
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
-    RoutingPolicyList &routing_policies() { return routing_policies_; }
+    RoutingPolicyList *routing_policies() { return &routing_policies_; }
     const RoutingPolicyList &routing_policies() const {
         return routing_policies_;
     }

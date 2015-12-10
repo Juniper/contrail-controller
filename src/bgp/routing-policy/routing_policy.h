@@ -13,17 +13,21 @@
 
 #include "base/lifetime.h"
 #include "base/util.h"
+#include "db/db_table_walker.h"
 
 #include <sandesh/sandesh_trace.h>
 
+class BgpAttr;
+class BgpRoute;
 class BgpServer;
+class BgpTable;
 class RoutingPolicyMgr;
 class BgpRoutingPolicyConfig;
+class RoutingInstance;
 class RoutingPolicyMatch;
 class RoutingPolicyAction;
 class RoutingPolicyTerm;
-class BgpAttr;
-class BgpRoute;
+class TaskTrigger;
 
 class PolicyTerm {
 public:
@@ -45,6 +49,7 @@ public:
     const ActionList &actions() const {
         return actions_;
     }
+    bool operator==(const PolicyTerm &term) const;
 private:
     MatchList matches_;
     ActionList actions_;
@@ -52,7 +57,7 @@ private:
 
 class RoutingPolicy {
 public:
-    typedef std::vector<PolicyTerm*> RoutingPolicyTermList;
+    typedef std::list<PolicyTerm*> RoutingPolicyTermList;
     typedef std::pair<bool, bool> PolicyResult;
     RoutingPolicy(std::string name, BgpServer *server,
                     RoutingPolicyMgr *mgr,
@@ -77,13 +82,14 @@ public:
     BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
 
-    RoutingPolicyTermList &terms() { return terms_; }
+    RoutingPolicyTermList *terms() { return &terms_; }
     const RoutingPolicyTermList &terms() const { return terms_; }
     void add_term(PolicyTerm *term) {
         terms_.push_back(term);
     }
 
     PolicyResult operator()(const BgpRoute *route, BgpAttr *attr) const;
+    uint32_t generation() const { return generation_; }
 
 private:
     friend class RoutingPolicyMgr;
@@ -117,11 +123,42 @@ inline void intrusive_ptr_release(RoutingPolicy *policy) {
     }
 }
 
+// RoutingPolicySyncState
+// This class holds the information of the TableWalk requests posted from
+// config sync.
+class RoutingPolicySyncState {
+public:
+    RoutingPolicySyncState() : id_(DBTable::kInvalidId), walk_again_(false) {
+    }
+
+    DBTableWalker::WalkId GetWalkerId() {
+        return id_;
+    }
+
+    void SetWalkerId(DBTableWalker::WalkId id) {
+        id_ = id;
+    }
+
+    void SetWalkAgain(bool walk) {
+        walk_again_ = walk;
+    }
+
+    bool WalkAgain() {
+        return walk_again_;
+    }
+
+private:
+    DBTableWalker::WalkId id_;
+    bool walk_again_;
+    DISALLOW_COPY_AND_ASSIGN(RoutingPolicySyncState);
+};
+
 class RoutingPolicyMgr {
 public:
     typedef std::map<std::string, RoutingPolicy*> RoutingPolicyList;
     typedef RoutingPolicyList::iterator name_iterator;
     typedef RoutingPolicyList::const_iterator const_name_iterator;
+    typedef std::map<BgpTable *, RoutingPolicySyncState *> RoutingPolicyWalkRequests;
 
     explicit RoutingPolicyMgr(BgpServer *server);
     virtual ~RoutingPolicyMgr();
@@ -169,8 +206,18 @@ public:
     const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
 
-    RoutingPolicy::PolicyResult ApplyPolicy(const RoutingPolicy *policy,
-                     const BgpRoute *route, BgpAttr *attr) const;
+    RoutingPolicy::PolicyResult ExecuteRoutingPolicy(const RoutingPolicy *policy,
+                                    const BgpRoute *route, BgpAttr *attr) const;
+
+
+    // RoutingInstance is updated with new set of policies. This function
+    // applies that policy on each route of this routing instance
+    void ApplyRoutingPolicy(RoutingInstance *instance);
+
+    bool StartWalk();
+    void RequestWalk(BgpTable *table);
+    void WalkDone(DBTableBase *dbtable);
+    bool EvaluateRoutingPolicy(DBTablePartBase *root, DBEntryBase *entry);
 
 private:
     class DeleteActor;
@@ -179,6 +226,10 @@ private:
     RoutingPolicyList routing_policies_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingPolicyMgr> server_delete_ref_;
+    // Mutex to protect routing_policy_sync_ from multiple DBTable tasks.
+    tbb::mutex mutex_;
+    RoutingPolicyWalkRequests routing_policy_sync_;
+    boost::scoped_ptr<TaskTrigger> walk_trigger_;
     SandeshTraceBufferPtr trace_buf_;
 };
 #endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_H_

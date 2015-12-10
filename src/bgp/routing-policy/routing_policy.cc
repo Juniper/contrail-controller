@@ -11,6 +11,8 @@
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_table.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-policy/routing_policy_action.h"
 #include "bgp/routing-policy/routing_policy_match.h"
 
@@ -39,6 +41,9 @@ RoutingPolicyMgr::RoutingPolicyMgr(BgpServer *server) :
         server_(server),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()),
+        walk_trigger_(new TaskTrigger(
+          boost::bind(&RoutingPolicyMgr::StartWalk, this),
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
         trace_buf_(SandeshTraceBufferCreate("RoutingPolicyMgr", 500)) {
 }
 
@@ -131,10 +136,111 @@ void RoutingPolicyMgr::DestroyRoutingPolicy(RoutingPolicy *policy) {
     }
 }
 
-RoutingPolicy::PolicyResult RoutingPolicyMgr::ApplyPolicy(
+// Given a routing instance re-evaluate routes/paths by applying routing policy
+// Walks all the tables of the given routing instance and apply the policy
+// This function puts the table into the walk request queue and triggers the
+// task to start the actual walk
+void RoutingPolicyMgr::ApplyRoutingPolicy(RoutingInstance *instance) {
+    BOOST_FOREACH(RoutingInstance::RouteTableList::value_type &entry,
+                  instance->GetTables()) {
+        BgpTable *table = entry.second;
+        RequestWalk(table);
+    }
+    walk_trigger_->Set();
+}
+
+// On a given path of the route, apply the policy
+RoutingPolicy::PolicyResult RoutingPolicyMgr::ExecuteRoutingPolicy(
                              const RoutingPolicy *policy, const BgpRoute *route,
                              BgpAttr *attr) const {
     return (*policy)(route, attr);
+}
+
+//
+// Concurrency: Called in the context of the DB partition task.
+// On a given route, apply routing policy
+// Walk through all the paths of the given route, and evaluate the result of the
+// routing policy
+//
+bool RoutingPolicyMgr::EvaluateRoutingPolicy(DBTablePartBase *root,
+                                             DBEntryBase *entry) {
+    CHECK_CONCURRENCY("db::DBTable");
+
+    BgpTable *table = static_cast<BgpTable *>(root->parent());
+    BgpRoute *route = static_cast<BgpRoute *>(entry);
+    const RoutingInstance *rtinstance = table->routing_instance();
+    if (route->IsDeleted()) return true;
+
+    for (Route::PathList::iterator it = route->GetPathList().begin();
+        it != route->GetPathList().end(); ++it) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        rtinstance->ProcessRoutingPolicy(route, path);
+    }
+
+    return true;
+}
+
+void
+RoutingPolicyMgr::RequestWalk(BgpTable *table) {
+    CHECK_CONCURRENCY("bgp::Config");
+    RoutingPolicySyncState *state = NULL;
+    RoutingPolicyWalkRequests::iterator loc = routing_policy_sync_.find(table);
+    if (loc != routing_policy_sync_.end()) {
+        // Accumulate the walk request till walk is started.
+        // After the walk is started don't cancel/interrupt the walk
+        // instead remember the request to walk again
+        // Walk will restarted after completion of current walk
+        // This situation is possible in cases where DBWalker yeilds or
+        // config task requests for walk before the previous walk is finished
+        if (loc->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
+            // This will be reset when the walk actually starts
+            loc->second->SetWalkAgain(true);
+        }
+        return;
+    } else {
+        state = new RoutingPolicySyncState();
+        state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
+        routing_policy_sync_.insert(std::make_pair(table, state));
+    }
+}
+
+bool
+RoutingPolicyMgr::StartWalk() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    // For each member table, start a walker to replicate
+    for (RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.begin();
+         it != routing_policy_sync_.end(); ++it) {
+        if (it->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
+            // Walk is in progress.
+            continue;
+        }
+        BgpTable *table = it->first;
+        DB *db = server()->database();
+        DBTableWalker::WalkId id = db->GetWalker()->WalkTable(table, NULL,
+            boost::bind(&RoutingPolicyMgr::EvaluateRoutingPolicy, this, _1, _2),
+            boost::bind(&RoutingPolicyMgr::WalkDone, this, _1));
+        it->second->SetWalkerId(id);
+        it->second->SetWalkAgain(false);
+    }
+    return true;
+}
+
+void
+RoutingPolicyMgr::WalkDone(DBTableBase *dbtable) {
+    CHECK_CONCURRENCY("db::DBTable");
+    tbb::mutex::scoped_lock lock(mutex_);
+    BgpTable *table = static_cast<BgpTable *>(dbtable);
+    RoutingPolicyWalkRequests::iterator loc = routing_policy_sync_.find(table);
+    assert(loc != routing_policy_sync_.end());
+    RoutingPolicySyncState *policy_sync_state = loc->second;
+    if (policy_sync_state->WalkAgain()) {
+        policy_sync_state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
+        walk_trigger_->Set();
+        return;
+    }
+    delete policy_sync_state;
+    routing_policy_sync_.erase(loc);
 }
 
 class RoutingPolicy::DeleteActor : public LifetimeActor {
@@ -253,13 +359,61 @@ void RoutingPolicy::ProcessConfig() {
     BOOST_FOREACH(const RoutingPolicyTerm cfg_term, config_->terms()) {
         // Build each terms and insert to operational data
         PolicyTerm *term = BuildTerm(cfg_term);
-        add_term(term);
+        if (term)
+            add_term(term);
     }
 }
 
+//
+// Reprogram policy terms based on new config.
+// If the policy term has changed (number of terms got updated, or new term is
+// added or earlier term is deleted or existing term is updated), increment the
+// generation number to indicate the update
+//
 void RoutingPolicy::UpdateConfig(const BgpRoutingPolicyConfig *cfg) {
     CHECK_CONCURRENCY("bgp::Config");
     config_ = cfg;
+    bool update_policy = false;
+    if (terms()->size() != config_->terms().size())
+        update_policy = true;
+
+    RoutingPolicyTermList::iterator oper_it = terms()->begin(), oper_next;
+    BgpRoutingPolicyConfig::RoutingPolicyTermList::const_iterator
+        config_it = config_->terms().begin();
+    while (oper_it != terms()->end() && config_it != config_->terms().end()) {
+        PolicyTerm *term = BuildTerm(*config_it);
+        if (**oper_it == *term) {
+            delete term;
+            ++oper_it;
+            ++config_it;
+        } else {
+            PolicyTerm *current = *oper_it;
+            if (term) {
+                *oper_it = term;
+                delete current;
+                update_policy = true;
+                ++oper_it;
+                ++config_it;
+            } else {
+                ++config_it;
+            }
+        }
+    }
+    for (oper_next = oper_it; oper_it != terms()->end(); oper_it = oper_next) {
+        ++oper_next;
+        PolicyTerm *current = *oper_it;
+        terms()->erase(oper_it);
+        delete current;
+        update_policy = true;
+    }
+    for (; config_it != config_->terms().end(); ++config_it) {
+        PolicyTerm *term = BuildTerm(*config_it);
+        if (term)
+            add_term(term);
+        update_policy = true;
+    }
+
+    if (update_policy) generation_++;
 }
 
 void RoutingPolicy::ClearConfig() {
@@ -357,4 +511,35 @@ bool PolicyTerm::ApplyTerm(const BgpRoute *route, BgpAttr *attr) const {
         }
     }
     return matched;
+}
+
+// Compare two terms
+bool PolicyTerm::operator==(const PolicyTerm &rhs) const {
+    // Different number of match conditions
+    if (matches().size() != rhs.matches().size()) return false;
+    // Different number of actions conditions
+    if (actions().size() != rhs.actions().size()) return false;
+
+    for (MatchList::const_iterator rhs_matches_cit = rhs.matches().begin(),
+         lhs_matches_cit = matches().begin();
+         lhs_matches_cit != matches().end();
+         lhs_matches_cit++,rhs_matches_cit++) {
+        // Walk the list of match conditions and compare each match
+        if (**rhs_matches_cit == **lhs_matches_cit)
+            continue;
+        else
+            return false;
+    }
+
+    for (ActionList::const_iterator lhs_actions_cit = actions().begin(),
+         rhs_actions_cit = rhs.actions().begin();
+         lhs_actions_cit != actions().end();
+         lhs_actions_cit++,rhs_actions_cit++) {
+        // Walk the list of actions and compare each action
+        if (**rhs_actions_cit == **lhs_actions_cit)
+            continue;
+        else
+            return false;
+    }
+    return true;
 }

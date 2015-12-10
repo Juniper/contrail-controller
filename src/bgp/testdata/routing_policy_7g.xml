@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic_0'>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>2001:db8:85a3::8a2e:370:7334/128</prefix>
+                    <type>exact</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <community>
+                        <add><community>44:22</community></add>
+                    </community>
+                </update>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic_0">
+            <sequence>2.0</sequence>
+        </routing-policy>
+    </routing-instance>
+</config>

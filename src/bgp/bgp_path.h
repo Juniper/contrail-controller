@@ -91,7 +91,7 @@ public:
         return attr_.get();
     }
 
-    const BgpAttr *GetOriginalPathAttr() const {
+    const BgpAttr *GetOriginalAttr() const {
         return original_attr_.get();
     }
 
@@ -128,6 +128,10 @@ public:
     // Reset a path as active from Routing Policy
     void ResetPolicyReject() {
         flags_ &= ~RoutingPolicyReject;
+    }
+
+    bool IsPolicyReject() const {
+        return ((flags_ & RoutingPolicyReject) != 0);
     }
 
     // Mark a path as stale
