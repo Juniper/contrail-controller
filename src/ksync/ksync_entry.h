@@ -14,7 +14,7 @@
 do {\
     if (LoggingDisabled()) break;\
     obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
+              SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
 class KSyncObject;
