@@ -310,10 +310,16 @@ void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
 
     BgpPeer *bgp_peer = channel->bgp_peer_id();
     if (bgp_peer != NULL) {
+        //Defer delete of channel till delete walk of bgp peer is over.
+        //Till walk is over, unregister as table listener is not done and there
+        //may be notifications(which will be ignored though, but valid pointer is
+        //needed). BgpPeer destructor will handle deletion of channel.
+        bgp_peer->set_delete_xmpp_channel(true);
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
+    } else {
+        delete channel;
     }
-    delete channel;
 }
 
 //Trigger shutdown and cleanup of routes for the client
