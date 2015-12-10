@@ -48,9 +48,6 @@ class RoutingInstance {
 public:
     typedef std::set<RouteTarget> RouteTargetList;
     typedef std::map<std::string, BgpTable *> RouteTableList;
-    // Routing Policy pointer + Generation of routing policies linked
-    typedef std::pair<RoutingPolicyPtr, uint32_t> RoutingPolicyInfo;
-    typedef std::list<RoutingPolicyInfo> RoutingPolicyList;
 
     RoutingInstance(std::string name, BgpServer *server,
                     RoutingInstanceMgr *mgr,
@@ -137,8 +134,8 @@ public:
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
-    RoutingPolicyList *routing_policies() { return &routing_policies_; }
-    const RoutingPolicyList &routing_policies() const {
+    RoutingPolicyAttachList *routing_policies() { return &routing_policies_; }
+    const RoutingPolicyAttachList &routing_policies() const {
         return routing_policies_;
     }
 
@@ -190,7 +187,7 @@ private:
     boost::scoped_ptr<IStaticRouteMgr> inet_static_route_mgr_;
     boost::scoped_ptr<IStaticRouteMgr> inet6_static_route_mgr_;
     boost::scoped_ptr<PeerManager> peer_manager_;
-    RoutingPolicyList routing_policies_;
+    RoutingPolicyAttachList routing_policies_;
 };
 
 

@@ -8,6 +8,7 @@
 
 #include "base/string_util.h"
 #include "base/task_annotations.h"
+#include "bgp/bgp_common.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_log.h"
 #include "ifmap/ifmap_node.h"
@@ -931,7 +932,7 @@ static bool CompareRoutingPolicyOrder(const RoutingPolicyAttachInfo &lhs,
 void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                                     const autogen::RoutingInstance *config) {
     BgpInstanceConfig::RouteTargetList import_list, export_list;
-    BgpInstanceConfig::RoutingPolicyList policy_list;
+    RoutingPolicyConfigList policy_list;
     data_.Clear();
 
     DBGraph *graph = manager->graph();

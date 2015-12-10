@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/util.h"
+#include "bgp/bgp_common.h"
 #include "io/tcp_session.h"
 #include "net/address.h"
 
@@ -337,18 +338,12 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpRoutingPolicyConfig);
 };
 
-struct RoutingPolicyAttachInfo {
-    double sequence_;
-    std::string routing_policy_;
-};
-
 // Instance configuration.
 class BgpInstanceConfig {
 public:
     typedef std::set<std::string> RouteTargetList;
     typedef std::vector<StaticRouteConfig> StaticRouteList;
     typedef std::vector<ServiceChainConfig> ServiceChainList;
-    typedef std::vector<RoutingPolicyAttachInfo> RoutingPolicyList;
 
     explicit BgpInstanceConfig(const std::string &name);
     virtual ~BgpInstanceConfig();
@@ -401,10 +396,10 @@ public:
     }
     const ServiceChainConfig *service_chain_info(Address::Family family) const;
 
-    const RoutingPolicyList &routing_policy_list() const {
+    const RoutingPolicyConfigList &routing_policy_list() const {
         return routing_policies_;
     }
-    void swap_routing_policy_list(RoutingPolicyList *list) {
+    void swap_routing_policy_list(RoutingPolicyConfigList *list) {
         std::swap(routing_policies_, *list);
     }
     void Clear();
@@ -424,7 +419,7 @@ private:
     StaticRouteList inet_static_routes_;
     StaticRouteList inet6_static_routes_;
     ServiceChainList service_chain_list_;
-    RoutingPolicyList routing_policies_;
+    RoutingPolicyConfigList routing_policies_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpInstanceConfig);
 };

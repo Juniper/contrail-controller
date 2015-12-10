@@ -10,6 +10,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_common.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
@@ -1496,7 +1497,7 @@ TEST_F(BgpConfigTest, RoutePolicy_0) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 1);
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1526,8 +1527,8 @@ TEST_F(BgpConfigTest, RoutePolicy_1) {
 
     vector<string> expect_list = boost::assign::list_of("basic_1")("basic_0");
     vector<string> current_list;
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    RoutingPolicyAttachList *policies = rti->routing_policies();
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1555,7 +1556,7 @@ TEST_F(BgpConfigTest, RoutePolicy_2) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 1);
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -1586,8 +1587,8 @@ TEST_F(BgpConfigTest, RoutePolicy_3) {
 
     vector<string> expect_list = boost::assign::list_of("basic_0")("basic_1");
     vector<string> current_list;
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    RoutingPolicyAttachList *policies = rti->routing_policies();
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1615,7 +1616,7 @@ TEST_F(BgpConfigTest, RoutePolicy_4) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 1);
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -1641,7 +1642,7 @@ TEST_F(BgpConfigTest, RoutePolicy_5) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 1);
 
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3d.xml");
@@ -1689,7 +1690,7 @@ TEST_F(BgpConfigTest, RoutePolicy_6) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
 
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3c.xml");
@@ -1741,11 +1742,11 @@ TEST_F(BgpConfigTest, RoutePolicy_7) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
 
     vector<string> expect_list = boost::assign::list_of("basic_1")("basic_0");
     vector<string> current_list;
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1770,7 +1771,7 @@ TEST_F(BgpConfigTest, RoutePolicy_7) {
 
     expect_list = boost::assign::list_of("basic_0")("basic_1");
     current_list.clear();
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1807,11 +1808,11 @@ TEST_F(BgpConfigTest, RoutePolicy_8) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
 
     vector<string> expect_list = boost::assign::list_of("basic_0")("basic_1");
     vector<string> current_list;
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1836,7 +1837,7 @@ TEST_F(BgpConfigTest, RoutePolicy_8) {
 
     expect_list = boost::assign::list_of("basic_1")("basic_0");
     current_list.clear();
-    BOOST_FOREACH(RoutingInstance::RoutingPolicyInfo info, *policies) {
+    BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
@@ -1867,7 +1868,7 @@ TEST_F(BgpConfigTest, RoutePolicy_9) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
 
-    RoutingInstance::RoutingPolicyList *policies = rti->routing_policies();
+    RoutingPolicyAttachList *policies = rti->routing_policies();
     TASK_UTIL_ASSERT_TRUE(policies->size() == 1);
 
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_2a.xml");
