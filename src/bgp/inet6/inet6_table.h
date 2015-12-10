@@ -49,6 +49,7 @@ public:
                              BgpRoute *src_rt, const BgpPath *path,
                              ExtCommunityPtr ptr);
 
+    virtual bool IsRoutingPolicySupported() const { return true; }
 private:
     virtual BgpRoute *TableFind(DBTablePartition *partition,
                                 const DBRequestKey *rkey);

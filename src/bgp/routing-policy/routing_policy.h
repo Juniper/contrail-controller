@@ -7,12 +7,14 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <map>
 #include <string>
 
 #include "base/lifetime.h"
 #include "base/util.h"
+#include "bgp/bgp_common.h"
 #include "db/db_table_walker.h"
 
 #include <sandesh/sandesh_trace.h>
@@ -219,7 +221,8 @@ private:
 
 class RoutingPolicy {
 public:
-    typedef std::list<PolicyTerm*> RoutingPolicyTermList;
+    typedef boost::shared_ptr<PolicyTerm>  PolicyTermPtr;
+    typedef std::list<PolicyTermPtr> RoutingPolicyTermList;
     typedef std::pair<bool, bool> PolicyResult;
     RoutingPolicy(std::string name, BgpServer *server,
                     RoutingPolicyMgr *mgr,
@@ -246,7 +249,7 @@ public:
 
     RoutingPolicyTermList *terms() { return &terms_; }
     const RoutingPolicyTermList &terms() const { return terms_; }
-    void add_term(PolicyTerm *term) {
+    void add_term(PolicyTermPtr term) {
         terms_.push_back(term);
     }
 
@@ -259,7 +262,7 @@ private:
     friend void intrusive_ptr_add_ref(RoutingPolicy *policy);
     friend void intrusive_ptr_release(RoutingPolicy *policy);
 
-    PolicyTerm *BuildTerm(const RoutingPolicyTerm &term);
+    PolicyTermPtr BuildTerm(const RoutingPolicyTerm &term);
     std::string name_;
     BgpServer *server_;
     RoutingPolicyMgr *mgr_;
@@ -371,6 +374,10 @@ public:
     RoutingPolicy::PolicyResult ExecuteRoutingPolicy(const RoutingPolicy *policy,
                                     const BgpRoute *route, BgpAttr *attr) const;
 
+
+    // Update the routing policy list on attach point
+    bool UpdateRoutingPolicyList(const RoutingPolicyConfigList &cfg_list,
+                                       RoutingPolicyAttachList *oper_list);
 
     // RoutingInstance is updated with new set of policies. This function
     // applies that policy on each route of this routing instance

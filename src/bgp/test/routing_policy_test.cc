@@ -1611,6 +1611,203 @@ TEST_F(RoutingPolicyTest, PolicyUpdate_4) {
                              "2001:db8:85a3::8a2e:370:7334/128");
 }
 //
+// In this test, routing policy action is updated
+// With the update of the policy, the route is rejected by matching the newly
+// added term. Selected path or best path no longer points to it
+//
+TEST_F(RoutingPolicyTest, PolicyUpdate_MultiplePath) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_7c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7334/128", 200, list_of("22:13"));
+    task_util::WaitForIdle();
+    AddRoute<Inet6Definition>(peers_[1], "test.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7334/128", 100, list_of("11:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0",
+                                            "2001:db8:85a3::8a2e:370:7334/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+              list_of("22:13"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("22:13"));
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet6.0"));
+    rt = RouteLookup<Inet6Definition>("test.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7334/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13"));
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7334/128");
+    DeleteRoute<Inet6Definition>(peers_[1], "test.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7334/128");
+}
+
+//
+// In this test, routing policy action is updated
+// With the update of the policy, new path gets selected as action updates the
+// local_pref
+//
+TEST_F(RoutingPolicyTest, PolicyUpdate_MultiplePath_UpdateLocalPref) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_7c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 200, list_of("22:13"));
+    task_util::WaitForIdle();
+    AddRoute<Inet6Definition>(peers_[1], "test.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 100, list_of("11:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0",
+                                            "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()), list_of("22:13"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("22:13"));
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet6.0"));
+    rt = RouteLookup<Inet6Definition>("test.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13")("11:22"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13"));
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+    DeleteRoute<Inet6Definition>(peers_[1], "test.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+}
+
+//
+// In this test, routing policy action is updated
+// With the update of the policy, new path gets selected as action updates the
+// local_pref. Validate the replicated route to verify the notification of route
+//
+TEST_F(RoutingPolicyTest, PolicyUpdate_MultiplePath_UpdateLocalPref_Notify) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_7h.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 200, list_of("22:13"));
+    task_util::WaitForIdle();
+    AddRoute<Inet6Definition>(peers_[1], "test_0.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 100, list_of("11:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test_1.inet6.0"));
+    VERIFY_EQ(1, RouteCount("test_0.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
+                                            "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()), list_of("22:13"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("22:13"));
+    rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 1);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()), list_of("22:13"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("22:13"));
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test_0.inet6.0"));
+    VERIFY_EQ(1, RouteCount("test_1.inet6.0"));
+    rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13")("11:22"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13"));
+    // Look in the secondary table for replicated route.
+    // Replicated route is updated in the route notification with new selected
+    // path due to policy update
+    rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 1);
+    VERIFY_EQ(peers_[1], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13")("11:22"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              list_of("11:13")("11:22"));
+    DeleteRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+    DeleteRoute<Inet6Definition>(peers_[1], "test_0.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+}
+
+//
 // 1 Route is updated due to policy match.
 // 2 Update of the policy to reject on match
 //

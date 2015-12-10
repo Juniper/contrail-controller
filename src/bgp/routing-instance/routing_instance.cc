@@ -487,10 +487,6 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
 RoutingInstance::~RoutingInstance() {
 }
 
-void RoutingInstance::AddRoutingPolicy(RoutingPolicyPtr policy) {
-    routing_policies_.push_back(make_pair(policy, policy->generation()));
-}
-
 void RoutingInstance::ProcessRoutingPolicyConfig() {
     RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
     BOOST_FOREACH(RoutingPolicyAttachInfo info,
@@ -498,7 +494,8 @@ void RoutingInstance::ProcessRoutingPolicyConfig() {
         RoutingPolicy *policy =
             policy_mgr->GetRoutingPolicy(info.routing_policy_);
         if (policy) {
-            AddRoutingPolicy(policy);
+            routing_policies_.push_back(make_pair(policy,
+                                                  policy->generation()));
         }
     }
 }
@@ -514,61 +511,9 @@ void RoutingInstance::ProcessRoutingPolicyConfig() {
 //
 void RoutingInstance::UpdateRoutingPolicyConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    bool update_policy = false;
     RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
-    // Number of routing policies is different
-    if (routing_policies()->size() != config_->routing_policy_list().size())
-        update_policy = true;
-
-    RoutingPolicyList::iterator oper_it = routing_policies()->begin(), oper_next;
-    BgpInstanceConfig::RoutingPolicyList::const_iterator
-        config_it = config_->routing_policy_list().begin();
-    while (oper_it != routing_policies()->end() &&
-           config_it != config_->routing_policy_list().end()) {
-        // Compare the configured routing policies on the routing-instance
-        // with operational data.
-        if (oper_it->first->name() == config_it->routing_policy_) {
-            if (oper_it->second != oper_it->first->generation()) {
-                // Policy content is updated
-                oper_it->second = oper_it->first->generation();
-                update_policy = true;
-            }
-            ++oper_it;
-            ++config_it;
-        } else {
-            // Policy Order is updated or new policy is added
-            // or policy is deleted
-            RoutingPolicy *policy =
-                policy_mgr->GetRoutingPolicy(config_it->routing_policy_);
-            if (policy) {
-                *oper_it = make_pair(policy, policy->generation());
-                ++oper_it;
-                ++config_it;
-                update_policy = true;
-            } else {
-                // points to routing policy that doesn't exists
-                // will revisit in next config notification
-                ++config_it;
-            }
-        }
-    }
-    for (oper_next = oper_it; oper_it != routing_policies()->end();
-         oper_it = oper_next) {
-        // Existing policy(ies) are removed
-        ++oper_next;
-        routing_policies()->erase(oper_it);
-        update_policy = true;
-    }
-    for (; config_it != config_->routing_policy_list().end(); ++config_it) {
-        // new policy(ies) are added
-        RoutingPolicy *policy =
-            policy_mgr->GetRoutingPolicy(config_it->routing_policy_);
-        if (policy) {
-            AddRoutingPolicy(policy);
-        }
-        update_policy = true;
-    }
-    if (update_policy) {
+    if (policy_mgr->UpdateRoutingPolicyList(config_->routing_policy_list(),
+                                            routing_policies())) {
         // Let RoutingPolicyMgr handle update of routing policy on the instance
         policy_mgr->ApplyRoutingPolicy(this);
     }

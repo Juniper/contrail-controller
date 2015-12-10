@@ -144,7 +144,8 @@ void RoutingPolicyMgr::ApplyRoutingPolicy(RoutingInstance *instance) {
     BOOST_FOREACH(RoutingInstance::RouteTableList::value_type &entry,
                   instance->GetTables()) {
         BgpTable *table = entry.second;
-        RequestWalk(table);
+        if (table->IsRoutingPolicySupported())
+            RequestWalk(table);
     }
     walk_trigger_->Set();
 }
@@ -171,13 +172,85 @@ bool RoutingPolicyMgr::EvaluateRoutingPolicy(DBTablePartBase *root,
     const RoutingInstance *rtinstance = table->routing_instance();
     if (route->IsDeleted()) return true;
 
+    bool sort_and_notify = false;
+    const Path *prev_front = route->front();
     for (Route::PathList::iterator it = route->GetPathList().begin();
         it != route->GetPathList().end(); ++it) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        uint32_t old_flags = path->GetFlags();
+        const BgpAttr *old_attr = path->GetAttr();
         rtinstance->ProcessRoutingPolicy(route, path);
+        if ((sort_and_notify == false) &&
+            (old_flags != path->GetFlags() || old_attr != path->GetAttr())) {
+            sort_and_notify = true;
+        }
     }
 
+    if (sort_and_notify) {
+        route->Sort(&BgpTable::PathSelection, prev_front);
+        root->Notify(entry);
+    }
     return true;
+}
+
+//
+//
+bool RoutingPolicyMgr::UpdateRoutingPolicyList(
+                                        const RoutingPolicyConfigList &cfg_list,
+                                        RoutingPolicyAttachList *oper_list) {
+    CHECK_CONCURRENCY("bgp::Config");
+    bool update_policy = false;
+    // Number of routing policies is different
+    if (oper_list->size() != cfg_list.size())
+        update_policy = true;
+
+    RoutingPolicyAttachList::iterator oper_it = oper_list->begin(), oper_next;
+    RoutingPolicyConfigList::const_iterator config_it = cfg_list.begin();
+    while (oper_it != oper_list->end() &&
+           config_it != cfg_list.end()) {
+        // Compare the configured routing policies on the routing-instance
+        // with operational data.
+        if (oper_it->first->name() == config_it->routing_policy_) {
+            if (oper_it->second != oper_it->first->generation()) {
+                // Policy content is updated
+                oper_it->second = oper_it->first->generation();
+                update_policy = true;
+            }
+            ++oper_it;
+            ++config_it;
+        } else {
+            // Policy Order is updated or new policy is added
+            // or policy is deleted
+            RoutingPolicy *policy = GetRoutingPolicy(config_it->routing_policy_);
+            if (policy) {
+                *oper_it = std::make_pair(policy, policy->generation());
+                ++oper_it;
+                ++config_it;
+                update_policy = true;
+            } else {
+                // points to routing policy that doesn't exists
+                // will revisit in next config notification
+                ++config_it;
+            }
+        }
+    }
+    for (oper_next = oper_it; oper_it != oper_list->end();
+         oper_it = oper_next) {
+        // Existing policy(ies) are removed
+        ++oper_next;
+        oper_list->erase(oper_it);
+        update_policy = true;
+    }
+    for (; config_it != cfg_list.end(); ++config_it) {
+        // new policy(ies) are added
+        RoutingPolicy *policy = GetRoutingPolicy(config_it->routing_policy_);
+        if (policy) {
+            oper_list->push_back(std::make_pair(policy, policy->generation()));
+        }
+        update_policy = true;
+    }
+
+    return update_policy;
 }
 
 void
@@ -271,10 +344,9 @@ RoutingPolicy::RoutingPolicy(std::string name, BgpServer *server,
 }
 
 RoutingPolicy::~RoutingPolicy() {
-    STLDeleteValues(&terms_);
 }
 
-PolicyTerm *RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
+RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
     PolicyTerm::ActionList actions;
     PolicyTerm::MatchList matches;
     // Build the Match object
@@ -345,9 +417,9 @@ PolicyTerm *RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
         actions.push_back(local_pref);
     }
 
-    PolicyTerm *ret_term = NULL;
+    RoutingPolicy::PolicyTermPtr ret_term;
     if (!actions.empty() || !matches.empty()) {
-        ret_term = new PolicyTerm();
+        ret_term = RoutingPolicy::PolicyTermPtr(new PolicyTerm());
         ret_term->set_actions(actions);
         ret_term->set_matches(matches);
     }
@@ -358,7 +430,7 @@ PolicyTerm *RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
 void RoutingPolicy::ProcessConfig() {
     BOOST_FOREACH(const RoutingPolicyTerm cfg_term, config_->terms()) {
         // Build each terms and insert to operational data
-        PolicyTerm *term = BuildTerm(cfg_term);
+        RoutingPolicy::PolicyTermPtr term = BuildTerm(cfg_term);
         if (term)
             add_term(term);
     }
@@ -381,16 +453,13 @@ void RoutingPolicy::UpdateConfig(const BgpRoutingPolicyConfig *cfg) {
     BgpRoutingPolicyConfig::RoutingPolicyTermList::const_iterator
         config_it = config_->terms().begin();
     while (oper_it != terms()->end() && config_it != config_->terms().end()) {
-        PolicyTerm *term = BuildTerm(*config_it);
+        RoutingPolicy::PolicyTermPtr term = BuildTerm(*config_it);
         if (**oper_it == *term) {
-            delete term;
             ++oper_it;
             ++config_it;
         } else {
-            PolicyTerm *current = *oper_it;
             if (term) {
                 *oper_it = term;
-                delete current;
                 update_policy = true;
                 ++oper_it;
                 ++config_it;
@@ -401,13 +470,11 @@ void RoutingPolicy::UpdateConfig(const BgpRoutingPolicyConfig *cfg) {
     }
     for (oper_next = oper_it; oper_it != terms()->end(); oper_it = oper_next) {
         ++oper_next;
-        PolicyTerm *current = *oper_it;
         terms()->erase(oper_it);
-        delete current;
         update_policy = true;
     }
     for (; config_it != config_->terms().end(); ++config_it) {
-        PolicyTerm *term = BuildTerm(*config_it);
+        RoutingPolicy::PolicyTermPtr term = BuildTerm(*config_it);
         if (term)
             add_term(term);
         update_policy = true;
@@ -457,10 +524,10 @@ void RoutingPolicy::RetryDelete() {
 
 RoutingPolicy::PolicyResult RoutingPolicy::operator()(const BgpRoute *route,
                                                       BgpAttr *attr) const {
-    BOOST_FOREACH(PolicyTerm *term, terms()) {
+    BOOST_FOREACH(PolicyTermPtr term, terms()) {
         bool terminal = term->terminal();
         bool matched = term->ApplyTerm(route, attr);
-        if (terminal && matched) {
+        if (matched && terminal) {
             return std::make_pair(terminal,
                                   (*term->actions().begin())->accept());
         }

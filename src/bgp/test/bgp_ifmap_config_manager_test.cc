@@ -1960,7 +1960,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
     test_ri = FindInstanceConfig("test");
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
-    BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
+    RoutingPolicyConfigList list = test_ri->routing_policy_list();
 
     vector<string> expect_list = list_of("basic_0")("basic_1");
     vector<string> current_list;
@@ -2007,7 +2007,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
     ASSERT_TRUE(policy_cfg != NULL);
 
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
-    BgpInstanceConfig::RoutingPolicyList list = test_ri->routing_policy_list();
+    RoutingPolicyConfigList list = test_ri->routing_policy_list();
 
     vector<string> expect_list = list_of("basic_0")("basic_1");
     vector<string> current_list;

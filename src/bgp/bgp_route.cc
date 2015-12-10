@@ -44,7 +44,7 @@ void BgpRoute::InsertPath(BgpPath *path) {
     const Path *prev_front = front();
 
     BgpTable *table = static_cast<BgpTable *>(get_table());
-    if (table) {
+    if (table && table->IsRoutingPolicySupported()) {
         RoutingInstance *rtinstance = table->routing_instance();
         rtinstance->ProcessRoutingPolicy(this, path);
     }
