@@ -37,7 +37,7 @@ int AgentStatsSandeshContext::VrResponseMsgHandler(vr_response *r) {
     }
 
     if (code < 0) {
-        LOG(ERROR, "Error: " << strerror(-code));
+        LOG(ERROR, "Error: " << KSyncEntry::VrouterErrorToString(-code));
         return -code;
     }
 
