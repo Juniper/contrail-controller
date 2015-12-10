@@ -122,8 +122,12 @@ KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
         // in ksync tree
         delete entry;
         entry = ret.first.operator->();
+    } else {
+        // add reference only if tree insert for newly allocated
+        // entry succeeds, otherwise reference for tree insertion
+        // is already accounted for
+        intrusive_ptr_add_ref(entry);
     }
-    intrusive_ptr_add_ref(entry);
     return entry;
 }
 
