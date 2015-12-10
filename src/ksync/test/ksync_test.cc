@@ -1118,6 +1118,23 @@ TEST_F(TestUT, DeleteAddEvent) {
     vlan_table_->Delete(vlan2);
 }
 
+TEST_F(TestUT, CreateExistingEntryWithoutFind) {
+    // Vlan entry with index 0
+    Vlan *vlan1 = AddVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 0);
+
+    Vlan v(0xF01, 0);
+
+    // try create again without lookup, should give back the existing entry
+    Vlan *vlan2 = static_cast<Vlan *>(vlan_table_->Create(&v, true));
+    EXPECT_EQ(vlan1, vlan2);
+    EXPECT_EQ(Vlan::change_count_, 1);
+
+    vlan_table_->Delete(vlan1);
+    EXPECT_EQ(Vlan::add_count_, 1);
+    EXPECT_EQ(Vlan::change_count_, 1);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
