@@ -22,7 +22,8 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         global server_list
         print 'In subscribe callback handler for client %s' % client_id
         print '%s' % (info)
-        server_list[client_id] = info
+        # [{u'@publisher-id': 'test_discovery-0', u'foobar': 'foobar-0'}, {u'@publisher-id': 'test_discovery-1', u'foobar': 'foobar-1'}]
+        server_list[client_id] = [entry['@publisher-id'] for entry in info]
         pass
 
     def test_fixed_policy(self):
@@ -33,7 +34,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         for i in range(3):
             client_type = 'test-discovery'
             pub_id = 'test_discovery-%d' % i
-            pub_data = '%s-%d' % ('foobar', i)
+            pub_data = {service_type : '%s-%d' % ('foobar', i)}
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
@@ -74,8 +75,8 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # validate all three clients have the same two servers ... 0 and 1
         for cid, slist in server_list.items():
-            self.assertEqual(slist[0], 'foobar-0')
-            self.assertEqual(slist[1], 'foobar-1')
+            self.assertEqual(slist[0], 'test_discovery-0')
+            self.assertEqual(slist[1], 'test_discovery-1')
         print 'All clients got the same servers in correct order'
 
         # mark server 1 down (foobar-1)
@@ -102,8 +103,8 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # validate all clients have subscribed to foobar-0 and foobar-2
         for cid, slist in server_list.items():
-            self.assertEqual(slist[0], 'foobar-0')
-            self.assertEqual(slist[1], 'foobar-2')
+            self.assertEqual(slist[0], 'test_discovery-0')
+            self.assertEqual(slist[1], 'test_discovery-2')
         print 'All clients got the same servers in correct order'
 
         # bring up foobar-1 server
@@ -116,8 +117,8 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # validate all clients still subscribed to foobar-0 and foobar-2
         for cid, slist in server_list.items():
-            self.assertEqual(slist[0], 'foobar-0')
-            self.assertEqual(slist[1], 'foobar-2')
+            self.assertEqual(slist[0], 'test_discovery-0')
+            self.assertEqual(slist[1], 'test_discovery-2')
         print 'All clients got the same servers in correct order'
 
 
@@ -141,6 +142,6 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # validate all four clients have the same two servers ... 0 and 2
         for cid, slist in server_list.items():
-            self.assertEqual(slist[0], 'foobar-0')
-            self.assertEqual(slist[1], 'foobar-2')
+            self.assertEqual(slist[0], 'test_discovery-0')
+            self.assertEqual(slist[1], 'test_discovery-2')
         print 'All clients got the same servers in correct order'
