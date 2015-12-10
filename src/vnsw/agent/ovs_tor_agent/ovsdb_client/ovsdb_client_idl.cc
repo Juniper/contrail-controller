@@ -147,14 +147,14 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     keepalive_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Keep Alive Timer",
-                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)),
+                agent->task_scheduler()->GetTaskId("Agent::KSync"), 0)),
     monitor_request_id_(NULL), bulk_txn_(NULL), stats_() {
     refcount_ = 0;
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
             ovsdb_wrapper_idl_callback, ovsdb_wrapper_idl_txn_ack);
     receive_queue_ = new WorkQueue<OvsdbMsg *>(
-            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            agent->task_scheduler()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientIdl::ProcessMessage, this, _1));
     for (int i = 0; i < OVSDB_TYPE_COUNT; i++) {
         callback_[i] = NULL;

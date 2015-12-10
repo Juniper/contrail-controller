@@ -193,9 +193,9 @@ HaStaleDevVnTable::HaStaleDevVnTable(Agent *agent,
     stale_clear_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Route Replicator cleanup timer",
-                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
+                agent->task_scheduler()->GetTaskId("Agent::KSync"), 0)) {
     vn_reeval_queue_ = new WorkQueue<boost::uuids::uuid>(
-            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            agent->task_scheduler()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&HaStaleDevVnTable::VnReEval, this, _1));
     Ip4Address zero_ip;
     route_peer_.reset(manager->Allocate(zero_ip));

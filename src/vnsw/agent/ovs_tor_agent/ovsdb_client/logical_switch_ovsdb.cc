@@ -301,14 +301,14 @@ void LogicalSwitchEntry::DeleteOvs() {
     assert(IsActive());
 
     del_task_ = new ProcessDeleteOvsReqTask(this);
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    TaskScheduler *scheduler = table_->client_idl()->agent()->task_scheduler();
     scheduler->Enqueue(del_task_);
 }
 
 LogicalSwitchEntry::ProcessDeleteOvsReqTask::ProcessDeleteOvsReqTask(
         LogicalSwitchEntry *entry) :
-    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-    entry_(entry) {
+    Task((entry->table()->client_idl()->agent()->task_scheduler()\
+          ->GetTaskId("Agent::KSync")), 0), entry_(entry) {
 }
 
 LogicalSwitchEntry::ProcessDeleteOvsReqTask::~ProcessDeleteOvsReqTask() {
@@ -342,7 +342,7 @@ bool LogicalSwitchEntry::ProcessDeleteOvsReqTask::Run() {
 void LogicalSwitchEntry::CancelDeleteOvs() {
     delete_ovs_ = false;
     if (del_task_ != NULL) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        TaskScheduler *scheduler = table_->client_idl()->agent()->task_scheduler();
         assert(scheduler->Cancel(del_task_) == TaskScheduler::CANCELLED);
         del_task_ = NULL;
     }
@@ -622,14 +622,14 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
 void LogicalSwitchTable::ProcessDeleteTableReq() {
     ProcessDeleteTableReqTask *task =
         new ProcessDeleteTableReqTask(this);
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    TaskScheduler *scheduler = client_idl()->agent()->task_scheduler();
     scheduler->Enqueue(task);
 }
 
 LogicalSwitchTable::ProcessDeleteTableReqTask::ProcessDeleteTableReqTask(
         LogicalSwitchTable *table) :
-    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-    table_(table), entry_(NULL) {
+    Task((table->client_idl()->agent()->task_scheduler()\
+          ->GetTaskId("Agent::KSync")), 0), table_(table), entry_(NULL) {
 }
 
 LogicalSwitchTable::ProcessDeleteTableReqTask::~ProcessDeleteTableReqTask() {

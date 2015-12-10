@@ -122,7 +122,7 @@ const std::string &UnicastMacLocalEntry::dest_ip() const {
 UnicastMacLocalOvsdb::UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     OvsdbObject(idl), peer_(peer) {
     vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
-            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            idl->agent()->task_scheduler()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&UnicastMacLocalOvsdb::VrfReEval, this, _1));
     idl->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_LOCAL,
             boost::bind(&UnicastMacLocalOvsdb::Notify, this, _1, _2));
