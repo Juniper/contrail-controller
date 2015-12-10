@@ -44,6 +44,7 @@ public:
     virtual KSyncEntry *UnresolvedReference();
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t) const;
+    virtual std::string VrouterError(uint32_t error) const;
 private:
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;

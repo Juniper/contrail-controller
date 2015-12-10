@@ -36,9 +36,11 @@ void InterfaceStatsIoContext::Handler() {
 
 void InterfaceStatsIoContext::ErrorHandler(int err) {
     KSYNC_ERROR(VRouterError, "VRouter Interface query failed. Error <", err,
-                ":", strerror(err), ">. Object <", "N/A", ">. State <", "N/A",
+                ":", KSyncEntry::VrouterErrorToString(err),
+                ">. Object <", "N/A", ">. State <", "N/A",
                 ">. Message number :", GetSeqno());
     LOG(ERROR, "Error reading Interface Stats. Error <" << err << ": "
-        << strerror(err) << ": Sequence No : " << GetSeqno());
+        << KSyncEntry::VrouterErrorToString(err)
+        << ": Sequence No : " << GetSeqno());
 }
 

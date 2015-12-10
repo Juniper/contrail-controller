@@ -489,12 +489,20 @@ bool FlowTableKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
     if (err == ENOSPC || err == EBADF) {
         KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
-                    ":", strerror(err), ">. Object <", ToString(),
+                    ":", VrouterError(err), ">. Object <", ToString(),
                     ">. Operation <", OperationString(), ">. Message number :",
                     seq_no);
         return;
     }
     KSyncEntry::ErrorHandler(err, seq_no);
+}
+
+std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
+    if (error == EBADF)
+        return "Flow Key Mismatch";
+    else if (error == ENOSPC)
+        return "Flow Table bucket full";
+    else return KSyncEntry::VrouterError(error);
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
