@@ -9,7 +9,11 @@ distribute>=0.7.3
 lxml
 kombu
 kazoo
-vnc_api
-cfgm_common
 python-novaclient
 discoveryclient
+../sandesh/common/dist/sandesh-common-0.1.dev0.tar.gz
+../tools/sandesh/library/python/dist/sandesh-0.1.dev0.tar.gz
+../config/common/dist/cfgm_common-0.1.dev0.tar.gz
+../api-lib/dist/vnc_api-0.1.dev0.tar.gz
+../discovery/client/dist/discoveryclient-0.1.dev0.tar.gz
+../config/common/dist/cfgm_common-0.1.dev0.tar.gz
