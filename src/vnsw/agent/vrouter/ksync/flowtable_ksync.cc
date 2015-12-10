@@ -572,7 +572,7 @@ const vr_flow_entry *FlowTableKSyncObject::GetValidKFlowEntry
         }
         FlowKey rhs;
         KFlow2FlowKey(kflow, &rhs);
-        if (fe->key().IsEqual(rhs)) {
+        if (!fe->key().IsEqual(rhs)) {
             return NULL;
         }
         /* TODO: If a flow is evicted from vrouter and later flow with same
