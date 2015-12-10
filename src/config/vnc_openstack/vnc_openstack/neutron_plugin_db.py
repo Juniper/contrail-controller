@@ -2566,7 +2566,8 @@ class DBInterface(object):
                             subnet_vnc, net_obj, ipam_ref['to'])
                         return ret_subnet_q
 
-        return {}
+        self._raise_contrail_exception('SubnetNotFound',
+                                       subnet_id=subnet_id)
     #end subnet_read
 
     @wait_for_api_server_connection
