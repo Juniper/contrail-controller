@@ -11,6 +11,7 @@
 #endif
 
 #include <boost/bind.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include <base/logging.h>
 #include <db/db.h>
@@ -32,6 +33,18 @@ KSyncObject::BackRefTree  KSyncObject::back_ref_tree_;
 KSyncObjectManager *KSyncObjectManager::singleton_ = NULL;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 bool KSyncDebug::debug_;
+
+typedef std::map<uint32_t, std::string> VrouterErrorDescriptionMap;
+VrouterErrorDescriptionMap g_error_description =
+                    boost::assign::map_list_of<uint32_t, std::string>
+                                (ENOENT, "Entry not present")
+                                (EBADF, "Key mismatch")
+                                (ENOMEM, "Memory insufficient")
+                                (EBUSY, "Object cannot be modified")
+                                (EEXIST, "Object already present")
+                                (ENODEV, "Object not present")
+                                (EINVAL, "Invalid object parameters")
+                                (ENOSPC, "Object table full");
 
 // to be used only by test code, for triggering
 // stale entry timer callback explicitly
@@ -464,16 +477,29 @@ bool KSyncEntry::IsResolved() {
     return ((state_ >= IN_SYNC) && (state_ < DEL_DEFER_SYNC));
 }
 
+std::string KSyncEntry::VrouterErrorToString(uint32_t error) {
+    std::map<uint32_t, std::string>::iterator iter =
+        g_error_description.find(error);
+    if (iter == g_error_description.end())
+        return strerror(error);
+    return iter->second;
+}
+
+std::string KSyncEntry::VrouterError(uint32_t error) const {
+    return VrouterErrorToString(error);
+}
+
 void KSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
     if (err == 0) {
         return;
     }
+    std::string error_msg = VrouterError(err);
     KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
-                ":", strerror(err), ">. Object <", ToString(),
+                ":", error_msg, ">. Object <", ToString(),
                 ">. Operation <", OperationString(), ">. Message number :",
                 seq_no);
     LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
-            strerror(err) << ">. Object <" << ToString() <<
+            error_msg << ">. Object <" << ToString() <<
             ">. Operation <" << OperationString() << ">. Message number :"
             << seq_no);
     KSYNC_ASSERT(err == 0);

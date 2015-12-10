@@ -343,7 +343,8 @@ bool KSyncSock::BlockingRecv() {
         Decoder(data, ctxt);
         if (ctxt->GetErrno() != 0) {
             KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", 
-                        ctxt->GetErrno(), ":", strerror(ctxt->GetErrno()), 
+                        ctxt->GetErrno(), ":",
+                        KSyncEntry::VrouterErrorToString(ctxt->GetErrno()),
                         ">. Object <", "N/A", ">. State <", "N/A",
                         ">. Message number :", 0);
             ret = true;

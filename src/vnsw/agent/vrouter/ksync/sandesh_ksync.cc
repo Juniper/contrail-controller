@@ -46,7 +46,8 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     }
 
     if (response_code_ < 0) {
-        LOG(ERROR, "VrResponseMsg Error: " << strerror(-response_code_));
+        LOG(ERROR, "VrResponseMsg Error: " <<
+            KSyncEntry::VrouterErrorToString(-response_code_));
         return -response_code_;
     }
 

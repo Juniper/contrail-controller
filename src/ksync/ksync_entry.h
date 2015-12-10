@@ -16,7 +16,7 @@
 do {\
     if (LoggingDisabled()) break;\
     obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
+              SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
 class KSyncObject;
@@ -128,6 +128,10 @@ public:
 
     // User defined error handler
     virtual void ErrorHandler(int err, uint32_t seqno) const;
+
+    // Error message for vrouter returned errors
+    virtual std::string VrouterError(uint32_t error) const;
+    static std::string VrouterErrorToString(uint32_t error);
 
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
