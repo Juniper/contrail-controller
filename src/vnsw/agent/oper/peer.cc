@@ -30,7 +30,8 @@ BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
                  Peer::Type bgp_peer_type)
     : Peer(bgp_peer_type, name, false), server_ip_(server_ip), id_(id),
     bgp_xmpp_peer_(bgp_xmpp_peer), 
-    route_walker_(new ControllerRouteWalker(bgp_xmpp_peer_->agent(), this)) {
+    route_walker_(new ControllerRouteWalker(bgp_xmpp_peer_->agent(), this)),
+    delete_xmpp_channel_(false) {
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
@@ -40,6 +41,9 @@ BgpPeer::~BgpPeer() {
     // for delpeer
     if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
         route_walker_->agent()->vrf_table()->Unregister(id_);
+    }
+    if (delete_xmpp_channel_) {
+        delete bgp_xmpp_peer_;
     }
 }
 

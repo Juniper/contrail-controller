@@ -121,6 +121,10 @@ public:
 
     uint32_t setup_time() const {return setup_time_;}
     Agent *agent() const;
+    void set_delete_xmpp_channel(bool delete_xmpp_channel) {
+        delete_xmpp_channel_ = delete_xmpp_channel;
+    }
+    bool delete_xmpp_channel() const {return delete_xmpp_channel_;}
 
 private: 
     Ip4Address server_ip_;
@@ -129,6 +133,7 @@ private:
     AgentXmppChannel *bgp_xmpp_peer_;
     tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
+    bool delete_xmpp_channel_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 
