@@ -31,9 +31,13 @@
     <xsd:element name='nexthop' type='xsd:string'/>
 </xsd:complexType>
 
-<xsd:element name='aggregate-route' type='AggregateRouteType'/>
+<xsd:complexType name="AggregateRoutesType">
+    <xsd:element name="aggregate-route" type="AggregateRouteType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:element name='aggregate-route-entries' type='AggregateRoutesType'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('aggregate-route', 'route-aggregate') -->
+     Property('aggregate-route-entries', 'route-aggregate') -->
 
 <xsd:element name="routing-instance-route-aggregate"/>
 <!--#IFMAP-SEMANTICS-IDL
