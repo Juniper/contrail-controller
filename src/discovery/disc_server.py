@@ -192,7 +192,7 @@ class DiscoveryServer():
         self._sandesh.init_generator(
             module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'discovery_context', 
-            int(self._args.http_server_port), ['sandesh'], disc_client,
+            int(self._args.http_server_port), ['discovery.sandesh'], disc_client,
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
