@@ -7,7 +7,7 @@ from cfgm_common import svc_info
 from agent import Agent
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM, \
-    VirtualIpSM
+    VirtualIpSM, LoadbalancerSM, LoadbalancerListenerSM
 
 
 class LoadbalancerAgent(Agent):
@@ -46,19 +46,24 @@ class LoadbalancerAgent(Agent):
                 nic['user-visible'] = False
 
     def _get_vip_vmi(self, si):
-        if not si.loadbalancer_pool:
+        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+        if not pool:
             return None
 
-        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
-        if not pool.virtual_ip:
-            return None
+        listener = LoadbalancerListenerSM.get(pool.loadbalancer_listener)
+        if listener:
+            lb = LoadbalancerSM.get(listener.loadbalancer)
+            vmi_id = lb.virtual_machine_interface
+            vmi = VirtualMachineInterfaceSM.get(vmi_id)
+            return vmi
 
         vip = VirtualIpSM.get(pool.virtual_ip)
-        if not vip.virtual_machine_interface:
-            return None
+        if vip:
+            vmi_id = vip.virtual_machine_interface
+            vmi = VirtualMachineInterfaceSM.get(vmi_id)
+            return vmi
 
-        vmi = VirtualMachineInterfaceSM.get(vip.virtual_machine_interface)
-        return vmi
+        return None
 
     # create default loadbalancer driver
     def _create_default_service_appliance_set(self, sa_set_name, driver_name):
@@ -206,6 +211,28 @@ class LoadbalancerAgent(Agent):
             pass
     # end delete_virtual_ip
 
+    def listener_add(self, listener):
+        ll = self.listener_get_reqdict(listener)
+        driver = self._get_driver_for_pool(ll['pool_id'])
+        try:
+            if not listener.last_sent:
+                driver.create_listener(ll)
+            elif ll != listener.last_sent:
+                driver.update_listener(listener.last_sent, ll)
+        except Exception:
+            pass
+        return ll
+    # end  listener_add
+
+    def delete_listener(self, obj):
+        ll = obj.last_sent
+        driver = self._get_driver_for_pool(ll['pool_id'])
+        try:
+            driver.delete_listener(ll)
+        except Exception:
+            pass
+    # end delete_listener
+
     def delete_loadbalancer_member(self, obj):
         m = obj.last_sent
         driver = self._get_driver_for_pool(m['pool_id'])
@@ -305,6 +332,26 @@ class LoadbalancerAgent(Agent):
 
         return res
     # end virtual_ip_get_reqdict
+
+    def listener_get_reqdict(self, listener):
+        props = listener.params
+        lb = LoadbalancerSM.get(listener.loadbalancer)
+
+        res = {'id': listener.uuid,
+               'tenant_id': listener.parent_uuid.replace('-', ''),
+               'name': listener.display_name,
+               'description': self._get_object_description(listener),
+               'subnet_id': lb.params.get('subnet_id'),
+               'address': lb.params.get('vip_address'),
+               'port_id': lb.virtual_machine_interface,
+               'protocol_port': props['protocol_port'],
+               'protocol': props['protocol'],
+               'pool_id': listener.loadbalancer_pool,
+               'session_persistence': None,
+               'admin_state_up': props['admin_state'],
+               'status': self._get_object_status(listener)}
+
+        return res
 
     _loadbalancer_health_type_mapping = {
         'admin_state': 'admin_state_up',
