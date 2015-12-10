@@ -37,6 +37,8 @@ generated_files = [
                   'vnc_api/gen/resource_client.py',
                   'vnc_api/gen/vnc_api_client_gen.py',
                 ]
+env.Append(ENV = {'HEAT_BUILDTOP' : Dir(env['TOP']).abspath})
+
 generated_rule = env.Command(generated_files,
                              '#controller/src/schema/all_cfg.xsd',
                              autogen_cmd + ' $SOURCE')
@@ -89,7 +91,7 @@ sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
 env.Default(sdist_gen)
 
 # generated files depend on autogeneration infra parts
-env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources, generateds_rule])
 env.Depends(local_sources_rules, autogen_infra_sources)
 
 # install everything before building distribution
