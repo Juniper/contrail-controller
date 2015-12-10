@@ -3576,8 +3576,11 @@ class DBInterface(object):
                 # in case of shared ip only delete the link to the VMI
                 iip_obj.del_virtual_machine_interface(port_obj)
                 if not iip_obj.get_virtual_machine_interface_refs():
-                    self._instance_ip_delete(
-                        instance_ip_id=iip_back_ref['uuid'])
+                    try:
+                        self._instance_ip_delete(
+                            instance_ip_id=iip_back_ref['uuid'])
+                    except RefsExistError:
+                        self._instance_ip_update(iip_obj)
                 else:
                     self._instance_ip_update(iip_obj)
 
