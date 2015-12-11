@@ -303,7 +303,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
              sXMPP_STREAM_START) != 0) && 
             (ts_tmp.compare(0, strlen(sXMPP_STREAM_START_S), 
              sXMPP_STREAM_START_S) != 0)) {
-            XMPP_WARNING(XmppBadMessage, "Open message not at the beginning.");
+            XMPP_WARNING(XmppBadMessage, 
+                         "Open message not at the beginning.", ts);
             goto done;
         }
 
@@ -312,7 +313,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         // string for stream open, else dom decoder will fail 
         boost::algorithm::replace_last(ts_tmp, ">", "/>");
         if (impl->LoadDoc(ts_tmp) == -1) {
-            XMPP_WARNING(XmppBadMessage, "Open message parse failed.");
+            XMPP_WARNING(XmppBadMessage, "Open message parse failed.", ts);
             goto done;
         }
 
@@ -330,7 +331,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
     } else if (ts.find(sXMPP_STREAM_NS_TLS) != string::npos) {
 
         if (impl->LoadDoc(ts) == -1) {
-            XMPP_WARNING(XmppBadMessage, "Stream TLS parse failed.");
+            XMPP_WARNING(XmppBadMessage, "Stream TLS parse failed.", ts);
             goto done;
         }
 
@@ -375,7 +376,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
             new XmppStanza::XmppMessage(WHITESPACE_MESSAGE_STANZA);
         return msg;
     } else {
-        XMPP_WARNING(XmppBadMessage, "Message not supported");
+        XMPP_WARNING(XmppBadMessage, "Message not supported", ts);
     }
 
 done:
