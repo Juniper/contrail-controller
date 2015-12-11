@@ -1090,7 +1090,7 @@ TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishTest) {
     task_util::WaitForIdle();
 }
 
-TEST_F(DiscoveryServiceClientTest, ReEvaluatePublishReasonStringTest_DISABLED) {
+TEST_F(DiscoveryServiceClientTest, DISABLED_ReEvaluatePublishReasonStringTest) {
 
     ip::tcp::endpoint dss_ep;
     dss_ep.address(ip::address::from_string("127.0.0.1"));
