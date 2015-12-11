@@ -283,9 +283,15 @@ void XmppSession::OnRead(Buffer buffer) {
                 // TODO generate error, close connection.
                 break;
             }
+
             // We got good match. Process the message
             std::string::const_iterator st = buf_.begin();
             std::string xml = string(st, offset_);
+            // Ensure we have not reached the end
+            if (buf_.begin() == offset_) { // xml.size() == 0
+                buf_.clear();
+                break;
+            }
 
             //
             // XXX Connection gone ?
