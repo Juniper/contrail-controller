@@ -361,10 +361,36 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         }
         SM_LOG(state_machine, "EvXmppOpen in (Active) State");
         state_machine->AssignSession();
+
         XmppConnection *connection = state_machine->connection();
-        if (!connection->EndpointNameIsUnique()) {
+        if (connection->IsDeleted()) {
             state_machine->ResetSession();
             return discard_event();
+        }
+
+        // Swap old connection with the new one.
+        bool created;
+        XmppConnectionEndpoint *connection_endpoint =
+            static_cast<XmppServer *>(
+                connection->server())->LocateConnectionEndpoint(
+                static_cast<XmppServerConnection *>(connection), created);
+        if (!created) {
+            if (connection_endpoint->connection()) {
+                XmppConnection *old_connection =
+                    connection_endpoint->connection();
+                XmppStateMachine *old_state_machine =
+                    old_connection->state_machine();
+
+                connection->swap_state_machine(old_connection);
+                state_machine->swap_connection(old_state_machine);
+
+
+                // Trigger deletion of the new connection (which now is
+                // linked wth old_state_machine.
+                connection->Shutdown();
+            } else {
+                connection_endpoint->set_connection(connection);
+            }
         }
         XmppSession *session = state_machine->session();
         state_machine->CancelOpenTimer();
@@ -1342,6 +1368,34 @@ bool XmppStateMachine::PassiveOpen(XmppSession *session) {
     return Enqueue(xmsm::EvTcpPassiveOpen(session));
 }
 
+bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
+        const XmppStanza::XmppMessage *msg) {
+    session->Connection()->SetTo(msg->from);
+
+    // Check if a connection from this peer already exists.
+    XmppServer *xmpp_server = dynamic_cast<XmppServer *>(server_);
+    XmppConnectionEndpoint *endp = NULL;
+
+    if (xmpp_server) {
+        endp = xmpp_server->FindConnectionEndpoint(
+                dynamic_cast<XmppServerConnection *>(connection_));
+    }
+    if (endp && endp->connection()) {
+        XmppStateMachine *state_machine = endp->connection()->state_machine();
+        if (state_machine && state_machine != this) {
+            xmsm::XmState state = state_machine->get_state();
+            if (!xmpp_server->IsPeerCloseGraceful() || state != xmsm::ACTIVE) {
+
+                // Bring down old session if it is still in ESTABLISHED state.
+                if (state == xmsm::ESTABLISHED)
+                    Enqueue(xmsm::EvTcpClose(state_machine->session()));
+                return Enqueue(xmsm::EvTcpClose(session));
+            }
+        }
+    }
+    return Enqueue(xmsm::EvXmppOpen(session, msg));
+}
+
 void XmppStateMachine::OnMessage(XmppSession *session,
                                  const XmppStanza::XmppMessage *msg) {
     bool enqueued = false;
@@ -1350,7 +1404,6 @@ void XmppStateMachine::OnMessage(XmppSession *session,
 
     switch (msg->type) {
         case XmppStanza::STREAM_HEADER:
-
             if (stream_msg->strmtype ==
                 XmppStanza::XmppStreamMessage::FEATURE_TLS) {
 
@@ -1370,11 +1423,10 @@ void XmppStateMachine::OnMessage(XmppSession *session,
                 }
 
             } else if (stream_msg->strmtype ==
-                (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER ||
-                 XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP)) {
-                session->Connection()->SetTo(msg->from);
-                enqueued = Enqueue(xmsm::EvXmppOpen(session, msg));
-            }
+                    XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER ||
+                stream_msg->strmtype ==
+                    XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP)
+                enqueued = ProcessStreamHeaderMessage(session, msg);
             break;
         case XmppStanza::WHITESPACE_MESSAGE_STANZA:
             enqueued = Enqueue(xmsm::EvXmppKeepalive(session, msg));
