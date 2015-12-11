@@ -18,26 +18,38 @@ ProtobufCollector::ProtobufCollector(EventManager *evm,
     uint16_t protobuf_udp_port,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
-    const std::string& cassandra_user, const std::string& cassandra_password) :
-    db_initializer_(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
-        kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
-        cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
-        cassandra_password)),
-    server_(new protobuf::ProtobufServer(evm, protobuf_udp_port,
-        boost::bind(&DbHandler::StatTableInsert,
-            db_initializer_->GetDbHandler(), _1, _2, _3, _4, _5))) {
+    const std::string& cassandra_user, const std::string& cassandra_password,
+    DbHandlerPtr global_dbhandler) {
+    if (!global_dbhandler) {
+        db_initializer_.reset(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
+            kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
+            cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
+            cassandra_password));
+        db_handler_ = db_initializer_->GetDbHandler();
+    } else {
+        db_handler_ = global_dbhandler;
+    }
+    server_.reset(new protobuf::ProtobufServer(evm, protobuf_udp_port,
+        boost::bind(&DbHandler::StatTableInsert, db_handler_,
+            _1, _2, _3, _4, _5)));
 }
 
 ProtobufCollector::~ProtobufCollector() {
 }
 
 bool ProtobufCollector::Initialize() {
-    return db_initializer_->Initialize();
+    if (db_initializer_) {
+        return db_initializer_->Initialize();
+    }
+    DbInitializeCb();
+    return true;
 }
 
 void ProtobufCollector::Shutdown() {
     server_->Shutdown();
-    db_initializer_->Shutdown();
+    if (db_initializer_) {
+        db_initializer_->Shutdown();
+    }
 }
 
 void ProtobufCollector::DbInitializeCb() {
@@ -52,12 +64,11 @@ void ProtobufCollector::SendStatistics(const std::string &name) {
     // Database statistics
     std::vector<GenDb::DbTableInfo> v_dbti, v_stats_dbti;
     GenDb::DbErrors dbe;
-    DbHandler *db_handler(db_initializer_->GetDbHandler());
-    db_handler->GetStats(&v_dbti, &dbe, &v_stats_dbti);
+    db_handler_->GetStats(&v_dbti, &dbe, &v_stats_dbti);
     std::vector<GenDb::DbErrors> v_dbe;
     v_dbe.push_back(dbe);
     uint64_t db_queue_count, db_enqueues;
-    db_handler->GetStats(&db_queue_count, &db_enqueues);
+    db_handler_->GetStats(&db_queue_count, &db_enqueues);
     ProtobufCollectorStats * snh = PROTOBUF_COLLECTOR_STATS_CREATE();
     snh->set_name(name);
     snh->set_tx_socket_stats(v_tx_stats);

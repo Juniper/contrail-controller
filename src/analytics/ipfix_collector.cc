@@ -38,7 +38,7 @@ void IpfixCollector::HandleReceive(boost::asio::const_buffer& buffer,
 }
 
 IpfixCollector::IpfixCollector(EventManager* evm,
-            DbHandler* db_handler,
+            DbHandlerPtr db_handler,
             string ip_address,
             int port) 
     : UdpServer(evm),

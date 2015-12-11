@@ -6,6 +6,7 @@
 #define DB_HANDLER_H_
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -182,6 +183,8 @@ private:
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
+typedef boost::shared_ptr<DbHandler> DbHandlerPtr;
+
 inline std::ostream& operator<<(std::ostream& out, const DbHandler::Var& value) {
     switch (value.type) {
       case DbHandler::STRING:
@@ -217,11 +220,11 @@ class DbHandlerInitializer {
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
-        DbHandler *db_handler);
+        DbHandlerPtr db_handler);
     virtual ~DbHandlerInitializer();
     bool Initialize();
     void Shutdown();
-    DbHandler* GetDbHandler() const;
+    DbHandlerPtr GetDbHandler() const;
 
  private:
     bool InitTimerExpired();
@@ -233,7 +236,7 @@ class DbHandlerInitializer {
     static const int kInitRetryInterval = 10 * 1000; // in ms
     const std::string db_name_;
     const int db_task_instance_;
-    boost::scoped_ptr<DbHandler> db_handler_;
+    DbHandlerPtr db_handler_;
     InitializeDoneCb callback_;
     Timer *db_init_timer_;
 };

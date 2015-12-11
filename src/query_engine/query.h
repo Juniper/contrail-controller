@@ -178,7 +178,7 @@ extern SandeshTraceBufferPtr QeTraceBuf;
 #define QE_NOENT_ERROR_RETURN(cond, ret_val) if (!(cond)) \
     { this->status_details = ENOENT; return ret_val;}
 
-
+typedef boost::shared_ptr<GenDb::GenDbIf> GenDbIfPtr;
 
 // flow sample stats which is stored in Cassandra flow index tables
 struct flow_stats {
@@ -731,7 +731,7 @@ public:
             std::vector<int> cassandra_ports, int batch,
             int total_batches, const std::string& cassandra_user,
             const std::string &cassandra_password);
-    AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
+    AnalyticsQuery(std::string qid, GenDbIfPtr dbif, 
             std::map<std::string, std::string> json_api_data,
             const TtlMap& ttlmap, int batch, int total_batches);
     virtual ~AnalyticsQuery() {}
@@ -740,7 +740,7 @@ public:
 
     // Interface to Cassandra
     GenDb::GenDbIf *dbif;
-    boost::scoped_ptr<GenDb::GenDbIf> dbif_;
+    GenDbIfPtr dbif_;
     void db_err_handler() {};
     
     //Query related fields
@@ -890,7 +890,8 @@ public:
             const std::string & redis_password,
             int max_tasks, int max_slice,
             const std::string & cassandra_name,
-            const std::string & cassandra_password);
+            const std::string & cassandra_password,
+            bool use_global_db_handler);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
@@ -930,8 +931,9 @@ public:
 
     void db_err_handler() {};
     TtlMap& GetTTlMap() { return ttlmap_; }
+    bool UseGlobalDbHandler() { return use_global_db_handler_; }
 private:
-    boost::scoped_ptr<GenDb::GenDbIf> dbif_;
+    GenDbIfPtr dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
     EventManager *evm_;
     std::vector<int> cassandra_ports_;
@@ -939,6 +941,7 @@ private:
     std::string cassandra_user_;
     std::string cassandra_password_;
     TtlMap ttlmap_;
+    bool use_global_db_handler_;
 };
 
 #endif

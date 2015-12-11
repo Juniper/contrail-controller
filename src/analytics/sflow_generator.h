@@ -26,7 +26,7 @@ class SFlowGenerator {
 public:
     explicit SFlowGenerator(const std::string& ip_address, 
                             SFlowCollector* sflow_collector,
-                            DbHandler* db_handler);
+                            DbHandlerPtr db_handler);
     ~SFlowGenerator();
     bool EnqueueSFlowPacket(boost::asio::const_buffer& buffer,
                             size_t length, uint64_t timestamp);
@@ -37,7 +37,7 @@ private:
     
     std::string ip_address_;
     SFlowCollector* const sflow_collector_;
-    DbHandler* const db_handler_;
+    DbHandlerPtr db_handler_;
     SFlowPktQueue sflow_pkt_queue_;
     SandeshTraceBufferPtr trace_buf_;
     uint64_t num_packets_;

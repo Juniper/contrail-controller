@@ -10,7 +10,8 @@
 class AnalyticsQueryMock : public AnalyticsQuery {
 public:
     AnalyticsQueryMock() : 
-        AnalyticsQuery(std::string(""), new ThriftIfMock(),
+        AnalyticsQuery(std::string(""),
+                       GenDbIfPtr (new ThriftIfMock()),
                        std::map<std::string, std::string>(),
                        TtlMap(), int(0), int(0)) {
     }
