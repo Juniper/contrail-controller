@@ -1561,13 +1561,14 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
-    const std::string& cassandra_user, const std::string& cassandra_password) :
+    const std::string& cassandra_user, const std::string& cassandra_password,
+    bool use_cql) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
-        cassandra_user, cassandra_password, false)),
+        cassandra_user, cassandra_password, use_cql)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
@@ -1577,7 +1578,8 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &db_name, int db_task_instance,
     const std::string &timer_task_name,
-    DbHandlerInitializer::InitializeDoneCb callback, DbHandler *db_handler) :
+    DbHandlerInitializer::InitializeDoneCb callback,
+    DbHandlerPtr db_handler) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(db_handler),
@@ -1618,8 +1620,8 @@ bool DbHandlerInitializer::Initialize() {
     return true;
 }
 
-DbHandler* DbHandlerInitializer::GetDbHandler() const {
-    return db_handler_.get();
+DbHandlerPtr DbHandlerInitializer::GetDbHandler() const {
+    return db_handler_;
 }
 
 void DbHandlerInitializer::Shutdown() {

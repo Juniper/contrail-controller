@@ -1055,12 +1055,14 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     Init(dbif, qid, json_api_data);
 }
 
-AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
+AnalyticsQuery::AnalyticsQuery(std::string qid, 
+    GenDbIfPtr dbif_ptr,
     std::map<std::string, std::string> json_api_data, 
     const TtlMap &ttlmap, int batch, int total_batches) :
     QueryUnit(NULL, this),
-    dbif_(dbif),
+    dbif_(dbif_ptr),
     query_id(qid),
+    filter_qe_logs(true),
     json_api_data_(json_api_data),
     ttlmap_(ttlmap),
     where_start_(0), 
@@ -1071,6 +1073,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
     total_parallel_batches(total_batches),
     processing_needed(true),
     stats_(NULL) {
+    dbif = dbif_ptr.get();
     Init(dbif, qid, json_api_data);
 }
 
@@ -1101,7 +1104,8 @@ QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password, int max_tasks, int max_slice, 
             const std::string & cassandra_user,
-            const std::string & cassandra_password) :
+            const std::string & cassandra_password,
+            bool use_global_db_handler) :
         dbif_(new ThriftIf(
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ips, cassandra_ports, "QueryEngine", true,
@@ -1112,7 +1116,8 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_ports_(cassandra_ports),
         cassandra_ips_(cassandra_ips),
         cassandra_user_(cassandra_user),
-        cassandra_password_(cassandra_password)
+        cassandra_password_(cassandra_password),
+        use_global_db_handler_(use_global_db_handler)
 {
     max_slice_ = max_slice;
     init_vizd_tables(false);
@@ -1158,7 +1163,20 @@ QueryEngine::QueryEngine(EventManager *evm,
                     break;
                 }
             }
+       }
+
+       if (!retry) {
+            for (std::vector<GenDb::NewCf>::const_iterator it =
+                    vizd_stat_tables.begin();
+                    it != vizd_stat_tables.end(); it++) {
+                if (!dbif_->Db_UseColumnfamily(*it)) {
+                    retry = true;
+                    break;
+                }
+            }
+
         }
+
         if (retry) {
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
@@ -1271,10 +1289,15 @@ QueryEngine::QueryPrepare(QueryParams qp,
         ret_code = 0;
         table = string("ObjectCollectorInfo");
     } else {
-
-        AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, ttlmap_, evm_,
+        AnalyticsQuery *q;
+        if (UseGlobalDbHandler()) {
+            q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, 0,
+                qp.maxChunks);
+        } else {
+            q = new AnalyticsQuery(qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, 0, qp.maxChunks,
                 cassandra_user_, cassandra_password_);
+        }
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
             where, select, post, time_period, ret_code);
@@ -1290,8 +1313,15 @@ QueryEngine::QueryAccumulate(QueryParams qp,
         QEOpServerProxy::BufferT& output) {
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
-        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks, cassandra_user_, cassandra_password_);
+    AnalyticsQuery *q;
+    if (UseGlobalDbHandler()) {
+            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+                qp.maxChunks);
+        } else {
+            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+                cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
+                cassandra_user_, cassandra_password_);
+    }
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
     delete q;
@@ -1304,9 +1334,15 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         QEOpServerProxy::BufferT& output) {
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
-        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
-        cassandra_user_, cassandra_password_);
+    AnalyticsQuery *q;
+    if (UseGlobalDbHandler()) {
+            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+                qp.maxChunks);
+        } else {
+            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+                cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
+                cassandra_user_, cassandra_password_);
+    }
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
     delete q;
@@ -1318,9 +1354,15 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         const std::vector<boost::shared_ptr<QEOpServerProxy::OutRowMultimapT> >& inputs,
         QEOpServerProxy::OutRowMultimapT& output) {
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
-    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
-        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
-        cassandra_user_, cassandra_password_);
+    AnalyticsQuery *q;
+    if (UseGlobalDbHandler()) {
+            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+                qp.maxChunks);
+        } else {
+            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+                cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
+                cassandra_user_, cassandra_password_);
+    }
 
     if (!q->is_stat_table_query(q->table())) {
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
@@ -1359,9 +1401,15 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
         qosp_->QueryResult(handle, qperf, final_output, final_moutput);
         return true;
     }
-    AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, ttlmap_, evm_,
-            cassandra_ips_, cassandra_ports_, chunk, 
-            qp.maxChunks, cassandra_user_, cassandra_password_);
+    AnalyticsQuery *q;
+    if (UseGlobalDbHandler()) {
+            q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, chunk,
+                qp.maxChunks);
+        } else {
+            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+                cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks,
+                cassandra_user_, cassandra_password_);
+    }
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
     q->process_query(); 

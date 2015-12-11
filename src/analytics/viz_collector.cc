@@ -38,18 +38,21 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             uint16_t partitions,
             bool dup, const TtlMap& ttl_map,
             const std::string &cassandra_user,
-            const std::string &cassandra_password) :
+            const std::string &cassandra_password,
+            bool use_cql) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
-        cassandra_ips, cassandra_ports, ttl_map, cassandra_user, cassandra_password)),
+        cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
+        cassandra_password, use_cql)),
     osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port,
          redis_password, brokers, partitions)),
     ruleeng_(new Ruleeng(db_initializer_->GetDbHandler(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_initializer_->GetDbHandler(),
         osp_.get(),
         boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
-        cassandra_ips, cassandra_ports, ttl_map, cassandra_user, cassandra_password)),
+        cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
+        cassandra_password, use_cql)),
     syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_initializer_->GetDbHandler(), syslog_port)),
@@ -66,7 +69,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     if (protobuf_collector_enabled) {
         protobuf_collector_.reset(new ProtobufCollector(evm,
             protobuf_listen_port, cassandra_ips, cassandra_ports,
-            ttl_map, cassandra_user, cassandra_password));
+            ttl_map, cassandra_user, cassandra_password,
+            db_initializer_->GetDbHandler()));
     }
     CollectorPublish();
 }
@@ -110,7 +114,7 @@ VizCollector::CollectorPublish()
     ds_client->Publish(service_name, pub_msg);
 }
 
-VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
+VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
         Ruleeng *ruleeng, Collector *collector, OpServerProxy *osp) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(false), -1,
         std::string("collector::DbIf"),
