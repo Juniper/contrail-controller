@@ -55,3 +55,35 @@ size_t ColList::GetSize() const {
     return size;
 }
 
+std::string ColumnNameRange::ToString() const {
+    std::ostringstream ss;
+    ss << "ColumnNameRange: ";
+    if (IsEmpty()) {
+        ss << "Empty";
+        return ss.str();
+    }
+    if (!start_.empty()) {
+        ss << "Start: " << DbDataValueVecToString(start_);;
+    }
+    if (!finish_.empty()) {
+        ss << "Finish: " << DbDataValueVecToString(finish_);
+    }
+    if (count_) {
+        ss << "Count: " << count_;
+    }
+    return ss.str();
+}
+
+std::string GenDb::DbDataValueVecToString(
+    const GenDb::DbDataValueVec &v_db_value) {
+    std::ostringstream ss;
+    ss << "[";
+    for (int i = 0; i < (int)v_db_value.size(); i++) {
+        if (i) {
+            ss << " ";
+        }
+        ss << v_db_value[i];
+    }
+    ss << "]";
+    return ss.str();
+}

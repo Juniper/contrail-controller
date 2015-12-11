@@ -34,6 +34,8 @@ enum DbDataValueType {
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
+std::string DbDataValueVecToString(const GenDb::DbDataValueVec &v_db_value);
+
 class DbDataValueCqlPrinter : public boost::static_visitor<> {
  public:
     DbDataValueCqlPrinter(std::ostream &os, bool quote_strings) :
@@ -155,16 +157,23 @@ struct ColList {
 typedef boost::ptr_vector<ColList> ColListVec;
 
 struct ColumnNameRange {
-    ColumnNameRange() : count(100) {
+    ColumnNameRange() : count_(0) {
     }
 
     ~ColumnNameRange() {
     }
 
+    bool IsEmpty() const {
+        return start_.empty() &&
+            finish_.empty() &&
+            count_ == 0;
+    }
+
+    std::string ToString() const;
+
     DbDataValueVec start_;
     DbDataValueVec finish_;
-
-    uint32_t count;
+    uint32_t count_;
 };
 
 class GenDbIf {
@@ -195,8 +204,10 @@ public:
     virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
         const DbDataValueVec& rowkey) = 0;
     virtual bool Db_GetMultiRow(ColListVec *ret,
+        const std::string& cfname, const std::vector<DbDataValueVec>& key) = 0;
+    virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
-        GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
+        const GenDb::ColumnNameRange& crange) = 0;
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const = 0;

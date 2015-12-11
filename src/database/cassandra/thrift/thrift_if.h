@@ -38,8 +38,11 @@ class ThriftIf : public GenDb::GenDbIf {
         const GenDb::DbDataValueVec& rowkey);
     virtual bool Db_GetMultiRow(GenDb::ColListVec *ret,
         const std::string& cfname,
+        const std::vector<GenDb::DbDataValueVec>& key);
+    virtual bool Db_GetMultiRow(GenDb::ColListVec *ret,
+        const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
-        GenDb::ColumnNameRange *crange_ptr = NULL);
+        const GenDb::ColumnNameRange& crange);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;

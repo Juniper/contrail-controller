@@ -79,8 +79,14 @@ bool ThriftIf::Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
 bool ThriftIf::Db_GetMultiRow(GenDb::ColListVec *ret,
         const std::string& cfname,
         const std::vector<GenDb::DbDataValueVec>& key,
-        GenDb::ColumnNameRange *crange_ptr) {
-    return impl_->Db_GetMultiRow(ret, cfname, key, crange_ptr);
+        const GenDb::ColumnNameRange& crange) {
+    return impl_->Db_GetMultiRow(ret, cfname, key, crange);
+}
+
+bool ThriftIf::Db_GetMultiRow(GenDb::ColListVec *ret,
+        const std::string& cfname,
+        const std::vector<GenDb::DbDataValueVec>& key) {
+    return impl_->Db_GetMultiRow(ret, cfname, key);
 }
 
 // Queue

@@ -19,6 +19,9 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
     const GenDb::DbDataValueVec &rkeys);
+std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+    const std::string &table, const GenDb::DbDataValueVec &rkeys,
+    const GenDb::ColumnNameRange &crange);
 
 }  // namespace impl
 }  // namespace cql

@@ -379,7 +379,7 @@ class DbQueryUnit : public QueryUnit {
 public:
     DbQueryUnit(QueryUnit *p_query, QueryUnit *m_query):
         QueryUnit(p_query, m_query) 
-        { cr.count = MAX_DB_QUERY_ENTRIES; 
+        { cr.count_ = MAX_DB_QUERY_ENTRIES;
             t_only_col = false; t_only_row = false;};
     virtual query_status_t process_query();
 
