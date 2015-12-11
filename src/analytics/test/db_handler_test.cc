@@ -42,7 +42,6 @@ public:
     }
 
     ~DbHandlerTest() {
-        delete db_handler_;
     }
 
     virtual void SetUp() {
@@ -55,7 +54,7 @@ public:
         return dbif_mock_;
     }
 
-    DbHandler *db_handler() {
+    DbHandlerPtr db_handler() {
         return db_handler_;
     }
 
@@ -112,7 +111,7 @@ private:
 
     EventManager evm_;
     ThriftIfMock *dbif_mock_;
-    DbHandler *db_handler_;
+    DbHandlerPtr db_handler_;
 };
 
 

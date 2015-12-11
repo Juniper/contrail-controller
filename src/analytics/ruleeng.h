@@ -18,7 +18,7 @@ class Ruleeng {
         static int RuleBuilderID;
         static int RuleWorkerID;
 
-        Ruleeng(DbHandler *, OpServerProxy *);
+        Ruleeng(DbHandlerPtr, OpServerProxy *);
         virtual ~Ruleeng();
 
         void Init();
@@ -40,7 +40,7 @@ class Ruleeng {
 
         OpServerProxy * GetOSP() { return osp_; }
     private:
-        DbHandler *db_handler_;
+        DbHandlerPtr db_handler_;
         OpServerProxy *osp_;
         t_rulelist *rulelist_;
         std::vector<std::string> rulesrc_;

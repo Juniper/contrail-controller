@@ -273,6 +273,17 @@ main(int argc, char *argv[]) {
     LOG(INFO, "Cassandra Servers: " << css.str());
 
     boost::scoped_ptr<QueryEngine> qe;
+
+    //Get Platform info
+    //cql not supported in precise, centos 6.4 6.5
+    std::string distro, code_name;
+    if (!MiscUtils::GetPlatformInfo(distro, code_name)) {
+        LOG(ERROR,"Unable to get platform information");
+        exit(1);
+    }
+    bool use_global_db_handler = MiscUtils::IsCqlSupported(distro, code_name);
+    use_global_db_handler = false;
+
     if (cassandra_ports.size() == 1 && cassandra_ports[0] == 0) {
         qe.reset(new QueryEngine(&evm,
             options.redis_server(),
@@ -292,7 +303,8 @@ main(int argc, char *argv[]) {
             max_tasks,
             options.max_slice(),
             options.cassandra_user(),
-            options.cassandra_password()));
+            options.cassandra_password(),
+            use_global_db_handler));
     }
 
     CpuLoadData::Init();

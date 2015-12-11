@@ -1472,7 +1472,8 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &db_name, int db_task_instance,
     const std::string &timer_task_name,
-    DbHandlerInitializer::InitializeDoneCb callback, DbHandler *db_handler) :
+    DbHandlerInitializer::InitializeDoneCb callback,
+    DbHandlerPtr db_handler) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(db_handler),
@@ -1513,8 +1514,8 @@ bool DbHandlerInitializer::Initialize() {
     return true;
 }
 
-DbHandler* DbHandlerInitializer::GetDbHandler() const {
-    return db_handler_.get();
+DbHandlerPtr DbHandlerInitializer::GetDbHandler() const {
+    return db_handler_;
 }
 
 void DbHandlerInitializer::Shutdown() {
