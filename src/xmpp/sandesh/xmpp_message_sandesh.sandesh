@@ -19,6 +19,15 @@ systemlog sandesh XmppConnectionCreate {
     6: string f3;
 }
 
+systemlog sandesh XmppSessionDelete {
+    1: "Delete Xmpp Session";
+    2: string f1;
+    3: " connection from ";
+    4: string f2;
+    5: " To : ";
+    6: string f3;
+}
+
 systemlog sandesh XmppIqMessageInvalid {
     1: "Error: Mismatch in associated previous message"
 }
@@ -33,6 +42,9 @@ systemlog sandesh XmppChatMessageParseFail {
 
 systemlog sandesh XmppBadMessage {
     1: string f1;
+    2: "Begin Message(";
+    3: string f2;
+    4: ")End Message"; 
 }
 
 systemlog sandesh XmppSslHandShakeMessage {
