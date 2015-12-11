@@ -1036,6 +1036,7 @@ struct XmppStreamEstablished :
 
     sc::result react(const EvStop &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "EvStop in (Established) State");
         state_machine->SendConnectionInfo(event.Name());
         state_machine->ResetSession();
         if (state_machine->IsActiveChannel()) {
