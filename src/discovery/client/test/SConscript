@@ -1,8 +1,6 @@
-# -*- mode: python; -*- 
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
 
 Import('BuildEnv')
 import sys
@@ -37,6 +35,11 @@ discovery_client_test_suite = [
     ]
 
 test = env.TestSuite('discovery-client-test', discovery_client_test_suite)
-env.Alias('controller/src/discovery:test', test)
+if not env.PlatformExclude(platform_exclude=[('Ubuntu','14.04')]):
+    env.Alias('controller/src/discovery:test', test)
 
 Return('discovery_client_test_suite')
+
+# Local Variables:
+# mode: python
+# End:
