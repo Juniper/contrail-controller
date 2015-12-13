@@ -9,7 +9,9 @@ distribute>=0.7.3
 lxml
 kombu
 kazoo
-vnc_api
-cfgm_common
 python-novaclient
+cfgm_common
+vnc_api
 discoveryclient
+sandesh
+sandesh-common

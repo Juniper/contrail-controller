@@ -1,6 +1,4 @@
 gevent==1.1a2
 pycassa
-sandesh
-sandesh-common
 ConfigParser
 xmltodict
