@@ -257,6 +257,106 @@ TEST_F(CqlIfTest, SelectFromTablePartitionKey) {
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
 
+TEST_F(CqlIfTest, SelectFromTableSlice) {
+    std::string table("SliceSelectTable");
+    // Empty slice
+    GenDb::ColumnNameRange empty_crange;
+    std::string actual_qstring(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, empty_crange));
+    std::string expected_qstring(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+    // Normal slice
+    GenDb::ColumnNameRange crange;
+    crange.start_ = all_values;
+    crange.finish_ = all_values;
+    crange.count_ = 5000;
+    std::string actual_string1(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, crange));
+    std::string expected_qstring1(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "(column1, column2, column3, column4, column5, column6, column7) >= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        " AND "
+        "(column1, column2, column3, column4, column5, column6, column7) <= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        " LIMIT 5000");
+    EXPECT_EQ(expected_qstring1, actual_string1);
+    // Start slice only
+    GenDb::ColumnNameRange start_crange;
+    start_crange.start_ = all_values;
+    start_crange.count_ = 5000;
+    std::string actual_string2(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, start_crange));
+    std::string expected_qstring2(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "(column1, column2, column3, column4, column5, column6, column7) >= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        " LIMIT 5000");
+    EXPECT_EQ(expected_qstring2, actual_string2);
+    // Finish slice only
+    GenDb::ColumnNameRange finish_crange;
+    finish_crange.finish_ = all_values;
+    finish_crange.count_ = 5000;
+    std::string actual_string3(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, finish_crange));
+    std::string expected_qstring3(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "(column1, column2, column3, column4, column5, column6, column7) <= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        " LIMIT 5000");
+    EXPECT_EQ(expected_qstring3, actual_string3);
+    // Count only
+    GenDb::ColumnNameRange count_crange;
+    count_crange.count_ = 5000;
+    std::string actual_string4(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, count_crange));
+    std::string expected_qstring4(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 "
+        "LIMIT 5000");
+    EXPECT_EQ(expected_qstring4, actual_string4);
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

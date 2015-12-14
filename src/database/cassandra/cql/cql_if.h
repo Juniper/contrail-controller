@@ -45,8 +45,11 @@ class CqlIf : public GenDb::GenDbIf {
         const GenDb::DbDataValueVec &rowkey);
     virtual bool Db_GetMultiRow(GenDb::ColListVec *out,
         const std::string &cfname,
-        const std::vector<GenDb::DbDataValueVec> &key,
-        GenDb::ColumnNameRange *crange_ptr = NULL);
+        const std::vector<GenDb::DbDataValueVec> &v_rowkey);
+    virtual bool Db_GetMultiRow(GenDb::ColListVec *out,
+        const std::string &cfname,
+        const std::vector<GenDb::DbDataValueVec> &v_rowkey,
+        const GenDb::ColumnNameRange &crange);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;

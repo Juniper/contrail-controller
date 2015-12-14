@@ -1565,9 +1565,16 @@ bool ThriftIfImpl::Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
     return success;
 }
 
-bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret, const std::string& cfname,
+bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret,
+    const std::string& cfname,
+    const std::vector<DbDataValueVec>& rowkeys) {
+    return Db_GetMultiRow(ret, cfname, rowkeys, GenDb::ColumnNameRange());
+}
+
+bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret,
+    const std::string& cfname,
     const std::vector<DbDataValueVec>& rowkeys,
-    GenDb::ColumnNameRange *crange_ptr) {
+    const GenDb::ColumnNameRange& crange) {
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
@@ -1579,25 +1586,25 @@ bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret, const std::string& cfn
     // Populate column name range slice
     cassandra::SliceRange slicer;
     cassandra::SlicePredicate slicep;
-    if (crange_ptr) {
+    if (!crange.IsEmpty()) {
         // Column range specified, set appropriate variables
         std::string start_string;
         if (!ConstructDbDataValueColumnName(start_string, cf,
-            crange_ptr->start_)) {
+            crange.start_)) {
             UpdateCfReadFailStats(cfname);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cfname <<
                 ": Column Name Range Start encode FAILED");
         }
         std::string finish_string;
         if (!ConstructDbDataValueColumnName(finish_string, cf,
-            crange_ptr->finish_)) {
+            crange.finish_)) {
             UpdateCfReadFailStats(cfname);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cfname <<
                 ": Column Name Range Finish encode FAILED");
         }
         slicer.__set_start(start_string);
         slicer.__set_finish(finish_string);
-        slicer.__set_count(crange_ptr->count);
+        slicer.__set_count(crange.count_);
     }
     // If column range is not specified, slicer has start_column and
     // end_column as null string, which means return all columns
