@@ -69,7 +69,12 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
-    default_cassandra_server_list.push_back("127.0.0.1:9160");
+#ifdef USE_CASSANDRA_CQL
+    string default_cassandra_server("127.0.0.1:9042");
+#else // USE_CASSANDRA_CQL
+    string default_cassandra_server("127.0.0.1:9160");
+#endif // !USE_CASSANDRA_CQL
+    default_cassandra_server_list.push_back(default_cassandra_server);
 
     vector<string> default_kafka_broker_list;
     default_kafka_broker_list.push_back("");
@@ -110,7 +115,7 @@ void Options::Initialize(EventManager &evm,
              "global TTL(hours) for analytics flow data")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(
-               default_cassandra_server_list, "127.0.0.1:9160"),
+               default_cassandra_server_list, default_cassandra_server),
              "Cassandra server list")
         ("DEFAULT.kafka_broker_list",
            opt::value<vector<string> >()->default_value(

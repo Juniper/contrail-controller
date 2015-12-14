@@ -711,10 +711,115 @@ void  query_result_unit_t::get_stattable_info(
 
 }
 
+void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
+    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple) {
+    rapidjson::Document dd;
+    dd.Parse<0>(jsonline.c_str());
+    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
+    // First get UUID
+    const std::string &tfuuid_s(frnames[FlowRecordFields::FLOWREC_FLOWUUID]);
+    if (dd.HasMember(tfuuid_s.c_str())) {
+        QE_ASSERT(dd[tfuuid_s.c_str()].IsString());
+        std::string fuuid_s(dd[tfuuid_s.c_str()].GetString());
+        *u = StringToUuid(fuuid_s);
+    }
+    // Next get stats
+    const std::string &tdiff_bytes_s(
+        frnames[FlowRecordFields::FLOWREC_DIFF_BYTES]);
+    if (dd.HasMember(tdiff_bytes_s.c_str())) {
+        QE_ASSERT(dd[tdiff_bytes_s.c_str()].IsUint64());
+        stats->bytes = dd[tdiff_bytes_s.c_str()].GetUint64();
+    }
+    const std::string &tdiff_pkts_s(
+        frnames[FlowRecordFields::FLOWREC_DIFF_PACKETS]);
+    if (dd.HasMember(tdiff_pkts_s.c_str())) {
+        QE_ASSERT(dd[tdiff_pkts_s.c_str()].IsUint64());
+        stats->pkts = dd[tdiff_pkts_s.c_str()].GetUint64();
+    }
+    const std::string &tshort_flow_s(
+        frnames[FlowRecordFields::FLOWREC_SHORT_FLOW]);
+    if (dd.HasMember(tshort_flow_s.c_str())) {
+        QE_ASSERT(dd[tshort_flow_s.c_str()].IsUint());
+        stats->short_flow = dd[tshort_flow_s.c_str()].GetUint() ? true : false;
+    }
+    // Next get 8 tuple
+    const std::string &tvrouter_s(
+        frnames[FlowRecordFields::FLOWREC_VROUTER]);
+    if (dd.HasMember(tvrouter_s.c_str())) {
+        QE_ASSERT(dd[tvrouter_s.c_str()].IsString());
+        tuple->vrouter = dd[tvrouter_s.c_str()].GetString();
+    }
+    const std::string &tsource_vn_s(
+        frnames[FlowRecordFields::FLOWREC_SOURCEVN]);
+    if (dd.HasMember(tsource_vn_s.c_str())) {
+        QE_ASSERT(dd[tsource_vn_s.c_str()].IsString());
+        tuple->source_vn = dd[tsource_vn_s.c_str()].GetString();
+    }
+    const std::string &tdest_vn_s(
+        frnames[FlowRecordFields::FLOWREC_DESTVN]);
+    if (dd.HasMember(tdest_vn_s.c_str())) {
+        QE_ASSERT(dd[tdest_vn_s.c_str()].IsString());
+        tuple->dest_vn = dd[tdest_vn_s.c_str()].GetString();
+    }
+    const std::string &tsource_ip_s(
+        frnames[FlowRecordFields::FLOWREC_SOURCEIP]);
+    if (dd.HasMember(tsource_ip_s.c_str())) {
+        QE_ASSERT(dd[tsource_ip_s.c_str()].IsString());
+        std::string ipaddr_s(dd[tsource_ip_s.c_str()].GetString());
+        boost::system::error_code ec;
+        boost::asio::ip::address ipaddr(
+            boost::asio::ip::address::from_string(ipaddr_s, ec));
+        QE_ASSERT(ec == 0);
+        if (ipaddr.is_v4()) {
+            boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
+            tuple->source_ip = v4_addr.to_ulong();
+        }
+    }
+    const std::string &tdest_ip_s(
+        frnames[FlowRecordFields::FLOWREC_DESTIP]);
+    if (dd.HasMember(tdest_ip_s.c_str())) {
+        QE_ASSERT(dd[tdest_ip_s.c_str()].IsString());
+        std::string ipaddr_s(dd[tdest_ip_s.c_str()].GetString());
+        boost::system::error_code ec;
+        boost::asio::ip::address ipaddr(
+            boost::asio::ip::address::from_string(ipaddr_s, ec));
+        QE_ASSERT(ec == 0);
+        if (ipaddr.is_v4()) {
+            boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
+            tuple->dest_ip = v4_addr.to_ulong();
+        }
+    }
+    const std::string &tprotocol_s(
+        frnames[FlowRecordFields::FLOWREC_PROTOCOL]);
+    if (dd.HasMember(tprotocol_s.c_str())) {
+        QE_ASSERT(dd[tprotocol_s.c_str()].IsUint());
+        tuple->protocol = dd[tprotocol_s.c_str()].GetUint();
+    }
+    const std::string &tsport_s(
+        frnames[FlowRecordFields::FLOWREC_SPORT]);
+    if (dd.HasMember(tsport_s.c_str())) {
+        QE_ASSERT(dd[tsport_s.c_str()].IsUint());
+        tuple->source_port = dd[tsport_s.c_str()].GetUint();
+    }
+    const std::string &tdport_s(
+        frnames[FlowRecordFields::FLOWREC_DPORT]);
+    if (dd.HasMember(tdport_s.c_str())) {
+        QE_ASSERT(dd[tdport_s.c_str()].IsUint());
+        tuple->dest_port = dd[tdport_s.c_str()].GetUint();
+    }
+}
+
 // Get UUID and stats and 8-tuple
 void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
        flow_stats& stats, flow_tuple& tuple)
 {
+#ifdef USE_CASSANDRA_CQL
+    QE_ASSERT(info.size() == 1);
+    const GenDb::DbDataValue &val(info[0]);
+    QE_ASSERT(val.which() == GenDb::DB_VALUE_STRING);
+    std::string jsonline(boost::get<std::string>(val));
+    get_uuid_stats_8tuple_from_json(jsonline, &u, &stats, &tuple);
+#else // USE_CASSANDRA_CQL
     int index = 0;
     try {
         stats.bytes = boost::get<uint64_t>(info.at(index++));
@@ -807,6 +912,7 @@ void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
         QE_ASSERT(0);
     }
     return;
+#endif // !USE_CASSANDRA_CQL
 }
 
 query_status_t AnalyticsQuery::process_query()
@@ -981,7 +1087,7 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_password_(cassandra_password)
 {
     max_slice_ =  max_slice;
-    init_vizd_tables();
+    init_vizd_tables(false);
 
     // Initialize database connection
     QE_LOG_NOQID(DEBUG, "Initializing QE without database!");
@@ -1009,7 +1115,7 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_password_(cassandra_password)
 {
     max_slice_ = max_slice;
-    init_vizd_tables();
+    init_vizd_tables(false);
 
     // Initialize database connection
     QE_TRACE_NOQID(DEBUG, "Initializing database");
@@ -1082,7 +1188,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             for (int ttli=0; ttli<=TtlType::GLOBAL_TTL; ttli++)
                 ttl_cached[ttli] = false;
 
-            if (dbif_->Db_GetRow(col_list, cfname, key)) {
+            if (dbif_->Db_GetRow(&col_list, cfname, key)) {
                 for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;

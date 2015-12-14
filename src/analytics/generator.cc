@@ -103,7 +103,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
             collector->cassandra_ips(), collector->cassandra_ports(),
             source + ":" + node_type + ":" +
                 module + ":" + instance_id, collector->analytics_ttl_map(),
-            collector->cassandra_user(), collector->cassandra_password())) {
+            collector->cassandra_user(), collector->cassandra_password(), false)) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());

@@ -9,6 +9,7 @@
 //
 
 const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
+const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
 const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
