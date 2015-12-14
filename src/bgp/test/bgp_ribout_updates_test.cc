@@ -264,7 +264,8 @@ TEST_F(RibOutUpdatesTest, TailDequeueBasic4) {
         // Verify DB State for the routes.
         for (int idx = 0; idx < vRouteCount; idx++) {
             RouteState *rstate = ExpectRouteState(routes_[idx]);
-            RibOutAttr roattrX(attrA_.get(), 16+idx);
+            RibOutAttr roattrX(static_cast<BgpTable *>(NULL), attrA_.get(),
+                               16+idx);
             VerifyHistory(rstate, roattrX, 0, kPeerCount-1);
         }
 

@@ -90,7 +90,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     attr.push_back(ext_community);
 
     RibOutAttr rib_out_attr;
-    rib_out_attr.set_attr(server_.attr_db()->Locate(attr));
+    rib_out_attr.set_attr(NULL, server_.attr_db()->Locate(attr));
 
     InetVpnPrefix p1 = InetVpnPrefix::FromString("12345:2:1.1.1.1/24");
     InetVpnRoute route(p1);

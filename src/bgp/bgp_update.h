@@ -76,7 +76,7 @@ struct UpdateInfo {
         : target(target),
           update(NULL) {
     }
-    UpdateInfo(const RibPeerSet &target, RibOutAttr roattr)
+    UpdateInfo(const RibPeerSet &target, RibOutAttr &roattr)
         : roattr(roattr),
           target(target),
           update(NULL) {

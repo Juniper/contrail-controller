@@ -183,17 +183,17 @@ protected:
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(101);
         attrA_ = server_.attr_db()->Locate(attribute);
-        roattrA_.set_attr(attrA_);
+        roattrA_.set_attr(&table_, attrA_);
 
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(102);
         attrB_ = server_.attr_db()->Locate(attribute);
-        roattrB_.set_attr(attrB_);
+        roattrB_.set_attr(&table_, attrB_);
 
         attribute = new BgpAttr(server_.attr_db());
         attribute->set_med(103);
         attrC_ = server_.attr_db()->Locate(attribute);
-        roattrC_.set_attr(attrC_);
+        roattrC_.set_attr(&table_, attrC_);
 
         for (int i = 0; i < kPeerCount; i++) {
             BgpAttr *attribute = new BgpAttr(server_.attr_db());
@@ -295,7 +295,7 @@ protected:
         for (size_t idx = 0; idx < attr_vec->size(); idx++) {
             UpdateInfo *uinfo = new UpdateInfo;
             if (attr_vec->at(idx))
-                uinfo->roattr.set_attr(attr_vec->at(idx).get());
+                uinfo->roattr.set_attr(&table_, attr_vec->at(idx).get());
             uinfo->target = *peerset_vec->at(idx);
             uu_slist->push_front(*uinfo);
         }
@@ -325,7 +325,7 @@ protected:
         for (size_t idx = 0; idx < attr_vec->size(); idx++) {
             AdvertiseInfo *ainfo = new AdvertiseInfo;
             assert(attr_vec->at(idx));
-            ainfo->roattr.set_attr(attr_vec->at(idx).get());
+            ainfo->roattr.set_attr(&table_, attr_vec->at(idx).get());
             ainfo->bitset = *peerset_vec->at(idx);
             adv_slist->push_front(*ainfo);
         }
@@ -474,7 +474,7 @@ protected:
         EXPECT_TRUE(rt_update != NULL);
         EXPECT_EQ(count, rt_update->Updates()->size());
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            RibOutAttr roattrX(attr_blk[idx].get(), 0);
+            RibOutAttr roattrX(&table_, attr_blk[idx].get(), 0);
             const UpdateInfo *uinfo = rt_update->FindUpdateInfo(roattrX);
             EXPECT_TRUE(uinfo != NULL);
             EXPECT_TRUE(uinfo->target == peerset_[idx]);
@@ -508,7 +508,7 @@ protected:
         EXPECT_EQ(end_idx-start_idx+1, rstate->Advertised()->size());
 
         for (int idx = start_idx; idx < end_idx; idx++) {
-            RibOutAttr roattrX(attr_blk[idx].get(), 0);
+            RibOutAttr roattrX(&table_, attr_blk[idx].get(), 0);
             const AdvertiseInfo *ainfo = rstate->FindHistory(roattrX);
             EXPECT_TRUE(ainfo != NULL);
             EXPECT_TRUE(ainfo->bitset == peerset_[idx]);
@@ -542,7 +542,7 @@ protected:
         EXPECT_EQ(end_idx-start_idx+1, rt_update->History()->size());
 
         for (int idx = start_idx; idx < end_idx; idx++) {
-            RibOutAttr roattrX(attr_blk[idx].get(), 0);
+            RibOutAttr roattrX(&table_, attr_blk[idx].get(), 0);
             const AdvertiseInfo *ainfo = rt_update->FindHistory(roattrX);
             EXPECT_TRUE(ainfo != NULL);
             EXPECT_TRUE(ainfo->bitset == peerset_[idx]);

@@ -44,13 +44,10 @@ public:
     // label.
     //
     // The origin_vn_index keeps track of the index of the VN from which
-    // the BgpPath originated.
-    // A value of -1 means that the VN is unknown.
-    // A value of 0 means the VN for the table to which the ribout belongs.
-    // Values greater than 0 are actual VN indexes.
+    // the BgpPath originated.  A value of -1 means that the VN is unknown.
     class NextHop {
         public:
-            NextHop(IpAddress address, uint32_t label,
+            NextHop(const BgpTable *table, IpAddress address, uint32_t label,
                     const ExtCommunity *ext_community, bool vrf_originated);
 
             const IpAddress address() const { return address_; }
@@ -72,7 +69,8 @@ public:
     typedef std::vector<NextHop> NextHopList;
 
     RibOutAttr() : attr_out_(NULL) { }
-    RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh = true);
+    RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label,
+               bool include_nh = true);
     RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
     bool IsReachable() const { return attr_out_.get() != NULL; }
@@ -81,8 +79,8 @@ public:
 
     const NextHopList &nexthop_list() const { return nexthop_list_; }
     const BgpAttr *attr() const { return attr_out_.get(); }
-    void set_attr(const BgpAttrPtr &attrp, uint32_t label = 0,
-        bool vrf_originated = false);
+    void set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
+                  uint32_t label = 0, bool vrf_originated = false);
 
     void clear() {
         attr_out_.reset();

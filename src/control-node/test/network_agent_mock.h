@@ -140,8 +140,10 @@ struct NextHop {
             address_(address), label_(0) {
         tunnel_encapsulations_.push_back("gre");
     }
-    NextHop(std::string address, uint32_t label, std::string tun1 = "gre") :
-            address_(address), label_(label) {
+    NextHop(std::string address, uint32_t label, std::string tun1 = "gre",
+            const std::string virtual_network = "") :
+                address_(address), label_(label),
+                virtual_network_(virtual_network) {
         if (tun1 == "all") {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
@@ -171,12 +173,14 @@ struct NextHop {
                 return false;
             }
         }
+        if (virtual_network_ != other.virtual_network_) return false;
         return true;
     }
 
     std::string address_;
     int label_;
     std::vector<std::string> tunnel_encapsulations_;
+    std::string virtual_network_;
 };
 
 typedef std::vector<NextHop> NextHops;
