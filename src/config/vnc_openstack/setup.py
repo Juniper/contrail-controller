@@ -2,7 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import os
+import os, re
 
 from setuptools import setup, find_packages, Command
 
@@ -16,6 +16,9 @@ class RunTestsCommand(Command):
         self.cwd = os.getcwd()
     def run(self):
         os.system('./run_tests.sh -V')
+        with open('test.log') as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 
 setup(
