@@ -603,8 +603,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     bool tor_path = false;
 
     //Delete path label
-    if (del) {
-        MplsLabel::DeleteReq(agent, path->label());
+    if (del && (path->peer()->GetType() != Peer::BGP_PEER)) {
+        agent->mpls_table()->DeleteMcastLabel(path->label());
     }
 
     const CompositeNH *cnh =
@@ -796,23 +796,21 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     //Bake all MPLS label
     if (fabric_peer_path) {
         //Add new label
-        MplsLabel::CreateMcastLabelReq(agent,
-                                       fabric_peer_path->label(),
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
+        agent->mpls_table()->CreateMcastLabel(fabric_peer_path->label(),
+                                              Composite::L2COMP,
+                                              component_nh_list,
+                                              vrf()->GetName());
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            MplsLabel::DeleteReq(agent, old_fabric_mpls_label);
+            agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label);
         }
     }
 
-    if (evpn_label != 0) {
-        MplsLabel::CreateMcastLabelReq(agent,
-                                       evpn_label,
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
+    if (evpn_label != 0 && (path->peer()->GetType() != Peer::BGP_PEER)) {
+        agent->mpls_table()->CreateMcastLabel(evpn_label,
+                                              Composite::L2COMP,
+                                              component_nh_list,
+                                              vrf()->GetName());
     }
     return ret;
 }
