@@ -51,45 +51,86 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     return false;
 }
 
-RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh)
-    : attr_out_(attr),
-      vrf_originated_(false) {
-    if (attr && include_nh) {
-        nexthop_list_.push_back(
-                NextHop(attr->nexthop(), label, attr->ext_community()));
+RibOutAttr::NextHop::NextHop(IpAddress address, uint32_t label,
+    const ExtCommunity *ext_community, bool vrf_originated)
+    : address_(address),
+      label_(label),
+      origin_vn_index_(-1) {
+    if (ext_community) {
+        encap_ = ext_community->GetTunnelEncap();
+        origin_vn_index_ = ext_community->GetOriginVnIndex();
+    }
+    if (origin_vn_index_ < 0 && vrf_originated) {
+        origin_vn_index_ = 0;
     }
 }
 
-RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp)
-    : vrf_originated_(false) {
+int RibOutAttr::NextHop::CompareTo(const NextHop &rhs) const {
+    if (address_ < rhs.address_) return -1;
+    if (address_ > rhs.address_) return 1;
+    if (label_ < rhs.label_) return -1;
+    if (label_ > rhs.label_) return 1;
+    if (origin_vn_index_ < rhs.origin_vn_index_) return -1;
+    if (origin_vn_index_ > rhs.origin_vn_index_) return 1;
+    if (encap_.size() < rhs.encap_.size()) return -1;
+    if (encap_.size() > rhs.encap_.size()) return 1;
+    for (size_t idx = 0; idx < encap_.size(); idx++) {
+        if (encap_[idx] < rhs.encap_[idx]) return -1;
+        if (encap_[idx] > rhs.encap_[idx]) return 1;
+    }
+    return 0;
+}
+
+bool RibOutAttr::NextHop::operator==(const NextHop &rhs) const {
+    return CompareTo(rhs) == 0;
+}
+
+bool RibOutAttr::NextHop::operator!=(const NextHop &rhs) const {
+    return CompareTo(rhs) != 0;
+}
+
+RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh)
+    : attr_out_(attr) {
+    if (attr && include_nh) {
+        nexthop_list_.push_back(
+            NextHop(attr->nexthop(), label, attr->ext_community(), false));
+    }
+}
+
+RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
     // Attribute should not be set already
     assert(!attr_out_);
 
     // Always encode best path's attributes (including it's nexthop) and label.
-    set_attr(attr, route->BestPath()->GetLabel());
+    if (!is_xmpp) {
+        set_attr(attr, route->BestPath()->GetLabel(), false);
+        return;
+    }
 
     // Encode ECMP NextHops only for XMPP peers.
     // Vrf Origination matters only for XMPP peers.
-    if (!is_xmpp) return;
-
-    // Remember if the best path was originated in the VRF.  This is used to
-    // determine if VRF's VN name can be used as the origin VN for the route.
-    vrf_originated_ = route->BestPath()->IsVrfOriginated();
+    set_attr(attr, route->BestPath()->GetLabel(),
+        route->BestPath()->IsVrfOriginated());
 
     for (Route::PathList::iterator it = route->GetPathList().begin();
         it != route->GetPathList().end(); it++) {
         const BgpPath *path = static_cast<BgpPath *>(it.operator->());
 
         // Skip the best path.
-        if (path == route->BestPath()) continue;
+        if (path == route->BestPath())
+            continue;
 
         // Check if the path is ECMP eligible. If not, bail out, as the paths
         // are sorted in cost order anyways.
-        if (route->BestPath()->PathCompare(*path, true)) break;
+        if (route->BestPath()->PathCompare(*path, true))
+            break;
 
         // We have an eligible ECMP path.
+        // Remember if the path was originated in the VRF.  This is used to
+        // determine if VRF's VN name can be used as the origin VN for the
+        // nexthop.
         NextHop nexthop(path->GetAttr()->nexthop(), path->GetLabel(),
-                path->GetAttr()->ext_community());
+                path->GetAttr()->ext_community(), path->IsVrfOriginated());
 
         // Skip if we have already encoded this next-hop
         if (find(nexthop_list_.begin(), nexthop_list_.end(), nexthop) !=
@@ -101,7 +142,7 @@ RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp)
 }
 
 //
-// Comparator for RibOutAttr. First compare the BgpAttr and then the label.
+// Comparator for RibOutAttr. First compare the BgpAttr and then the nexthops.
 //
 int RibOutAttr::CompareTo(const RibOutAttr &rhs) const {
     if (attr_out_.get() < rhs.attr_out_.get()) {
@@ -126,12 +167,14 @@ int RibOutAttr::CompareTo(const RibOutAttr &rhs) const {
     return 0;
 }
 
-void RibOutAttr::set_attr(const BgpAttrPtr &attrp, uint32_t label) {
+void RibOutAttr::set_attr(const BgpAttrPtr &attrp, uint32_t label,
+    bool vrf_originated) {
     if (!attr_out_) {
         attr_out_ = attrp;
         assert(nexthop_list_.empty());
-        nexthop_list_.push_back(
-                NextHop(attrp->nexthop(), label, attrp->ext_community()));
+        NextHop nexthop(
+            attrp->nexthop(), label, attrp->ext_community(), vrf_originated);
+        nexthop_list_.push_back(nexthop);
         return;
     }
 

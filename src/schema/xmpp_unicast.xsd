@@ -22,6 +22,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
     <xsd:element name="address" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
+    <xsd:element name="virtual-network" type="xsd:string"/>
 </xsd:complexType>
 
 <xsd:complexType name="NextHopListType">

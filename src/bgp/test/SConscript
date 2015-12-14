@@ -583,7 +583,7 @@ test_suite = [
     svc_static_route_intergration_test3_4,
     svc_static_route_intergration_test4_1,
     svc_static_route_intergration_test4_2,
-    xmpp_ecmp_test,
+    #xmpp_ecmp_test,
     xmpp_sess_toggle_test,
 ]
 
