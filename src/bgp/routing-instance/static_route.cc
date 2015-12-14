@@ -431,8 +431,8 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         // Append accept-own to the communities from the nexthop route.
         const Community *orig_community =
             nexthop_route_path->GetAttr()->community();
-        CommunityPtr new_community =
-            comm_db->AppendAndLocate(orig_community, CommunityType::AcceptOwn);
+        CommunityPtr new_community = comm_db->AppendAndLocate(
+            orig_community, CommunityType::AcceptOwnNexthop);
         new_attr =
             attr_db->ReplaceCommunityAndLocate(new_attr.get(), new_community);
 

@@ -22,7 +22,8 @@ static const map<string, CommunityType::WellKnownCommunity>
         ("no-export", CommunityType::NoExport)
         ("no-export-subconfed", CommunityType::NoExportSubconfed)
         ("no-reoriginate", CommunityType::NoReOriginate)
-        ("accept-own", CommunityType::AcceptOwn);
+        ("accept-own", CommunityType::AcceptOwn)
+        ("accept-own-nexthop", CommunityType::AcceptOwnNexthop);
 
 static const map<CommunityType::WellKnownCommunity, string>
     toString = boost::assign::map_list_of
@@ -30,6 +31,7 @@ static const map<CommunityType::WellKnownCommunity, string>
         (CommunityType::NoReOriginate, "no-reoriginate")
         (CommunityType::NoExportSubconfed, "no-export-subconfed")
         (CommunityType::AcceptOwn, "accept-own")
+        (CommunityType::AcceptOwnNexthop, "accept-own-nexthop")
         (CommunityType::NoExport, "no-export");
 
 uint32_t CommunityType::CommunityFromString(

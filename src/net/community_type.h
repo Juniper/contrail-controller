@@ -16,6 +16,7 @@ public:
         NoExport = 0xFFFFFF01,
         NoAdvertise = 0xFFFFFF02,
         NoExportSubconfed = 0xFFFFFF03,
+        AcceptOwnNexthop = 0xFFFF0008,
     };
 
     CommunityType();
