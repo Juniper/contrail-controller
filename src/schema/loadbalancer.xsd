@@ -209,6 +209,11 @@
      Link('project-loadbalancer',
           'project', 'loadbalancer', ['has']) -->
 
+<xsd:element name="loadbalancer-service-instance"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-service-instance',
+          'loadbalancer', 'service-instance', ['ref']) -->
+
 <xsd:element name="loadbalancer-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('loadbalancer-virtual-machine-interface',
