@@ -3,7 +3,7 @@
 #
 from setuptools import setup, Command
 
-import os, sys
+import os, sys, re
 
 class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
@@ -14,6 +14,9 @@ class RunTestsCommand(Command):
         pass
     def run(self):
         os.system('./run_tests.sh -V')
+        with open('test.log') as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 setup(
     name='vnc_api',
