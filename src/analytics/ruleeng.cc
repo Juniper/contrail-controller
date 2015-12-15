@@ -38,7 +38,7 @@ int Ruleeng::RuleWorkerID = 0;
 
 SandeshTraceBufferPtr UVETraceBuf(SandeshTraceBufferCreate("UveTrace", 25000));
 
-Ruleeng::Ruleeng(DbHandler *db_handler, OpServerProxy *osp) :
+Ruleeng::Ruleeng(DbHandlerPtr db_handler, OpServerProxy *osp) :
     db_handler_(db_handler), osp_(osp), rulelist_(new t_rulelist()) {
 }
 

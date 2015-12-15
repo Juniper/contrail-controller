@@ -85,7 +85,9 @@ bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
-        const string &node_type) :
+        const string &node_type,
+        DbHandlerPtr global_db_handler,
+        bool use_global_dbhandler) :
         Generator(),
         collector_(collector),
         state_machine_(state_machine),
@@ -97,13 +99,20 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
         db_connect_timer_(NULL),
-        db_handler_(new DbHandler(
+        use_global_dbhandler_(use_global_dbhandler) {
+    if (!UseGlobalDbHandler()) {
+        db_handler_.reset(new DbHandler(
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
             collector->cassandra_ips(), collector->cassandra_ports(),
             source + ":" + node_type + ":" +
                 module + ":" + instance_id, collector->analytics_ttl_map(),
-            collector->cassandra_user(), collector->cassandra_password(), false)) {
+            collector->cassandra_user(), collector->cassandra_password(),
+            false));
+    } else {
+        //Use collector db_handler
+        db_handler_ = global_db_handler;
+    }
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
@@ -144,9 +153,12 @@ bool SandeshGenerator::DbConnectTimerExpired() {
 }
 
 void SandeshGenerator::Create_Db_Connect_Timer() {
+    if (UseGlobalDbHandler()) {
+        return;
+    }
     assert(db_connect_timer_ == NULL);
     db_connect_timer_ = TimerManager::CreateTimer(
-        *collector_->event_manager()->io_service(),
+    *collector_->event_manager()->io_service(),
         "SandeshGenerator db connect timer: " + name_,
         TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
         instance_);
@@ -163,17 +175,28 @@ void SandeshGenerator::Stop_Db_Connect_Timer() {
 }
 
 void SandeshGenerator::Delete_Db_Connect_Timer() {
+    // No need to if global handler is used
+    if (UseGlobalDbHandler()) {
+        return;
+    }
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
 }
 
 void SandeshGenerator::Db_Connection_Uninit() {
+    if (UseGlobalDbHandler()) {
+        return;
+    }
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
     GetDbHandler()->UnInit(instance_);
     Delete_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
+    // If global_db_handler user, we can skip Init
+    if (UseGlobalDbHandler()) {
+        return true;
+    }
     if (!GetDbHandler()->Init(false, instance_)) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
