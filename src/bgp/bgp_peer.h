@@ -284,6 +284,7 @@ public:
     void SetListenSocketAuthKey(const AuthenticationKey &auth_key,
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
+    void SetSessionSocketAuthKey(TcpSession *session);
 
 private:
     friend class BgpConfigTest;
@@ -323,8 +324,9 @@ private:
 
     bool GetBestAuthKey(AuthenticationKey *auth_key, KeyType *key_type) const;
     bool ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
-    void LogInstallAuthKeys(const std::string &oper,
-                            const AuthenticationKey &auth_key, KeyType key_type);
+    void LogInstallAuthKeys(const std::string &socket_name,
+        const std::string &oper, const AuthenticationKey &auth_key,
+        KeyType key_type);
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
     void ResetInuseAuthKeyInfo();
 
