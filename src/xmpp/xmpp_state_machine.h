@@ -125,6 +125,14 @@ public:
 
     // getters and setters
     XmppConnection *connection() { return connection_; }
+    void set_connection(const XmppConnection *connection) {
+        connection_ = const_cast<XmppConnection *>(connection);
+    }
+    void swap_connection(XmppStateMachine *other) {
+        XmppConnection *tmp = connection_;
+        connection_ = other->connection_;
+        other->connection_ = tmp;
+    }
     bool IsActiveChannel();
     bool logUVE();
     const char *ChannelType();
@@ -175,6 +183,8 @@ private:
     bool HoldTimerExpired();
     bool Enqueue(const sc::event_base &ev);
     bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
+    bool ProcessStreamHeaderMessage(XmppSession *session,
+                                    const XmppStanza::XmppMessage *msg);
 
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
     XmppConnection *connection_;
