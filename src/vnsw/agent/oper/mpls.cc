@@ -208,28 +208,6 @@ void MplsLabel::CreateVPortLabel(const Agent *agent,
     return;
 }
 
-void MplsLabel::CreateMcastLabelReq(const Agent *agent,
-                                    uint32_t label,
-                                    COMPOSITETYPE type,
-                                    ComponentNHKeyList &component_nh_key_list,
-                                    const std::string vrf_name) {
-    if (label == 0 || label == MplsTable::kInvalidLabel)
-        return;
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
-                                            vrf_name);
-    req.data.reset(data);
-
-    agent->mpls_table()->Enqueue(&req);
-    return;
-}
-
 void MplsLabel::CreateEcmpLabel(const Agent *agent,
                                 uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
@@ -245,18 +223,6 @@ void MplsLabel::CreateEcmpLabel(const Agent *agent,
     req.data.reset(data);
 
     agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::DeleteMcastLabelReq(const Agent *agent, uint32_t src_label) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
-    req.key.reset(key);
-    req.data.reset(NULL);
-
-    agent->mpls_table()->Enqueue(&req);
     return;
 }
 
@@ -419,6 +385,39 @@ void MplsReq::HandleRequest() const {
 AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                            const std::string &context) {
     return AgentSandeshPtr(new AgentMplsSandesh(context));
+}
+
+void MplsTable::CreateMcastLabel(uint32_t label,
+                                 COMPOSITETYPE type,
+                                 ComponentNHKeyList &component_nh_key_list,
+                                 const std::string vrf_name) {
+    if (label == 0 || label == MplsTable::kInvalidLabel)
+        return;
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
+                                            vrf_name);
+    req.data.reset(data);
+
+    Process(req);
+    return;
+}
+
+void MplsTable::DeleteMcastLabel(uint32_t src_label) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
+    req.key.reset(key);
+    req.data.reset(NULL);
+
+    Process(req);
+    return;
 }
 
 void MplsTable::ReserveMulticastLabel(uint32_t start,
