@@ -1,6 +1,6 @@
 bitarray
 bottle
-gevent==1.1a2
+gevent
 geventhttpclient
 psutil
 sandesh_common
