@@ -46,7 +46,6 @@ class IFMapDependencyManagerTest : public ::testing::Test {
     }
 
     void RequestEventHandler(IFMapNode *node, DBEntry *entry) {
-        IFMapNodeState *state = dependency_manager_->IFMapNodeGet(node);
         change_list_.push_back(node);
     }
 
