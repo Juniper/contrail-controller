@@ -47,7 +47,9 @@ from database.sandesh.database.process_info.constants import \
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
-                 hostip, minimum_diskgb, contrail_databases, cassandra_repair_interval):
+                 hostip, minimum_diskgb, contrail_databases,
+                 cassandra_repair_interval,
+                 cassandra_repair_logdir):
         self.node_type = "contrail-database"
         self.module = Module.DATABASE_NODE_MGR
         self.module_id = ModuleNames[self.module]
@@ -55,6 +57,7 @@ class DatabaseEventManager(EventManager):
         self.minimum_diskgb = minimum_diskgb
         self.contrail_databases = contrail_databases
         self.cassandra_repair_interval = cassandra_repair_interval
+        self.cassandra_repair_logdir = cassandra_repair_logdir
         self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
@@ -208,8 +211,9 @@ class DatabaseEventManager(EventManager):
     # end database_periodic
 
     def cassandra_repair(self):
+        logdir = self.cassandra_repair_logdir + "repair.log"
         subprocess.Popen(["contrail-cassandra-repair",
-                          "--log-file", "/var/log/cassandra/repair.log",
+                          "--log-file", logdir,
                           "--debug"])
     #end cassandra_repair
 
