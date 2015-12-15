@@ -2,7 +2,7 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 from setuptools import setup, find_packages, Command
-import os
+import os, re
 
 class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
@@ -13,6 +13,9 @@ class RunTestsCommand(Command):
         self.cwd = os.getcwd()
     def run(self):
         os.system('./run_tests.sh -V')
+        with open('test.log') as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 setup(
     name='device_manager',

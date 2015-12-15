@@ -14,6 +14,9 @@ class RunTestsCommand(setuptools.Command):
         self.cwd = os.getcwd()
     def run(self):
         os.system('./run_tests.sh -V')
+        with open('test.log') as f:
+            if not re.search('\nOK', ''.join(f.readlines())):
+                os._exit(1)
 
 def requirements(filename):
     with open(filename) as f:
