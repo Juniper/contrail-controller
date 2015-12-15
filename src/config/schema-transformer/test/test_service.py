@@ -927,6 +927,10 @@ class TestPolicy(test_case.STTestCase):
         vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         vn.set_route_target_list(rtgt_list)
+        exp_rtgt_list = RouteTargetList(route_target=['target:2:1'])
+        vn.set_export_route_target_list(exp_rtgt_list)
+        imp_rtgt_list = RouteTargetList(route_target=['target:3:1'])
+        vn.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn)
         rt = RouteTable("rt1")
         self._vnc_lib.route_table_create(rt)
@@ -959,23 +963,34 @@ class TestPolicy(test_case.STTestCase):
                 self.assertIn(rtgt, route.route_target)
             ri100 = self._vnc_lib.routing_instance_read(
                 fq_name=self.get_ri_name(vn))
-            rt100 = ri100.get_route_target_refs()[0]['to']
-            for rt_ref in lri.get_route_target_refs() or []:
-                if rt100 == rt_ref['to']:
-                    return sc_ri_name, rt100
+            rt100 = set(ref['to'][0] for ref in ri100.get_route_target_refs())
+            lrt = set(ref['to'][0] for ref in lri.get_route_target_refs() or [])
+            if rt100 & lrt:
+                return sc_ri_name, (rt100 & lrt)
             raise Exception("rt100 route-target ref not found")
 
-        sc_ri_name, rt100 = _match_route_table(rtgt_list.get_route_target())
+        sc_ri_name, rt100 = _match_route_table(rtgt_list.get_route_target() +
+                                               imp_rtgt_list.get_route_target())
 
         rtgt_list.add_route_target('target:1:2')
         vn.set_route_target_list(rtgt_list)
+        exp_rtgt_list.add_route_target('target:2:2')
+        vn.set_export_route_target_list(exp_rtgt_list)
+        imp_rtgt_list.add_route_target('target:3:2')
+        vn.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target())
+        _match_route_table(rtgt_list.get_route_target() +
+                           imp_rtgt_list.get_route_target())
        
         rtgt_list.delete_route_target('target:1:1')
         vn.set_route_target_list(rtgt_list)
+        exp_rtgt_list.delete_route_target('target:2:1')
+        vn.set_export_route_target_list(exp_rtgt_list)
+        imp_rtgt_list.delete_route_target('target:3:1')
+        vn.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target())
+        _match_route_table(rtgt_list.get_route_target() +
+                           imp_rtgt_list.get_route_target())
 
         routes.set_route([])
         rt.set_routes(routes)
@@ -991,9 +1006,9 @@ class TestPolicy(test_case.STTestCase):
             ri = self._vnc_lib.routing_instance_read(
                 fq_name=self.get_ri_name(lvn))
             rt_refs = ri.get_route_target_refs()
-            for rt_ref in ri.get_route_target_refs() or []:
-                if rt100 == rt_ref['to']:
-                    raise Exception("rt100 route-target ref found")
+            rt_set = set(ref['to'][0] for ref in ri.get_route_target_refs() or [])
+            if rt100 & rt_set:
+                raise Exception("route-target ref still found: %s" % (rt100 & rt_set))
 
         _match_route_table_cleanup(sc_ri_name, rt100)
 
@@ -2012,34 +2027,47 @@ class TestPolicy(test_case.STTestCase):
         #test external rt
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         vn1_obj.set_route_target_list(rtgt_list)
+        rtgt_list = RouteTargetList(route_target=['target:2:1'])
+        vn1_obj.set_export_route_target_list(rtgt_list)
         vn_props.allow_transit = True
         vn1_obj.set_virtual_network_properties(vn_props)
         self._vnc_lib.virtual_network_update(vn1_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:1', True)
 
         #modify external rt
         rtgt_list = RouteTargetList(route_target=['target:1:2'])
         vn1_obj.set_route_target_list(rtgt_list)
+        rtgt_list = RouteTargetList(route_target=['target:2:2'])
+        vn1_obj.set_export_route_target_list(rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:2', True)
 
         #have more than one external rt
         rtgt_list = RouteTargetList(route_target=['target:1:1', 'target:1:2'])
         vn1_obj.set_route_target_list(rtgt_list)
+        rtgt_list = RouteTargetList(route_target=['target:2:1', 'target:2:2'])
+        vn1_obj.set_export_route_target_list(rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:1', True)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:2', True)
 
         #unset external rt
         vn1_obj.set_route_target_list(RouteTargetList())
+        vn1_obj.set_export_route_target_list(RouteTargetList())
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:64512:8000001', True)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:1', False)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:1:2', False)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:1', False)
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name), 'target:2:2', False)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
