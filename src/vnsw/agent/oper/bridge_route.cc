@@ -763,7 +763,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         vxlan_id = tor_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
         label = tor_peer_path->label();
-        evpn_label = label;
     } else if (fabric_peer_path) {
         dest_vn_name = fabric_peer_path->dest_vn_name();
         unresolved = fabric_peer_path->unresolved();
@@ -776,7 +775,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         vxlan_id = evpn_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
         label = evpn_peer_path->label();
-        evpn_label = label;
     }
 
     //Mpls label selection needs to be overridden by fabric label
@@ -806,7 +804,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         }
     }
 
-    if (evpn_label != 0 && (path->peer()->GetType() != Peer::BGP_PEER)) {
+    //Populate label only when local vm peer path is present.
+    if (evpn_label != 0 && local_vm_peer_path) {
         agent->mpls_table()->CreateMcastLabel(evpn_label,
                                               Composite::L2COMP,
                                               component_nh_list,
