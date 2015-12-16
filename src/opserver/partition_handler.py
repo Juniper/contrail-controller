@@ -639,8 +639,8 @@ class UveStreamProc(PartitionHandler):
     #  rport     : redis server port
     #  disc      : discovery client to publish to
     def __init__(self, brokers, partition, uve_topic, logger, callback,
-            host_ip, rsc, aginst, rport):
-        super(UveStreamProc, self).__init__(brokers, "workers",
+            host_ip, rsc, aginst, rport, group="-workers"):
+        super(UveStreamProc, self).__init__(brokers, group, 
             uve_topic, logger, False)
         self._uvedb = {}
         self._uvein = {}

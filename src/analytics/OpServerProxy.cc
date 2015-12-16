@@ -613,10 +613,11 @@ OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
                              unsigned short redis_uve_port,
                              const std::string& redis_password, 
                              const std::string& brokers,
-                             uint16_t partitions) {
+                             uint16_t partitions,
+                             const std::string& kafka_prefix=std::string()) {
     impl_ = new OpServerImpl(evm, collector, redis_uve_ip, redis_uve_port,
                              redis_password,
-                             brokers, string("uve-"), partitions);
+                             brokers, kafka_prefix + string("-uve-"), partitions);
 }
 
 OpServerProxy::~OpServerProxy() {

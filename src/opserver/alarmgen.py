@@ -1025,12 +1025,13 @@ class Controller(object):
                         '%s-%s-%d' % (self._hostname,
                             self._instance_id, partno))
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
-                        partno, "uve-" + str(partno),
+                        partno, self._conf.kafka_prefix()+"-uve-" + str(partno),
                         self._logger,
                         self.handle_uve_notifq, self._conf.host_ip(),
                         self.handle_resource_check,
                         self._instance_id,
-                        self._conf.redis_server_port())
+                        self._conf.redis_server_port(),
+                        self._conf.kafka_prefix()+"-workers")
                 ph.start()
                 self._workers[partno] = ph
                 self._uvestats[partno] = {}

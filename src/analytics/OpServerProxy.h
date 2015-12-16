@@ -29,7 +29,7 @@ public:
             const std::string& redis_uve_ip, unsigned short redis_uve_port,
             const std::string& redis_uve_password,
             const std::string& brokers,
-            uint16_t partitions);
+            uint16_t partitions, const std::string& kafka_prefix);
     OpServerProxy() : impl_(NULL) { }
     virtual ~OpServerProxy();
     virtual void Shutdown();
