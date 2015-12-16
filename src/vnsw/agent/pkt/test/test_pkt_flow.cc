@@ -410,6 +410,101 @@ public:
         client->WaitForIdle();
     }
 
+    std::string AddAclSubnetXML(const char *name, int id, int proto,
+                                const char *action, const char* uuid,
+                                const char *src_net, const char *dst_net) {
+        char buff[12000];
+        sprintf(buff,
+                "<?xml version=\"1.0\"?>\n"
+                "<config>\n"
+                "   <update>\n"
+                "       <node type=\"access-control-list\">\n"
+                "           <name>%s</name>\n"
+                "           <id-perms>\n"
+                "               <permissions>\n"
+                "                   <owner></owner>\n"
+                "                   <owner_access>0</owner_access>\n"
+                "                   <group></group>\n"
+                "                   <group_access>0</group_access>\n"
+                "                   <other_access>0</other_access>\n"
+                "               </permissions>\n"
+                "               <uuid>\n"
+                "                   <uuid-mslong>0</uuid-mslong>\n"
+                "                   <uuid-lslong>%d</uuid-lslong>\n"
+                "               </uuid>\n"
+                "           </id-perms>\n"
+                "           <access-control-list-entries>\n"
+                "                <dynamic>false</dynamic>\n"
+                "                <acl-rule>\n"
+                "                    <match-condition>\n"
+                "                        <src-address> %s \n"
+                "                        </src-address>\n"
+                "                        <protocol>%d</protocol>\n"
+                "                        <src-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 10000 </end-port>\n"
+                "                        </src-port>\n"
+                "                        <dst-address> %s \n"
+                "                        </dst-address>\n"
+                "                        <dst-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 10000 </end-port>\n"
+                "                        </dst-port>\n"
+                "                    </match-condition>\n"
+                "                    <action-list>\n"
+                "                        <simple-action>\n"
+                "                            %s\n"
+                "                        </simple-action>\n"
+                "                    </action-list>\n"
+                "                    <rule-uuid>%s</rule-uuid>\n"
+                "                </acl-rule>\n"
+                "                <acl-rule>\n"
+                "                    <match-condition>\n"
+                "                        <src-address>\n"
+                "                            <virtual-network> vn6 </virtual-network>\n"
+                "                        </src-address>\n"
+                "                        <protocol>any</protocol>\n"
+                "                        <src-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 60000 </end-port>\n"
+                "                        </src-port>\n"
+                "                        <dst-address>\n"
+                "                            <virtual-network> vn6 </virtual-network>\n"
+                "                        </dst-address>\n"
+                "                        <dst-port>\n"
+                "                            <start-port> 0 </start-port>\n"
+                "                            <end-port> 60000 </end-port>\n"
+                "                        </dst-port>\n"
+                "                    </match-condition>\n"
+                "                    <action-list>\n"
+                "                        <simple-action>\n"
+                "                            deny\n"
+                "                        </simple-action>\n"
+                "                    </action-list>\n"
+                "                    <rule-uuid>\n"
+                "                        fe6a4dcb-dde4-48e6-8957-856a7aacb2e1\n"
+                "                     </rule-uuid>\n"
+                "                </acl-rule>\n"
+                "           </access-control-list-entries>\n"
+                "       </node>\n"
+                "   </update>\n"
+                "</config>\n", name, id, src_net, proto, dst_net, action, uuid);
+        string s(buff);
+        return s;
+    }
+
+    void AddAclEntry(const char *name, int id, int proto,
+                     const char *action, const char *uuid_str,
+                     const char *src_subnet, const char *dst_subnet) {
+        std::string s = AddAclSubnetXML(name, id, proto, action, uuid_str,
+                                        src_subnet, dst_subnet);
+        pugi::xml_document xdoc_;
+        pugi::xml_parse_result result = xdoc_.load(s.c_str());
+        EXPECT_TRUE(result);
+        Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+        client->WaitForIdle();
+    }
+
     std::string AddAclXmlString(const char *name, int id, int proto,
                                 const char *simple_action,
                                 const char *log_action,
@@ -1470,7 +1565,6 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 }
-
 
 TEST_F(FlowTest, NonNatAddOldNat_2) {
 #if 0
@@ -3917,6 +4011,434 @@ TEST_F(FlowTest, FlowPolicyLogAction_1) {
         alert_action = true;
     }
     EXPECT_FALSE(alert_action);
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match using deprecated tag 'subnet' works fine */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_1) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match using new tag 'subnet-list' works fine.
+ * Verify with subnet-list of only 1 element */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_2) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet-list> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match using new tag 'subnet-list' works fine.
+ * Verify with subnet-list of 2 elements and the matched element is first
+ * entry */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_3) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet-list> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>17.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match using new tag 'subnet-list' works fine.
+ * Verify with subnet-list of 3 elements and the matched element is last
+ * entry */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_4) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet-list> <ip-prefix>18.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>17.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match using new tag 'subnet-list' works fine.
+ * Verify with subnet-list of 2 elements and there is no matching entry */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_5) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet-list> <ip-prefix>18.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>17.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STRNE("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match works when both 'subnet' and new tag
+ * 'subnet-list' are configured.
+ * Verify with subnet-list of 2 elements where matching entry is present in
+ * 'subnet' */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_6) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet>\n"
+            "<subnet-list> <ip-prefix>18.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>17.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match works when both 'subnet' and new tag
+ * 'subnet-list' are configured.
+ * Verify with subnet-list of 2 elements where matching entry is present in
+ * 'subnet-list' */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_7) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet> <ip-prefix>19.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet>\n"
+            "<subnet-list> <ip-prefix>18.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>16.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                 fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-network", "vn6", "access-control-list", "acl4");
+    FlowTeardown();
+    DelNode("access-control-list", "acl4");
+    client->WaitForIdle(5);
+}
+
+/* Verify that ACL rule CIDR match works when both 'subnet' and new tag
+ * 'subnet-list' are configured.
+ * Verify with subnet-list of 2 elements and there is no matching entry */
+TEST_F(FlowTest, FlowPolicyUuid_Subnet_8) {
+    char subnet_str[1000];
+    sprintf(subnet_str,
+            "<subnet> <ip-prefix>19.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet>\n"
+            "<subnet-list> <ip-prefix>18.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n"
+            "<subnet-list> <ip-prefix>17.1.1.0</ip-prefix>"
+            "<ip-prefix-len>24</ip-prefix-len></subnet-list>\n");
+    AddAclEntry("acl4", 4, 1, "deny", "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                subnet_str, subnet_str);
+    FlowSetup();
+    AddLink("virtual-network", "vn6", "access-control-list", "acl4");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        },
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+                       flow6->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_STRNE("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                 fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED),
+                 fe->sg_rule_uuid().c_str());
 
     //cleanup
     FlushFlowTable();
