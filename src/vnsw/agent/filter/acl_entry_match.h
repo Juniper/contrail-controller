@@ -15,6 +15,22 @@
 #include <agent_types.h>
 
 class PacketHeader;
+
+struct AclAddressInfo {
+    IpAddress ip_addr;
+    IpAddress ip_mask;
+    int ip_plen;
+
+    AclAddressInfo() : ip_addr(), ip_mask(), ip_plen(0) {
+    }
+    bool operator==(const AclAddressInfo& rhs) const {
+        if (ip_addr == rhs.ip_addr && ip_mask == rhs.ip_mask) {
+            return true;
+        }
+        return false;
+    }
+};
+
 class AclEntryMatch {
 public:
     enum Type {
@@ -128,19 +144,18 @@ public:
     void SetNetworkIDStr(const std::string id);
     void SetSGId(const uint32_t id);
     // Set IP Address and mask
-    void SetIPAddress(const IpAddress &ip, const IpAddress &mask);
+    void SetIPAddress(const std::vector<AclAddressInfo> &list);
     // Match packet header for address
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
     virtual bool Compare(const AclEntryMatch &rhs) const;
+    static std::string BuildIpMaskList(const std::vector<AclAddressInfo> &list);
 private:
     AddressType addr_type_;
     bool src_;
 
     // IP Address and mask
-    IpAddress ip_addr_;
-    IpAddress ip_mask_;
-    int prefix_len;
+    std::vector<AclAddressInfo> ip_list_;
     // Network policy or Security Group identifier
     uuid policy_id_;
     std::string policy_id_s_;

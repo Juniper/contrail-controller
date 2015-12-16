@@ -157,14 +157,6 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     return NULL;
 }
 
-static inline IpAddress MaskToPrefix(int prefix_len) {
-    if (prefix_len == 0 ) {
-        return (IpAddress(Ip4Address((uint32_t)(~((int32_t) -1)))));
-    }  else {
-        return (IpAddress(Ip4Address((uint32_t)(~((1 << (32 - prefix_len)) - 1)))));
-    }
-}
-
 const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
                                             MirrorCfgEntry *entry,
                                             int ace_id) {
@@ -177,15 +169,9 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
 
     if (!(entry->data.src_ip_prefix.empty())) {
         ace_spec.src_addr_type = AddressMatch::IP_ADDR;
-        boost::system::error_code ec;
-        ace_spec.src_ip_addr = IpAddress::from_string(entry->data.src_ip_prefix.c_str(), ec);
-        if (ec.value() != 0) {
-            return "Invalid source-ip prefix";
-        }
-        if (!(ace_spec.src_ip_addr.is_v4())) {
-            return "Invalid source-ip prefix";
-        }
-        ace_spec.src_ip_mask = MaskToPrefix(entry->data.src_ip_prefix_len);
+        ace_spec.BuildAddressInfo(entry->data.src_ip_prefix,
+                                  entry->data.src_ip_prefix_len,
+                                  &ace_spec.src_ip_list);
     } else {
         ace_spec.src_addr_type = AddressMatch::NETWORK_ID;
         ace_spec.src_policy_id_str = entry->data.src_vn;
@@ -193,15 +179,9 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
 
     if (!(entry->data.dst_ip_prefix.empty())) {
         ace_spec.dst_addr_type = AddressMatch::IP_ADDR;
-        boost::system::error_code ec;
-        ace_spec.dst_ip_addr = IpAddress::from_string(entry->data.dst_ip_prefix.c_str(), ec);
-        if (ec.value() != 0) {
-            return "Invalid dest-ip prefix";
-        }
-        if (!(ace_spec.dst_ip_addr.is_v4())) {
-            return "Invalid dest-ip prefix";
-        }
-        ace_spec.dst_ip_mask = MaskToPrefix(entry->data.dst_ip_prefix_len);
+        ace_spec.BuildAddressInfo(entry->data.dst_ip_prefix,
+                                  entry->data.dst_ip_prefix_len,
+                                  &ace_spec.dst_ip_list);
     } else {
         ace_spec.dst_addr_type = AddressMatch::NETWORK_ID;
         ace_spec.dst_policy_id_str = entry->data.dst_vn;

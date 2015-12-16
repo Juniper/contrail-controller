@@ -3,6 +3,7 @@
  */
 
 #include <vector>
+#include <sstream>
 
 #include <boost/cast.hpp>
 
@@ -49,8 +50,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     if (acl_entry_spec.src_addr_type == AddressMatch::IP_ADDR) {
         AddressMatch *src_addr = new AddressMatch();
         src_addr->SetSource(true);
-        src_addr->SetIPAddress(acl_entry_spec.src_ip_addr,
-                           acl_entry_spec.src_ip_mask);
+        src_addr->SetIPAddress(acl_entry_spec.src_ip_list);
         matches_.push_back(src_addr);
     } else if (acl_entry_spec.src_addr_type == AddressMatch::NETWORK_ID){
         AddressMatch *src_addr = new AddressMatch();
@@ -67,8 +67,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     if (acl_entry_spec.dst_addr_type == AddressMatch::IP_ADDR) {
         AddressMatch *dst_addr = new AddressMatch();
         dst_addr->SetSource(false);
-        dst_addr->SetIPAddress(acl_entry_spec.dst_ip_addr,
-                           acl_entry_spec.dst_ip_mask);
+        dst_addr->SetIPAddress(acl_entry_spec.dst_ip_list);
         matches_.push_back(dst_addr);
     } else if (acl_entry_spec.dst_addr_type == AddressMatch::NETWORK_ID){
         AddressMatch *dst_addr = new AddressMatch();
@@ -250,11 +249,10 @@ bool AclEntry::operator==(const AclEntry &rhs) const {
    return true;
 }
 
-void AddressMatch::SetIPAddress(const IpAddress &ip, const IpAddress &mask)
+void AddressMatch::SetIPAddress(const std::vector<AclAddressInfo> &list)
 {
     addr_type_ = IP_ADDR;
-    ip_addr_ = ip;
-    ip_mask_ = mask;
+    ip_list_ = list;
 }
 
 void AddressMatch::SetNetworkID(const uuid id)
@@ -310,26 +308,38 @@ bool AddressMatch::SGMatch(const SecurityGroupList &sg_l, int id) const
     return false;
 }
 
-static bool SubnetMatch(const IpAddress &ip, const IpAddress &mask,
+static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
                         const IpAddress &data) {
-    if (data.is_v4() && ip.is_v4()) {
-        if((mask.to_v4().to_ulong() & data.to_v4().to_ulong()) ==
-           ip.to_v4().to_ulong()) {
-            return true;
+    std::vector<AclAddressInfo>::const_iterator it = list.begin();
+    while (it != list.end()) {
+        IpAddress ip = it->ip_addr;
+        IpAddress mask = it->ip_mask;
+        if (data.is_v4() && ip.is_v4()) {
+            if((mask.to_v4().to_ulong() & data.to_v4().to_ulong()) ==
+               ip.to_v4().to_ulong()) {
+                return true;
+            }
         }
-        return false;
-    }
 
-    if (data.is_v6() && ip.is_v6()) {
-        const Ip6Address &ip6 = ip.to_v6();
-        const Ip6Address &data6 = data.to_v6();
-        const Ip6Address &mask6 = mask.to_v6();
-        for (int i = 0; i < 16; i++) {
-            if ((data6.to_bytes()[i] & mask6.to_bytes()[i])
-                != ip6.to_bytes()[i])
-                return false;
+        if (data.is_v6() && ip.is_v6()) {
+            const Ip6Address &ip6 = ip.to_v6();
+            const Ip6Address &data6 = data.to_v6();
+            const Ip6Address &mask6 = mask.to_v6();
+            const uint32_t *ip6_words = (uint32_t *)ip6.to_bytes().c_array();
+            const uint32_t *data6_words = (uint32_t *)data6.to_bytes().c_array();
+            const uint32_t *mask6_words = (uint32_t *)mask6.to_bytes().c_array();
+            bool matched = true;
+            for (int i = 0; i < 4; i++) {
+                if ((data6_words[i] & mask6_words[i]) != ip6_words[i]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                return true;
+            }
         }
-        return true;
+        ++it;
     }
 
     return false;
@@ -342,7 +352,7 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
     }
     if (src_) {
         if (addr_type_ == IP_ADDR) {
-            return SubnetMatch(ip_addr_, ip_mask_, pheader->src_ip);
+            return SubnetMatch(ip_list_, pheader->src_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->src_policy_id && policy_id_s_.compare(*pheader->src_policy_id) == 0) {
                 return true;
@@ -354,7 +364,7 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
         }
     } else { 
         if (addr_type_ == IP_ADDR) {
-            return SubnetMatch(ip_addr_, ip_mask_, pheader->dst_ip);
+            return SubnetMatch(ip_list_, pheader->dst_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->dst_policy_id && policy_id_s_.compare(*pheader->dst_policy_id) == 0) {
                 return true;
@@ -380,8 +390,7 @@ bool AddressMatch::Compare(const AclEntryMatch &rhs) const {
     }
 
     if (addr_type_ == IP_ADDR) {
-        if (ip_addr_ == rhs_address_match.ip_addr_ &&
-            ip_mask_ == rhs_address_match.ip_mask_) {
+        if (ip_list_ == rhs_address_match.ip_list_) {
             return true;
         }
     }
@@ -400,6 +409,24 @@ bool AddressMatch::Compare(const AclEntryMatch &rhs) const {
     return false;
 }
 
+std::string AddressMatch::BuildIpMaskList
+    (const std::vector<AclAddressInfo> &list) {
+    std::vector<AclAddressInfo>::const_iterator it = list.begin();
+    std::stringstream ss;
+    while (it != list.end()) {
+        IpAddress ip = it->ip_addr;
+        IpAddress mask = it->ip_mask;
+        ss << ip.to_string();
+        ss << " ";
+        ss << mask.to_string();
+        ++it;
+        if (it != list.end()) {
+            ss << ", ";
+        }
+    }
+    return ss.str();
+}
+
 void AddressMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 {
 
@@ -415,7 +442,7 @@ void AddressMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
     }
 
     if (addr_type_ == IP_ADDR) {
-        *str = (ip_addr_.to_string() + " " + ip_mask_.to_string());
+        *str = BuildIpMaskList(ip_list_);
         *addr_type_str = "ip";
     } else if (addr_type_ == NETWORK_ID) {
         *str = policy_id_s_;
