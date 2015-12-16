@@ -50,6 +50,7 @@ class PortTupleAgent(Agent):
             iip_obj.add_virtual_network(vn_obj)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
+            iip_obj.set_instance_ip_mode(si.ha_mode)
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
@@ -89,12 +90,39 @@ class PortTupleAgent(Agent):
                 'interface-route-table', port['interface-route-table'], None, 'ADD')
             VirtualMachineInterfaceSM.locate(vmi.uuid)
 
-    def set_port_allowed_address_pairs(self, port, vmi_obj):
-        if port['allowed-address-pairs']:
+    def set_port_allowed_address_pairs(self, port, vmi, vmi_obj):
+        if not port['allowed-address-pairs']:
+            return
+        aaps = port['allowed-address-pairs'].get('allowed_address_pair', None)
+        if not aaps:
+            return
+        update_aap = False
+        if len(aaps) != len(vmi.aaps or []):
+            update_aap = True
+        else:
+            for idx in range(0, len(vmi.aaps)):
+                if vmi.aaps[idx]['ip'] != aaps[idx]['ip']:
+                    update_aap = True
+                    break
+        if update_aap:
             vmi_obj.set_virtual_machine_interface_allowed_address_pairs(
                 port['allowed-address-pairs'])
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
             VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
+
+    def delete_shared_iip(self, iip_id):
+        iip = InstanceIpSM.get(iip_id)
+        if not iip:
+            return
+        for vmi_id in iip.virtual_machine_interfaces:
+            self._vnc_lib.ref_update('instance-ip', iip.uuid,
+                'virtual-machine-interface', vmi_id, None, 'DELETE')
+
+        try:
+            self._vnc_lib.instance_ip_delete(id=iip.uuid)
+            InstanceIpSM.delete(iip.uuid)
+        except NoIdError:
+            return
 
     def set_port_service_chain_ip(self, si, port, vmi, vmi_obj):
         if port['shared-ip']:
@@ -157,9 +185,10 @@ class PortTupleAgent(Agent):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
             if not vmi:
                 continue
+            if not vmi.params:
+                continue
             port = port_config[vmi.params.get('service_interface_type')]
             if not port:
-                #log TODO
                 continue
 
             vmi_obj = VirtualMachineInterface(fq_name=vmi.fq_name,
@@ -167,7 +196,7 @@ class PortTupleAgent(Agent):
             vmi_obj.uuid = vmi.uuid
 
             self.set_port_service_chain_ip(si, port, vmi, vmi_obj)
-            self.set_port_allowed_address_pairs(port, vmi_obj)
+            self.set_port_allowed_address_pairs(port, vmi, vmi_obj)
             self.set_port_service_health_check(port, vmi)
             self.set_port_static_routes(port, vmi)
 
@@ -175,3 +204,7 @@ class PortTupleAgent(Agent):
         for si in ServiceInstanceSM.values():
             for pt_id in si.port_tuples:
                 self.update_port_tuple(pt_id)
+        for iip in InstanceIpSM.values():
+            if (iip.service_instance_ip and
+                    iip.instance_ip_secondary and not iip.service_instance):
+                self.delete_shared_iip(iip.uuid)
