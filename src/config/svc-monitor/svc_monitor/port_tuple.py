@@ -50,6 +50,7 @@ class PortTupleAgent(Agent):
             iip_obj.add_virtual_network(vn_obj)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
+            iip_obj.set_instance_ip_mode(si.ha_mode)
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
