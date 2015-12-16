@@ -209,7 +209,7 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
     if (ace_spec.src_addr_type == AddressMatch::NETWORK_ID) {
         src = ace_spec.src_policy_id_str;
     } else if (ace_spec.src_addr_type == AddressMatch::IP_ADDR) {
-        src = ace_spec.src_ip_addr.to_string() + " " + ace_spec.src_ip_mask.to_string();
+        src = AddressMatch::BuildIpMaskList(ace_spec.src_ip_list);
     } else if (ace_spec.src_addr_type == AddressMatch::SG) {
         src = integerToString(ace_spec.src_sg_id);
     } else {
@@ -221,7 +221,7 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
     if (ace_spec.dst_addr_type == AddressMatch::NETWORK_ID) {
         dst = ace_spec.dst_policy_id_str;
     } else if (ace_spec.dst_addr_type == AddressMatch::IP_ADDR) {
-        dst = ace_spec.dst_ip_addr.to_string() + " " + ace_spec.dst_ip_mask.to_string();
+        dst = AddressMatch::BuildIpMaskList(ace_spec.dst_ip_list);
     } else if (ace_spec.dst_addr_type == AddressMatch::SG) {
         dst = integerToString(ace_spec.dst_sg_id);
     } else {
@@ -680,6 +680,24 @@ void NextAclFlowCountReq::HandleRequest() const {
     AclTable::AclFlowCountResponse(uuid_str, context(), ace_id);
 }
 
+void AclEntrySpec::ProcessSubnet(const SubnetType &subnet,
+                                 std::vector<AclAddressInfo> *list) {
+    AclAddressInfo info;
+    boost::system::error_code ec;
+    info.ip_addr = IpAddress::from_string(subnet.ip_prefix.c_str(), ec);
+    if (ec.value() != 0) {
+        ACL_TRACE(Err, "Invalid source ip prefix");
+        return;
+    }
+    info.ip_plen = subnet.ip_prefix_len;
+    if (info.ip_addr.is_v4()) {
+        info.ip_mask = PrefixToIpNetmask(subnet.ip_prefix_len);
+    } else{
+        info.ip_mask = PrefixToIp6Netmask(subnet.ip_prefix_len);
+    }
+    list->push_back(info);
+}
+
 bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
     RangeSpec rs;
     if (match_condition->protocol.compare("any") == 0) {
@@ -718,21 +736,18 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
         dst_port.push_back(rs);
     }
 
-    if (match_condition->src_address.subnet.ip_prefix.size()) {
-        SubnetType st;
-        st = match_condition->src_address.subnet;
-        boost::system::error_code ec;
-        src_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
-        if (ec.value() != 0) {
-            ACL_TRACE(Err, "Invalid source ip prefix");
-            return false;
+    const std::vector<SubnetType> &slist =
+        match_condition->src_address.subnet_list;
+    if (slist.size()) {
+        src_addr_type = AddressMatch::IP_ADDR;
+        std::vector<SubnetType>::const_iterator it = slist.begin();
+        while (it != slist.end()) {
+            const SubnetType &subnet = *it;
+            ProcessSubnet(subnet, &src_ip_list);
+            ++it;
         }
-        src_ip_plen = st.ip_prefix_len;
-        if (src_ip_addr.is_v4()) {
-           src_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
-        } else{
-           src_ip_mask = PrefixToIp6Netmask(st.ip_prefix_len);
-        }
+    } else if (match_condition->src_address.subnet.ip_prefix.size()) {
+        ProcessSubnet(match_condition->src_address.subnet, &src_ip_list);
         src_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->src_address.virtual_network.size()) {
         std::string nt;
@@ -746,21 +761,18 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
         src_addr_type = AddressMatch::SG;
     }
 
-    if (match_condition->dst_address.subnet.ip_prefix.size()) {
-        SubnetType st;
-        st = match_condition->dst_address.subnet;
-        boost::system::error_code ec;
-        dst_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
-        if (ec.value() != 0) {
-            ACL_TRACE(Err, "Invalid destination ip prefix");
-            return false;
+    const std::vector<SubnetType> &dlist =
+        match_condition->dst_address.subnet_list;
+    if (dlist.size()) {
+        dst_addr_type = AddressMatch::IP_ADDR;
+        std::vector<SubnetType>::const_iterator it = dlist.begin();
+        while (it != dlist.end()) {
+            const SubnetType &subnet = *it;
+            ProcessSubnet(subnet, &dst_ip_list);
+            ++it;
         }
-        dst_ip_plen = st.ip_prefix_len;
-        if (dst_ip_addr.is_v4()) {
-            dst_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
-        } else {
-            dst_ip_mask = PrefixToIp6Netmask(st.ip_prefix_len);
-        }
+    } else if (match_condition->dst_address.subnet.ip_prefix.size()) {
+        ProcessSubnet(match_condition->dst_address.subnet, &dst_ip_list);
         dst_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->dst_address.virtual_network.size()) {
         std::string nt;
