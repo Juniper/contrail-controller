@@ -332,7 +332,7 @@ class InstanceManager(object):
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
                 vip = False
-                iip_cache = InstanceIpSM.locate(iip['uuid'])
+                iip_cache = InstanceIpSM.get(iip['uuid'])
                 for port_id in iip_cache.virtual_machine_interfaces:
                     port = VirtualMachineInterfaceSM.get(port_id)
                     if port and port.virtual_ip:
@@ -350,7 +350,7 @@ class InstanceManager(object):
 
             for fip in vmi_obj.get_floating_ip_back_refs() or []:
                 vip = False
-                fip_cache = FloatingIpSM.locate(fip['uuid'])
+                fip_cache = FloatingIpSM.get(fip['uuid'])
                 for port_id in fip_cache.virtual_machine_interfaces:
                     port = VirtualMachineInterfaceSM.get(port_id)
                     if port and port.virtual_ip:
