@@ -2,7 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import os
 import os, sys, re
 
 from setuptools import setup, find_packages, Command
