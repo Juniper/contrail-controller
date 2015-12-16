@@ -627,6 +627,7 @@ class InstanceIpSM(DBBaseSM):
         self.address = None
         self.family = None
         self.service_instance_ip = None
+        self.instance_ip_secondary = None
         self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
@@ -637,6 +638,7 @@ class InstanceIpSM(DBBaseSM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.service_instance_ip = obj.get('service_instance_ip', False)
+        self.instance_ip_secondary = obj.get('instance_ip_secondary', False)
         self.family = obj.get('instance_ip_family', 'v4')
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
