@@ -193,6 +193,7 @@ enum Module {
     INVENTORY_AGENT,
     ALARM_GENERATOR,
     TOR_AGENT,
+    CONTRAIL_BROADVIEW,
     MAX_MODULE,
 }
 
@@ -246,6 +247,7 @@ const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = SERVICE_SNMP_COLLECTOR
 const string MODULE_CONTRAIL_TOPOLOGY_NAME = SERVICE_TOPOLOGY
 const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
 const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
+const string MODULE_CONTRAIL_BROADVIEW_NAME = "contrail-broadview"
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -274,6 +276,7 @@ const map<Module, string> ModuleNames = {
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
     Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
     Module.TOR_AGENT          : MODULE_TOR_AGENT_NAME,
+    Module.CONTRAIL_BROADVIEW : MODULE_CONTRAIL_BROADVIEW_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -303,6 +306,7 @@ const map<string, Module> ModuleIds = {
     MODULE_CONTRAIL_TOPOLOGY_NAME      : Module.CONTRAIL_TOPOLOGY,
     MODULE_SERVER_INVENTORY_AGENT_NAME : Module.INVENTORY_AGENT,
     MODULE_TOR_AGENT_NAME              : Module.TOR_AGENT
+    MODULE_CONTRAIL_BROADVIEW_NAME     : Module.CONTRAIL_BROADVIEW,
 }
 
 // Supervisor names
@@ -357,6 +361,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS,
     Module.INVENTORY_AGENT    : NodeType.COMPUTE,
     Module.TOR_AGENT          : NodeType.COMPUTE,
+    Module.CONTRAIL_BROADVIEW : NodeType.ANALYTICS,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"
@@ -443,7 +448,9 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                 ], 
     Module.CONTRAIL_SNMP_COLLECTOR : [Category.DEFAULT,
                                 ],
-    Module.CONTRAIL_TOPOLOGY : [Category.DEFAULT,
+    Module.CONTRAIL_TOPOLOGY  : [Category.DEFAULT,
+                                ],
+    Module.CONTRAIL_BROADVIEW : [Category.DEFAULT,
                                 ],
 }
 

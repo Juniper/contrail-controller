@@ -269,3 +269,9 @@ AnalyticsEnv.SConscript(dirs=['contrail-topology'],
         exports='AnalyticsEnv',
         variant_dir=BuildEnv['TOP'] + '/contrail-topology',
         duplicate=1)
+#
+# Not yet
+#AnalyticsEnv.SConscript(dirs=['contrail-broadview'],
+#       exports='AnalyticsEnv',
+#       variant_dir=BuildEnv['TOP'] + '/contrail-broadview',
+#       duplicate=1)

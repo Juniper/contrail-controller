@@ -1351,7 +1351,137 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'phy_if_band.in_bandwidth_usage', 'datatype' : 'int', 'index' : false },
           { 'name' : 'phy_if_band.out_bandwidth_usage', 'datatype' : 'int', 'index' : false }
         ]
-    }
+    },
+    {
+      'display_name' : 'Broadview ingress-port-priority-group',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'ingressPortPriorityGroup',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'ingressPortPriorityGroup.port', 'datatype' : 'string','index' : true},
+          { 'name' : 'ingressPortPriorityGroup.priorityGroup', 'datatype' : 'int','index' : true},
+          { 'name' : 'ingressPortPriorityGroup.umShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'ingressPortPriorityGroup.umHeadroomBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview ingress-port-service-pool',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'ingressPortServicePool',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'ingressPortServicePool.port', 'datatype' : 'string','index' : true},
+          { 'name' : 'ingressPortServicePool.servicePool', 'datatype' : 'int','index' : true},
+          { 'name' : 'ingressPortServicePool.umShareBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview ingress-service-pool',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'ingressServicePool',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'ingressServicePool.servicePool', 'datatype' : 'int','index' : true},
+          { 'name' : 'ingressServicePool.umShareBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-port-service-pool',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressPortServicePool',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressPortServicePool.port', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressPortServicePool.servicePool', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressPortServicePool.ucShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressPortServicePool.umShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressPortServicePool.mcShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressPortServicePool.mcShareQueueEntries', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-service-pool',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressServicePool',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressServicePool.servicePool', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressServicePool.umShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressServicePool.mcShareBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressServicePool.mcShareQueueEntries', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-uc-queue',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressUcQueue',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressUcQueue.queue', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressUcQueue.ucBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-uc-queue-group',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressUcQueueGroup',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressUcQueueGroup.queueGroup', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressUcQueueGroup.ucBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-mc-queue',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressMcQueue',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressMcQueue.queue', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressMcQueue.mcBufferCount', 'datatype' : 'int','index' : false},
+          { 'name' : 'egressMcQueue.mcQueueEntries', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-cpu-queue',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressCpuQueue',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressCpuQueue.queue', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressCpuQueue.cpuBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Broadview egress-rqe-queue',
+      'stat_type' : 'PRouterBroadViewInfo',
+      'stat_attr' : 'egressRqeQueue',
+      'obj_table' : PROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true},
+          { 'name' : 'asic_id', 'datatype' : 'string','index' : true},
+          { 'name' : 'egressRqeQueue.queue', 'datatype' : 'int','index' : true},
+          { 'name' : 'egressRqeQueue.rqeBufferCount', 'datatype' : 'int','index' : false},
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [
