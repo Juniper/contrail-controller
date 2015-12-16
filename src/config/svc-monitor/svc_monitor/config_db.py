@@ -290,10 +290,14 @@ class VirtualMachineSM(DBBaseSM):
         if self.display_name is None:
             return
         display_list = self.display_name.split('__')
-        if self.service_instance and len(display_list) == 5:
-            self.virtualization_type = display_list[-1]
-            self.proj_fq_name = display_list[0:2]
-            self.index = int(display_list[-2]) - 1
+        if self.service_instance:
+            if len(display_list) == 5:
+                self.virtualization_type = display_list[-1]
+                self.proj_fq_name = display_list[0:2]
+                self.index = int(display_list[-2]) - 1
+            else:
+                self.index = -1
+
     # end update
 
     @classmethod
