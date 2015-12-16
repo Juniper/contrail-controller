@@ -105,6 +105,9 @@ sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
+# This alias can be used to build the cfgm_common lib
+env.Alias('python-cfgm_common', sdist_gen)
+
 def BuildPyTestSetup(env, target, source):
     file = open(target[0].abspath, 'w')
     file.write("[easy_install]\nfind_links =")

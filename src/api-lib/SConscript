@@ -79,6 +79,9 @@ sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
 
 env.Default(sdist_gen)
 
+# This alias can be used to build the vnc_api lib
+env.Alias('python-vnc_api', sdist_gen)
+
 # generated files depend on autogeneration infra parts
 env.Depends(generated_rule, [autogen_infra_sources, autogen_sources, generateds_rule])
 env.Depends(local_sources_rules, autogen_infra_sources)
