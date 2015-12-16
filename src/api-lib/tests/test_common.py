@@ -48,7 +48,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._logger = logging.getLogger(__name__)
         logging.basicConfig()
         self._logger.setLevel(logging.DEBUG)
-        self._vnc_lib = vnc_api.VncApi()
+        self._vnc_lib = vnc_api.VncApi(auth_type='keystone')
     # end setUp
 
     def tearDown(self):

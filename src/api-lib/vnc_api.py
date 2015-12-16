@@ -91,7 +91,7 @@ class VncApi(object):
     }
 
     _AUTHN_SUPPORTED_TYPES = ["keystone"]
-    _DEFAULT_AUTHN_TYPE = "keystone"
+    _DEFAULT_AUTHN_TYPE = None
     _DEFAULT_AUTHN_HEADERS = _DEFAULT_HEADERS
     _DEFAULT_AUTHN_PROTOCOL = "http"
     _DEFAULT_AUTHN_SERVER = _DEFAULT_WEB_SERVER
@@ -163,11 +163,35 @@ class VncApi(object):
         if use_ssl:
              self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_SSL_CONNECT
 
-        # keystone
+        #contrail-api SSL support
+        try:
+           self._apiinsecure = cfg_parser.getboolean('global','insecure')
+        except (AttributeError,
+                ConfigParser.NoOptionError,
+                ConfigParser.NoSectionError):
+           self._apiinsecure = False
+        apicertfile=_read_cfg(cfg_parser,'global','certfile','')
+        apikeyfile=_read_cfg(cfg_parser,'global','keyfile','')
+        apicafile=_read_cfg(cfg_parser,'global','cafile','')
+
+        self._use_api_certs=False
+        if apicertfile and apikeyfile \
+           and apicafile and api_server_use_ssl:
+                certs=[apicertfile, apikeyfile, apicafile]
+                self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
+                self._use_api_certs=True
+
         self._authn_type = auth_type or \
             _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
                       self._DEFAULT_AUTHN_TYPE)
 
+        self._tenant_name = tenant_name or \
+            _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
+                      self._DEFAULT_AUTHN_TENANT)
+
+        self._user_info = user_info
+
+        # keystone
         if self._authn_type == 'keystone':
             self._authn_protocol = auth_protocol or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
@@ -193,24 +217,6 @@ class VncApi(object):
             self._domain_name = domain_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_DOMAIN',
                           self._DEFAULT_DOMAIN_ID)
-
-            #contrail-api SSL support
-            try:
-               self._apiinsecure = cfg_parser.getboolean('global','insecure')
-            except (AttributeError,
-                    ConfigParser.NoOptionError,
-                    ConfigParser.NoSectionError):
-               self._apiinsecure = False
-            apicertfile=_read_cfg(cfg_parser,'global','certfile','')
-            apikeyfile=_read_cfg(cfg_parser,'global','keyfile','')
-            apicafile=_read_cfg(cfg_parser,'global','cafile','')
-
-            self._use_api_certs=False
-            if apicertfile and apikeyfile \
-               and apicafile and api_server_use_ssl:
-                    certs=[apicertfile, apikeyfile, apicafile]
-                    self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
-                    self._use_api_certs=True
 
             # keystone SSL support
             try:
@@ -256,7 +262,9 @@ class VncApi(object):
                           '}' + \
                         '}' + \
                      '}'
-            self._user_info = user_info
+        elif self._authn_type:
+            raise NotImplementedError, "The authentucation type '%s' is not "\
+                "supported by the VNC API lib" % self._authn_type
 
         if not api_server_host:
             self._web_host = _read_cfg(cfg_parser, 'global', 'WEB_SERVER',
@@ -549,7 +557,7 @@ class VncApi(object):
 
     # Authenticate with configured service
     def _authenticate(self, response=None, headers=None):
-        if self._authn_type is None:
+        if self._authn_type is not 'keystone':
             return headers
         url = "%s://%s:%s%s" % (self._authn_protocol, self._authn_server, self._authn_port,
                                   self._authn_url)
