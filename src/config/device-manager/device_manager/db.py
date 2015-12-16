@@ -769,7 +769,7 @@ class VirtualMachineInterfaceDM(DBBase):
     # end update
 
     def is_device_owner_bms(self):
-        if not self.device_owner or self.device_owner.lower() == 'physicalrouter':
+        if self.logical_interface:
             return True
         return False
     #end
