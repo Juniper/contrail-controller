@@ -1208,7 +1208,7 @@ class SecurityGroupST(DBBase):
             do_alloc = False
             if sg_id is not None:
                 if int(sg_id) < SGID_MIN_ALLOC:
-                    if self.name == self._cassanda.get_sg_from_id(int(sg_id)):
+                    if self.name == self._cassandra.get_sg_from_id(int(sg_id)):
                         self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
                     else:
                         do_alloc = True
