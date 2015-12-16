@@ -1291,6 +1291,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'logical-interface', 'virtual-machine-interface', ['ref']) -->
 
 <xsd:element name="bgp-as-a-service" type="ifmap:IdentityType"/>
+<xsd:element name="project-bgpaas"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('project-bgpaas', 'project', 'bgp-as-a-service', ['has']) -->
 <xsd:element name="bgpaas-virtual-machine-interface"/>
