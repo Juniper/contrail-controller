@@ -532,7 +532,7 @@ class FakeIfmapClient(object):
     # end _delete_publish
 
     @staticmethod
-    def call(method, body):
+    def call(client, method, body):
         cls = FakeIfmapClient
         if method == 'publish':
             pub_env = cls._PUBLISH_ENVELOPE % {
@@ -641,8 +641,8 @@ class FakeIfmapClient(object):
     # end call
 
     @staticmethod
-    def call_async_result(method, body):
-        return FakeIfmapClient.call(method, body)
+    def call_async_result(client, method, body):
+        return FakeIfmapClient.call(client, method, body)
 
 # end class FakeIfmapClient
 

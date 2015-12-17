@@ -28,6 +28,7 @@ import argparse
 import ConfigParser
 from pprint import pformat
 import random
+from netaddr import IPNetwork, IPAddress, IPSet, IPRange
 
 import bottle
 
@@ -39,6 +40,7 @@ import discoveryclient.client as discovery_client
 
 # sandesh
 from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
@@ -213,6 +215,15 @@ class DiscoveryServer():
             self.create_sub_data(client_id, service_type)
     # end __init__
 
+    def config_log(self, msg, level):
+        self._sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
+                                   msg)
+
+    def syslog(self, log_msg):
+        log = sandesh.discServiceLog(
+            log_msg=log_msg, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+
     def create_sub_data(self, client_id, service_type):
         if not client_id in self._sub_data:
             self._sub_data[client_id] = {}
@@ -283,23 +294,13 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        cred = None
-        if 'cassandra' in self.cassandra_config.keys():
-            cred = {'username':self.cassandra_config['cassandra']['cassandra_user'],'password':self.cassandra_config['cassandra']['cassandra_password']}
         self._db_conn = DiscoveryCassandraClient("discovery",
-            self._args.cassandra_server_list, reset_config,
-            self._args.cass_max_retries,
-            self._args.cass_timeout, cred)
+            self._args.cassandra_server_list, self.config_log, reset_config)
     # end _db_connect
 
     def cleanup(self):
         pass
     # end cleanup
-
-    def syslog(self, log_msg):
-        log = sandesh.discServiceLog(
-            log_msg=log_msg, sandesh=self._sandesh)
-        log.send(sandesh=self._sandesh)
 
     def get_ttl_short(self, client_id, service_type, default):
         ttl = default
@@ -439,8 +440,10 @@ class DiscoveryServer():
         info = json_req[service_type]
         remote = json_req.get('remote-addr',
                      bottle.request.environ['REMOTE_ADDR'])
+        version = json_req.get('version', disc_consts.DEFAULT_VERSION)
 
-        sig = end_point or publisher_id(remote, json.dumps(json_req))
+        sig = json_req.get('service-id', end_point) or \
+            publisher_id(remote, json.dumps(json_req))
 
         entry = self._db_conn.lookup_service(service_type, service_id=sig)
         if not entry:
@@ -478,6 +481,9 @@ class DiscoveryServer():
         entry['info'] = info
         entry['heartbeat'] = int(time.time())
         entry['remote'] = remote
+        entry['version'] = version
+        entry['ep_type'] = service_type
+        entry['ep_id'] = sig
 
         # insert entry if new or timed out
         self._db_conn.update_service(service_type, sig, entry)
@@ -546,6 +552,105 @@ class DiscoveryServer():
         return f(pubs)
     # end
 
+    """
+    read DSA rules
+    'dsa_rule_entry': {
+        u'subscriber': [{
+            u'ep_type': u'',
+            u'ep_id': u'',
+            u'ep_prefix': {u'ip_prefix': u'2.2.2.2', u'ip_prefix_len': 32},
+            u'ep_version': u''}],
+        u'publisher': {
+            u'ep_type': u'',
+            u'ep_id': u'',
+            u'ep_prefix': {u'ip_prefix': u'1.1.1.1', u'ip_prefix_len': 32},
+            u'ep_version': u''}
+    }
+    """
+    def match_dsa_rule_ep(self, rule_ep, ep):
+        # self.syslog('dsa rule_ep %s, ep %s' % (rule_ep, ep))
+
+        if rule_ep['ep_type'] != '' and rule_ep['ep_type'] != ep['ep_type']:
+            return (False, 0)
+        if rule_ep['ep_id'] != '' and rule_ep['ep_id'] != ep['ep_id']:
+            return (False, 0)
+        if rule_ep['ep_version'] != '' and rule_ep['ep_version'] != ep['version']:
+            return (False, 0);
+
+        prefix = rule_ep['ep_prefix']
+        if prefix['ip_prefix'] == '':
+            return (True, 0)
+
+        network = IPNetwork('%s/%s' % (prefix['ip_prefix'], prefix['ip_prefix_len']))
+        remote = IPAddress(ep['remote'])
+        return (remote in network, prefix['ip_prefix_len'])
+
+    def match_subscriber(self, dsa_rule, sub):
+        for rule_sub in dsa_rule['subscriber']:
+            match, match_len = self.match_dsa_rule_ep(rule_sub, sub)
+            if match:
+                return True, match_len
+        return False, 0
+
+    def match_publishers(self, dsa_rule, pubs):
+        result = []
+        rule_pub = dsa_rule['publisher']
+
+        for pub in pubs:
+            # include publisher if rule not relevant
+            if rule_pub['ep_type'] != pub['ep_type']:
+                result.append(pub)
+                continue
+            match, mlen = self.match_dsa_rule_ep(rule_pub, pub)
+            if match:
+                result.append(pub)
+        return result
+
+    def apply_dsa_config(self, pubs, sub):
+        if len(pubs) == 0:
+            return pubs
+
+        dsa_rules = self._db_conn.read_dsa_config()
+        if dsa_rules is None:
+            return pubs
+        # self.syslog('dsa: rules %s' % dsa_rules)
+
+        lpm = -1
+        matched_sub_rule = None
+        for rule in dsa_rules:
+            matched, matched_len = self.match_subscriber(rule, sub)
+            if not matched:
+                continue
+            self.syslog('dsa: matched sub %s' % sub)
+
+            if matched_len > lpm:
+                lpm = matched_len
+                matched_sub_rule = rule
+        # end for
+
+        # return original list if there is no sub match
+        if not matched_sub_rule:
+            return pubs
+
+        matched_pubs = self.match_publishers(matched_sub_rule, pubs)
+        self.syslog('dsa: matched pubs %s' % matched_pubs)
+
+        return matched_pubs
+
+    # reorder services (pubs) based on what client is actually using (in_use_list)
+    # client's in-use list publishers are pushed to the top
+    def adjust_in_use_list(self, pubs, in_use_list):
+        if not in_use_list:
+            return pubs
+        pubid_list = in_use_list['publisher-id']
+        if not pubid_list:
+            return pubs
+
+        pubs_dict = {entry['service_id']:entry for entry in pubs}
+        result = [pubs_dict[pid] for pid in pubid_list if pid in pubs_dict]
+        x = [entry for entry in pubs if entry['service_id'] not in pubid_list]
+        return result + x
+
     @db_error_handler
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
@@ -567,6 +672,7 @@ class DiscoveryServer():
         client_type = json_req.get('client-type', '')
         remote = json_req.get('remote-addr',
                      bottle.request.environ['REMOTE_ADDR'])
+        version = json_req.get('version', disc_consts.DEFAULT_VERSION)
 
         assigned_sid = set()
         r = []
@@ -581,9 +687,13 @@ class DiscoveryServer():
             cl_entry = {
                 'instances': count,
                 'client_type': client_type,
+                'client_id': client_id,
             }
             self.create_sub_data(client_id, service_type)
         cl_entry['remote'] = remote
+        cl_entry['version'] = version
+        cl_entry['ep_type'] = client_type
+        cl_entry['ep_id'] = client_id
         self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
@@ -602,8 +712,31 @@ class DiscoveryServer():
             % (service_type, client_type, client_id, ttl, count,
             len(pubs), len(pubs_active), len(subs)))
 
+        pubs_active = self.apply_dsa_config(pubs_active, cl_entry)
+        plist = dict((entry['service_id'],entry) for entry in pubs_active)
+        plist_all = dict((entry['service_id'],entry) for entry in pubs)
+
         # handle query for all publishers
         if count == 0:
+            # Handle in-use services list from client
+            # Reorder services (pubs) based on what client is actually using.
+            # Client's in-use list publishers are pushed to the top
+            # pubs_active = self.adjust_in_use_list(pubs_active, json_req.get('service-in-use-list', None))
+            try:
+                inuse_list = json_req['service-in-use-list']['publisher-id']
+                # convert to list if singleton
+                if type(inuse_list) != list:
+                    inuse_list = [inuse_list]
+                top = [plist[pubid] for pubid in inuse_list if pubid in plist]
+                bottom = [entry for entry in pubs_active if entry['service_id'] not in inuse_list]
+                for entry in top:
+                    self.syslog(' in-service-list assign service=%s' % entry['service_id'])
+                    self._db_conn.insert_client(service_type, entry['service_id'],
+                        client_id, entry['info'], ttl)
+                pubs_active = top + bottom
+            except Exception as e:
+                pass
+
             for entry in pubs_active:
                 r_dict = entry['info'].copy()
                 r_dict['@publisher-id'] = entry['service_id']
@@ -614,8 +747,6 @@ class DiscoveryServer():
             return response
 
         if subs:
-            plist = dict((entry['service_id'],entry) for entry in pubs_active)
-            plist_all = dict((entry['service_id'],entry) for entry in pubs)
             policy = self.get_service_config(service_type, 'policy')
 
             # Auto load-balance is triggered if enabled and some servers are

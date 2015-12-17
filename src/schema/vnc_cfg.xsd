@@ -1853,4 +1853,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
+<!-- Discovery service assignment config -->
+<xsd:complexType name="DiscoveryPubSubEndPointType">
+    <xsd:all>
+        <xsd:element name="ep-type"    type="xsd:string"/>
+        <xsd:element name="ep-id"      type="xsd:string"/>
+        <xsd:element name="ep-prefix"  type="SubnetType"/>
+        <xsd:element name="ep-version" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="DiscoveryServiceAssignmentType">
+    <xsd:all>
+        <xsd:element name="publisher"  type="DiscoveryPubSubEndPointType"/>
+        <xsd:element name="subscriber" type="DiscoveryPubSubEndPointType"  maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="dsa-rule-entry" type="DiscoveryServiceAssignmentType"/>
+<xsd:element name="dsa-rule" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('dsa-rule-entry', 'dsa-rule') -->
+<xsd:element name="discovery-service-assignment" type="ifmap:IdentityType"/>
+<xsd:element name="discovery-service-assignment-dsa-rule"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('discovery-service-assignment-dsa-rule',
+              'discovery-service-assignment', 'dsa-rule', ['has']) -->
+
 </xsd:schema>

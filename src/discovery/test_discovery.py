@@ -28,7 +28,7 @@ class TestDiscService():
             'server_port': '5998',
             'service_type': None,
             'service_count': 1,
-            'ip_addr': None,
+            'remote': None,
             'port': None,
             'service_id': None,
             'admin_state': None,
@@ -55,7 +55,7 @@ class TestDiscService():
         parser.add_argument(
             '--service_count', type=int, help="Number of instances. Default is 1")
         parser.add_argument(
-            '--ip_addr', help="IP address service to publish")
+            '--remote', help="IP address for publish or subscribe service")
         parser.add_argument('--port', help="Port of service to publish)")
         parser.add_argument('--service_id', help="Service ID of service)")
         parser.add_argument('--admin_state', help="Admin state of service)")
@@ -80,8 +80,9 @@ class TestDiscService():
                 print 'Service name and data required for publish operation'
                 sys.exit()
         elif self.args.oper == 'pubtest':
-            if self.args.service_type is None:
-                print 'Service name required for pubtest operation'
+            if (self.args.service_data is None or
+                    self.args.service_type is None):
+                print 'Service name and data required for publish operation'
                 sys.exit()
 
         print 'Discovery server = %s:%s'\
@@ -101,7 +102,11 @@ def main(args_str=None):
     _uuid = str(uuid.uuid4())
     myid = 'test_disc:%s' % (_uuid[:8])
     disc = client.DiscoveryClient(
-        x.args.server_ip, x.args.server_port, "test-discovery")
+        x.args.server_ip, x.args.server_port, "test-discovery",
+            pub_id = "test-discovery-%d" % os.getpid())
+    if x.args.remote:
+        disc.set_myip(x.args.remote)
+
     if x.args.oper == 'subscribe':
         print 'subscribe: service-type = %s, count = %d, myid = %s,\
             subscribe type: %s' \
@@ -119,12 +124,14 @@ def main(args_str=None):
     elif x.args.oper == 'publish':
         print 'Publish: service-type %s info %s' \
             % (x.args.service_type, x.args.service_data)
-        task = disc.publish(x.args.service_type, x.args.service_data)
+        pubdata = {x.args.service_type : x.args.service_data}
+        task = disc.publish(x.args.service_type, pubdata)
         gevent.joinall([task])
     elif x.args.oper == 'pubsub':
         print 'PubSub: service-type %s info %s' \
             % (x.args.service_type, x.args.service_data)
-        pubtask = disc.publish(x.args.service_type, x.args.service_data)
+        pubdata = {x.args.service_type : x.args.service_data}
+        pubtask = disc.publish(x.args.service_type, pubdata)
         subobj = disc.subscribe(
             x.args.service_type, x.args.service_count, info_callback)
         gevent.joinall([pubtask, subobj.task])
@@ -135,10 +142,10 @@ def main(args_str=None):
             disc = client.DiscoveryClient(
                 x.args.server_ip, x.args.server_port, 
                     pub_id, pub_id)
-            data = '%s-%d' % (x.args.service_type, i)
+            pubdata = {x.args.service_type : '%s-%d' % (x.args.service_type, i)}
             print 'Publish: service-type %s, data %s'\
-                % (x.args.service_type, data)
-            task = disc.publish(x.args.service_type, data)
+                % (x.args.service_type, pubdata)
+            task = disc.publish(x.args.service_type, pubdata)
             tasks.append(task)
             if x.args.delay:
                 time.sleep(x.args.delay)

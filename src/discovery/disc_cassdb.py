@@ -16,10 +16,11 @@ import pycassa.util
 from pycassa.system_manager import *
 from pycassa.util import *
 from pycassa.types import *
+from cfgm_common.vnc_cassandra import VncCassandraClient
 from sandesh_common.vns.constants import DISCOVERY_SERVER_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
-class DiscoveryCassandraClient(object):
+class DiscoveryCassandraClient(VncCassandraClient):
     _DISCOVERY_KEYSPACE_NAME = DISCOVERY_SERVER_KEYSPACE_NAME
     _DISCOVERY_CF_NAME = 'discovery'
 
@@ -29,85 +30,26 @@ class DiscoveryCassandraClient(object):
         return db_info
     # end get_db_info
 
-    def __init__(self, module, cass_srv_list, reset_config=False,
-                 max_retries=5, timeout=5, cass_credential=None):
-        self._disco_cf_name = 'discovery'
-        self._keyspace_name = 'DISCOVERY_SERVER'
-        self._reset_config = reset_config
-        self._credential = cass_credential
-        self._cassandra_init(cass_srv_list, max_retries, timeout)
-
+    def __init__(self, module, cass_srv_list, config_log, reset_config=False):
         self._debug = {
             'db_upd_oper_state': 0,
         }
+        self._keyspace = self._DISCOVERY_KEYSPACE_NAME
+
+        keyspaces = {
+            self._keyspace: [
+                (self._DISCOVERY_CF_NAME, CompositeType(AsciiType(), UTF8Type(), UTF8Type()))
+            ]
+        }
+
+        cass_reset_config = [self._keyspace] if reset_config else []
+
+        super(DiscoveryCassandraClient, self).__init__(
+            cass_srv_list, None, keyspaces,
+            config_log, reset_config=cass_reset_config)
+
+        DiscoveryCassandraClient._disco_cf = self._cf_dict[self._DISCOVERY_CF_NAME]
     #end __init__
-
-    # Helper routines for cassandra
-    def _cassandra_init(self, server_list, max_retries, timeout):
-
-        # column name <table-name>, <id1>, <id2>
-        disco_cf_info = (self._disco_cf_name, 
-            CompositeType(AsciiType(), UTF8Type(), UTF8Type()), AsciiType())
-
-        # 1. Ensure keyspace and schema/CFs exist
-        self._cassandra_ensure_keyspace(server_list, self._keyspace_name,
-                [disco_cf_info])
-
-        pool = pycassa.ConnectionPool(self._keyspace_name,
-                                      server_list, max_overflow=-1,
-                                      use_threadlocal=True, prefill=True,
-                                      pool_size=100, pool_timeout=120,
-                                      max_retries=max_retries, timeout=timeout,
-                                      credentials=self._credential)
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
-        self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
-                                              read_consistency_level = rd_consistency,
-                                              write_consistency_level = wr_consistency)
-    #end _cassandra_init
-
-    def _cassandra_ensure_keyspace(self, server_list,
-                                   keyspace_name, cf_info_list):
-        # Retry till cassandra is up
-        server_idx = 0
-        num_dbnodes = len(server_list)
-        connected = False
-        while not connected:
-            try:
-                cass_server = server_list[server_idx]
-                sys_mgr = SystemManager(cass_server,credentials=self._credential)
-                connected = True
-            except Exception as e:
-                # TODO do only for thrift.transport.TTransport.TTransportException
-                server_idx = (server_idx + 1) % num_dbnodes
-                time.sleep(3)
-
-        if self._reset_config:
-            try:
-                sys_mgr.drop_keyspace(keyspace_name)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                print "Warning! " + str(e)
-
-        try:
-            # TODO replication_factor adjust?
-            sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            # TODO verify only EEXISTS
-            print "Warning! " + str(e)
-
-        for cf_info in cf_info_list:
-            try:
-                (cf_name, comparator_type, validator_type) = cf_info
-                sys_mgr.create_column_family(keyspace_name, cf_name, 
-                        comparator_type = comparator_type, default_validation_class = validator_type)
-                sys_mgr.alter_column_family(keyspace_name, cf_name,
-                    gc_grace_seconds=CASSANDRA_DEFAULT_GC_GRACE_SECONDS)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                print "Warning! " + str(e)
-    #end _cassandra_ensure_keyspace
 
     def get_debug_stats(self):
         return self._debug
@@ -138,7 +80,11 @@ class DiscoveryCassandraClient(object):
     def service_entries(self, service_type = None):
         col_name = ('service',)
         try:
-            data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
+            if service_type:
+                data = self._disco_cf.get_range(start = service_type, finish = service_type,
+                    column_start = col_name, column_finish = col_name)
+            else:
+                data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
             for service_type, services in data:
                 for col_name in services:
                     col_value = services[col_name]
@@ -373,3 +319,40 @@ class DiscoveryCassandraClient(object):
                     entry['oper_state_msg'] = ''
                     self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
                     self._debug['db_upd_oper_state'] += 1
+
+    """
+    read DSA rules
+    'dsa_rule_entry': {
+        u'subscriber': [{
+            u'service_type': u'',
+            u'service_id': u'',
+            u'service_prefix': {u'ip_prefix': u'2.2.2.2', u'ip_prefix_len': 32},
+            u'service_version': u''}],
+        u'publisher': {
+            u'service_type': u'',
+            u'service_id': u'',
+            u'service_prefix': {u'ip_prefix': u'1.1.1.1', u'ip_prefix_len': 32},
+            u'service_version': u''}
+    }
+    """
+    def read_dsa_config(self):
+        try:
+            obj_type = 'discovery-service-assignment'
+            dsa_uuid = self.fq_name_to_uuid(obj_type,
+                           ['default-discovery-service-assignment'])
+            (ok, dsa_obj) = self.object_read(obj_type, [dsa_uuid])
+        except Exception as e:
+            return None
+
+        dsa_rules = dsa_obj[0].get('dsa_rules', None)
+        if dsa_rules is None:
+            return None
+
+        result = []
+        for rule in dsa_rules:
+            (ok, rule_obj) = self.object_read('dsa-rule', [rule['uuid']])
+            entry = rule_obj[0]['dsa_rule_entry']
+            if entry:
+                result.append(entry)
+
+        return result
