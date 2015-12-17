@@ -7,6 +7,7 @@
 
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/intrusive/list.hpp>
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include <base/util.h>
@@ -136,19 +137,10 @@ typedef std::list<MatchAclParams> MatchAclParamsList;
 // IMPORTANT: Keep this structure assignable. Assignment operator is used in
 // FlowEntry::Copy() on this structure
 struct MatchPolicy {
-    MatchPolicy():
-        m_acl_l(), policy_action(0), m_out_acl_l(), out_policy_action(0), 
-        m_out_sg_acl_l(), out_sg_rule_present(false), out_sg_action(0), 
-        m_sg_acl_l(), sg_rule_present(false), sg_action(0),
-        m_reverse_sg_acl_l(), reverse_sg_rule_present(false),
-        reverse_sg_action(0), m_reverse_out_sg_acl_l(),
-        reverse_out_sg_rule_present(false), reverse_out_sg_action(0),
-        m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
-        out_mirror_action(0), m_vrf_assign_acl_l(), vrf_assign_acl_action(0),
-        sg_action_summary(0), action_info() {
-    }
+    MatchPolicy();
+    ~MatchPolicy();
 
-    ~MatchPolicy() {}
+    void Reset();
 
     // IMPORTANT: Keep this structure assignable.
     MatchAclParamsList m_acl_l;
@@ -190,18 +182,10 @@ struct MatchPolicy {
 // IMPORTANT: Keep this structure assignable. Assignment operator is used in
 // FlowEntry::Copy() on this structure
 struct FlowData {
-    FlowData() :
-        smac(), dmac(), source_vn(""), dest_vn(""), source_sg_id_l(),
-        dest_sg_id_l(), flow_source_vrf(VrfEntry::kInvalidIndex),
-        flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
-        intf_entry(NULL), in_vm_entry(NULL), out_vm_entry(NULL),
-        vrf(VrfEntry::kInvalidIndex),
-        mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
-        component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        source_plen(0), dest_plen(0), drop_reason(0),
-        vrf_assign_evaluated(false), pending_recompute(false),
-        enable_rpf(true), l2_rpf_plen(Address::kMaxV4PrefixLen) {
-    }
+    FlowData();
+    ~FlowData();
+
+    void Reset();
 
     MacAddress smac;
     MacAddress dmac;
@@ -313,8 +297,11 @@ class FlowEntry {
         UnknownUnicastFlood = 1 << 11
     };
 
-    FlowEntry(const FlowKey &k, FlowTable *flow_table);
+    FlowEntry(FlowTable *flow_table);
     virtual ~FlowEntry();
+
+    void Reset(const FlowKey &k);
+    void Reset();
 
     // Copy data fields from rhs
     void Copy(const FlowEntry *rhs);
@@ -439,6 +426,7 @@ class FlowEntry {
     KSyncFlowIndexEntry *ksync_index_entry() { return ksync_index_entry_.get();}
 private:
     friend class FlowTable;
+    friend class FlowEntryFreeList;
     friend class FlowStatsCollector;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
@@ -482,6 +470,7 @@ private:
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;
+    boost::intrusive::list_member_hook<> free_list_node_;
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 
     static InetUnicastRouteEntry inet4_route_key_;

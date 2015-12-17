@@ -34,6 +34,7 @@ test_flow_eviction = AgentEnv.MakeTestCmd(env, 'test_flow_eviction', pkt_test_su
 test_pkt_fip = AgentEnv.MakeTestCmd(env, 'test_pkt_fip', pkt_flaky_test_suite)
 test_ecmp = AgentEnv.MakeTestCmd(env, 'test_ecmp', pkt_flaky_test_suite)
 test_flow_scale = AgentEnv.MakeTestCmd(env, 'test_flow_scale', pkt_flaky_test_suite)
+test_flow_freelist = AgentEnv.MakeTestCmd(env, 'test_flow_freelist', pkt_test_suite)
 test_sg_flow = AgentEnv.MakeTestCmd(env, 'test_sg_flow', pkt_flaky_test_suite)
 test_sg_flowv6 = AgentEnv.MakeTestCmd(env, 'test_sg_flowv6', pkt_test_suite)
 test_sg_tcp_flow = AgentEnv.MakeTestCmd(env, 'test_sg_tcp_flow', pkt_flaky_test_suite)

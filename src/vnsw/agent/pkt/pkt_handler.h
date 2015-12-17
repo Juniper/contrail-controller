@@ -160,10 +160,17 @@ struct AgentHdr {
 // Tunnel header decoded from the MPLSoGRE/MPLSoUDP encapsulated packet on
 // fabric. Supports only IPv4 addresses since only IPv4 is supported on fabric
 struct TunnelInfo {
-    TunnelInfo() : 
-        type(TunnelType::INVALID), label(-1), vxlan_id(-1), src_port(0),
-        ip_saddr(), ip_daddr() {}
+    TunnelInfo() : type(TunnelType::INVALID) { Reset(); }
     ~TunnelInfo() {}
+
+    void Reset() {
+        type = TunnelType::INVALID;
+        label = -1;
+        vxlan_id = -1;
+        src_port = 0;
+        ip_saddr = 0;
+        ip_daddr = 0;
+    }
 
     TunnelType          type;
     uint32_t            label;      // Valid only for MPLSoGRE and MPLSoUDP
