@@ -2011,6 +2011,226 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     task_util::WaitForIdle();
 }
 
+TEST_F(BgpConfigListenerTest, RouteAggregate_0) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on route-aggregate which is linked routing instance
+    string id_name = "vn_subnet";
+    ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_1) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_2) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // link routing instance and route aggregate
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_3) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on route-aggregate which is linked routing instance
+    string id_name = "vn_subnet";
+    ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_4) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_1.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on one of the route-aggregate linked to routing instance
+    string id_name = "vn_subnet_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_5) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_2.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // Trigger change on one of the route-aggregate linked to routing instance
+    string id_name = "vn_subnet_0";
+    ifmap_test_util::IFMapNodeNotify(&db_, "route-aggregate", id_name);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpConfigListenerTest, RouteAggregate_6) {
+    string content = ReadFile("controller/src/bgp/testdata/route_aggregate_2.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    PauseChangeListPropagation();
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test_0",
+        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
+
+    PerformChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("route-aggregate"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+
+    ResumeChangeListPropagation();
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

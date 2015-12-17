@@ -288,6 +288,25 @@ const ServiceChainConfig *BgpInstanceConfig::service_chain_info(
     return NULL;
 }
 
+const BgpInstanceConfig::AggregateRouteList &BgpInstanceConfig::aggregate_routes(
+                                              Address::Family family) const {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        return inet_aggregate_routes_;
+    } else {
+        return inet6_aggregate_routes_;
+    }
+}
+
+void BgpInstanceConfig::swap_aggregate_routes(Address::Family family,
+                                              AggregateRouteList *list) {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        std::swap(inet_aggregate_routes_, *list);
+    } else {
+        std::swap(inet6_aggregate_routes_, *list);
+    }
+}
 
 BgpRoutingPolicyConfig::BgpRoutingPolicyConfig(const std::string &name)
         : name_(name),

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <route-aggregate name='vn_subnet_0'>
+        <aggregate-route>
+            <prefix>2.2.0.0/16</prefix>
+            <nexthop>1.1.1.1</nexthop>
+        </aggregate-route>
+    </route-aggregate>
+    <routing-instance name="test_0">
+        <route-aggregate to="vn_subnet_0"/>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+    <routing-instance name="test_1">
+        <route-aggregate to="vn_subnet_0"/>
+        <vrf-target>target:1:104</vrf-target>
+    </routing-instance>
+</config>

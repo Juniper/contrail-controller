@@ -266,6 +266,12 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };
 
+struct AggregateRouteConfig {
+    IpAddress aggregate;
+    int prefix_length;
+    IpAddress nexthop;
+};
+
 struct ServiceChainConfig {
     Address::Family family;
     std::string routing_instance;
@@ -344,6 +350,7 @@ public:
     typedef std::set<std::string> RouteTargetList;
     typedef std::vector<StaticRouteConfig> StaticRouteList;
     typedef std::vector<ServiceChainConfig> ServiceChainList;
+    typedef std::vector<AggregateRouteConfig> AggregateRouteList;
 
     explicit BgpInstanceConfig(const std::string &name);
     virtual ~BgpInstanceConfig();
@@ -402,6 +409,10 @@ public:
     void swap_routing_policy_list(RoutingPolicyConfigList *list) {
         std::swap(routing_policies_, *list);
     }
+
+    const AggregateRouteList &aggregate_routes(Address::Family family) const;
+    void swap_aggregate_routes(Address::Family family,
+                               AggregateRouteList *list);
     void Clear();
 
 private:
@@ -418,6 +429,8 @@ private:
     mutable uint64_t last_change_at_;
     StaticRouteList inet_static_routes_;
     StaticRouteList inet6_static_routes_;
+    AggregateRouteList inet_aggregate_routes_;
+    AggregateRouteList inet6_aggregate_routes_;
     ServiceChainList service_chain_list_;
     RoutingPolicyConfigList routing_policies_;
 
