@@ -101,7 +101,7 @@ Address::Family PathResolver::family() const {
 //
 void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
     BgpRoute *route) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     partitions_[part_id]->StartPathResolution(path, route);
 }
@@ -125,7 +125,7 @@ void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path) {
 // needed when the BgpPath changes nexthop.
 //
 void PathResolver::StopPathResolution(int part_id, const BgpPath *path) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     partitions_[part_id]->StopPathResolution(path);
 }
@@ -169,7 +169,7 @@ PathResolverPartition *PathResolver::GetPartition(int part_id) {
 // A newly created ResolverNexthop is added to the map.
 //
 ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     tbb::mutex::scoped_lock lock(mutex_);
     ResolverNexthopMap::iterator loc = nexthop_map_.find(address);
@@ -504,7 +504,8 @@ void PathResolverPartition::StopPathResolution(const BgpPath *path) {
 // Add a ResolverPath to the update list and start Task to process the list.
 //
 void PathResolverPartition::TriggerPathResolution(ResolverPath *rpath) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::ResolverNexthop");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::ResolverNexthop",
+                      "bgp::Config", "bgp::RouteAggregation");
 
     rpath_update_list_.insert(rpath);
     rpath_update_trigger_->Set();
@@ -918,7 +919,7 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
 // Do not attempt to access other partitions due to concurrency issues.
 //
 void ResolverNexthop::AddResolverPath(int part_id, ResolverPath *rpath) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     if (rpath_lists_[part_id].empty())
         resolver_->RegisterUnregisterResolverNexthop(this);

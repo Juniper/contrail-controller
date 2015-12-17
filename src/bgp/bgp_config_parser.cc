@@ -296,6 +296,26 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
     return true;
 }
 
+static bool ParseInstanceRouteAggregate(const string &instance,
+    const xml_node &node, bool add_change,
+    BgpConfigParser::RequestList *requests) {
+
+    xml_attribute to = node.attribute("to");
+    assert(to);
+    string aggregate_name = to.value();
+    if (add_change) {
+        MapObjectLinkAttr("routing-instance", instance,
+            "route-aggregate", aggregate_name,
+            "routing-instance-route-aggregate", NULL, requests);
+    } else {
+        MapObjectUnlink("routing-instance", instance,
+            "route-aggregate", aggregate_name,
+            "routing-instance-route-aggregate", requests);
+    }
+
+    return true;
+}
+
 static bool ParseInstanceRoutingPolicy(const string &instance,
     const xml_node &node, bool add_change,
     BgpConfigParser::RequestList *requests) {
@@ -488,6 +508,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
         } else if (strcmp(node.name(), "ipv6-service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, Address::INET6,
                               requests);
+        } else if (strcmp(node.name(), "route-aggregate") == 0) {
+            ParseInstanceRouteAggregate(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "routing-policy") == 0) {
             ParseInstanceRoutingPolicy(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
@@ -524,6 +546,28 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
     } else {
         MapObjectClearProperty("virtual-network", vn_name,
             "virtual-network-properties", requests);
+    }
+
+    return true;
+}
+
+bool BgpConfigParser::ParseRouteAggregate(const xml_node &node,
+                                          bool add_change,
+                                          RequestList *requests) const {
+    // policy name
+    string aggregate_name(node.attribute("name").value());
+    assert(!aggregate_name.empty());
+
+    auto_ptr<autogen::AggregateRoutesType> aggregate_routes(
+        new autogen::AggregateRoutesType());
+    assert(aggregate_routes->XmlParse(node));
+
+    if (add_change) {
+        MapObjectSetProperty("route-aggregate", aggregate_name,
+            "aggregate-route-entries", aggregate_routes.release(), requests);
+    } else {
+        MapObjectClearProperty("route-aggregate", aggregate_name,
+            "aggregate-route-entries", requests);
     }
 
     return true;
@@ -570,6 +614,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "virtual-network") == 0) {
             ParseVirtualNetwork(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "route-aggregate") == 0) {
+            ParseRouteAggregate(node, add_change, requests);
         }
         if (strcmp(node.name(), "routing-policy") == 0) {
             ParseRoutingPolicy(node, add_change, requests);

@@ -34,6 +34,7 @@ class BgpPath;
 class BgpRoute;
 class BgpServer;
 class BgpTable;
+class IRouteAggregator;
 class IStaticRouteMgr;
 class RouteDistinguisher;
 class RoutingInstanceMgr;
@@ -63,6 +64,11 @@ public:
     void ProcessStaticRouteConfig();
     void UpdateStaticRouteConfig();
     void FlushStaticRouteConfig();
+
+    void ProcessRouteAggregationConfig();
+    void UpdateRouteAggregationConfig();
+    void FlushRouteAggregationConfig();
+
     void ProcessConfig();
     void UpdateConfig(const BgpInstanceConfig *config);
     void ClearConfig();
@@ -131,6 +137,17 @@ public:
         return NULL;
     }
 
+    IRouteAggregator *route_aggregator(Address::Family family) {
+        if (family == Address::INET)
+            return inet_route_aggregator_;
+        if (family == Address::INET6)
+            return inet6_route_aggregator_;
+        assert(false);
+        return NULL;
+    }
+
+    void DestroyRouteAggregator(Address::Family family);
+
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
 
@@ -186,6 +203,8 @@ private:
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<IStaticRouteMgr> inet_static_route_mgr_;
     boost::scoped_ptr<IStaticRouteMgr> inet6_static_route_mgr_;
+    IRouteAggregator* inet_route_aggregator_;
+    IRouteAggregator* inet6_route_aggregator_;
     boost::scoped_ptr<PeerManager> peer_manager_;
     RoutingPolicyAttachList routing_policies_;
 };

@@ -34,7 +34,8 @@ public:
         ResolvedRoute = 2,
         ServiceChain = 3,
         StaticRoute = 4,
-        Local = 5,
+        Aggregation = 5,
+        Local = 6,
     };
 
     static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
