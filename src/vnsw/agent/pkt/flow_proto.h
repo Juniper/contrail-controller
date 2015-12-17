@@ -63,6 +63,7 @@ public:
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
     void CreateAuditEntry(FlowEntry *flow);
     bool FlowEventHandler(const FlowEvent &req);
+    void GrowFreeListRequest(const FlowKey &key);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);

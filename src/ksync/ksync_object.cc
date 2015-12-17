@@ -233,6 +233,10 @@ void KSyncObject::FreeInd(KSyncEntry *entry, uint32_t index) {
         index_table_.Free(index);
     }
     PreFree(entry);
+    Free(entry);
+}
+
+void KSyncObject::Free(KSyncEntry *entry) {
     delete entry;
 }
 

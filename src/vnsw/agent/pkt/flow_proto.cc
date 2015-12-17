@@ -198,6 +198,12 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
         break;
     }
 
+    case FlowEvent::GROW_FREE_LIST: {
+        FlowTable *table = GetFlowTable(event.get_flow_key());
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
     default:
         assert(0);
         break;
@@ -262,6 +268,12 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req) {
         break;
     }
 
+    case FlowEvent::GROW_FREE_LIST: {
+        FlowTable *table = GetFlowTable(req.get_flow_key());
+        table->GrowFreeList();
+        break;
+    }
+
     default: {
         assert(0);
         break;
@@ -291,6 +303,11 @@ void FlowProto::CreateAuditEntry(FlowEntry *flow) {
     return;
 }
 
+
+void FlowProto::GrowFreeListRequest(const FlowKey &key) {
+    EnqueueFlowEvent(FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
+    return;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 // Set profile information

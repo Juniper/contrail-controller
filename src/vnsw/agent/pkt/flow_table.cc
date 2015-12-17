@@ -45,6 +45,11 @@
 #include <pkt/flow_mgmt.h>
 #include <pkt/flow_event.h>
 
+const uint32_t FlowEntryFreeList::kInitCount;
+const uint32_t FlowEntryFreeList::kTestInitCount;
+const uint32_t FlowEntryFreeList::kGrowSize;
+const uint32_t FlowEntryFreeList::kMinThreshold;
+
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 boost::uuids::random_generator FlowTable::rand_gen_;
 
@@ -56,7 +61,8 @@ FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     table_index_(table_index),
     ksync_object_(NULL),
     flow_entry_map_(),
-    linklocal_flow_count_() {
+    linklocal_flow_count_(),
+    free_list_(this) {
 }
 
 FlowTable::~FlowTable() {
@@ -896,3 +902,73 @@ void FlowTable::DelLinkLocalFlowInfo(int fd) {
     linklocal_flow_info_map_.erase(fd);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// FlowEntryFreeList implementation
+/////////////////////////////////////////////////////////////////////////////
+void FlowTable::GrowFreeList() {
+    free_list_.Grow();
+    ksync_object_->GrowFreeList();
+}
+
+FlowEntryFreeList::FlowEntryFreeList(FlowTable *table) :
+    table_(table), max_count_(0), grow_pending_(false), total_alloc_(0),
+    total_free_(0), free_list_() {
+    uint32_t count = kInitCount;
+    if (table->agent()->test_mode()) {
+        count = kTestInitCount;
+    }
+
+    while (max_count_ < count) {
+        free_list_.push_back(*new FlowEntry(table));
+        max_count_++;
+    }
+}
+
+FlowEntryFreeList::~FlowEntryFreeList() {
+    while (free_list_.empty() == false) {
+        FreeList::iterator it = free_list_.begin();
+        FlowEntry *flow = &(*it);
+        free_list_.erase(it);
+        delete flow;
+    }
+}
+
+// Allocate a chunk of FlowEntries
+void FlowEntryFreeList::Grow() {
+    grow_pending_ = false;
+    if (free_list_.size() >= kMinThreshold)
+        return;
+
+    for (uint32_t i = 0; i < kGrowSize; i++) {
+        free_list_.push_back(*new FlowEntry(table_));
+        max_count_++;
+    }
+}
+
+FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
+    FlowEntry *flow = NULL;
+    if (free_list_.size() == 0) {
+        flow = new FlowEntry(table_);
+        max_count_++;
+    } else {
+        FreeList::iterator it = free_list_.begin();
+        flow = &(*it);
+        free_list_.erase(it);
+    }
+
+    if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
+        grow_pending_ = true;
+        FlowProto *proto = table_->agent()->pkt()->get_flow_proto();
+        proto->GrowFreeListRequest(key);
+    }
+    flow->Reset(key);
+    total_alloc_++;
+    return flow;
+}
+
+void FlowEntryFreeList::Free(FlowEntry *flow) {
+    total_free_++;
+    flow->Reset();
+    free_list_.push_back(*flow);
+    // TODO : Free entry if beyound threshold
+}

@@ -61,16 +61,27 @@ public:
     static const int kDefaultMsgSize = 512;
 
     // Use this constructor if automatic index allocation is *not* needed
-    KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false),
-    stale_(false), del_add_pending_(false) {
-        refcount_ = 0;
+    KSyncEntry() {
+        Reset();
     };
     // Use this constructor if automatic index allocation is needed
-    KSyncEntry(uint32_t index) : index_(index), state_(INIT), seen_(false),
-    stale_(false), del_add_pending_(false) {
-        refcount_ = 0;
+    KSyncEntry(uint32_t index) {
+        Reset(index);
     };
     virtual ~KSyncEntry() { assert(refcount_ == 0);};
+
+    void Reset() {
+        index_ = kInvalidIndex;
+        state_ = INIT;
+        seen_ = false;
+        stale_ = false;
+        del_add_pending_ = false;
+        refcount_ = 0;
+    }
+    void Reset(uint32_t index) {
+        Reset();
+        index_ = index;
+    }
 
     // Comparator for boost::set containing all KSyncEntries in an KSyncObject
     bool operator<(const KSyncEntry &rhs) const {
