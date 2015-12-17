@@ -228,7 +228,7 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
     assert(!columns.empty());
     BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
         columns) {
-        query << ", " << column.first << " " <<
+        query << ", \"" << column.first << "\" " <<
             DbDataType2CassType(column.second);
     }
     query << ")";
@@ -369,8 +369,10 @@ std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
         query << ", ";
         const GenDb::DbDataValueVec &cnames(*column.name.get());
         assert(cnames.size() == 1);
-        // Do not quote column name strings
+        // Double quote column name strings
+        query << "\"";
         boost::apply_visitor(cnames_printer, cnames[0]);
+        query << "\"";
         // Column Values
         values_ss << ", ";
         const GenDb::DbDataValueVec &cvalues(*column.value.get());
@@ -512,7 +514,21 @@ static GenDb::DbDataValue CassValue2DbDataValue(const CassValue *cvalue) {
         assert(rc == CASS_OK);
         return (uint64_t)ct64;
       }
+      case CASS_VALUE_TYPE_INET: {
+        CassInet ctinet;
+        CassError rc(cass_value_get_inet(cvalue, &ctinet));
+        assert(rc == CASS_OK);
+        assert(ctinet.address_length == CASS_INET_V4_LENGTH);
+        uint32_t v4_addr;
+        memcpy(&v4_addr, ctinet.address, sizeof(v4_addr));
+        return v4_addr;
+      }
+      case CASS_VALUE_TYPE_UNKNOWN: {
+        // null type
+        return GenDb::DbDataValue();
+      }
       default: {
+        CQLIF_LOG_ERR("Unhandled CassValueType: " << cvtype);
         assert(false && "Unhandled value type");
         return GenDb::DbDataValue();
       }
@@ -521,6 +537,7 @@ static GenDb::DbDataValue CassValue2DbDataValue(const CassValue *cvalue) {
 
 static bool ExecuteQuerySyncInternal(CassSession *session, const char* query,
     CassResultPtr *result, CassConsistency consistency) {
+    CQLIF_LOG(DEBUG, "SyncQuery: " << query);
     CassStatementPtr statement(cass_statement_new(query, 0));
     cass_statement_set_consistency(statement.get(), consistency);
     CassFuturePtr future(cass_session_execute(session, statement.get()));
@@ -603,9 +620,12 @@ static bool StaticCfGetResultSync(CassSession *session, const char *query,
             assert(rc == CASS_OK);
             const CassValue *cvalue(cass_row_get_column(row, i));
             assert(cvalue);
+            GenDb::DbDataValue db_value(CassValue2DbDataValue(cvalue));
+            if (db_value.which() == GenDb::DB_VALUE_BLANK) {
+                continue;
+            }
             GenDb::NewCol *column(new GenDb::NewCol(
-                std::string(cname.data, cname.length),
-                CassValue2DbDataValue(cvalue), 0));
+                std::string(cname.data, cname.length), db_value, 0));
             v_columns->push_back(column);
         }
     }
@@ -766,6 +786,14 @@ class CqlIf::CqlIfImpl {
         // Set contact points and port
         std::string contact_points(boost::algorithm::join(cassandra_ips, ","));
         cass_cluster_set_contact_points(cluster_.get(), contact_points.c_str());
+        // XXX START
+        // Temporary hack to workaround provisioning dependency
+        #define CASSANDRA_DEFAULT_THRIFT_PORT 9160
+        #define CASSANDRA_DEFAULT_CQL_PORT 9042
+        if (cassandra_port == CASSANDRA_DEFAULT_THRIFT_PORT) {
+            cassandra_port = CASSANDRA_DEFAULT_CQL_PORT;
+        }
+        // XXX END
         cass_cluster_set_port(cluster_.get(), cassandra_port);
         // Set credentials for plain text authentication
         if (!cassandra_user.empty() && !cassandra_password.empty()) {
@@ -783,6 +811,9 @@ class CqlIf::CqlIfImpl {
 
     bool CreateKeyspaceIfNotExistsSync(const std::string &keyspace,
         const std::string &replication_factor, CassConsistency consistency) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         char buf[512];
         int n(snprintf(buf, sizeof(buf), kQCreateKeyspaceIfNotExists,
             keyspace.c_str(), replication_factor.c_str()));
@@ -796,6 +827,9 @@ class CqlIf::CqlIfImpl {
 
     bool UseKeyspaceSync(const std::string &keyspace,
         CassConsistency consistency) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         char buf[512];
         int n(snprintf(buf, sizeof(buf), kQUseKeyspace, keyspace.c_str()));
         if (n < 0 || n >= (int)sizeof(buf)) {
@@ -815,6 +849,9 @@ class CqlIf::CqlIfImpl {
 
     bool CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
         CassConsistency consistency) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         // There are two types of tables - Static (SQL) and Dynamic (NOSQL)
         // column family. Static column family has more or less fixed rows,
         // and dynamic column family has wide rows
@@ -834,6 +871,9 @@ class CqlIf::CqlIfImpl {
     }
 
     bool IsTableStatic(const std::string &table) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         size_t ck_count;
         assert(impl::GetCassTableClusteringKeyCount(session_.get(), keyspace_,
             table, &ck_count));
@@ -846,6 +886,9 @@ class CqlIf::CqlIfImpl {
 
     bool InsertIntoTableSync(std::auto_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         std::string query;
         if (IsTableStatic(v_columns->cfname_)) {
             query = impl::StaticCf2CassInsertIntoTable(v_columns.get());
@@ -859,6 +902,9 @@ class CqlIf::CqlIfImpl {
     bool SelectFromTableSync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey, CassConsistency consistency,
         GenDb::NewColVec *out) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         std::string query(impl::PartitionKey2CassSelectFromTable(cfname,
             rkey));
         if (IsTableStatic(cfname)) {
@@ -876,10 +922,13 @@ class CqlIf::CqlIfImpl {
         }
     }
 
-    bool SelectFromTableSync(const std::string &cfname,
+    bool SelectFromTableClusteringKeyRangeSync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey,
         const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
         GenDb::NewColVec *out) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
         std::string query(
             impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(cfname,
             rkey, ck_range));
@@ -1112,7 +1161,20 @@ bool CqlIf::Db_GetRow(GenDb::ColList *out, const std::string &cfname,
 
 bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
     const std::vector<GenDb::DbDataValueVec> &v_rowkey) {
-    return Db_GetMultiRow(out, cfname, v_rowkey, GenDb::ColumnNameRange());
+    BOOST_FOREACH(const GenDb::DbDataValueVec &rkey, v_rowkey) {
+        std::auto_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
+        // Partition Key
+        v_columns->rowkey_ = rkey;
+        bool success(impl_->SelectFromTableSync(cfname, rkey,
+            CASS_CONSISTENCY_ONE, &v_columns->columns_));
+        if (!success) {
+            CQLIF_LOG_ERR("SELECT FROM Table: " << cfname << " Partition Key: "
+                << GenDb::DbDataValueVecToString(rkey) << " FAILED");
+            return false;
+        }
+        out->push_back(v_columns.release());
+    }
+    return true;
 }
 
 bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
@@ -1120,12 +1182,14 @@ bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
     const GenDb::ColumnNameRange &crange) {
     BOOST_FOREACH(const GenDb::DbDataValueVec &rkey, v_rowkey) {
         std::auto_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
-        bool success(impl_->SelectFromTableSync(cfname, rkey, crange,
-            CASS_CONSISTENCY_ONE, &v_columns->columns_));
+        // Partition Key
+        v_columns->rowkey_ = rkey;
+        bool success(impl_->SelectFromTableClusteringKeyRangeSync(cfname,
+            rkey, crange, CASS_CONSISTENCY_ONE, &v_columns->columns_));
         if (!success) {
             CQLIF_LOG_ERR("SELECT FROM Table: " << cfname << " Partition Key: "
-                << GenDb::DbDataValueVecToString(rkey) << " Clustering Key Range: " <<
-                crange.ToString() << " FAILED");
+                << GenDb::DbDataValueVecToString(rkey) <<
+                " Clustering Key Range: " << crange.ToString() << " FAILED");
             return false;
         }
         out->push_back(v_columns.release());

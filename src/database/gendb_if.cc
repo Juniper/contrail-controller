@@ -3,6 +3,8 @@
  */
 
 #include <boost/foreach.hpp>
+
+#include <base/string_util.h>
 #include <database/gendb_if.h>
 
 using namespace GenDb;
@@ -82,8 +84,53 @@ std::string GenDb::DbDataValueVecToString(
         if (i) {
             ss << " ";
         }
-        ss << v_db_value[i];
+        ss << DbDataValueToString(v_db_value[i]);
     }
     ss << "]";
     return ss.str();
+}
+
+std::string GenDb::DbDataValueToString(const GenDb::DbDataValue &db_value) {
+    std::string vstr;
+    switch (db_value.which()) {
+      case GenDb::DB_VALUE_STRING: {
+        vstr = boost::get<std::string>(db_value);
+        break;
+      }
+      case GenDb::DB_VALUE_UINT64: {
+        uint64_t vint = boost::get<uint64_t>(db_value);
+        vstr = integerToString(vint);
+        break;
+      }
+      case GenDb::DB_VALUE_UINT32: {
+        uint32_t vint = boost::get<uint32_t>(db_value);
+        vstr = integerToString(vint);
+        break;
+      }
+      case GenDb::DB_VALUE_UINT16: {
+        uint16_t vint = boost::get<uint16_t>(db_value);
+        vstr = integerToString(vint);
+        break;
+      }
+      case GenDb::DB_VALUE_UINT8: {
+        uint8_t vint = boost::get<uint8_t>(db_value);
+        vstr = integerToString(vint);
+        break;
+      }
+      case GenDb::DB_VALUE_UUID: {
+        boost::uuids::uuid vuuid = boost::get<boost::uuids::uuid>(db_value);
+        vstr = to_string(vuuid);
+        break;
+      }
+      case GenDb::DB_VALUE_DOUBLE: {
+        double vdouble = boost::get<double>(db_value);
+        vstr = integerToString(vdouble);
+        break;
+      }
+      default: {
+        assert(0);
+        break;
+      }
+    }
+    return vstr;
 }

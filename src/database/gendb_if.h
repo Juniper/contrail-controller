@@ -35,6 +35,7 @@ typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
 std::string DbDataValueVecToString(const GenDb::DbDataValueVec &v_db_value);
+std::string DbDataValueToString(const GenDb::DbDataValue &db_value);
 
 class DbDataValueCqlPrinter : public boost::static_visitor<> {
  public:
