@@ -39,6 +39,8 @@ generated_files = [
                   'vnc_cfg_api_server/gen/vnc_ifmap_client_gen.py',
                   'vnc_cfg_api_server/gen/vnc_cassandra_client_gen.py',
                 ]
+env.Append(ENV = {'HEAT_BUILDTOP' : Dir(env['TOP']).abspath})
+
 generated_rule = env.Command(generated_files,
                              '#/controller/src/schema/all_cfg.xsd',
                              autogen_cmd + ' $SOURCE')
