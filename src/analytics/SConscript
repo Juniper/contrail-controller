@@ -56,13 +56,12 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'boost_filesystem',
         'boost_program_options'])
 
-#if AnalyticsEnv.UseCassandraCql():
-#    database_libs = ['cassandra_cql', 'cassandra', 'cassandra_thrift', 'thrift']
-#    AnalyticsEnv.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
-#else:
-#    database_libs = ['cassandra_thrift', 'thrift']
+if AnalyticsEnv.UseCassandraCql():
+    database_libs = ['cassandra_cql', 'cassandra']
+    AnalyticsEnv.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
+else:
+    database_libs = ['cassandra_thrift', 'thrift']
 
-database_libs = ['cassandra_thrift', 'thrift']
 database_libs.append('gendb')
 AnalyticsEnv.Prepend(LIBS=database_libs)
 

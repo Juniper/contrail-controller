@@ -413,85 +413,8 @@ query_status_t SelectQuery::process_query() {
                     QE_ASSERT(0);
                 }
 
-                std::string elem_value;
-                switch (col_type_it->second) {
-                    case GenDb::DbDataType::Unsigned8Type:
-                          {
-                            uint8_t val;
-                            try {
-                                val = boost::get<uint8_t>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-                            elem_value = integerToString(val);
-
-                            break;
-                          }
-                    case GenDb::DbDataType::Unsigned16Type:
-                          {
-                            uint16_t val;
-                            try {
-                                val = boost::get<uint16_t>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-                            elem_value = integerToString(val);
-
-                            break;
-                          }
-                    case GenDb::DbDataType::Unsigned32Type:
-                          {
-                            uint32_t val;
-                            try {
-                                val = boost::get<uint32_t>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-                            elem_value = integerToString(val);
-
-                            break;
-                          }
-                    case GenDb::DbDataType::Unsigned64Type:
-                          {
-                            uint64_t val;
-                            try {
-                                val = boost::get<uint64_t>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-                            elem_value = integerToString(val);
-
-                            break;
-                          }
-                    case GenDb::DbDataType::AsciiType:
-                    case GenDb::DbDataType::UTF8Type:
-                          {
-                            try {
-                                elem_value = boost::get<std::string>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-
-                            break;
-                          }
-                    case GenDb::DbDataType::LexicalUUIDType:
-                        {
-                            boost::uuids::uuid val;
-                            try {
-                                val = boost::get<boost::uuids::uuid>(kt->second);
-                            } catch (boost::bad_get& ex) {
-                                QE_ASSERT(0);
-                            }
-                            std::stringstream ss;
-                            ss << val;
-                            elem_value = ss.str();
-
-                            break;
-                        }
-                    default:
-                        QE_ASSERT(0);
-                }
-
+                const GenDb::DbDataValue &db_value(kt->second);
+                std::string elem_value(GenDb::DbDataValueToString(db_value));
                 cmap.insert(std::make_pair(kt->first, elem_value));
             }
             result_->push_back(std::make_pair(cmap, nullmetadata));
@@ -714,46 +637,7 @@ query_status_t SelectQuery::process_query() {
 
                     cmap.insert(std::make_pair(kt->first, u_s));
                 } else {
-                    std::string vstr;
-                    switch (kt->second.which()) {
-                    case GenDb::DB_VALUE_STRING: {
-                        vstr = boost::get<std::string>(kt->second);
-                        break;
-                    }
-                    case GenDb::DB_VALUE_UINT64: {
-                        uint64_t vint = boost::get<uint64_t>(kt->second);
-                        vstr = integerToString(vint);
-                        break;
-                    }     
-                    case GenDb::DB_VALUE_UINT32: {
-                        uint32_t vint = boost::get<uint32_t>(kt->second);
-                        vstr = integerToString(vint);
-                        break;
-                    }     
-                    case GenDb::DB_VALUE_UINT16: {
-                        uint16_t vint = boost::get<uint16_t>(kt->second);
-                        vstr = integerToString(vint);
-                        break;
-                    }     
-                    case GenDb::DB_VALUE_UINT8: {
-                        uint8_t vint = boost::get<uint8_t>(kt->second);
-                        vstr = integerToString(vint);
-                        break;
-                    }     
-                    case GenDb::DB_VALUE_UUID: {
-                        boost::uuids::uuid vuuid = boost::get<boost::uuids::uuid>(kt->second);
-                        vstr = to_string(vuuid); 
-                        break;
-                    }
-                    case GenDb::DB_VALUE_DOUBLE: {
-                        double vdouble = boost::get<double>(kt->second);
-                        vstr = integerToString(vdouble);
-                        break;
-                    } 
-                    default:
-                        QE_ASSERT(0);
-                        break;
-                    }
+                    std::string vstr(GenDb::DbDataValueToString(kt->second));
                     cmap.insert(std::make_pair(kt->first, vstr));
                 } 
             }
@@ -776,9 +660,9 @@ bool SelectQuery::process_object_query_specific_select_params(
     std::map<std::string, GenDb::DbDataValue>::iterator cit;
     cit = col_res_map.find(g_viz_constants.SANDESH_TYPE);
     QE_ASSERT(cit != col_res_map.end());
-    uint8_t type_val;
+    uint32_t type_val;
     try {
-        type_val = boost::get<uint8_t>(cit->second);
+        type_val = boost::get<uint32_t>(cit->second);
     } catch (boost::bad_get& ex) {
         QE_ASSERT(0);
     }

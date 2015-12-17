@@ -36,6 +36,7 @@ from opserver.sandesh.viz.constants import *
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
 from utils.util import find_buildroot
+from cassandra.cluster import Cluster
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -69,11 +70,29 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         pass
 
     def _update_analytics_start_time(self, start_time):
-        pool = ConnectionPool(COLLECTOR_KEYSPACE, ['127.0.0.1:%s'
-                    % (self.__class__.cassandra_port)])
-        col_family = ColumnFamily(pool, SYSTEM_OBJECT_TABLE)
-        col_family.insert(SYSTEM_OBJECT_ANALYTICS,
-                {SYSTEM_OBJECT_START_TIME: start_time})
+        if mockcassandra.use_cql():
+            cluster = Cluster(['127.0.0.1'],
+                port=int(self.__class__.cassandra_port))
+            session = cluster.connect(COLLECTOR_KEYSPACE_CQL)
+            query = "INSERT INTO {0} (key, \"{1}\") VALUES ('{2}', {3})".format(
+                SYSTEM_OBJECT_TABLE, SYSTEM_OBJECT_START_TIME,
+                SYSTEM_OBJECT_ANALYTICS, start_time)
+            try:
+                session.execute(query)
+            except Exception as e:
+                logging.error("INSERT INTO %s: Key %s Column %s Value %d "
+                    "FAILED: %s" % (SYSTEM_OBJECT_TABLE,
+                    SYSTEM_OBJECT_ANALYTICS, SYSTEM_OBJECT_START_TIME,
+                    start_time, str(e)))
+                assert False
+            else:
+                cluster.shutdown()
+        else:
+            pool = ConnectionPool(COLLECTOR_KEYSPACE, ['127.0.0.1:%s'
+                        % (self.__class__.cassandra_port)])
+            col_family = ColumnFamily(pool, SYSTEM_OBJECT_TABLE)
+            col_family.insert(SYSTEM_OBJECT_ANALYTICS,
+                    {SYSTEM_OBJECT_START_TIME: start_time})
 
     # end _update_analytics_start_time
 
@@ -142,17 +161,17 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         if AnalyticsTest._check_skip_test() is True:
             return True
 
-        # set the start time in analytics db 1 hour earlier than
-        # the current time. For flow series test, we need to create
-        # flow samples older than the current time.
-        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
-        self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
+        # set the start time in analytics db 1 hour earlier than
+        # the current time. For flow series test, we need to create
+        # flow samples older than the current time.
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
             GeneratorFixture("contrail-vrouter-agent", collectors,

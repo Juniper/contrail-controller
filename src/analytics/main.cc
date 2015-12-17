@@ -327,7 +327,6 @@ int main(int argc, char *argv[])
     //Get Platform info
     //cql not supported in precise, centos 6.4 6.5
     bool use_cql = MiscUtils::IsCqlSupported();
-    use_cql = false;
     VizCollector analytics(a_evm,
             options.collector_port(),
             protobuf_server_enabled,

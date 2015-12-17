@@ -827,7 +827,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     db_query->cr.finish_.push_back(sip);
                 }
             }  else {
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.finish_.push_back(
+                    (uint32_t)std::numeric_limits<int32_t>::max());
+#else // USE_CASSANDRA_CQL
                 db_query->cr.finish_.push_back((uint32_t)0xffffffff);
+#endif // !USE_CASSANDRA_CQL
             }
 
             QE_TRACE(DEBUG, "row_key_suffix for svn/sip:" << direction_ing);
@@ -856,7 +861,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     db_query->cr.finish_.push_back(dip);
                 }
             }  else {
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.finish_.push_back(
+                    (uint32_t)std::numeric_limits<int32_t>::max());
+#else // USE_CASSANDRA_CQL
                 db_query->cr.finish_.push_back((uint32_t)0xffffffff);
+#endif // !USE_CASSANDRA_CQL
             }
 
             QE_TRACE(DEBUG, "row_key_suffix for dvn/dip:" << direction_ing);

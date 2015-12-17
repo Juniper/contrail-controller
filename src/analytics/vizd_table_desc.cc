@@ -213,7 +213,7 @@ void init_vizd_tables(bool use_cql) {
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP],
 #ifdef USE_CASSANDRA_CQL
-                       GenDb::DbDataType::InetType)
+                       GenDb::DbDataType::Unsigned32Type)
 #else // USE_CASSANDRA_CQL
                        GenDb::DbDataType::Unsigned32Type)
 #endif // !USE_CASSANDRA_CQL
@@ -221,7 +221,7 @@ void init_vizd_tables(bool use_cql) {
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP],
 #ifdef USE_CASSANDRA_CQL
-                       GenDb::DbDataType::InetType)
+                       GenDb::DbDataType::Unsigned32Type)
 #else // USE_CASSANDRA_CQL
                        GenDb::DbDataType::Unsigned32Type)
 #endif // !USE_CASSANDRA_CQL
@@ -292,7 +292,7 @@ void init_vizd_tables(bool use_cql) {
                       boost::assign::list_of
                       (GenDb::DbDataType::UTF8Type)
 #ifdef USE_CASSANDRA_CQL
-                      (GenDb::DbDataType::InetType)
+                      (GenDb::DbDataType::Unsigned32Type)
 #else // USE_CASSANDRA_CQL
                       (GenDb::DbDataType::Unsigned32Type)
 #endif // !USE_CASSANDRA_CQL
@@ -308,7 +308,7 @@ void init_vizd_tables(bool use_cql) {
                   boost::assign::list_of
                   (GenDb::DbDataType::UTF8Type)
 #ifdef USE_CASSANDRA_CQL
-                  (GenDb::DbDataType::InetType)
+                  (GenDb::DbDataType::Unsigned32Type)
 #else // USE_CASSANDRA_CQL
                   (GenDb::DbDataType::Unsigned32Type)
 #endif // !USE_CASSANDRA_CQL
@@ -489,7 +489,7 @@ void init_vizd_tables(bool use_cql) {
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]] =
 #ifdef USE_CASSANDRA_CQL
-         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::InetType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
 #else // USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
 #endif // !USE_CASSANDRA_CQL
@@ -497,7 +497,7 @@ void init_vizd_tables(bool use_cql) {
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]] =
 #ifdef USE_CASSANDRA_CQL
-         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::InetType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
 #else // USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
 #endif // !USE_CASSANDRA_CQL
