@@ -291,7 +291,8 @@ protected:
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowTable *flow_table = flow_proto_->GetFlowTable(key);
-    FlowEntry flow(key, flow_table);
+    FlowEntry flow(flow_table);
+    flow.Reset(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
@@ -303,7 +304,8 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowTable *flow_table = flow_proto_->GetFlowTable(key);
-    FlowEntry flow(key, flow_table);
+    FlowEntry flow(flow_table);
+    flow.Reset(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     NewFlow(&flow);
     NewFlow(&flow);
@@ -318,14 +320,16 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowTable *flow_table = flow_proto_->GetFlowTable(key1);
-    FlowEntry flow1(key1, flow_table);
+    FlowEntry flow1(flow_table);
+    flow1.Reset(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 2, 2);
     flow_table = flow_proto_->GetFlowTable(key2);
-    FlowEntry flow2(key2, flow_table);
+    FlowEntry flow2(flow_table);
+    flow2.Reset(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
@@ -342,14 +346,16 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowTable *flow_table = flow_proto_->GetFlowTable(key1);
-    FlowEntry flow1(key1, flow_table);
+    FlowEntry flow1(flow_table);
+    flow1.Reset(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 257, 257);
     flow_table = flow_proto_->GetFlowTable(key2);
-    FlowEntry flow2(key2, flow_table);
+    FlowEntry flow2(flow_table);
+    flow2.Reset(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));

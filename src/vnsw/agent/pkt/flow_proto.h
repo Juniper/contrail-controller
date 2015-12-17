@@ -48,6 +48,7 @@ public:
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow);
     void CreateAuditEntry(FlowEntry *flow);
     bool FlowEventHandler(const FlowEvent &req);
+    void GrowFreeListRequest(const FlowKey &key);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);

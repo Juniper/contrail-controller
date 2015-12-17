@@ -36,11 +36,18 @@ public:
         FREE_FLOW_REF,
         // A DBEntry should be freed from kTaskFlowEvent task context.
         // Event to ensure DBEntry entry reference is freed from right context
-        FREE_DBENTRY
+        FREE_DBENTRY,
+        // Grow the free-list entries for flow and ksync
+        GROW_FREE_LIST
     };
 
     FlowEvent() :
         event_(INVALID), flow_(NULL), pkt_info_(), db_entry_(NULL),
+        gen_id_(0), del_rev_flow_(false) {
+    }
+
+    FlowEvent(Event event) :
+        event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false) {
     }
 

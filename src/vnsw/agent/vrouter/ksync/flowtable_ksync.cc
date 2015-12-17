@@ -46,6 +46,11 @@
 #include <services/icmp_error_proto.h>
 #include <uve/stats_collector.h>
 
+const uint32_t KSyncFlowEntryFreeList::kInitCount;
+const uint32_t KSyncFlowEntryFreeList::kTestInitCount;
+const uint32_t KSyncFlowEntryFreeList::kGrowSize;
+const uint32_t KSyncFlowEntryFreeList::kMinThreshold;
+
 using namespace boost::asio::ip;
 
 static uint16_t GetDropReason(uint16_t dr) {
@@ -92,16 +97,39 @@ static uint16_t GetDropReason(uint16_t dr) {
     return VR_FLOW_DR_UNKNOWN;
 }
 
-FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj, 
-                                         FlowEntryPtr fe, uint32_t hash_id)
-    : flow_entry_(fe), hash_id_(hash_id), 
-    old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
-    old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-    old_second_mirror_index_(0xFFFF), trap_flow_(false), old_drop_reason_(0),
-    ecmp_(false), nh_(NULL), ksync_obj_(obj) {
+FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj) {
+    Reset();
+    ksync_obj_ = obj;
+}
+
+FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj,
+                                         FlowEntry *flow, uint32_t hash_id) {
+    Reset();
+    Reset(flow, hash_id);
+    ksync_obj_ = obj;
 }
 
 FlowTableKSyncEntry::~FlowTableKSyncEntry() {
+}
+
+void FlowTableKSyncEntry::Reset() {
+    KSyncEntry::Reset();
+    flow_entry_ = NULL;
+    hash_id_ = FlowEntry::kInvalidFlowHandle;
+    old_reverse_flow_id_ = FlowEntry::kInvalidFlowHandle;
+    old_action_ = 0;
+    old_component_nh_idx_ = 0xFFFF;
+    old_first_mirror_index_ = 0xFFFF;
+    old_second_mirror_index_ = 0xFFFF;
+    trap_flow_ = false;
+    old_drop_reason_ = 0;
+    ecmp_ = false;
+    nh_ = NULL;
+}
+
+void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
+    flow_entry_ = flow;
+    hash_id_ = hash_id;
 }
 
 KSyncObject *FlowTableKSyncEntry::GetObject() {
@@ -495,11 +523,11 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
-    KSyncObject("KSync FlowTable"), ksync_(ksync) {
+    KSyncObject("KSync FlowTable"), ksync_(ksync), free_list_(this) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
-    KSyncObject("KSync FlowTable", max_index), ksync_(ksync) {
+    KSyncObject("KSync FlowTable", max_index), ksync_(ksync), free_list_(this) {
 }
 
 FlowTableKSyncObject::~FlowTableKSyncObject() {
@@ -508,10 +536,12 @@ FlowTableKSyncObject::~FlowTableKSyncObject() {
 KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
     const FlowTableKSyncEntry *entry  =
         static_cast<const FlowTableKSyncEntry *>(key);
-    FlowTableKSyncEntry *ksync = new FlowTableKSyncEntry(this, 
-                                                         entry->flow_entry(),
-                                                         entry->hash_id());
-    return static_cast<KSyncEntry *>(ksync);
+    return free_list_.Allocate(entry);
+}
+
+void FlowTableKSyncObject::Free(KSyncEntry *entry) {
+    FlowTableKSyncEntry *ksync  = static_cast<FlowTableKSyncEntry *>(entry);
+    free_list_.Free(ksync);
 }
 
 FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
@@ -530,4 +560,78 @@ void FlowTableKSyncObject::UpdateFlowHandle(FlowTableKSyncEntry *entry,
 }
 
 void FlowTableKSyncObject::Init() {
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// KSyncFlowEntryFreeList implementation
+/////////////////////////////////////////////////////////////////////////////
+KSyncFlowEntryFreeList::KSyncFlowEntryFreeList(FlowTableKSyncObject *object) :
+    object_(object), max_count_(0), grow_pending_(false), total_alloc_(0),
+    total_free_(0), free_list_() {
+
+    uint32_t count = kInitCount;
+    if (object->ksync()->agent()->test_mode()) {
+        count = kTestInitCount;
+    }
+    while (max_count_ < count) {
+        free_list_.push_back(*new FlowTableKSyncEntry(object_));
+        max_count_++;
+    }
+}
+
+KSyncFlowEntryFreeList::~KSyncFlowEntryFreeList() {
+    while (free_list_.empty() == false) {
+        FreeList::iterator it = free_list_.begin();
+        FlowTableKSyncEntry *flow = &(*it);
+        free_list_.erase(it);
+        delete flow;
+    }
+}
+
+// Allocate a chunk of FlowEntries
+void KSyncFlowEntryFreeList::Grow() {
+    grow_pending_ = false;
+    if (free_list_.size() >= kMinThreshold)
+        return;
+
+    for (uint32_t i = 0; i < kGrowSize; i++) {
+        free_list_.push_front(*new FlowTableKSyncEntry(object_));
+        max_count_++;
+    }
+}
+
+FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
+    const FlowTableKSyncEntry *flow_key  =
+        static_cast<const FlowTableKSyncEntry *>(key);
+    FlowTableKSyncEntry *flow = NULL;
+    if (free_list_.size() == 0) {
+        flow = new FlowTableKSyncEntry(object_);
+        max_count_++;
+    } else {
+        FreeList::iterator it = free_list_.begin();
+        flow = &(*it);
+        free_list_.erase(it);
+    }
+
+    if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
+        grow_pending_ = true;
+        FlowProto *proto = object_->ksync()->agent()->pkt()->get_flow_proto();
+        proto->GrowFreeListRequest(flow_key->flow_entry()->key());
+    }
+
+    // Do post allocation initialization
+    flow->Reset(flow_key->flow_entry().get(), flow_key->hash_id());
+    total_alloc_++;
+    return flow;
+}
+
+void KSyncFlowEntryFreeList::Free(FlowTableKSyncEntry *flow) {
+    total_free_++;
+    flow->Reset();
+    free_list_.push_back(*flow);
+    // TODO : Free entry if beyound threshold
+}
+
+void FlowTableKSyncObject::GrowFreeList() {
+    free_list_.Grow();
 }

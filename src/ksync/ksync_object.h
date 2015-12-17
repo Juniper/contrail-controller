@@ -131,6 +131,7 @@ public:
     // Called from Create or GetReference to Allocate a KSyncEntry.
     // The KSyncEntry must be populated with fields in key and index
     virtual KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index) = 0;
+    virtual void Free(KSyncEntry *entry);
 
     //Callback when all the entries in table are deleted
     virtual void EmptyTable(void) { };

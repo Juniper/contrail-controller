@@ -97,32 +97,103 @@ InetUnicastRouteEntry FlowEntry::inet6_route_key_(NULL, Ip6Address(), 128,
 SecurityGroupList FlowEntry::default_sg_list_;
 
 /////////////////////////////////////////////////////////////////////////////
+// FlowData constructor/destructor
+/////////////////////////////////////////////////////////////////////////////
+FlowData::FlowData() {
+    Reset();
+}
+
+FlowData::~FlowData() {
+}
+
+void FlowData::Reset() {
+    smac = MacAddress();
+    dmac = MacAddress();
+    source_vn = "";
+    dest_vn = "";
+    source_sg_id_l.clear();
+    dest_sg_id_l.clear();
+    flow_source_vrf = VrfEntry::kInvalidIndex;
+    flow_dest_vrf = VrfEntry::kInvalidIndex;
+    match_p.Reset();
+    vn_entry.reset(NULL);
+    intf_entry.reset(NULL);
+    in_vm_entry.reset(NULL);
+    out_vm_entry.reset(NULL);
+    nh.reset(NULL);
+    vrf = VrfEntry::kInvalidIndex;
+    mirror_vrf = VrfEntry::kInvalidIndex;
+    dest_vrf = 0;
+    component_nh_idx = (uint32_t)CompositeNH::kInvalidComponentNHIdx;
+    source_plen = 0;
+    dest_plen = 0;
+    drop_reason = 0;
+    vrf_assign_evaluated = false;
+    pending_recompute = false;
+    if_index_info = 0;
+    tunnel_info.Reset();
+    flow_source_plen_map.clear();
+    flow_dest_plen_map.clear();
+    enable_rpf = true;
+    l2_rpf_plen = Address::kMaxV4PrefixLen;
+    vrouter_evicted_flow = false;
+    vm_cfg_name = "";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// MatchPolicy constructor/destructor
+/////////////////////////////////////////////////////////////////////////////
+MatchPolicy::MatchPolicy() {
+    Reset();
+}
+
+MatchPolicy::~MatchPolicy() {
+}
+
+void MatchPolicy::Reset() {
+    m_acl_l.clear();
+    policy_action = 0;
+    m_out_acl_l.clear();
+    out_policy_action = 0;
+    m_out_sg_acl_l.clear();
+    out_sg_rule_present = false;
+    out_sg_action = 0;
+    m_sg_acl_l.clear();
+    sg_rule_present = false;
+    sg_action = 0;
+    m_reverse_sg_acl_l.clear();
+    reverse_sg_rule_present = false;
+    reverse_sg_action = 0;
+    m_reverse_out_sg_acl_l.clear();
+    reverse_out_sg_rule_present = false;
+    reverse_out_sg_action = 0;
+    m_mirror_acl_l.clear();
+    mirror_action = 0;
+    m_out_mirror_acl_l.clear();
+    out_mirror_action = 0;
+    m_vrf_assign_acl_l.clear();
+    vrf_assign_acl_action = 0;
+    sg_action_summary = 0;
+    action_info.Clear();
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // FlowEntry constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
-FlowEntry::FlowEntry(const FlowKey &k, FlowTable *flow_table) :
-    key_(k),
-    flow_table_(flow_table),
-    data_(),
-    l3_flow_(true),
-    flow_handle_(kInvalidFlowHandle),
-    ksync_entry_(NULL),
-    deleted_(false),
-    flags_(0),
-    short_flow_reason_(SHORT_UNKNOWN),
-    linklocal_src_port_(),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
-    peer_vrouter_(),
-    tunnel_type_(TunnelType::INVALID),
-    on_tree_(false), fip_(0),
+FlowEntry::FlowEntry(FlowTable *flow_table) :
+    flow_table_(flow_table), flags_(0), tunnel_type_(TunnelType::INVALID),
     fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
-    refcount_ = 0;
-    nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
-    sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
+    Reset();
     alloc_count_.fetch_and_increment();
 }
 
 FlowEntry::~FlowEntry() {
     assert(refcount_ == 0);
+    Reset();
+    alloc_count_.fetch_and_decrement();
+}
+
+void FlowEntry::Reset() {
     if (is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) &&
         (linklocal_src_port_fd_ == PktFlowInfo::kLinkLocalInvalidFd ||
          !linklocal_src_port_)) {
@@ -137,7 +208,28 @@ FlowEntry::~FlowEntry() {
         close(linklocal_src_port_fd_);
         flow_table_->DelLinkLocalFlowInfo(linklocal_src_port_fd_);
     }
-    alloc_count_.fetch_and_decrement();
+    data_.Reset();
+    l3_flow_ = true;
+    flow_handle_ = kInvalidFlowHandle;
+    ksync_entry_ = NULL;
+    deleted_ = false;
+    flags_ = 0;
+    short_flow_reason_ = SHORT_UNKNOWN;
+    linklocal_src_port_ = 0;
+    linklocal_src_port_fd_ = PktFlowInfo::kLinkLocalInvalidFd;
+    peer_vrouter_ = "";
+    tunnel_type_ = TunnelType::INVALID;
+    on_tree_ = false;
+    fip_ = 0;
+    fip_vmi_ = VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "");
+    refcount_ = 0;
+    nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
+    sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
+}
+
+void FlowEntry::Reset(const FlowKey &k) {
+    Reset();
+    key_ = k;
 }
 
 void FlowEntry::Init() {
@@ -145,7 +237,14 @@ void FlowEntry::Init() {
 }
 
 FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
-    return new FlowEntry(key, flow_table);
+    // flow_table will be NULL for some UT cases
+    if (flow_table == NULL) {
+        FlowEntry *flow = new FlowEntry(flow_table);
+        flow->Reset(key);
+        return flow;
+    }
+
+    return flow_table->free_list()->Allocate(key);
 }
 
 // selectively copy fields from RHS
@@ -178,7 +277,7 @@ void intrusive_ptr_release(FlowEntry *fe) {
             assert(it != flow_table->flow_entry_map_.end());
             flow_table->flow_entry_map_.erase(it);
         }
-        delete fe;
+        flow_table->free_list()->Free(fe);
     }
 }
 
