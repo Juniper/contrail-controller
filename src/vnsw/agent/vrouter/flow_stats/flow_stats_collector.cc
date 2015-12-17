@@ -703,7 +703,7 @@ bool FlowStatsCollector::Run() {
     FlowEntry *entry = NULL, *reverse_flow;
     FlowStats *stats = NULL;
     uint32_t count = 0;
-    bool key_updation_reqd = true, deleted;
+    bool key_updation_reqd = true, deleted, vrouter_evicted;
 
     run_counter_++;
     if (!flow_tree_.size()) {
@@ -723,6 +723,7 @@ bool FlowStatsCollector::Run() {
         it++;
         assert(entry);
         deleted = false;
+        vrouter_evicted = false;
 
         if (entry->deleted()) {
             continue;
@@ -731,8 +732,12 @@ bool FlowStatsCollector::Run() {
         flow_iteration_key_ = entry;
         const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(entry);
         reverse_flow = entry->reverse_flow_entry();
+        if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
+            deleted = true;
+            vrouter_evicted = true;
+        }
         // Can the flow be aged?
-        if (ShouldBeAged(stats, k_flow, curr_time, entry)) {
+        if (!deleted && ShouldBeAged(stats, k_flow, curr_time, entry)) {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
@@ -752,7 +757,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteEnqueue(entry);
+            Agent::GetInstance()->pkt()->flow_table()->
+                DeleteEnqueue(entry, vrouter_evicted);
             entry = NULL;
             if (reverse_flow) {
                 count++;
@@ -794,7 +800,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteEnqueue(entry);
+            Agent::GetInstance()->pkt()->flow_table()->
+                DeleteEnqueue(entry, vrouter_evicted);
             entry = NULL;
             if (reverse_flow) {
                 count++;
