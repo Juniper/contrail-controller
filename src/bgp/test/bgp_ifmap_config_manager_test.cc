@@ -30,6 +30,8 @@
 using boost::assign::list_of;
 using namespace std;
 
+typedef pair<std::string, std::string> string_pair_t;
+
 static string FileRead(const string &filename) {
     ifstream file(filename.c_str());
     string content((istreambuf_iterator<char>(file)),
@@ -2121,7 +2123,6 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
     test_ri = FindInstanceConfig("test");
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 0);
-
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content_a));
@@ -2130,6 +2131,378 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
     ASSERT_TRUE(test_ri == NULL);
     policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
     ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Validate the config object with one route-aggregate linked to routing instance
+//
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Basic) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.1");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+//
+// Validate the config object with mutliple route-aggregate objects
+// linked to routing instance. One route-aggregate object has inet and other one
+// has inet6 prefix
+//
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Basic_v4v6) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_1.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET6).size() == 1);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.1");
+    set<string_pair_t> current_list;
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    set<string_pair_t> expect_list_inet6 = list_of<string_pair_t>
+        ("2001:db8:85a3::/64", "2002:db8:85a3::8a2e:370:7334");
+    set<string_pair_t> current_list_inet6;
+    list = test_ri->aggregate_routes(Address::INET6);
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list_inet6.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list_inet6.size() == expect_list_inet6.size());
+    ASSERT_TRUE(std::equal(expect_list_inet6.begin(), expect_list_inet6.end(),
+                           current_list_inet6.begin()));
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+//
+// Validate the route-aggregate config object on BgpInstanceConfig object after
+// unlinking routing-instance and route-aggregate object
+//
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Unlink) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_1.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET6).size() == 1);
+
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 0);
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET6).size() == 1);
+
+    // Link routing instance and route aggregate
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET6).size() == 1);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdateNexthop) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+
+    content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.254");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdatePrefix) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+
+    content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0b.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("3.3.0.0/16", "1.1.1.254");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_UpdatePrefixLen) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+
+    content_a = FileRead("controller/src/bgp/testdata/route_aggregate_0c.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/24", "1.1.1.254");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 3);
+
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.1")
+        ("3.3.0.0/16", "1.1.1.1")
+        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet_Unlink) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 3);
+
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.1")
+        ("3.3.0.0/16", "1.1.1.1")
+        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    // unlink routing instance and route aggregate
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+    ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
+
+    list = test_ri->aggregate_routes(Address::INET);
+
+    expect_list = list_of<string_pair_t>("4.0.0.0/8", "1.1.1.1");
+    current_list.clear();
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
 }
 
 class IFMapConfigTest : public ::testing::Test {

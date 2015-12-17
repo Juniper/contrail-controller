@@ -110,4 +110,13 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::ResolverNexthop"),
         resolver_nexthop_policy);
+
+    // Policy for bgp::RouteAggregation Task.
+    TaskPolicy route_aggregation_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::RouteAggregation"),
+        route_aggregation_policy);
 }
