@@ -104,8 +104,8 @@ public:
     void MapSharedMemory();
     void GetFlowTableSize();
     void StartAuditTimer();
-private:
     bool IsEvictionMarked(const vr_flow_entry *entry) const;
+private:
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
     friend class KSyncSandeshContext;
     KSync *ksync_;

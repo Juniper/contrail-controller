@@ -56,6 +56,7 @@ class FlowTable;
 class FlowTableKSyncEntry;
 class NhListener;
 class NhState;
+class FlowDeleteReq;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 
@@ -812,7 +813,7 @@ private:
     InetUnicastRouteEntry inet4_route_key_;
     InetUnicastRouteEntry inet6_route_key_;
     FlowIndexTree flow_index_tree_;
-    boost::scoped_ptr<WorkQueue<FlowKey> > delete_queue_;
+    boost::scoped_ptr<WorkQueue<FlowDeleteReq> > delete_queue_;
 
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
@@ -862,8 +863,8 @@ private:
     void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
                         const RevFlowDepParams &params);
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-    bool FlowDelete(FlowKey key);
-    void DeleteEnqueue(FlowEntry *fe);
+    bool FlowDelete(const FlowDeleteReq &req);
+    void DeleteEnqueue(FlowEntry *fe, bool vrouter_evicted);
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 
@@ -1093,6 +1094,27 @@ struct VmFlowInfo {
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
 extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
+
+class FlowDeleteReq {
+public:
+    FlowDeleteReq() : flow_(NULL), vrouter_evicted_(false) {
+    }
+    FlowDeleteReq(const FlowDeleteReq& req) :
+        flow_(req.flow()), vrouter_evicted_(req.vrouter_evicted()) {
+    }
+    FlowDeleteReq(FlowEntry *ptr, bool evicted) :
+        flow_(ptr), vrouter_evicted_(evicted) {
+    }
+
+    ~FlowDeleteReq() { }
+
+    FlowEntry* flow() const { return flow_.get(); }
+    bool vrouter_evicted() const { return vrouter_evicted_; }
+
+private:
+    FlowEntryPtr flow_;
+    bool vrouter_evicted_;
+};
 
 #define FLOW_TRACE(obj, ...)\
 do {\
