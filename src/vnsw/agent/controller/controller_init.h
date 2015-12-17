@@ -82,6 +82,8 @@ public:
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
     typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
+    typedef std::list<boost::shared_ptr<BgpPeer> > BgpPeerList;
+    typedef BgpPeerList::const_iterator BgpPeerConstIterator;
     typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
 
     struct FabricMulticastLabelRange {
@@ -123,6 +125,9 @@ public:
         return decommissioned_peer_list_.size();
     }
     void AddToDecommissionedPeerList(boost::shared_ptr<BgpPeer> peer);
+    const BgpPeerList &decommissioned_peer_list() const {
+        return decommissioned_peer_list_;
+    }
 
     //Unicast timer related routines
     void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);

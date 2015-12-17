@@ -41,6 +41,9 @@ BgpPeer::~BgpPeer() {
     if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
         route_walker_->agent()->vrf_table()->Unregister(id_);
     }
+    if (bgp_xmpp_peer_->CanBeDeleted(this)) {
+        delete bgp_xmpp_peer_;
+    }
 }
 
 void BgpPeer::DelPeerRoutes(DelPeerDone walk_done_cb) {

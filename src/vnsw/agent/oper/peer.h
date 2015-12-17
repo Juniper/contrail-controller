@@ -95,7 +95,7 @@ public:
     // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
-    AgentXmppChannel *GetBgpXmppPeer() { return bgp_xmpp_peer_; }    
+    AgentXmppChannel *GetBgpXmppPeer() const { return bgp_xmpp_peer_; }
     const AgentXmppChannel *GetBgpXmppPeerConst() const {return bgp_xmpp_peer_;}
 
     // Table Walkers
