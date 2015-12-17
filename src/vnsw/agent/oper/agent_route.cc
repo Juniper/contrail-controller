@@ -125,6 +125,8 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
                 static_cast<AgentPath *>(it.operator->());
             const Peer *peer = path->peer();
             it++;
+            if (path->is_stale()) continue;
+
             if (peer && peer->GetType() == Peer::BGP_PEER) {
                 to_be_deleted_path_list.push_back(path);
             }
@@ -141,6 +143,7 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
             DeletePathFromPeer(part, route, path);
             to_be_deleted_path_list_it++;
         }
+        route->SquashStalePaths(NULL);
     }
     return true;
 }
