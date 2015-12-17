@@ -43,6 +43,11 @@ std::string eth_itf;
 void RouterIdDepInit(Agent *agent) {
 }
 
+static void WalkDone(DBTableBase *base)
+{
+    return;
+}
+
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //TBD
     //Validate the response by the expectation
@@ -1399,6 +1404,95 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     client->WaitForIdle();
 
     DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, multicast_peer_with_stale_route) {
+    client->Reset();
+    AddVrf("vrf1");
+    AddVn("vn1", 1);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    BgpPeer *bgp_peer_ptr_2 = CreateBgpPeer(Ip4Address(2), "BGP Peer2");
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist, 1);
+    client->WaitForIdle();
+
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    AgentPath *path = rt->FindPath(bgp_peer_ptr);
+    int path_list_size = rt->GetPathList().size();
+    path->set_is_stale(true);
+    mc_handler->ModifyTorMembers(bgp_peer_ptr_2,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+    int new_path_list_size = rt->GetPathList().size();
+    EXPECT_TRUE(new_path_list_size == (path_list_size + 1));
+
+    client->WaitForIdle();
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    walker->WalkTable(table, NULL, 
+         boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, table, _1, _2),
+         boost::bind(&WalkDone, _1));
+    client->WaitForIdle();
+    //Delete remote paths
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist,
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    TunnelOlist del_olist;
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer_ptr_2,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_ptr);
+    DeleteBgpPeer(bgp_peer_ptr_2);
     client->WaitForIdle();
 }
 
