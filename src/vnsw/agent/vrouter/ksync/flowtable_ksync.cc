@@ -494,17 +494,19 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
                     seq_no);
         return;
     }
-    if (err == EINVAL && IgnoreVrouterError()) {
-        return;
+    if (err == EINVAL) {
+        if (flow_entry_->deleted()) {
+            return;
+        }
+        if (flow_entry_->key().protocol == IPPROTO_TCP) {
+            // TCP flows may be evicted in vrouter, ignore the error
+            // and make the flow short flow
+            ksync_obj_->ksync()->agent()->pkt()->
+                flow_table()->DeleteEnqueue(flow_entry_.get(), true);
+            return;
+        }
     }
     KSyncEntry::ErrorHandler(err, seq_no);
-}
-
-bool FlowTableKSyncEntry::IgnoreVrouterError() const {
-    if (flow_entry_->deleted())
-        return true;
-
-    return false;
 }
 
 std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
