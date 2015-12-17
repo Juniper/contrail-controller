@@ -3678,13 +3678,23 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     }
 }
 
-bool FlowTable::FlowDelete(FlowKey key) {
-    Delete(key, true);
+bool FlowTable::FlowDelete(boost::shared_ptr<FlowDeleteReq> req) {
+    FlowEntry *fe = req->flow();
+    if (req->vrouter_evicted()) {
+        fe->data().vrouter_evicted_flow_ = true;
+        FlowEntry *reverse_flow = fe->reverse_flow_entry();
+        if (reverse_flow) {
+            reverse_flow->data().vrouter_evicted_flow_ = true;
+        }
+    }
+    Delete(fe->key(), true);
     return true;
 }
 
-void FlowTable::DeleteEnqueue(FlowEntry *fp) {
-    delete_queue_->Enqueue(fp->key_);
+void FlowTable::DeleteEnqueue(FlowEntry *fp, bool vrouter_evicted) {
+    boost::shared_ptr<FlowDeleteReq>
+        req(new FlowDeleteReq(fp, vrouter_evicted));
+    delete_queue_->Enqueue(req);
 }
 
 FlowTable::FlowTable(Agent *agent) : 
@@ -3694,7 +3704,7 @@ FlowTable::FlowTable(Agent *agent) :
     vrf_listener_id_(), nh_listener_(NULL),
     inet4_route_key_(NULL, Ip4Address(), 32, false),
     inet6_route_key_(NULL, Ip6Address(), 128, false),
-    delete_queue_(new WorkQueue<FlowKey>(
+    delete_queue_(new WorkQueue<boost::shared_ptr<FlowDeleteReq> >(
                   TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"),
                   PktHandler::FLOW,
                   boost::bind(&FlowTable::FlowDelete, this, _1))) {
