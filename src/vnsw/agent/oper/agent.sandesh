@@ -917,7 +917,7 @@ enum AgentLogEvent {
 
 struct VmObjectLogInfo {
     1: string event;
-    2: string uuid;
+    2: string uuid (key="ObjectVMTable")
     3: optional list<string> sg_uuid_list;
     4: i32 ref_count;
 }
@@ -938,7 +938,7 @@ struct VnObjectLogIpam {
 struct VnObjectLogInfo {
     1: string event;
     2: string uuid;
-    3: string name;
+    3: string name (key="ObjectVNTable")
     4: optional string acl_uuid;
     5: optional string mirror_acl_uuid;
     6: optional string mirror_cfg_acl_uuid;
@@ -955,7 +955,7 @@ objectlog sandesh VnObjectLog {
 
 struct VrfObjectLogInfo {
     1: string event;
-    2: string name;
+    2: string name (key="ObjectRoutingInstance")
     4: optional i32 index;
 }
 
