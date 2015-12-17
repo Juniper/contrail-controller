@@ -212,19 +212,19 @@ void init_vizd_tables(bool use_cql) {
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN],
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP],
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                        GenDb::DbDataType::InetType)
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                        GenDb::DbDataType::Unsigned32Type)
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN],
                        GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP],
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                        GenDb::DbDataType::InetType)
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                        GenDb::DbDataType::Unsigned32Type)
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL],
                        GenDb::DbDataType::Unsigned8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT],
@@ -291,11 +291,11 @@ void init_vizd_tables(bool use_cql) {
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::UTF8Type)
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                       (GenDb::DbDataType::InetType)
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                       (GenDb::DbDataType::Unsigned32Type)
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       flow_series_value))
@@ -307,11 +307,11 @@ void init_vizd_tables(bool use_cql) {
                   (GenDb::DbDataType::Unsigned8Type),
                   boost::assign::list_of
                   (GenDb::DbDataType::UTF8Type)
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                   (GenDb::DbDataType::InetType)
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                   (GenDb::DbDataType::Unsigned32Type)
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::LexicalUUIDType),
                   flow_series_value))
@@ -488,19 +488,19 @@ void init_vizd_tables(bool use_cql) {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]] =
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::InetType);
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]] =
-#ifdef USE_CASSANDRA_CQL
+#if defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::InetType);
-#else // USE_CASSANDRA_CQL
+#else // defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
-#endif // !USE_CASSANDRA_CQL
+#endif // ! defined (USE_CASSANDRA_CQL) && defined (INET_SUPPORT)
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_PROTOCOL, GenDb::DbDataType::Unsigned8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]] =

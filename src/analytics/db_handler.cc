@@ -20,10 +20,11 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>
-#include <database/cassandra/thrift/thrift_if.h>
 #ifdef USE_CASSANDRA_CQL
 #include <database/cassandra/cql/cql_if.h>
-#endif //  USE_CASSANDRA_CQL
+#else // USE_CASSANDRA_CQL
+#include <database/cassandra/thrift/thrift_if.h>
+#endif // !USE_CASSANDRA_CQL
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
@@ -76,11 +77,12 @@ DbHandler::DbHandler(EventManager *evm,
             cassandra_ports[0], cassandra_user, cassandra_password));
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
     } else {
-#endif //  USE_CASSANDRA_CQL
+#else //  USE_CASSANDRA_CQL
         dbif_.reset(new ThriftIf(err_handler,
             cassandra_ips, cassandra_ports, name, false,
             cassandra_user, cassandra_password));
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE;
+#endif // !USE_CASSANDRA_CQL
 #ifdef USE_CASSANDRA_CQL
     }
 #endif //  USE_CASSANDRA_CQL

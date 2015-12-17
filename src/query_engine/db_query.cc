@@ -20,11 +20,21 @@ query_status_t DbQueryUnit::process_query()
             << " column_end size:" << cr.finish_.size());
 
     if (m_query->is_object_table_query(m_query->table()))
-    {    
+    {
+#ifdef USE_CASSANDRA_CQL
+        GenDb::DbDataValue timestamp_start =
+            (uint32_t)std::numeric_limits<int32_t>::min();
+#else // USE_CASSANDRA_CQL
         GenDb::DbDataValue timestamp_start = (uint32_t)0x0;
+#endif // !USE_CASSANDRA_CQL
         cr.start_.push_back(timestamp_start);
     }
+#ifdef USE_CASSANDRA_CQL
+    GenDb::DbDataValue timestamp_end =
+        (uint32_t)std::numeric_limits<int32_t>::max();
+#else // USE_CASSANDRA_CQL
     GenDb::DbDataValue timestamp_end = (uint32_t)(0xffffffff);
+#endif // !USE_CASSANDRA_CQL
     cr.finish_.push_back(timestamp_end);
 
     std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get

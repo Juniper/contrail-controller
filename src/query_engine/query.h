@@ -897,7 +897,7 @@ public:
             int max_tasks, int max_slice,
             const std::string & cassandra_name,
             const std::string & cassandra_password,
-            bool use_global_db_handler);
+            bool use_cql);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
@@ -937,7 +937,7 @@ public:
 
     void db_err_handler() {};
     TtlMap& GetTTlMap() { return ttlmap_; }
-    bool UseGlobalDbHandler() { return use_global_db_handler_; }
+    bool UseGlobalDbHandler() { return use_cql_; }
 private:
     GenDbIfPtr dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
@@ -947,7 +947,8 @@ private:
     std::string cassandra_user_;
     std::string cassandra_password_;
     TtlMap ttlmap_;
-    bool use_global_db_handler_;
+    bool use_cql_;
+    std::string keyspace_;
 };
 
 void get_uuid_stats_8tuple_from_json(const std::string &jsonline,

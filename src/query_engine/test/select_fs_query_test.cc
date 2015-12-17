@@ -103,6 +103,39 @@ public:
             for (it = tstats.begin(); it != tstats.end(); it++) {
                 query_result_unit_t qres;
                 qres.timestamp = it->first;
+#ifdef USE_CASSANDRA_CQL
+                const std::vector<std::string> &frnames(
+                    g_viz_constants.FlowRecordNames);
+                std::ostringstream ss;
+                ss << "{";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_DIFF_BYTES] <<
+                    "\":" << it->second.bytes << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_DIFF_PACKETS] <<
+                    "\":" << it->second.pkts << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_SHORT_FLOW] <<
+                    "\":" << 0 << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_FLOWUUID] <<
+                    "\":\"" << to_string(fuuid) << "\",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_VROUTER] <<
+                    "\":\"" << tuple.vrouter << "\",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEVN] <<
+                    "\":\"" << tuple.source_vn << "\",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTVN] <<
+                    "\":\"" << tuple.dest_vn << "\",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEIP] <<
+                    "\":" << tuple.source_ip << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP] <<
+                    "\":" << tuple.dest_ip << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_PROTOCOL] <<
+                    "\":" << tuple.protocol << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_SPORT] <<
+                    "\":" << tuple.source_port << ",";
+                ss << "\"" << frnames[FlowRecordFields::FLOWREC_DPORT] <<
+                    "\":" << tuple.dest_port;
+                ss << "}";
+                std::string json(ss.str());
+                qres.info.push_back(json);
+#else // USE_CASSANDRA_CQL
                 qres.info.push_back(GenDb::DbDataValue(it->second.bytes));
                 qres.info.push_back(GenDb::DbDataValue(it->second.pkts));
                 qres.info.push_back(GenDb::DbDataValue(
@@ -119,6 +152,7 @@ public:
                     static_cast<uint16_t>(tuple.source_port)));
                 qres.info.push_back(GenDb::DbDataValue(
                     static_cast<uint16_t>(tuple.dest_port)));
+#endif // !USE_CASSANDRA_CQL
                 where_query_result.push_back(qres);
             }
     }
@@ -820,6 +854,7 @@ TEST_F(FlowColumnValuesTest, Json) {
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN] <<
         "\":\"" << dest_vn << "\",";
     // Source IP
+#ifdef INET_SUPPORT
     std::string source_ip("1.1.1.1");
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
@@ -828,7 +863,18 @@ TEST_F(FlowColumnValuesTest, Json) {
     std::string dest_ip("2.2.2.2");
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
-        "\":\"" << dest_ip << "\",";
+       "\":\"" << dest_ip << "\",";
+#else // INET_SUPPORT
+    uint32_t source_ip(0x01010101);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
+        "\":" << source_ip << ",";
+    // Destination IP
+    uint32_t dest_ip(0x02020202);
+    ss << "\"" <<
+        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
+        "\":" << dest_ip << ",";
+#endif // !INET_SUPPORT
     // Protocol
     int protocol(6);
     ss << "\"" <<

@@ -27,23 +27,23 @@ logging.basicConfig(level=logging.INFO,
 
 cassandra_bdir = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
+def use_cql():
+    (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+    if PLATFORM.lower() == 'ubuntu':
+        if VERSION.find('12.') == 0:
+            return False
+    if PLATFORM.lower() == 'centos':
+        if VERSION.find('6.') == 0:
+            return False
+    return True
+
 def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_password = None):
     '''
     Client uses this function to start an instance of Cassandra
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    def cassandra_old():
-        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-        if PLATFORM.lower() == 'ubuntu':
-            if VERSION.find('12.') == 0:
-                return True
-        if PLATFORM.lower() == 'centos':
-            if VERSION.find('6.') == 0:
-                return True
-        return False
-
-    if cassandra_old():
+    if not use_cql():
         cassandra_version = '1.2.11'
     else:
         cassandra_version = '2.1.9'
@@ -86,14 +86,22 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     js.bind(("",0))
     jport = js.getsockname()[1]
 
-    cqls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    cqls.bind(("",0))
-    cqlport = cqls.getsockname()[1]
+    o_clients = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    o_clients.bind(("",0))
+    o_client_port = o_clients.getsockname()[1]
 
-    logging.info('Cassandra Client Port %d' % cport)
+    if not use_cql():
+        cqlport = o_client_port
+        thriftport = cport
+    else:
+        cqlport = cport
+        thriftport = o_client_port
+
+    logging.info('Cassandra Client Port %d: CQL Port %d, Thrift Port %d' %
+        (cport, cqlport, thriftport))
 
     replace_string_(confdir + "cassandra.yaml", \
-        [("rpc_port: 9160","rpc_port: " + str(cport)), \
+        [("rpc_port: 9160","rpc_port: " + str(thriftport)), \
         ("storage_port: 7000","storage_port: " + str(sport)),
         ("native_transport_port: 9042","native_transport_port: " + str(cqlport))])
 
@@ -108,7 +116,7 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
             [("authenticator: AllowAllAuthenticator",  \
               "authenticator: PasswordAuthenticator")])
 
-    if cassandra_old():
+    if not use_cql():
         replace_string_(confdir + "log4j-server.properties", \
            [("/var/log/cassandra/system.log", cassbase + "system.log"),
             ("INFO","DEBUG")])
@@ -128,11 +136,11 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
         ss.close()
 
     js.close()
-    cqls.close()
+    o_clients.close()
 
 
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
-    assert(verify_cassandra(cport, cassandra_user, cassandra_password))
+    assert(verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password))
 
     return cassbase, basefile
 
@@ -166,21 +174,21 @@ def replace_string_(filePath, findreplace):
     input.close()
     os.rename(tempName,filePath)
 
-def verify_cassandra(cport, cassandra_user, cassandra_password):
+def verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password):
     retry_threshold = 10
     retry = 1
     while retry < retry_threshold:
          try:
              if cassandra_user is None and cassandra_password is None:
-                 pool = ConnectionPool(None,['localhost:'+str(cport)])
+                 pool = ConnectionPool(None,['localhost:'+str(thriftport)])
              else:
                  cred={'username':cassandra_user,'password':cassandra_password}
-                 pool = ConnectionPool(None, ['localhost:'+str(cport)], \
+                 pool = ConnectionPool(None, ['localhost:'+str(thriftport)], \
                                        credentials=cred)
              return True
          except Exception as e:
              logging.info("Exception: Failure in connection to "
-                "AnalyticsDb %s" % e)
+                "AnalyticsDb: Retry %d: %s" % (retry, e))
              retry = retry +1
              time.sleep(5)
     return False
