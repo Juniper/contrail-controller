@@ -100,13 +100,15 @@ class SvcMonitor(object):
             'loadbalancer_pool': []
         },
         "service_instance": {
-            'self': ['virtual_machine', 'port_tuple', 'virtual_machine_interface'],
+            'self': ['virtual_machine', 'port_tuple',
+                     'virtual_machine_interface', 'instance_ip'],
             'virtual_machine': [],
             'port_tuple': [],
             'virtual_machine_interface' : []
         },
         "instance_ip": {
             'self': [],
+            'service_instance': [],
         },
         "floating_ip": {
             'self': [],
@@ -236,7 +238,10 @@ class SvcMonitor(object):
                     dependency_tracker.evaluate(obj_type, obj)
                 else:
                     obj = obj_class.locate(obj_id)
-                obj.update()
+                try:
+                    obj.update()
+                except NoIdError:
+                    return
                 dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
@@ -285,6 +290,9 @@ class SvcMonitor(object):
                     vm = VirtualMachineSM.get(vm_id)
                     self._delete_service_instance(vm)
                 self.logger.log_info("SI %s deletion succeed" % si_id)
+
+                for iip_id in dependency_tracker.resources.get('instance_ip', []):
+                    self.delete_shared_iip(iip_id)
 
         for vn_id in dependency_tracker.resources.get('virtual_network', []):
             vn = VirtualNetworkSM.get(vn_id)
