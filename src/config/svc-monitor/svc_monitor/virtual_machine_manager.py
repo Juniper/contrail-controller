@@ -60,13 +60,14 @@ class VirtualMachineManager(InstanceManager):
             nics_with_port.append(nic_with_port)
 
         # launch vm
-        self.logger.log_info('Launching VM : ' + instance_name)
+        nova_vm_name = si.name + '-' + str(instance_index + 1)
+        self.logger.log_info('Launching VM : ' + nova_vm_name)
         nova_vm = self._nc.oper('servers', 'create', proj_name,
-            name=instance_name, image=image,
+            name=nova_vm_name, image=image,
             flavor=flavor, nics=nics_with_port,
             availability_zone=si.availability_zone)
         if not nova_vm:
-            self.logger.log_error("Nova vm create failed %s" % instance_name)
+            self.logger.log_error("Nova vm create failed %s" % nova_vm_name)
             return None
 
         nova_vm.get()
