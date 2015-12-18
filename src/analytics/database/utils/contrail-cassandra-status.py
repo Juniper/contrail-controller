@@ -54,8 +54,8 @@ def parse_nodetool_status_output(output):
         elif node_info_len  == 7:
             node_id = node_info[5]
         else:
-            logging.error("FAILED to parse: {line}".format(line=node))
-            return {}
+            # Not an error, can contain other stuff
+            continue
         # Node status is column 0
         nodes_status[node_id] = node_info[0]
     return nodes_status
