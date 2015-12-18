@@ -76,14 +76,14 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &label_range,
                                    uint8_t xs_idx)
     : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
-      xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0),
-      marked_for_deferred_deletion_(false) {
+      xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
     bgp_peer_id_.reset();
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
     BgpPeer *bgp_peer = bgp_peer_id_.get();
     assert(bgp_peer == NULL);
+    channel_->UnRegisterReceive(xmps::BGP);
 }
 
 void AgentXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
@@ -94,10 +94,6 @@ void AgentXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
     channel->RegisterReceive(xmps::BGP,
                               boost::bind(&AgentXmppChannel::ReceiveInternal,
                                           this, _1));
-}
-
-void AgentXmppChannel::UnRegisterXmppChannel() {
-    channel_->UnRegisterReceive(xmps::BGP);
 }
 
 std::string AgentXmppChannel::GetBgpPeerName() const {
@@ -116,7 +112,9 @@ void AgentXmppChannel::CreateBgpPeer() {
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
     Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
     assert(ec.value() == 0);
-    bgp_peer_id_.reset(new BgpPeer(ip, addr, this, id, Peer::BGP_PEER));
+    bgp_peer_id_.reset(new BgpPeer(ip, addr,
+                                   agent_->controller_xmpp_channel_ref(xs_idx_),
+                                   id, Peer::BGP_PEER));
 }
 
 void AgentXmppChannel::DeCommissionBgpPeer() {
@@ -2471,21 +2469,4 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
     }
-}
-
-bool AgentXmppChannel::CanBeDeleted(BgpPeer *current_peer) {
-    if (!marked_for_deferred_deletion_) return false;
-
-    const VNController *controller = agent_->controller();
-    //Search if some peers are still pending and using this channel.
-    for (VNController::BgpPeerConstIterator it  = controller->
-                                    decommissioned_peer_list().begin();
-         it != controller->decommissioned_peer_list().end(); ++it) {
-        const BgpPeer *peer = static_cast<const BgpPeer *>((*it).get());
-        if ((peer != current_peer) &&
-            (peer->GetBgpXmppPeer() == this)) {
-            return false;
-        }
-    }
-    return true;
 }

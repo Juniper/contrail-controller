@@ -116,7 +116,6 @@ public:
     void CreateBgpPeer();
     void DeCommissionBgpPeer();
     void RegisterXmppChannel(XmppChannel *channel);
-    void UnRegisterXmppChannel();
 
     std::string GetXmppServer() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
@@ -144,11 +143,6 @@ public:
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
-    void set_marked_for_deferred_deletion(bool marked_for_deferred_deletion) {
-        marked_for_deferred_deletion_ = marked_for_deferred_deletion;
-    }
-    //Makes sure that none of its old bgp peers are still alive.
-    bool CanBeDeleted(BgpPeer *peer);
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
@@ -219,7 +213,6 @@ private:
     boost::shared_ptr<BgpPeer> bgp_peer_id_;
     Agent *agent_;
     uint64_t unicast_sequence_number_;
-    bool marked_for_deferred_deletion_;
 };
 
 #endif // __CONTROLLER_PEER_H__

@@ -25,14 +25,13 @@ class MulticastTest : public ::testing::Test {
 public:
     MulticastTest() : agent_(Agent::GetInstance()) {}
     virtual void SetUp() {
-        peer_ = new BgpPeer(IpAddress::from_string("127.0.0.1").to_v4(),
-                            "dummy", NULL, 1, Peer::BGP_PEER);
+        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     }
 
     virtual void TearDown() {
         WAIT_FOR(1000, 10000, (agent_->vn_table()->Size() == 0));
         WAIT_FOR(1000, 10000, (agent_->vrf_table()->Size() == 1));
-        delete peer_;
+        DeleteBgpPeer(peer_);
     }
     Agent *agent_;
     Peer *peer_;
