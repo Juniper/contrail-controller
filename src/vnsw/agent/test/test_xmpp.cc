@@ -151,7 +151,7 @@ protected:
         xs->Shutdown();
         bgp_peer.reset(); 
         client->WaitForIdle();
-        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
+        Agent::GetInstance()->reset_controller_xmpp_channel(0);
         agent_->set_controller_ifmap_xmpp_client(NULL, 0);
         agent_->set_controller_ifmap_xmpp_init(NULL, 0);
         xc->Shutdown();
