@@ -46,8 +46,6 @@ public:
     virtual void ErrorHandler(int, uint32_t) const;
     virtual std::string VrouterError(uint32_t error) const;
 private:
-    bool IgnoreVrouterError() const;
-
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
     uint32_t old_hash_id_;
@@ -104,8 +102,8 @@ public:
     void MapSharedMemory();
     void GetFlowTableSize();
     void StartAuditTimer();
-private:
     bool IsEvictionMarked(const vr_flow_entry *entry) const;
+private:
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
     friend class KSyncSandeshContext;
     KSync *ksync_;
