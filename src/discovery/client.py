@@ -125,7 +125,7 @@ class Subscribe(object):
                     gevent.sleep(2)
                 else:
                     connected = True
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, socket.timeout):
                 # discovery server down or restarting?
                 self.syslog('discovery server down or restarting?')
                 if not conn_state_updated:
