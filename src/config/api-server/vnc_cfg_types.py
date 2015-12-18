@@ -43,11 +43,13 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+            prop_list_updates=None, ref_update=None):
         return True, ''
 
     @classmethod
-    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+            prop_list_updates=None, ref_update=None):
         return True, ''
 
     @classmethod
@@ -117,7 +119,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
@@ -478,7 +480,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end post_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
             vmi_id = {'uuid': id}
             try:
@@ -500,7 +502,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         (ok, result) = db_conn.dbe_list('loadbalancer-pool', back_ref_uuids=[id])
         if not ok:
             return (ok, result)
@@ -598,7 +600,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end post_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
@@ -762,7 +764,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ipam_uuid = obj_dict['uuid']
         ipam_id = {'uuid': ipam_uuid}
         try:
@@ -834,7 +836,7 @@ class VirtualDnsServer(Resource, VirtualDns):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls.validate_dns_server(obj_dict, db_conn)
     # end pre_dbe_update
 
@@ -994,7 +996,7 @@ class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls.validate_dns_record(obj_dict, db_conn)
     # end pre_dbe_update
 
@@ -1136,7 +1138,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         try:
             (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         except cfgm_common.exceptions.NoIdError as e:
@@ -1203,7 +1205,7 @@ class NetworkPolicyServer(Resource, NetworkPolicy):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         p_id = {'uuid': id}
         try:
             (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
@@ -1232,7 +1234,7 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         interface = {'uuid': id}
         try:
             (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
@@ -1275,7 +1277,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         # do not allow change in display name
         if 'display_name' in obj_dict:
             try:

@@ -604,9 +604,29 @@ class TestListUpdate(test_case.ApiServerTestCase):
 # end class TestListUpdate
 
 class TestCrud(test_case.ApiServerTestCase):
-    def test_create(self):
-        test_obj = self._create_test_object()
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+    def test_create_using_lib_api(self):
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
+    # end test_create_using_lib_api
+
+    def test_create_using_rest_api(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+        url = 'http://%s:%s/virtual-networks' %(listen_ip, listen_port)
+        vn_body = {
+            'virtual-network': {
+                'fq_name': ['default-domain',
+                            'default-project',
+                            'vn-%s' %(self.id())],
+                'parent_type': 'project',
+            }}
+        requests.post(url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(vn_body))
+    # end test_create_using_rest_api
+# end class TestCrud
+
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def _create_vn_ri_vmi(self, obj_count=1):
@@ -2152,6 +2172,362 @@ class TestExtensionApi(test_case.ApiServerTestCase):
     # end test_validate_request
 
 # end class TestExtensionApi
+
+
+class TestPropertyWithList(test_case.ApiServerTestCase):
+    def assert_kvpos(self, rd_bindings, idx, k, v, pos):
+        self.assertEqual(rd_bindings[idx][0]['key'], k)
+        self.assertEqual(rd_bindings[idx][0]['value'], v)
+        self.assertEqual(rd_bindings[idx][1], pos)
+
+    def test_set_in_object(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
+            parent_obj=Project())
+        vmi_obj.set_virtual_machine_interface_bindings(
+            KeyValuePairs([KeyValuePair(key='k1', value='v1'),
+                           KeyValuePair(key='k2', value='v2')]))
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        # ensure stored as list order
+        rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
+        self.assertThat(
+            rd_bindings.key_value_pair[0].key, Equals('k1'))
+        self.assertThat(
+            rd_bindings.key_value_pair[1].key, Equals('k2'))
+
+        # verify db storage format (wrapper/container type stripped in storage)
+        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        cols = uuid_cf.get(vmi_obj.uuid,
+            column_start='propl:virtual_machine_interface_bindings:',
+            column_finish='propl:virtual_machine_interface_bindings;')
+        col_name_0, col_val_0 = cols.popitem(last=False)
+        col_name_1, col_val_1 = cols.popitem(last=False)
+        self.assertThat(col_name_0.split(':')[-1], Equals('0'))
+        self.assertThat(json.loads(col_val_0)['key'], Equals('k1'))
+        self.assertThat(col_name_1.split(':')[-1], Equals('1'))
+        self.assertThat(json.loads(col_val_1)['key'], Equals('k2'))
+
+        # update and clobber old entries
+        #vmi_obj.set_virtual_machine_interface_bindings([])
+        vmi_obj.set_virtual_machine_interface_bindings(KeyValuePairs())
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
+        self.assertIsNone(rd_bindings)
+        cols = uuid_cf.get(vmi_obj.uuid,
+            column_start='propl:virtual_machine_interface_bindings:',
+            column_finish='propl:virtual_machine_interface_bindings;')
+        self.assertEqual(len(cols), 0)
+    # end test_set_in_object
+
+    def test_add_del_in_object(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
+            parent_obj=Project())
+
+        for key,val,pos in [('k2','v2','p1'), ('k1','v1','p2'),
+                            ('k3','v3','p3'), ('k4', 'v4', None)]:
+            vmi_obj.add_virtual_machine_interface_bindings(
+                KeyValuePair(key=key, value=val), pos)
+
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_bindings
+
+        self.assertEqual(len(rd_bindings.key_value_pair), 4)
+
+        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k4')
+        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v4')
+        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k2')
+        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v2')
+        self.assertEqual(rd_bindings.key_value_pair[2].key, 'k1')
+        self.assertEqual(rd_bindings.key_value_pair[2].value, 'v1')
+        self.assertEqual(rd_bindings.key_value_pair[3].key, 'k3')
+        self.assertEqual(rd_bindings.key_value_pair[3].value, 'v3')
+
+        for pos in ['p1', 'p3']:
+            vmi_obj.del_virtual_machine_interface_bindings(
+                elem_position=pos)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_bindings
+
+        self.assertEqual(len(rd_bindings.key_value_pair), 2)
+
+        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k4')
+        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v4')
+        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k1')
+        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v1')
+    # end test_add_del_in_object
+
+    def test_prop_list_add_delete_get_element(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
+            parent_obj=Project())
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        # 1. Add tests
+        # add with element as type
+        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings', KeyValuePair('k1','v1'))
+
+        # add with element as dict
+        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings', {'key':'k2','value':'v2'})
+
+        # verify above add without position specified generated uuid'd order
+        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_bindings')
+
+        # add with position specified
+        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings',
+            {'key':'k3','value':'v3'}, '0.1')
+        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings',
+            {'key':'k4','value':'v4'}, '0.0')
+        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings',
+            {'key':'k5','value':'v5'}, '.00')
+
+        # 2. Get tests
+        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_bindings')
+
+        self.assertEqual(len(rd_bindings), 5)
+
+        self.assert_kvpos(rd_bindings, 0, 'k5', 'v5', '.00')
+        self.assert_kvpos(rd_bindings, 1, 'k4', 'v4', '0.0')
+        self.assert_kvpos(rd_bindings, 2, 'k3', 'v3', '0.1')
+
+        self.assertTrue(
+            isinstance(uuid.UUID(rd_bindings[-1][1]), uuid.UUID),
+            'Auto-generated position not of uuid form')
+
+        # 3. Delete tests - middle and edges
+        self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings', '0.1')
+        self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings', '.00')
+        self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
+            'virtual_machine_interface_bindings', rd_bindings[-1][1])
+
+        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_bindings')
+
+        self.assertEqual(len(rd_bindings), 2)
+        self.assert_kvpos(rd_bindings, 0, 'k4', 'v4', '0.0')
+        self.assertTrue(
+            isinstance(uuid.UUID(rd_bindings[-1][1]), uuid.UUID),
+            'Deleted incorrect element')
+    # end test_prop_list_add_delete_get_element
+
+    def test_set_in_resource_body_rest_api(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+        url = 'http://%s:%s/virtual-machine-interfaces' %(
+            listen_ip, listen_port)
+        vmi_body = {
+            'virtual-machine-interface': {
+                'fq_name': ['default-domain',
+                            'default-project',
+                            'vmi-%s' %(self.id())],
+                'parent_type': 'project',
+                'virtual_machine_interface_bindings': {
+                    'key_value_pair': [
+                        {'key': 'k1', 'value': 'v1'},
+                        {'key': 'k2', 'value': 'v2'},
+                    ]
+                },
+                'virtual_network_refs': [
+                    {'to': ['default-domain',
+                            'default-project',
+                            'default-virtual-network']}
+                ]
+            }
+        }
+
+        vmi_resp = requests.post(url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(vmi_body))
+        vmi_uuid = json.loads(
+            vmi_resp.content)['virtual-machine-interface']['uuid']
+        vmi_url = 'http://%s:%s/virtual-machine-interface/%s' %(
+            listen_ip, listen_port, vmi_uuid)
+
+        vmi_read = json.loads(
+            requests.get(vmi_url).content)['virtual-machine-interface']
+        rd_bindings = vmi_read['virtual_machine_interface_bindings']
+        self.assertEqual(len(rd_bindings['key_value_pair']), 2)
+        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'k1')
+        self.assertEqual(rd_bindings['key_value_pair'][1]['key'], 'k2')
+
+        vmi_body = {
+            'virtual-machine-interface': {
+                'virtual_machine_interface_bindings': {
+                    'key_value_pair': [
+                        {'key': 'k3', 'value': 'v3'}
+                    ]
+                }
+            }
+        }
+        vmi_resp = requests.put(vmi_url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(vmi_body))
+
+        vmi_read = json.loads(
+            requests.get(vmi_url).content)['virtual-machine-interface']
+        rd_bindings = vmi_read['virtual_machine_interface_bindings']
+        self.assertEqual(len(rd_bindings['key_value_pair']), 1)
+        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'k3')
+    # end test_set_in_resource_body_rest_api
+
+    def _rest_vmi_create(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+        url = 'http://%s:%s/virtual-machine-interfaces' %(
+            listen_ip, listen_port)
+        vmi_body = {
+            'virtual-machine-interface': {
+                'fq_name': ['default-domain',
+                            'default-project',
+                            'vmi-%s' %(self.id())],
+                'parent_type': 'project',
+                'virtual_network_refs': [
+                    {'to': ['default-domain',
+                            'default-project',
+                            'default-virtual-network']}
+                ]
+            }
+        }
+
+        vmi_resp = requests.post(url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(vmi_body))
+        vmi_uuid = json.loads(
+            vmi_resp.content)['virtual-machine-interface']['uuid']
+
+        return vmi_uuid
+    # end _rest_vmi_create
+
+    def test_prop_list_add_delete_get_rest_api(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        vmi_uuid = self._rest_vmi_create()
+
+        prop_list_update_url = 'http://%s:%s/prop-list-update' %(
+            listen_ip, listen_port)
+        prop_list_get_url = 'http://%s:%s/prop-list-get' %(
+            listen_ip, listen_port)
+
+        # 1. Add elements
+        requests.post(prop_list_update_url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(
+                {'uuid': vmi_uuid,
+                 'updates': [
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'add',
+                      'value': {'key': 'k1', 'value': 'v1'} },
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'add',
+                      'value': {'key': 'k2', 'value': 'v2'},
+                      'position': '0.0'},
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'add',
+                      'value': {'key': 'k3', 'value': 'v3'},
+                      'position': '.01'} ] }))
+
+        # 2. Get elements
+        query_params = {'uuid': vmi_uuid,
+                        'fields': ','.join(
+                                  ['virtual_machine_interface_bindings'])}
+        rd_bindings = json.loads(requests.get(prop_list_get_url,
+            params=query_params).content)['virtual_machine_interface_bindings']
+
+        self.assertEqual(len(rd_bindings), 3)
+        self.assertEqual(rd_bindings[0][0]['key'], 'k3')
+        self.assertEqual(rd_bindings[0][0]['value'], 'v3')
+        self.assertEqual(rd_bindings[0][1], '.01')
+
+        self.assertEqual(rd_bindings[2][0]['key'], 'k1')
+        self.assertEqual(rd_bindings[2][0]['value'], 'v1')
+        self.assertTrue(
+            isinstance(uuid.UUID(rd_bindings[2][1]), uuid.UUID),
+            'Autogenerated position not of uuid form')
+
+        # 3. Delete (and add) elements
+        requests.post(prop_list_update_url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(
+                {'uuid': vmi_uuid,
+                 'updates': [
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'delete',
+                      'position': '.01'},
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'delete',
+                      'position': '0.0'},
+                     {'field': 'virtual_machine_interface_bindings',
+                      'operation': 'add',
+                      'value': {'key': 'k4', 'value': 'v4'},
+                      'position': '.01'} ] }))
+
+        query_params = {'uuid': vmi_uuid,
+                        'fields': ','.join(
+                                  ['virtual_machine_interface_bindings'])}
+        rd_bindings = json.loads(requests.get(prop_list_get_url,
+            params=query_params).content)['virtual_machine_interface_bindings']
+
+        self.assertEqual(len(rd_bindings), 2)
+        self.assertEqual(rd_bindings[0][0]['key'], 'k4')
+        self.assertEqual(rd_bindings[0][0]['value'], 'v4')
+        self.assertEqual(rd_bindings[0][1], '.01')
+        self.assertEqual(rd_bindings[1][0]['key'], 'k1')
+        self.assertEqual(rd_bindings[1][0]['value'], 'v1')
+
+    # end test_prop_list_add_delete_get_rest_api
+
+    def test_prop_list_wrong_type_should_fail(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        vmi_uuid = self._rest_vmi_create()
+
+        prop_list_update_url = 'http://%s:%s/prop-list-update' %(
+            listen_ip, listen_port)
+        prop_list_get_url = 'http://%s:%s/prop-list-get' %(
+            listen_ip, listen_port)
+
+        # 1. Try adding elements to non-prop-list field
+        response = requests.post(prop_list_update_url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            data=json.dumps(
+                {'uuid': vmi_uuid,
+                 'updates': [
+                     {'field': 'display_name',
+                      'operation': 'add',
+                      'value': {'key': 'k3', 'value': 'v3'},
+                      'position': '.01'} ] }))
+        self.assertEqual(response.status_code, 400)
+
+        # 2. Try getting elements from non-prop-list field
+        query_params = {'uuid': vmi_uuid,
+                        'fields': ','.join(
+                                  ['display_name'])}
+        response = requests.get(prop_list_get_url,
+            params=query_params)
+        self.assertEqual(response.status_code, 400)
+    # end test_prop_list_wrong_type_should_fail
+
+# end class TestPropertyWithlist
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
