@@ -2078,7 +2078,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_2) {
     // Remove the link between the routing-instance and the routing-policy.
     ifmap_test_util::IFMapMsgUnlink(&db_,
         "routing-instance", "test",
-        "routing-policy", "basic_0", "routing-instance-routing-policy");
+        "routing-policy", "basic_0", "routing-policy-routing-instance");
     task_util::WaitForIdle();
 
     test_ri = FindInstanceConfig("test");

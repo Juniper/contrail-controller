@@ -329,11 +329,11 @@ static bool ParseInstanceRoutingPolicy(const string &instance,
     if (add_change) {
         MapObjectLinkAttr("routing-instance", instance,
             "routing-policy", policy_name,
-            "routing-instance-routing-policy", attr.release(), requests);
+            "routing-policy-routing-instance", attr.release(), requests);
     } else {
         MapObjectUnlink("routing-instance", instance,
             "routing-policy", policy_name,
-            "routing-instance-routing-policy", requests);
+            "routing-policy-routing-instance", requests);
     }
 
     return true;

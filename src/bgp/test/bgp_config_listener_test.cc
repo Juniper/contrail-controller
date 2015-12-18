@@ -1664,7 +1664,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_0) {
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
     // routing-instance is added to change list
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1696,7 +1696,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1708,8 +1708,8 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
 }
 
 //
-// Update of routing-instance-routing-policy triggers routing-instance,
-// routing-policy and routing-instance-routing-policy
+// Update of routing-policy-routing-instance triggers routing-instance,
+// routing-policy and routing-policy-routing-instance
 //
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_2) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
@@ -1729,7 +1729,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_2) {
     TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1764,7 +1764,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
     TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1777,7 +1777,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_3) {
 
 //
 // Trigger edge change between routing policy and routing instance
-// In this test, modify link between mid-node(routing-instance-routing-policy)
+// In this test, modify link between mid-node(routing-policy-routing-instance)
 // routing-policy
 // Validate both routing instance and routing policy are added to change list
 //
@@ -1789,18 +1789,18 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance-routing-policy", id_name, "routing-policy", "basic_0");
+        "routing-policy-routing-instance", id_name, "routing-policy", "basic_0");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-policy-routing-instance"));
 
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1813,7 +1813,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
 
 //
 // Trigger edge change between routing policy and routing instance
-// In this test, modify link between mid-node(routing-instance-routing-policy)
+// In this test, modify link between mid-node(routing-policy-routing-instance)
 // routing-instance
 // Validate both routing instance and routing policy are added to change list
 //
@@ -1825,18 +1825,18 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
-        "routing-instance-routing-policy", id_name, "routing-instance", "test");
+        "routing-policy-routing-instance", id_name, "routing-instance", "test");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("routing-policy-routing-instance"));
 
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1848,9 +1848,9 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
 }
 
 //
-// Update of IFMapNode representing the routing-instance-routing-policy,
+// Update of IFMapNode representing the routing-policy-routing-instance,
 // puts routing-instance and routing-policy to change list along with
-// routing-instance-routing-policy
+// routing-policy-routing-instance
 //
 TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_9.xml");
@@ -1859,7 +1859,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
-    ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance-routing-policy",
+    ifmap_test_util::IFMapNodeNotify(&db_, "routing-policy-routing-instance",
                                      id_name);
     task_util::WaitForIdle();
 
@@ -1871,7 +1871,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_6) {
     TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1906,7 +1906,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_7) {
     TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1941,7 +1941,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -1980,7 +1980,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -2000,7 +2000,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_9) {
     TASK_UTIL_EXPECT_EQ(4, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-policy"));
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount("routing-instance"));
-    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-instance-routing-policy"));
+    TASK_UTIL_EXPECT_EQ(0, GetChangeListCount("routing-policy-routing-instance"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
