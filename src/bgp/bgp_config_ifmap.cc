@@ -738,6 +738,42 @@ static bool GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
 }
 
 //
+// Fill in all the route-aggregation for a routing-instance.
+//
+static bool GetRouteAggregateConfig(DBGraph *graph, IFMapNode *node,
+                            BgpInstanceConfig::AggregateRouteList *inet_list,
+                            BgpInstanceConfig::AggregateRouteList *inet6_list) {
+    const autogen::RouteAggregate *ra =
+        static_cast<autogen::RouteAggregate *>(node->GetObject());
+    if (ra == NULL) return false;
+    BOOST_FOREACH(const autogen::AggregateRouteType &aggregate_route,
+                  ra->aggregate_route_entries()) {
+        AggregateRouteConfig aggregate;
+
+        boost::system::error_code ec;
+        aggregate.nexthop = IpAddress::from_string(aggregate_route.nexthop, ec);
+        if (ec != 0) return false;
+
+        Ip4Address address;
+        ec = Ip4SubnetParse(aggregate_route.prefix, &address,
+                            &aggregate.prefix_length);
+        if (ec == 0) {
+            aggregate.aggregate = address;
+            inet_list->push_back(aggregate);
+        } else {
+            Ip6Address address;
+            ec = Inet6SubnetParse(aggregate_route.prefix, &address,
+                                  &aggregate.prefix_length);
+            if (ec != 0) return false;
+            aggregate.aggregate = address;
+            inet6_list->push_back(aggregate);
+        }
+    }
+
+    return true;
+}
+
+//
 // Get the network id for a virtual-network.  The input IFMapNode represents
 // the virtual-network.
 //
@@ -932,6 +968,8 @@ static bool CompareRoutingPolicyOrder(const RoutingPolicyAttachInfo &lhs,
 void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                                     const autogen::RoutingInstance *config) {
     BgpInstanceConfig::RouteTargetList import_list, export_list;
+    BgpInstanceConfig::AggregateRouteList inet6_aggregate_list;
+    BgpInstanceConfig::AggregateRouteList inet_aggregate_list;
     RoutingPolicyConfigList policy_list;
     data_.Clear();
 
@@ -963,6 +1001,9 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
             if (GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info)) {
                 policy_list.push_back(policy_info);
             }
+        } else if (strcmp(adj->table()->Typename(), "route-aggregate") == 0) {
+            GetRouteAggregateConfig(graph, adj, &inet_aggregate_list,
+                                    &inet6_aggregate_list);
         } else if (strcmp(adj->table()->Typename(), "connection") == 0) {
             vector<string> target_list;
             GetConnectionExportTargets(graph, node, name_, adj, &target_list);
@@ -983,6 +1024,8 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
 
     std::sort(policy_list.begin(), policy_list.end(), CompareRoutingPolicyOrder);
     data_.swap_routing_policy_list(&policy_list);
+    data_.swap_aggregate_routes(Address::INET, &inet_aggregate_list);
+    data_.swap_aggregate_routes(Address::INET6, &inet6_aggregate_list);
 
     if (config) {
         data_.set_has_pnf(config->has_pnf());

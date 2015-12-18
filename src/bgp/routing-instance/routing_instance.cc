@@ -11,6 +11,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
@@ -481,6 +482,10 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
           BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this)),
       inet6_static_route_mgr_(
           BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this)),
+      inet_route_aggregator_(
+          BgpObjectFactory::Create<IRouteAggregator, Address::INET>(this)),
+      inet6_route_aggregator_(
+          BgpObjectFactory::Create<IRouteAggregator, Address::INET6>(this)),
       peer_manager_(BgpObjectFactory::Create<PeerManager>(this)) {
 }
 
@@ -563,6 +568,36 @@ void RoutingInstance::FlushStaticRouteConfig() {
     }
 }
 
+void RoutingInstance::ProcessRouteAggregationConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        route_aggregator(family)->ProcessAggregateRouteConfig();
+    }
+}
+
+void RoutingInstance::UpdateRouteAggregationConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        route_aggregator(family)->UpdateAggregateRouteConfig();
+    }
+}
+
+void RoutingInstance::FlushRouteAggregationConfig() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        route_aggregator(family)->FlushAggregateRouteConfig();
+    }
+}
+
 void RoutingInstance::ProcessConfig() {
     RoutingInstanceInfo info = GetDataCollection("");
 
@@ -623,6 +658,7 @@ void RoutingInstance::ProcessConfig() {
 
     ProcessServiceChainConfig();
     ProcessStaticRouteConfig();
+    ProcessRouteAggregationConfig();
     ProcessRoutingPolicyConfig();
 }
 
@@ -702,6 +738,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     ProcessServiceChainConfig();
     UpdateStaticRouteConfig();
+    UpdateRouteAggregationConfig();
     UpdateRoutingPolicyConfig();
 }
 
@@ -731,6 +768,7 @@ void RoutingInstance::Shutdown() {
 
     ProcessServiceChainConfig();
     FlushStaticRouteConfig();
+    FlushRouteAggregationConfig();
 }
 
 bool RoutingInstance::MayDelete() const {
@@ -1115,7 +1153,7 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
 
 //
 // On given route/path apply the routing policy
-//    Called from 
+//    Called from
 //        * InsertPath [While adding the path for the first time]
 //        * While walking the routing table to apply updating routing policy
 //
@@ -1155,4 +1193,16 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
     // Clear the reject if marked so in past
     if (path->IsPolicyReject()) path->ResetPolicyReject();
     return true;
+}
+
+void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
+    if (family == Address::INET) {
+        if (inet_route_aggregator_)
+            delete inet_route_aggregator_;
+        inet_route_aggregator_ = NULL;
+    } else if (family == Address::INET6) {
+        if (inet6_route_aggregator_)
+            delete inet6_route_aggregator_;
+        inet6_route_aggregator_ = NULL;
+    }
 }

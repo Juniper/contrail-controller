@@ -28,6 +28,7 @@ class EvpnManager;
 class EvpnTable;
 class ErmVpnTable;
 class IPeer;
+class IRouteAggregator;
 class IServiceChainMgr;
 class IStaticRouteMgr;
 class McastTreeManager;
@@ -78,6 +79,10 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,
         1 /* Address::INET */, RoutingInstance *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,
+        2 /* Address::INET6 */, RoutingInstance *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IRouteAggregator,
+        1 /* Address::INET */, RoutingInstance *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IRouteAggregator,
         2 /* Address::INET6 */, RoutingInstance *);
 };
 

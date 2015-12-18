@@ -349,6 +349,10 @@ routing_policy_test = env.UnitTest('routing_policy_test',
                               ['routing_policy_test.cc'])
 env.Alias('src/bgp:routing_policy_test', routing_policy_test)
 
+route_aggregation_test = env.UnitTest('route_aggregation_test',
+                              ['route_aggregation_test.cc'])
+env.Alias('src/bgp:route_aggregation_test', route_aggregation_test)
+
 rt_network_attr_test = env.UnitTest('rt_network_attr_test',
                                     ['rt_network_attr_test.cc'])
 env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
