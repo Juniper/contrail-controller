@@ -419,7 +419,9 @@ class PhysicalRouterDM(DBBase):
                                                              None, vn_obj.vn_network_id)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
-                        interfaces = [JunosInterface('irb.'+ str(vn_obj.vn_network_id), 'l3', 0)]
+                        interfaces = []
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
+                            interfaces = [JunosInterface('irb.'+ str(vn_obj.vn_network_id), 'l3', 0)]
                         self.config_manager.add_routing_instance(vrf_name_l3,
                                                              False,
                                                              vn_obj.get_forwarding_mode() == 'l2_l3',
