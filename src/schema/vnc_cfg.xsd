@@ -773,6 +773,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name='ProviderDetails'>
+        <xsd:element name='segmentation-id' type="xsd:integer"/>
+        <xsd:element name='physical-network' type="xsd:string"/>
+</xsd:complexType>
+
 <xsd:element name="forwarding-mode" type="ForwardingModeType"/>
 <!--#IFMAP-SEMANTICS-IDL
     Property('forwarding-mode', 'global-vrouter-config') -->
@@ -780,6 +785,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network') -->
+
+<xsd:element name="provider-properties" type="ProviderDetails"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('provider-properties', 'virtual-network') -->
+
 
 <xsd:element name="virtual-network-network-id" type='xsd:integer'/>
 <!--#IFMAP-SEMANTICS-IDL
