@@ -934,7 +934,7 @@ class DMCassandraDB(VncCassandraClient):
         cs_pr_set = set(self.pr_vn_ip_map.keys())
         delete_set = cs_pr_set.difference(current_pr_set)
         for pr_uuid in delete_set:
-            self.delete_pr(vn_uuid)
+            self.delete_pr(pr_uuid)
     #end
 
     def get_pr_vn_set(self, pr_uuid):
