@@ -3391,8 +3391,8 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->controller()->Cleanup();
     client->WaitForIdle();
-    if (channel)
-        delete channel;
+    Agent::GetInstance()->reset_controller_xmpp_channel(0);
+    Agent::GetInstance()->reset_controller_xmpp_channel(1);
     if (xmpp_channel)
         delete xmpp_channel;
 }

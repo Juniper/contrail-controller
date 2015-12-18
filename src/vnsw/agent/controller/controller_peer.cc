@@ -116,7 +116,9 @@ void AgentXmppChannel::CreateBgpPeer() {
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
     Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
     assert(ec.value() == 0);
-    bgp_peer_id_.reset(new BgpPeer(ip, addr, this, id, Peer::BGP_PEER));
+    bgp_peer_id_.reset(new BgpPeer(ip, addr,
+                                   agent_->controller_xmpp_channel_ref(xs_idx_),
+                                   id, Peer::BGP_PEER));
 }
 
 void AgentXmppChannel::DeCommissionBgpPeer() {
@@ -2475,21 +2477,4 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
     }
-}
-
-bool AgentXmppChannel::CanBeDeleted(BgpPeer *current_peer) {
-    if (!marked_for_deferred_deletion_) return false;
-
-    const VNController *controller = agent_->controller();
-    //Search if some peers are still pending and using this channel.
-    for (VNController::BgpPeerConstIterator it  = controller->
-                                    decommissioned_peer_list().begin();
-         it != controller->decommissioned_peer_list().end(); ++it) {
-        const BgpPeer *peer = static_cast<const BgpPeer *>((*it).get());
-        if ((peer != current_peer) &&
-            (peer->GetBgpXmppPeer() == this)) {
-            return false;
-        }
-    }
-    return true;
 }
