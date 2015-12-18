@@ -176,7 +176,9 @@ class FakeCF(object):
                 else:
                     col_dict[col_name] = col_value
 
-        return col_dict
+        sorted_col_dict = OrderedDict(
+            (k, col_dict[k]) for k in sorted(col_dict))
+        return sorted_col_dict
     # end get
 
     def multiget(

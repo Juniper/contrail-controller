@@ -1010,8 +1010,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-machine-interface-bindings',
-             'virtual-machine-interface') -->
+     ListProperty('virtual-machine-interface-bindings',
+                  'virtual-machine-interface') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
