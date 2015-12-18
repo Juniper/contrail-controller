@@ -141,6 +141,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_COMPUTE_NODE_MGR,
     SERVICE_CONTROL_NODE_MGR,
     SERVICE_DATABASE_NODE_MGR,
+    SERVICE_TOPOLOGY,
 ]
 
 const list<string> BackupImplementedServices = [
