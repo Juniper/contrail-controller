@@ -60,7 +60,7 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
 
     VnEntry *vn = static_cast<VnEntry *>(entry);
     VrfEntry *vrf = vn->GetVrf();
-    if (!vrf) return;
+    if (!vrf || vrf->IsDeleted()) return;
 
     if (vrf->GetName() == agent_->fabric_vrf_name())
         return;
