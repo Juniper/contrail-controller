@@ -572,7 +572,7 @@ protected:
         client->WaitForIdle();
 
         for (int i = 0; i < num_ctrl_peers; i++) {
-            Agent::GetInstance()->set_controller_xmpp_channel(NULL, i);
+            Agent::GetInstance()->reset_controller_xmpp_channel(i);
             xc[i]->ConfigUpdate(new XmppConfigData());
             client->WaitForIdle(5);
             xs[i]->Shutdown();

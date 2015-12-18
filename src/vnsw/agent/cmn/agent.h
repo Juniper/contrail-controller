@@ -509,13 +509,13 @@ public:
         xs_stime_[idx] = time;
     }
  
+    boost::shared_ptr<AgentXmppChannel> controller_xmpp_channel_ref(uint8_t idx);
     AgentXmppChannel *controller_xmpp_channel(uint8_t idx) const {
-        return agent_xmpp_channel_[idx];
+        return (agent_xmpp_channel_[idx]).get();
     }
 
-    void set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
-        agent_xmpp_channel_[idx] = channel;
-    };
+    void set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx);
+    void reset_controller_xmpp_channel(uint8_t idx);
 
     // Service instance
    ServiceInstanceTable *service_instance_table() const {
@@ -938,7 +938,7 @@ private:
     VNController *controller_;
 
     EventManager *event_mgr_;
-    AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
+    boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
     AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
     XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
     XmppInit *xmpp_init_[MAX_XMPP_SERVERS];

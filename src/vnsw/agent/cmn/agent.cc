@@ -392,7 +392,7 @@ Agent::Agent() :
     stats_collector_(NULL), flow_stats_collector_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
     diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
-    agent_xmpp_channel_(), ifmap_channel_(), xmpp_client_(), xmpp_init_(),
+    ifmap_channel_(), xmpp_client_(), xmpp_init_(),
     dns_xmpp_channel_(), dns_xmpp_client_(), dns_xmpp_init_(),
     agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL), ds_client_(NULL),
     host_name_(""), agent_name_(""), prog_name_(""), introspect_port_(0),
@@ -449,6 +449,9 @@ Agent::Agent() :
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
 
     config_manager_.reset(new ConfigManager(this));
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        (agent_xmpp_channel_[count]).reset();
+    }
 }
 
 Agent::~Agent() {
@@ -622,4 +625,17 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
         return Agent::L2_L3;
 
     return Agent::NONE;
+}
+
+void Agent::set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
+    assert(channel != NULL);
+    (agent_xmpp_channel_[idx]).reset(channel);
+}
+
+void Agent::reset_controller_xmpp_channel(uint8_t idx) {
+    (agent_xmpp_channel_[idx]).reset();
+}
+
+boost::shared_ptr<AgentXmppChannel> Agent::controller_xmpp_channel_ref(uint8_t idx) {
+    return agent_xmpp_channel_[idx];
 }

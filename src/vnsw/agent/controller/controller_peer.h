@@ -147,8 +147,6 @@ public:
     void set_marked_for_deferred_deletion(bool marked_for_deferred_deletion) {
         marked_for_deferred_deletion_ = marked_for_deferred_deletion;
     }
-    //Makes sure that none of its old bgp peers are still alive.
-    bool CanBeDeleted(BgpPeer *peer);
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
