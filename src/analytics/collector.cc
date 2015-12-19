@@ -30,8 +30,9 @@
 #include <sandesh/sandesh_message_builder.h>
 #include <discovery/client/discovery_client.h>
 #include <discovery_client_stats_types.h>
+#ifndef USE_CASSANDRA_CQL
 #include <database/cassandra/thrift/thrift_if.h>
-
+#endif // !USE_CASSANDRA_CQL
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
@@ -329,6 +330,7 @@ void Collector::TestDbConnErrHandler() {
     }
 
 void Collector::TestDatabaseConnection() {
+#ifndef USE_CASSANDRA_CQL
     bool connect_status_change = false;
     boost::scoped_ptr<GenDb::GenDbIf> testdbif_; // for testing db connection
 
@@ -363,6 +365,7 @@ void Collector::TestDatabaseConnection() {
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
             DbGlobalName(false), dbConnStatus_, db_endpoint, std::string());
     }
+#endif // !USE_CASSANDRA_CQL
 }
 
 void Collector::SendGeneratorStatistics() {

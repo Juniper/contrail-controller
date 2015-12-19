@@ -14,9 +14,7 @@ env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/base/sandesh/',
                      ])
 
-env.Prepend(LIBS=[  'cassandra_thrift',
-                    'gendb',
-                    'cpuinfo',
+env.Prepend(LIBS=[  'cpuinfo',
                     'ds',
                     'io',
                     'sandesh',
@@ -40,6 +38,15 @@ env.Prepend(LIBS=[  'cassandra_thrift',
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
+
+if env.UseCassandraCql():
+    database_libs = ['cassandra_cql', 'cassandra']
+    env.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
+else:
+    database_libs = ['cassandra_thrift', 'thrift']
+
+database_libs.append('gendb')
+env.Prepend(LIBS=database_libs)
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)

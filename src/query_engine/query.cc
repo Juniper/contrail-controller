@@ -19,7 +19,11 @@
 #include "stats_query.h"
 #include <base/connection_info.h>
 #include "utils.h"
+#ifdef USE_CASSANDRA_CQL
+#include <database/cassandra/cql/cql_if.h>
+#else // USE_CASSANDRA_CQL
 #include <database/cassandra/thrift/thrift_if.h>
+#endif // !USE_CASSANDRA_CQL
 
 using std::map;
 using std::string;
@@ -653,6 +657,13 @@ void query_result_unit_t::get_uuid(boost::uuids::uuid& u)
 void query_result_unit_t::get_uuid_stats(boost::uuids::uuid& u, 
         flow_stats& stats)
 {
+#ifdef USE_CASSANDRA_CQL
+    QE_ASSERT(info.size() == 1);
+    const GenDb::DbDataValue &val(info[0]);
+    QE_ASSERT(val.which() == GenDb::DB_VALUE_STRING);
+    std::string jsonline(boost::get<std::string>(val));
+    get_uuid_stats_8tuple_from_json(jsonline, &u, &stats, NULL);
+#else // USE_CASSANDRA_CQL
     try {
         stats.bytes = boost::get<uint64_t>(info.at(0));
     } catch (boost::bad_get& ex) {
@@ -678,6 +689,7 @@ void query_result_unit_t::get_uuid_stats(boost::uuids::uuid& u,
     }
 
     return;
+#endif // !USE_CASSANDRA_CQL
 }
 
 void query_result_unit_t::set_stattable_info(
@@ -711,10 +723,8 @@ void  query_result_unit_t::get_stattable_info(
 
 }
 
-void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
-    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple) {
-    rapidjson::Document dd;
-    dd.Parse<0>(jsonline.c_str());
+static void get_uuid_from_json(const rapidjson::Document &dd,
+    boost::uuids::uuid *u) {
     const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
     // First get UUID
     const std::string &tfuuid_s(frnames[FlowRecordFields::FLOWREC_FLOWUUID]);
@@ -723,7 +733,11 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
         std::string fuuid_s(dd[tfuuid_s.c_str()].GetString());
         *u = StringToUuid(fuuid_s);
     }
-    // Next get stats
+}
+
+static void get_stats_from_json(const rapidjson::Document &dd,
+    flow_stats *stats) {
+    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
     const std::string &tdiff_bytes_s(
         frnames[FlowRecordFields::FLOWREC_DIFF_BYTES]);
     if (dd.HasMember(tdiff_bytes_s.c_str())) {
@@ -742,7 +756,11 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
         QE_ASSERT(dd[tshort_flow_s.c_str()].IsUint());
         stats->short_flow = dd[tshort_flow_s.c_str()].GetUint() ? true : false;
     }
-    // Next get 8 tuple
+}
+
+static void get_8tuple_from_json(const rapidjson::Document &dd,
+    flow_tuple *tuple) {
+    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
     const std::string &tvrouter_s(
         frnames[FlowRecordFields::FLOWREC_VROUTER]);
     if (dd.HasMember(tvrouter_s.c_str())) {
@@ -764,6 +782,7 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
     const std::string &tsource_ip_s(
         frnames[FlowRecordFields::FLOWREC_SOURCEIP]);
     if (dd.HasMember(tsource_ip_s.c_str())) {
+#ifdef INET_SUPPORT
         QE_ASSERT(dd[tsource_ip_s.c_str()].IsString());
         std::string ipaddr_s(dd[tsource_ip_s.c_str()].GetString());
         boost::system::error_code ec;
@@ -774,10 +793,15 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
             boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
             tuple->source_ip = v4_addr.to_ulong();
         }
+#else // INET_SUPPORT
+        QE_ASSERT(dd[tsource_ip_s.c_str()].IsUint());
+        tuple->source_ip = dd[tsource_ip_s.c_str()].GetUint();
+#endif // !INET_SUPPORT
     }
     const std::string &tdest_ip_s(
         frnames[FlowRecordFields::FLOWREC_DESTIP]);
     if (dd.HasMember(tdest_ip_s.c_str())) {
+#ifdef INET_SUPPORT
         QE_ASSERT(dd[tdest_ip_s.c_str()].IsString());
         std::string ipaddr_s(dd[tdest_ip_s.c_str()].GetString());
         boost::system::error_code ec;
@@ -788,6 +812,10 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
             boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
             tuple->dest_ip = v4_addr.to_ulong();
         }
+#else // INET_SUPPORT
+        QE_ASSERT(dd[tdest_ip_s.c_str()].IsUint());
+        tuple->dest_ip = dd[tdest_ip_s.c_str()].GetUint();
+#endif // !INET_SUPPORT
     }
     const std::string &tprotocol_s(
         frnames[FlowRecordFields::FLOWREC_PROTOCOL]);
@@ -806,6 +834,24 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
     if (dd.HasMember(tdport_s.c_str())) {
         QE_ASSERT(dd[tdport_s.c_str()].IsUint());
         tuple->dest_port = dd[tdport_s.c_str()].GetUint();
+    }
+}
+
+void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
+    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple) {
+    rapidjson::Document dd;
+    dd.Parse<0>(jsonline.c_str());
+    // First get UUID
+    if (u) {
+        get_uuid_from_json(dd, u);
+    }
+    // Next get stats
+    if (stats) {
+        get_stats_from_json(dd, stats);
+    }
+    // Next get 8 tuple
+    if (tuple) {
+        get_8tuple_from_json(dd, tuple);
     }
 }
 
@@ -982,10 +1028,12 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         int total_batches, const std::string& cassandra_user,
         const std::string& cassandra_password):
         QueryUnit(NULL, this),
+#ifndef USE_CASSANDRA_CQL
         dbif_(new ThriftIf(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
             cassandra_ips, cassandra_ports, "QueryEngine", true,
             cassandra_user, cassandra_password)),
+#endif // !USE_CASSANDRA_CQL
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         ttlmap_(ttlmap),
@@ -1105,11 +1153,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_password, int max_tasks, int max_slice, 
             const std::string & cassandra_user,
             const std::string & cassandra_password,
-            bool use_global_db_handler) :
-        dbif_(new ThriftIf(
-            boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ips, cassandra_ports, "QueryEngine", true,
-            cassandra_user, cassandra_password)),
+            bool use_cql) :
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, redis_password, max_tasks)),
         evm_(evm),
@@ -1117,10 +1161,25 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_ips_(cassandra_ips),
         cassandra_user_(cassandra_user),
         cassandra_password_(cassandra_password),
-        use_global_db_handler_(use_global_db_handler)
-{
+        use_cql_(use_cql) {
+#ifdef USE_CASSANDRA_CQL
+    if (use_cql) {
+        dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
+            cassandra_ports[0], cassandra_user, cassandra_password));
+        keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
+    } else {
+#else // USE_CASSANDRA_CQL
+        dbif_.reset(new ThriftIf(
+            boost::bind(&QueryEngine::db_err_handler, this),
+            cassandra_ips, cassandra_ports, "QueryEngine", true,
+            cassandra_user, cassandra_password));
+        keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE;
+#endif // !USE_CASSANDRA_CQL
+#ifdef USE_CASSANDRA_CQL
+    }
+#endif // USE_CASSANDRA_CQL
     max_slice_ = max_slice;
-    init_vizd_tables(false);
+    init_vizd_tables(use_cql);
 
     // Initialize database connection
     QE_TRACE_NOQID(DEBUG, "Initializing database");
@@ -1138,9 +1197,9 @@ QueryEngine::QueryEngine(EventManager *evm,
         }
 
         if (!retry) {
-            if (!db_if->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+            if (!db_if->Db_SetTablespace(keyspace_)) {
                 QE_LOG_NOQID(ERROR,  ": Create/Set KEYSPACE: " <<
-                        g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+                             keyspace_ << " FAILED");
                 retry = true;
             }
         }

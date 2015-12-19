@@ -72,17 +72,17 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
     std::string expected_qstring(
         "CREATE TABLE IF NOT EXISTS StaticCf ("
          "key uuid PRIMARY KEY, "
-         "columnA ascii, "
-         "columnB uuid, "
-         "columnC timeuuid, "
-         "columnD int, "
-         "columnE int, "
-         "columnF int, "
-         "columnG bigint, "
-         "columnH double, "
-         "columnI text, "
-         "columnJ inet, "
-         "columnK varint)");
+         "\"columnA\" ascii, "
+         "\"columnB\" uuid, "
+         "\"columnC\" timeuuid, "
+         "\"columnD\" int, "
+         "\"columnE\" int, "
+         "\"columnF\" int, "
+         "\"columnG\" bigint, "
+         "\"columnH\" double, "
+         "\"columnI\" text, "
+         "\"columnJ\" inet, "
+         "\"columnK\" varint)");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
 
@@ -233,8 +233,8 @@ TEST_F(CqlIfTest, InsertIntoStaticTable) {
     std::string expected_qstring(
         "INSERT INTO InsertIntoStaticCf "
         "(key, key2, key3, key4, key5, key6, key7, "
-        "StringColumn, U64Column, U32Column, UUIDColumn, U8Column, "
-        "U16Column, DoubleColumn) VALUES ("
+        "\"StringColumn\", \"U64Column\", \"U32Column\", \"UUIDColumn\", "
+        "\"U8Column\", \"U16Column\", \"DoubleColumn\") VALUES ("
         "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
         "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123) "
         "USING TTL 864000");
