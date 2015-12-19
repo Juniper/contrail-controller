@@ -969,6 +969,21 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:element name="interface-type" type="ServiceInterfaceType"/>
 </xsd:complexType>
 
+<xsd:complexType name='RoutingPolicyServiceInstanceType'>
+    <xsd:annotation>
+        <xsd:documentation>
+            A given routing policy could be attached to both left or right
+            interface of a service instance. If it is the case, set both the
+            left-sequence and right-sequence. If you only want to attach it to
+            either left or right, but not both, then only set the corresponding
+            sequence number. A value of None also means it is not attached to
+            that interface.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name="left-sequence" type="bgp:SequenceNumberType"/>
+    <xsd:element name="right-sequence" type="bgp:SequenceNumberType"/>
+</xsd:complexType>
+
 <xsd:complexType name='InterfaceMirrorType'>
     <xsd:all>
         <xsd:element name="traffic-direction" type="TrafficDirectionType"/>
@@ -1506,7 +1521,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('interface-route-table-service-instance',
           'interface-route-table', 'service-instance', ['ref']) -->
 
-<xsd:element name="routing-policy-service-instance" type="ServiceInterfaceTag"/>
+<xsd:element name="routing-policy-service-instance" type="RoutingPolicyServiceInstanceType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('routing-policy-service-instance',
           'bgp:routing-policy', 'service-instance', ['ref']) -->

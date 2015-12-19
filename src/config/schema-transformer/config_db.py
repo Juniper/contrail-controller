@@ -1241,6 +1241,10 @@ class VirtualNetworkST(DBBaseST):
         self.update_route_table()
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
+        for ri_name in self.routing_instances:
+            ri = RoutingInstanceST.get(ri_name)
+            if ri:
+                ri.update_routing_policy()
     # end evaluate
 
     def get_prefixes(self, ip_version):
@@ -1762,6 +1766,7 @@ class RoutingInstanceST(DBBaseST):
         self.is_default = self.obj.get_routing_instance_is_default()
         self.add_to_parent(self.obj)
         self.route_target = None
+        self.routing_policys = {}
         if self.obj.get_parent_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
                                              common.LINK_LOCAL_VN_FQ_NAME]:
             return
@@ -1810,6 +1815,40 @@ class RoutingInstanceST(DBBaseST):
             return None
         return ri_name[8:44]
     # end _get_service_id_from_ri
+
+    def update_routing_policy(self):
+        if not self.service_chain:
+            return
+        sc = ServiceChain.get(self.service_chain)
+        for si_name in sc.service_list:
+            if not self.name.endswith(si_name.replace(':', '_')):
+                continue
+            si = ServiceInstanceST.get(si_name)
+            if si is None:
+                return
+            if sc.left_vn == self.virtual_network:
+                rp_dict = dict((rp, attr.get_left_sequence())
+                               for rp, attr in si.routing_policys.items()
+                               if attr.get_left_sequence())
+            elif sc.right_vn == self.virtual_network:
+                rp_dict = dict((rp, attr.get_right_sequence())
+                               for rp, attr in si.routing_policys.items()
+                               if attr.get_right_sequence())
+            else:
+                break
+            for rp_name in self.routing_policys:
+                if rp_name not in rp_dict:
+                    rp = RoutingPolicyST.get(rp_name)
+                    if rp:
+                        rp.delete_routing_instance(self)
+            for rp_name, seq in rp_dict.items():
+                if (rp_name not in self.routing_policys or
+                    seq != self.routing_policys[rp_name]):
+                    rp = RoutingPolicyST.get(rp_name)
+                    if rp:
+                        rp.add_routing_instance(self, seq)
+            self.routing_policys = rp_dict
+    # end update_routing_policy
 
     def locate_route_target(self):
         old_rtgt = self._cassandra.get_route_target(self.name)
@@ -2024,6 +2063,11 @@ class RoutingInstanceST(DBBaseST):
                     vmi.delete_routing_instance(self)
             # end for vmi_name
 
+        for rp_name in self.routing_policys:
+            rp = RoutingPolicyST.get(rp_name)
+            if rp:
+                rp.delete_routing_instance(self.name)
+        self.routing_policys = {}
         try:
             DBBaseST._vnc_lib.routing_instance_delete(id=self.obj.uuid)
         except NoIdError:
@@ -3325,9 +3369,12 @@ class ServiceInstanceST(DBBaseST):
         self.auto_policy = False
         self.left_vn_str = None
         self.right_vn_str = None
+        self.routing_policys = {}
         self.update(obj)
         self.network_policys = NetworkPolicyST.get_by_service_instance(self.name)
         self.route_tables = RouteTableST.get_by_service_instance(self.name)
+        for ref in self.obj.get_routing_policy_back_refs() or []:
+            self.routing_policys[':'.join(ref['to'])] = ref['attr']
     # end __init__
 
     def update(self, obj=None):
@@ -3471,3 +3518,50 @@ class ServiceInstanceST(DBBaseST):
         return resp
     # end handle_st_object_req
 # end ServiceInstanceST
+
+
+class RoutingPolicyST(DBBaseST):
+    _dict = {}
+    obj_type = 'routing_policy'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.service_instances = {}
+        self.routing_instances = set()
+        self.update(obj)
+    # end __init__
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        new_refs = dict((':'.join(ref['to']), ref['attr'])
+                        for ref in self.obj.get_service_instance_refs() or [])
+        for ref in set(self.service_instances.keys()) - set(new_refs.keys()):
+            si = ServiceInstanceST.get(ref)
+            if si and self.name in si.routing_policys:
+                del si.routing_policys[self.name]
+        for ref in set(new_refs.keys()):
+            si = ServiceInstanceST.get(ref)
+            if si:
+                si.routing_policys[self.name] = new_refs[ref]
+        self.service_instances = new_refs
+    # end update
+
+    def add_routing_instance(self, ri, seq):
+        if ri.name in self.routing_instances:
+            return
+        self._vnc_lib.ref_update('routing_policy', self.obj.uuid,
+                                 'routing_instance', ri.obj.uuid,
+                                 None, 'ADD', RoutingPolicyType(seq))
+        self.routing_instances.add(ri.name)
+    # end add_routing_instance
+
+    def delete_routing_instance(self, ri):
+        if ri.name not in self.routing_instances:
+            return
+        self._vnc_lib.ref_update('routing_policy', self.obj.uuid,
+                                 'routing_instance', ri.obj.uuid,
+                                 None, 'DELETE')
+        self.routing_instances.discard(ri.name)
+
+    # end delete_routing_instance
+# end RoutingPolicyST

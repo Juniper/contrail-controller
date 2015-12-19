@@ -624,6 +624,19 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
 
+
+        rp = RoutingPolicy('rp1')
+        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_name)
+        si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
+        rp.add_service_instance(si_obj, si_rp)
+        self._vnc_lib.routing_policy_create(rp)
+        self.wait_to_get_object(config_db.RoutingPolicyST,
+                                rp.get_fq_name_str())
+        ident_name = self.get_obj_imid(rp)
+        self.wait_to_get_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        rp.del_service_instance(si_obj)
+        self._vnc_lib.routing_policy_update(rp)
+        self.wait_to_remove_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
