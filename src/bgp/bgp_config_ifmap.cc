@@ -105,7 +105,7 @@ bool BgpIfmapRoutingPolicyLinkConfig::GetRoutingInstanceRoutingPolicyPair(
 }
 
 void BgpIfmapRoutingPolicyLinkConfig::Update(BgpIfmapConfigManager *manager,
-                           const autogen::RoutingInstanceRoutingPolicy *ri_rp) {
+                           const autogen::RoutingPolicyRoutingInstance *ri_rp) {
     ri_rp_link_.reset(ri_rp);
 }
 
@@ -712,14 +712,14 @@ static void GetConnectionExportTargets(DBGraph *graph, IFMapNode *src_node,
 
 //
 // Fill in all the routing-policies for a routing-instance.  The input
-// IFMapNode represents the routing-instance-routing-policy.  We traverse to
+// IFMapNode represents the routing-policy-routing-instance.  We traverse to
 // graph edges and look for routing-policy adjacency
 //
 static bool GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
         RoutingPolicyAttachInfo *ri_rp_link) {
     std::string sequence;
-    const autogen::RoutingInstanceRoutingPolicy *policy =
-        static_cast<autogen::RoutingInstanceRoutingPolicy *>(node->GetObject());
+    const autogen::RoutingPolicyRoutingInstance *policy =
+        static_cast<autogen::RoutingPolicyRoutingInstance *>(node->GetObject());
     const autogen::RoutingPolicyType &attach_info = policy->data();
 
     if (!stringToInteger(attach_info.sequence, ri_rp_link->sequence_)) {
@@ -942,8 +942,8 @@ void BgpIfmapConfigManager::ProcessRoutingPolicyLink(const BgpConfigDelta &delta
         }
     }
 
-    autogen::RoutingInstanceRoutingPolicy *ri_rp_link_cfg =
-            static_cast<autogen::RoutingInstanceRoutingPolicy *>(delta.obj.get());
+    autogen::RoutingPolicyRoutingInstance *ri_rp_link_cfg =
+            static_cast<autogen::RoutingPolicyRoutingInstance *>(delta.obj.get());
 
     ri_rp_link->Update(this, ri_rp_link_cfg);
 }
@@ -996,7 +996,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                 }
             }
         } else if (strcmp(adj->table()->Typename(),
-                          "routing-instance-routing-policy") == 0) {
+                          "routing-policy-routing-instance") == 0) {
             RoutingPolicyAttachInfo policy_info;
             if (GetRoutingInstanceRoutingPolicy(graph, adj, &policy_info)) {
                 policy_list.push_back(policy_info);
@@ -1251,7 +1251,7 @@ BgpIfmapInstanceConfig::NeighborMapItems() const {
 // Create a new BgpIfmapRoutingPolicyLinkConfig.
 //
 // The IFMapNodeProxy is a proxy for the IFMapNode which is the
-// midnode that represents the routing-instance-routing-policy. The newly created
+// midnode that represents the routing-policy-routing-instance. The newly created
 // BgpIfmapRoutingPolicyLinkConfig gets added to the IfmapRoutingPolicyLinkMap.
 //
 BgpIfmapRoutingPolicyLinkConfig *
@@ -1274,7 +1274,7 @@ BgpIfmapConfigData::CreateRoutingPolicyLink(BgpIfmapInstanceConfig *rti,
 //
 // The BgpIfmapRoutingPolicyLinkConfig is removed from the
 // IfmapRoutingPolicyLinkMap and then deleted.
-// Note that the reference to the IFMapNode for the routing-instance-routing-policy
+// Note that the reference to the IFMapNode for the routing-policy-routing-instance
 // gets released via the destructor when the IFMapNodeProxy is destroyed.
 //
 void BgpIfmapConfigData::DeleteRoutingPolicyLink(BgpIfmapRoutingPolicyLinkConfig
@@ -1712,7 +1712,7 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
                         this, _1)));
     id_map_.insert(make_pair("routing-policy",
             boost::bind(&BgpIfmapConfigManager::ProcessRoutingPolicy, this, _1)));
-    id_map_.insert(make_pair("routing-instance-routing-policy",
+    id_map_.insert(make_pair("routing-policy-routing-instance",
             boost::bind(&BgpIfmapConfigManager::ProcessRoutingPolicyLink, this, _1)));
     id_map_.insert(make_pair("bgp-router",
             boost::bind(&BgpIfmapConfigManager::ProcessBgpRouter, this, _1)));

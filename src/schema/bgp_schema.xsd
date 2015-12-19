@@ -57,10 +57,10 @@
     <xsd:element name="sequence" type="xsd:string"/>
 </xsd:complexType>
 
-<xsd:element name="routing-instance-routing-policy" type="RoutingPolicyType"/>
+<xsd:element name="routing-policy-routing-instance" type="RoutingPolicyType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('routing-instance-routing-policy',
-          'routing-instance', 'routing-policy', ['ref']) -->
+     Link('routing-policy-routing-instance',
+          'routing-policy', 'routing-instance', ['ref']) -->
 
 <!--#IFMAP-SEMANTICS-IDL 
     Property('default-ce-protocol', 'routing-instance') -->

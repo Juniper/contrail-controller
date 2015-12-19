@@ -32,7 +32,7 @@ class BgpPeering;
 class BgpRouter;
 class RoutingInstance;
 class RoutingPolicy;
-class RoutingInstanceRoutingPolicy;
+class RoutingPolicyRoutingInstance;
 struct BgpRouterParams;
 }
 
@@ -262,7 +262,7 @@ public:
 
     const IFMapNode *node() const { return node_proxy_.node(); }
     std::string name() const { return name_; }
-    const autogen::RoutingInstanceRoutingPolicy *routing_policy_link() const {
+    const autogen::RoutingPolicyRoutingInstance *routing_policy_link() const {
         return ri_rp_link_.get();
     }
     static bool GetRoutingInstanceRoutingPolicyPair(DBGraph *graph,
@@ -271,7 +271,7 @@ public:
     BgpIfmapRoutingPolicyConfig *policy() { return policy_; }
 
     void Update(BgpIfmapConfigManager *manager,
-                const autogen::RoutingInstanceRoutingPolicy *ri_rp);
+                const autogen::RoutingPolicyRoutingInstance *ri_rp);
     void Delete(BgpIfmapConfigManager *manager);
 
 private:
@@ -279,7 +279,7 @@ private:
     BgpIfmapRoutingPolicyConfig *policy_;
     std::string name_;
     IFMapNodeProxy node_proxy_;
-    boost::intrusive_ptr<const autogen::RoutingInstanceRoutingPolicy> ri_rp_link_;
+    boost::intrusive_ptr<const autogen::RoutingPolicyRoutingInstance> ri_rp_link_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapRoutingPolicyLinkConfig);
 };
