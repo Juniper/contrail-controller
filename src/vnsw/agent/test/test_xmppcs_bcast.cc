@@ -178,10 +178,10 @@ protected:
         bgp_peer_s.reset(); 
         client->WaitForIdle();
 
-        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
+        Agent::GetInstance()->reset_controller_xmpp_channel(0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 0);
-        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 1);
+        Agent::GetInstance()->reset_controller_xmpp_channel(1);
         Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 1);
         Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 1);
         xc_p->Shutdown();

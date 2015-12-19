@@ -1111,7 +1111,7 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
 
     //Reset agent xmpp channel and back up the original channel.
     AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
-    agent_->set_controller_xmpp_channel(NULL, 1);
+    agent_->reset_controller_xmpp_channel(1);
     //Take VRF reference and delete VRF.
     VrfEntryRef vrf_ref = VrfGet("vrf1");
     DelVrf("vrf1");
