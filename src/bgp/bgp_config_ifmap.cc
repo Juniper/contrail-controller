@@ -1179,6 +1179,8 @@ BgpIfmapConfigData::BgpIfmapConfigData() {
 BgpIfmapConfigData::~BgpIfmapConfigData() {
     STLDeleteElements(&instances_);
     STLDeleteElements(&peerings_);
+    STLDeleteElements(&routing_policies_);
+    STLDeleteElements(&ri_rp_links_);
 }
 
 //

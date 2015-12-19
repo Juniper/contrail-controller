@@ -344,6 +344,7 @@ RoutingPolicy::RoutingPolicy(std::string name, BgpServer *server,
 }
 
 RoutingPolicy::~RoutingPolicy() {
+    terms_.clear();
 }
 
 RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
