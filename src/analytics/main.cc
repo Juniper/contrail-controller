@@ -342,6 +342,7 @@ int main(int argc, char *argv[])
             options.ipfix_port(),
             options.partitions(),
             options.dup(),
+            options.kafka_prefix(),
             ttl_map, options.cassandra_user(),
             options.cassandra_password(),
             use_cql);

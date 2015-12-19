@@ -52,6 +52,7 @@ public:
     const bool log_local() const { return log_local_; }
     const bool use_syslog() const { return use_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
+    const std::string kafka_prefix() const { return kafka_prefix_; }
     const bool dup() const { return dup_; }
     const uint64_t analytics_data_ttl() const { return analytics_data_ttl_; }
     const uint64_t analytics_flow_ttl() const { return analytics_flow_ttl_; }
@@ -114,6 +115,7 @@ private:
     bool log_local_;
     bool use_syslog_;
     std::string syslog_facility_;
+    std::string kafka_prefix_;
     int syslog_port_;
     int sflow_port_;
     int ipfix_port_;

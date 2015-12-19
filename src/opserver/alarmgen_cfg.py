@@ -66,6 +66,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
+            'kafka_prefix'     :'',
         }
 
         redis_opts = {
@@ -153,6 +154,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             nargs="+")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
+        parser.add_argument("--kafka_prefix",
+            help="System Prefix for Kafka")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -230,3 +233,6 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit
+
+    def kafka_prefix(self):
+        return self._args.kafka_prefix

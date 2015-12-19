@@ -156,6 +156,8 @@ void Options::Initialize(EventManager &evm,
              "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
              "Syslog facility to receive log lines")
+        ("DEFAULT.kafka_prefix", opt::value<string>()->default_value(""),
+             "System Prefix for Kafka")
         ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
              "Syslog listener port (< 0 will disable the syslog)")
         ("DEFAULT.sflow_port", opt::value<int>()->default_value(6343),
@@ -327,6 +329,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    GetOptValue<string>(var_map, kafka_prefix_, "DEFAULT.kafka_prefix");
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
     GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");

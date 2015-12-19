@@ -36,8 +36,8 @@ public:
             const std::string &redis_password,
             const std::string &brokers,
             int syslog_port, int sflow_port, int ipfix_port,
-            uint16_t partitions,
-            bool dup, const TtlMap &ttlmap,
+            uint16_t partitions, bool dup,
+            const std::string &kafka_prefix, const TtlMap &ttlmap,
             const std::string& cassandra_user,
             const std::string& cassandra_password,
             bool use_cql);
@@ -135,6 +135,7 @@ private:
     unsigned short listen_port_;
     uint32_t redis_gen_;
     uint16_t partitions_;
+    std::string kafka_prefix_;
     DISALLOW_COPY_AND_ASSIGN(VizCollector);
 };
 
