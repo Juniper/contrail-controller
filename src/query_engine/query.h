@@ -312,8 +312,6 @@ struct query_result_unit_t {
     // for printing
     friend std::ostream &operator<<(std::ostream &out, 
             query_result_unit_t&);
-
-    static GenDb::GenDbIf *dbif; // just to access decode functions
 } ;
 
 // Different status codes of query processing
@@ -745,7 +743,6 @@ public:
     virtual query_status_t process_query();
 
     // Interface to Cassandra
-    GenDb::GenDbIf *dbif;
     GenDbIfPtr dbif_;
     void db_err_handler() {};
     
@@ -862,8 +859,8 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     uint64_t end_time_; 
     bool parallelize_query_;
     // Init function
-    void Init(GenDb::GenDbIf *db_if, std::string qid,
-    std::map<std::string, std::string>& json_api_data);
+    void Init(std::string qid,
+        std::map<std::string, std::string>& json_api_data);
     bool can_parallelize_query();
 };
 
@@ -905,6 +902,8 @@ public:
             int max_slice,
             const std::string  & cassandra_user,
             const std::string  & cassandra_password);
+
+    virtual ~QueryEngine();
     
     int
     QueryPrepare(QueryParams qp,

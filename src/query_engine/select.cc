@@ -318,7 +318,7 @@ query_status_t SelectQuery::process_query() {
         }
 
         GenDb::ColListVec mget_res;
-        if (!m_query->dbif->Db_GetMultiRow(&mget_res, g_viz_constants.FLOW_TABLE, keys)) {
+        if (!m_query->dbif_->Db_GetMultiRow(&mget_res, g_viz_constants.FLOW_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
@@ -501,7 +501,7 @@ query_status_t SelectQuery::process_query() {
         }
 
         GenDb::ColListVec mget_res;
-        if (!m_query->dbif->Db_GetMultiRow(&mget_res, g_viz_constants.OBJECT_VALUE_TABLE, keys)) {
+        if (!m_query->dbif_->Db_GetMultiRow(&mget_res, g_viz_constants.OBJECT_VALUE_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
@@ -574,7 +574,7 @@ query_status_t SelectQuery::process_query() {
         }
 
         GenDb::ColListVec mget_res;
-        if (!m_query->dbif->Db_GetMultiRow(&mget_res,
+        if (!m_query->dbif_->Db_GetMultiRow(&mget_res,
                     g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
