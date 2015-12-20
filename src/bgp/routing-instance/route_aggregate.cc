@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <string>
 
+#include <boost/foreach.hpp>
+
 #include "base/lifetime.h"
 #include "base/task_annotations.h"
 #include "bgp/routing-instance/path_resolver.h"
@@ -41,8 +43,9 @@ public:
     typedef typename T::PrefixT PrefixT;
     typedef typename T::AddressT AddressT;
     typedef RouteAggregator<T> AggregateRouteMgrT;
-    // List of more specific routes resulted in Aggregate route
-    typedef std::set<BgpRoute *> ContributingRouteList;
+    // List of more specific routes resulted in Aggregate route PER PARTITION
+    typedef std::set<BgpRoute *> RouteList;
+    typedef std::vector<RouteList> ContributingRouteList;
 
     enum CompareResult {
         NoChange = 0,
@@ -52,6 +55,10 @@ public:
 
     AggregateRoute(RoutingInstance *rtinstance, AggregateRouteMgrT *manager,
         const PrefixT &aggregate_route, IpAddress nexthop);
+
+    virtual ~AggregateRoute() {
+        assert(!HasContributingRoutes());
+    }
 
     Address::Family GetFamily() const { return manager_->GetFamily(); }
     AddressT GetAddress(IpAddress addr) const {
@@ -119,15 +126,25 @@ public:
         return contributors_;
     }
 
+    bool HasContributingRoutes() const {
+        BOOST_FOREACH(RouteList per_part_contributor, contribute_route_list()) {
+            if (!per_part_contributor.empty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void AddContributingRoute(BgpRoute *route) {
-        contributors_.insert(route);
+        contributors_[route->get_table_partition()->index()].insert(route);
         AggregateRouteState *state =
             new AggregateRouteState(AggregateRoutePtr(this), true);
         route->SetState(bgp_table(), manager_->listener_id(), state);
     }
 
     void RemoveContributingRoute(BgpRoute *route) {
-        int num_deleted = contributors_.erase(route);
+        int num_deleted =
+            contributors_[route->get_table_partition()->index()].erase(route);
         AggregateRouteState *state = static_cast<AggregateRouteState *>
             (route->GetState(bgp_table(), manager_->listener_id()));
         if (state) {
@@ -145,7 +162,6 @@ private:
     IpAddress nexthop_;
     BgpRoute *aggregate_route_;
     ContributingRouteList contributors_;
-    bool unregistered_;
 
     DISALLOW_COPY_AND_ASSIGN(AggregateRoute);
 };
@@ -158,7 +174,8 @@ AggregateRoute<T>::AggregateRoute(RoutingInstance *rtinstance,
       manager_(manager),
       aggregate_route_prefix_(aggregate_route),
       nexthop_(nexthop),
-      aggregate_route_(NULL), unregistered_(false) {
+      aggregate_route_(NULL),
+      contributors_(ContributingRouteList(DB::PartitionCount())) {
 }
 
 // Compare config and return whether cfg has updated
@@ -286,16 +303,14 @@ void AggregateRoute<T>::UpdateAggregateRoute(IpAddress prev_nexthop) {
 template <typename T>
 void AggregateRoute<T>::RemoveAggregateRoute() {
     CHECK_CONCURRENCY("bgp::RouteAggregation");
-    RouteT rt_key(aggregate_route_prefix());
-    DBTablePartition *partition =
-       static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
-    BgpRoute *aggregate_route =
-        static_cast<BgpRoute *>(partition->Find(&rt_key));
-    if (!aggregate_route || aggregate_route->IsDeleted()) return;
+    BgpRoute *aggregate_route = aggregate_route_;
+    if (!aggregate_route) return;
 
+    DBTablePartition *partition = static_cast<DBTablePartition *>
+        (bgp_table()->GetTablePartition(aggregate_route_));
     uint32_t path_id = nexthop().to_v4().to_ulong();
-    BgpPath *existing_path = aggregate_route->FindPath(BgpPath::Aggregation,
-                                                    NULL, path_id);
+    BgpPath *existing_path =
+        aggregate_route->FindPath(BgpPath::Aggregation, NULL, path_id);
     bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                      existing_path);
     aggregate_route->RemovePath(BgpPath::Aggregation, NULL, path_id);
@@ -311,19 +326,17 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
 template <typename T>
 void AggregateRoute<T>::set_aggregate_route(BgpRoute *aggregate) {
     if (aggregate) {
+        assert(aggregate_route_ == NULL);
         AggregateRouteState *state =
             new AggregateRouteState(AggregateRoutePtr(this), false);
         aggregate->SetState(bgp_table(), manager_->listener_id(), state);
     } else {
-        if (aggregate_route_) {
-            AggregateRouteState *state = static_cast<AggregateRouteState *>
-             (aggregate_route_->GetState(bgp_table(), manager_->listener_id()));
-            if (state) {
-                aggregate_route_->ClearState(bgp_table(),
-                                             manager_->listener_id());
-                delete state;
-            }
-        }
+        assert(aggregate_route_ != NULL);
+        AggregateRouteState *state = static_cast<AggregateRouteState *>
+            (aggregate_route_->GetState(bgp_table(), manager_->listener_id()));
+        assert(state);
+        aggregate_route_->ClearState(bgp_table(), manager_->listener_id());
+        delete state;
     }
     aggregate_route_ = aggregate;
 }
@@ -631,10 +644,10 @@ bool RouteAggregator<T>::ProcessRouteAggregateUpdate() {
          it != update_aggregate_list_.end(); ++it) {
         AggregateRouteT *aggregate = static_cast<AggregateRouteT *>(it->get());
         if (aggregate->aggregate_route()) {
-            if (aggregate->contribute_route_list()->empty())
+            if (!aggregate->HasContributingRoutes())
                 aggregate->RemoveAggregateRoute();
         } else {
-            if (aggregate->contribute_route_list()->size())
+            if (aggregate->HasContributingRoutes())
                 aggregate->AddAggregateRoute();
         }
     }

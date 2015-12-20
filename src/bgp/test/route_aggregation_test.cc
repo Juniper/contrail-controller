@@ -612,6 +612,111 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefixLen) {
     task_util::WaitForIdle();
 }
 
+TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_2.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test_0.inet.0", "1.1.1.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.1.1/32", 100);
+
+    AddRoute<InetDefinition>(peers_[0], "test_1.inet.0", "1.1.1.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test_1.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test_0.inet.0"));
+    VERIFY_EQ(3, RouteCount("test_1.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test_0.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    content = FileRead("controller/src/bgp/testdata/route_aggregate_2a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(2, RouteCount("test_0.inet.0"));
+    rt = RouteLookup<InetDefinition>("test_0.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt == NULL);
+
+    VERIFY_EQ(2, RouteCount("test_1.inet.0"));
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt == NULL);
+
+    AddRoute<InetDefinition>(peers_[0], "test_0.inet.0", "3.3.0.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test_1.inet.0", "3.3.0.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(4, RouteCount("test_0.inet.0"));
+    VERIFY_EQ(4, RouteCount("test_1.inet.0"));
+    rt = RouteLookup<InetDefinition>("test_0.inet.0", "3.3.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "3.3.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "1.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "3.3.0.1/32");
+
+    DeleteRoute<InetDefinition>(peers_[0], "test_1.inet.0", "1.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test_1.inet.0", "2.2.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test_1.inet.0", "3.3.0.1/32");
+    task_util::WaitForIdle();
+}
+
+
+TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "2.2.1." << i << "/32";
+        AddRoute<InetDefinition>(peers_[0], "test.inet.0", oss.str(), 100);
+        oss.str("");
+    }
+    task_util::WaitForIdle();
+    VERIFY_EQ(257, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "2.2.1." << i << "/32";
+        DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", oss.str());
+        oss.str("");
+    }
+    task_util::WaitForIdle();
+    task_util::WaitForIdle();
+}
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
