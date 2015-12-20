@@ -2,19 +2,19 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "loadbalancer_properties.h"
+#include "lbpool_info.h"
 
 #include <sstream>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-LoadbalancerProperties::LoadbalancerProperties()
+LBPoolInfo::LBPoolInfo()
         : vip_uuid_(boost::uuids::nil_uuid()) {
     pool_.Clear();
     vip_.Clear();
 }
 
-LoadbalancerProperties::~LoadbalancerProperties() {
+LBPoolInfo::~LBPoolInfo() {
 }
 
 template <typename Type>
@@ -175,7 +175,7 @@ void CustomAttributesDiff(const std::vector<autogen::KeyValuePair> &lhs,
         }                       \
     } while(0)
 
-int LoadbalancerProperties::CompareTo(const LoadbalancerProperties &rhs) const {
+int LBPoolInfo::CompareTo(const LBPoolInfo &rhs) const {
     COMPARE_PROPERTY(pool_.admin_state);
     COMPARE_PROPERTY(pool_.protocol);
     COMPARE_PROPERTY(pool_.loadbalancer_method);
@@ -211,8 +211,8 @@ int LoadbalancerProperties::CompareTo(const LoadbalancerProperties &rhs) const {
         }               \
     } while (0)
 
-std::string LoadbalancerProperties::DiffString(
-    const LoadbalancerProperties *current) const {
+std::string LBPoolInfo::DiffString(
+    const LBPoolInfo *current) const {
     std::stringstream ss;
     if (current == NULL) {
         ss << "previous: NULL";

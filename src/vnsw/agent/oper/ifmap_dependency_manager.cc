@@ -14,6 +14,7 @@
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/physical_device.h"
+#include "oper/loadbalancer.h"
 #include "filter/acl.h"
 
 #include <boost/assign/list_of.hpp>
@@ -72,6 +73,8 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "floating-ip",
         "floating-ip-pool",
         "instance-ip",
+        "loadbalancer",
+        "loadbalancer-listener",
         "loadbalancer-healthmonitor",
         "loadbalancer-member",
         "loadbalancer-pool",
@@ -156,6 +159,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     ReactionMap react_ipam = map_list_of<string, PropagateList>
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
+
 
     ReactionMap react_lb_pool = map_list_of<string, PropagateList>
             ("loadbalancer-pool-loadbalancer-healthmonitor",
@@ -689,6 +693,25 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "physical-interface", true));
     RegisterConfigHandler(this, "physical-router",
                           agent ? agent->physical_device_table() : NULL);
+
+    AddDependencyPath("loadbalancer",
+                      MakePath("loadbalancer-listener-loadbalancer",
+                               "loadbalancer-listener", false,
+                               "loadbalancer-pool-loadbalancer-listener",
+                               "loadbalancer-pool", true,
+                               "loadbalancer-pool-loadbalancer-member",
+                               "loadbalancer-member", false));
+    AddDependencyPath("loadbalancer",
+                      MakePath("loadbalancer-listener-loadbalancer",
+                               "loadbalancer-listener", false,
+                               "loadbalancer-pool-loadbalancer-listener",
+                               "loadbalancer-pool", true,
+                               "loadbalancer-pool-loadbalancer-member",
+                               "loadbalancer-member", false,
+                               "loadbalancer-pool-loadbalancer-healthmonitor",
+                               "loadbalancer-healthmonitor", false));
+    RegisterConfigHandler(this, "loadbalancer",
+                          agent ? agent->loadbalancer_table() : NULL);
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {

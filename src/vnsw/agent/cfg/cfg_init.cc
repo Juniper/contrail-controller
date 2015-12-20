@@ -30,6 +30,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/service_instance.h>
 #include <oper/loadbalancer.h>
+#include <oper/loadbalancer_pool.h>
 #include <oper/physical_device.h>
 
 #include <vgw/cfg_vgw.h>
@@ -159,9 +160,13 @@ void AgentConfig::RegisterDBClients(DB *db) {
     assert(cfg_route_table_);
 
     cfg_loadbalancer_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(), "loadbalancer")));
+    assert(cfg_loadbalancer_table_);
+
+    cfg_loadbalancer_pool_table_ = (static_cast<IFMapAgentTable *>
          (IFMapTable::FindTable(agent_->db(),
                                "loadbalancer_pool")));
-    assert(cfg_loadbalancer_table_);
+    assert(cfg_loadbalancer_pool_table_);
 
     cfg_service_instance_table_ = (static_cast<IFMapAgentTable *>
          (IFMapTable::FindTable(agent_->db(),

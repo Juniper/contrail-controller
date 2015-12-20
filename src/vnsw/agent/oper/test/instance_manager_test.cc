@@ -22,7 +22,7 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/instance_task.h"
-#include "oper/loadbalancer.h"
+#include "oper/loadbalancer_pool.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "schema/vnc_cfg_types.h"
@@ -135,10 +135,10 @@ protected:
     }
 
 
-   Loadbalancer *GetLoadbalancer(boost::uuids::uuid pool_id) {
-        LoadbalancerKey key(pool_id);
-        return static_cast<Loadbalancer *>(
-            agent_->loadbalancer_table()->Find(&key, true));
+   LoadbalancerPool *GetLoadbalancer(boost::uuids::uuid pool_id) {
+        LoadbalancerPoolKey key(pool_id);
+        return static_cast<LoadbalancerPool *>(
+            agent_->loadbalancer_pool_table()->Find(&key, true));
     }
 
     void AddLoadbalancerMember(std::string &pool_name,

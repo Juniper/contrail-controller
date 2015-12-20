@@ -634,6 +634,26 @@ response sandesh LoadBalancerResp {
     1: list<LoadBalancerSandeshData> load_balancer_list;
 }
 
+struct LoadBalancerV2SandeshData {
+    1: string uuid;
+    2: string status;
+    3: string provisioning_status;
+    4: string operating_status;
+    5: string vip_subnet;
+    6: string vip_address;
+    7: bool admin_state
+    8: list<string> listener_list;
+    9: list<string> pool_list;
+}
+
+request sandesh LoadBalancerV2Req {
+    1: string uuid;
+}
+
+response sandesh LoadBalancerV2Resp {
+    1: list<LoadBalancerV2SandeshData> load_balancer_list;
+}
+
 struct AceIdFlowCnt {
     1: i32 ace_id;
     2: i32 flow_cnt;

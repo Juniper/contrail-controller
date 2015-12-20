@@ -448,4 +448,14 @@ private:
     void Alloc();
 };
 
+class AgentLoadBalancerV2Sandesh : public AgentSandesh {
+public:
+    AgentLoadBalancerV2Sandesh(std::string context, std::string uuid)
+        : AgentSandesh(context, uuid) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+};
+
 #endif // vnsw_agent_sandesh_h_

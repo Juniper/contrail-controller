@@ -64,6 +64,8 @@ int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
     if (table == agent_cfg_->cfg_acl_table())
         return AccessControlList::ID_PERMS;
     if (table == agent_cfg_->cfg_loadbalancer_table())
+        return Loadbalancer::ID_PERMS;
+    if (table == agent_cfg_->cfg_loadbalancer_pool_table())
         return LoadbalancerPool::ID_PERMS;
     if (table == agent_cfg_->cfg_service_instance_table())
         return ServiceInstance::ID_PERMS;
@@ -135,6 +137,9 @@ void CfgFilter::Init() {
     agent_cfg_->cfg_loadbalancer_table()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
+    agent_cfg_->cfg_loadbalancer_pool_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
     agent_cfg_->cfg_service_instance_table()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 
@@ -154,6 +159,7 @@ void CfgFilter::Shutdown() {
     agent_cfg_->cfg_vm_interface_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_acl_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_loadbalancer_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_loadbalancer_pool_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_service_instance_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_security_group_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_logical_port_table()->RegisterPreFilter(NULL);
