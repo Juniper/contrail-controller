@@ -10,7 +10,7 @@
 #include "base/logging.h"
 #include "testing/gunit.h"
 
-#include "oper/loadbalancer_properties.h"
+#include "oper/loadbalancer_pool_info.h"
 #include "cmn/agent.h"
 #include "test/test_init.h"
 
@@ -35,7 +35,7 @@ TEST_F(LoadbalancerConfigTest, GenerateConfig) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
-    LoadbalancerProperties props;
+    LoadBalancerPoolInfo props;
     props.set_vip_uuid(gen());
 
     autogen::LoadbalancerPoolType pool_attr;
@@ -71,7 +71,7 @@ TEST_F(LoadbalancerConfigTest, GenerateConfig_with_Monitor) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
-    LoadbalancerProperties props;
+    LoadBalancerPoolInfo props;
     props.set_vip_uuid(gen());
 
     autogen::LoadbalancerPoolType pool_attr;
@@ -124,7 +124,7 @@ TEST_F(LoadbalancerConfigTest, GenerateConfig_with_SSL_Monitor) {
     boost::uuids::random_generator gen;
     uuid pool_id = gen();
 
-    LoadbalancerProperties props;
+    LoadBalancerPoolInfo props;
     props.set_vip_uuid(gen());
 
     autogen::LoadbalancerPoolType pool_attr;

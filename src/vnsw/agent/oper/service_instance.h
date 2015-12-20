@@ -91,6 +91,9 @@ public:
 
         // loadbalancer-pool uuid
         boost::uuids::uuid pool_id;
+
+        // loadbalancer uuid
+        boost::uuids::uuid loadbalancer_id;
     };
 
     ServiceInstance();

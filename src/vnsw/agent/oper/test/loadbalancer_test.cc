@@ -2,7 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "oper/loadbalancer.h"
+#include "oper/loadbalancer_pool.h"
 
 #include <boost/uuid/random_generator.hpp>
 
@@ -19,7 +19,7 @@
 #include "testing/gunit.h"
 
 #include "oper/ifmap_dependency_manager.h"
-#include "oper/loadbalancer_properties.h"
+#include "oper/loadbalancer_pool_info.h"
 
 using namespace std;
 using boost::uuids::uuid;
@@ -32,10 +32,10 @@ class LoadbalancerTest : public ::testing::Test {
 
     virtual void SetUp() {
         DB::RegisterFactory("db.loadbalancer-pool.0",
-                            &LoadbalancerTable::CreateTable);
-        loadbalancer_table_ = static_cast<LoadbalancerTable *>(
+                            &LoadbalancerPoolTable::CreateTable);
+        loadbalancer_pool_table_ = static_cast<LoadbalancerPoolTable *>(
             database_.CreateTable("db.loadbalancer-pool.0"));
-        loadbalancer_table_->Initialize(&graph_, manager_.get());
+        loadbalancer_pool_table_->Initialize(&graph_, manager_.get());
 
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
@@ -45,7 +45,7 @@ class LoadbalancerTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        loadbalancer_table_->Clear();
+        loadbalancer_pool_table_->Clear();
         manager_->Terminate();
 
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
@@ -57,10 +57,10 @@ class LoadbalancerTest : public ::testing::Test {
         DB::ClearFactoryRegistry();
     }
 
-    Loadbalancer *GetLoadbalancer(const boost::uuids::uuid &uuid) {
-        LoadbalancerKey key(uuid);
-        return static_cast<Loadbalancer *>(
-            loadbalancer_table_->Find(&key, true));
+    LoadbalancerPool *GetLoadbalancer(const boost::uuids::uuid &uuid) {
+        LoadbalancerPoolKey key(uuid);
+        return static_cast<LoadbalancerPool *>(
+            loadbalancer_pool_table_->Find(&key, true));
     }
 
     void AddLoadbalancerMember(const boost::uuids::uuid &pool_id,
@@ -106,7 +106,7 @@ class LoadbalancerTest : public ::testing::Test {
     DB database_;
     DBGraph graph_;
     std::auto_ptr<IFMapDependencyManager> manager_;
-    LoadbalancerTable *loadbalancer_table_;
+    LoadbalancerPoolTable *loadbalancer_pool_table_;
 };
 
 TEST_F(LoadbalancerTest, ConfigPool) {
@@ -144,10 +144,10 @@ TEST_F(LoadbalancerTest, ConfigPool) {
     AddLoadbalancerHealthmonitor(pool_id, "http://foo.com/baz", "200");
 
     task_util::WaitForIdle();
-    Loadbalancer *loadbalancer = GetLoadbalancer(pool_id);
+    LoadbalancerPool *loadbalancer = GetLoadbalancer(pool_id);
     ASSERT_TRUE(loadbalancer != NULL);
 
-    const LoadbalancerProperties *props = loadbalancer->properties();
+    const LoadBalancerPoolInfo *props = loadbalancer->properties();
     ASSERT_TRUE(props != NULL);
     EXPECT_EQ("HTTP", props->pool_properties().protocol);
     EXPECT_EQ("ROUND_ROBIN", props->pool_properties().loadbalancer_method);
@@ -158,7 +158,7 @@ TEST_F(LoadbalancerTest, ConfigPool) {
     ASSERT_EQ(2, props->members().size());
 
     std::vector<std::string> addresses;
-    for (LoadbalancerProperties::MemberMap::const_iterator iter =
+    for (LoadBalancerPoolInfo::MemberMap::const_iterator iter =
                  props->members().begin();
          iter != props->members().end(); ++iter) {
         addresses.push_back(iter->second.address);

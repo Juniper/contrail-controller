@@ -587,6 +587,15 @@ void AgentLoadBalancerSandesh::Alloc() {
     resp_ = new LoadBalancerResp();
 }
 
+DBTable *AgentLoadBalancerV2Sandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->db()->
+                        FindTable("db.loadbalancer.0"));
+}
+
+void AgentLoadBalancerV2Sandesh::Alloc() {
+    resp_ = new LoadBalancerV2Resp();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Routines to manage arguments
 /////////////////////////////////////////////////////////////////////////////

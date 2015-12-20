@@ -8,6 +8,8 @@
 #include <map>
 #include <boost/function.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/nil_generator.hpp>
 
 #include "db/db_entry.h"
 #include "db/db_table.h"
