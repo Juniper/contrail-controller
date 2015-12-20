@@ -81,6 +81,14 @@ public:
         return cfg_physical_device_table_;
     }
 
+    IFMapAgentTable *cfg_bgpaas_table() const {
+        return cfg_bgpaas_table_;
+    }
+
+    IFMapAgentTable *cfg_bgp_router_table() const {
+        return cfg_bgp_router_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
@@ -136,6 +144,8 @@ private:
     IFMapAgentTable *cfg_service_instance_table_;
     IFMapAgentTable *cfg_security_group_table_;
     IFMapAgentTable *cfg_physical_device_table_;
+    IFMapAgentTable *cfg_bgpaas_table_;
+    IFMapAgentTable *cfg_bgp_router_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };

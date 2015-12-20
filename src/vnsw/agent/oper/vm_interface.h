@@ -359,6 +359,39 @@ public:
         InstanceIpSet list_;
     };
 
+    //Keep the BGP as a service data here.
+    //Is used when flow is established or when CN is updated.
+    struct BgpAsAService : ListEntry {
+        BgpAsAService();
+        BgpAsAService(const BgpAsAService &rhs);
+        BgpAsAService(const IpAddress &local_peer_ip,
+                      uint32_t source_port,
+                      const std::string &vrf_name);
+        ~BgpAsAService();
+        bool operator == (const BgpAsAService &rhs) const;
+        bool operator() (const BgpAsAService &lhs,
+                         const BgpAsAService &rhs) const;
+        bool IsLess(const BgpAsAService *rhs) const;
+
+        IpAddress local_peer_ip_;
+        uint32_t source_port_;
+        std::string vrf_name_;
+    };
+
+    typedef std::set<BgpAsAService, BgpAsAService> BgpAsAServiceSet;
+    typedef BgpAsAServiceSet::iterator BgpAsAServiceSetIterator;
+
+    struct BgpAsAServiceList {
+        BgpAsAServiceList() : list_() { };
+        ~BgpAsAServiceList() { };
+        void Insert(const BgpAsAService *rhs);
+        void Update(const BgpAsAService *lhs, const BgpAsAService *rhs);
+        void Remove(BgpAsAServiceSet::iterator &it);
+        void Flush();
+
+        BgpAsAServiceSet list_;
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -477,6 +510,10 @@ public:
         return instance_ipv6_list_;
     }
 
+    const BgpAsAServiceList &bgp_as_a_service_list() const {
+        return bgp_as_a_service_list_;
+    }
+
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
     void set_subnet_bcast_addr(const Ip4Address &addr) {
         subnet_bcast_addr_ = addr;
@@ -557,6 +594,12 @@ public:
                                 const Ip6Address &new_v6_addr,
                                 const MacAddress &mac,
                                 const IpAddress &dependent_ip) const;
+    bool IsBgpServicePort(const IpAddress &source_ip,
+                          const IpAddress &dest_ip) const;
+    bool GetBgpRouterServiceDestination(const IpAddress &source,
+                                        const IpAddress &dest,
+                                        IpAddress *nat_server,
+                                        uint32_t *sport) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
     bool IsActive() const;
@@ -701,6 +744,8 @@ private:
 
     void AddL2ReceiveRoute(bool old_l2_active);
     void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
+    void UpdateBgpAsAService();
+    void DeleteBgpAsAService();
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -765,6 +810,7 @@ private:
     Ip4Address nova_ip_addr_;
     Ip6Address nova_ip6_addr_;
     Ip4Address dhcp_addr_;
+    BgpAsAServiceList bgp_as_a_service_list_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -919,6 +965,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
     boost::uuids::uuid logical_interface_;
+    VmInterface::BgpAsAServiceList bgp_as_a_service_list_;
 };
 
 // Definition for structures when request queued from Nova

@@ -36,13 +36,14 @@ public:
 
     struct VmIntfFlowHandlerState : public FlowMgmtState {
         VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn),
-            vrf_assign_acl_(NULL) { }
+            vrf_assign_acl_(NULL), bgp_aas_l_() { }
         virtual ~VmIntfFlowHandlerState() { }
 
         VnEntryConstRef vn_;
         bool policy_;
         VmInterface::SecurityGroupEntryList sg_l_;
         AclDBEntryConstRef vrf_assign_acl_;
+        VmInterface::BgpAsAServiceList bgp_aas_l_;
     };
 
     struct VrfFlowHandlerState : public FlowMgmtState {

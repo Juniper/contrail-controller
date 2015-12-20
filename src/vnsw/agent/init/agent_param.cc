@@ -563,6 +563,11 @@ void AgentParam::ParseNexthopServer() {
     }
 }
 
+void AgentParam::ParseBgpAsAServicePortRange() {
+    GetValueFromTree<string>(bgp_as_a_service_port_range_,
+                             "DEFAULT.bgp_as_a_service_port_range");
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -767,6 +772,12 @@ void AgentParam::ParsePlatformArguments
     }
 }
 
+void AgentParam::ParseBgpAsAServicePortRangeArguments
+    (const boost::program_options::variables_map &v) {
+    GetOptValue<string>(v, bgp_as_a_service_port_range_,
+                        "DEFAULT.bgp_as_a_service_port_range");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -814,6 +825,7 @@ void AgentParam::InitFromConfig() {
     ParseAgentInfo();
     ParseNexthopServer();
     ParsePlatform();
+    ParseBgpAsAServicePortRange();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -836,6 +848,7 @@ void AgentParam::InitFromArguments() {
     ParseAgentInfoArguments(var_map_);
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
+    ParseBgpAsAServicePortRangeArguments(var_map_);
     return;
 }
 
@@ -1072,6 +1085,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
     LOG(DEBUG, "Service instance lb ssl     : " << si_lb_ssl_cert_path_);
+    LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;

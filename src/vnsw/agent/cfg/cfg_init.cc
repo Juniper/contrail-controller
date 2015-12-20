@@ -187,7 +187,15 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                 (IFMapTable::FindTable(agent_->db(),
                                                        "physical-router")));
     assert(cfg_physical_device_table_);
+    cfg_bgpaas_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "bgp-as-a-service")));
+    assert(cfg_bgpaas_table_);
 
+    cfg_bgp_router_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "bgp-router")));
+    assert(cfg_bgp_router_table_);
 
     cfg_interface_client_->Init();
 }

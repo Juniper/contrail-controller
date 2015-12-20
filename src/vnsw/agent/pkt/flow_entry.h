@@ -281,6 +281,7 @@ class FlowEntry {
         DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
         LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
         MULTICAST_FLOW, /* No policy applied for multicast flow */
+        BGPROUTERSERVICE_FLOW, /* No policy applied for bgp router service flow */
         NON_IP_FLOW,    /* Flow due to bridging */
     };
 
@@ -311,7 +312,9 @@ class FlowEntry {
         // a local port bind is done (used as as src port for linklocal nat)
         LinkLocalBindLocalSrcPort = 1 << 9,
         TcpAckFlow      = 1 << 10,
-        UnknownUnicastFlood = 1 << 11
+        UnknownUnicastFlood = 1 << 11,
+        BgpRouterService   = 1 << 12,
+        BgpRouterServiceBindLocalSrcPort = 1 << 13,
     };
 
     FlowEntry(const FlowKey &k, FlowTable *flow_table);

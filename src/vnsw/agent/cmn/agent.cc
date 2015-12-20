@@ -7,6 +7,7 @@
 #include <base/logging.h>
 #include <base/lifetime.h>
 #include <base/misc_utils.h>
+#include <base/string_util.h>
 #include <io/event_manager.h>
 #include <ifmap/ifmap_link.h>
 
@@ -33,6 +34,10 @@
 #include <filter/acl.h>
 
 #include <cmn/agent_factory.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include "net/address_util.h"
 
 const std::string Agent::null_string_ = "";
 const std::string Agent::fabric_vn_name_ =
@@ -279,6 +284,7 @@ void Agent::CopyConfig(AgentParam *params) {
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
     flow_thread_count_ = params_->flow_thread_count();
+    BindBgpAsAServicePorts(params_->bgp_as_a_service_port_range());
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -672,4 +678,32 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
 void Agent::set_flow_table_size(uint32_t count) {
     flow_table_size_ = count;
     max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
+}
+
+void Agent::BindBgpAsAServicePorts(const std::string &port_range) {
+    vector<uint32_t> ports;
+    if (!stringToIntegerList(port_range, "-", ports) ||
+        ports.size() != 2) {
+        LOG(DEBUG, "Bgp ss a service port bind range rejected - parsing failed");
+        return;
+    }
+
+    uint32_t start = ports[0];
+    uint32_t end = ports[1];
+
+    for (uint32_t port = start; port <= end; port++) {
+        int port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        struct sockaddr_in address;
+        memset(&address, '0', sizeof(address));
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+        address.sin_port = htons(port);
+        int optval = 1;
+        setsockopt(port_fd, SOL_SOCKET, SO_REUSEADDR,
+                   &optval, sizeof(optval));
+        if (bind(port_fd, (struct sockaddr*) &address,
+                 sizeof(sockaddr_in)) < 0) {
+            LOG(DEBUG, "Bgp ss a service port bind failed for port# " << port);
+        }
+    }
 }

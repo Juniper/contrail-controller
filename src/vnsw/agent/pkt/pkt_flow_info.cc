@@ -422,6 +422,41 @@ static bool IsLinkLocalRoute(Agent *agent, const AgentRoute *rt) {
     return false;
 }
 
+static bool IsBgpRouterServiceRoute(Agent *agent,
+                                    const AgentRoute *in_rt,
+                                    const AgentRoute *out_rt,
+                                    const Interface *intf,
+                                    uint32_t dport) {
+    if (intf == NULL) return false;
+
+    if (intf->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(intf);
+        if (dport != DEFAULT_CONTROL_NODE_BGP_PORT)
+            return false;
+        const InetUnicastRouteEntry *inet_in_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(in_rt);
+        const InetUnicastRouteEntry *inet_out_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(out_rt);
+        if ((inet_in_rt == NULL) || (inet_out_rt == NULL))
+            return false;
+        return vm_intf->IsBgpServicePort(inet_in_rt->addr(),
+                                         inet_out_rt->addr());
+    } else {
+        IpAddress local_peer_ip = IpAddress();
+        IpAddress nat_server = IpAddress();
+        uint32_t orig_source_port = 0;
+        if (agent->interface_table()->
+            GetInterfaceForBgpServicePort(dport,
+                                          &orig_source_port,
+                                          &local_peer_ip,
+                                          &nat_server))
+            return true;
+    }
+
+    return false;
+}
+
 static const string *RouteToVn(const AgentRoute *rt) {
     const AgentPath *path = NULL;
     if (rt) {
@@ -518,12 +553,18 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     }
 }
 
-static bool RouteAllowNatLookup(Agent *agent, const AgentRoute *rt) {
+static bool RouteAllowNatLookup(Agent *agent,
+                                const AgentRoute *in_rt,
+                                const AgentRoute *out_rt,
+                                uint32_t dport,
+                                const Interface *intf) {
     // No NAT for bridge routes
-    if (dynamic_cast<const BridgeRouteEntry *>(rt) != NULL)
+    if (dynamic_cast<const BridgeRouteEntry *>(in_rt) != NULL)
         return false;
 
-    if (rt != NULL && IsLinkLocalRoute(agent, rt)) {
+    if (in_rt != NULL && (IsLinkLocalRoute(agent, in_rt) ||
+                       IsBgpRouterServiceRoute(agent, in_rt, out_rt, intf,
+                                               dport))) {
         // skip NAT lookup if found route has link local peer.
         return false;
     }
@@ -730,6 +771,147 @@ void PktFlowInfo::LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *
         LinkLocalServiceFromVm(pkt, in, out);
     } else {
         LinkLocalServiceFromHost(pkt, in, out);
+    }
+}
+
+void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
+                                         PktControlInfo *out) {
+
+    // Link local services supported only for IPv4 for now
+    if (pkt->family != Address::INET) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    const VmInterface *vm_port =
+        static_cast<const VmInterface *>(in->intf_);
+
+    const VnEntry *vn = static_cast<const VnEntry *>(vm_port->vn());
+    uint32_t sport = 0;
+    IpAddress nat_server = IpAddress();
+
+    if (vn == NULL) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    if (vm_port->GetBgpRouterServiceDestination(pkt->ip_saddr.to_v4(),
+                                                pkt->ip_daddr.to_v4(),
+                                                &nat_server,
+                                                &sport) == false) {
+        //No bgp router service configured, drop the request
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    out->vrf_ = agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
+    dest_vrf = out->vrf_->vrf_id();
+
+    // Set NAT flow fields
+    bgp_router_service_flow = true;
+    nat_done = true;
+    //Populate NAT
+    nat_ip_saddr = agent->router_id();
+    nat_ip_daddr = nat_server;
+    nat_sport = sport;
+    nat_dport = pkt->dport;
+    bgp_router_service_bind_local_port = true;
+    if ((nat_ip_daddr == agent->router_id()) &&
+        (nat_ip_daddr == nat_ip_saddr)) {
+        boost::system::error_code ec;
+        //TODO to support CN to router communication on same node use linklocal
+        //IP.
+        nat_ip_saddr = vm_port->mdata_ip_addr();
+        bgp_router_service_bind_local_port = false;
+    }
+
+    nat_vrf = dest_vrf;
+    nat_dest_vrf = vm_port->vrf_id();
+
+
+    out->rt_ = FlowEntry::GetUcRoute(out->vrf_, nat_server);
+    out->intf_ = agent->vhost_interface();
+    out->nh_ = out->intf_->flow_key_nh()->id();
+
+    InterfaceTable *interface_table =
+        static_cast<InterfaceTable *>(vm_port->get_table());
+    interface_table->AddBgpServicePortToInterfaceMapping(pkt->ip_saddr.to_v4(),
+                                                         nat_server,
+                                                         pkt->sport,
+                                                         nat_sport,
+                                                         vm_port);
+    return;
+}
+
+void PktFlowInfo::BgpRouterServiceFromFabric(const PktInfo *pkt,
+                                             PktControlInfo *in,
+                                             PktControlInfo *out) {
+    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
+        return;
+    }
+
+    if (pkt->family != Address::INET) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    if (out->intf_->type() != Interface::INET) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    //Check if packet is destined to router_id
+    if (pkt->ip_daddr.to_v4() != agent->router_id()) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    const InterfaceTable *interface_table =
+        agent->interface_table();
+    IpAddress local_peer_ip = IpAddress();
+    IpAddress nat_server = IpAddress();
+    uint32_t orig_source_port = 0;
+    //Get the VM interface for destination port.
+    const VmInterface *vm_port =
+        static_cast<const VmInterface *>(interface_table->
+                          GetInterfaceForBgpServicePort(pkt->dport,
+                                                        &orig_source_port,
+                                                        &local_peer_ip,
+                                                        &nat_server));
+    if (vm_port == NULL) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    //Now destination port to VMinterface
+    dest_vrf = vm_port->vrf_id();
+    out->vrf_ = vm_port->vrf();
+
+    bgp_router_service_flow = true;
+    nat_done = true;
+    nat_ip_saddr = nat_server;
+    nat_ip_daddr = local_peer_ip;
+    nat_sport = pkt->sport;
+    nat_dport = orig_source_port;
+    nat_vrf = dest_vrf;
+    nat_dest_vrf = pkt->vrf;
+    return;
+}
+
+void PktFlowInfo::BgpRouterServiceTranslate(const PktInfo *pkt,
+                                            PktControlInfo *in,
+                                            PktControlInfo *out) {
+    if (in->intf_->type() == Interface::VM_INTERFACE) {
+        BgpRouterServiceFromVm(pkt, in, out);
+    } else {
+        BgpRouterServiceFromFabric(pkt, in, out);
     }
 }
 
@@ -1052,7 +1234,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    if (RouteAllowNatLookup(agent, out->rt_)) {
+    if (RouteAllowNatLookup(agent, in->rt_, out->rt_, pkt->dport, in->intf_)) {
         // If interface has floating IP, check if we have more specific route in
         // public VN (floating IP)
         if (IntfHasFloatingIp(this, in->intf_, pkt->family)) {
@@ -1073,6 +1255,25 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     if ((in->rt_ && IsLinkLocalRoute(agent, in->rt_)) ||
         (out->rt_ && IsLinkLocalRoute(agent, out->rt_))) {
         LinkLocalServiceTranslate(pkt, in, out);
+    }
+
+    //Packets needing bgp router service handling
+    if ((in->rt_ && IsBgpRouterServiceRoute(agent, in->rt_, out->rt_,
+                                            in->intf_, pkt->dport)) ||
+        (out->rt_ && IsBgpRouterServiceRoute(agent, in->rt_, out->rt_,
+                                             out->intf_, pkt->dport))) {
+        BgpRouterServiceTranslate(pkt, in, out);
+        if (out->rt_) {
+            // ReCompute out interface and nh.
+            if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
+                if (out->intf_) {
+                    out->vn_ = InterfaceToVn(out->intf_);
+                    if (out->vrf_) {
+                        dest_vrf = out->vrf_->vrf_id();
+                    }
+                }
+            }
+        }
     }
 
     // If out-interface was not found, get it based on out-route
@@ -1175,7 +1376,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (RouteAllowNatLookup(agent, out->rt_)) {
+    if (RouteAllowNatLookup(agent, in->rt_, out->rt_, pkt->dport, out->intf_)) {
         // If interface has floating IP, check if destination is one of the
         // configured floating IP.
         if (IntfHasFloatingIp(this, out->intf_, pkt->family)) {
@@ -1349,6 +1550,7 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
     }
 
     // Dont generate Traffic seen for egress flows or short or linklocal flows
+    // or bgp router service flows
     if (ingress == false || short_flow || linklocal_flow) {
         return;
     }
@@ -1448,7 +1650,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     // In case the packet is for a reverse flow of a linklocal flow,
     // link to that flow (avoid creating a new reverse flow entry for the case)
     FlowEntryPtr rflow = flow->reverse_flow_entry();
-    if (rflow && rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort)) {
+    if (rflow && (rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
+                  rflow->is_flags_set(FlowEntry::BgpRouterServiceBindLocalSrcPort))) {
         return;
     }
 

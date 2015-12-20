@@ -261,6 +261,11 @@ VmiToPhysicalDeviceVnTree;
 /////////////////////////////////////////////////////////////////////////////
 class InterfaceTable : public AgentOperDBTable {
 public:
+    enum WalkType {
+        GLOBAL_VROUTER,
+        NOTIFY
+    };
+
     struct DhcpSnoopEntry {
         DhcpSnoopEntry() : addr_(0), config_entry_(false) { }
         DhcpSnoopEntry(const Ip4Address &addr, bool config_entry) :
@@ -270,6 +275,25 @@ public:
         bool config_entry_;
     };
 
+    struct BgpAsAServicePortIpEntry {
+        BgpAsAServicePortIpEntry(uint32_t source_port,
+                                 const IpAddress &local_peer_ip,
+                                 const IpAddress &server_ip,
+                                 const Interface *intf) :
+            source_port_(source_port), local_peer_ip_(local_peer_ip),
+            server_ip_(server_ip), intf_(intf) { }
+        uint32_t source_port_;
+        const IpAddress &local_peer_ip_;
+        const IpAddress &server_ip_;
+        const Interface *intf_;
+    };
+
+    typedef std::map<uint32_t, BgpAsAServicePortIpEntry>
+        BgpRouterServicePortToInterface;
+    typedef std::map<uint32_t, BgpAsAServicePortIpEntry>::iterator
+        BgpRouterServicePortToInterfaceIter;
+    typedef std::map<uint32_t, BgpAsAServicePortIpEntry>::const_iterator
+        BgpRouterServicePortToInterfaceConstIter;
     typedef std::map<const std::string, DhcpSnoopEntry> DhcpSnoopMap;
     typedef std::map<const std::string, DhcpSnoopEntry>::iterator DhcpSnoopIterator;
 
@@ -289,7 +313,8 @@ public:
         AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
         walkid_(DBTableWalker::kInvalidWalkerId), index_table_(),
         vmi_count_(0), li_count_(0), active_vmi_count_(0),
-        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0), pi_ifnode_to_req_(0) {
+        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0), pi_ifnode_to_req_(0),
+        walk_requests_() {
     }
     virtual ~InterfaceTable() { }
 
@@ -393,9 +418,25 @@ public:
     uint32_t vmi_ifnode_to_req() const { return vmi_ifnode_to_req_; }
     uint32_t li_ifnode_to_req() const { return li_ifnode_to_req_; }
     uint32_t pi_ifnode_to_req() const { return pi_ifnode_to_req_; }
+    //Used for managing mapping of source port to interface.
+    void AddBgpServicePortToInterfaceMapping(const IpAddress &sip,
+                                             const IpAddress &dip,
+                                             uint32_t source_port,
+                                             uint32_t nat_port,
+                                             const Interface *interface);
+    void DeleteBgpServicePortToInterfaceMapping(uint32_t port);
+    const Interface *GetInterfaceForBgpServicePort(uint32_t nat_port,
+                                                   uint32_t *source_port,
+                                                   IpAddress *source_ip,
+                                                   IpAddress *destination_ip) const;
+    void StartInterfaceWalk();
+    void NotifyAllVmEntries();
+
 private:
-    bool L2VmInterfaceWalk(DBTablePartBase *partition,
-                           DBEntryBase *entry);
+    void EnqueueInterfaceWalk(WalkType type);
+    bool VmInterfaceWalk(WalkType type,
+                         DBTablePartBase *partition,
+                         DBEntryBase *entry);
     void VmInterfaceWalkDone(DBTableBase *partition);
 
     static InterfaceTable *interface_table_;
@@ -419,6 +460,8 @@ private:
     uint32_t vmi_ifnode_to_req_;
     uint32_t li_ifnode_to_req_;
     uint32_t pi_ifnode_to_req_;
+    BgpRouterServicePortToInterface bgp_service_port_to_interface_;
+    std::vector<WalkType> walk_requests_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };

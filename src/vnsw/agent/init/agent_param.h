@@ -222,6 +222,10 @@ public:
 
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
+    const std::string &bgp_as_a_service_port_range() const {
+        return bgp_as_a_service_port_range_;
+    }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -294,6 +298,7 @@ private:
     void ParseAgentInfo();
     void ParseNexthopServer();
     void ParsePlatform();
+    void ParseBgpAsAServicePortRange();
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -323,6 +328,8 @@ private:
     void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
     void ParsePlatformArguments
+        (const boost::program_options::variables_map &v);
+    void ParseBgpAsAServicePortRangeArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -413,6 +420,7 @@ private:
     std::string agent_base_dir_;
     uint32_t send_ratelimit_;
     uint16_t flow_thread_count_;
+    std::string bgp_as_a_service_port_range_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

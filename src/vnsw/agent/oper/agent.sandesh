@@ -49,6 +49,13 @@ struct VmIntfSgUuid {
     1: string sg_uuid (link="SgListReq");
 }
 
+struct BgpAsAServiceSandeshList {
+   1: string local_peer_ip;
+   2: i32 source_port;
+   3: string vrf_name (link="VrfListReq"); // VRF name
+   4: string installed;
+}
+
 struct ItfSandeshData {
     1: i32 index;
     2: string name;                  // interface name
@@ -100,6 +107,7 @@ struct ItfSandeshData {
    49: optional string ipv4_active;
    50: list<string> fixed_ip4_list;
    51: list<string> fixed_ip6_list;
+   52: list<BgpAsAServiceSandeshList> bgpaas_list;// bgpaas List
 }
 
 struct VnIpamData {

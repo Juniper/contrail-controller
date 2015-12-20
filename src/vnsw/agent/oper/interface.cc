@@ -283,37 +283,68 @@ void InterfaceTable::VmPortToMetaDataIp(uint32_t index, uint32_t vrfid,
     *addr = Ip4Address(ip);
 }
 
-bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
-                                       DBEntryBase *entry) {
+bool InterfaceTable::VmInterfaceWalk(WalkType walk_type,
+                                     DBTablePartBase *partition,
+                                     DBEntryBase *entry) {
     Interface *intf = static_cast<Interface *>(entry);
+
     if ((intf->type() != Interface::VM_INTERFACE) || intf->IsDeleted())
         return true;
 
     VmInterface *vm_intf = static_cast<VmInterface *>(entry);
-    const VnEntry *vn = vm_intf->vn();
-    if (!vm_intf->IsActive())
-        return true;
+    if (walk_type == InterfaceTable::GLOBAL_VROUTER) {
+        const VnEntry *vn = vm_intf->vn();
+        if (!vm_intf->IsActive())
+            return true;
 
-    VmInterfaceGlobalVrouterData data(vn->bridging(),
-                                      vn->layer3_forwarding(),
-                                      vn->GetVxLanId());
-    return vm_intf->Resync(this, &data);
+        VmInterfaceGlobalVrouterData data(vn->bridging(),
+                                          vn->layer3_forwarding(),
+                                          vn->GetVxLanId());
+        return vm_intf->Resync(this, &data);
+    }
+
+    if (walk_type == InterfaceTable::NOTIFY) {
+        Notify(vm_intf->get_table_partition(), vm_intf);
+    }
+
+    return true;
 }
 
 void InterfaceTable::VmInterfaceWalkDone(DBTableBase *partition) {
+    if (walk_requests_.empty() == false) {
+        StartInterfaceWalk();
+        return;
+    }
     walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
 void InterfaceTable::GlobalVrouterConfigChanged() {
-    DBTableWalker *walker = agent_->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
+    EnqueueInterfaceWalk(InterfaceTable::GLOBAL_VROUTER);
+}
+
+void InterfaceTable::NotifyAllVmEntries() {
+    EnqueueInterfaceWalk(InterfaceTable::NOTIFY);
+}
+
+void InterfaceTable::EnqueueInterfaceWalk(WalkType walk_type) {
+    std::vector<WalkType>::iterator it =
+        std::find(walk_requests_.begin(), walk_requests_.end(), walk_type);
+    if (it != walk_requests_.end())
+        return;
+    walk_requests_.push_back(walk_type);
+    if (walkid_ == DBTableWalker::kInvalidWalkerId) {
+        StartInterfaceWalk();
     }
+}
+
+void InterfaceTable::StartInterfaceWalk() {
+    DBTableWalker *walker = agent_->db()->GetWalker();
     walkid_ = walker->WalkTable(this, NULL,
-                      boost::bind(&InterfaceTable::L2VmInterfaceWalk, 
-                                  this, _1, _2),
+                      boost::bind(&InterfaceTable::VmInterfaceWalk, 
+                                  this, walk_requests_.back(), _1, _2),
                       boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
                                   this, _1));
+    walk_requests_.pop_back();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -976,6 +1007,25 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_vrf_assign_acl_uuid(vrf_assign_acl);
         }
 
+        std::vector<BgpAsAServiceSandeshList> bgpaas_list;
+        VmInterface::BgpAsAServiceSet::const_iterator bgpaas_it =
+            vintf->bgp_as_a_service_list().list_.begin();
+        while (bgpaas_it != vintf->bgp_as_a_service_list().list_.end()) {
+            const VmInterface::BgpAsAService &bgpaas = *bgpaas_it;
+            BgpAsAServiceSandeshList entry;
+
+            entry.set_local_peer_ip(bgpaas.local_peer_ip_.to_string());
+            if (bgpaas.installed_) {
+                entry.set_installed("Y");
+            } else {
+                entry.set_installed("N");
+            }
+            entry.set_source_port(bgpaas.source_port_);
+            entry.set_vrf_name(bgpaas.vrf_name_);
+            bgpaas_list.push_back(entry);
+            bgpaas_it++;
+        }
+        data.set_bgpaas_list(bgpaas_list);
         break;
     }
     case Interface::INET: {
@@ -1115,4 +1165,50 @@ void InterfaceTable::DelVmiToVmiType(const boost::uuids::uuid &u) {
     if (it == vmi_to_vmitype_map_.end())
         return;
     vmi_to_vmitype_map_.erase(it);
+}
+
+void InterfaceTable::AddBgpServicePortToInterfaceMapping(const IpAddress &sip,
+                                                         const IpAddress &dip,
+                                                         uint32_t source_port,
+                                                         uint32_t nat_port,
+                                                         const Interface *intf)
+{
+    bgp_service_port_to_interface_.insert(std::pair<uint32_t,
+                                         BgpAsAServicePortIpEntry>
+                                          (nat_port,
+                                           BgpAsAServicePortIpEntry(source_port,
+                                                                    sip,
+                                                                    dip,
+                                                                    intf)));
+}
+
+void InterfaceTable::DeleteBgpServicePortToInterfaceMapping(uint32_t port)
+{
+    BgpRouterServicePortToInterfaceIter it =
+        bgp_service_port_to_interface_.begin();
+    while (it != bgp_service_port_to_interface_.end()) {
+        BgpRouterServicePortToInterfaceIter del_it = it;
+        it++;
+        if (del_it->first == port) {
+            bgp_service_port_to_interface_.erase(del_it);
+        }
+    }
+}
+
+const Interface *InterfaceTable::GetInterfaceForBgpServicePort(uint32_t nat_port,
+                                                   uint32_t *source_port,
+                                                   IpAddress *source_ip,
+                                                   IpAddress *destination_ip) const {
+    BgpRouterServicePortToInterfaceConstIter it =
+        bgp_service_port_to_interface_.begin();
+    while (it != bgp_service_port_to_interface_.end()) {
+        if (it->first == nat_port) {
+            *source_port = it->second.source_port_;
+            *source_ip = it->second.local_peer_ip_;
+            *destination_ip = it->second.server_ip_;
+            return it->second.intf_;
+        }
+        it++;
+    }
+    return NULL;
 }

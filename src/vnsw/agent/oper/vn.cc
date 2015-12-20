@@ -167,6 +167,38 @@ const VnIpam *VnEntry::GetIpam(const IpAddress &ip) const {
     return NULL;
 }
 
+IpAddress VnEntry::GetGatewayFromIpam(const IpAddress &ip) const {
+    const VnIpam *ipam = GetIpam(ip);
+    if (ipam) {
+        return ipam->default_gw;
+    }
+    return IpAddress();
+}
+
+IpAddress VnEntry::GetDnsFromIpam(const IpAddress &ip) const {
+    const VnIpam *ipam = GetIpam(ip);
+    if (ipam) {
+        return ipam->dns_server;
+    }
+    return IpAddress();
+}
+
+bool VnEntry::IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
+                                          bool *is_dns, bool *is_gateway) const {
+    const VnIpam *ipam = GetIpam(ip_address);
+    if (ipam == NULL)
+        return false;
+
+    if (ip_address == ipam->default_gw)
+        *is_gateway = true;
+    else if (ip_address == ipam->dns_server)
+        *is_dns = true;
+    else
+        return false;
+
+    return true;
+}
+
 bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
                               autogen::IpamType *ipam_type,
                               autogen::VirtualDnsType *vdns_type) const {

@@ -199,6 +199,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define MULTICAST_BASE_ADDRESS_PLEN 8
 
 #define VROUTER_SERVER_PORT 20914
+#define DEFAULT_CONTROL_NODE_BGP_PORT 179
 
 #define kTaskFlowUpdate "Agent::FlowUpdate"
 #define kTaskFlowEvent "Agent::FlowEvent"
@@ -935,6 +936,8 @@ public:
     Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
 
 private:
+
+    void BindBgpAsAServicePorts(const std::string &port_range);
 
     AgentParam *params_;
     AgentConfig *cfg_;

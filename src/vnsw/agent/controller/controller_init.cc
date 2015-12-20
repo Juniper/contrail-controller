@@ -121,6 +121,9 @@ void VNController::XmppServerConnect() {
             agent_->set_ifmap_xmpp_channel(ifmap_peer, count);
             agent_->set_controller_ifmap_xmpp_client(client, count);
             agent_->set_controller_ifmap_xmpp_init(xmpp, count);
+            //New channels have been set, for bgp as a service this needs to be
+            //updated in all interfaces, so start a walk.
+            agent_->interface_table()->NotifyAllVmEntries();
         }
         count++;
     }

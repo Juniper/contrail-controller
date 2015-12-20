@@ -611,6 +611,119 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
+void VmInterface::BgpAsAServiceList::Insert(const BgpAsAService *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::BgpAsAServiceList::Update(const BgpAsAService *lhs,
+                                            const BgpAsAService *rhs) {
+}
+
+void VmInterface::BgpAsAServiceList::Remove(BgpAsAServiceSetIterator &it) {
+    it->set_del_pending(true);
+}
+
+void VmInterface::BgpAsAServiceList::Flush() {
+    list_.clear();
+}
+
+void VmInterface::UpdateBgpAsAService() {
+    DeleteBgpAsAService();
+}
+
+void VmInterface::DeleteBgpAsAService() {
+    BgpAsAServiceSetIterator it = bgp_as_a_service_list_.list_.begin();
+    while (it != bgp_as_a_service_list_.list_.end()) {
+        BgpAsAServiceSetIterator prev = it++;
+        if (prev->del_pending_) {
+            bgp_as_a_service_list_.list_.erase(prev);
+        }
+    }
+}
+
+
+static const std::string GetBgpRouterVrfName(const Agent *agent,
+                                              IFMapNode *node) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    ConfigManager *cfg_manager= agent->config_manager();
+    for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
+         it != node->end(table->GetGraph()); ++it) {
+        IFMapNode *vrf_node = static_cast<IFMapNode *>(it.operator->());
+        if (agent->config_manager()->SkipNode(vrf_node)) {
+            continue;
+        }
+        if (cfg_manager->SkipNode
+            (vrf_node, agent->cfg()->cfg_vrf_table())) {
+            continue;
+        }
+        return vrf_node->name();
+    }
+    return std::string();
+}
+
+static void CleanNonVmVrfBgpRouter(VmInterfaceConfigData *data) {
+    //Insert dummy node
+    /*
+    boost::system::error_code ec;
+    data->bgp_as_a_service_list_.list_.insert(VmInterface::BgpAsAService(
+                                             IpAddress::from_string("169.254.0.3",
+                                                                    ec),
+                                             50000, "vn"));
+    */                                         
+    if (data->vrf_name_.empty()) {
+        data->bgp_as_a_service_list_.Flush();
+        return;
+    }
+
+    VmInterface::BgpAsAServiceList &bgp_as_a_service_list =
+        data->bgp_as_a_service_list_;
+    VmInterface::BgpAsAServiceSetIterator it =
+        bgp_as_a_service_list.list_.begin();
+    while (it != bgp_as_a_service_list.list_.end()) {
+        VmInterface::BgpAsAServiceSetIterator current_it = it;
+        it++;
+        if (current_it->vrf_name_ != data->vrf_name_) {
+            bgp_as_a_service_list.Remove(current_it);
+        }
+    }
+}
+
+static void BuildBgpAsAServiceInfo(const Agent *agent,
+                                   VmInterfaceConfigData *data,
+                                   IFMapNode *node) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    autogen::BgpAsAService *bgp_as_a_service =
+        dynamic_cast<autogen::BgpAsAService *>(node->GetObject());
+    assert(bgp_as_a_service);
+    boost::system::error_code ec;
+    IpAddress local_peer_ip =
+        IpAddress::from_string(bgp_as_a_service->bgpaas_ip_address(), ec);
+    if (ec.value() != 0) {
+        return;
+    }
+
+    //Look for neighbour bgp-router to take the source port
+    for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
+         it != node->end(table->GetGraph()); ++it) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
+        if (agent->config_manager()->SkipNode(adj_node)) {
+            continue;
+        }
+        if (adj_node->table() == agent->cfg()->cfg_bgp_router_table()) {
+            autogen::BgpRouter *bgp_router=
+                dynamic_cast<autogen::BgpRouter *>(adj_node->GetObject());
+            const std::string &vrf_name =
+                GetBgpRouterVrfName(agent, adj_node);
+            if (vrf_name.empty())
+                continue; //Skip the node with no VRF, notification will come.
+            data->bgp_as_a_service_list_.list_.insert(VmInterface::BgpAsAService(
+                                         local_peer_ip,
+                                         bgp_router->parameters().source_port,
+                                         vrf_name));
+        }
+    }
+}
+
 // Check if VMI is a sub-interface. Sub-interface will have
 // sub_interface_vlan_tag property set to non-zero
 static bool IsVlanSubInterface(VirtualMachineInterface *cfg) {
@@ -920,7 +1033,14 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
             parent_vmi_node = adj_node;
         }
+
+        if (adj_node->table() == agent_->cfg()->cfg_bgpaas_table()) {
+            BuildBgpAsAServiceInfo(agent_, data, adj_node);
+        }
     }
+
+    //Filter out all bgp-router entries not belonging to VRF of VM.
+    CleanNonVmVrfBgpRouter(data);
 
     UpdateAttributes(agent_, data);
 
@@ -1332,11 +1452,13 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     //DHCP MAC IP binding
     ApplyMacVmBindingConfig(old_vrf, old_l2_active,  old_dhcp_enable);
     //Security Group update
-    if (IsActive())
+    if (IsActive()) {
         UpdateSecurityGroup();
-    else
+        UpdateBgpAsAService();
+    } else {
         DeleteSecurityGroup();
-
+        DeleteBgpAsAService();
+    }
 }
 
 void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
@@ -1789,6 +1911,16 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (logical_interface_ != data->logical_interface_) {
         logical_interface_ = data->logical_interface_;
+        ret = true;
+    }
+    //Traverse and populate bgp-router parameters.
+    BgpAsAServiceSet &old_bgp_as_a_service_list = bgp_as_a_service_list_.list_;
+    const BgpAsAServiceSet &new_bgp_as_a_service_list = data->
+        bgp_as_a_service_list_.list_;
+    if (AuditList<BgpAsAServiceList, BgpAsAServiceSetIterator>
+        (bgp_as_a_service_list_, old_bgp_as_a_service_list.begin(),
+         old_bgp_as_a_service_list.end(), new_bgp_as_a_service_list.begin(),
+         new_bgp_as_a_service_list.end())) {
         ret = true;
     }
 
@@ -3270,6 +3402,66 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
     it->set_del_pending(true);
 }
 
+bool VmInterface::IsBgpServicePort(const IpAddress &source_ip,
+                                   const IpAddress &dest_ip) const {
+    bool ret = false;
+    if (vn() == NULL) return ret;
+
+    //TODO source_ip check???
+    VmInterface::BgpAsAServiceSetIterator it =
+        bgp_as_a_service_list_.list_.begin();
+    while (it != bgp_as_a_service_list_.list_.end()) {
+        if ((vn()->GetGatewayFromIpam(primary_ip_addr()) == dest_ip) ||
+             (vn()->GetDnsFromIpam(primary_ip_addr()) == dest_ip)) {
+            ret = true;
+        }
+        it++;
+    }
+    return ret;
+}
+
+bool VmInterface::GetBgpRouterServiceDestination(const IpAddress &source_ip,
+                                                 const IpAddress &dest,
+                                                 IpAddress *nat_server,
+                                                 uint32_t *sport) const {
+    const IpAddress &gw = vn()->GetGatewayFromIpam(primary_ip_addr());
+    const IpAddress &dns = vn()->GetDnsFromIpam(primary_ip_addr());
+
+    boost::system::error_code ec;
+    VmInterface::BgpAsAServiceSetIterator it =
+        bgp_as_a_service_list_.list_.begin();
+    //TODO source_ip validation, may be look in allowed address pair
+    //or static route.
+    while (it != bgp_as_a_service_list_.list_.end()) {
+        if (dest == gw) {
+            if (agent()->controller_ifmap_xmpp_server(0).empty())
+                return false;
+            *nat_server =
+                IpAddress::from_string(agent()->
+                                       controller_ifmap_xmpp_server(0), ec);
+            if (ec.value() != 0) {
+                return false;
+            }
+            *sport = it->source_port_;
+            return true;
+        }
+        if (dest == dns) {
+            if (agent()->controller_ifmap_xmpp_server(1).empty())
+                return false;
+            *nat_server =
+                IpAddress::from_string(agent()->
+                                       controller_ifmap_xmpp_server(1), ec);
+            if (ec.value() != 0) {
+                return false;
+            }
+            *sport = it->source_port_;
+            return true;
+        }
+        it++;
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FloatingIp routines
 /////////////////////////////////////////////////////////////////////////////
@@ -4100,6 +4292,55 @@ const string VmInterface::GetAnalyzer() const {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////
+// BGP as a service routines.
+////////////////////////////////////////////////////////////////////////////
+VmInterface::BgpAsAService::BgpAsAService() :
+    ListEntry(),
+    local_peer_ip_(), source_port_(0),
+    vrf_name_() {
+        installed_ = true;
+}
+
+VmInterface::BgpAsAService::BgpAsAService(const BgpAsAService &rhs) :
+    ListEntry(rhs.installed_, rhs.del_pending_),
+    local_peer_ip_(rhs.local_peer_ip_), source_port_(rhs.source_port_),
+    vrf_name_(rhs.vrf_name_) {
+}
+
+VmInterface::BgpAsAService::BgpAsAService(const IpAddress &local_peer_ip,
+                   uint32_t source_port,
+                   const std::string &vrf_name) :
+    ListEntry(),
+    local_peer_ip_(local_peer_ip),
+    source_port_(source_port),
+    vrf_name_(vrf_name) {
+}
+
+VmInterface::BgpAsAService::~BgpAsAService() {
+}
+
+bool VmInterface::BgpAsAService::operator ==
+    (const BgpAsAService &rhs) const {
+    return ((source_port_ == rhs.source_port_) &&
+        (local_peer_ip_ == rhs.local_peer_ip_) &&
+        (vrf_name_ == rhs.vrf_name_));
+}
+
+bool VmInterface::BgpAsAService::operator()
+    (const BgpAsAService &lhs, const BgpAsAService &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::BgpAsAService::IsLess
+    (const BgpAsAService *rhs) const {
+    if (source_port_ != rhs->source_port_)
+        return source_port_ < rhs->source_port_;
+    if (local_peer_ip_ != rhs->local_peer_ip_)
+        return local_peer_ip_ < rhs->local_peer_ip_;
+    return vrf_name_ < rhs->vrf_name_;
+}
+
 void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
     intf_info.set_name(name_);
@@ -4289,3 +4530,4 @@ void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
         }
     }
 }
+

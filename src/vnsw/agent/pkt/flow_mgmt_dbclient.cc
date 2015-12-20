@@ -107,6 +107,8 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 
     const VmInterface::SecurityGroupEntryList &new_sg_l = vm_port->sg_list();
+    const VmInterface::BgpAsAServiceList &new_bgp_aas_l =
+        vm_port->bgp_as_a_service_list();
     bool changed = false;
 
     if (state == NULL) {
@@ -117,6 +119,7 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->sg_l_ = new_sg_l;
         state->vn_ = new_vn;
         state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
+        state->bgp_aas_l_ = new_bgp_aas_l;
         changed = true;
     } else {
         if (state->vn_.get() != new_vn) {
@@ -134,6 +137,10 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         if (state->vrf_assign_acl_.get() != vm_port->vrf_assign_acl()) {
             changed = true;
             state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
+        }
+        if (state->bgp_aas_l_.list_ != new_bgp_aas_l.list_) {
+            changed = true;
+            state->bgp_aas_l_ = new_bgp_aas_l;
         }
     }
 
