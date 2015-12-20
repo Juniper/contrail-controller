@@ -1,0 +1,8 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+2: Sachin Bansal <sbansal@juniper.net>
+Approved+1: Ashish Ranjan <aranjan@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Sat, 19 Dec 2015 18:20:55 -0800
+Reviewed-on: https://review.opencontrail.org/15914
+Project: Juniper/contrail-controller
+Branch: refs/heads/R2.20
