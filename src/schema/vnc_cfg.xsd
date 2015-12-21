@@ -623,11 +623,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-system-config-bgp-router', 
              'global-system-config', 'bgp-router', ['ref']) -->
 
+<!-- Ecmp load balance parameters to be used -->
+<xsd:complexType name="EcmpHashingIncludeFields">
+    <xsd:all>
+        <xsd:element name="source-mac" type="xsd:boolean" default="true"/>
+        <xsd:element name="destination-mac" type="xsd:boolean" default="true"/>
+        <xsd:element name="source-ip" type="xsd:boolean" default="true"/>
+        <xsd:element name="destination-ip" type="xsd:boolean" default="true"/>
+        <xsd:element name="ip-protocol" type="xsd:boolean" default="true"/>
+        <xsd:element name="source-port" type="xsd:boolean" default="true"/>
+        <xsd:element name="destination-port" type="xsd:boolean" default="true"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="global-vrouter-config"        type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-global-vrouter-config"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-global-vrouter-config', 
              'global-system-config', 'global-vrouter-config', ['has']) -->
+
+<xsd:element name="ecmp-hashing-include-fields"
+             type="EcmpHashingIncludeFields"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ecmp-hashing-include-fields', 'global-vrouter-config') -->
 
 <xsd:element name="linklocal-services" type="LinklocalServicesTypes"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -770,6 +788,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
         <!-- Enable or disable unicast RPF for virtual-network -->
         <xsd:element name='rpf' type='RpfModeType'/>
+        <!-- Ecmp nexthop load balance criterias -->
+        <xsd:element name='ecmp-hashing-include-fields'
+                     type='EcmpHashingIncludeFields'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -982,6 +1003,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="sub-interface-vlan-tag" type="xsd:integer"/>
+        <!-- Ecmp nexthop load balance criterias -->
+        <xsd:element name='ecmp-hashing-include-fields'
+                     type='EcmpHashingIncludeFields'/>
     </xsd:all>
 </xsd:complexType>
 
