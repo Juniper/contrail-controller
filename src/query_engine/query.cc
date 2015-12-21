@@ -33,7 +33,6 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
-GenDb::GenDbIf* query_result_unit_t::dbif = NULL;
 int QueryEngine::max_slice_ = 100;
 
 typedef  std::vector< std::pair<std::string, std::string> > spair_vector;
@@ -393,7 +392,7 @@ bool AnalyticsQuery::can_parallelize_query() {
     return parallelize_query_;
 }
 
-void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
+void AnalyticsQuery::Init(std::string qid,
     std::map<std::string, std::string>& json_api_data)
 {
     std::map<std::string, std::string>::iterator iter;
@@ -402,11 +401,6 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     
     // populate fields 
     query_id = qid;
-
-    // Initialize database
-    query_result_unit_t::dbif = db_if;
-    dbif = db_if;
-    QE_IO_ERROR(dbif != NULL)
 
     sandesh_moduleid = 
         g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
@@ -1046,6 +1040,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         processing_needed(true),
         stats_(NULL)
 {
+    assert(dbif_ != NULL);
     // Need to do this for logging/tracing with query ids
     query_id = qid;
 
@@ -1053,15 +1048,14 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
 
     // Initialize database connection
     QE_TRACE(DEBUG, "Initializing database");
-    dbif = dbif_.get();
 
     boost::system::error_code ec;
-    if (!dbif->Db_Init("qe::DbHandler", -1)) {
+    if (!dbif_->Db_Init("qe::DbHandler", -1)) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
 
-    if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
         QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
            g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         this->status_details = EIO;
@@ -1088,8 +1082,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         }
     }
     boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        dbif->Db_GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif->Db_GetPort());
+        dbif_->Db_GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
     if (this->status_details != 0) {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
@@ -1099,8 +1093,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
             std::string(), ConnectionStatus::UP, db_endpoint, std::string());
     }
-    dbif->Db_SetInitDone(true);
-    Init(dbif, qid, json_api_data);
+    dbif_->Db_SetInitDone(true);
+    Init(qid, json_api_data);
 }
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, 
@@ -1121,8 +1115,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid,
     total_parallel_batches(total_batches),
     processing_needed(true),
     stats_(NULL) {
-    dbif = dbif_ptr.get();
-    Init(dbif, qid, json_api_data);
+    Init(qid, json_api_data);
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
@@ -1183,7 +1176,6 @@ QueryEngine::QueryEngine(EventManager *evm,
 
     // Initialize database connection
     QE_TRACE_NOQID(DEBUG, "Initializing database");
-    GenDb::GenDbIf *db_if = dbif_.get();
 
     boost::system::error_code ec;
     int retries = 0;
@@ -1191,13 +1183,13 @@ QueryEngine::QueryEngine(EventManager *evm,
     while (retry == true) {
         retry = false;
 
-        if (!db_if->Db_Init("qe::DbHandler", -1)) {
+        if (!dbif_->Db_Init("qe::DbHandler", -1)) {
             QE_LOG_NOQID(ERROR, "Database initialization failed");
             retry = true;
         }
 
         if (!retry) {
-            if (!db_if->Db_SetTablespace(keyspace_)) {
+            if (!dbif_->Db_SetTablespace(keyspace_)) {
                 QE_LOG_NOQID(ERROR,  ": Create/Set KEYSPACE: " <<
                              keyspace_ << " FAILED");
                 retry = true;
@@ -1241,12 +1233,12 @@ QueryEngine::QueryEngine(EventManager *evm,
             ss << "initialization of database failed. retrying " << retries++ << " time";
             // Update connection info
             boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-                db_if->Db_GetHost(), ec));
-            boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_if->Db_GetPort());
+                dbif_->Db_GetHost(), ec));
+            boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
             ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
                 std::string(), ConnectionStatus::DOWN, db_endpoint, std::string());
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            db_if->Db_Uninit("qe::DbHandler", -1);
+            dbif_->Db_Uninit("qe::DbHandler", -1);
             sleep(5);
         }
     }
@@ -1322,10 +1314,17 @@ QueryEngine::QueryEngine(EventManager *evm,
     dbif_->Db_SetInitDone(true);
     // Update connection info
     boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        db_if->Db_GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_if->Db_GetPort());
+        dbif_->Db_GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
     ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
         std::string(), ConnectionStatus::UP, db_endpoint, std::string());
+}
+
+QueryEngine::~QueryEngine() {
+    if (dbif_) {
+        dbif_->Db_Uninit("qe::DbHandler", -1);
+        dbif_->Db_SetInitDone(false);
+    }
 }
 
 using std::vector;
@@ -1374,10 +1373,10 @@ QueryEngine::QueryAccumulate(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
     AnalyticsQuery *q;
     if (UseGlobalDbHandler()) {
-            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+        q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
                 qp.maxChunks);
-        } else {
-            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+    } else {
+        q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
                 cassandra_user_, cassandra_password_);
     }
@@ -1395,10 +1394,10 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
     if (UseGlobalDbHandler()) {
-            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+        q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
                 qp.maxChunks);
-        } else {
-            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+    } else {
+        q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
                 cassandra_user_, cassandra_password_);
     }
@@ -1415,10 +1414,10 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
     if (UseGlobalDbHandler()) {
-            q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+        q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
                 qp.maxChunks);
-        } else {
-            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+    } else {
+        q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, 1, qp.maxChunks,
                 cassandra_user_, cassandra_password_);
     }
@@ -1462,10 +1461,10 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     }
     AnalyticsQuery *q;
     if (UseGlobalDbHandler()) {
-            q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, chunk,
+        q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, chunk,
                 qp.maxChunks);
-        } else {
-            q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
+    } else {
+        q = new AnalyticsQuery(qp.qid, qp.terms, ttlmap_, evm_,
                 cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks,
                 cassandra_user_, cassandra_password_);
     }

@@ -63,7 +63,7 @@ query_status_t DbQueryUnit::process_query()
         keys.push_back(rowkey);
     }
 
-    if (!m_query->dbif->Db_GetMultiRow(&mget_res, cfname, keys, cr)) {
+    if (!m_query->dbif_->Db_GetMultiRow(&mget_res, cfname, keys, cr)) {
         std::stringstream tempstr;
         for (size_t i = 0; i < cr.start_.size(); i++)
             tempstr << "cr_s(" << i << "): " << cr.start_.at(i) << ", ";
