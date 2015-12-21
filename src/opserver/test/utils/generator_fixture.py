@@ -422,10 +422,14 @@ class GeneratorFixture(fixtures.Fixture):
 
     def create_alarm(self, type, name=None, ack=None):
         alarms = []
-        rules=None
+        any_of=None
         if name:
-            rules = [AlarmRule(oper=name)]
-        alarms.append(UVEAlarmInfo(type=type,ack=ack,rules=rules))
+            any_of = [AllOf(all_of=[AlarmElement(\
+            rule=AlarmTemplate(oper="!=",
+                operand1=Operand1(keys=[name]),
+                operand2=Operand2(json_value=json.dumps('UP'))),
+            json_operand1_value=json.dumps('DOWN'))])]
+        alarms.append(UVEAlarmInfo(type=type,ack=ack,any_of=any_of))
         return alarms
     # end create_alarm
 
