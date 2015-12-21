@@ -3,15 +3,19 @@
  */
 #include <init/agent_param.h>
 #include <cmn/agent_stats.h>
+#include <oper/agent_profile.h>
 #include "flow_proto.h"
 #include "flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
 #include "flow_event.h"
 
+static void UpdateStats(FlowEvent::Event event, FlowStats *stats);
+
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
-                       boost::bind(&FlowProto::FlowEventHandler, this, _1)) {
+                       boost::bind(&FlowProto::FlowEventHandler, this, _1)),
+    stats_() {
     agent->SetFlowProto(this);
     set_trace(false);
     uint16_t table_count = agent->flow_thread_count();
@@ -41,6 +45,11 @@ void FlowProto::Init() {
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
         flow_table_list_[i]->Init();
     }
+
+    AgentProfile *profile = agent_->oper_db()->agent_profile();
+    profile->RegisterPktFlowStatsCb(boost::bind(&FlowProto::SetProfileData,
+                                                this, _1));
+ 
 }
 
 void FlowProto::InitDone() {
@@ -87,14 +96,13 @@ FlowTable *FlowProto::GetFlowTable(const FlowKey &key) const {
 }
 
 bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
-    uint32_t index = FlowTableIndex(msg->sport, msg->dport);
     if (Validate(msg.get()) == false) {
         return true;
     }
     FreeBuffer(msg.get());
     FlowEvent event(FlowEvent::VROUTER_FLOW_MSG, msg);
-    bool ret = flow_event_queue_[index]->Enqueue(event);
-    return ret;
+    EnqueueFlowEvent(event);
+    return true;
 }
 
 void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
@@ -156,7 +164,16 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
+    // Keep UpdateStats in-sync on add of new events
+    UpdateStats(event.event(), &stats_);
     switch (event.event()) {
+    case FlowEvent::VROUTER_FLOW_MSG: {
+        PktInfo *info = event.pkt_info().get();
+        uint32_t index = FlowTableIndex(info->sport, info->dport);
+        flow_event_queue_[index]->Enqueue(event);
+        break;
+    }
+
     case FlowEvent::DELETE_FLOW: {
         FlowTable *table = GetFlowTable(event.get_flow_key());
         flow_event_queue_[table->table_index()]->Enqueue(event);
@@ -239,4 +256,34 @@ void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
 void FlowProto::CreateAuditEntry(FlowEntry *flow) {
     EnqueueFlowEvent(FlowEvent(FlowEvent::AUDIT_FLOW, flow));
     return;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+// Set profile information
+//////////////////////////////////////////////////////////////////////////////
+void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
+    switch (event) {
+    case FlowEvent::VROUTER_FLOW_MSG:
+        stats->add_count_++;
+        break;
+    case FlowEvent::DELETE_FLOW:
+        stats->delete_count_++;
+        break;
+    case FlowEvent::AUDIT_FLOW:
+        stats->audit_count_++;
+        break;
+    case FlowEvent::REVALUATE_FLOW:
+        stats->revaluate_count_++;
+        break;
+    default:
+        break;
+    }
+}
+
+void FlowProto::SetProfileData(ProfileData *data) {
+    data->flow_.add_count_ = stats_.add_count_;
+    data->flow_.del_count_ = stats_.delete_count_;
+    data->flow_.audit_count_ = stats_.audit_count_;
+    data->flow_.reval_count_ = stats_.revaluate_count_;
 }

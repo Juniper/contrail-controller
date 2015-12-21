@@ -6,9 +6,94 @@
 class Agent;
 class Timer;
 
+class ProfileData {
+public:
+    struct WorkQueueStats {
+        uint64_t queue_count_;
+        uint64_t enqueue_count_;
+        uint64_t dequeue_count_;
+        uint64_t max_queue_count_;
+        uint64_t task_start_count_;
+        void Get();
+    };
+
+    struct DBTableStats {
+        uint64_t db_entry_count_;
+        uint64_t walker_count_;
+        uint64_t enqueue_count_;
+        uint64_t input_count_;
+        uint64_t notify_count_;
+        void Get(const DBTable *table);
+        void Accumulate(const DBTable *table);
+        void Reset();
+    };
+
+    struct FlowStats {
+        uint64_t flow_count_;
+        uint64_t add_count_;
+        uint64_t del_count_;
+        uint64_t audit_count_;
+        uint64_t reval_count_;
+        WorkQueueStats pkt_flow_queue_count_;
+        void Get();
+    };
+
+    struct PktStats {
+        uint64_t arp_count_;
+        uint64_t dhcp_count_;
+        uint64_t dns_count_;
+        uint64_t icmp_count_;
+        void Get();
+    };
+
+    struct XmppStats {
+        uint64_t inet4_add_count_;
+        uint64_t inet4_del_count_;
+        uint64_t inet6_add_count_;
+        uint64_t inet6_del_count_;
+        uint64_t mcast_add_count_;
+        uint64_t mcast_del_count_;
+        uint64_t bridge_add_count_;
+        uint64_t bridge_del_count_;
+        void Get();
+    };
+
+    struct NovaIpcStats {
+        uint64_t add_count_;
+        uint64_t del_count_;
+        void Get();
+    };
+
+    void Get(Agent *agent);
+public:
+    std::string  time_;
+    FlowStats    flow_;
+    PktStats     pkt_;
+    DBTableStats interface_;
+    DBTableStats vn_;
+    DBTableStats vm_;
+    DBTableStats acl_;
+    DBTableStats vrf_;
+    DBTableStats inet4_routes_;
+    DBTableStats inet6_routes_;
+    DBTableStats bridge_routes_;
+    DBTableStats multicast_routes_;
+    XmppStats    rx_stats_;
+    XmppStats    tx_stats_;
+    WorkQueueStats ksync_tx_queue_count_;
+    WorkQueueStats ksync_rx_queue_count_;
+    TaskStats   task_stats_[24];
+};
+
 class AgentProfile {
 public:
-    static const uint32_t kProfileTimeout = 2000;
+    static const uint32_t kProfileTimeout = 1000;
+    static const uint16_t kSecondsHistoryCount = 300;
+    static const uint16_t kMinutesHistoryCount = 60;
+    static const uint16_t kHoursHistoryCount = 24;
+    typedef boost::function<void(ProfileData *data)> PktFlowStatsCb;
+
+
     AgentProfile(Agent *agent, bool enable);
     ~AgentProfile();
     bool Init();
@@ -16,12 +101,37 @@ public:
 
     bool TimerRun();
     void Log();
+
+    void RegisterPktFlowStatsCb(PktFlowStatsCb cb) { pkt_flow_stats_cb_ = cb; }
+    void AddProfileData(ProfileData *data);
+    ProfileData *GetProfileData(uint16_t index);
+    uint16_t seconds_history_index() const { return seconds_history_index_; }
  private:
+    ProfileData *GetLastProfileData();
+
     Agent *agent_;
     Timer *timer_;
     time_t start_time_;
     bool enable_;
 
+    ProfileData one_min_data_;
+    ProfileData five_min_data_;
+    ProfileData fifteen_min_data_;
+    ProfileData thirty_min_data_;
+    ProfileData one_hr_data_;
+    ProfileData four_hr_data_;
+    ProfileData eight_hr_data_;
+    ProfileData sixteen_hr_data_;
+    ProfileData twentyfour_hr_data_;
+
+    uint16_t seconds_history_index_;
+    ProfileData seconds_history_data_[kSecondsHistoryCount];
+    uint16_t minutes_history_index_;
+    ProfileData minutes_history_data_[kMinutesHistoryCount];
+    uint16_t hours_history_index_;
+    ProfileData hours_history_data_[kHoursHistoryCount];
+
+    PktFlowStatsCb pkt_flow_stats_cb_;
     DISALLOW_COPY_AND_ASSIGN(AgentProfile);
 };
 

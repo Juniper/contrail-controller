@@ -57,6 +57,7 @@ public:
     }
     VRouter *vrouter() const { return vrouter_.get(); }
 
+    AgentProfile *agent_profile() const { return profile_.get(); }
 private:
     OperDB();
 

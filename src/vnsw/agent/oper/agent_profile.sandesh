@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct SandeshDBTableStats {
+    1: string table;
+    2: u64 db_entry_count;
+    3: u64 walker_count;
+    4: u64 enqueue_count;
+    5: u64 input_count;
+    6: u64 notify_count;
+}
+
+struct SandeshDBTableStatsInfo {
+    1: u16 index;
+    2: string time_str;
+    3: list<SandeshDBTableStats> stats;
+}
+
+response sandesh SandeshDBTableStatsList {
+    1: list<SandeshDBTableStatsInfo> stats;
+}
+
+request sandesh SandeshDBTableStatsRequest {
+    1: u16 count; // send data for last 'count' entries
+}
+
+struct SandeshFlowStats {
+    1:  u16 index;
+    2:  string time_str;
+    4:  u64 flow_count;
+    5:  u64 add_count;
+    7:  u64 del_count;
+    8:  u64 reval_count;
+}
+
+response sandesh SandeshFlowStatsList {
+    1: list<SandeshFlowStats> stats;
+}
+
+request sandesh SandeshFlowStatsRequest {
+    1: u16 count; // send data for last 'count' entries
+}
+
+struct TaskProfileStats {
+    1:  u16 index;
+    2:  i32 flow_run;
+    3:  i32 flow_wait;
+    4:  i32 flow_defer;
+    5:  i32 db_run;
+    6:  i32 db_wait;
+    7:  i32 db_defer;
+    8:  i32 stats_run;
+    9:  i32 stats_wait;
+   10:  i32 stats_defer;
+   11:  i32 io_run;
+   12:  i32 io_wait;
+   13:  i32 io_defer;
+   14:  i32 flow_resp_run;
+   15:  i32 flow_resp_wait;
+   16:  i32 flow_resp_defer;
+   17:  i32 sandesh_rcv_run;
+   18:  i32 sandesh_rcv_wait;
+   19:  i32 sandesh_rcv_defer;
+   20:  i32 bgp_cfg_run;
+   21:  i32 bgp_cfg_wait;
+   22:  i32 bgp_cfg_defer;
+   23:  i32 ksync_run;
+   24:  i32 ksync_wait;
+   25:  i32 ksync_defer;
+}
+
+response sandesh SandeshTaskStatsList {
+    1: list<TaskProfileStats> stats;
+}
+
+request sandesh SandeshTaskStatsRequest {
+    1: u16 count; // send data for last 'count' entries
+}

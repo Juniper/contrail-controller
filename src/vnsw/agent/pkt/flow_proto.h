@@ -14,6 +14,19 @@
 #include "flow_handler.h"
 #include "flow_event.h"
 
+class ProfileData;
+
+struct FlowStats {
+    uint64_t add_count_;
+    uint64_t delete_count_;
+    uint64_t revaluate_count_;
+    uint64_t audit_count_;
+
+    FlowStats() :
+        add_count_(0), delete_count_(0), revaluate_count_(0), audit_count_(0) {
+    }
+};
+
 class FlowProto : public Proto {
 public:
     typedef WorkQueue<FlowEvent> FlowEventQueue;
@@ -51,10 +64,14 @@ public:
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);
+    const FlowStats *flow_stats() const { return &stats_; }
+
+    void SetProfileData(ProfileData *data);
 private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
+    FlowStats stats_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;
