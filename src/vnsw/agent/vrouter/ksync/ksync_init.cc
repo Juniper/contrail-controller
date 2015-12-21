@@ -94,7 +94,7 @@ void KSync::NetlinkInit() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
+    KSyncSockNetlink::Init(io, 1, NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                             flowtable_ksync_obj_.get()));
     GenericNetlinkInit();

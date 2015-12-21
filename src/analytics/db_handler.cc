@@ -119,9 +119,10 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
             Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " << 
             queue_count);
         drop_level_ = level;
-        if (!cb.empty()) {
-            cb();
-        }
+    }
+    // Always invoke the callback
+    if (!cb.empty()) {
+        cb();
     }
 }
 

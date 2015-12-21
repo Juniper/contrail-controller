@@ -218,7 +218,8 @@ void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
 
 //Udp socket class for interacting with kernel
 KSyncSockUdp::KSyncSockUdp(boost::asio::io_service &ios, int port)
-    : sock_(ios, ip::udp::endpoint(ip::udp::v4(), 0)), server_ep_(ip::address::from_string("127.0.0.1"), port) {
+    : sock_(ios, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)),
+      server_ep_(boost::asio::ip::address::from_string("127.0.0.1"), port) {
     //sock_.open(ip::udp::v4());
 }
 
@@ -285,18 +286,18 @@ size_t KSyncSockUdp::SendTo(const char *data, uint32_t data_len,
 }
 
 void KSyncSockUdp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
-    ip::udp::endpoint ep;
+    boost::asio::ip::udp::endpoint ep;
     sock_.async_receive_from(buf, ep, cb);
 }
 
 void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
-    ip::udp::endpoint ep;
+    boost::asio::ip::udp::endpoint ep;
     sock_.receive_from(buf, ep);
 }
 
 //TCP socket class for interacting with vrouter
 KSyncSockTcp::KSyncSockTcp(EventManager *evm,
-    ip::address ip_address, int port) : TcpServer(evm), evm_(evm),
+    boost::asio::ip::address ip_address, int port) : TcpServer(evm), evm_(evm),
     session_(NULL), server_ep_(ip_address, port), connect_complete_(false) {
     session_ = CreateSession();
     Connect(session_, server_ep_);
@@ -626,7 +627,8 @@ void KSyncSockUdp::Init(io_service &ios, int count, int port) {
     }
 }
 
-void KSyncSockTcp::Init(EventManager *evm, int count, ip::address ip_addr,
+void KSyncSockTcp::Init(EventManager *evm, int count,
+                        boost::asio::ip::address ip_addr,
                         int port) {
     KSyncSock::Init(count);
     SetNetlinkFamilyId(10);

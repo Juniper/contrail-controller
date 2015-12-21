@@ -8,10 +8,14 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = '#vrouter/include')
+env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Append(CPPPATH = env['TOP'] + '/vnsw/agent')
+env.Append(CPPPATH = env['TOP'] + '/vnsw/agent/cmn/')
+env.Append(CPPPATH = env['TOP'] + '/vnsw/agent/oper/')
 env.Append(CPPPATH = env['TOP'] + '/sandesh')
 env.Append(CPPPATH = env['TOP'] + '/ksync')
+env.Append(CPPPATH = env['TOP'] + '/schema')
 
 env.CppEnableExceptions()
 

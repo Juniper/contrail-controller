@@ -1047,7 +1047,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
                 ksync_obj->Delete(rflow->ksync_entry_);
                 rflow->ksync_entry_ = NULL;
             }
-            DeleteByIndex(rflow->flow_handle_, rflow);
+            DeleteByIndex(rflow);
             rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
             rflow->data().vrouter_evicted_flow_ = vrouter_evicted_flow;
         }
@@ -1734,7 +1734,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
-    DeleteByIndex(fe->flow_handle_, fe);
+    DeleteByIndex(fe);
 
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
@@ -2106,10 +2106,10 @@ void FlowTable::InsertByIndex(uint32_t flow_handle, FlowEntry *flow) {
     }
 }
 
-void FlowTable::DeleteByIndex(uint32_t flow_handle, FlowEntry *fe) {
-    if (flow_handle != FlowEntry::kInvalidFlowHandle) {
-        if (flow_index_tree_[flow_handle].get() == fe) {
-            flow_index_tree_[flow_handle] = NULL;
+void FlowTable::DeleteByIndex(FlowEntry *fe) {
+    if (fe->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+        if (flow_index_tree_[fe->flow_handle()].get() == fe) {
+            flow_index_tree_[fe->flow_handle()] = NULL;
         }
     }
 }
@@ -2873,8 +2873,6 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
     DeleteVmFlowInfo(fe);
     // Remove from RouteFlowTree
     DeleteRouteFlowInfo(fe);
-    //Remove from flow handle tree
-    DeleteByIndex(fe->flow_handle_, fe);
 }
 
 void FlowTable::DeleteVnFlowInfo(FlowEntry *fe)
@@ -3346,7 +3344,7 @@ void FlowTable::AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_handle) {
     }
 
     if (flow_handle != fe->flow_handle_) {
-        DeleteByIndex(flow_handle, fe);
+        DeleteByIndex(fe);
     }
 
     FlowEntry *flow = FindByIndex(flow_handle);

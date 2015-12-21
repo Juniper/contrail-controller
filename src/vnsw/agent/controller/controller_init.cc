@@ -92,7 +92,7 @@ void VNController::SetAgentMcastLabelRange(uint8_t idx) {
     //         split remaining unicast label for both control
     //         node
     //  Remaining label would be used for unicast mpls label
-    if (agent_->vrouter_max_labels() == 0) {
+    if (agent_->vrouter_max_labels() <=  MIN_UNICAST_LABEL_RANGE) {
         str << 0 << "-" << 0;
         fabric_multicast_label_range_[idx].start = 0;
         fabric_multicast_label_range_[idx].end = 0;
