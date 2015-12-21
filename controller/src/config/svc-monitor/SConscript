@@ -1,0 +1,135 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+sources = [
+    'setup.py',
+    'requirements.txt',
+    'run_tests.sh',
+    'test-requirements.txt',
+    '.testr.conf',
+    '.coveragerc',
+    'MANIFEST.in',
+    'svc_monitor/__init__.py',
+    'svc_monitor/agent.py',
+    'svc_monitor/agent_manager.py',
+    'svc_monitor/svc_monitor.py',
+    'svc_monitor/instance_manager.py',
+    'svc_monitor/virtual_machine_manager.py',
+    'svc_monitor/vrouter_instance_manager.py',
+    'svc_monitor/physical_service_manager.py',
+    'svc_monitor/config_db.py',
+    'svc_monitor/db.py',
+    'svc_monitor/loadbalancer_agent.py',
+    'svc_monitor/logger.py',
+    'svc_monitor/nova_client.py',
+    'svc_monitor/port_tuple.py',
+    'svc_monitor/scheduler/__init__.py',
+    'svc_monitor/scheduler/vrouter_scheduler.py',
+    'svc_monitor/services/__init__.py',
+    'svc_monitor/services/loadbalancer/__init__.py',
+    'svc_monitor/services/loadbalancer/drivers/__init__.py',
+    'svc_monitor/services/loadbalancer/drivers/abstract_driver.py',
+    'svc_monitor/services/loadbalancer/drivers/f5/__init__.py',
+    'svc_monitor/services/loadbalancer/drivers/f5/f5_driver.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/__init__.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/driver.py',
+    'svc_monitor/snat_agent.py',
+    'svc_monitor/tests/__init__.py',
+    'svc_monitor/tests/test_common_utils.py',
+    'svc_monitor/tests/test_svc_monitor.py',
+    'svc_monitor/tests/test_vrouter_instance_manager.py',
+    'svc_monitor/tests/test_virtual_machine_manager.py',
+    'svc_monitor/tests/test_dep_track.py',
+    'svc_monitor/tests/test_ha_proxy.py',
+    'svc_monitor/tests/test_snat.py',
+    'svc_monitor/tests/test_snat_agent.py',
+    'svc_monitor/tests/test_loadbalancer_agent.py',
+    'svc_monitor/tests/test_config_db.py',
+    'svc_monitor/tests/test_f5_lb.py',
+    'svc_monitor/tests/fake_lb_driver.py',
+    'svc_monitor/tests/scheduler/__init__.py',
+    'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
+]
+
+sources += env.SandeshGenPy('svc_mon_introspect.sandesh',
+                            'svc_monitor/sandesh/', False)
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist', sources, cd_cmd + 'python setup.py sdist')
+env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
+
+test_sources = sources
+packages = [
+    '%s/api-lib/dist/vnc_api-0.1dev.tar.gz' % env['TOP'],
+    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
+    '%s/discovery/client/dist/discoveryclient-0.1dev.tar.gz' % env['TOP'],
+    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
+    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
+]
+
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+# Documentation
+doc_files = []
+doc_files += env.SandeshGenDoc('svc_mon_introspect.sandesh')
+doc_files += env['CFGM_DOC_FILES']
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources,
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Alias('install', install_cmd)
+
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-svc-monitor.conf'))
+env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
+    '/contrail-svc-monitor', 'contrail-svc-monitor.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+
+    '/supervisord_config_files', 'contrail-svc-monitor.ini'))
+env.Alias('install', env.Install(
+    env['INSTALL_MESSAGE_DOC'] + '/contrail-svc-monitor/', doc_files))
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+# unit test
+cov_cmd = env.Command('coveragetest.log', sdist_gen,
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
+
+test_cmd = env.Command('test.log', sdist_gen,
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
+
+test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
+                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
+                '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('test', test_cmd)
+env.Alias('coverage', cov_cmd)
+
+env.Alias('controller/src/config/svc_monitor:test', test_cmd)
+env.Alias('controller/src/config/svc_monitor:coverage', cov_cmd)
