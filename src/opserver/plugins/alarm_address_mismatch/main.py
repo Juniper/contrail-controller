@@ -5,65 +5,86 @@ class AddressMismatchCompute(AlarmBase):
     """Compute Node IP Address mismatch.
        Compute Node has IP Address mismatch between ContrailConfig.virtual_router_ip_address
        and Operational State in VrouterAgent"""
-    def __call__(self, uve_key, uve_data):
-        err_list = []
-        try:
-            confip = json.loads(uve_data["ContrailConfig"]["elements"][\
-                "virtual_router_ip_address"])
-            mismatch = True
-            vlist = uve_data["VrouterAgent"]["self_ip_list"]
-            for ipaddr in vlist:
-                if ipaddr == confip:
-                    mismatch = False
-            vac = uve_data["VrouterAgent"]["control_ip"]
-            if vac == confip:
-                mismatch = False
+    def __init__(self):
+	AlarmBase.__init__(self, AlarmBase.SYS_ERR)
 
-            if mismatch:
-                err_list.append(AlarmRule(oper="not in",
-                    operand1=AlarmOperand(\
-                            name="ContrailConfig.virtual_router_ip_address",
-                            value=confip),
-                    operand2=AlarmOperand(\
-                            name="VrouterAgent.self_ip_list",
-                            value=vlist)))
-                err_list.append(AlarmRule(oper="!=",
-                    operand1=AlarmOperand(\
-                            name="ContrailConfig.virtual_router_ip_address",
-                            value=confip),
-                    operand2=AlarmOperand(\
-                            name="VrouterAgent.control_ip",
-                            value=vac)))
-        except:
-            pass
-        finally:
-            return self.__class__.__name__, AlarmBase.SYS_ERR, err_list
+    def __call__(self, uve_key, uve_data):
+        or_list = []
+        try:
+            lval = json.loads(uve_data["ContrailConfig"]["elements"][\
+                "virtual_router_ip_address"])
+        except KeyError:
+            lval = None
+
+        try:
+            rval1 = uve_data["VrouterAgent"]["self_ip_list"]
+        except KeyError:
+            rval1 = None
+
+        try:
+            rval2 = uve_data["VrouterAgent"]["control_ip"]
+        except KeyError:
+            rval2 = None
+
+        if not isinstance(rval1,list) or lval not in rval1:
+            and_list = []
+            and_list.append(AlarmElement(\
+                rule=AlarmTemplate(oper="not in",
+                    operand1=Operand1(keys=\
+                        ["ContrailConfig","elements","virtual_router_ip_address"],
+                        json=2),
+                    operand2=Operand2(keys=["VrouterAgent","self_ip_list"])),
+                json_operand1_value=json.dumps(lval),
+                json_operand2_value=json.dumps(rval1)))
+
+	    if len(and_list) > 0 and lval != rval2:
+		and_list.append(AlarmElement(\
+		    rule=AlarmTemplate(oper="!=",
+			operand1=Operand1(keys=\
+			    ["ContrailConfig","elements",
+                             "virtual_router_ip_address"],
+			    json=2),
+			operand2=Operand2(keys=["VrouterAgent","control_ip"])),
+		    json_operand1_value=json.dumps(lval),
+		    json_operand2_value=json.dumps(rval2))
+                or_list.append(AllOf(all_of=and_list))
+
+        if len(or_list):
+            return or_list
+        else:
+	    return None
        
 class AddressMismatchControl(AlarmBase):
     """Control Node IP Address mismatch.
        Control Node has IP Address mismatch between ContrailConfig.bgp_router_parameters.address
        and Operational State in BgpRouterState"""
+    def __init__(self):
+	AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+
     def __call__(self, uve_key, uve_data):
-        err_list = []
 
         try:
-            confip = json.loads(uve_data["ContrailConfig"]["elements"][\
+            lval = json.loads(uve_data["ContrailConfig"]["elements"][\
                 "bgp_router_parameters"])["address"]
-            mismatch = True
-            blist = uve_data["BgpRouterState"]["bgp_router_ip_list"]
-            for ipaddr in blist:
-                if ipaddr == confip:
-                    mismatch = False
-            if mismatch:
-                err_list.append(AlarmRule(oper="not in",
-                    operand1=AlarmOperand(\
-                            name="ContrailConfig.bgp_router_parameters.address",
-                            value=confip),
-                    operand2=AlarmOperand(\
-                            name="BgpRouterState.bgp_router_ip_list",
-                            value=blist)))
-        except:
-            pass
-        finally:
-            return self.__class__.__name__, AlarmBase.SYS_ERR, err_list
-       
+        except KeyError:
+            lval = None
+
+        try:
+            rval = uve_data["BgpRouterState"]["bgp_router_ip_list"]
+        except KeyError:
+            rval = None
+
+        and_list = []
+        if not isinstance(rval,list) or lval not in rval:
+            and_list.append(AnyOf(any_of=[AlarmElement(\
+                rule=AlarmTemplate(oper="not in",
+                    operand1=Operand1(keys=["ContrailConfig",\
+                        "elements","bgp_router_parameters","address"],
+                        json=2),
+                    operand2=Operand2(keys=\
+                        ["BgpRouterState","bgp_router_ip_list"])),
+                json_operand1_value=json.dumps(lval),
+                json_operand2_value=json.dumps(rval))]))
+            return and_list
+
+        return None

@@ -1,23 +1,33 @@
 from opserver.plugins.alarm_base import *
 
 class ConfIncorrect(AlarmBase):
- 
-    def __call__(self, uve_key, uve_data):
-        err_list = []
-        if not uve_data.has_key("ContrailConfig"):
-            err_list.append(AlarmRule(oper="!",
-                operand1=AlarmOperand(\
-                    name="ContrailConfig", value=None),
-                operand2=None))
+    def __init__(self, sev = AlarmBase.SYS_ERR):
+	AlarmBase.__init__(self, sev)
 
-        return self.__class__.__name__, AlarmBase.SYS_ERR, err_list
+    def __call__(self, uve_key, uve_data):
+        or_list = []
+        if not uve_data.has_key("ContrailConfig"):
+            and_list = []
+            and_list.append(AlarmElement(\
+                rule=AlarmTemplate(oper="==",
+                    operand1=Operand1(keys=["ContrailConfig"]),
+                    operand2=Operand2(json_value="null")),
+                json_operand1_value=json.dumps(None)))
+            or_list.append(AllOf(all_of=and_list))
+
+        if len(or_list):
+            return or_list
+        else:
+	    return None
 
 class ConfIncorrectCompute(ConfIncorrect):
     """Compute Node config missing or incorrect.
        Compute Node configuration pushed to Ifmap as ContrailConfig is unavailable/incorrect"""
+    def __init__(self):
+        ConfIncorrect.__init__(self, AlarmBase.SYS_WARN)
+
     def __call__(self, uve_key, uve_data):
-       _, _, err_list = super(ConfIncorrectCompute,self).__call__(uve_key, uve_data)
-       return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
+       return super(ConfIncorrectCompute,self).__call__(uve_key, uve_data)
 
 class ConfIncorrectAnalytics(ConfIncorrect):
     """Analytics Node config missing or incorrect.

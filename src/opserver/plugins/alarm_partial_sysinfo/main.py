@@ -1,9 +1,14 @@
 from opserver.plugins.alarm_base import *
+from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
+import json
 
 class PartialSysinfo(AlarmBase):
+
+    def __init__(self):
+	AlarmBase.__init__(self, AlarmBase.SYS_WARN)
  
     def __call__(self, uve_key, uve_data):
-        err_list = []
+        or_list = []
         tab = uve_key.split(":")[0]
         
         smap = { 'ObjectCollectorInfo':"CollectorState",
@@ -11,21 +16,24 @@ class PartialSysinfo(AlarmBase):
                  'ObjectBgpRouter':"BgpRouterState",
                  'ObjectVRouter':"VrouterAgent", }
         sname = smap[tab]
-        if not uve_data.has_key(sname):
-            err_list.append(AlarmRule(oper="!",
-                operand1=AlarmOperand(\
-                    name=sname, value=None),
-                operand2=None))
-            return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
+        val = None       
+        if sname in uve_data:
+            if "build_info" in uve_data[sname]:
+                val = uve_data[sname]["build_info"]
 
-        if not uve_data[sname].has_key("build_info"):
-            err_list.append(AlarmRule(oper="!",
-                operand1=AlarmOperand(\
-                    name="%s.build_info" % sname, value=None),
-                operand2=None))
-            return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
-		
-        return self.__class__.__name__, AlarmBase.SYS_WARN, err_list 
+        if val is None:
+	    and_list = []
+	    and_list.append(AlarmElement(\
+		rule=AlarmTemplate(oper="==",
+		    operand1=Operand1(keys=[sname,"build_info"]),
+		    operand2=Operand2(json_value="null")),
+		json_operand1_value="null"))
+            or_list.append(AllOf(all_of=and_list))
+
+        if len(or_list):
+            return or_list
+        else:
+	    return None
 
 class PartialSysinfoCompute(PartialSysinfo):
     """System Info Incomplete.
