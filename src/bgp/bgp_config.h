@@ -266,6 +266,15 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };
 
+//
+// AggregateRouteConfig is represents the route-aggregation config on a
+// routing instance. This config is derived from routing-instance to
+// route-aggregate link in schema. "route-aggregate" is a config object
+// containing information about prefix to aggregate and nexthop.
+// Routing instance may refer to multiple route-aggregate config object hence
+// a list of AggregateRouteConfig is maintained in BgpInstanceConfig
+// This list is not an ordered list.
+//
 struct AggregateRouteConfig {
     IpAddress aggregate;
     int prefix_length;
