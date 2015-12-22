@@ -234,4 +234,8 @@
     </xsd:sequence>
 </xsd:complexType>
 
+<xsd:element name="loadbalancer-provider" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-provider', 'loadbalancer') -->
+
 </xsd:schema>
