@@ -12,6 +12,7 @@
 #include <boost/asio/buffer.hpp>
 
 #include <boost/unordered_map.hpp>
+#include "pkt/flow_table.h"
 #include "ksync_sock.h"
 
 #include "vr_types.h"
@@ -92,6 +93,7 @@ public:
     ~KSyncSockTypeMap() {
         assert(nh_map.size() == 0);
         assert(flow_map.size() == 0);
+        assert(flow_index_map.size() == 0);
         assert(if_map.size() == 0);
         assert(rt_tree.size() == 0);
         assert(mpls_map.size() == 0);
@@ -105,6 +107,21 @@ public:
     ksync_map_nh nh_map; 
     typedef boost::unordered_map<int, vr_flow_req> ksync_map_flow;
     ksync_map_flow flow_map; 
+
+    struct FlowKeyCmp {
+        bool operator() (const FlowKey &a, const FlowKey &b) const {
+            return a.IsLess(b);
+        }
+    };
+
+    // map to maintain flow key to index association to mimic
+    // vrouter behavior of returning already allocated index
+    // on request for index instead of allocating a new index
+    // which can result in pending flow entries in test case
+    // as a false failure
+    typedef std::map<FlowKey, int, FlowKeyCmp> FlowIndexMap;
+    FlowIndexMap flow_index_map;
+
     typedef std::map<int, vr_interface_req> ksync_map_if;
     ksync_map_if if_map; 
     typedef std::set<vr_route_req, TestRouteCmp> ksync_rt_tree;

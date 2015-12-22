@@ -689,24 +689,40 @@ void KSyncUserSockFlowContext::Process() {
     uint16_t flags = 0;
     int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
 
+    FlowKey key(req_->get_fr_flow_nh_id(),
+                Ip4Address(ntohl(req_->get_fr_flow_sip())),
+                Ip4Address(ntohl(req_->get_fr_flow_dip())),
+                req_->get_fr_flow_proto(),
+                ntohs(req_->get_fr_flow_sport()),
+                ntohs(req_->get_fr_flow_dport()));
+
     flags = req_->get_fr_flags();
     //delete from map if command is delete
     if (!flags) {
         sock->flow_map.erase(req_->get_fr_index());
+        sock->flow_index_map.erase(key);
         //Deactivate the flow-entry in flow mmap
         KSyncSockTypeMap::SetFlowEntry(req_, false);
     } else {
         /* Send reverse-flow index as one more than fwd-flow index */
         uint32_t fwd_flow_idx = req_->get_fr_index();
         if (fwd_flow_idx == 0xFFFFFFFF) {
-            if (flow_error == 0) {
-                /* Allocate entry only of no error case */
-                fwd_flow_idx = rand() % 50000;
+            KSyncSockTypeMap::FlowIndexMap::iterator it =
+                sock->flow_index_map.find(key);
+            if (it != sock->flow_index_map.end()) {
+                fwd_flow_idx = it->second;
                 req_->set_fr_index(fwd_flow_idx);
+            } else {
+                if (flow_error == 0) {
+                    /* Allocate entry only of no error case */
+                    fwd_flow_idx = rand() % 50000;
+                    req_->set_fr_index(fwd_flow_idx);
+                }
             }
         }          
 
         if (fwd_flow_idx != 0xFFFFFFFF) {
+            sock->flow_index_map[key] = fwd_flow_idx;
             //store info from binary sandesh message
             vr_flow_req flow_info(*req_);
 

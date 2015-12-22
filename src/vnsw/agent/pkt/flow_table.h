@@ -772,7 +772,7 @@ public:
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
-    void DeleteByIndex(uint32_t flow_handle, FlowEntry *flow);
+    void DeleteByIndex(FlowEntry *flow);
     void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
     FlowEntry *FindByIndex(uint32_t flow_handle);
     void DeleteVrouterEvictedFlow(FlowEntry *flow);
