@@ -100,8 +100,7 @@ class SvcMonitor(object):
             'loadbalancer_pool': []
         },
         "service_instance": {
-            'self': ['virtual_machine', 'port_tuple',
-                     'virtual_machine_interface', 'instance_ip'],
+            'self': ['virtual_machine', 'port_tuple','instance_ip'],
             'virtual_machine': [],
             'port_tuple': [],
             'virtual_machine_interface' : []
@@ -122,7 +121,7 @@ class SvcMonitor(object):
         "physical_interface": {
             'self': [],
             'service_appliance':['virtual_machine_interface'],
-            'virtual_machine_interfaces':['service_appliance'],
+            'virtual_machine_interface':['service_appliance'],
         },
         "logical_interface": {
             'self': [],
@@ -147,8 +146,7 @@ class SvcMonitor(object):
             'self': ['interface_route_table', 'virtual_machine', 'port_tuple'],
             'interface_route_table': [],
             'virtual_machine': [],
-            'port_tuple': [],
-            'service_instance': ['physical_interface'],
+            'port_tuple': ['physical_interface'],
             'physical_interface': ['service_instance']
         },
         "interface_route_table": {
