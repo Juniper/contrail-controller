@@ -433,7 +433,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_health_checks = set()
         self.instance_ips = set()
         self.virtual_machines = set()
-        self.virtual_machine_interfaces = set()
         self.params = None
         self.state = 'init'
         self.launch_count = 0
@@ -471,7 +470,6 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_multiple_refs('service_health_check', obj)
         self.update_multiple_refs('instance_ip', obj)
         self.update_multiple_refs('virtual_machine', obj)
-        self.update_multiple_refs('virtual_machine_interface', obj)
         self.id_perms = obj.get('id_perms', None)
         if not self.params:
             return obj
@@ -515,7 +513,6 @@ class ServiceInstanceSM(DBBaseSM):
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('instance_ip', {})
-        obj.update_multiple_refs('virtual_machine_interface',{})
         obj.update_multiple_refs('virtual_machine', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
@@ -1044,7 +1041,7 @@ class PortTupleSM(DBBaseSM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        self.parent_uuid = obj['parent_uuid']
+        self.parent_uuid = self.get_parent_uuid(obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
         return obj

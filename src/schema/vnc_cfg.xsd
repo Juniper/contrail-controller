@@ -1550,23 +1550,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('route-aggregate-service-instance',
           'bgp:route-aggregate', 'service-instance', ['ref']) -->
 
-<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
-<xsd:complexType name='ServiceInstanceVirtualMachineInterfaceType'>
-    <xsd:all>
-        <xsd:element name="instance-id" type="xsd:integer"/>
-        <xsd:element name="interface-type" type="ServiceInterfaceType"/>
-    </xsd:all>
-</xsd:complexType>
-<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
-
-<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
-<xsd:element name='service-instance-interface'
-    type='ServiceInstanceVirtualMachineInterfaceType'/>
-<!-- #IFMAP-SEMANTICS-IDL
-     Link('service-instance-interface', 'service-instance',
-          'virtual-machine-interface', ['ref', 'derived']) -->
-<!-- NEED TO DELETE THIS BEFORE RELEASE IN 3.0 BY PNF TEAM -->
-
 <xsd:element name='port-tuple' type='ifmap:IdentityType'/>
 
 <xsd:element name='service-instance-port-tuple'/>

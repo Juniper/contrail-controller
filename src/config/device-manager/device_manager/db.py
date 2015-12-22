@@ -249,7 +249,8 @@ class PhysicalRouterDM(DBBaseDM):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
-            if vn.get_forwarding_mode() != 'l2_l3':  # dont need irb ip, gateway ip
+            # dont need irb ip, gateway ip
+            if vn.get_forwarding_mode() != 'l2_l3':
                 continue
             for subnet_prefix in vn.gateways.keys():
                 new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
@@ -1004,27 +1005,32 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.logical_interface = None
         self.physical_interface = None
         self.service_interface_type = None
-        self.service_instance_id = None
-        self.service_instance = None
+        self.port_tuple = None
         self.routing_instances = set()
+        self.service_instance = None
         self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        ref_obj = obj.get("service_instance_back_refs")
         if obj.get('virtual_machine_interface_properties', None):
             self.params = obj['virtual_machine_interface_properties']
-            self.service_interface_type = self.params.get('service_interface_type', None)
+            self.service_interface_type = self.params.get(
+                'service_interface_type', None)
         self.device_owner = obj.get("virtual_machine_interface_device_owner")
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
         self.update_single_ref('instance_ip', obj)
         self.update_single_ref('physical_interface', obj)
-        self.update_single_ref('service_instance', obj)
         self.update_multiple_refs('routing_instance', obj)
+        self.update_single_ref('port_tuple', obj)
+        self.service_instance = None
+        if self.port_tuple:
+            pt = PortTupleDM.get(self.port_tuple)
+            if pt:
+                self.service_instance = pt.parent_uuid
     # end update
 
     def is_device_owner_bms(self):
@@ -1044,8 +1050,8 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('floating_ip', {})
         obj.update_single_ref('instance_ip', {})
         obj.update_single_ref('physical_interface', {})
-        obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('routing_instance', {})
+        obj.update_single_ref('port_tuple', {})
         del cls._dict[uuid]
     # end delete
 
@@ -1247,7 +1253,7 @@ class ServiceInstanceDM(DBBaseDM):
         self.uuid = uuid
         self.fq_name = None
         self.name = None
-        self.virtual_machine_interfaces = set()
+        self.port_tuples = set()
         self.update(obj_dict)
     # end
 
@@ -1256,22 +1262,48 @@ class ServiceInstanceDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.name = "-".join(self.fq_name)
-        self.update_multiple_refs("virtual_machine_interface", obj)
-        ref_objs = obj.get("virtual_machine_interface_refs", [])
-        for ref in ref_objs:
-            vmi_obj = VirtualMachineInterfaceDM.get(ref['uuid'])
-            if vmi_obj is not None:
-                vmi_obj.service_instance_id = ref[
-                    'attr'].get('instance_id', None)
     # end
 
     @classmethod
     def delete(cls, uuid):
         obj = cls._dict[uuid]
-        self._cassandra.delete_pnf_resources(uuid)
-        obj.update_multiple_refs("virtual_machine_interface", {})
+        obj._cassandra.delete_pnf_resources(uuid)
         del cls._dict[uuid]
     # end
+
+
+class PortTupleDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'port_tuple'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_machine_interfaces = set()
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.parent_uuid = self.get_parent_uuid(obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        for vmi in self.virtual_machine_interfaces:
+            vmi_obj = VirtualMachineInterfaceDM.get(vmi)
+            if vmi_obj and not vmi_obj.service_instance:
+                vmi_obj.service_instance = self.parent_uuid
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.remove_from_parent()
+        del cls._dict[uuid]
+    # end delete
+# end PortTupleDM
 
 
 class DMCassandraDB(VncCassandraClient):
@@ -1342,10 +1374,12 @@ class DMCassandraDB(VncCassandraClient):
     def get_si_pr_set(self, si_id):
         si_obj = ServiceInstanceDM.get(si_id)
         pr_set = set()
-        for vmi_uuid in si_obj.virtual_machine_interfaces:
-            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
-            pi_obj = PhysicalInterfaceDM.get(vmi_obj.physical_interface)
-            pr_set.add(pi_obj.physical_router)
+        for pt_uuid in si_obj.port_tuples:
+            pt_obj = PortTupleDM.get(pt_uuid)
+            for vmi_uuid in pt_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+                pi_obj = PhysicalInterfaceDM.get(vmi_obj.physical_interface)
+                pr_set.add(pi_obj.physical_router)
         return pr_set
 
     def get_pnf_vlan_allocator(self, pr_id):
@@ -1408,11 +1442,13 @@ class DMCassandraDB(VncCassandraClient):
                     int(pnf_resources['vlan_id']))
 
         si_obj = ServiceInstanceDM.get(si_id)
-        for vmi_uuid in si_obj.virtual_machine_interfaces:
-            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
-            if vmi_obj.physical_interface:
-                self.get_pnf_unit_allocator(vmi_obj.physical_interface).delete(
-                    int(pnf_resources['unit_id']))
+        for pt_uuid in si_obj.port_tuples:
+            pt_obj = PortTupleDM.get(pt_uuid)
+            for vmi_uuid in pt_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+                if vmi_obj.physical_interface:
+                    self.get_pnf_unit_allocator(vmi_obj.physical_interface).delete(
+                        int(pnf_resources['unit_id']))
 
         del self.pnf_resources_map[si_id]
         self.pnf_cf.remove(si_id)
