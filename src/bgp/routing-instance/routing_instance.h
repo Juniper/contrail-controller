@@ -139,9 +139,9 @@ public:
 
     IRouteAggregator *route_aggregator(Address::Family family) {
         if (family == Address::INET)
-            return inet_route_aggregator_;
+            return inet_route_aggregator_.get();
         if (family == Address::INET6)
-            return inet6_route_aggregator_;
+            return inet6_route_aggregator_.get();
         assert(false);
         return NULL;
     }
@@ -203,8 +203,8 @@ private:
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<IStaticRouteMgr> inet_static_route_mgr_;
     boost::scoped_ptr<IStaticRouteMgr> inet6_static_route_mgr_;
-    IRouteAggregator* inet_route_aggregator_;
-    IRouteAggregator* inet6_route_aggregator_;
+    boost::scoped_ptr<IRouteAggregator> inet_route_aggregator_;
+    boost::scoped_ptr<IRouteAggregator> inet6_route_aggregator_;
     boost::scoped_ptr<PeerManager> peer_manager_;
     RoutingPolicyAttachList routing_policies_;
 };

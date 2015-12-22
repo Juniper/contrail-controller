@@ -285,6 +285,45 @@ protected:
         return list;
     }
 
+    void DisableUnregResolveTask(const string &instance, Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        rti->route_aggregator(fmly)->DisableUnregResolveTask();
+    }
+
+    void EnableUnregResolveTask(const string &instance, Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        rti->route_aggregator(fmly)->EnableUnregResolveTask();
+    }
+
+    size_t GetUnregResolveListSize(const string &instance,
+                                   Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        return rti->route_aggregator(fmly)->GetUnregResolveListSize();
+    }
+
+    void DisableRouteAggregateUpdate(const string &instance,
+                                     Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        rti->route_aggregator(fmly)->DisableRouteAggregateUpdate();
+    }
+
+    void EnableRouteAggregateUpdate(const string &instance,
+                                    Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        rti->route_aggregator(fmly)->EnableRouteAggregateUpdate();
+    }
+
+    size_t GetUpdateAggregateListSize(const string &instance,
+                                      Address::Family fmly) {
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        return rti->route_aggregator(fmly)->GetUpdateAggregateListSize();
+    }
 
     vector<string> GetCommunityListFromRoute(const BgpPath *path) {
         const Community *comm = path->GetAttr()->community();
@@ -305,6 +344,11 @@ protected:
     BgpConfigParser parser_;
 };
 
+//
+// Validate the route aggregation functionality
+// Add nexthop route and more specific route for aggregate prefix
+// Verify that aggregate route is published
+//
 TEST_F(RouteAggregationTest, Basic) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
@@ -331,6 +375,11 @@ TEST_F(RouteAggregationTest, Basic) {
     task_util::WaitForIdle();
 }
 
+//
+// Delete the nexthop route and verify that aggregate route's best path is
+// not feasible. Now delete the more specific route and validate that aggregate
+// route is removed
+//
 TEST_F(RouteAggregationTest, Basic_DeleteNexthop) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
@@ -364,7 +413,15 @@ TEST_F(RouteAggregationTest, Basic_DeleteNexthop) {
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
+
+    VERIFY_EQ(0, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt == NULL);
 }
+
+//
+// Delete the more specific route and validate that aggregate route is deleted
+//
 
 TEST_F(RouteAggregationTest, Basic_MoreSpecificDelete) {
     string content =
@@ -398,6 +455,11 @@ TEST_F(RouteAggregationTest, Basic_MoreSpecificDelete) {
     task_util::WaitForIdle();
 }
 
+//
+// Add multiple more specific route for a given aggreagate prefix and delete
+// Verify that aggregate route is deleted only after last aggregate prefix
+// delete
+//
 TEST_F(RouteAggregationTest, Basic_LastMoreSpecificDelete) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
@@ -481,6 +543,11 @@ TEST_F(RouteAggregationTest, ConfigDelete) {
     task_util::WaitForIdle();
 }
 
+//
+// Update the route-aggregate config to modify the aggregate-route prefix
+// Validate that new aggregate route is published and route for previous prefix
+// is deleted
+//
 TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
@@ -524,6 +591,10 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
     task_util::WaitForIdle();
 }
 
+//
+// Update the route-aggregate config to modify the nexthop
+// Validate that aggregate route is updated with new nexthop
+//
 TEST_F(RouteAggregationTest, ConfigUpdateNexthop) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
@@ -569,6 +640,62 @@ TEST_F(RouteAggregationTest, ConfigUpdateNexthop) {
     task_util::WaitForIdle();
 }
 
+//
+// Delete the route aggregate config and add it back before the match condition
+// is unregistered. To simulate the delay in unregister processing disable to
+// task trigger that process the resolve and unregister process.
+//
+TEST_F(RouteAggregationTest, ConfigDelete_Add) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DisableUnregResolveTask("test", Address::INET);
+
+    // Unlink the route aggregate config from vrf
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    // Link the route aggregate config from vrf
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    EnableUnregResolveTask("test", Address::INET);
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Update the route-aggregate config to modify the prefix length of the
+// aggregate prefix. Verify the new aggregate route
+//
 TEST_F(RouteAggregationTest, ConfigUpdatePrefixLen) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
@@ -612,6 +739,11 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefixLen) {
     task_util::WaitForIdle();
 }
 
+//
+// With route-aggregate config referred by multiple routing instance, update the
+// route aggregate config to modify the prefix. Validate the new aggregate route
+// in both routing instances
+//
 TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_2.xml");
@@ -680,7 +812,10 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     task_util::WaitForIdle();
 }
 
-
+//
+// Add routes with different hashes such that route belongs to different DBTable
+// partition. Validate the aggregate route
+//
 TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
@@ -717,6 +852,140 @@ TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
     task_util::WaitForIdle();
     task_util::WaitForIdle();
 }
+
+//
+// Disable the route-aggregation route processing. Add more-specific route and
+// nexthop route. Delete the route-aggregate config.
+// Ensure that aggregate route is not created after enabling the aggregate route
+// processing
+//
+TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    DisableRouteAggregateUpdate("test", Address::INET);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    // Unlink the route aggregate config from vrf
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    EnableRouteAggregateUpdate("test", Address::INET);
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
+
+    VERIFY_EQ(2, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt == NULL);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Delete the route-aggregate config with route aggregation route processing
+// disabled. Ensure that aggregate route is deleted after enabling the route
+// processing
+//
+TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DisableRouteAggregateUpdate("test", Address::INET);
+    // Unlink the route aggregate config from vrf
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    EnableRouteAggregateUpdate("test", Address::INET);
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
+
+    VERIFY_EQ(2, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt == NULL);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Delete the more specific route with route-aggregation route process disabled
+// Delete the config for routing instance and route aggregate.
+// Ensure that route-aggregator object for INET table is not deleted (since the
+// route processing is pending).
+// After enabling the route processing, ensure that routing instance and route
+// table is deleted
+//
+TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_2) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DisableRouteAggregateUpdate("test", Address::INET);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        bgp_server_->routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_EXPECT_TRUE(rti->route_aggregator(Address::INET6) == NULL);
+    TASK_UTIL_EXPECT_TRUE(rti->route_aggregator(Address::INET) != NULL);
+
+    EnableRouteAggregateUpdate("test", Address::INET);
+
+    TASK_UTIL_EXPECT_TRUE(bgp_server_->database()->FindTable("test.inet.0")
+                          == NULL);
+    TASK_UTIL_EXPECT_TRUE(
+      bgp_server_->routing_instance_mgr()->GetRoutingInstance("test") == NULL);
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };

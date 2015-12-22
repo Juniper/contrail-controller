@@ -267,7 +267,7 @@ private:
 };
 
 //
-// AggregateRouteConfig is represents the route-aggregation config on a
+// AggregateRouteConfig represents the route-aggregation config on a
 // routing instance. This config is derived from routing-instance to
 // route-aggregate link in schema. "route-aggregate" is a config object
 // containing information about prefix to aggregate and nexthop.
