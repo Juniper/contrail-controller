@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <tbb/atomic.h>
+
 #include <database/gendb_if.h>
 
 class EventManager;
@@ -66,6 +68,7 @@ class CqlIf : public GenDb::GenDbIf {
  private:
     class CqlIfImpl;
     CqlIfImpl *impl_;
+    tbb::atomic<bool> initialized_;
 };
 
 } // namespace cql
