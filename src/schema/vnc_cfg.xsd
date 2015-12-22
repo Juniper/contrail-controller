@@ -1213,6 +1213,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-router-type', 'virtual-router') -->
 
+<xsd:element name="virtual-router-dpdk-enabled" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-router-dpdk-enabled', 'virtual-router') -->
+
+
 <xsd:element name="physical-router-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('physical-router-virtual-router',

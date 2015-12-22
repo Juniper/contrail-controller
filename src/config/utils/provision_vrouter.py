@@ -64,6 +64,7 @@ class VrouterProvisioner(object):
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --oper <add | del>
+                                        [--dpdk-enabled]
         '''
 
         # Source any specified config/ini file
@@ -79,7 +80,8 @@ class VrouterProvisioner(object):
             'api_server_port': '8082',
             'oper': 'add',
             'control_names': [],
-            'router_type': None 
+            'router_type': None,
+            'dpdk_enabled': False,
         }
         ksopts = {
             'admin_user': 'user1',
@@ -129,6 +131,8 @@ class VrouterProvisioner(object):
             "--openstack_ip", help="IP address of openstack node")
         parser.add_argument(
             "--router_type", help="Type of the virtual router (tor-service-node,embedded or none)")
+        parser.add_argument(
+            "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -152,6 +156,10 @@ class VrouterProvisioner(object):
             vrouter_obj.set_virtual_router_type([self._args.router_type])
         else:
             vrouter_obj.set_virtual_router_type([])
+        if self._args.dpdk_enabled:
+            vrouter_obj.set_virtual_router_dpdk_enabled(True)
+        else:
+            vrouter_obj.set_virtual_router_dpdk_enabled(False)
         if vrouter_exists:
             self._vnc_lib.virtual_router_update(vrouter_obj)
         else:
