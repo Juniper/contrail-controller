@@ -226,7 +226,7 @@ class PhysicalRouterConfig(object):
                         route_config, "qualified-next-hop")
                     qualified.text = next_hop_str
                     etree.SubElement(
-                        qualified, "preference").text = preference
+                        qualified, "preference").text = str(preference)
                 else:
                     etree.SubElement(
                         route_config, "next-hop").text = next_hop_str

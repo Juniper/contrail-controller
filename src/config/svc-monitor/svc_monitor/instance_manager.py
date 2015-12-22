@@ -209,6 +209,27 @@ class InstanceManager(object):
                              (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
         return vm_obj
 
+    def create_port_tuple(self, si, st, instance_index, pt_uuid):
+        if not st.virtualization_type == 'physical-device':
+            return None
+        si_obj = ServiceInstance()
+        si_obj.uuid = si.uuid
+        si_obj.fq_name = si.fq_name
+        pt_obj = PortTuple(
+            name = si.fq_name[-1]+'_'+str(instance_index),
+            parent_obj=si_obj,
+            uuid=pt_uuid)
+        try:
+            self._vnc_lib.port_tuple_create(pt_obj)
+        except RefsExistError:
+              self.logger.log_info("Info: PT %s of SI %s already exist" %
+                             (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+
+        PortTupleSM.locate(pt_uuid,pt_obj)
+        self.logger.log_info("Info: PT %s updated SI %s" %
+                             (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+        return pt_obj
+
     def create_service_vn(self, vn_name, vn_subnet,
                           proj_fq_name, user_visible=None):
         self.logger.log_info(
@@ -326,7 +347,7 @@ class InstanceManager(object):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id, fields = ['instance_ip_back_refs', 'interface_route_table_refs'])
+                    id=vmi_id, fields=['instance_ip_back_refs', 'interface_route_table_refs'])
             except NoIdError:
                 continue
 
@@ -340,7 +361,7 @@ class InstanceManager(object):
                         break
                 if vip:
                     self._vnc_lib.ref_update('instance-ip', iip['uuid'],
-                        'virtual-machine-interface', vmi_id, None, 'DELETE')
+                                             'virtual-machine-interface', vmi_id, None, 'DELETE')
                 else:
                     try:
                         self._vnc_lib.instance_ip_delete(id=iip['uuid'])
@@ -358,7 +379,7 @@ class InstanceManager(object):
                         break
                 if vip:
                     self._vnc_lib.ref_update('floating-ip', fip['uuid'],
-                        'virtual-machine-interface', vmi_id, None, 'DELETE')
+                                             'virtual-machine-interface', vmi_id, None, 'DELETE')
 
             try:
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
@@ -426,8 +447,7 @@ class InstanceManager(object):
         return vm
 
     def _create_svc_vm_port(self, nic, instance_name, si, st,
-                            local_preference=None, vm_obj=None, pi=None,
-                            instance_id=None):
+                            local_preference=None, vm_obj=None, pi=None, pt=None):
         # get network
         vn = VirtualNetworkSM.get(nic['net-id'])
         if vn:
@@ -515,18 +535,16 @@ class InstanceManager(object):
                 pi_vnc.uuid = pi.uuid
                 pi_vnc.fq_name = pi.fq_name
                 vmi_obj.add_physical_interface(pi_vnc)
+            if pt:
+                pt_vnc = PortTuple()
+                pt_vnc.uuid = pt.uuid
+                pt_vnc.fq_name = pt.fq_name
+                vmi_obj.add_port_tuple(pt_vnc)
             try:
                 self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-            if pi:
-                self._vnc_lib.ref_update('service-instance',
-                                         si.uuid,
-                                         'virtual_machine_interface_refs',
-                                         vmi_obj.uuid,
-                                         None,
-                                         'ADD',
-                                         {"instance_id": instance_id})
+
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
