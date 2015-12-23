@@ -10,6 +10,7 @@
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
+#include <vgw/cfg_vgw.h>
 
 #include <oper/operdb_init.h>
 #include <oper/sg.h>
@@ -67,14 +68,26 @@ string AgentInit::InstanceId() {
     return g_vns_constants.INSTANCE_ID_DEFAULT;
 }
 
+void AgentInit::InitPlatform() {
+    Ip4Address ip = Ip4Address::from_string("127.0.0.1");
+    if (agent_param_->platform() == AgentParam::VROUTER_ON_NIC) {
+        agent_->set_vrouter_server_ip(ip);
+        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
+        agent_->set_pkt_interface_name("pkt0");
+    } else if (agent_param_->platform() == AgentParam::VROUTER_ON_HOST_DPDK) {
+        agent_->set_vrouter_server_ip(ip);
+        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
+        agent_->set_pkt_interface_name("unix");
+    }
+}
+
 // Start of Agent init.
 // Trigger init in DBTable task context
 int AgentInit::Start() {
-    // Call to GetScheduler::GetInstance() will also create Task Scheduler
-    if (TaskScheduler::GetInstance() == NULL) {
-        TaskScheduler::Initialize();
-    }
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
+
+    // Init platform specific information
+    InitPlatform();
 
     // Copy tunable parameters into agent_
     agent_->CopyConfig(agent_param_);
@@ -289,13 +302,14 @@ void AgentInit::ConnectToControllerBase() {
 }
 
 void AgentInit::InitDoneBase() {
+    // Enable task latency measurements once init is done
+    agent_->task_scheduler()->EnableLatencyThresholds
+        (agent_param_->tbb_exec_delay(), agent_param_->tbb_schedule_delay());
+    agent_param_->vgw_config_table()->InitDone(agent_.get());
     if (cfg_.get()) {
         cfg_->InitDone();
     }
     InitDone();
-    // Enable task latency measurements once init is done
-    agent_->task_scheduler()->EnableLatencyThresholds
-        (agent_param_->tbb_exec_delay(), agent_param_->tbb_schedule_delay());
 }
 
 /****************************************************************************

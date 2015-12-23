@@ -364,9 +364,9 @@ TaskScheduler::~TaskScheduler() {
     return;
 }
 
-void TaskScheduler::Initialize() {
+void TaskScheduler::Initialize(uint32_t thread_count) {
     assert(singleton_.get() == NULL);
-    singleton_.reset(new TaskScheduler());
+    singleton_.reset(new TaskScheduler((int)thread_count));
 }
 
 TaskScheduler *TaskScheduler::GetInstance() {
