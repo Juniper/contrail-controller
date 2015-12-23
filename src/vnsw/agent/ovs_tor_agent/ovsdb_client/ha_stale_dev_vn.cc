@@ -197,6 +197,7 @@ HaStaleDevVnTable::HaStaleDevVnTable(Agent *agent,
     vn_reeval_queue_ = new WorkQueue<boost::uuids::uuid>(
             agent->task_scheduler()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&HaStaleDevVnTable::VnReEval, this, _1));
+    vn_reeval_queue_->set_name("OVSDB VN re-evaluation queue");
     Ip4Address zero_ip;
     route_peer_.reset(manager->Allocate(zero_ip));
     route_peer_->set_ha_stale_export(true);

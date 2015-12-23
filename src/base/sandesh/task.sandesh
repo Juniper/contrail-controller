@@ -32,3 +32,11 @@ response sandesh SandeshTaskScheduler {
 
 request sandesh SandeshTaskRequest {
 }
+
+trace sandesh TaskTrace {
+    1: i16 task_id;
+    2: i16 instance_id;
+    3: string Msg;
+    4: u32 latency;
+    5: string description;
+}

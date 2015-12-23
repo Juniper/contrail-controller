@@ -68,6 +68,10 @@ public:
         timer_->SetState(Timer::Init);
     }
 
+    virtual std::string Description() {
+        return timer_->Description();
+    }
+
 private:
     TimerPtr timer_;
     boost::system::error_code ec_;
