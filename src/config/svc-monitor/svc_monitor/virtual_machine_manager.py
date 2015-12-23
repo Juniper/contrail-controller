@@ -60,7 +60,8 @@ class VirtualMachineManager(InstanceManager):
             nics_with_port.append(nic_with_port)
 
         # launch vm
-        nova_vm_name = si.name + '-' + str(instance_index + 1)
+        idx_str = "%(#)03d" % {'#': (instance_index + 1)}
+        nova_vm_name = si.name + idx_str
         self.logger.log_info('Launching VM : ' + nova_vm_name)
         nova_vm = self._nc.oper('servers', 'create', proj_name,
             name=nova_vm_name, image=image,
