@@ -22,6 +22,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
     request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)) {
+    request_queue_.set_name("Flow management");
 }
 
 void FlowMgmtManager::Init() {

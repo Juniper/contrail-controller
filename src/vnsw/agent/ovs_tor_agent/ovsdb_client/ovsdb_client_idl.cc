@@ -156,6 +156,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     receive_queue_ = new WorkQueue<OvsdbMsg *>(
             agent->task_scheduler()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientIdl::ProcessMessage, this, _1));
+    receive_queue_->set_name("OVSDB receive queue");
     for (int i = 0; i < OVSDB_TYPE_COUNT; i++) {
         callback_[i] = NULL;
     }

@@ -213,6 +213,9 @@ public:
     static const uint32_t kDefaultFlowCacheTimeout = 0;
     // default number of threads for flow setup
     static const uint32_t kDefaultFlowThreadCount = 1;
+    // Max number of threads
+    static const uint32_t kMaxTbbThreads = 8;
+
     enum ForwardingMode {
         NONE,
         L2_L3,

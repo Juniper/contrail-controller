@@ -178,6 +178,8 @@ MulticastMacLocalOvsdb::MulticastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *pee
     vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
               idl->agent()->task_scheduler()->GetTaskId("Agent::KSync"), 0,
               boost::bind(&MulticastMacLocalOvsdb::VrfReEval, this, _1));
+    vrf_reeval_queue_->set_name("OVSDB VRF Multicast local mac re-evaluation "
+                                "queue");
     // register to listen updates for multicast mac local
     idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
                   boost::bind(&MulticastMacLocalOvsdb::Notify, this, _1, _2));

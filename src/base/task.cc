@@ -40,6 +40,13 @@ typedef std::vector<TaskEntry *> TaskEntryList;
 
 boost::scoped_ptr<TaskScheduler> TaskScheduler::singleton_;
 
+SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
+#define TASK_TRACE(...)\
+    do {\
+        TaskTrace::TraceMsg(TaskTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
+    } while(false);\
+
+
 // Private class used to implement tbb::task
 // An object is created when task is ready for execution and 
 // registered with tbb::task
@@ -235,7 +242,29 @@ tbb::task *TaskImpl::execute() {
     TaskInfo::reference running = task_running.local();
     running = parent_;
     try {
+        uint64_t t = 0;
+        if (parent_->enqueue_time() != 0) {
+            t = ClockMonotonicUsec();
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            if ((t - parent_->enqueue_time()) > scheduler->schedule_delay()) {
+                TASK_TRACE(parent_->task_id_, parent_->task_instance_,
+                           "TBB schedule time (in usec) ", 
+                           (t - parent_->enqueue_time()),
+                           parent_->Description());
+            }
+        }
+
         bool is_complete = parent_->Run();
+        if (t != 0) {
+            int64_t delay = ClockMonotonicUsec() - t;
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            if (delay > scheduler->execute_delay()) {
+                TASK_TRACE(parent_->task_id_, parent_->task_instance_,
+                           "Run time (in usec) ", delay,
+                           parent_->Description());
+            }
+        }
+
         running = NULL;
         if (is_complete == true) {
             parent_->SetTaskComplete();
@@ -303,7 +332,8 @@ int TaskScheduler::GetThreadCount(int thread_count) {
 // part of tbb. So, initialize TBB with one thread more than its default
 TaskScheduler::TaskScheduler(int task_count) : 
     task_scheduler_(GetThreadCount(task_count) + 1),
-    running_(true), seqno_(0), id_max_(0), enqueue_count_(0), done_count_(0),
+    running_(true), seqno_(0), id_max_(0),
+    schedule_delay_(0), execute_delay_(0), enqueue_count_(0), done_count_(0),
     cancel_count_(0) {
     hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
@@ -382,6 +412,13 @@ TaskEntry *TaskScheduler::QueryTaskEntry(int task_id, int task_instance) {
     return group->QueryTaskEntry(task_instance);
 }
 
+void TaskScheduler::EnableLatencyThresholds(uint32_t execute,
+                                            uint32_t schedule) {
+    execute_delay_ = execute;
+    schedule_delay_ = schedule;
+    measure_delay_ = (execute_delay_ != 0 || schedule_delay_ != 0);
+}
+
 // Sets Policy for a task.
 // Adds policy entries for the task
 // Example: Policy <tid0> => <tid1, -1> <tid2, inst2> will result in following,
@@ -426,11 +463,15 @@ void TaskScheduler::Enqueue(Task *t) {
 }
 
 void TaskScheduler::EnqueueUnLocked(Task *t) {
+    if (measure_delay_) {
+        t->enqueue_time_ = ClockMonotonicUsec();
+    }
     // Ensure that task is enqueued only once.
     assert(t->GetSeqno() == 0);
     enqueue_count_++;
     t->SetSeqNo(++seqno_);
     TaskGroup *group = GetTaskGroup(t->GetTaskId());
+    group->stats_.enqueue_count_++;
 
     TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
     entry->stats_.enqueue_count_++;
@@ -1053,6 +1094,10 @@ void TaskEntry::AddToWaitQ(Task *t) {
     t->SetState(Task::WAIT);
     stats_.wait_count_++;
     waitq_.push_back(*t);
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    TaskGroup *group = scheduler->GetTaskGroup(task_id_);
+    group->stats_.wait_count_++;
 }
 
 bool TaskEntry::DeleteFromWaitQ(Task *t) {
@@ -1245,16 +1290,26 @@ int TaskEntry::GetTaskDeferEntrySeqno() const {
 ////////////////////////////////////////////////////////////////////////////
 Task::Task(int task_id, int task_instance) : task_id_(task_id),
     task_instance_(task_instance), task_impl_(NULL), state_(INIT), seqno_(0),
-    task_recycle_(false), task_cancel_(false) {
+    task_recycle_(false), task_cancel_(false), enqueue_time_(0),
+    schedule_time_(0) {
 }
 
 Task::Task(int task_id) : task_id_(task_id),
     task_instance_(-1), task_impl_(NULL), state_(INIT), seqno_(0),
-    task_recycle_(false), task_cancel_(false) {
+    task_recycle_(false), task_cancel_(false), enqueue_time_(0),
+    schedule_time_(0) {
 }
 
 // Start execution of task
 void Task::StartTask() {
+    if (enqueue_time_ != 0) {
+        schedule_time_ = ClockMonotonicUsec();
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        if ((schedule_time_ - enqueue_time_) > scheduler->schedule_delay()) {
+            TASK_TRACE(task_id_, task_instance_, "Schedule delay (in usec)",
+                       (schedule_time_ - enqueue_time_), Description());
+        }
+    }
     assert(task_impl_ == NULL);
     state_ = RUN;
     task_impl_ = new (task::allocate_root())TaskImpl(this);

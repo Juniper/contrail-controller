@@ -139,6 +139,7 @@ InstanceManager::InstanceManager(Agent *agent)
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
                       GetTaskId("db::DBTable"), 0)), agent_(agent) {
+          work_queue_.set_name("Instance Manager");
 
 }
 
