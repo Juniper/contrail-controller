@@ -7,7 +7,8 @@ Storage Compute manager
 """
 import sys
 from gevent import monkey
-monkey.patch_all(thread=not 'unittest' in sys.modules)
+from gevent.subprocess import Popen, PIPE
+monkey.patch_all()
 import os
 import glob
 import socket
@@ -101,8 +102,8 @@ class EventManager:
         self.call_subprocess(pattern)
 
     def exec_local(self, arg):
-        ret = subprocess.Popen('%s' %(arg), shell=True,
-                                stdout=subprocess.PIPE).stdout.read()
+        ret = Popen('%s' %(arg), shell=True,
+                                stdout=PIPE).stdout.read()
         ret = ret[:-1]
         return ret
 
@@ -117,12 +118,11 @@ class EventManager:
 
     '''
         This function is a wrapper for subprocess call. Timeout functionality
-        is used to timeout after 3 seconds of no response from subprocess call
+        is used to timeout after 5 seconds of no response from subprocess call
         and the corresponding cmd will be logged into syslog
     '''
     def call_subprocess(self, cmd):
         times = datetime.datetime.now()
-
         # latest 14.0.4 requires "HOME" env variable to be passed
         # copy current environment variables and add "HOME" variable
         # pass the newly created environment variable to Popen subprocess
@@ -131,20 +131,23 @@ class EventManager:
         # stdout and stderr are redirected.
         # stderr not used (stdout validation is done so stderr check is
         # is not needed)
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, \
-            stderr=subprocess.PIPE, shell=True, env=env_home)
-
-        while p.poll() is None:
-            time.sleep(0.1)
-            now = datetime.datetime.now()
-            diff = now - times
-            if diff.seconds > 3:
-                os.kill(p.pid, signal.SIGKILL)
-                os.waitpid(-1, os.WNOHANG)
-                message = "command:" + cmd + " ---> hanged"
-                ssdlog = StorageStatsDaemonLog(message = message)
-                self.call_send(ssdlog)
-                return None
+        try:
+            p = Popen(cmd, stdout=PIPE, \
+                stderr=PIPE, shell=True, env=env_home)
+            while p.poll() is None:
+                gevent.sleep(0.1)
+                now = datetime.datetime.now()
+                diff = now - times
+                if diff.seconds > 5:
+                    os.kill(p.pid, signal.SIGKILL)
+                    os.waitpid(-1, os.WNOHANG)
+                    message = "command:" + cmd + " ---> hanged"
+                    ssdlog = StorageStatsDaemonLog(message = message)
+                    self.call_send(ssdlog)
+                    return None
+        except:
+            pass
+            return None
         # stdout is used
         return p.stdout.read()
 
@@ -170,18 +173,26 @@ class EventManager:
                 result = re.sub(
                     '\s+', ' ', line).strip()
                 arr1 = result.split()
+                READS = 7
+                READKBS = 8
+                WRITES = 9
+                WRITEKBS = 10
+                if len(arr1) == 10:
+                    READS = 6
+                    READKBS = 7
+                    WRITES = 8
+                    WRITEKBS = 9
                 if arr1[0] != "total":
                     cs_pool = ComputeStoragePool()
                     cs_pool.name = self._hostname + ':' + arr1[0]
                     pool_stats = PoolStats()
-                    pool_stats.reads = int(arr1[7])
-                    pool_stats.read_kbytes = int(arr1[8])
-                    pool_stats.writes = int(arr1[9])
-                    pool_stats.write_kbytes = int(arr1[10])
+                    pool_stats.reads = int(arr1[READS])
+                    pool_stats.read_kbytes = int(arr1[READKBS])
+                    pool_stats.writes = int(arr1[WRITES])
+                    pool_stats.write_kbytes = int(arr1[WRITEKBS])
                     cs_pool.info_stats = [pool_stats]
                     pool_stats_trace = ComputeStoragePoolTrace(data=cs_pool)
                     self.call_send(pool_stats_trace)
-
 
 
     def populate_osd_total_stats(self, osdname, osd_stats, prev_osd_latency):
@@ -195,6 +206,7 @@ class EventManager:
             res1 = self.call_subprocess(cmd)
             if res1 is None:
                 return False
+            osd_stats.stats_time = datetime.datetime.now()
             arr1 = res1.splitlines()
             for line1 in arr1:
                 result = re.sub('\s+', ' ', line1).strip()
@@ -226,36 +238,40 @@ class EventManager:
         return True
 
     def diff_read_kbytes(self, line, osd_stats, temp_osd_stats,
-                         osd_prev_stats):
+                         osd_prev_stats, diff_time):
         # 'line' format : " xyz,"
         self.curr_read_kbytes += int(line.rstrip(",").strip(' ')) / 1024
         temp_osd_stats.read_kbytes = self.curr_read_kbytes
         osd_stats.read_kbytes = self.curr_read_kbytes - \
-            osd_prev_stats.read_kbytes
+                                      osd_prev_stats.read_kbytes
+        osd_stats.read_kbytes = int(osd_stats.read_kbytes / diff_time)
 
     def diff_write_kbytes(self, line, osd_stats, temp_osd_stats,
-                          osd_prev_stats):
+                          osd_prev_stats, diff_time):
         # 'line' format : " xyz,"
         self.curr_write_kbytes += int(line.rstrip(",").strip(' ')) / 1024
         temp_osd_stats.write_kbytes = self.curr_write_kbytes
         osd_stats.write_kbytes = self.curr_write_kbytes - \
-            osd_prev_stats.write_kbytes
+                                      osd_prev_stats.write_kbytes
+        osd_stats.write_kbytes = int(osd_stats.write_kbytes / diff_time)
 
     def diff_read_cnt(self, line, osd_stats, temp_osd_stats,
-                      osd_prev_stats):
+                      osd_prev_stats, diff_time):
         # 'line' format : " xyz,"
         self.curr_reads += int(line.rstrip(",").strip(' '))
         temp_osd_stats.reads = self.curr_reads
         osd_stats.reads = self.curr_reads - \
-            osd_prev_stats.reads
+                                      osd_prev_stats.reads
+        osd_stats.reads = int(osd_stats.reads / diff_time)
 
     def diff_write_cnt(self, line, osd_stats, temp_osd_stats,
-                       osd_prev_stats):
+                       osd_prev_stats, diff_time):
         # 'line' format : " xyz,"
         self.curr_writes += int(line.rstrip(",").strip(' '))
         temp_osd_stats.writes = self.curr_writes
         osd_stats.writes = self.curr_writes - \
-            osd_prev_stats.writes
+                                      osd_prev_stats.writes
+        osd_stats.writes = int(osd_stats.writes / diff_time)
 
 
     def populate_osd_diff_stats(self, osdname, osd_stats,
@@ -270,6 +286,11 @@ class EventManager:
             res1 = self.call_subprocess(cmd)
             if res1 is None:
                 return False
+            stats_time = datetime.datetime.now()
+            diff_time = stats_time - osd_prev_stats.stats_time
+            fdiff_time = float(diff_time.seconds) + \
+                            float(diff_time.microseconds)/1000000
+            temp_osd_stats.stats_time = stats_time
             arr1 = res1.splitlines()
             for line1 in arr1:
                 result = re.sub('\s+', ' ', line1).strip()
@@ -278,54 +299,61 @@ class EventManager:
                     if line2[0].find('subop_r_out_bytes') != -1 or \
                         line2[0].find('op_r_out_bytes') != -1:
                         self.diff_read_kbytes(line2[1],
-                                              osd_stats,
-                                              temp_osd_stats,
-                                              osd_prev_stats)
+                                            osd_stats,
+                                            temp_osd_stats,
+                                            osd_prev_stats,
+                                            fdiff_time)
                     elif line2[0].find('subop_w_in_bytes') != -1 or \
                         line2[0].find('op_w_in_bytes') != -1:
                         self.diff_write_kbytes(line2[1],
-                                               osd_stats,
-                                               temp_osd_stats,
-                                               osd_prev_stats)
+                                            osd_stats,
+                                            temp_osd_stats,
+                                            osd_prev_stats,
+                                            fdiff_time)
                     elif line2[0].find('subop_r') != -1 or \
-                         line2[0].find('op_r') != -1:
+                        line2[0].find('op_r') != -1:
                         self.diff_read_cnt(line2[1],
-                                           osd_stats,
-                                           temp_osd_stats,
-                                           osd_prev_stats)
+                                            osd_stats,
+                                            temp_osd_stats,
+                                            osd_prev_stats,
+                                            fdiff_time)
                     elif line2[0].find('subop_w') != -1 or \
                         line2[0].find('op_w') != -1:
                         self.diff_write_cnt(line2[1],
                                             osd_stats,
                                             temp_osd_stats,
-                                            osd_prev_stats)
+                                            osd_prev_stats,
+                                            fdiff_time)
         except:
             pass
         return True
 
 
-    def compute_read_latency(self, arr, line, index, osd_stats,
+    def compute_read_latency(self, arr, osd_stats,
                              prev_osd_latency, op_flag):
-        # 'line' format : " xyz,"
-        avgcount = int(line.rstrip(",").strip(' '))
+        # 'line' format : ['op_read_latency', 'avgcount', '2822,', 'sum', '240.2423},']
+
+        avgcount = int(arr[2].rstrip(","))
         # 'arr' format : "'sum': xyz.yzw},"
-        sum_rlatency = int(
-            float(arr[index + 1].split(":")[1].strip().rstrip("},")))
+        sum_rlatency = int(float(arr[4].rstrip("},")))
+
         # sum_rlatency is in seconds
         # multiplied by 1000 to convert seconds to milliseconds
         if avgcount != 0:
             # op_flag = 1 indicates replica osd read latency
             if op_flag == 1:
-                osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
-                    (prev_osd_latency.prev_subop_rsum * 1000)) / \
-                    (avgcount - prev_osd_latency.prev_subop_rcount)
+                if(avgcount > prev_osd_latency.prev_subop_rcount):
+                    osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
+                        (prev_osd_latency.prev_subop_rsum * 1000)) / \
+                        (avgcount - prev_osd_latency.prev_subop_rcount)
                 prev_osd_latency.prev_subop_rsum = sum_rlatency
                 prev_osd_latency.prev_subop_rcount = avgcount
             # op_flag = 2 indicates primary osd read latency
             if op_flag == 2:
-                osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
-                    (prev_osd_latency.prev_op_rsum * 1000)) / \
-                    (avgcount - prev_osd_latency.prev_op_rcount)
+                if(avgcount > prev_osd_latency.prev_op_rcount):
+                    osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
+                        (prev_osd_latency.prev_op_rsum * 1000)) / \
+                        (avgcount - prev_osd_latency.prev_op_rcount)
                 prev_osd_latency.prev_op_rsum = sum_rlatency
                 prev_osd_latency.prev_op_rcount = avgcount
         else:
@@ -339,28 +367,30 @@ class EventManager:
                 prev_osd_latency.prev_op_rsum = 0
                 prev_osd_latency.prev_op_rcount = 0
 
-    def compute_write_latency(self, arr, line, index, osd_stats,
+    def compute_write_latency(self, arr, osd_stats,
                               prev_osd_latency, op_flag):
-        # line format : " xyz,"
-        avgcount = int(line.rstrip(",").strip(' '))
-        # arr format : "'sum': xyz.yzw},"
-        sum_wlatency = int(
-            float(arr[index + 1].split(":")[1].strip().rstrip("},")))
+        # 'line' format : ['op_read_latency', 'avgcount', '2822,', 'sum', '240.2423},']
+
+        avgcount = int(arr[2].rstrip(","))
+        # 'arr' format : "'sum': xyz.yzw},"
+        sum_wlatency = int(float(arr[4].rstrip("},")))
         # sum_wlatency is in seconds
         # multiplied by 1000 to convert seconds to milliseconds
         if avgcount != 0:
             # op_flag = 1 indicates replica osd write latency
             if op_flag == 1:
-                osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
-                    (prev_osd_latency.prev_subop_wsum * 1000)) / \
-                    (avgcount - prev_osd_latency.prev_subop_wcount)
+                if(avgcount > prev_osd_latency.prev_subop_wcount):
+                    osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
+                        (prev_osd_latency.prev_subop_wsum * 1000)) / \
+                        (avgcount - prev_osd_latency.prev_subop_wcount)
                 prev_osd_latency.prev_subop_wsum = sum_wlatency
                 prev_osd_latency.prev_subop_wcount = avgcount
             # op_flag = 2 indicates primary osd write latency
             if op_flag == 2:
-                osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
-                    (prev_osd_latency.prev_op_wsum * 1000)) / \
-                    (avgcount - prev_osd_latency.prev_op_wcount)
+                if(avgcount > prev_osd_latency.prev_op_wcount):
+                    osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
+                        (prev_osd_latency.prev_op_wsum * 1000)) / \
+                        (avgcount - prev_osd_latency.prev_op_wcount)
                 prev_osd_latency.prev_op_wsum = sum_wlatency
                 prev_osd_latency.prev_op_wcount = avgcount
         else:
@@ -375,41 +405,40 @@ class EventManager:
                 prev_osd_latency.prev_op_wcount = 0
 
     def populate_osd_latency_stats(self, osdname, osd_stats, prev_osd_latency):
-       ceph_name = "ceph-" + osdname + ".asok"
-       cmd2 = "ceph --admin-daemon /var/run/ceph/" + ceph_name + \
-           " perf dump | egrep -A 1 -w \"\\\"" +\
-           "op_r_latency\\\":|\\\"subop_r_latency\\\":|" + \
-           "\\\"op_w_latency\\\":|\\\"" + \
-           "subop_w_latency\\\":\""
-       try:
-           res2 = self.call_subprocess(cmd2)
-           if res2 is None:
+       lat_list={"op_r_latency","subop_r_latency","op_w_latency","subop_w_latency"}
+       for entry in lat_list:
+           ceph_name = "ceph-" + osdname + ".asok"
+           cmd = ('ceph --admin-daemon /var/run/ceph/%s perf dump | \
+               egrep -A5 -w %s |tr \"\\\"\" \" \" | \
+               awk \'BEGIN{start=0;title=\"\";avgcount=\"\";sum=\"\"} \
+               {i=1;while (i<=NF) {if($i == \"{\"){start=1} \
+               if($i == \"}\" && start==1){break} \
+               if($i==\"%s\"){title=$i} \
+               if($i==\"avgcount\"){i=i+2;avgcount=$i} \
+               if($i==\"sum\"){i=i+2;sum=$i}i=i+1}} \
+               END{print title \" avgcount \" avgcount \" sum \" sum}\''
+               %(ceph_name, entry, entry))
+           res = self.call_subprocess(cmd)
+           if res is None:
                return False
-           arr2 = res2.splitlines()
-           for index in range(len(arr2)):
-           # replace multiple spaces
-           # to single space here
-               result = re.sub('\s+', ' ', arr2[index]).strip()
-               line2 = result.split(":")
-               if len(line2) != 0:
-                   # subop_r_latency: replica osd read latency value
-                   if line2[0].find('subop_r_latency') != -1:
-                       self.compute_read_latency(arr2,
-                           line2[2], index, osd_stats, prev_osd_latency, 1)
-                   # op_r_latency: primary osd read latency value
-                   elif line2[0].find('op_r_latency') != -1:
-                       self.compute_read_latency(arr2,
-                           line2[2], index, osd_stats, prev_osd_latency, 2)
-                   # subop_w_latency: replica osd write latency value
-                   elif line2[0].find('subop_w_latency') != -1:
-                       self.compute_write_latency(arr2,
-                           line2[2], index, osd_stats, prev_osd_latency, 1)
-                   # op_w_latency: primary osd write latency value
-                   elif line2[0].find('op_w_latency') != -1:
-                       self.compute_write_latency(arr2,
-                           line2[2], index, osd_stats, prev_osd_latency, 2)
-       except:
-           pass
+           res.lstrip(' ')
+           line = res.split(' ')
+           # subop_r_latency: replica osd read latency value
+           if line[0] == 'subop_r_latency':
+               self.compute_read_latency(line,
+                   osd_stats, prev_osd_latency, 1)
+           # op_r_latency: primary osd read latency value
+           elif line[0] == 'op_r_latency':
+               self.compute_read_latency(line,
+                   osd_stats, prev_osd_latency, 2)
+           # subop_w_latency: replica osd write latency value
+           elif line[0] == 'subop_w_latency':
+               self.compute_write_latency(line,
+                   osd_stats, prev_osd_latency, 1)
+           # op_w_latency: primary osd write latency value
+           elif line[0] == 'op_w_latency':
+               self.compute_write_latency(line,
+                   osd_stats, prev_osd_latency, 2)
        return True
 
 
@@ -531,7 +560,9 @@ class EventManager:
 
     def create_and_send_disk_stats(self):
         # iostat to get the raw disk list
-        res = self.call_subprocess('iostat')
+        cmd = 'iostat 4 2 | awk \'{arr[NR]=$0} \
+            END{for(i=NR/2;i<NR;i++) { print arr[i] }}\''
+        res = self.call_subprocess(cmd)
         if res is None:
             return
         disk_list = res.splitlines()
@@ -567,7 +598,8 @@ class EventManager:
 
         disk_usage = []
         for line in df_list:
-            if line.find('sda') != -1:
+            if line.find('sda') != -1 or \
+                line.find('vda') != -1:
                 # replace multiple spaces to single
                 # space here
                 result = re.sub(
@@ -581,18 +613,19 @@ class EventManager:
                     disk_usage_obj.disk_avail = arr1[3]
                     disk_usage.append(disk_usage_obj)
 
-            elif line.find('sd') != -1:
-                # replace multiple spaces to single
-                # space here
-                result = re.sub(
-                    '\s+', ' ', line).strip()
-                arr1 = result.split()
-                disk_usage_obj = diskUsage()
-                disk_usage_obj.disk = arr1[0]
-                disk_usage_obj.disk_size = arr1[1]
-                disk_usage_obj.disk_used = arr1[2]
-                disk_usage_obj.disk_avail = arr1[3]
-                disk_usage.append(disk_usage_obj)
+                elif line.find('sd') != -1 or \
+                    line.find('vd') != -1:
+                    # replace multiple spaces to single
+                    # space here
+                    result = re.sub(
+                        '\s+', ' ', line).strip()
+                    arr1 = result.split()
+                    disk_usage_obj = diskUsage()
+                    disk_usage_obj.disk = arr1[0]
+                    disk_usage_obj.disk_size = arr1[1]
+                    disk_usage_obj.disk_used = arr1[2]
+                    disk_usage_obj.disk_avail = arr1[3]
+                    disk_usage.append(disk_usage_obj)
 
 # create a dictionary of disk_name: model_num + serial_num
         new_dict = dict()
@@ -613,7 +646,8 @@ class EventManager:
             # replace multiple spaces to single space here
             result = re.sub('\s+', ' ', line).strip()
             arr1 = result.split()
-            if len(arr1) != 0 and arr1[0].find('sd') != -1:
+            if len(arr1) != 0 and (arr1[0].find('sd') != -1 or \
+                arr1[0].find('vd') != -1):
                 cs_disk = ComputeStorageDisk()
                 cs_disk.name = self._hostname + ':' + arr1[0]
                 cs_disk1.list_of_curr_disks.append(arr1[0])
@@ -662,14 +696,15 @@ class EventManager:
         self.create_and_send_pool_stats()
         self.create_and_send_osd_stats()
         self.create_and_send_disk_stats()
+        return
 
-    def runforever(self, sandeshconn, test=False):
-        # sleep for 10 seconds
+    def runforever(self, test=False):
+        # sleep for 6 seconds. There is a sleep in iostat for 4 seconds
         # send pool/disk/osd information to db
         while 1:
-            gevent.sleep(10)
             if (self.node_type == "storage-compute"):
                 self.send_process_state_db()
+            time.sleep(6)
 
 def parse_args(args_str):
 
@@ -690,7 +725,7 @@ def parse_args(args_str):
         'log_level': 'SYS_NOTICE',
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
-        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+        #'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
 
     if args.conf_file:
@@ -756,9 +791,9 @@ def main(args_str=None):
         _disc = client.DiscoveryClient(args.disc_server_ip,
                                        args.disc_server_port,
                                        module_name)
-        if args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit( \
-                args.sandesh_send_rate_limit)
+        #if args.sandesh_send_rate_limit is not None:
+        #    SandeshSystem.set_sandesh_send_rate_limit( \
+        #        args.sandesh_send_rate_limit)
         sandesh_global.init_generator(
             module_name,
             socket.gethostname(),
@@ -774,8 +809,9 @@ def main(args_str=None):
             enable_local_log=args.log_local,
             category=args.log_category,
             level=args.log_level,
-            file=args.log_file)
-    gevent.joinall([gevent.spawn(prog.runforever, sandesh_global)])
+            file=args.log_file, enable_syslog=False,
+            syslog_facility='LOG_LOCAL0')
+    gevent.joinall([gevent.spawn(prog.runforever)])
 
 
 if __name__ == '__main__':
