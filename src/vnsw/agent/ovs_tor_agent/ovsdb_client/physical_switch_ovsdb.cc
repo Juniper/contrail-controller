@@ -204,6 +204,7 @@ public:
         SendResponse();
         return true;
     }
+    std::string Description() const { return "PhysicalSwitchSandeshTask"; }
 private:
     void SendResponse() {
         resp_->set_context(resp_data_);

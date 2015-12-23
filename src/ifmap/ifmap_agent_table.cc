@@ -659,6 +659,9 @@ public:
 
         return true;
     }
+    std::string Description() const {
+        return "IFMapAgentStaleCleaner::IFMapAgentStaleCleanerWorker";
+    }
 
 private:
     DB *db_;

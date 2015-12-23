@@ -13,6 +13,7 @@ class FlowKState : public Task {
     virtual void SendResponse(KFlowResp *resp) const;
     
     virtual bool Run();
+    std::string Description() const { return "FlowKState"; }
     void SetFlowData(std::vector<KFlowInfo> &list, const vr_flow_entry *k_flow,
                      int index) const;
 protected:

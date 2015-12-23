@@ -33,6 +33,7 @@ public:
         }
         return true;
     }
+    std::string Description() const { return "UdpServer::Reader"; }
 
 private:
     UdpServerPtr server_;

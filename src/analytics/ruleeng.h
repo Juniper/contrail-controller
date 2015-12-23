@@ -67,6 +67,7 @@ public:
         re_->Parserules(rulebuf_.c_str(), rulebuf_.size());
         return true;
     }
+    std::string Description() const { return "Builder"; }
 
 private:
     Ruleeng *re_;

@@ -212,6 +212,7 @@ HaStaleL2RouteTable::HaStaleL2RouteTable(
     route_export_queue_ = new WorkQueue<HaStaleL2RouteEntry *>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&HaStaleL2RouteTable::ProcessExportEntry, this, _1));
+    route_export_queue_->set_name("OVSDB HA Stale L2 Route");
     OvsdbRegisterDBTable(table);
 }
 

@@ -241,6 +241,7 @@ private:
             Agent::GetInstance()->pkt()->flow_table()->Delete(key_, true);
             return true;
         }
+        std::string Description() const { return "FlowDeleteTask"; }
     private:
         FlowKey key_;
     };

@@ -204,6 +204,9 @@ public:
     static const uint32_t kMaxOtherOpenFds = 64;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
+    // Max number of threads
+    static const uint32_t kMaxTbbThreads = 8;
+
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -919,6 +922,9 @@ public:
         return vrouter_build_info_;
     }
     Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
+
+    void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
+                   const char *description, uint32_t delay);
 
 private:
 

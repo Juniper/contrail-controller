@@ -455,6 +455,18 @@ void AgentParam::ParseDefaultSection() {
     }
 }
 
+void AgentParam::ParseTaskSection() {
+    if (!GetValueFromTree<uint32_t>(tbb_exec_delay_,
+                                    "TASK.log_exec_threshold")) {
+        tbb_exec_delay_ = 0;
+    }
+
+    if (!GetValueFromTree<uint32_t>(tbb_schedule_delay_,
+                                    "TASK.log_schedule_threshold")) {
+        tbb_schedule_delay_ = 0;
+    }
+}
+
 void AgentParam::ParseMetadataProxy() {
     GetValueFromTree<string>(metadata_shared_secret_,
                              "METADATA.metadata_proxy_secret");
@@ -653,6 +665,13 @@ void AgentParam::ParseDefaultSectionArguments
     GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
 }
 
+void AgentParam::ParseTaskSectionArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint32_t>(var_map, tbb_exec_delay_,
+                          "TASK.log_exec_threshold");
+    GetOptValue<uint32_t>(var_map, tbb_schedule_delay_,
+                          "TASK.log_schedule_threshold");
+}
 
 void AgentParam::ParseMetadataProxyArguments
     (const boost::program_options::variables_map &var_map) {
@@ -772,6 +791,7 @@ void AgentParam::InitFromConfig() {
     ParseNetworks();
     ParseHypervisor();
     ParseDefaultSection();
+    ParseTaskSection();
     ParseMetadataProxy();
     ParseFlows();
     ParseHeadlessMode();
@@ -796,6 +816,7 @@ void AgentParam::InitFromArguments() {
     ParseNetworksArguments(var_map_);
     ParseHypervisorArguments(var_map_);
     ParseDefaultSectionArguments(var_map_);
+    ParseTaskSectionArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
@@ -1122,7 +1143,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         platform_(VROUTER_ON_HOST),
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
-        agent_base_dir_() {
+        agent_base_dir_(),
+        tbb_exec_delay_(0),
+        tbb_schedule_delay_(0) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1270,6 +1293,16 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
             ;
         options_.add(service);
     }
+
+
+    opt::options_description tbb("TBB specific options");
+    tbb.add_options()
+        ("TASK.log_exec_threshold", opt::value<uint32_t>(),
+         "Log message if task takes more than threshold (msec) to execute")
+        ("TASK.log_schedule_threshold", opt::value<uint32_t>(),
+         "Log message if task takes more than threshold (msec) to schedule")
+        ;
+    options_.add(tbb);
 }
 
 AgentParam::~AgentParam() {

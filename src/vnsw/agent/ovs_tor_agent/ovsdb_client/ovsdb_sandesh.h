@@ -39,6 +39,7 @@ public:
     virtual ~OvsdbSandeshTask();
 
     bool Run();
+    std::string Description() const { return "OvsdbSandeshTask"; }
 
     std::string EncodeFirstPage();
 
