@@ -120,15 +120,11 @@ public:
 
     typedef std::set<VirtualGatewayConfig, VirtualGatewayConfigCompare> Table;
 
-    VirtualGatewayConfigTable(Agent *agent) : agent_(agent),
-        work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
-                    boost::bind(&VirtualGatewayConfigTable::ProcessRequest,
-                                this, _1)) {
-        work_queue_.set_name("VGW");
-     }
+    VirtualGatewayConfigTable() : agent_(NULL), work_queue_(NULL) { }
     ~VirtualGatewayConfigTable() { }
 
-    void Init(const boost::property_tree::ptree pt);
+    void InitFromConfig(const boost::property_tree::ptree pt);
+    void InitDone(Agent *agent);
     void Shutdown();
     const Table &table() const {return table_;}
 
@@ -149,7 +145,7 @@ private:
 
     Agent *agent_;
     Table table_;
-    WorkQueue<boost::shared_ptr<VirtualGatewayData> > work_queue_;
+    std::auto_ptr< WorkQueue<boost::shared_ptr<VirtualGatewayData> > > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(VirtualGatewayConfigTable);
 };
 

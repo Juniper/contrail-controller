@@ -38,7 +38,7 @@ class TorAgentParam : public AgentParam  {
         int ha_stale_route_interval_;
     };
 
-    explicit TorAgentParam(Agent *agent);
+    explicit TorAgentParam();
     virtual ~TorAgentParam();
 
     virtual int Validate();
