@@ -98,7 +98,7 @@ test_suite = [
     rtarget_table_test,
 ]
 
-test = env.TestSuite('rtarget-test', test_suite)
+test = env.TestSuite('bgp-test', test_suite)
 env.Alias('controller/src/bgp/rtarget:test', test)
 
 flaky_test_suite = [
