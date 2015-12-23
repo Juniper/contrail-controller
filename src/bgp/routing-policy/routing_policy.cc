@@ -418,9 +418,9 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
         actions.push_back(local_pref);
     }
 
-    RoutingPolicy::PolicyTermPtr ret_term;
+    PolicyTermPtr ret_term;
     if (!actions.empty() || !matches.empty()) {
-        ret_term = RoutingPolicy::PolicyTermPtr(new PolicyTerm());
+        ret_term = PolicyTermPtr(new PolicyTerm());
         ret_term->set_actions(actions);
         ret_term->set_matches(matches);
     }
@@ -431,7 +431,7 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
 void RoutingPolicy::ProcessConfig() {
     BOOST_FOREACH(const RoutingPolicyTerm cfg_term, config_->terms()) {
         // Build each terms and insert to operational data
-        RoutingPolicy::PolicyTermPtr term = BuildTerm(cfg_term);
+        PolicyTermPtr term = BuildTerm(cfg_term);
         if (term)
             add_term(term);
     }
@@ -454,7 +454,7 @@ void RoutingPolicy::UpdateConfig(const BgpRoutingPolicyConfig *cfg) {
     BgpRoutingPolicyConfig::RoutingPolicyTermList::const_iterator
         config_it = config_->terms().begin();
     while (oper_it != terms()->end() && config_it != config_->terms().end()) {
-        RoutingPolicy::PolicyTermPtr term = BuildTerm(*config_it);
+        PolicyTermPtr term = BuildTerm(*config_it);
         if (**oper_it == *term) {
             ++oper_it;
             ++config_it;
@@ -475,7 +475,7 @@ void RoutingPolicy::UpdateConfig(const BgpRoutingPolicyConfig *cfg) {
         update_policy = true;
     }
     for (; config_it != config_->terms().end(); ++config_it) {
-        RoutingPolicy::PolicyTermPtr term = BuildTerm(*config_it);
+        PolicyTermPtr term = BuildTerm(*config_it);
         if (term)
             add_term(term);
         update_policy = true;

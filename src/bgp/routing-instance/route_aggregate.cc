@@ -230,7 +230,7 @@ void AggregateRoute<T>::AddAggregateRoute() {
 
     RouteT rt_key(aggregate_route_prefix());
     DBTablePartition *partition =
-        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
+       static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
     BgpRoute *aggregate_route =
         static_cast<BgpRoute *>(partition->Find(&rt_key));
 
@@ -242,15 +242,9 @@ void AggregateRoute<T>::AddAggregateRoute() {
     }
 
     uint32_t path_id = nexthop().to_v4().to_ulong();
-    BgpPath *existing_path = aggregate_route->FindPath(BgpPath::Aggregation,
-                                                    NULL, path_id);
-    if (existing_path != NULL) {
-        // TODO  Do we come here?
-        assert(0);
-        bgp_table()->path_resolver()->StopPathResolution(partition->index(),
-                                                         existing_path);
-        aggregate_route->RemovePath(BgpPath::Aggregation, NULL, path_id);
-    }
+    BgpPath *existing_path =
+        aggregate_route->FindPath(BgpPath::Aggregation, NULL, path_id);
+    assert(existing_path == NULL);
 
     BgpAttrSpec attrs;
     BgpAttrNextHop nexthop(path_id);
@@ -293,7 +287,7 @@ void AggregateRoute<T>::UpdateAggregateRoute(IpAddress prev_nexthop) {
     BgpPath *new_path = new BgpPath(path_id, BgpPath::Aggregation,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
     bgp_table()->path_resolver()->StartPathResolution(partition->index(),
-                                                     new_path, aggregate_route_);
+                                                    new_path, aggregate_route_);
     aggregate_route_->InsertPath(new_path);
 
     partition->Notify(aggregate_route_);
@@ -308,9 +302,12 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
 
     DBTablePartition *partition = static_cast<DBTablePartition *>
         (bgp_table()->GetTablePartition(aggregate_route_));
+
     uint32_t path_id = nexthop().to_v4().to_ulong();
     BgpPath *existing_path =
         aggregate_route->FindPath(BgpPath::Aggregation, NULL, path_id);
+    assert(existing_path != NULL);
+
     bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                      existing_path);
     aggregate_route->RemovePath(BgpPath::Aggregation, NULL, path_id);
@@ -366,18 +363,18 @@ private:
 
 template <typename T>
 RouteAggregator<T>::RouteAggregator(RoutingInstance *rtinstance)
-    : rtinstance_(rtinstance),
-      condition_listener_(rtinstance_->server()->condition_listener(GetFamily())),
-      listener_id_(DBTableBase::kInvalidId),
-      add_remove_contributing_route_trigger_(new TaskTrigger(
-          boost::bind(&RouteAggregator::ProcessRouteAggregateUpdate, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::RouteAggregation"),
-          0)),
-      resolve_trigger_(new TaskTrigger(
-          boost::bind(&RouteAggregator::ProcessUnregisterResolveConfig, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
-      deleter_(new DeleteActor(this)),
-      instance_delete_ref_(this, rtinstance->deleter()) {
+  : rtinstance_(rtinstance),
+    condition_listener_(rtinstance_->server()->condition_listener(GetFamily())),
+    listener_id_(DBTableBase::kInvalidId),
+    add_remove_contributing_route_trigger_(new TaskTrigger(
+        boost::bind(&RouteAggregator::ProcessRouteAggregateUpdate, this),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::RouteAggregation"),
+        0)),
+    resolve_trigger_(new TaskTrigger(
+        boost::bind(&RouteAggregator::ProcessUnregisterResolveConfig, this),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
+    deleter_(new DeleteActor(this)),
+    instance_delete_ref_(this, rtinstance->deleter()) {
 }
 
 template <typename T>
@@ -467,13 +464,15 @@ Address::Family RouteAggregator<AggregateInet6Route>::GetFamily() const {
 }
 
 template <>
-Ip4Address RouteAggregator<AggregateInetRoute>::GetAddress(IpAddress addr) const {
+Ip4Address RouteAggregator<AggregateInetRoute>::GetAddress(IpAddress addr)
+    const {
     assert(addr.is_v4());
     return addr.to_v4();
 }
 
 template <>
-Ip6Address RouteAggregator<AggregateInet6Route>::GetAddress(IpAddress addr) const {
+Ip6Address RouteAggregator<AggregateInet6Route>::GetAddress(IpAddress addr)
+    const {
     assert(addr.is_v6());
     return addr.to_v6();
 }
@@ -553,7 +552,8 @@ bool RouteAggregator<T>::IsContributingRoute(const BgpRoute *route) const {
 }
 
 template <typename T>
-void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig &cfg) {
+void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig
+                                                    &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
     AddressT address = this->GetAddress(cfg.aggregate);
     PrefixT prefix(address, cfg.prefix_length);
@@ -660,9 +660,42 @@ bool RouteAggregator<T>::ProcessRouteAggregateUpdate() {
 
 // Need this to store the aggregate info in aggregated route as DBState
 template <typename T>
-bool RouteAggregator<T>::RouteListener(DBTablePartBase *root, DBEntryBase *entry) {
+bool RouteAggregator<T>::RouteListener(DBTablePartBase *root,
+                                       DBEntryBase *entry) {
     return true;
 }
+
+// Enable/Disable task triggers
+template <typename T>
+void RouteAggregator<T>::DisableRouteAggregateUpdate() {
+    add_remove_contributing_route_trigger_->set_disable();
+}
+
+template <typename T>
+void RouteAggregator<T>::EnableRouteAggregateUpdate() {
+    add_remove_contributing_route_trigger_->set_enable();
+}
+
+template <typename T>
+size_t RouteAggregator<T>::GetUpdateAggregateListSize() const{
+    return update_aggregate_list_.size();
+}
+
+template <typename T>
+void RouteAggregator<T>::DisableUnregResolveTask(){
+    resolve_trigger_->set_disable();
+}
+
+template <typename T>
+void RouteAggregator<T>::EnableUnregResolveTask(){
+    resolve_trigger_->set_enable();
+}
+
+template <typename T>
+size_t RouteAggregator<T>::GetUnregResolveListSize() const{
+    return unregister_aggregate_list_.size();
+}
+
 // Explicit instantiation of RouteAggregator for INET and INET6.
 template class RouteAggregator<AggregateInetRoute>;
 template class RouteAggregator<AggregateInet6Route>;

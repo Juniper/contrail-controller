@@ -1197,12 +1197,8 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
 
 void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
     if (family == Address::INET) {
-        if (inet_route_aggregator_)
-            delete inet_route_aggregator_;
-        inet_route_aggregator_ = NULL;
+        inet_route_aggregator_.reset();
     } else if (family == Address::INET6) {
-        if (inet6_route_aggregator_)
-            delete inet6_route_aggregator_;
-        inet6_route_aggregator_ = NULL;
+        inet6_route_aggregator_.reset();
     }
 }

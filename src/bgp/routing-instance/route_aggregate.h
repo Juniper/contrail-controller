@@ -43,9 +43,9 @@ typedef ConditionMatchPtr AggregateRoutePtr;
 //
 // This class impliments the route aggregation for control node. It provides
 // api to create/delete/update route aggregation config for a routing instance
-// An object of this class for the address families that support route
+// An object of this class for the address families that supports route
 // aggregation is hooked to routing instance. Currently route aggregation is
-// support for INET and INET6 address family. Support for multiple address
+// supported for INET and INET6 address family. Support for multiple address
 // family is implemented with template for each address family
 //
 // RouteAggregator uses BgpConditionListener to track more specific routes of
@@ -181,7 +181,7 @@ public:
     virtual bool IsContributingRoute(const BgpRoute *route) const;
 
 private:
-    template <typename U> friend class AggregateRouteTest;
+    friend class RouteAggregationTest;
     class DeleteActor;
     typedef std::set<AggregateRoutePtr> AggregateRouteProcessList;
 
@@ -195,6 +195,15 @@ private:
     bool RouteListener(DBTablePartBase *root, DBEntryBase *entry);
 
     RoutingInstance *routing_instance() { return rtinstance_; }
+
+    // Enable/Disable task triggers
+    virtual void DisableRouteAggregateUpdate();
+    virtual void EnableRouteAggregateUpdate();
+    virtual size_t GetUpdateAggregateListSize() const;
+
+    virtual void DisableUnregResolveTask();
+    virtual void EnableUnregResolveTask();
+    virtual size_t GetUnregResolveListSize() const;
 
     RoutingInstance *rtinstance_;
     BgpConditionListener *condition_listener_;
