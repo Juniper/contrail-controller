@@ -20,6 +20,7 @@ import gen.vnc_api_client_gen
 from gen.vnc_api_client_gen import all_resource_types
 from gen.resource_xsd import *
 from gen.resource_client import *
+from gen.generatedssuper import GeneratedsSuper
 
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
@@ -339,11 +340,13 @@ class VncApi(object):
         obj._pending_field_updates |= obj._pending_ref_updates
         obj._pending_ref_updates = set([])
         # Ignore fields with None value in json representation
-        json_param = json.dumps(obj, default=self._obj_serializer)
-        json_body = '{"%s":%s}' %(res_type, json_param)
+        # encode props + refs in object body
+        obj_json_param = json.dumps(obj, default=self._obj_serializer)
+
+        json_body = '{"%s":%s}' %(res_type, obj_json_param)
         content = self._request_server(rest.OP_POST,
                        obj_cls.create_uri,
-                       data = json_body)
+                       data=json_body)
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
@@ -351,6 +354,30 @@ class VncApi(object):
             obj.parent_uuid = obj_dict['parent_uuid']
 
         obj.set_server_conn(self)
+
+        # encode any prop-list operations and POST on /prop-list-update
+        prop_list_body = {'uuid': obj.uuid,
+                          'updates': []}
+        for prop_name in obj._pending_field_list_updates:
+            operations = obj._pending_field_list_updates[prop_name]
+            for oper, elem_val, elem_pos in operations:
+                if isinstance(elem_val, GeneratedsSuper):
+                    serialized_elem_value = elem_val.exportDict('')
+                else:
+                    serialized_elem_value = elem_val
+
+                prop_list_body['updates'].append(
+                    {'field': prop_name, 'operation': oper,
+                     'value': serialized_elem_value, 'position': elem_pos})
+
+        # all pending fields picked up
+        obj.clear_pending_updates()
+
+        if prop_list_body['updates']:
+            prop_list_json = json.dumps(prop_list_body)
+            self._request_server(rest.OP_POST,
+                self._action_uri['prop-list-update'],
+                data=prop_list_json)
 
         return obj.uuid
     # end _object_create
@@ -398,13 +425,34 @@ class VncApi(object):
         content = None
         if obj.get_pending_updates():
             # Ignore fields with None value in json representation
-            json_param = json.dumps(obj, default=self._obj_serializer)
-            json_body = '{"%s":%s}' %(res_type, json_param)
+            obj_json_param = json.dumps(obj, default=self._obj_serializer)
+            if obj_json_param:
+                json_body = '{"%s":%s}' %(res_type, obj_json_param)
+                uri = obj_cls.resource_uri_base[res_type] + '/' + obj.uuid
+                content = self._request_server(rest.OP_PUT, uri, data=json_body)
 
-            id = obj.uuid
-            uri = obj_cls.resource_uri_base[res_type] + '/' + id
-            content = self._request_server(rest.OP_PUT, uri, data=json_body)
+        # Generate POST on /prop-list-update if needed/pending
+        prop_list_body = {'uuid': obj.uuid,
+                          'updates': []}
+        for prop_name in obj._pending_field_list_updates:
+            operations = obj._pending_field_list_updates[prop_name]
+            for oper, elem_val, elem_pos in operations:
+                if isinstance(elem_val, GeneratedsSuper):
+                    serialized_elem_value = elem_val.exportDict('')
+                else:
+                    serialized_elem_value = elem_val
 
+                prop_list_body['updates'].append(
+                    {'field': prop_name, 'operation': oper,
+                     'value': serialized_elem_value, 'position': elem_pos})
+
+        if prop_list_body['updates']:
+            prop_list_json = json.dumps(prop_list_body)
+            self._request_server(rest.OP_POST,
+                self._action_uri['prop-list-update'],
+                data=prop_list_json)
+
+        # Generate POST on /ref-update if needed/pending
         for ref_name in obj._pending_ref_updates:
              ref_orig = set([(x.get('uuid'),
                              tuple(x.get('to', [])), x.get('attr'))
@@ -711,6 +759,45 @@ class VncApi(object):
         # end while True
 
     #end _request_server
+
+    @check_homepage
+    def prop_list_add_element(self, obj_uuid, obj_field, value, position=None):
+        uri = self._action_uri['prop-list-update']
+        if isinstance(value, GeneratedsSuper):
+            serialized_value = value.exportDict('')
+        else:
+            serialized_value = value
+
+        oper_param = {'field': obj_field,
+                      'operation': 'add',
+                      'value': serialized_value}
+        if position:
+            oper_param['position'] = position
+        dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
+        return self._request_server(
+            rest.OP_POST, uri, data=json.dumps(dict_body))
+    # end prop_list_add_element
+
+    @check_homepage
+    def prop_list_delete_element(self, obj_uuid, obj_field, position):
+        uri = self._action_uri['prop-list-update']
+        oper_param = {'field': obj_field,
+                      'operation': 'delete',
+                      'position': position}
+        dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
+        return self._request_server(
+            rest.OP_POST, uri, data=json.dumps(dict_body))
+    # end prop_list_delete_element
+
+    @check_homepage
+    def prop_list_get(self, obj_uuid, obj_field):
+        uri = self._action_uri['prop-list-get']
+        query_params = {'uuid': obj_uuid, 'fields': obj_field}
+        content = self._request_server(
+            rest.OP_GET, uri, data=query_params)
+
+        return json.loads(content)[obj_field]
+    # end prop_list_get
 
     @check_homepage
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_fq_name, operation, attr=None):

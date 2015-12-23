@@ -21,11 +21,12 @@ def hdr_server_tenant():
 
 class LinkObject(object):
 
-    def __init__(self, rel, base_url, uri, name):
+    def __init__(self, rel, base_url, uri, name, http_method=None):
         self.rel = rel
         self.base_url = base_url
         self.uri = uri
         self.name = name
+        self.http_method = http_method
     # end __init__
 
     def to_dict(self, with_url=None):
@@ -35,7 +36,8 @@ class LinkObject(object):
             url = with_url
         return {'rel': self.rel,
                 'href': url + self.uri,
-                'name': self.name}
+                'name': self.name,
+                'method': self.http_method}
     # end to_dict
 
 # end class LinkObject

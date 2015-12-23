@@ -1044,8 +1044,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-machine-interface-bindings',
-             'virtual-machine-interface') -->
+     ListProperty('virtual-machine-interface-bindings',
+                  'virtual-machine-interface') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1285,7 +1285,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
-<xsd:element name="physical-router-user-credentials" type="UserCredentials" maxOccurs="unbounded"/>
+<xsd:element name="physical-router-user-credentials" type="UserCredentials"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-user-credentials', 'physical-router') -->
 
@@ -1819,7 +1819,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 -->
 <xsd:element name="service-appliance" type="ifmap:IdentityType"/>
 
-<xsd:element name="service-appliance-user-credentials" type="UserCredentials" maxOccurs="unbounded"/>
+<xsd:element name="service-appliance-user-credentials" type="UserCredentials"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('service-appliance-user-credentials', 'service-appliance') -->
 

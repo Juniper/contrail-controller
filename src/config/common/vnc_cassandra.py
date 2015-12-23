@@ -52,6 +52,7 @@ class VncCassandraClient(object):
                  generate_url=None, reset_config=[], credential=None):
         self._re_match_parent = re.compile('parent:')
         self._re_match_prop = re.compile('prop:')
+        self._re_match_prop_list = re.compile('propl:')
         self._re_match_ref = re.compile('ref:')
         self._re_match_backref = re.compile('backref:')
         self._re_match_children = re.compile('children:')
@@ -249,6 +250,10 @@ class VncCassandraClient(object):
         return getattr(vnc_api, cls_name)
     # end _get_resource_class
 
+    def _get_xsd_class(self, xsd_type):
+        return getattr(vnc_api, xsd_type)
+    # end _get_xsd_class
+
     def object_create(self, res_type, obj_id, obj_dict):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
@@ -278,7 +283,20 @@ class VncCassandraClient(object):
                 field['created'] = datetime.datetime.utcnow().isoformat()
                 field['last_modified'] = field['created']
 
-            self._create_prop(bch, obj_id, prop_field, field)
+            if prop_field in obj_class.prop_list_fields:
+                # store list elements in list order
+                # iterate on wrapped element or directly or prop field
+                if obj_class.prop_list_field_has_wrappers[prop_field]:
+                    wrapper_field = field.keys()[0]
+                    list_coll = field[wrapper_field]
+                else:
+                    list_coll = field
+
+                for i in range(len(list_coll)):
+                    self._add_to_prop_list(
+                        bch, obj_id, prop_field, list_coll[i], str(i))
+            else:
+                self._create_prop(bch, obj_id, prop_field, field)
 
         # References
         # e.g. ref_field = 'network_ipam_refs'
@@ -354,6 +372,23 @@ class VncCassandraClient(object):
                 if self._re_match_prop.match(col_name):
                     (_, prop_name) = col_name.split(':')
                     result[prop_name] = json.loads(obj_cols[col_name][0])
+
+                if self._re_match_prop_list.match(col_name):
+                    # already read in order since lexically ordered
+                    (_, prop_name, prop_elem_position) = col_name.split(':')
+                    if obj_class.prop_list_field_has_wrappers[prop_name]:
+                        _, wrapper_type = obj_class.prop_field_types[prop_name]
+                        wrapper_cls = self._get_xsd_class(wrapper_type)
+                        wrapper_field = wrapper_cls.attr_fields[0]
+                        if prop_name not in result:
+                            result[prop_name] = {wrapper_field: []}
+                        result[prop_name][wrapper_field].append(
+                            json.loads(obj_cols[col_name][0]))
+                    else:
+                        if prop_name not in result:
+                            result[prop_name] = []
+                        result[prop_name].append(
+                            json.loads(obj_cols[col_name][0]))
 
                 if self._re_match_children.match(col_name):
                     (_, child_type, child_uuid) = col_name.split(':')
@@ -462,7 +497,7 @@ class VncCassandraClient(object):
 
         bch = obj_uuid_cf.batch()
         for col_name in obj_cols.keys():
-            if re.match('prop:', col_name):
+            if self._re_match_prop.match(col_name):
                 (_, prop_name) = col_name.split(':')
                 if prop_name == 'id_perms':
                     # id-perms always has to be updated for last-mod timestamp
@@ -472,7 +507,14 @@ class VncCassandraClient(object):
                 elif prop_name in new_obj_dict:
                     self._update_prop(bch, obj_uuid, prop_name, new_props)
 
-            if re.match('ref:', col_name):
+            if self._re_match_prop_list.match(col_name):
+                (_, prop_name, prop_elem_position) = col_name.split(':')
+                if prop_name in new_props:
+                    # delete all old values of prop list
+                    self._delete_from_prop_list(
+                        bch, obj_uuid, prop_name, prop_elem_position)
+
+            if self._re_match_ref.match(col_name):
                 (_, ref_type, ref_uuid) = col_name.split(':')
                 self._update_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid, new_ref_infos)
         # for all column names
@@ -485,7 +527,22 @@ class VncCassandraClient(object):
 
         # create new props
         for prop_name in new_props.keys():
-            self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
+            if prop_name in obj_class.prop_list_fields:
+                # store list elements in list order
+                # iterate on wrapped element or directly on prop field
+                # for wrapped lists, store without the wrapper. regenerate
+                # wrapper on read
+                if obj_class.prop_list_field_has_wrappers[prop_name]:
+                    wrapper_field = new_props[prop_name].keys()[0]
+                    list_coll = new_props[prop_name][wrapper_field]
+                else:
+                    list_coll = new_props[prop_name]
+
+                for i in range(len(list_coll)):
+                    self._add_to_prop_list(bch, obj_uuid,
+                        prop_name, list_coll[i], str(i))
+            else:
+                self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
 
         bch.send()
 
@@ -731,6 +788,37 @@ class VncCassandraClient(object):
 
         return (True, '')
     # end object_delete
+
+    def prop_list_read(self, obj_uuid, obj_fields):
+        result = {}
+        # always read-in id-perms for upper-layers to do rbac/visibility
+        try:
+            col_name = 'prop:id_perms'
+            obj_cols = self._obj_uuid_cf.get(obj_uuid,
+                columns=[col_name],
+                column_count=self._MAX_COL)
+            result['id_perms'] = json.loads(obj_cols[col_name])
+        except pycassa.NotFoundException:
+            raise NoIdError(obj_uuid)
+
+        # read in prop-list fields
+        for field in obj_fields:
+            obj_cols = self._obj_uuid_cf.get(obj_uuid,
+                column_start='propl:%s:' %(field),
+                column_finish='propl:%s;' %(field),
+                column_count=self._MAX_COL,
+                include_timestamp=True)
+
+            result[field] = []
+            for col_name in obj_cols.keys():
+                # tuple of col_value, position. result is already sorted
+                # lexically by position
+                result[field].append(
+                    (json.loads(obj_cols[col_name][0]),
+                     col_name.split(':')[-1]) )
+
+        return (True, result)
+    # end prop_list_read
 
     def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
         self._cache_uuid_to_fq_name[id] = (fq_name, obj_type)

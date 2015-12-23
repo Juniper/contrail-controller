@@ -105,27 +105,31 @@ from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 
 _ACTION_RESOURCES = [
+    {'uri': '/prop-list-get', 'link_name': 'prop-list-get',
+     'method': 'GET', 'method_name': 'prop_list_http_get'},
+    {'uri': '/prop-list-update', 'link_name': 'prop-list-update',
+     'method': 'POST', 'method_name': 'prop_list_update_http_post'},
     {'uri': '/ref-update', 'link_name': 'ref-update',
-     'method_name': 'ref_update_http_post'},
+     'method': 'POST', 'method_name': 'ref_update_http_post'},
     {'uri': '/fqname-to-id', 'link_name': 'name-to-id',
-     'method_name': 'fq_name_to_id_http_post'},
+     'method': 'POST', 'method_name': 'fq_name_to_id_http_post'},
     {'uri': '/id-to-fqname', 'link_name': 'id-to-name',
-     'method_name': 'id_to_fq_name_http_post'},
+     'method': 'POST', 'method_name': 'id_to_fq_name_http_post'},
     # ifmap-to-id only for ifmap subcribers using rest for publish
     {'uri': '/ifmap-to-id', 'link_name': 'ifmap-to-id',
-     'method_name': 'ifmap_to_id_http_post'},
+     'method': 'POST', 'method_name': 'ifmap_to_id_http_post'},
     {'uri': '/useragent-kv', 'link_name': 'useragent-keyvalue',
-     'method_name': 'useragent_kv_http_post'},
+     'method': 'POST', 'method_name': 'useragent_kv_http_post'},
     {'uri': '/db-check', 'link_name': 'database-check',
-     'method_name': 'db_check'},
+     'method': 'POST', 'method_name': 'db_check'},
     {'uri': '/fetch-records', 'link_name': 'fetch-records',
-     'method_name': 'fetch_records'},
+     'method': 'POST', 'method_name': 'fetch_records'},
     {'uri': '/start-profile', 'link_name': 'start-profile',
-     'method_name': 'start_profile'},
+     'method': 'POST', 'method_name': 'start_profile'},
     {'uri': '/stop-profile', 'link_name': 'stop-profile',
-     'method_name': 'stop_profile'},
+     'method': 'POST', 'method_name': 'stop_profile'},
     {'uri': '/list-bulk-collection', 'link_name': 'list-bulk-collection',
-     'method_name': 'list_bulk_collection_http_post'},
+     'method': 'POST', 'method_name': 'list_bulk_collection_http_post'},
 ]
 
 
@@ -223,34 +227,63 @@ class VncApiServer(object):
         cls._generate_resource_crud_methods(obj)
         cls._generate_resource_crud_uri(obj)
         for act_res in _ACTION_RESOURCES:
-            method = getattr(obj, act_res['method_name'])
-            obj.route(act_res['uri'], 'POST', method)
+            http_method = act_res.get('method', 'POST')
+            method_name = getattr(obj, act_res['method_name'])
+            obj.route(act_res['uri'], http_method, method_name)
         return obj
     # end __new__
+
+    def _validate_complex_type(self, dict_cls, dict_body):
+        buf = cStringIO.StringIO()
+        tmp_prop = dict_cls(**dict_body)
+        tmp_prop.export(buf)
+        node = etree.fromstring(buf.getvalue())
+        tmp_prop = dict_cls()
+        tmp_prop.build(node)
+    # end _validate_complex_type
+
+    def _validate_simple_type(self, xsd_type, value):
+        pass
+    # end _validate_simple_type
 
     def _validate_props_in_request(self, resource_class, obj_dict):
         for prop_name in resource_class.prop_fields:
             is_simple, prop_type = resource_class.prop_field_types[prop_name]
+            is_list_prop = prop_name in resource_class.prop_list_fields
+
             # TODO validate primitive types
-            if is_simple:
+            if is_simple and (not is_list_prop):
                 continue
-            prop_dict = obj_dict.get(prop_name)
-            if not prop_dict:
+            prop_value = obj_dict.get(prop_name)
+            if not prop_value:
                 continue
 
-            buf = cStringIO.StringIO()
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
-            try:
-                tmp_prop = prop_cls(**prop_dict)
-                tmp_prop.export(buf)
-                node = etree.fromstring(buf.getvalue())
-                tmp_prop = prop_cls()
-                tmp_prop.build(node)
-            except Exception as e:
-                err_msg = 'Error validating property %s value %s ' \
-                          %(prop_name, prop_dict)
-                err_msg += str(e)
+            if isinstance(prop_value, dict):
+                try:
+                    self._validate_complex_type(prop_cls, prop_value)
+                except Exception as e:
+                    err_msg = 'Error validating property %s value %s ' \
+                              %(prop_name, prop_dict)
+                    err_msg += str(e)
+                    return False, err_msg
+            elif isinstance(prop_value, list):
+                for elem in prop_value:
+                    try:
+                        if is_simple:
+                            self._validate_simple_type(prop_type, elem)
+                        else:
+                            self._validate_complex_type(prop_cls, elem)
+                    except Exception as e:
+                        err_msg = 'Error validating property %s elem %s ' \
+                                  %(prop_name, elem)
+                        err_msg += str(e)
+                        return False, err_msg
+            else: # complex-type and value isn't dict or wrapped in list
+                err_msg = 'Error in property %s type %s value of %s ' %(
+                    prop_name, prop_cls, prop_value)
                 return False, err_msg
+        # end for all properties
 
         return True, ''
     # end _validate_props_in_request
@@ -1277,7 +1310,7 @@ class VncApiServer(object):
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
-                              act_res['link_name'])
+                              act_res['link_name'], act_res['method'])
             self._homepage_links.append(link)
 
         # Register for VN delete request. Disallow delete of system default VN
@@ -1288,7 +1321,7 @@ class VncApiServer(object):
         self._homepage_links.insert(
             0, LinkObject('documentation', self._base_url,
                           '/documentation/index.html',
-                          'documentation'))
+                          'documentation', 'GET'))
 
         # APIs to reserve/free block of IP address from a VN/Subnet
         self.route('/virtual-network/<id>/ip-alloc',
@@ -1296,14 +1329,14 @@ class VncApiServer(object):
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/ip-alloc',
-                       'virtual-network-ip-alloc'))
+                       'virtual-network-ip-alloc', 'POST'))
 
         self.route('/virtual-network/<id>/ip-free',
                      'POST', self.vn_ip_free_http_post)
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/ip-free',
-                       'virtual-network-ip-free'))
+                       'virtual-network-ip-free', 'POST'))
 
         # APIs to find out number of ip instances from given VN subnet
         self.route('/virtual-network/<id>/subnet-ip-count',
@@ -1311,7 +1344,7 @@ class VncApiServer(object):
         self._homepage_links.append(
             LinkObject('action', self._base_url,
                        '/virtual-network/%s/subnet-ip-count',
-                       'virtual-network-subnet-ip-count'))
+                       'virtual-network-subnet-ip-count', 'POST'))
 
         # Enable/Disable multi tenancy
         self.route('/multi-tenancy', 'GET', self.mt_http_get)
@@ -1614,6 +1647,199 @@ class VncApiServer(object):
                 root=doc_root)
     # end documentation_http_get
 
+    def prop_list_http_get(self):
+        if 'uuid' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Object uuid needed for property list get')
+        obj_uuid = get_request().query.uuid
+
+        if 'fields' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Object fields needed for property list get')
+        obj_fields = get_request().query.fields.split(',')
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: ' + obj_uuid)
+        resource_class = self.get_resource_class(obj_type)
+
+        for obj_field in obj_fields:
+            if obj_field not in resource_class.prop_list_fields:
+                err_msg = 'Field %s is not a "ListProperty"' %(obj_field)
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+        # request validations over
+
+        # common handling for all resource get
+        (ok, result) = self._get_common(get_request(), obj_uuid)
+        if not ok:
+            (code, msg) = result
+            self.config_object_error(
+                obj_uuid, None, None, 'prop_list_http_get', msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        try:
+            ok, result = self._db_conn.prop_list_get(obj_uuid, obj_fields)
+            if not ok:
+                self.config_object_error(
+                    obj_uuid, None, None, 'prop_list_http_get', result)
+        except NoIdError as e:
+            # Not present in DB
+            raise cfgm_common.exceptions.HttpError(404, str(e))
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(500, result)
+
+        # check visibility
+        if (not result['id_perms'].get('user_visible', True) and
+            not self.is_admin_request()):
+            result = 'This object is not visible by users: %s' % id
+            self.config_object_error(id, None, None, 'prop_list_http_get', result)
+            raise cfgm_common.exceptions.HttpError(404, result)
+
+        # Prepare response
+        del result['id_perms']
+
+        return result
+    # end prop_list_http_get
+
+    def prop_list_update_http_post(self):
+        self._post_common(get_request(), None, None)
+
+        request_params = get_request().json
+        # validate each requested operation
+        obj_uuid = request_params.get('uuid')
+        if not obj_uuid:
+            err_msg = 'Error: prop_list_update needs obj_uuid'
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: ' + obj_uuid)
+        resource_class = self.get_resource_class(obj_type)
+
+        for req_param in request_params.get('updates') or []:
+            obj_field = req_param.get('field')
+            req_oper = req_param.get('operation').lower()
+            field_val = req_param.get('value')
+            field_pos = req_param.get('position')
+            if req_oper not in ('add', 'delete'):
+                err_msg = 'Unsupported operation %s in request %s' %(
+                    req_oper, json.dumps(req_param))
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+            if ((req_oper == 'add') and
+                None in (obj_field, field_val)):
+                err_msg = 'Add needs field and value in request %s' %(
+                    req_oper, json.dumps(req_param))
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+            elif ((req_oper == 'delete') and
+                None in (obj_field, field_pos)):
+                err_msg = 'Delete needs field and position in request %s' %(
+                    req_oper, json.dumps(req_param))
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+            if obj_field not in resource_class.prop_list_fields:
+                err_msg = 'Field %s is not a "ListProperty": request %s' %(
+                    obj_field, json.dumps(req_param))
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+        # Validations over. Invoke type specific hook and extension manager
+        try:
+            fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+            (read_ok, read_result) = self._db_conn.dbe_read(
+                                         obj_type, {'uuid':obj_uuid})
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: '+obj_uuid)
+        except Exception as e:
+            read_ok = False
+            read_result = cfgm_common.utils.detailed_traceback()
+
+        if not read_ok:
+            self.config_object_error(obj_uuid, None, obj_type, 'prop_list_update', read_result)
+            raise cfgm_common.exceptions.HttpError(500, read_result)
+
+        # invoke the extension
+        try:
+            pre_func = 'pre_'+obj_type+'_update'
+            self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, {},
+                prop_list_updates=request_params.get('updates'))
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_update an extension had error for %s' \
+                      %(obj_type, request_params)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        # type-specific hook
+        r_class = self.get_resource_class(obj_type)
+        get_context().set_state('PRE_DBE_UPDATE')
+        (ok, pre_update_result) = r_class.pre_dbe_update(
+            obj_uuid, fq_name, {}, self._db_conn,
+            prop_list_updates=request_params.get('updates'))
+        if not ok:
+            (code, msg) = pre_update_result
+            self.config_object_error(obj_uuid, None, obj_type, 'prop_list_update', msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # the actual db update
+        try:
+            get_context().set_state('DBE_UPDATE')
+            ok, update_result = self._db_conn.prop_list_update(
+                obj_type, obj_uuid, request_params.get('updates'))
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'uuid ' + obj_uuid + ' not found')
+        if not ok:
+            (code, msg) = update_result
+            self.config_object_error(obj_uuid, None, obj_type, 'prop_list_update', msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # type-specific hook
+        get_context().set_state('POST_DBE_UPDATE')
+        (ok, post_update_result) = r_class.post_dbe_update(
+            obj_uuid, fq_name, {}, self._db_conn,
+            prop_list_updates=request_params.get('updates'))
+        if not ok:
+            (code, msg) = pre_update_result
+            self.config_object_error(obj_uuid, None, obj_type, 'prop_list_update', msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # invoke the extension
+        try:
+            post_func = 'post_'+obj_type+'_update'
+            self._extension_mgrs['resourceApi'].map_method(
+                post_func, obj_uuid, {}, read_result,
+                prop_list_updates=request_params.get('updates'))
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In post_%s_update an extension had error for %s' \
+                      %(obj_type, request_params)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type
+        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_uuid = obj_uuid
+        apiConfig.operation = 'prop-list-update'
+        try:
+            body = json.dumps(get_request().json)
+        except:
+            body = str(get_request().json)
+        apiConfig.body = body
+
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+    # end prop_list_update_http_post
+
     def ref_update_http_post(self):
         self._post_common(get_request(), None, None)
         # grab fields
@@ -1669,9 +1895,15 @@ class VncApiServer(object):
         # invoke the extension
         try:
             pre_func = 'pre_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict)
-        except Exception as e:
+            self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
             pass
+        except Exception as e:
+            err_msg = 'In pre_%s_update an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         # type-specific hook
         r_class = self.get_resource_class(obj_type)
@@ -1711,8 +1943,14 @@ class VncApiServer(object):
         try:
             post_func = 'post_'+obj_type+'_update'
             self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict, read_result)
-        except Exception as e:
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
             pass
+        except Exception as e:
+            err_msg = 'In post_%s_update an extension had error for %s' \
+                      %(obj_type, obj_dict)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type.replace('-', '_')
