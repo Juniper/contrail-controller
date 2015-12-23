@@ -1378,6 +1378,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Exclude('virtual-network-routing-instance', ['backend']);
      Link('virtual-network-routing-instance',
           'virtual-network', 'bgp:routing-instance', ['has', 'derived']) -->
+
+<xsd:element name="project-routing-policy"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('project-routing-policy', 'project', 'routing-policy', ['has']) -->
+
 <xsd:element name="customer-attachment-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-virtual-machine-interface',
