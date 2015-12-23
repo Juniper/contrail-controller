@@ -44,9 +44,11 @@ VNController::VNController(Agent *agent)
     : agent_(agent), multicast_sequence_number_(0),
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
     config_cleanup_timer_(agent),
-    work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp"), 0,
-        boost::bind(&VNController::ControllerWorkQueueProcess, this, _1)),
+    work_queue_(agent->task_scheduler()->GetTaskId("Agent::ControllerXmpp"), 0,
+                boost::bind(&VNController::ControllerWorkQueueProcess, this,
+                            _1)),
     fabric_multicast_label_range_() {
+    work_queue_.set_name("Controller Queue");
     decommissioned_peer_list_.clear();
 }
 
