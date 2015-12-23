@@ -14,6 +14,7 @@ VmUveTable::VmUveTable(Agent *agent, uint32_t default_intvl)
     event_queue_.reset(new WorkQueue<VmStatData *>
             (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
              boost::bind(&VmUveTable::Process, this, _1)));
+    event_queue_->set_name("Virtual-Machine UVE");
 }
 
 VmUveTable::~VmUveTable() {

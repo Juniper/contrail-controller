@@ -123,7 +123,9 @@ public:
     VirtualGatewayConfigTable(Agent *agent) : agent_(agent),
         work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                     boost::bind(&VirtualGatewayConfigTable::ProcessRequest,
-                                this, _1)) { }
+                                this, _1)) {
+        work_queue_.set_name("VGW");
+     }
     ~VirtualGatewayConfigTable() { }
 
     void Init(const boost::property_tree::ptree pt);

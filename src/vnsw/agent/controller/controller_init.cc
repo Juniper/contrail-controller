@@ -46,6 +46,7 @@ VNController::VNController(Agent *agent)
     config_cleanup_timer_(agent),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp"), 0,
         boost::bind(&VNController::ControllerWorkQueueProcess, this, _1)) {
+    work_queue_.set_name("Controller Queue");
     decommissioned_peer_list_.clear();
 }
 

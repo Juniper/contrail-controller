@@ -293,6 +293,9 @@ void AgentInit::InitDoneBase() {
         cfg_->InitDone();
     }
     InitDone();
+    // Enable task latency measurements once init is done
+    agent_->task_scheduler()->EnableLatencyThresholds
+        (agent_param_->tbb_exec_delay(), agent_param_->tbb_schedule_delay());
 }
 
 /****************************************************************************

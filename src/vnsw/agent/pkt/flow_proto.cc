@@ -16,6 +16,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
                        boost::bind(&FlowProto::FlowEventHandler, this, _1)),
     stats_() {
+    flow_update_queue_.set_name("Flow update queue");
     agent->SetFlowProto(this);
     set_trace(false);
     uint16_t table_count = agent->flow_thread_count();
