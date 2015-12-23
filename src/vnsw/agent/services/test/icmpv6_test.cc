@@ -198,6 +198,7 @@ public:
         Agent::GetInstance()->event_manager()->Run();
         return true;
     }
+    std::string Description() const { return "AsioRunEvent"; }
 };
 
 TEST_F(Icmpv6Test, Icmpv6PingTest) {

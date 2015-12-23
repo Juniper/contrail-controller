@@ -43,6 +43,9 @@ private:
         virtual ~ProcessDeleteTableReqTask();
 
         bool Run();
+        std::string Description() const {
+            return "LogicalSwitchTable::ProcessDeleteTableReqTask";
+        }
 
     private:
         LogicalSwitchTable *table_;

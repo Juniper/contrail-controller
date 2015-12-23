@@ -123,6 +123,7 @@ UnicastMacLocalOvsdb::UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&UnicastMacLocalOvsdb::VrfReEval, this, _1));
+    vrf_reeval_queue_->set_name("OVSDB VRF unicast-mac-local event queue");
     idl->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_LOCAL,
             boost::bind(&UnicastMacLocalOvsdb::Notify, this, _1, _2));
 }

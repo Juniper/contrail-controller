@@ -16,6 +16,9 @@ Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
                   boost::bind(&Proto::ProcessProto, this, _1)) {
     agent->pkt()->pkt_handler()->Register(mod,
            boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
+    std::ostringstream str;
+    str << "Proto work queue. Module " << mod;
+    work_queue_.set_name(str.str());
 }
 
 Proto::~Proto() { 

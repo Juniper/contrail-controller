@@ -72,6 +72,7 @@ public:
     int num_runs_;
 
     bool Run();
+    std::string Description() const { return "TestTask"; }
     void Validate();
     void ValidateTaskStartSeq();
     void ValidateTaskRun();

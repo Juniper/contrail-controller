@@ -130,6 +130,7 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientTcpSession::ProcessSessionEvent, this, _1));
+    session_event_queue_->set_name("OVSDB TCP session event queue");
 }
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {

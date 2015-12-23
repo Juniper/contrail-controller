@@ -27,6 +27,7 @@ struct PipelineWorker : public Task {
         if (!(runner_)()) return false;
         return true;
     }
+    std::string Description() const { return "PipelineWorker"; }
 private:
     const boost::function<bool(void)> runner_;
 };

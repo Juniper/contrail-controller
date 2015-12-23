@@ -374,6 +374,7 @@ class ConfigPhysicalDeviceVnSandesh : public Task {
         table_(table), key_(key), context_(context) { }
     ~ConfigPhysicalDeviceVnSandesh() { }
     virtual bool Run();
+    std::string Description() const { return "ConfigPhysicalDeviceVnSandesh"; }
 
  private:
     PhysicalDeviceVnTable *table_;

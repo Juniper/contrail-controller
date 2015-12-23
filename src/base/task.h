@@ -97,6 +97,9 @@ public:
     static Task *Running();
 
     bool task_cancelled() const { return task_cancel_; };
+    virtual std::string Description() const { return "Unknown"; }
+    uint64_t enqueue_time() const { return enqueue_time_; }
+    uint64_t schedule_time() const { return schedule_time_; }
 
 private:
     friend class TaskEntry;
@@ -115,6 +118,8 @@ private:
     uint64_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
+    uint64_t            enqueue_time_;
+    uint64_t            schedule_time_;
     // Hook in intrusive list for TaskEntry::waitq_
     boost::intrusive::list_member_hook<> waitq_hook_;
 
@@ -131,6 +136,10 @@ private:
 // task id or task instance to have a 0 count.
 class TaskScheduler {
 public:
+    typedef boost::function<void(const char *file_name, uint32_t line_no,
+                                 const Task *task, const char *description,
+                                 uint32_t delay)> LogFn;
+
     TaskScheduler(int thread_count = 0);
     ~TaskScheduler();
 
@@ -189,6 +198,15 @@ public:
     // Force number of threads
     void SetMaxThreadCount(int n);
     void GetSandeshData(SandeshTaskScheduler *resp);
+    void Log(const char *file_name, uint32_t line_no, const Task *task,
+             const char *description, uint32_t delay);
+    void RegisterLog(LogFn fn);
+
+    // Enable logging of tasks exceeding configured latency
+    void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
+    bool measure_delay() const { return measure_delay_; }
+    uint32_t schedule_delay() const { return schedule_delay_; }
+    uint32_t execute_delay() const { return execute_delay_; }
 
     // following function allows one to increase max num of threads used by
     // TBB
@@ -224,7 +242,14 @@ private:
     TaskIdMap               id_map_;
     int                     id_max_;
 
+    LogFn                   log_fn_;
     int                     hw_thread_count_;
+
+    bool                    measure_delay_;
+    // Log if time between enqueue and task-execute exceeds the delay
+    uint32_t                schedule_delay_;
+    // Log if time taken to execute exceeds the delay
+    uint32_t                execute_delay_;
 
     uint64_t                enqueue_count_;
     uint64_t                done_count_;

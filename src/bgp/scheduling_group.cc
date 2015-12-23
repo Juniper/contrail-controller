@@ -435,6 +435,7 @@ public:
 
         return true;
     }
+    std::string Description() const { return "SchedulingGroup::Worker"; }
 
 private:
     SchedulingGroup *group_;

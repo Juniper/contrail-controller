@@ -74,6 +74,7 @@ public:
         return vhost_.addr_.to_ulong() != 0? true : false;
     }
 
+    void set_agent(Agent *agent) { agent_ = agent; }
     const std::string &vhost_name() const { return vhost_.name_; }
     const Ip4Address &vhost_addr() const { return vhost_.addr_; }
     const Ip4Address &vhost_prefix() const { return vhost_.prefix_; }
@@ -223,6 +224,8 @@ public:
     }
     std::string agent_base_dir() const { return agent_base_dir_; }
 
+    uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
+    uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -286,6 +289,7 @@ private:
     void ParseNetworks();
     void ParseHypervisor();
     void ParseDefaultSection();
+    void ParseTaskSection();
     void ParseMetadataProxy();
     void ParseFlows();
     void ParseHeadlessMode();
@@ -308,6 +312,8 @@ private:
     void ParseHypervisorArguments
         (const boost::program_options::variables_map &v);
     void ParseDefaultSectionArguments
+        (const boost::program_options::variables_map &v);
+    void ParseTaskSectionArguments
         (const boost::program_options::variables_map &v);
     void ParseMetadataProxyArguments
         (const boost::program_options::variables_map &v);
@@ -411,6 +417,10 @@ private:
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
     bool subnet_hosts_resolvable_;
+
+    // TBB related
+    uint32_t tbb_exec_delay_;
+    uint32_t tbb_schedule_delay_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

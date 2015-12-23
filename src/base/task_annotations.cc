@@ -36,6 +36,7 @@ public:
     bool Run() {
         return false;
     }
+    std::string Description() const { return "ConcurrencyScope::ScopeTask"; }
     ~ScopeTask() {
     }
 };
