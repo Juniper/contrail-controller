@@ -44,17 +44,23 @@
      Link('routing-instance-route-aggregate',
           'routing-instance', 'route-aggregate', ['ref']) -->
 
-<xsd:complexType name="RoutingPolicyType">
+<xsd:simpleType name="SequenceNumberType">
     <xsd:annotation>
         <xsd:documentation>
-            Sequence defines the position where the routing policy is inserted
-            into the existing list of policies in the routing-instance
-            It is string representation of floating number.
-            e.g. "1.01" or "0.1"
-            In this above case policy with "0.1" is inserted before "1.01"
+            Sequence defines the position of an element in an ordered list
+            It could be used as string representation of floating number
+            or any string in lexicographic order.
+            e.g.1: "1.01" or "0.1"
+            In this above case element with "0.1" is inserted before "1.01"
+            e.g.1: "abc" or "abcd"
+            In this above case element with "abc" is inserted before "abcd"
         </xsd:documentation>
     </xsd:annotation>
-    <xsd:element name="sequence" type="xsd:string"/>
+    <xsd:restriction base="xsd:string"/>
+</xsd:simpleType>
+
+<xsd:complexType name="RoutingPolicyType">
+    <xsd:element name="sequence" type="SequenceNumberType"/>
 </xsd:complexType>
 
 <xsd:element name="routing-policy-routing-instance" type="RoutingPolicyType"/>
