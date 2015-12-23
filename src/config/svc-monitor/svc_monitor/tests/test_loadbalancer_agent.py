@@ -88,6 +88,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         config_db.ServiceApplianceSetSM.delete("test-lb-provider")
         config_db.ServiceApplianceSetSM.delete("opencontrail")
         config_db.LoadbalancerPoolSM.reset()
+        config_db.LoadbalancerMemberSM.reset()
         config_db.VirtualIpSM.reset()
     # end tearDown
 

@@ -20,17 +20,24 @@ class LoadbalancerSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interface = None
+        self.service_instance = None
         self.loadbalancer_listeners = set()
         self.update(obj_dict)
+        self.last_sent = None
     # end __init__
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.display_name = obj.get('display_name', None)
+        self.parent_uuid = obj['parent_uuid']
+        self.id_perms = obj.get('id_perms', None)
         self.params = obj.get('loadbalancer_properties', None)
+        self.provider = obj.get('loadbalancer_provider', None)
         self.update_single_ref('virtual_machine_interface', obj)
+        self.update_single_ref('service_instance', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
     # end update
 
@@ -40,6 +47,7 @@ class LoadbalancerSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('virtual_machine_interface', {})
+        obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('loadbalancer_listener', {})
         del cls._dict[uuid]
     # end delete
@@ -147,6 +155,10 @@ class LoadbalancerPoolSM(DBBaseSM):
 
         if self.loadbalancer_listener:
             ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
+            lb_obj = LoadbalancerSM.get(ll_obj.loadbalancer)
+            if lb_obj:
+                lb_obj.last_sent = \
+                    self._manager.loadbalancer_agent.loadbalancer_add(lb_obj)
             if ll_obj:
                 ll_obj.last_sent = \
                     self._manager.loadbalancer_agent.listener_add(ll_obj)
@@ -428,6 +440,7 @@ class ServiceInstanceSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.service_template = None
+        self.loadbalancer = None
         self.loadbalancer_pool = None
         self.interface_route_tables = set()
         self.service_health_checks = set()
@@ -466,6 +479,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.check_vn_changes(obj)
         self.params = obj.get('service_instance_properties', None)
         self.update_single_ref('service_template', obj)
+        self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_multiple_refs('interface_route_table', obj)
         self.update_multiple_refs('service_health_check', obj)
@@ -511,6 +525,7 @@ class ServiceInstanceSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('service_template', {})
+        obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_multiple_refs('service_health_check', {})
