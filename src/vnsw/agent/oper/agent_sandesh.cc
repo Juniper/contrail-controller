@@ -790,6 +790,7 @@ AgentSandeshManager::AgentSandeshManager(Agent *agent) :
     agent_(agent),
     page_request_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
                         0, boost::bind(&AgentSandeshManager::Run, this, _1)) {
+    page_request_queue_.set_name("Introspect page request");
 }
 
 AgentSandeshManager::~AgentSandeshManager() {

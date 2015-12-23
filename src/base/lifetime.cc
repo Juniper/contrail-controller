@@ -166,6 +166,7 @@ LifetimeManager::LifetimeManager(int task_id)
     : defer_count_(0),
       queue_(task_id, 0,
         boost::bind(&LifetimeManager::DeleteExecutor, this, _1)) {
+    queue_.set_name("LifetimeManager");
 }
 
 LifetimeManager::~LifetimeManager() {
