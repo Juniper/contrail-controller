@@ -30,6 +30,8 @@ public:
     // Process options
     virtual void ProcessOptions
         (const std::string &config_file, const std::string &program_name);
+    // Platform specific inits
+    void InitPlatform();
 
     // Kickstarts initialization
     virtual int Start();
