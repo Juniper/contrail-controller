@@ -150,6 +150,7 @@ private:
             mgen_->flow_counter_ = 0;
             return false;
         }
+        std::string Description() const { return "SendFlowTask"; }
 
     private:
         MockGenerator *mgen_;

@@ -133,6 +133,7 @@ public:
         Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
         return true;
     }
+    std::string Description() const { return "FlowFlush"; }
 };
 
 class FlowAge : public Task {
@@ -144,6 +145,7 @@ public:
             default_flow_stats_collector()->Run();
         return true;
     }
+    std::string Description() const { return "FlowAge"; }
 };
 
 struct IpamInfo {

@@ -78,6 +78,7 @@ public:
 
         return true;
     }
+    std::string Description() const { return "ChannelEventProcTask"; }
 
 private:
     ChannelEventInfo event_info_;

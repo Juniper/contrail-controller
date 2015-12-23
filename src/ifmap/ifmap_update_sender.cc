@@ -49,6 +49,7 @@ public:
         return true;
     }
 
+    std::string Description() const { return "IFMapUpdateSender::SendTask"; }
 private:
     IFMapUpdateSender *sender_;
 };

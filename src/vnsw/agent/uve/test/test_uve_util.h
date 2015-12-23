@@ -30,6 +30,7 @@ public:
         Agent::GetInstance()->uve()->prouter_uve_table()->TimerExpiry();
         return true;
     }
+    std::string Description() const { return "ProuterUveSendTask"; }
 };
 
 class PIUveSendTask : public Task {
@@ -41,6 +42,7 @@ public:
         Agent::GetInstance()->uve()->prouter_uve_table()->PITimerExpiry();
         return true;
     }
+    std::string Description() const { return "PIUveSendTask"; }
 };
 
 class LIUveSendTask : public Task {
@@ -52,6 +54,7 @@ public:
         Agent::GetInstance()->uve()->prouter_uve_table()->LITimerExpiry();
         return true;
     }
+    std::string Description() const { return "LIUveSendTask"; }
 };
 
 class AgentStatsCollectorTask : public Task {
@@ -67,6 +70,7 @@ public:
         }
         return true;
     }
+    std::string Description() const { return "FlowActionLogTask"; }
 private:
     int count_;
 };
@@ -81,6 +85,7 @@ public:
         Agent::GetInstance()->flow_stats_manager()->
             default_flow_stats_collector()->Run();
     }
+    std::string Description() const { return "FlowStatsCollectorTask"; }
 };
 
 class VRouterStatsCollectorTask : public Task {
@@ -96,6 +101,7 @@ public:
             uve->vrouter_stats_collector()->Run();
         return true;
     }
+    std::string Description() const { return "VRouterStatsCollectorTask"; }
 private:
     int count_;
 };
@@ -109,6 +115,7 @@ public:
         Agent::GetInstance()->uve()->vn_uve_table()->TimerExpiry();
         return true;
     }
+    std::string Description() const { return "ProuterUveSendTask"; }
 };
 
 class VmUveSendTask : public Task {
@@ -120,6 +127,7 @@ public:
         Agent::GetInstance()->uve()->vm_uve_table()->TimerExpiry();
         return true;
     }
+    std::string Description() const { return "PIUveSendTask"; }
 };
 
 class VmiUveSendTask : public Task {
@@ -131,6 +139,7 @@ public:
         Agent::GetInstance()->uve()->interface_uve_table()->TimerExpiry();
         return true;
     }
+    std::string Description() const { return "VmiUveSendTask"; }
 };
 
 class TestUveUtil {

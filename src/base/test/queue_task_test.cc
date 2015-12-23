@@ -37,6 +37,7 @@ public:
         }
         return true;
     }
+    std::string Description() const { return "EnqueueTask"; }
 
 private:
     int task_id_;

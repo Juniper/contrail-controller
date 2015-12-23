@@ -31,6 +31,7 @@ public:
         }
         return true;
     }
+    std::string Description() const { return "SslSession::SslReader"; }
 private:
     SslSessionPtr session_;
     ReadHandler read_fn_;
