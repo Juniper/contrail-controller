@@ -46,22 +46,19 @@ class LoadbalancerAgent(Agent):
                 nic['user-visible'] = False
 
     def _get_vip_vmi(self, si):
-        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
-        if not pool:
-            return None
-
-        listener = LoadbalancerListenerSM.get(pool.loadbalancer_listener)
-        if listener:
-            lb = LoadbalancerSM.get(listener.loadbalancer)
+        lb = LoadbalancerSM.get(si.loadbalancer)
+        if lb:
             vmi_id = lb.virtual_machine_interface
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
             return vmi
 
-        vip = VirtualIpSM.get(pool.virtual_ip)
-        if vip:
-            vmi_id = vip.virtual_machine_interface
-            vmi = VirtualMachineInterfaceSM.get(vmi_id)
-            return vmi
+        pool = LoadbalancerPoolSM.get(si.loadbalancer_pool)
+        if pool:
+            vip = VirtualIpSM.get(pool.virtual_ip)
+            if vip:
+                vmi_id = vip.virtual_machine_interface
+                vmi = VirtualMachineInterfaceSM.get(vmi_id)
+                return vmi
 
         return None
 
@@ -160,6 +157,18 @@ class LoadbalancerAgent(Agent):
         return driver
     # end _get_driver_for_pool
 
+    def _get_driver_for_loadbalancer(self, lb_id, provider=None):
+        if not lb_id:
+            return self.drivers[self._default_provider]
+        if lb_id in self._loadbalancer_driver:
+            return self._loadbalancer_driver[lb_id]
+        if not provider:
+            lb = LoadbalancerSM.get(lb_id)
+            provider = lb.provider
+        driver = self._get_driver_for_provider(provider)
+        self._loadbalancer_driver[lb_id] = driver
+        return driver
+
     # Loadbalancer
     def loadbalancer_pool_add(self, pool):
         p = self.loadbalancer_pool_get_reqdict(pool)
@@ -211,9 +220,29 @@ class LoadbalancerAgent(Agent):
             pass
     # end delete_virtual_ip
 
+    def loadbalancer_add(self, loadbalancer):
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
+        try:
+            if not loadbalancer.last_sent:
+                driver.create_loadbalancer(lb)
+            elif lb != loadbalancer.last_sent:
+                driver.update_loadbalancer(loadbalancer.last_sent, lb)
+        except Exception:
+            pass
+        return lb
+
+    def delete_loadbalancer(self, obj):
+        lb = obj.last_sent
+        driver = self._get_driver_for_pool(lb['pool_id'])
+        try:
+            driver.delete_loadbalancer(lb)
+        except Exception:
+            pass
+
     def listener_add(self, listener):
         ll = self.listener_get_reqdict(listener)
-        driver = self._get_driver_for_pool(ll['pool_id'])
+        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
         try:
             if not listener.last_sent:
                 driver.create_listener(ll)
@@ -222,7 +251,6 @@ class LoadbalancerAgent(Agent):
         except Exception:
             pass
         return ll
-    # end  listener_add
 
     def delete_listener(self, obj):
         ll = obj.last_sent
@@ -231,7 +259,6 @@ class LoadbalancerAgent(Agent):
             driver.delete_listener(ll)
         except Exception:
             pass
-    # end delete_listener
 
     def delete_loadbalancer_member(self, obj):
         m = obj.last_sent
@@ -290,8 +317,7 @@ class LoadbalancerAgent(Agent):
         return pool_refs
     # end _get_vip_pool_id
 
-    def _get_interface_params(self, vip, props):
-        port_id = vip.virtual_machine_interface
+    def _get_interface_params(self, port_id, props):
         if port_id is None:
             return None
 
@@ -307,7 +333,8 @@ class LoadbalancerAgent(Agent):
 
     def virtual_ip_get_reqdict(self, vip):
         props = vip.params
-        port_id = self._get_interface_params(vip, props)
+        port_id = self._get_interface_params(vip.virtual_machine_interface,
+            props)
 
         res = {'id': vip.uuid,
                'tenant_id': vip.parent_uuid.replace('-', ''),
@@ -333,20 +360,30 @@ class LoadbalancerAgent(Agent):
         return res
     # end virtual_ip_get_reqdict
 
+    def loadbalancer_get_reqdict(self, lb):
+        props = lb.params
+        res = {'id': lb.uuid,
+               'tenant_id': lb.parent_uuid.replace('-', ''),
+               'name': lb.display_name,
+               'description': self._get_object_description(lb),
+               'subnet_id': props['vip_subnet_id'],
+               'address': props['vip_address'],
+               'port_id': lb.virtual_machine_interface,
+               'status': self._get_object_status(lb)}
+
+        return res
+    # end loadbalancer_get_reqdict
+
     def listener_get_reqdict(self, listener):
         props = listener.params
-        lb = LoadbalancerSM.get(listener.loadbalancer)
 
         res = {'id': listener.uuid,
                'tenant_id': listener.parent_uuid.replace('-', ''),
                'name': listener.display_name,
                'description': self._get_object_description(listener),
-               'subnet_id': lb.params.get('subnet_id'),
-               'address': lb.params.get('vip_address'),
-               'port_id': lb.virtual_machine_interface,
                'protocol_port': props['protocol_port'],
                'protocol': props['protocol'],
-               'pool_id': listener.loadbalancer_pool,
+               'loadbalancer_id': listener.loadbalancer,
                'session_persistence': None,
                'admin_state_up': props['admin_state'],
                'status': self._get_object_status(listener)}
