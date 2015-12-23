@@ -15,6 +15,7 @@
 
 #include <filter/traffic_action.h>
 #include <filter/acl_entry_match.h>
+#include <vnc_cfg_types.h>
 
 struct RangeSpec {
     uint16_t min;
@@ -67,27 +68,22 @@ typedef enum AclTypeSpec {
 
 class AclEntrySpec {
 public:
-  AclEntrySpec(): src_addr_type(AddressMatch::UNKNOWN_TYPE), src_ip_plen(0), 
-        dst_addr_type(AddressMatch::UNKNOWN_TYPE), dst_ip_plen(0),
-        terminal(true) { };
+  AclEntrySpec(): src_addr_type(AddressMatch::UNKNOWN_TYPE),
+        dst_addr_type(AddressMatch::UNKNOWN_TYPE), terminal(true) { }
     typedef boost::uuids::uuid uuid;
     AclTypeSpecT type;
     uint32_t id;
     
     // Address
     AddressMatch::AddressType src_addr_type;
-    IpAddress src_ip_addr;
-    IpAddress src_ip_mask;
-    int src_ip_plen;
+    std::vector<AclAddressInfo> src_ip_list;
     uuid src_policy_id;
     std::string src_policy_id_str;
     int src_sg_id;
 
 
     AddressMatch::AddressType dst_addr_type;
-    IpAddress dst_ip_addr;
-    IpAddress dst_ip_mask;
-    int dst_ip_plen;
+    std::vector<AclAddressInfo> dst_ip_list;
     uuid dst_policy_id;
     std::string dst_policy_id_str;
     int dst_sg_id;
@@ -112,6 +108,8 @@ public:
     void PopulateAction(const AclTable *acl_table,
                         const autogen::ActionListType &action_list);
     void AddMirrorEntry() const;
+    void BuildAddressInfo(const std::string &prefix, int plen,
+                          std::vector<AclAddressInfo> *list);
 };
 
 struct AclSpec {
