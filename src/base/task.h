@@ -97,6 +97,9 @@ public:
     static Task *Running();
 
     bool task_cancelled() const { return task_cancel_; };
+    virtual std::string Description() const { return ""; }
+    uint64_t enqueue_time() const { return enqueue_time_; }
+    uint64_t schedule_time() const { return schedule_time_; }
 
 private:
     friend class TaskEntry;
@@ -115,6 +118,8 @@ private:
     uint64_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
+    uint64_t            enqueue_time_;
+    uint64_t            schedule_time_;
     // Hook in intrusive list for TaskEntry::waitq_
     boost::intrusive::list_member_hook<> waitq_hook_;
 
@@ -190,6 +195,12 @@ public:
     void SetMaxThreadCount(int n);
     void GetSandeshData(SandeshTaskScheduler *resp);
 
+    // Enable logging of tasks exceeding configured latency
+    void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
+    bool measure_delay() const { return measure_delay_; }
+    uint32_t schedule_delay() const { return schedule_delay_; }
+    uint32_t execute_delay() const { return execute_delay_; }
+
     // following function allows one to increase max num of threads used by
     // TBB
     static void SetThreadAmpFactor(int n);
@@ -225,6 +236,12 @@ private:
     int                     id_max_;
 
     int                     hw_thread_count_;
+
+    bool                    measure_delay_;
+    // Log if time between enqueue and task-execute exceeds the delay
+    uint32_t                schedule_delay_;
+    // Log if time taken to execute exceeds the delay
+    uint32_t                execute_delay_;
 
     uint64_t                enqueue_count_;
     uint64_t                done_count_;
