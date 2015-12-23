@@ -95,10 +95,25 @@ class DatabaseEventManager(EventManager):
         self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
                             level), msg)
 
+    @staticmethod
+    def cassandra_old():
+        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+        if PLATFORM.lower() == 'ubuntu':
+            if VERSION.find('12.') == 0:
+                return True
+        if PLATFORM.lower() == 'centos':
+            if VERSION.find('6.') == 0:
+                return True
+        return False
+
     def process(self):
         try:
             cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
-            analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            if DatabaseEventManager.cassandra_old():
+                analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            else:
+                analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+
             if os.path.exists(analytics_dir):
                 msg = "analytics_dir is " + analytics_dir
                 self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -162,7 +177,11 @@ class DatabaseEventManager(EventManager):
     def database_periodic(self):
         try:
             cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
-            analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            if DatabaseEventManager.cassandra_old():
+                analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+            else:
+                analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+
             if os.path.exists(analytics_dir):
                 popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
                 (disk_space_used, error_value) = \
