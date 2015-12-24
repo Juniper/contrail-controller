@@ -13,17 +13,18 @@ env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/io')
 
-env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns',
+env.Prepend(LIBS = ['base', 'gunit', 'task_test_lib', 'io', 'sandesh', 'io', 'sandeshvns',
                     'process_info', 'base', 'http',
                     'http_parser', 'curl', 'pugixml', 'boost_program_options'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-libtask_test = env.Library('task_test',
+libtask_test_lib = env.Library('task_test_lib',
                            ['task_test_util.cc',
-                            'addr_test_util.cc'])
-env.Alias('src/base:libtask_test', libtask_test)
+                            'addr_test_util.cc'
+                            ])
+env.Alias('src/base:libtask_test_lib', libtask_test_lib)
 
 bitset_test = env.UnitTest('bitset_test', ['bitset_test.cc'])
 env.Alias('src/base:bitset_test', bitset_test)
