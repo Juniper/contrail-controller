@@ -627,7 +627,7 @@ public:
     void ConnUpPostProcess(uint8_t cnum) {
 
         if (!connState_[cnum]) {
-            QE_LOG_NOQID(DEBUG, "ConnUp SetCB" << cnum);
+            QE_LOG_NOQID(DEBUG, "ConnUp SetCB" << (uint32_t)cnum);
             cb_proc_fn_[cnum] = boost::bind(&QEOpServerImpl::CallbackProcess,
                     this, cnum, _1, _2, _3);
             conns_[cnum].get()->SetClientAsyncCmdCb(cb_proc_fn_[cnum]);
@@ -884,7 +884,7 @@ public:
     }
 
     void ConnDown(uint8_t cnum) {
-        QE_LOG_NOQID(DEBUG, "ConnDown.. DOWN.. Reconnect.." << cnum);
+        QE_LOG_NOQID(DEBUG, "ConnDown.. DOWN.. Reconnect.." << (uint32_t)cnum);
         connState_[cnum] = false;
         ConnectionState::GetInstance()->Update(ConnectionType::REDIS_QUERY,
                 "Query", ConnectionStatus::DOWN, conns_[cnum]->Endpoint(),
