@@ -375,9 +375,10 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter1", "PartialSysinfoCompute",
-                rules = [{"oper":"!",
-                          "operand1":{"AlarmOperand":{"name":"VrouterAgent.build_info",
-                                                      "json_value":"null"}}}]))
+                any_of = [[{"json_operand1_value":"null",
+                    "rule": {"AlarmTemplate":{"oper":"==",
+                    "operand1":{"Operand1":{"keys":["ObjectVRouter","build_info"]}},
+                    "operand2":{"Operand2":{"json_value":"null"}}}}}]]))
 
         # Now try to clear the alarm by sending build_info
         alarm_gen1.send_vrouterinfo("myvrouter1", b_info = True)

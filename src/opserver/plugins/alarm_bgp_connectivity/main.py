@@ -1,36 +1,51 @@
 from  opserver.plugins.alarm_base import *
+from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
+import json
 
 class BgpConnectivity(AlarmBase):
     """BGP peer mismatch.
        Not enough BGP peers are up in BgpRouterState.num_up_bgp_peer"""
 
+    def __init__(self):
+	AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+
     def __call__(self, uve_key, uve_data):
-        err_list = []
-        if not uve_data.has_key("BgpRouterState"):
-            return self.__class__.__name__, AlarmBase.SYS_WARN, err_list
-        
-        ust = uve_data["BgpRouterState"]
+        or_list = []
+        v2 = None
+        v1 = uve_data.get("BgpRouterState", None)
+        if v1 is not None:
+            and_list = []
+            and_list.append(AlarmElement(\
+                rule=AlarmTemplate(oper="!=",
+                    operand1=Operand1(keys=["BgpRouterState"]),
+                    operand2=Operand2(json_value="null")),
+                json_operand1_value=json.dumps({})))
+            v2 = v1.get("num_up_bgp_peer", None)
+            if v2 is None:
+		and_list.append(AlarmElement(\
+		    rule=AlarmTemplate(oper="==",
+			operand1=Operand1(keys=["BgpRouterState","num_up_bgp_peer"]),
+			operand2=Operand2(json_value="null")),
+		    json_operand1_value=json.dumps(None)))
+                or_list.append(AllOf(all_of=and_list))
 
-        l,r = ("num_up_bgp_peer","num_bgp_peer")
-        cm = True
-        if not ust.has_key(l):
-            err_list.append(AlarmRule(oper="!",
-                operand1=AlarmOperand(\
-                    name="BgpRouterState.num_up_bgp_peer", value=None),
-                operand2=None))
-            cm = False
-        if not ust.has_key(r):
-            err_list.append(AlarmRule(oper="!",
-                operand1=AlarmOperand(\
-                    name="BgpRouterState.num_bgp_peer", value=None),
-                operand2=None))
-            cm = False
-        if cm:
-            if not ust[l] == ust[r]:
-                err_list.append(AlarmRule(oper="!=",
-                    operand1=AlarmOperand(\
-                        name="BgpRouterState.num_up_bgp_peer", value=ust[l]),
-                    operand2=AlarmOperand(\
-                        name="BgpRouterState.num_bgp_peer", value=ust[r])))
+        if v1 is not None:
+	    lval = v1.get("num_up_bgp_peer",None)
+	    rval = v1.get("num_bgp_peer",None)
+        else:
+            lval = None
+            rval = None
 
-        return self.__class__.__name__, AlarmBase.SYS_WARN, err_list 
+	if lval != rval:
+	    and_list = []
+	    and_list.append(AlarmElement(\
+		rule=AlarmTemplate(oper="!=",
+		    operand1=Operand1(keys=["BgpRouterState","num_up_bgp_peer"]),
+		    operand2=Operand2(keys=["BgpRouterState","num_bgp_peer"])),
+		json_operand1_value=json.dumps(lval),
+		json_operand2_value=json.dumps(rval)))
+            or_list.append(AllOf(all_of=and_list))
+        if len(or_list):
+            return or_list
+        else:
+	    return None
