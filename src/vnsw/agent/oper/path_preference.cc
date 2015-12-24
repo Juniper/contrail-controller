@@ -443,6 +443,16 @@ void PathPreferenceSM::EnqueuePathChange() {
     }
 }
 
+PathPreferenceIntfState::RouteAddrList::RouteAddrList() :
+    family_(Address::INET), ip_(), plen_(0), vrf_name_(), seen_(false) {
+}
+
+PathPreferenceIntfState::RouteAddrList::RouteAddrList
+    (const Address::Family &family, const IpAddress &ip, uint32_t plen,
+     const std::string &vrf) :
+    family_(family), ip_(ip), plen_(plen), vrf_name_(vrf), seen_(false) {
+}
+
 bool PathPreferenceIntfState::RouteAddrList::operator<(
         const RouteAddrList &rhs) const {
     if (family_ != rhs.family_) {
@@ -569,12 +579,9 @@ void PathPreferenceIntfState::Notify() {
     const VmInterface::FloatingIpSet &fip_list = intf_->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     for (;it != fip_list.end(); ++it) {
-        RouteAddrList rt;
-        rt.vrf_name_ = it->vrf_name_;
         if (it->floating_ip_.is_v4()) {
-            rt.family_ = Address::INET;
-            rt.plen_ = 32;
-            rt.ip_ = it->floating_ip_.to_v4();
+            RouteAddrList rt(Address::INET, it->floating_ip_.to_v4(), 32,
+                             it->vrf_name_);
             Insert(rt, traffic_seen);
         }
     }
@@ -585,12 +592,11 @@ void PathPreferenceIntfState::Notify() {
     VmInterface::ServiceVlanSet::const_iterator service_vlan_it =
         service_vlan_set.begin();
     for (;service_vlan_it != service_vlan_set.end(); ++service_vlan_it) {
-        RouteAddrList rt;
-        rt.family_ = Address::INET;
-        rt.plen_ = service_vlan_it->plen_;
-        rt.ip_ = service_vlan_it->addr_;
-        rt.vrf_name_ = service_vlan_it->vrf_name_;
-        Insert(rt, traffic_seen);
+        if (!service_vlan_it->addr_.is_unspecified()) {
+            RouteAddrList rt(Address::INET, service_vlan_it->addr_, 32,
+                             service_vlan_it->vrf_name_);
+            Insert(rt, traffic_seen);
+        }
     }
 
     //Go thru interface static routes
@@ -600,14 +606,11 @@ void PathPreferenceIntfState::Notify() {
         static_rt_list.begin();
     for (;static_rt_it != static_rt_list.end(); ++static_rt_it) {
         if (static_rt_it->addr_.is_v4()) {
-            RouteAddrList rt;
             if (static_rt_it->vrf_ == "") {
                 continue;
             }
-            rt.family_ = Address::INET;
-            rt.plen_ = static_rt_it->plen_;
-            rt.ip_ = static_rt_it->addr_;
-            rt.vrf_name_ = static_rt_it->vrf_;
+            RouteAddrList rt(Address::INET, static_rt_it->addr_,
+                             static_rt_it->plen_, static_rt_it->vrf_);
             Insert(rt, traffic_seen);
         }
     }

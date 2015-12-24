@@ -27,8 +27,11 @@ struct ServiceVlanSandeshList {
    1: i16 tag;
    2: string vrf_name (link="VrfListReq"); // VRF name
    3: string ip_addr;
+   6: string ip6_addr;
    4: i16 label;
    5: string installed;
+   7: string v4_route_installed;
+   8: string v6_route_installed;
 }
 
 struct FloatingIpSandeshList {

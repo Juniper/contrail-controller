@@ -220,16 +220,16 @@ public:
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
-                           const Ip4Address &addr, uint8_t plen,
+                           const IpAddress &addr, uint8_t plen,
                            VlanNhRoute *data);
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
-                           const Ip4Address &addr, uint8_t plen,
+                           const IpAddress &addr, uint8_t plen,
                            const uuid &intf_uuid, uint16_t tag,
                            uint32_t label, const string &dest_vn_name,
                            const SecurityGroupList &sg_list_,
                            const PathPreference &path_preference);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
-                               const Ip4Address &addr, uint8_t plen,
+                               const IpAddress &addr, uint8_t plen,
                                const uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const string &dest_vn_name,
                                const SecurityGroupList &sg_list_,
