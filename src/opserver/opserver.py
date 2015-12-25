@@ -58,6 +58,7 @@ from sandesh.viz.constants import *
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh.discovery.ttypes import CollectorTrace
+import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
 from opserver_util import ServicePoller
 from cpuinfo import CpuInfoData
@@ -393,29 +394,16 @@ class OpServer(object):
         * ``/analytics/operation/database-purge``:
     """
     def disc_publish(self):
-        try:
-            import discoveryclient.client as client
-        except:
-            try:
-                # TODO: Try importing from the server. This should go away..
-                import discovery.client as client
-            except:
-                raise Exception('Could not get Discovery Client')
-
         data = {
             'ip-address': self._args.host_ip,
             'port': self._args.rest_api_port,
         }
-        self.disc = client.DiscoveryClient(
-            self._args.disc_server_ip,
-            self._args.disc_server_port,
-            ModuleNames[Module.OPSERVER])
         self.disc.set_sandesh(self._sandesh)
         self._logger.info("Disc Publish to %s : %d - %s"
                           % (self._args.disc_server_ip,
                              self._args.disc_server_port, str(data)))
         self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
-    # end
+    # end disc_publish
 
     def __init__(self, args_str=' '.join(sys.argv[1:])):
         self.gevs = []
@@ -449,11 +437,17 @@ class OpServer(object):
         if self._args.sandesh_send_rate_limit is not None:
             SandeshSystem.set_sandesh_send_rate_limit( \
                 self._args.sandesh_send_rate_limit)
+        self.disc = None
+        if self._args.disc_server_ip:
+           self.disc = discovery_client.DiscoveryClient(
+                            self._args.disc_server_ip,
+                            self._args.disc_server_port,
+                            ModuleNames[Module.OPSERVER])
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
-            logger_class=self._args.logger_class,
+            self.disc, logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
@@ -523,7 +517,6 @@ class OpServer(object):
             dict((ModuleNames[k], [CategoryNames[ce] for ce in v])
                  for k, v in ModuleCategoryMap.iteritems())
 
-        self.disc = None
         self.agp = {}
         if self._usecache:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
@@ -727,7 +720,7 @@ class OpServer(object):
 
         defaults = {
             'host_ip'            : "127.0.0.1",
-            'collectors'         : ['127.0.0.1:8086'],
+            'collectors'         : None,
             'cassandra_server_list' : ['127.0.0.1:9160'],
             'http_server_port'   : 8090,
             'rest_api_port'      : 8081,
