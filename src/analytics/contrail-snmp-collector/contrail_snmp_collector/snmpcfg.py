@@ -79,7 +79,7 @@ Mibs = LldpTable, ArpTable
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
         defaults = {
-            'collectors'          : ['127.0.0.1:8086'],
+            'collectors'          : None,
             'log_local'           : False,
             'log_level'           : SandeshLevel.SYS_DEBUG,
             'log_category'        : '',

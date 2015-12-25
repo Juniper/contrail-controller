@@ -219,11 +219,13 @@ main(int argc, char *argv[]) {
     // 1. Collector client
     // 2. Redis
     // 3. Cassandra
+    // 4. Discovery (if collector list not configured)
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*evm.io_service(),
             options.hostname(), module_name,
             instance_id,
-            boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
+            boost::bind(&GetProcessStateCb, _1, _2, _3,
+            options.collector_server_list().size() ? 3 : 4));
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success(Sandesh::InitGenerator(
             module_name,
