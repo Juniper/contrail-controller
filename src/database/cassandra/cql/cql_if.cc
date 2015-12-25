@@ -644,13 +644,15 @@ static bool SyncFutureWait(CassFuture *future) {
 }
 
 static const CassTableMeta * GetCassTableMeta(const CassSchemaMeta *schema_meta,
-    const std::string &keyspace, const std::string &table) {
+    const std::string &keyspace, const std::string &table, bool log_error) {
     const CassKeyspaceMeta *keyspace_meta(
         cass_schema_meta_keyspace_by_name(schema_meta,
         keyspace.c_str()));
     if (keyspace_meta == NULL) {
-        CQLIF_LOG_ERR("No keyspace schema: Keyspace: " << keyspace <<
-            ", Table: " << table);
+        if (log_error) {
+            CQLIF_LOG_ERR("No keyspace schema: Keyspace: " << keyspace <<
+                ", Table: " << table);
+        }
         return NULL;
     }
     std::string table_lower(table);
@@ -659,11 +661,31 @@ static const CassTableMeta * GetCassTableMeta(const CassSchemaMeta *schema_meta,
         cass_keyspace_meta_table_by_name(keyspace_meta,
         table_lower.c_str()));
     if (table_meta == NULL) {
-        CQLIF_LOG_ERR("No table schema: Keyspace: " << keyspace <<
-           ", Table: " << table_lower);
+        if (log_error) {
+            CQLIF_LOG_ERR("No table schema: Keyspace: " << keyspace <<
+                ", Table: " << table_lower);
+        }
         return NULL;
     }
     return table_meta;
+}
+
+static bool IsCassTableMetaPresent(CassSession *session,
+    const std::string &keyspace, const std::string &table) {
+    impl::CassSchemaMetaPtr schema_meta(cass_session_get_schema_meta(
+        session));
+    if (schema_meta.get() == NULL) {
+        CQLIF_LOG(DEBUG, "No schema meta: Keyspace: " << keyspace <<
+            ", Table: " << table);
+        return false;
+    }
+    bool log_error(false);
+    const CassTableMeta *table_meta(impl::GetCassTableMeta(
+        schema_meta.get(), keyspace, table, log_error));
+    if (table_meta == NULL) {
+        return false;
+    }
+    return true;
 }
 
 static bool GetCassTableClusteringKeyCount(CassSession *session,
@@ -675,8 +697,9 @@ static bool GetCassTableClusteringKeyCount(CassSession *session,
             ", Table: " << table);
         return false;
     }
+    bool log_error(true);
     const CassTableMeta *table_meta(impl::GetCassTableMeta(
-        schema_meta.get(), keyspace, table));
+        schema_meta.get(), keyspace, table, log_error));
     if (table_meta == NULL) {
         return false;
     }
@@ -693,8 +716,9 @@ static bool GetCassTablePartitionKeyCount(CassSession *session,
             ", Table: " << table);
         return false;
     }
+    bool log_error(true);
     const CassTableMeta *table_meta(impl::GetCassTableMeta(
-        schema_meta.get(), keyspace, table));
+        schema_meta.get(), keyspace, table, log_error));
     if (table_meta == NULL) {
         return false;
     }
@@ -868,6 +892,14 @@ class CqlIf::CqlIfImpl {
         }
         return impl::ExecuteQuerySync(session_.get(), query.c_str(),
             consistency);
+    }
+
+    bool IsTablePresent(const GenDb::NewCf &cf) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
+        return impl::IsCassTableMetaPresent(session_.get(), keyspace_,
+            cf.cfname_);
     }
 
     bool IsTableStatic(const std::string &table) {
@@ -1087,6 +1119,7 @@ CqlIf::CqlIf(EventManager *evm,
     cass_log_set_callback(impl::CassLibraryLog, NULL);
     impl_ = new CqlIfImpl(evm, cassandra_ips, cassandra_port,
         cassandra_user, cassandra_password);
+    initialized_ = false;
 }
 
 CqlIf::CqlIf() : impl_(NULL) {
@@ -1113,6 +1146,7 @@ void CqlIf::Db_UninitUnlocked(const std::string& task_id,
 }
 
 void CqlIf::Db_SetInitDone(bool init_done) {
+    initialized_ = init_done;
 }
 
 // Tablespace
@@ -1140,11 +1174,15 @@ bool CqlIf::Db_AddColumnfamily(const GenDb::NewCf &cf) {
 }
 
 bool CqlIf::Db_UseColumnfamily(const GenDb::NewCf &cf) {
-    return true;
+    // Check existence of table
+    return impl_->IsTablePresent(cf);
 }
 
 // Column
 bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    if (!initialized_) {
+        return false;
+    }
     return Db_AddColumnSync(cl);
 }
 
