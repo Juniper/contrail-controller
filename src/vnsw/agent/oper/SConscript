@@ -15,6 +15,7 @@ if '-fno-exceptions' in cflags:
 except_env.Replace(CCFLAGS=cflags)
 
 SandeshGenFiles = env.SandeshGenCpp('agent.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('agent_profile.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('multicast.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
