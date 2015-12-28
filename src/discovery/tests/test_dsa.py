@@ -203,23 +203,15 @@ class TestDsa(test_case.DsTestCase):
             'client-type' : 'Vrouter-Agent',
         }
 
-        # Sub in DC1 - should see DC1+DC2 services
-        payload['remote-addr'] = '1.1.1.3'
-        (code, msg) = self._http_post(suburl, json.dumps(payload))
-        self.assertEqual(code, 200)
-        response = json.loads(msg)
-        self.assertEqual(len(response[service_type]), 4)
+        # Sub in DC1 or DC2 should see DC1+DC2 services
         expectedpub_set = set(["DC1-CN1", "DC1-CN2", "DC2-CN1", "DC2-CN2"])
-        receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
-        self.assertEqual(expectedpub_set == receivedpub_set, True)
+        for sub_ip in ['1.1.1.3', '2.2.2.3']:
+            payload['remote-addr'] = sub_ip
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), 4)
+            receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+            self.assertEqual(expectedpub_set == receivedpub_set, True)
 
-        # Sub in DC2 - should see DC1+DC2 services
-        payload['remote-addr'] = '2.2.2.3'
-        (code, msg) = self._http_post(suburl, json.dumps(payload))
-        self.assertEqual(code, 200)
-        response = json.loads(msg)
-        self.assertEqual(len(response[service_type]), 4)
-        expectedpub_set = set(["DC1-CN1", "DC1-CN2", "DC2-CN1", "DC2-CN2"])
-        receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
-        self.assertEqual(expectedpub_set == receivedpub_set, True)
 #end class TestDsa
