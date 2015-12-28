@@ -1062,6 +1062,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      ListProperty('virtual-machine-interface-bindings',
                   'virtual-machine-interface') -->
 
+<xsd:complexType name="ProtocolType">
+    <xsd:all>
+        <xsd:element name="protocol" type="xsd:string"/>
+        <xsd:element name="port" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FatFlowProtocols">
+    <xsd:all>
+        <xsd:element name="fat-flow-protocol" type="ProtocolType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<!--
+    The protocols for which flows on the virtual-machine-interface fall
+    into a single protocol flow
+-->
+<xsd:element name="virtual-machine-interface-fat-flow-protocols"
+             type="FatFlowProtocols"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-fat-flow-protocols',
+             'virtual-machine-interface') -->
+
 <xsd:element name="virtual-machine-interface-sub-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-sub-interface',

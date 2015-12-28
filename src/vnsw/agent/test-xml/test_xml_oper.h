@@ -91,6 +91,7 @@ private:
     std::string ip_;
     bool add_nova_;
     uint16_t vlan_tag_;
+    std::vector<uint16_t> fat_flow_port_;
     std::string parent_vmi_;
 };
 
@@ -315,6 +316,8 @@ private:
     std::string device_type_;
     std::string vmi_type_;
     uint16_t vlan_tag_;
+    std::vector<uint16_t> fat_flow_port_;
+
     boost::uuids::uuid vn_uuid_;
 };
 

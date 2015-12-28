@@ -337,6 +337,16 @@ bool AgentUtXmlVmInterface::ReadXml() {
     vlan_tag_ = 0;
     GetUintAttribute(node(), "vlan-tag", &vlan_tag_);
     GetStringAttribute(node(), "parent-vmi", &parent_vmi_);
+
+     xml_attribute attr = node().attribute("fat-flow");
+     for (;attr != xml_attribute(); attr = attr.next_attribute()) {
+         if (std::string(attr.name()) == "fat-flow") {
+             uint32_t value = attr.as_uint();
+             fat_flow_port_.push_back(value);
+         } else {
+             break;
+         }
+     }
     return true;
 }
 
@@ -354,6 +364,16 @@ bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
             char buff[32];
             sprintf(buff, "%d", vlan_tag_);
             AddXmlNodeWithValue(&n1, "sub-interface-vlan-tag", buff);
+        }
+
+        n1 = n.append_child("virtual-machine-interface-fat-flow-protocols");
+        std::vector<uint16_t>::const_iterator it = fat_flow_port_.begin();
+        for(;it != fat_flow_port_.end(); it++) {
+            xml_node n2 = n1.append_child("fat-flow-protocol");
+            AddXmlNodeWithValue(&n2, "protocol", "UDP");
+            stringstream s;
+            s << *it;
+            AddXmlNodeWithValue(&n2, "port", s.str());
         }
     }
 
@@ -1039,6 +1059,7 @@ bool AgentUtXmlVmInterfaceValidate::ReadXml() {
     if (id) {
         vn_uuid_ = MakeUuid(id);
     }
+
     return true;
 }
 

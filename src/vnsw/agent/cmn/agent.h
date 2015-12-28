@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <stdint.h>
+#include <string>
 #include <net/ethernet.h>
 #include <boost/intrusive_ptr.hpp>
 #include <base/intrusive_ptr_back_ref.h>
@@ -934,6 +935,7 @@ public:
     }
     Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
 
+    static uint16_t ProtocolStringToInt(const std::string &str);
 private:
 
     AgentParam *params_;
