@@ -112,6 +112,7 @@ private:
     std::string display_name_;
     Interface::Transport transport_;
     bool flood_unknown_unicast_;
+    VmInterface::FatFlowList fat_flow_list_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

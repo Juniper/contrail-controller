@@ -657,6 +657,27 @@ void Agent::SetAgentMcastLabelRange(uint8_t idx) {
     label_range_[idx] = str.str();
 }
 
+uint16_t
+Agent::ProtocolStringToInt(const std::string &proto) {
+    if (proto == "tcp" || proto == "TCP") {
+        return IPPROTO_TCP;
+    }
+
+    if (proto == "udp" || proto == "UDP") {
+        return IPPROTO_UDP;
+    }
+
+    if (proto == "sctp" || proto == "SCTP") {
+        return IPPROTO_SCTP;
+    }
+
+    if (proto =="icmp" || proto == "ICMP") {
+        return IPPROTO_ICMP;
+    }
+
+    return atoi(proto.c_str());
+}
+
 Agent::ForwardingMode Agent::TranslateForwardingMode
 (const std::string &mode) const {
     if (mode == "l2")

@@ -340,6 +340,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
+    {    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+        if (fat_flow_list_.list_ != vm_intf->fat_flow_list().list_) {
+            fat_flow_list_ = vm_intf->fat_flow_list();
+            ret = true;
+        }
+    }
     case Interface::PACKET:
         dmac = table->agent()->vrrp_mac();
         break;
@@ -671,6 +677,17 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
         info.set_policy_enabled(policy_enabled_);
         info.set_service_enabled(has_service_vlan_);
         info.set_analyzer_name(analyzer_name_);
+
+        std::vector<KSyncIntfFatFlowInfo> fat_flows;
+        for (VmInterface::FatFlowEntrySet::const_iterator it =
+             fat_flow_list_.list_.begin(); it != fat_flow_list_.list_.end();
+             it++) {
+            KSyncIntfFatFlowInfo info;
+            info.set_protocol(it->protocol);
+            info.set_port(it->port);
+            fat_flows.push_back(info);
+        }
+        info.set_fat_flows(fat_flows);
     }
 }
 

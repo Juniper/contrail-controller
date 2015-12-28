@@ -170,6 +170,19 @@ public:
         client->WaitForIdle();
     }
 
+    void AddFatFlow(struct PortInfo *input, std::string protocol, int port) {
+
+        ostringstream str;
+
+        str << "<virtual-machine-interface-fat-flow-protocols>"
+               "<fat-flow-protocol>"
+               "<protocol>" << protocol << "</protocol>"
+               "<port>" << port << "</port>"
+               "</fat-flow-protocol>"
+               "</virtual-machine-interface-fat-flow-protocols>";
+        AddNode("virtual-machine-interface", input[0].name, input[0].intf_id,
+                str.str().c_str());
+    }
 
     unsigned int intf_count;
     Agent *agent;
@@ -3448,6 +3461,68 @@ TEST_F(IntfTest, Add_vmi_with_zero_mac_and_update_with_correct_mac) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(10));
+    client->Reset();
+}
+
+TEST_F(IntfTest, FatFlow) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    AddFatFlow(input, "udp", 53);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == false);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+TEST_F(IntfTest, FatFlowDel) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    AddFatFlow(input, "udp", 53);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == false);
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53) == false);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == false);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
     client->Reset();
 }
 
