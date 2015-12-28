@@ -148,24 +148,28 @@ public:
         ServiceVlan();
         ServiceVlan(const ServiceVlan &rhs);
         ServiceVlan(uint16_t tag, const std::string &vrf_name,
-                    const Ip4Address &addr, uint8_t plen,
-                    const MacAddress &smac,
-                    const MacAddress &dmac);
+                    const Ip4Address &addr, const Ip6Address &addr6,
+                    const MacAddress &smac, const MacAddress &dmac);
         virtual ~ServiceVlan();
 
         bool operator() (const ServiceVlan &lhs, const ServiceVlan &rhs) const;
         bool IsLess(const ServiceVlan *rhs) const;
-        void Activate(VmInterface *interface, bool force_change) const;
+        void Activate(VmInterface *interface, bool force_change,
+                      bool old_ipv4_active, bool old_ipv6_active) const;
         void DeActivate(VmInterface *interface) const;
+        void V4RouteDelete(const Peer *peer) const;
+        void V6RouteDelete(const Peer *peer) const;
 
         uint16_t tag_;
         std::string vrf_name_;
         Ip4Address addr_;
-        uint8_t plen_;
+        Ip6Address addr6_;
         MacAddress smac_;
         MacAddress dmac_;
         mutable VrfEntryRef vrf_;
         mutable uint32_t label_;
+        mutable bool v4_rt_installed_;
+        mutable bool v6_rt_installed_;
     };
     typedef std::set<ServiceVlan, ServiceVlan> ServiceVlanSet;
 
@@ -668,7 +672,8 @@ private:
     void CleanupFloatingIpList();
     void UpdateFloatingIp(bool force_update, bool policy_change, bool l2);
     void DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag);
-    void UpdateServiceVlan(bool force_update, bool policy_change);
+    void UpdateServiceVlan(bool force_update, bool policy_change,
+                           bool old_ipv4_active, bool old_ipv6_active);
     void DeleteServiceVlan();
     void UpdateStaticRoute(bool force_update, bool policy_change);
     void DeleteStaticRoute();

@@ -1003,11 +1003,6 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             }
 
         case NextHop::VLAN: {
-            if (!prefix_addr.is_v4()) {
-                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                  "VLAN NH not supported for non IPv4");
-                 return;
-            }
             const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
                                     vlan_nh->GetIfUuid(), "");
@@ -1019,7 +1014,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                           path_preference,
                                           unicast_sequence_number(),
                                           this);
-            rt_table->AddVlanNHRouteReq(bgp_peer, vrf_name, prefix_addr.to_v4(),
+            rt_table->AddVlanNHRouteReq(bgp_peer, vrf_name, prefix_addr,
                                         prefix_len, data);
             break;
             }

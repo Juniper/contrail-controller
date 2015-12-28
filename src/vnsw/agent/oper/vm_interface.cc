@@ -380,12 +380,35 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             && rule.service_chain_address == "") {
             data->vrf_name_ = vrf_node->name();
         } else {
+            if (!rule.service_chain_address.size() &&
+                !rule.ipv6_service_chain_address.size()) {
+                LOG(DEBUG, "Service VLAN IP address not specified for "
+                    << node->name());
+                break;
+            }
             boost::system::error_code ec;
-            Ip4Address addr = Ip4Address::from_string
-                (rule.service_chain_address, ec);
-            if (ec.value() != 0) {
-                LOG(DEBUG, "Error decoding Service VLAN IP address "
-                    << rule.service_chain_address);
+            Ip4Address addr;
+            bool ip_set = true, ip6_set = true;
+            if (rule.service_chain_address.size()) {
+                addr = Ip4Address::from_string
+                    (rule.service_chain_address, ec);
+                if (ec.value() != 0) {
+                    ip_set = false;
+                    LOG(DEBUG, "Error decoding Service VLAN IP address "
+                        << rule.service_chain_address);
+                }
+            }
+            Ip6Address addr6;
+            if (rule.ipv6_service_chain_address.size()) {
+                addr6 = Ip6Address::from_string
+                    (rule.ipv6_service_chain_address, ec);
+                if (ec.value() != 0) {
+                    ip6_set = false;
+                    LOG(DEBUG, "Error decoding Service VLAN IP address "
+                        << rule.ipv6_service_chain_address);
+                }
+            }
+            if (!ip_set && !ip6_set) {
                 break;
             }
 
@@ -407,7 +430,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             }
             data->service_vlan_list_.list_.insert
                 (VmInterface::ServiceVlan(rule.vlan_tag, vrf_node->name(), addr,
-                                          32, smac, dmac));
+                                          addr6, smac, dmac));
         }
         break;
     }
@@ -1191,19 +1214,22 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                                      policy_change,
                                      old_vrf, old_dhcp_addr);
         }
-        UpdateIpv4InstanceIp(force_update, policy_change, false, old_ethernet_tag);
+        UpdateIpv4InstanceIp(force_update, policy_change, false,
+                             old_ethernet_tag);
         UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false);
-        UpdateServiceVlan(force_update, policy_change);
-        UpdateVrfAssignRule();
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
     }
     if (ipv6_active_) {
-        UpdateIpv6InstanceIp(force_update, policy_change, false, old_ethernet_tag);
+        UpdateIpv6InstanceIp(force_update, policy_change, false,
+                             old_ethernet_tag);
     }
-    UpdateStaticRoute(force_update, policy_change);
+    UpdateServiceVlan(force_update, policy_change, old_ipv4_active,
+                      old_ipv6_active);
     UpdateAllowedAddressPair(force_update, policy_change, false, false, false);
+    UpdateVrfAssignRule();
+    UpdateStaticRoute(force_update, policy_change);
 }
 
 void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
@@ -2621,7 +2647,9 @@ void VmInterface::DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag) {
     }
 }
 
-void VmInterface::UpdateServiceVlan(bool force_update, bool policy_change) {
+void VmInterface::UpdateServiceVlan(bool force_update, bool policy_change,
+                                    bool old_ipv4_active,
+                                    bool old_ipv6_active) {
     ServiceVlanSet::iterator it = service_vlan_list_.list_.begin();
     while (it != service_vlan_list_.list_.end()) {
         ServiceVlanSet::iterator prev = it++;
@@ -2629,7 +2657,8 @@ void VmInterface::UpdateServiceVlan(bool force_update, bool policy_change) {
             prev->DeActivate(this);
             service_vlan_list_.list_.erase(prev);
         } else {
-            prev->Activate(this, force_update);
+            prev->Activate(this, force_update, old_ipv4_active,
+                           old_ipv6_active);
         }
     }
 }
@@ -2814,6 +2843,9 @@ void VmInterface::UpdateVrfAssignRule() {
         if (ace_spec.Populate(&(it->match_condition_)) == false) {
             continue;
         }
+        /* Add both v4 and v6 rules regardless of whether interface is
+         * ipv4_active_/ipv6_active_
+         */
         ActionSpec vrf_translate_spec;
         vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
         vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
@@ -3846,23 +3878,27 @@ void VmInterface::SecurityGroupEntryList::Remove
 // ServiceVlan routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::ServiceVlan::ServiceVlan() :
-    ListEntry(), tag_(0), vrf_name_(""), addr_(0), plen_(32), smac_(), dmac_(),
-    vrf_(NULL, this), label_(MplsTable::kInvalidLabel) {
+    ListEntry(), tag_(0), vrf_name_(""), addr_(0), addr6_(), smac_(), dmac_(),
+    vrf_(NULL, this), label_(MplsTable::kInvalidLabel), v4_rt_installed_(false),
+    v6_rt_installed_(false) {
 }
 
 VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_), tag_(rhs.tag_),
-    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), plen_(rhs.plen_),
-    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this), label_(rhs.label_) {
+    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), addr6_(rhs.addr6_),
+    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this),
+    label_(rhs.label_), v4_rt_installed_(rhs.v4_rt_installed_),
+    v6_rt_installed_(rhs.v6_rt_installed_) {
 }
 
 VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
-                                      const Ip4Address &addr, uint8_t plen,
+                                      const Ip4Address &addr,
+                                      const Ip6Address &addr6,
                                       const MacAddress &smac,
                                       const MacAddress &dmac) :
-    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), plen_(plen),
+    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), addr6_(addr6),
     smac_(smac), dmac_(dmac), vrf_(NULL, this), label_(MplsTable::kInvalidLabel)
-    {
+    , v4_rt_installed_(false), v6_rt_installed_(false) {
 }
 
 VmInterface::ServiceVlan::~ServiceVlan() {
@@ -3878,7 +3914,9 @@ bool VmInterface::ServiceVlan::IsLess(const ServiceVlan *rhs) const {
 }
 
 void VmInterface::ServiceVlan::Activate(VmInterface *interface,
-                                        bool force_update) const {
+                                        bool force_update,
+                                        bool old_ipv4_active,
+                                        bool old_ipv6_active) const {
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
     VrfEntry *vrf = table->FindVrfRef(vrf_name_);
@@ -3898,11 +3936,38 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
         installed_ = false;
     }
 
+    if (old_ipv4_active && !interface->ipv4_active()) {
+        V4RouteDelete(interface->peer());
+    }
+    if (old_ipv6_active && !interface->ipv6_active()) {
+        V6RouteDelete(interface->peer());
+    }
+
+    /* If there is change in interface active status, we need to re-install */
+    if ((interface->ipv4_active() && !old_ipv4_active) ||
+        (interface->ipv6_active() && !old_ipv6_active)) {
+        installed_ = false;
+    }
+
     if (installed_ && force_update == false)
         return;
 
     interface->ServiceVlanRouteAdd(*this);
     installed_ = true;
+}
+
+void VmInterface::ServiceVlan::V4RouteDelete(const Peer *peer) const {
+    if (v4_rt_installed_) {
+        InetUnicastAgentRouteTable::Delete(peer, vrf_->GetName(), addr_, 32);
+        v4_rt_installed_ = false;
+    }
+}
+
+void VmInterface::ServiceVlan::V6RouteDelete(const Peer *peer) const {
+    if (v6_rt_installed_) {
+        InetUnicastAgentRouteTable::Delete(peer, vrf_->GetName(), addr6_, 128);
+        v6_rt_installed_ = false;
+    }
 }
 
 void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
@@ -3974,9 +4039,6 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
-    PathPreference path_preference;
-    SetPathPreference(&path_preference, ecmp(), primary_ip_addr());
-
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
@@ -3985,10 +4047,28 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
                                  0, entry.dmac_, vn()->GetName());
     table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
                                  0, entry.smac_, vn()->GetName());
-    InetUnicastAgentRouteTable::AddVlanNHRoute
-        (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
-         GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list,
-         path_preference);
+    if (ipv4_active_ && !entry.v4_rt_installed_ &&
+        !entry.addr_.is_unspecified()) {
+        PathPreference path_preference;
+        SetPathPreference(&path_preference, ecmp(), primary_ip_addr());
+
+        InetUnicastAgentRouteTable::AddVlanNHRoute
+            (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
+             GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list,
+             path_preference);
+        entry.v4_rt_installed_ = true;
+    }
+    if (ipv6_active_ && !entry.v6_rt_installed_ &&
+        !entry.addr6_.is_unspecified()) {
+        PathPreference path_preference;
+        SetPathPreference(&path_preference, ecmp6(), primary_ip6_addr());
+
+        InetUnicastAgentRouteTable::AddVlanNHRoute
+            (peer_.get(), entry.vrf_->GetName(), entry.addr6_, 128,
+             GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list,
+             path_preference);
+        entry.v6_rt_installed_ = true;
+    }
 
     entry.installed_ = true;
     return;
@@ -3998,9 +4078,9 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
     if (entry.installed_ == false) {
         return;
     }
-    
-    InetUnicastAgentRouteTable::Delete
-        (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32);
+
+    entry.V4RouteDelete(peer_.get());
+    entry.V6RouteDelete(peer_.get());
 
     // Delete the L2 Recive routes added for smac_ and dmac_
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>

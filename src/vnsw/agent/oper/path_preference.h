@@ -143,8 +143,12 @@ private:
 struct PathPreferenceIntfState : public DBState {
     PathPreferenceIntfState(const VmInterface *intf);
     struct RouteAddrList {
+        RouteAddrList();
+        RouteAddrList(const Address::Family &family, const IpAddress &ip,
+                      uint32_t plen, const std::string &vrf);
         bool operator<(const RouteAddrList &rhs) const;
         bool operator==(const RouteAddrList &rhs) const;
+
         Address::Family family_;
         IpAddress ip_;
         uint32_t plen_;

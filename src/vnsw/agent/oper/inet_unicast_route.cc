@@ -1032,19 +1032,19 @@ InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
 void 
 InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               const string &vm_vrf,
-                                              const Ip4Address &addr,
+                                              const IpAddress &addr,
                                               uint8_t plen,
                                               VlanNhRoute *data) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
     req.data.reset(data);
-    Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
+    InetUnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
 
 void
 InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               const string &vm_vrf,
-                                              const Ip4Address &addr,
+                                              const IpAddress &addr,
                                               uint8_t plen,
                                               const uuid &intf_uuid,
                                               uint16_t tag,
@@ -1063,7 +1063,7 @@ InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
 void
 InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
                                            const string &vm_vrf,
-                                           const Ip4Address &addr,
+                                           const IpAddress &addr,
                                            uint8_t plen,
                                            const uuid &intf_uuid,
                                            uint16_t tag,
@@ -1078,8 +1078,7 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
                                    sg_list, path_preference));
-
-    Inet4UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
+    InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
 void

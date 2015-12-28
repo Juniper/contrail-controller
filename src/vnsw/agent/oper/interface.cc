@@ -865,12 +865,23 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 entry.set_vrf_name("--ERROR--");
             }
             entry.set_ip_addr(vlan->addr_.to_string());
+            entry.set_ip6_addr(vlan->addr6_.to_string());
             entry.set_label(vlan->label_);
 
             if (vlan->installed_) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
+            }
+            if (vlan->v4_rt_installed_) {
+                entry.set_v4_route_installed("Y");
+            } else {
+                entry.set_v4_route_installed("N");
+            }
+            if (vlan->v6_rt_installed_) {
+                entry.set_v6_route_installed("Y");
+            } else {
+                entry.set_v6_route_installed("N");
             }
             vlan_list.push_back(entry);
             vlan_it++;
