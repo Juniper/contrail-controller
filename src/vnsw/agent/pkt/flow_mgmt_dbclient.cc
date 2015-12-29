@@ -441,6 +441,61 @@ void FlowMgmtDbClient::FreeRouteState(AgentRoute *route, uint32_t gen_id) {
     delete state;
 }
 
+bool FlowMgmtDbClient::HandleTrackingIpChange(const AgentRoute *rt,
+                                              RouteFlowHandlerState *state) {
+    bool ret = false;
+    RouteFlowHandlerState::FixedIpMap new_map;
+
+    //Maintain a list of interface to fixed-ip mapping for
+    //a given route, we need this map because there can be
+    //multiple path from different local vm path peer.
+    //If the route has fixed-ip change then all the the flows
+    //dependent on this route will be reevaluated.
+    for(Route::PathList::const_iterator it = rt->GetPathList().begin();
+            it != rt->GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+            continue;
+        }
+
+        if (path->nexthop() == NULL ||
+            path->nexthop()->GetType() != NextHop::INTERFACE) {
+            continue;
+        }
+
+        const InterfaceNH *nh = static_cast<InterfaceNH *>(path->nexthop());
+        InterfaceConstRef intf = nh->GetInterface();
+
+        IpAddress new_fixed_ip = path->GetFixedIp();
+        if (new_fixed_ip == Ip4Address(0)) {
+            continue;
+        }
+
+        new_map.insert(RouteFlowHandlerState::FixedIpEntry(intf, new_fixed_ip));
+
+        RouteFlowHandlerState::FixedIpMap::const_iterator old_it =
+            state->fixed_ip_map_.find(intf);
+        if (old_it != state->fixed_ip_map_.end()) {
+            if (new_fixed_ip != old_it->second) {
+                ret = true;
+            }
+        }
+    }
+    
+    //Check if any path has been deleted
+    RouteFlowHandlerState::FixedIpMap::const_iterator old_it =
+        state->fixed_ip_map_.begin();
+    for (;old_it != state->fixed_ip_map_.end(); old_it++) {
+        if (new_map.find(old_it->first) == new_map.end()) {
+            ret = true;
+            break;
+        }
+    }
+
+    state->fixed_ip_map_ = new_map;
+    return ret;
+}
+
 void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
                                    Agent::RouteTableType type,
                                    DBTablePartBase *partition, DBEntryBase *e) {
@@ -500,6 +555,16 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
         changed = true;
+    }
+
+    if (HandleTrackingIpChange(route, state)) {
+        //Tracking IP change can result in flow change
+        //i.e in case of NAT new reverse flow might be
+        //created, hence enqueue a ADD event so that flow will
+        //be reevaluated.
+        if (new_route == false) {
+            AddEvent(route, state);
+        }
     }
 
     if (changed == true && new_route == false) {

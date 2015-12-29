@@ -22,7 +22,7 @@ public:
         agent_ = Agent::GetInstance();
         flow_proto_ = agent_->pkt()->get_flow_proto();
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, (flow_proto_->FlowCount()));
+        WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0U));
     }
 
     virtual void TearDown() {
@@ -1638,9 +1638,6 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT_with_fixed_ip) {
 
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
     client->WaitForIdle();
-
-    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) &&
-             fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 }
 
 TEST_F(FlowTest, fixed_ip_fip_snat) {
