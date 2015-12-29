@@ -182,6 +182,8 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
 
     case FlowEvent::AUDIT_FLOW:
     case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::EVICT_FLOW:
+    case FlowEvent::RETRY_INDEX_ACQUIRE:
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event.flow();
@@ -223,6 +225,26 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req) {
         break;
     }
 
+    // Check if flow-handle changed. This can happen if vrouter tries to
+    // setup the flow which was evicted earlier
+    case FlowEvent::EVICT_FLOW: {
+        FlowEntry *flow = req.flow();
+        if (flow->flow_handle() != req.flow_handle())
+            break;
+        flow->flow_table()->DeleteMessage(flow);
+        break;
+    }
+
+    // Flow was waiting for an index. Index is available now. Retry acquiring
+    // the index
+    case FlowEvent::RETRY_INDEX_ACQUIRE: {
+        FlowEntry *flow = req.flow();
+        if (flow->flow_handle() != req.flow_handle())
+            break;
+        flow->flow_table()->UpdateKSync(flow, false);
+        break;
+    }
+
     case FlowEvent::FREE_FLOW_REF:
         break;
 
@@ -250,6 +272,17 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req) {
 
 void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
     EnqueueFlowEvent(FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow));
+    return;
+}
+
+void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle) {
+    EnqueueFlowEvent(FlowEvent(FlowEvent::EVICT_FLOW, flow, flow_handle));
+    return;
+}
+
+void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){
+    EnqueueFlowEvent(FlowEvent(FlowEvent::RETRY_INDEX_ACQUIRE, flow,
+                               flow_handle));
     return;
 }
 

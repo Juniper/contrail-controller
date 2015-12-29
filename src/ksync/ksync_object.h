@@ -137,6 +137,7 @@ public:
     bool IsEmpty(void) { return tree_.empty(); }; 
 
     virtual bool DoEventTrace(void) { return true; }
+    virtual void PreFree(KSyncEntry *entry) { }
     static void Shutdown();
 
     std::size_t Size() { return tree_.size(); }

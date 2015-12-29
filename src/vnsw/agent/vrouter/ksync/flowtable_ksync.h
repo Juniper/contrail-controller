@@ -78,6 +78,7 @@ public:
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     bool DoEventTrace(void) { return false; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
+    void PreFree(KSyncEntry *entry);
 
     vr_flow_req &flow_req() { return flow_req_; }
     KSync *ksync() const { return ksync_; }

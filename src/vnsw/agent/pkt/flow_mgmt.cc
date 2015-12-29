@@ -216,8 +216,7 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
         // being modified by two threads. Avoid the concurrency issue by
         // enqueuing a dummy request to flow-table queue. The reference will
         // be removed in flow processing context
-        FlowEvent flow_resp(FlowEvent::FREE_FLOW_REF,
-                                   req->flow().get(), NULL);
+        FlowEvent flow_resp(FlowEvent::FREE_FLOW_REF, req->flow().get());
         EnqueueFlowEvent(flow_resp);
         break;
     }

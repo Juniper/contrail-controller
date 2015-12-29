@@ -185,18 +185,11 @@ public:
                          const SecurityGroupList &sg_list);
     bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
 
-    // Update flow port bucket information
-    void DeleteByIndex(FlowEntry *flow);
-    void InsertByIndex(uint32_t flow_handle, FlowEntry *flow);
-    FlowEntry *FindByIndex(uint32_t flow_handle);
-    void DeleteVrouterEvictedFlow(FlowEntry *flow);
-    bool AddIndexFlowInfo(FlowEntry *fe, uint32_t flow_index, bool update);
-    void EvictVrouterFlow(FlowEntry *fe, uint32_t flow_index);
     void UpdateKSync(FlowEntry *flow, bool update);
+    void DeleteKSync(FlowEntry *flow);
 
     // FlowStatsCollector request queue events
     void NotifyFlowStatsCollector(FlowEntry *fe);
-    void UpdateFlowHandle(FlowEntry *flow, uint32_t flow_handle);
     void KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle);
 
     friend class FlowStatsCollector;
