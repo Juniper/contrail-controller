@@ -111,10 +111,11 @@ bool KSyncTxQueue::Run() {
             if (num >= (int)sizeof(u)) {
                 break;
             }
-            LOG(ERROR, "KsyncTxQueue read failure : " << errno << " : "
-                << strerror(errno));
-            if (errno != EINTR && errno != EIO)
+            if (errno != EINTR && errno != EIO) {
+                LOG(ERROR, "KsyncTxQueue read failure : " << errno << " : "
+                    << strerror(errno));
                 assert(0);
+            }
         }
         IoContext *io_context = NULL;
         while (queue_.try_pop(io_context)) {
