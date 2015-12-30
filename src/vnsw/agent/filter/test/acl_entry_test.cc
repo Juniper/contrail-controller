@@ -24,8 +24,7 @@ protected:
 TEST_F(AclEntryTest, Basic) {
     AclEntrySpec ae_spec1;
     ae_spec1.id = 1;
-    ae_spec1.src_ip_addr = IpAddress::from_string("1.1.1.1");
-    ae_spec1.src_ip_mask = IpAddress::from_string("255.255.255.255");
+    ae_spec1.BuildAddressInfo("1.1.1.1", 32, &ae_spec1.src_ip_list);
     ae_spec1.src_addr_type = AddressMatch::IP_ADDR; 
     RangeSpec protocol;
     protocol.min = 10;
@@ -100,8 +99,7 @@ TEST_F(AclEntryTest, Basic) {
 TEST_F(AclEntryTest, SubnetAddress) {
     AclEntrySpec ae_spec1;
     ae_spec1.id = 1;
-    ae_spec1.src_ip_addr = IpAddress::from_string("1.1.1.0");
-    ae_spec1.src_ip_mask = IpAddress::from_string("255.255.255.0");
+    ae_spec1.BuildAddressInfo("1.1.1.0", 24, &ae_spec1.src_ip_list);
     ae_spec1.src_addr_type = AddressMatch::IP_ADDR; 
     RangeSpec protocol;
     protocol.min = 10;
@@ -186,8 +184,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     AclEntrySpec ae_spec1;
 
     ae_spec1.id = 1;
-    ae_spec1.src_ip_addr = IpAddress::from_string("1.1.1.0");
-    ae_spec1.src_ip_mask = IpAddress::from_string("255.255.255.0");
+    ae_spec1.BuildAddressInfo("1.1.1.0", 24, &ae_spec1.src_ip_list);
     ae_spec1.src_addr_type = AddressMatch::IP_ADDR; 
     RangeSpec protocol;
     protocol.min = 10;
@@ -284,8 +281,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     AclEntrySpec ae_spec1;
 
     ae_spec1.id = 1;
-    ae_spec1.src_ip_addr = IpAddress::from_string("1.1.1.0");
-    ae_spec1.src_ip_mask = IpAddress::from_string("255.255.255.0");
+    ae_spec1.BuildAddressInfo("1.1.1.0", 24, &ae_spec1.src_ip_list);
     ae_spec1.src_addr_type = AddressMatch::IP_ADDR; 
     RangeSpec protocol;
     protocol.min = 10;
@@ -381,8 +377,7 @@ TEST_F(AclEntryTest, BasicDeny) {
 TEST_F(AclEntryTest, BasicIntrospecIpAclEntry) {
     AclEntrySpec ae_spec1;
     ae_spec1.id = 1;
-    ae_spec1.src_ip_addr = IpAddress::from_string("2.2.2.0");
-    ae_spec1.src_ip_mask = IpAddress::from_string("255.255.255.0");
+    ae_spec1.BuildAddressInfo("2.2.2.0", 24, &ae_spec1.src_ip_list);
     ae_spec1.src_addr_type = AddressMatch::IP_ADDR; 
     RangeSpec protocol;
     protocol.min = 10;
@@ -487,8 +482,7 @@ TEST_F(AclEntryTest, BasicIntrospecSgAclEntry) {
     ae_spec1.src_sg_id = 4;
     ae_spec1.src_addr_type = AddressMatch::SG;
 
-    ae_spec1.dst_ip_addr = IpAddress::from_string("2.2.2.0");
-    ae_spec1.dst_ip_mask = IpAddress::from_string("255.255.255.0");
+    ae_spec1.BuildAddressInfo("2.2.2.0", 24, &ae_spec1.dst_ip_list);
     ae_spec1.dst_addr_type = AddressMatch::IP_ADDR; 
 
     RangeSpec protocol;
