@@ -485,6 +485,11 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         return 0;
     }
 
+    // No need to add VLAN sub-interface if there is no parent
+    if (vmi_device_type_ == VmInterface::VM_VLAN_ON_VMI && !parent_.get()) {
+        return 0;
+    }
+
     uint32_t flags = 0;
     encoder.set_h_op(op);
 
