@@ -78,7 +78,7 @@ struct FlowTaskMsg : public InterTaskMsg {
 };
 
 struct Inet4FlowKeyCmp {
-    bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
+    bool operator()(const FlowKey &lhs, const FlowKey &rhs) const {
         const FlowKey &lhs_base = static_cast<const FlowKey &>(lhs);
         return lhs_base.IsLess(rhs);
     }
@@ -194,6 +194,7 @@ public:
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
+    friend class PktSandeshFlowStats;
     friend class FetchFlowRecord;
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
@@ -218,7 +219,6 @@ private:
              FlowEntry *new_rflow, bool update);
     void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
                      tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
-
     Agent *agent_;
     uint16_t table_index_;
     FlowTableKSyncObject *ksync_object_;

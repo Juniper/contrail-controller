@@ -71,6 +71,8 @@ struct SandeshFlowData {
     48: optional string tunnel_type;
     49: optional u16 underlay_source_port;
     50: bool enable_rpf;
+    51: i32 aging_protocol;
+    52: i32 aging_port;
 }
 
 struct LinkLocalFlowInfo {
@@ -247,4 +249,18 @@ response sandesh FlowAgeTimeResp {
 
 request sandesh FlowAgeTimeReq {
    1: u32 new_age_time;
+}
+
+request sandesh ShowFlowStatsCollector {
+   1: u32 protocol;
+   2: u32 port;
+}
+
+request sandesh NextFlowStatsRecordsSet {
+    1: string flow_key;
+}
+
+response sandesh FlowStatsCollectorRecordsResp {
+    1: list<SandeshFlowData> flow_list;
+    2: string flow_key (link="NextFlowStatsRecordsSet");
 }

@@ -219,7 +219,7 @@ bool AgentUtXmlFlowExportValidate::Validate() {
 
     TestClient::WaitForIdle();
     uint32_t count = (uint32_t)count_;
-    if (agent->flow_stats_collector()->flow_export_count() != count)
+    if (agent->flow_stats_manager()->flow_export_count() != count)
         return false;
 
     return true;
@@ -254,8 +254,8 @@ bool AgentUtXmlFlowThresholdValidate::Validate() {
     Agent *agent = Agent::GetInstance();
 
     TestClient::WaitForIdle();
-    FlowStatsCollector *fec = agent->flow_stats_collector();
-    if (fec->threshold_ != threshold_)
+    FlowStatsManager *fsm = agent->flow_stats_manager();
+    if (fsm->threshold() != threshold_)
         return false;
 
     return true;

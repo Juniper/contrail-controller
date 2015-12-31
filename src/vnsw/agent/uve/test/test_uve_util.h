@@ -19,7 +19,8 @@ public:
             return true;
         }
         FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-            (Agent::GetInstance()->flow_stats_collector());
+                                    (Agent::GetInstance()->flow_stats_manager()
+                                     ->default_flow_stats_collector());
         FlowExportInfo *info = f->FindFlowExportInfo(fe_->key());
         if (info) {
             info->SetActionLog();
@@ -87,7 +88,8 @@ public:
                 StatsCollector::FlowStatsCollector) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->flow_stats_collector()->Run();
+        Agent::GetInstance()->flow_stats_manager()->
+            default_flow_stats_collector()->Run();
     }
 };
 

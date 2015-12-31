@@ -26,7 +26,7 @@ public:
     
     virtual bool Run();
     void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe,
-                            FlowExportInfo *info);
+                            const FlowExportInfo *info);
     void set_delete_op(bool delete_op) {delete_op_ = delete_op;}
 
 protected:
@@ -35,10 +35,25 @@ protected:
     FlowKey flow_iteration_key_;
     bool key_valid_;
     bool delete_op_;
+    Agent *agent_;
 
 private:
-    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(PktSandeshFlow);
 };
 
+class PktSandeshFlowStats : public PktSandeshFlow {
+public:
+    PktSandeshFlowStats(Agent *agent, FlowStatsCollectorRecordsResp *obj, std::string resp_ctx,
+                        std::string key);
+    virtual ~PktSandeshFlowStats() {}
+    bool SetProtoKey(std::string key);
+    virtual bool Run();
+    bool SetProto(std::string &key);
+private:
+    uint32_t proto_;
+    uint32_t port_;
+    FlowStatsCollectorRecordsResp *resp_;
+    FlowEntry *flow_ptr_;
+    DISALLOW_COPY_AND_ASSIGN(PktSandeshFlowStats);
+};
 #endif

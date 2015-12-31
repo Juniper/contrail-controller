@@ -28,7 +28,8 @@ public:
         fe_(fe), bytes_(bytes), pkts_(pkts) {
     }
     virtual bool Run() {
-        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_collector();
+        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_manager()->
+                                      default_flow_stats_collector();
         FlowExportInfo *info = fec->FindFlowExportInfo(fe_->key());
         if (!info) {
             return true;
@@ -841,14 +842,14 @@ bool AgentUtXmlFlowThreshold::ToXml(xml_node *parent) {
 bool AgentUtXmlFlowThreshold::Run() {
     Agent *agent = Agent::GetInstance();
     uint64_t curr_time = UTCTimestampUsec();
-    FlowStatsCollector *mgr = agent->flow_stats_collector();
+    FlowStatsManager *mgr = Agent::GetInstance()->flow_stats_manager();
     mgr->prev_flow_export_rate_compute_time_ = curr_time - 1000000;
     GlobalVrouter *vr = agent->oper_db()->global_vrouter();
     vr->flow_export_rate_ = configured_flow_export_rate_;
     mgr->flow_export_count_ = flow_export_count_;
     mgr->threshold_ = threshold_;
 
-    mgr->UpdateFlowThreshold(curr_time);
+    mgr->UpdateFlowThreshold();
     TestClient::WaitForIdle();
 }
 

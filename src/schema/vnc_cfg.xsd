@@ -579,6 +579,21 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="FlowAgingTimeout">
+    <xsd:all>
+        <xsd:element name="protocol" type="xsd:string"/>
+        <xsd:element name="port" type="xsd:integer"/>
+        <xsd:element name="timeout-in-seconds" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FlowAgingTimeoutList">
+    <xsd:all>
+        <xsd:element name="flow-aging-timeout"
+            type="FlowAgingTimeout" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all') -->
 
@@ -669,6 +684,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="flow-export-rate" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('flow-export-rate', 'global-vrouter-config') -->
+
+<xsd:element name="flow-aging-timeout-list" type="FlowAgingTimeoutList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('flow-aging-timeout-list', 'global-vrouter-config') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>

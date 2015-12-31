@@ -7,8 +7,12 @@
 FlowStatsCollectorTest::FlowStatsCollectorTest(boost::asio::io_service &io,
                                                int intvl,
                                                uint32_t flow_cache_timeout,
-                                               AgentUveBase *uve)
-    : FlowStatsCollector(io, intvl, flow_cache_timeout, uve),
+                                               AgentUveBase *uve,
+                                               uint32_t instance_id,
+                                               FlowAgingTableKey *key,
+                                               FlowStatsManager *aging_module)
+    : FlowStatsCollector(io, intvl, flow_cache_timeout, uve,
+                         instance_id, key, aging_module),
       ingress_flow_log_list_() {
 }
 
