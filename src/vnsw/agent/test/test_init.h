@@ -139,7 +139,8 @@ public:
     FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowAge")), 0) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->flow_stats_collector()->Run();
+        Agent::GetInstance()->flow_stats_manager()->
+            default_flow_stats_collector()->Run();
         return true;
     }
 };

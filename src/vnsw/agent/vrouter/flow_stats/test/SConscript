@@ -7,6 +7,11 @@
 import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
+AgentEnv.MakeTestEnv(env)
+flow_manager_suite=[]
+#FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
+#FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
+#FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
 
 # test specific modifications
 AgentEnv.MakeTestEnv(env)

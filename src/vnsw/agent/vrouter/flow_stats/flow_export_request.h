@@ -46,7 +46,6 @@ private:
     FlowExportInfo info_;
     uint64_t time_;
     uint32_t index_;
-
     DISALLOW_COPY_AND_ASSIGN(FlowExportReq);
 };
 #endif //  __AGENT_FLOW_EXPORT_REQUEST_H__

@@ -65,7 +65,8 @@ public:
             client->WaitForIdle(2);
         }
         //To disable flow aging set the flow age time to high value
-        Agent::GetInstance()->flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
+        Agent::GetInstance()->flow_stats_manager()->
+            default_flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
         VxLanNetworkIdentifierMode(false);
         client->WaitForIdle();

@@ -13,7 +13,10 @@ class FlowStatsCollectorTest : public FlowStatsCollector {
 public:
     FlowStatsCollectorTest(boost::asio::io_service &io, int intvl,
                            uint32_t flow_cache_timeout,
-                           AgentUveBase *uve);
+                           AgentUveBase *uve,
+                           uint32_t instance_id,
+                           FlowAgingTableKey *key,
+                           FlowStatsManager *aging_module);
     virtual ~FlowStatsCollectorTest();
     void DispatchFlowMsg(const std::vector<FlowDataIpv4> &msg_list);
     FlowDataIpv4 last_sent_flow_log() const;

@@ -27,7 +27,7 @@ ContrailAgentInit::~ContrailAgentInit() {
     ksync_.reset();
     uve_.reset();
     stats_collector_.reset();
-    flow_stats_collector_.reset();
+    flow_stats_manager_.reset();
 }
 
 void ContrailAgentInit::ProcessOptions
@@ -80,14 +80,10 @@ void ContrailAgentInit::CreateModules() {
                                    *(agent()->event_manager()->io_service()),
                                      agent()));
         agent()->set_stats_collector(stats_collector_.get());
-
-        flow_stats_collector_.reset
-            (AgentObjectFactory::Create<FlowStatsCollector>(
-                                    *(agent()->event_manager()->io_service()),
-                                    agent()->params()->flow_stats_interval(),
-                                    agent()->params()->flow_cache_timeout(),
-                                    uve_.get()));
-        agent()->set_flow_stats_collector(flow_stats_collector_.get());
+        flow_stats_manager_.reset(new FlowStatsManager(agent()));
+        flow_stats_manager_->Init(agent()->params()->flow_stats_interval(),
+                                 agent()->params()->flow_cache_timeout());
+        agent()->set_flow_stats_manager(flow_stats_manager_.get());
     }
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
@@ -123,8 +119,8 @@ void ContrailAgentInit::StatsCollectorShutdown() {
 }
 
 void ContrailAgentInit::FlowStatsCollectorShutdown() {
-    if (agent()->flow_stats_collector()) {
-        agent()->flow_stats_collector()->Shutdown();
+    if (agent()->flow_stats_manager()) {
+        agent()->flow_stats_manager()->Shutdown();
     }
 }
 

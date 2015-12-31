@@ -88,7 +88,10 @@ using boost::system::error_code;
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \
     data.set_enable_rpf(fe->data().enable_rpf);\
-
+    if (fe->fsc()) {\
+       data.set_aging_protocol(fe->fsc()->flow_aging_key().proto);\
+       data.set_aging_port(fe->fsc()->flow_aging_key().port);\
+    }\
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0.0.0.0-0.0.0.0";
 
@@ -233,7 +236,7 @@ PktSandeshFlow::~PktSandeshFlow() {
 }
 
 void PktSandeshFlow::SetSandeshFlowData(std::vector<SandeshFlowData> &list,
-                                        FlowEntry *fe, FlowExportInfo *info) {
+                                        FlowEntry *fe, const FlowExportInfo *info) {
     SandeshFlowData data;
     SET_SANDESH_FLOW_DATA(agent_, data, fe, info);
     list.push_back(data);
@@ -318,10 +321,11 @@ bool PktSandeshFlow::Run() {
         SendResponse(resp);
         return true;
     }
-    FlowStatsCollector *fec = agent_->flow_stats_collector();
+    FlowStatsCollector *fec =
+        agent_->flow_stats_manager()->default_flow_stats_collector();
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
+        const FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
         SetSandeshFlowData(list, fe, info);
         ++it;
         count++;
@@ -345,7 +349,6 @@ bool PktSandeshFlow::Run() {
 void NextFlowRecordsSet::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     FlowRecordsResp *resp = new FlowRecordsResp();
-    
     PktSandeshFlow *task = new PktSandeshFlow(agent, resp, context(),
                                               get_flow_key());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -355,7 +358,6 @@ void NextFlowRecordsSet::HandleRequest() const {
 void FetchAllFlowRecords::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     FlowRecordsResp *resp = new FlowRecordsResp();
-    
     PktSandeshFlow *task = new PktSandeshFlow(agent, resp, context(),
                                               PktSandeshFlow::start_key);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -391,7 +393,8 @@ void FetchFlowRecord::HandleRequest() const {
 
     FlowTable::FlowEntryMap::iterator it;
     FlowTable *flow_obj = agent->pkt()->flow_table(0);
-    FlowStatsCollector *fec = agent->flow_stats_collector();
+    FlowStatsCollector *fec =
+        agent->flow_stats_manager()->default_flow_stats_collector();
     it = flow_obj->flow_entry_map_.find(key);
     SandeshResponse *resp;
     if (it != flow_obj->flow_entry_map_.end()) {
@@ -416,7 +419,8 @@ void FlowAgeTimeReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     uint32_t age_time = get_new_age_time();
 
-    FlowStatsCollector *collector = agent->flow_stats_collector();
+    FlowStatsCollector *collector =
+        agent->flow_stats_manager()->default_flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
     if (collector == NULL) {
@@ -464,4 +468,110 @@ void FetchLinkLocalFlowInfo::HandleRequest() const {
     resp->Response();
 }
 
+bool PktSandeshFlowStats::Run() {
+    std::vector<SandeshFlowData>& list =
+        const_cast<std::vector<SandeshFlowData>&>(resp_->get_flow_list());
+    int count = 0;
+    bool flow_key_set = false;
+
+    FlowTable *flow_obj = agent_->pkt()->flow_table(0);
+    FlowStatsManager *fm = agent_->flow_stats_manager();
+    const FlowStatsCollector *fsc = fm->Find(proto_, port_);
+    if (!fsc) {
+        FlowErrorResp *resp = new FlowErrorResp();
+        SendResponse(resp);
+        return true;
+    }
+
+    FlowTable::FlowEntryMap::iterator it;
+    if (key_valid_) {
+        it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
+    } else {
+        FlowErrorResp *resp = new FlowErrorResp();
+        SendResponse(resp);
+        return true;
+    }
+ 
+    while (it != flow_obj->flow_entry_map_.end()) {
+        FlowEntry *fe = it->second;
+        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe->key());
+        SetSandeshFlowData(list, fe, info);
+        ++it;
+        count++;
+        if (count == kMaxFlowResponse) {
+            if (it != flow_obj->flow_entry_map_.end()) {
+                ostringstream ostr;
+                ostr << proto_ << ":" << port_ << ":"
+                    << GetFlowKey(fe->key());
+                resp_->set_flow_key(ostr.str());
+                flow_key_set = true;
+            }
+            break;
+        }
+    }
+
+    if (!flow_key_set) {
+        ostringstream ostr;
+        ostr << proto_ << ":" << port_ << ":" << "0x0";
+        resp_->set_flow_key(ostr.str());
+    }
+    SendResponse(resp_);
+    return true;
+}
+
+bool PktSandeshFlowStats::SetProto(string &key) {
+    size_t n = std::count(key.begin(), key.end(), ':');
+    if (n != 3) {
+        return false;
+    }
+    stringstream ss(key);
+    string item;
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> proto_;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> port_;
+    }
+
+    long flow_ptr;
+    if (getline(ss, item)) {
+        istringstream(item) >> flow_ptr;
+    }
+
+    flow_ptr_ = (FlowEntry *)(flow_ptr);
+    return true;
+}
+
+PktSandeshFlowStats::PktSandeshFlowStats(Agent *agent, FlowStatsCollectorRecordsResp *obj,
+                                         std::string resp_ctx, std::string key):
+    PktSandeshFlow(agent, NULL, resp_ctx, key), resp_(obj), flow_ptr_(NULL) {
+    if (key != agent_->NullString()) {
+        if (SetProto(key)) {
+            key_valid_ = true;
+        }
+    }
+}
+
+void ShowFlowStatsCollector::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    FlowStatsCollectorRecordsResp *resp = new FlowStatsCollectorRecordsResp();
+
+    ostringstream ostr;
+    ostr << get_protocol() << ":" << get_port() << ":" <<
+        PktSandeshFlow::start_key;
+    PktSandeshFlowStats *task = new PktSandeshFlowStats(agent, resp, context(),
+                                                        ostr.str());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+void NextFlowStatsRecordsSet::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    FlowStatsCollectorRecordsResp *resp = new FlowStatsCollectorRecordsResp();
+
+    PktSandeshFlow *task = new PktSandeshFlowStats(agent, resp, context(),
+                                                   get_flow_key());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
 ////////////////////////////////////////////////////////////////////////////////

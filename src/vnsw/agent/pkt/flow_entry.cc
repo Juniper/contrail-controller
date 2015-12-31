@@ -182,7 +182,7 @@ FlowEntry::FlowEntry(FlowTable *flow_table) :
     flow_table_(flow_table), flags_(0),
     linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
     tunnel_type_(TunnelType::INVALID),
-    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), fsc_(NULL) {
     Reset();
     alloc_count_.fetch_and_increment();
 }
@@ -1757,8 +1757,13 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_source_vn(data_.source_vn);
     fe_sandesh_data.set_dest_vn(data_.dest_vn);
     std::vector<uint32_t> v;
-    FlowExportInfo *info = agent->flow_stats_collector()->
-        FindFlowExportInfo(key_);
+    if (!fsc_) {
+        return;
+    }
+    const FlowExportInfo *info = fsc_->FindFlowExportInfo(key_);
+    if (!info) {
+        return;
+    }
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin(); 
             it != data_.source_sg_id_l.end(); it++) {
