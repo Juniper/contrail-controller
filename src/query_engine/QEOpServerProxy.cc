@@ -876,7 +876,7 @@ public:
 
     void ConnUp(uint8_t cnum) {
         std::ostringstream ostr;
-        ostr << "ConnUp.. UP " << cnum;
+        ostr << "ConnUp.. UP " << (uint32_t)cnum;
         QE_LOG_NOQID(DEBUG, ostr.str());
         qosp_->evm_->io_service()->post(
                     boost::bind(&QEOpServerImpl::ConnUpPrePostProcess,
