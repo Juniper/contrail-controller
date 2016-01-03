@@ -20,6 +20,8 @@ struct VmInterfaceOsOperStateData;
 struct VmInterfaceMirrorData;
 class OperDhcpOptions;
 class PathPreference;
+class MetaDataIp;
+class HealthCheckInstance;
 
 class LocalVmPortPeer;
 /////////////////////////////////////////////////////////////////////////////
@@ -130,6 +132,8 @@ public:
         mutable bool force_l2_update_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
+    typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
+    typedef std::set<HealthCheckInstance *> HealthCheckInstanceSet;
 
     struct FloatingIpList {
         FloatingIpList() : v4_count_(0), v6_count_(0), list_() { }
@@ -446,7 +450,6 @@ public:
     const Ip4Address &primary_ip_addr() const { return primary_ip_addr_; }
     bool policy_enabled() const { return policy_enabled_; }
     const Ip4Address &subnet_bcast_addr() const { return subnet_bcast_addr_; }
-    const Ip4Address &mdata_ip_addr() const { return mdata_addr_; }
     const Ip6Address &primary_ip6_addr() const { return primary_ip6_addr_; }
     const std::string &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
@@ -547,6 +550,15 @@ public:
     bool HasFloatingIp(Address::Family family) const;
     bool HasFloatingIp() const;
     bool IsFloatingIp(const IpAddress &ip) const;
+    Ip4Address mdata_ip_addr() const;
+    MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
+
+    void InsertMetaDataIpInfo(MetaDataIp *mip);
+    void DeleteMetaDataIpInfo(MetaDataIp *mip);
+    void UpdateMetaDataIpInfo();
+
+    void InsertHealthCheckInstance(HealthCheckInstance *hc_inst);
+    void DeleteHealthCheckInstance(HealthCheckInstance *hc_inst);
 
     size_t GetFloatingIpCount() const { return floating_ip_list_.list_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.list_.size() != 0; }
@@ -591,6 +603,7 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
+    IpAddress GetGatewayIp(const IpAddress &ip) const;
     IpAddress GetServiceIp(const IpAddress &ip) const;
     void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                 VrfEntry *vrf,
@@ -617,6 +630,7 @@ private:
     friend struct VmInterfaceOsOperStateData;
     friend struct VmInterfaceMirrorData;
     friend struct VmInterfaceGlobalVrouterData;
+    friend struct VmInterfaceHealthCheckData;
 
     bool IsIpv4Active() const;
     bool PolicyEnabled() const;
@@ -658,18 +672,30 @@ private:
                      bool old_ipv6_active, const Ip6Address &old_v6_addr,
                      const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                      bool old_dhcp_enable, bool old_layer3_forwarding,
-                     bool force_update, const Ip4Address &old_dhcp_addr);
+                     bool force_update, const Ip4Address &old_dhcp_addr,
+                     bool old_is_hc_active);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
-                  const Ip4Address &old_addr, int old_ethernet_tag,
-                  bool force_update, bool policy_change, bool old_ipv6_active,
-                  const Ip6Address &old_v6_addr, const Ip4Address &subnet,
-                  const uint8_t old_subnet_plen,
-                  const Ip4Address &old_dhcp_addr);
+                  const Ip4Address &old_addr, bool old_need_linklocal_ip,
+                  int old_ethernet_tag, bool force_update, bool policy_change,
+                  bool old_ipv6_active, const Ip6Address &old_v6_addr,
+                  const Ip4Address &subnet, const uint8_t old_subnet_plen,
+                  const Ip4Address &old_dhcp_addr, bool old_is_hc_active);
     void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
-                  int old_ethernet_tag, const Ip4Address &old_dhcp_addr);
+                  int old_ethernet_tag, const Ip4Address &old_dhcp_addr,
+                  bool old_is_hc_active);
+    void DeleteL3Internalv4(bool old_ipv4_active, VrfEntry *old_vrf,
+                            bool old_need_linklocal_ip,
+                            const Ip4Address &old_subnet,
+                            const uint8_t old_subnet_plen, int old_ethernet_tag,
+                            const Ip4Address &old_dhcp_addr,
+                            bool old_is_hc_active);
+    void DeleteL3Internalv6(VrfEntry *old_vrf,
+                            bool old_ipv6_active,
+                            int old_ethernet_tag,
+                            bool old_is_hc_active);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
@@ -751,10 +777,12 @@ private:
     void AddL2ReceiveRoute(bool old_l2_active);
     void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
+    bool UpdateIsHealthCheckActive();
+
     VmEntryRef vm_;
     VnEntryRef vn_;
     Ip4Address primary_ip_addr_;
-    Ip4Address mdata_addr_;
+    std::auto_ptr<MetaDataIp> mdata_ip_;
     Ip4Address subnet_bcast_addr_;
     Ip6Address primary_ip6_addr_;
     std::string vm_mac_;
@@ -815,6 +843,8 @@ private:
     Ip4Address nova_ip_addr_;
     Ip6Address nova_ip6_addr_;
     Ip4Address dhcp_addr_;
+    MetaDataIpMap metadata_ip_map_;
+    HealthCheckInstanceSet hc_instance_set_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -854,7 +884,8 @@ struct VmInterfaceData : public InterfaceData {
         MIRROR,
         IP_ADDR,
         OS_OPER_STATE,
-        GLOBAL_VROUTER
+        GLOBAL_VROUTER,
+        HEALTH_CHECK
     };
 
     VmInterfaceData(Agent *agent, IFMapNode *node, Type type,
@@ -1024,6 +1055,13 @@ struct VmInterfaceGlobalVrouterData : public VmInterfaceData {
     bool bridging_;
     bool layer3_forwarding_;
     int vxlan_id_;
+};
+
+struct VmInterfaceHealthCheckData : public VmInterfaceData {
+    VmInterfaceHealthCheckData();
+    virtual ~VmInterfaceHealthCheckData();
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
 };
 
 #endif // vnsw_agent_vm_interface_hpp

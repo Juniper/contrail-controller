@@ -21,7 +21,8 @@ extern void RouterIdDepInit(Agent *agent);
 VnswInterfaceListenerBase::VnswInterfaceListenerBase(Agent *agent) :
     agent_(agent), read_buf_(NULL), sock_fd_(-1),
     sock_(*(agent->event_manager())->io_service()),
-    intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
+    intf_listener_id_(DBTableBase::kInvalidId),
+    fabric_listener_id_(DBTableBase::kInvalidId), seqno_(0),
     vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL),
     vhost_update_count_(0), ll_add_count_(0), ll_del_count_(0) {
 }
@@ -44,6 +45,10 @@ VnswInterfaceListenerBase::~VnswInterfaceListenerBase() {
 void VnswInterfaceListenerBase::Init() {
     intf_listener_id_ = agent_->interface_table()->Register
         (boost::bind(&VnswInterfaceListenerBase::InterfaceNotify, this, _1, _2));
+
+    fabric_listener_id_ = agent_->fabric_inet4_unicast_table()->Register
+        (boost::bind(&VnswInterfaceListenerBase::FabricRouteNotify,
+                     this, _1, _2));
 
     /* Allocate Route Event Workqueue */
     revent_queue_ = new WorkQueue<Event *>
@@ -126,15 +131,59 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
         }
     }
 
+    return;
+}
+
+/****************************************************************************
+ * Fabric unicast route notification handler. Triggers add/delete of
+ * link-local route
+ ****************************************************************************/
+void VnswInterfaceListenerBase::FabricRouteNotify(DBTablePartBase *part,
+                                                  DBEntryBase *e) {
+    const InetUnicastRouteEntry *rt = dynamic_cast<InetUnicastRouteEntry *>(e);
+    if (rt == NULL || rt->GetTableType() != Agent::INET4_UNICAST) {
+        return;
+    }
+
+    Ip4Address addr = rt->addr().to_v4();
+    // listen to only metadata ip routes
+    if (0 != ((addr.to_ulong() ^ METADATA_IP_ADDR) & 0xFFFF0000)) {
+        return;
+    }
+
+    DBState *s = e->GetState(part->parent(), fabric_listener_id_);
+    State *state = static_cast<State *>(s);
+
+    // Get old and new addresses
+    Ip4Address old_addr(0);
+    if (state) {
+        old_addr = Ip4Address(state->addr_);
+    }
+
+    if (rt->IsDeleted()) {
+        addr = Ip4Address(0);
+        if (state) {
+            e->ClearState(part->parent(), fabric_listener_id_);
+            delete state;
+        }
+    } else {
+        if (state == NULL) {
+            state = new State(addr);
+            e->SetState(part->parent(), fabric_listener_id_, state);
+        } else {
+            state->addr_ = addr;
+        }
+    }
+
     if (addr != old_addr) {
         if (old_addr.to_ulong()) {
             revent_queue_->Enqueue(new Event(Event::DEL_LL_ROUTE,
-                                             vmport->name(), old_addr));
+                                             "", old_addr));
         }
 
         if (addr.to_ulong()) {
             revent_queue_->Enqueue(new Event(Event::ADD_LL_ROUTE,
-                                             vmport->name(), addr));
+                                             "", addr));
         }
     }
     return;

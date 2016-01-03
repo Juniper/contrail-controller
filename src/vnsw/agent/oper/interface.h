@@ -142,6 +142,8 @@ protected:
     uint32_t l2_label_;
     bool ipv4_active_;
     bool ipv6_active_;
+    // if interface is marked active by health check
+    bool is_hc_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;
