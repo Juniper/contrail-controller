@@ -1518,8 +1518,9 @@ void FlowEntry::UpdateReflexiveAction() {
     // TRAP. If packet hits reverse flow, we will re-establish
     // the flows
     if (ShouldDrop(data_.match_p.sg_action_summary)) {
-        data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
-        data_.match_p.sg_action |= (1 << TrafficAction::TRAP);
+        data_.match_p.sg_action_summary &= ~(TrafficAction::DROP_FLAGS);
+        data_.match_p.sg_action_summary &= ~(TrafficAction::IMPLICIT_DENY_FLAGS);
+        data_.match_p.sg_action_summary |= (1 << TrafficAction::TRAP);
      }
 }
 

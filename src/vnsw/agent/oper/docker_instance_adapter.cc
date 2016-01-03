@@ -63,7 +63,8 @@ InstanceTask* DockerInstanceAdapter::CreateStartTask(const ServiceInstance::Prop
     }
 
 
-    return new InstanceTaskExecvp(cmd_str.str(), START, agent_->event_manager());
+    return new InstanceTaskExecvp("NetNS", cmd_str.str(), START,
+                                  agent_->event_manager());
 }
 
 InstanceTask* DockerInstanceAdapter::CreateStopTask(const ServiceInstance::Properties &props) {
@@ -84,7 +85,8 @@ InstanceTask* DockerInstanceAdapter::CreateStopTask(const ServiceInstance::Prope
     if (props.vmi_management != boost::uuids::nil_uuid()) {
         cmd_str << " --vmi-management-id " << UuidToString(props.vmi_management);
     }
-    return new InstanceTaskExecvp(cmd_str.str(), STOP, agent_->event_manager());
+    return new InstanceTaskExecvp("NetNS", cmd_str.str(), STOP,
+                                  agent_->event_manager());
 }
 
 bool DockerInstanceAdapter::isApplicable(const ServiceInstance::Properties &props) {

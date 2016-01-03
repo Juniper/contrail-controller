@@ -92,13 +92,6 @@ public:
         uint32_t oper_id_;
     };
 
-private:
-    struct State : public DBState {
-        State(Ip4Address addr) : addr_(addr) { }
-        virtual ~State() { }
-        Ip4Address addr_;
-    };
-
 protected:
     typedef std::map<std::string, HostInterfaceEntry *> HostInterfaceTable;
     typedef std::set<Ip4Address> LinkLocalAddressTable;
@@ -125,6 +118,7 @@ public:
 protected:
     friend class TestVnswIf;
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
+    void FabricRouteNotify(DBTablePartBase *part, DBEntryBase *e);
 
 // Pure firtuals to be implemented by derivative class
     virtual int CreateSocket() = 0;
@@ -159,6 +153,7 @@ protected:
     int sock_fd_;
     local::datagram_protocol::socket sock_;
     DBTableBase::ListenerId intf_listener_id_;
+    DBTableBase::ListenerId fabric_listener_id_;
     int seqno_;
     bool vhost_intf_up_;
 
