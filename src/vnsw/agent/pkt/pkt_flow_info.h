@@ -37,6 +37,8 @@ struct PktControlInfo {
 class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
+    static const Ip4Address kDefaultIpv4;
+    static const Ip6Address kDefaultIpv6;
 
     PktFlowInfo(Agent *a, boost::shared_ptr<PktInfo> info, FlowTable *ftable) :
         l3_flow(info->l3_forwarding), family(info->family), pkt(info),
