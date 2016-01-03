@@ -125,6 +125,7 @@ public:
 protected:
     friend class TestVnswIf;
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
+    void FabricRouteNotify(DBTablePartBase *part, DBEntryBase *e);
 
 // Pure firtuals to be implemented by derivative class
     virtual int CreateSocket() = 0;
@@ -159,6 +160,7 @@ protected:
     int sock_fd_;
     local::datagram_protocol::socket sock_;
     DBTableBase::ListenerId intf_listener_id_;
+    DBTableBase::ListenerId fabric_listener_id_;
     int seqno_;
     bool vhost_intf_up_;
 

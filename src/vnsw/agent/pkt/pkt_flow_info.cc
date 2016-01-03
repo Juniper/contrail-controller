@@ -13,6 +13,7 @@
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
 #include "oper/interface_common.h"
+#include "oper/metadata_ip.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "oper/path_preference.h"
@@ -699,7 +700,8 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     }
 
     // Check if packet is destined to metadata of interface
-    if (pkt->ip_daddr.to_v4() != vm_port->mdata_ip_addr()) {
+    MetaDataIp *mip = vm_port->GetMetaDataIp(pkt->ip_daddr.to_v4());
+    if (mip == NULL) {
         // Force implicit deny
         in->rt_ = NULL;
         out->rt_ = NULL;
@@ -711,8 +713,9 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
 
     linklocal_flow = true;
     nat_done = true;
-    nat_ip_saddr = Ip4Address(METADATA_IP_ADDR);
-    nat_ip_daddr = vm_port->primary_ip_addr();
+    // Get NAT source/destination IP from MetadataIP retrieved from interface
+    nat_ip_saddr = mip->nat_src_ip();
+    nat_ip_daddr = mip->nat_dst_ip();
     nat_dport = pkt->dport;
     if (pkt->sport == agent->metadata_server_port()) {
         nat_sport = METADATA_NAT_PORT;

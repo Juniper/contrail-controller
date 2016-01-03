@@ -324,10 +324,10 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     type_(type), uuid_(uuid), name_(name),
     vrf_(vrf, this), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true),
-    ipv6_active_(false), l2_active_(true), id_(kInvalidIndex),
-    dhcp_enabled_(true), dns_enabled_(true), mac_(), os_index_(kInvalidIndex),
-    os_oper_state_(true), admin_state_(true), test_oper_state_(true),
-    transport_(TRANSPORT_INVALID) {
+    ipv6_active_(false), is_hc_active_(true), l2_active_(true),
+    id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
+    os_index_(kInvalidIndex), os_oper_state_(true), admin_state_(true),
+    test_oper_state_(true), transport_(TRANSPORT_INVALID) {
 }
 
 Interface::~Interface() {
@@ -670,6 +670,12 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_ipv4_active("Active");
     } else {
         data.set_ipv4_active("Inactive");
+    }
+
+    if (is_hc_active_) {
+        data.set_health_check_active("Active");
+    } else {
+        data.set_health_check_active("Inactive");
     }
 
     if (ipv6_active_) {

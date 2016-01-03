@@ -14,7 +14,9 @@
 #include <cfg/cfg_init.h>
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
+#include <oper/metadata_ip.h>
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
 #include <oper/nexthop.h>
 #include <oper/vrf.h>
 #include <oper/mpls.h>
@@ -82,6 +84,8 @@ void OperDB::CreateDBTables(DB *db) {
                         &LoadbalancerTable::CreateTable);
     DB::RegisterFactory("db.physical_devices.0",
                         &PhysicalDeviceTable::CreateTable);
+    DB::RegisterFactory("db.healthcheck.0",
+                        &HealthCheckTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -89,6 +93,16 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_interface_table(intf_table);
     intf_table->Init(this);
     intf_table->set_agent(agent_);
+
+    // Allocate Range to be used for MetaDataIPAllocator
+    agent_->set_metadata_ip_allocator(new MetaDataIpAllocator(agent_, 1, 8192));
+
+    HealthCheckTable *hc_table;
+    hc_table =
+        static_cast<HealthCheckTable *>(db->CreateTable("db.healthcheck.0"));
+    assert(hc_table);
+    agent_->set_health_check_table(hc_table);
+    hc_table->set_agent(agent_);
 
     NextHopTable *nh_table;
     nh_table = static_cast<NextHopTable *>(db->CreateTable("db.nexthop.0"));

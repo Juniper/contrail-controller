@@ -34,6 +34,7 @@ class TaskScheduler;
 class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
+class MetaDataIpAllocator;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -130,6 +131,7 @@ typedef std::vector<std::string> CommunityList;
 
 class AgentDBTable;
 class InterfaceTable;
+class HealthCheckTable;
 class NextHopTable;
 class VmTable;
 class VnTable;
@@ -259,6 +261,11 @@ public:
     InterfaceTable *interface_table() const {return intf_table_;}
     void set_interface_table(InterfaceTable *table) {
          intf_table_ = table;
+    }
+
+    HealthCheckTable *health_check_table() const {return hc_table_;}
+    void set_health_check_table(HealthCheckTable *table) {
+         hc_table_ = table;
     }
 
     MirrorCfgTable *mirror_cfg_table() const {return mirror_cfg_table_;}
@@ -738,6 +745,9 @@ public:
     FlowStatsCollector *flow_stats_collector() const;
     void set_flow_stats_collector(FlowStatsCollector *fsc);
 
+    MetaDataIpAllocator *metadata_ip_allocator() const;
+    void set_metadata_ip_allocator(MetaDataIpAllocator *allocator);
+
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
 
@@ -982,6 +992,8 @@ private:
     AgentInit *agent_init_;
     VrfEntry *fabric_vrf_;
     InterfaceTable *intf_table_;
+    HealthCheckTable *hc_table_;
+    std::auto_ptr<MetaDataIpAllocator> metadata_ip_allocator_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;

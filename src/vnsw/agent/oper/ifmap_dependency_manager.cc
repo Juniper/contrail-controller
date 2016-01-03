@@ -11,6 +11,7 @@
 #include "oper/vn.h"
 #include "oper/sg.h"
 #include "oper/interface_common.h"
+#include "oper/health_check.h"
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/physical_device.h"
@@ -81,6 +82,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "physical-router",
         "routing-instance",
         "security-group",
+        "service-health-check",
         "service-instance",
         "service-template",
         "subnet",
@@ -689,6 +691,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "physical-interface", true));
     RegisterConfigHandler(this, "physical-router",
                           agent ? agent->physical_device_table() : NULL);
+
+    RegisterConfigHandler(this, "service-health-check",
+                          agent ? agent->health_check_table() : NULL);
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {
