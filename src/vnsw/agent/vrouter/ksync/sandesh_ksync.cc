@@ -13,6 +13,7 @@
 #include <pkt/flow_table.h>
 #include <oper/mirror_table.h>
 #include <vrouter/ksync/ksync_init.h>
+#include <pkt/flow_proto.h>
 
 void vr_interface_req::Process(SandeshContext *context) {
      AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
@@ -52,6 +53,28 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     return 0;
 }
 
+static void LogFlowError(vr_flow_req *r, int err) {
+    string op;
+    if (r->get_fr_flags() != 0) {
+        op = "Add/Update";
+    } else {
+        op = "Delete";
+    }
+
+    int family = (r->get_fr_family() == AF_INET)? Address::INET :
+        Address::INET6;
+    IpAddress sip, dip;
+    VectorToIp(r->get_fr_flow_ip(), family, &sip, &dip);
+    LOG(ERROR, "Error Flow entry op = " << op
+        << " nh = " << (int) r->get_fr_flow_nh_id()
+        << " src = " << sip.to_string() << ":"
+        << ntohs(r->get_fr_flow_sport())
+        << " dst = " << dip.to_string()
+        << ntohs(r->get_fr_flow_dport())
+        << " proto = " << (int)r->get_fr_flow_proto()
+        << " flow_handle = " << (int) r->get_fr_index());
+}
+
 void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
     assert(r->get_fr_op() == flow_op::FLOW_TABLE_GET || 
            r->get_fr_op() == flow_op::FLOW_SET);
@@ -61,68 +84,48 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         flow_ksync_->set_flow_table_size(r->get_fr_ftable_size());
         flow_ksync_->set_flow_table_path(r->get_fr_file_path());
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
-    } else if (r->get_fr_op() == flow_op::FLOW_SET) {
-        const KSyncIoContext *ioc = ksync_io_ctx();
-        const FlowTableKSyncEntry *ksync_entry =
-            dynamic_cast<const FlowTableKSyncEntry *>(ioc->GetKSyncEntry());
-        if (ksync_entry == NULL) {
-            assert(0);
-        }
+        return;
+    } 
 
-        FlowEntry *entry = ksync_entry->flow_entry().get();
-        if (GetErrno() == EBADF) {
-            string op;
-            if (r->get_fr_flags() != 0) {
-                op = "Add/Update";
-            } else {
-                op = "Delete";
-            }
-
-            int family = (r->get_fr_family() == AF_INET)? Address::INET :
-                Address::INET6;
-            IpAddress sip, dip;
-            VectorToIp(r->get_fr_flow_ip(), family, &sip, &dip);
-            LOG(ERROR, "Error Flow entry op = " << op
-                << " nh = " << (int) r->get_fr_flow_nh_id()
-                << " src = " << sip.to_string() << ":"
-                << ntohs(r->get_fr_flow_sport())
-                << " dst = " << dip.to_string()
-                << ntohs(r->get_fr_flow_dport())
-                << " proto = " << (int)r->get_fr_flow_proto()
-                << " flow_handle = " << (int) r->get_fr_index());
-            if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
-                entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-            }
-            return;
-        }
-
-        if (GetErrno() == ENOSPC) {
-            if (entry) {
-                entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-            }
-            return;
-        }
-
-        if (entry) {
-            if (ioc->event() == KSyncEntry::DEL_ACK) {
-                // Skip delete operation.
-                return;
-            }
-
-            if (entry->flow_handle() != FlowEntry::kInvalidFlowHandle) {
-                if ((int)entry->flow_handle() != r->get_fr_index()) {
-                    LOG(DEBUG, "Flow index changed from <" << 
-                        entry->flow_handle() << "> to <" << 
-                        r->get_fr_index() << ">");
-                }
-            }
-
-            FlowTable *table = entry->flow_table();
-            table->KSyncSetFlowHandle(entry, r->get_fr_index());
-        }
-    } else {
-        assert(!("Invalid Flow operation"));
+    assert(r->get_fr_op() == flow_op::FLOW_SET);
+    int err = GetErrno();
+    if (err == EBADF) {
+        LogFlowError(r, err);
     }
+
+    const KSyncIoContext *ioc = ksync_io_ctx();
+    // Skip delete operation.
+    if (ioc->event() == KSyncEntry::DEL_ACK) {
+        return;
+    }
+
+    FlowTableKSyncEntry *ksync_entry =
+        dynamic_cast<FlowTableKSyncEntry *>(ioc->GetKSyncEntry());
+    assert(ksync_entry != NULL);
+
+    FlowEntry *flow = ksync_entry->flow_entry().get();
+    if (flow == NULL)
+        return;
+
+    tbb::mutex::scoped_lock lock(flow->mutex());
+    FlowProto *proto = flow->flow_table()->agent()->pkt()->get_flow_proto();
+    if (err == EBADF || err == ENOSPC) {
+        if ((err = EBADF) && (((int)flow->flow_handle() != r->get_fr_index())))
+            return;
+
+        proto->KSyncFlowErrorRequest(ksync_entry);
+        return;
+    }
+
+    if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+        if ((int)flow->flow_handle() != r->get_fr_index()) {
+            LOG(DEBUG, "Flow index changed from <" <<
+                flow->flow_handle() << "> to <" <<
+                r->get_fr_index() << ">");
+        }
+    }
+
+    proto->KSyncFlowHandleRequest(ksync_entry, r->get_fr_index());
     return;
 }
 

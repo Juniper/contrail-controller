@@ -641,3 +641,14 @@ void KSyncFlowEntryFreeList::Free(FlowTableKSyncEntry *flow) {
 void FlowTableKSyncObject::GrowFreeList() {
     free_list_.Grow();
 }
+
+void FlowTableKSyncObject::NetlinkAck(KSyncEntry *entry,
+                                      KSyncEntry::KSyncEvent event) {
+    FlowProto *proto = ksync()->agent()->pkt()->get_flow_proto();
+    proto->KSyncEventRequest(entry, event);
+}
+
+void FlowTableKSyncObject::GenerateKSyncEvent(FlowTableKSyncEntry *entry,
+                                              KSyncEntry::KSyncEvent event) {
+    KSyncObject::NetlinkAck(entry, event);
+}

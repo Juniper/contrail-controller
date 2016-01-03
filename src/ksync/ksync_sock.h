@@ -129,7 +129,7 @@ public:
     virtual void Handler();
 
     void ErrorHandler(int err);
-    const KSyncEntry *GetKSyncEntry() const {return entry_;}
+    KSyncEntry *GetKSyncEntry() const {return entry_;}
     KSyncEntry::KSyncEvent event() const {return event_;}
 private:
     KSyncEntry *entry_;

@@ -145,6 +145,9 @@ public:
     void GrowFreeList();
     KSyncFlowEntryFreeList *free_list() { return &free_list_; }
 
+    void NetlinkAck(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
+    void GenerateKSyncEvent(FlowTableKSyncEntry *entry,
+                            KSyncEntry::KSyncEvent event);
 private:
     friend class KSyncSandeshContext;
     friend class FlowTable;

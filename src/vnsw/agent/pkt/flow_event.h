@@ -4,6 +4,7 @@
 #ifndef __AGENT_FLOW_EVENT_H__
 #define __AGENT_FLOW_EVENT_H__
 
+#include <ksync/ksync_entry.h>
 #include "flow_table.h"
 
 ////////////////////////////////////////////////////////////////////////////
@@ -46,60 +47,94 @@ public:
         // Event to ensure DBEntry entry reference is freed from right context
         FREE_DBENTRY,
         // Grow the free-list entries for flow and ksync
-        GROW_FREE_LIST
+        GROW_FREE_LIST,
+        // Set flow-handle for a flow
+        FLOW_HANDLE_UPDATE,
+        // Error by vrouter for the flow
+        KSYNC_VROUTER_ERROR,
+        // Generate KSync event for the flow
+        KSYNC_EVENT,
     };
 
     FlowEvent() :
         event_(INVALID), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_() {
     }
 
     FlowEvent(Event event) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), del_rev_flow_(false) {
+        gen_id_(0), del_rev_flow_(false), ksync_entry_(NULL), ksync_event_() {
     }
 
     FlowEvent(Event event, FlowEntry *flow) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_() {
     }
 
     FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), del_rev_flow_(false), flow_handle_(flow_handle) {
+        gen_id_(0), del_rev_flow_(false), flow_handle_(flow_handle),
+        ksync_entry_(NULL), ksync_event_() {
     }
 
     FlowEvent(Event event, FlowEntry *flow, const DBEntry *db_entry) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(db_entry),
         gen_id_(0), del_rev_flow_(false),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_() {
     }
 
     FlowEvent(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(db_entry),
         gen_id_(gen_id), del_rev_flow_(false),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_() {
     }
 
     FlowEvent(Event event, const FlowKey &key, bool del_rev_flow) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), flow_key_(key), del_rev_flow_(del_rev_flow),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_() {
     }
 
     FlowEvent(Event event, PktInfoPtr pkt_info) :
         event_(event), flow_(NULL), pkt_info_(pkt_info), db_entry_(NULL),
         gen_id_(0), flow_key_(), del_rev_flow_(),
-        flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        flow_handle_(FlowEntry::kInvalidFlowHandle),
+        ksync_entry_(NULL), ksync_event_() {
+    }
+
+    FlowEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) :
+        event_(KSYNC_EVENT), flow_(NULL), pkt_info_(), db_entry_(NULL),
+        gen_id_(0), flow_key_(), del_rev_flow_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle),
+        ksync_entry_(entry), ksync_event_(event) {
+    }
+
+    FlowEvent(KSyncEntry *entry, uint32_t flow_handle) :
+        event_(FLOW_HANDLE_UPDATE), flow_(NULL), pkt_info_(),
+        db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
+        flow_handle_(flow_handle), ksync_entry_(entry), ksync_event_() {
+    }
+
+    FlowEvent(KSyncEntry *entry) :
+        event_(KSYNC_VROUTER_ERROR), flow_(NULL), pkt_info_(),
+        db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(entry),
+        ksync_event_() {
     }
 
     FlowEvent(const FlowEvent &rhs) :
         event_(rhs.event_), flow_(rhs.flow()), pkt_info_(rhs.pkt_info_),
         db_entry_(rhs.db_entry_), gen_id_(rhs.gen_id_),
         flow_key_(rhs.flow_key_), del_rev_flow_(rhs.del_rev_flow_),
-        flow_handle_(rhs.flow_handle_) {
+        flow_handle_(rhs.flow_handle_),
+        ksync_entry_(rhs.ksync_entry_), ksync_event_(rhs.ksync_event_) {
     }
 
     virtual ~FlowEvent() { }
@@ -115,6 +150,8 @@ public:
     PktInfoPtr pkt_info() const { return pkt_info_; }
     uint32_t flow_handle() const { return flow_handle_; }
 
+    KSyncEntry *ksync_entry() const { return ksync_entry_.get(); }
+    KSyncEntry::KSyncEvent ksync_event() const { return ksync_event_; }
 private:
     Event event_;
     FlowEntryPtr flow_;
@@ -124,6 +161,8 @@ private:
     FlowKey flow_key_;
     bool del_rev_flow_;
     uint32_t flow_handle_;
+    KSyncEntry::KSyncEntryPtr ksync_entry_;
+    KSyncEntry::KSyncEvent ksync_event_;
 };
 
 #endif //  __AGENT_FLOW_EVENT_H__

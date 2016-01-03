@@ -101,7 +101,7 @@ public:
     // Call Notify event with mutex lock held
     void SafeNotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     // Handle Netlink ACK message
-    void NetlinkAck(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
+    virtual void NetlinkAck(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     // Add a back-reference entry
     void BackRefAdd(KSyncEntry *key, KSyncEntry *reference);
     // Delete a back-reference entry
