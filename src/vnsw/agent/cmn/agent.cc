@@ -28,6 +28,8 @@
 #include <oper/operdb_init.h>
 #include <oper/config_manager.h>
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
+#include <oper/metadata_ip.h>
 #include <oper/multicast.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
@@ -429,7 +431,7 @@ Agent::Agent() :
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
     module_type_(Module::VROUTER_AGENT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), fabric_vrf_(NULL),
-    intf_table_(NULL),
+    intf_table_(NULL), health_check_table_(NULL), metadata_ip_allocator_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL), vrf_table_(NULL),
     vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), mpls_table_(NULL),
     acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
@@ -557,6 +559,22 @@ FlowStatsManager *Agent::flow_stats_manager() const {
 
 void Agent::set_flow_stats_manager(FlowStatsManager *aging_module) {
     flow_stats_manager_ = aging_module;
+}
+
+HealthCheckTable *Agent::health_check_table() const {
+    return health_check_table_;
+}
+
+void Agent::set_health_check_table(HealthCheckTable *table) {
+    health_check_table_ = table;
+}
+
+MetaDataIpAllocator *Agent::metadata_ip_allocator() const {
+    return metadata_ip_allocator_.get();
+}
+
+void Agent::set_metadata_ip_allocator(MetaDataIpAllocator *allocator) {
+    metadata_ip_allocator_.reset(allocator);
 }
 
 PktModule *Agent::pkt() const {

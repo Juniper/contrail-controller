@@ -27,7 +27,9 @@
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/metadata_ip.h>
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
 #include <oper/oper_dhcp_options.h>
@@ -50,7 +52,7 @@ using namespace autogen;
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL),
-    vn_(NULL), primary_ip_addr_(0), mdata_addr_(0), subnet_bcast_addr_(0),
+    vn_(NULL), primary_ip_addr_(0), mdata_ip_(NULL), subnet_bcast_addr_(0),
     primary_ip6_addr_(), vm_mac_(""), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), dhcp_enable_(true),
@@ -67,7 +69,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
-    dhcp_addr_(0) {
+    dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_() {
+    metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -82,7 +85,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          Interface *parent, const Ip6Address &a6,
                          DeviceType device_type, VmiType vmi_type) :
     Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
-    vn_(NULL), primary_ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
+    vn_(NULL), primary_ip_addr_(addr), mdata_ip_(NULL), subnet_bcast_addr_(0),
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), dhcp_enable_(true),
@@ -98,13 +101,18 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
-    nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0) {
+    nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
+    hc_instance_set_() {
+    metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
 }
 
 VmInterface::~VmInterface() {
+    mdata_ip_.reset(NULL);
+    assert(metadata_ip_map_.empty());
+    assert(hc_instance_set_.empty());
 }
 
 bool VmInterface::CmpInterface(const DBEntry &rhs) const {
@@ -1163,14 +1171,21 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool old_dhcp_enable = dhcp_enable_;
     bool old_layer3_forwarding = layer3_forwarding_;
     Ip4Address old_dhcp_addr = dhcp_addr_;
+    bool old_metadata_ip_active = metadata_ip_active_;
 
     if (data) {
         ret = data->OnResync(table, this, &force_update);
     }
 
+    metadata_ip_active_ = IsMetaDataIPActive();
     ipv4_active_ = IsIpv4Active();
     ipv6_active_ = IsIpv6Active();
     l2_active_ = IsL2Active();
+
+    if (metadata_ip_active_ != old_metadata_ip_active) {
+        ret = true;
+    }
+
     if (ipv4_active_ != old_ipv4_active) {
         InterfaceTable *intf_table = static_cast<InterfaceTable *>(get_table());
         if (ipv4_active_)
@@ -1198,7 +1213,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
                 old_addr, old_ethernet_tag, old_need_linklocal_ip,
                 old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
                 old_dhcp_enable, old_layer3_forwarding, force_update,
-                old_dhcp_addr);
+                old_dhcp_addr, old_metadata_ip_active);
 
     return ret;
 }
@@ -1219,6 +1234,32 @@ bool VmInterface::Delete(const DBRequest *req) {
     return true;
 }
 
+void VmInterface::UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
+                                     bool policy_change,
+                                     bool old_metadata_ip_active) {
+    assert(metadata_ip_active_);
+    if (!old_metadata_ip_active) {
+        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
+                                           MacAddress::FromString(vm_mac_),
+                                           vrf_->GetName());
+    }
+    UpdateL3TunnelId(force_update, policy_change);
+    UpdateMetadataRoute(old_metadata_ip_active, old_vrf);
+}
+
+void VmInterface::DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
+                                     bool policy_change,
+                                     bool old_metadata_ip_active,
+                                     bool old_need_linklocal_ip) {
+    assert(!metadata_ip_active_);
+    if (old_metadata_ip_active) {
+        InterfaceNH::DeleteL3InterfaceNH(GetUuid());
+    }
+    DeleteL3TunnelId();
+    DeleteMetadataRoute(old_metadata_ip_active, old_vrf,
+                        old_need_linklocal_ip);
+}
+
 void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_addr, int old_ethernet_tag,
                            bool force_update, bool policy_change,
@@ -1227,8 +1268,6 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_subnet,
                            const uint8_t old_subnet_plen,
                            const Ip4Address &old_dhcp_addr) {
-    UpdateL3NextHop(old_ipv4_active, old_ipv6_active);
-    UpdateL3TunnelId(force_update, policy_change);
     if (ipv4_active_) {
         if (do_dhcp_relay_) {
             UpdateIpv4InterfaceRoute(old_ipv4_active, force_update,
@@ -1237,14 +1276,12 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         }
         UpdateIpv4InstanceIp(force_update, policy_change, false,
                              old_ethernet_tag);
-        UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false);
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
     }
     if (ipv6_active_) {
-        UpdateIpv6InstanceIp(force_update, policy_change, false,
-                             old_ethernet_tag);
+        UpdateIpv6InstanceIp(force_update, policy_change, false, old_ethernet_tag);
     }
     UpdateServiceVlan(force_update, policy_change, old_ipv4_active,
                       old_ipv6_active);
@@ -1272,14 +1309,11 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
         DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf);
         DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf);
     }
-    DeleteMetadataRoute(old_ipv4_active, old_vrf, old_need_linklocal_ip);
     DeleteFloatingIp(false, 0);
     DeleteServiceVlan();
     DeleteStaticRoute();
     DeleteAllowedAddressPair(false);
-    DeleteL3TunnelId();
     DeleteVrfAssignRule();
-    DeleteL3NextHop(old_ipv4_active, old_ipv6_active);
     DeleteResolveRoute(old_vrf, old_subnet, old_subnet_plen);
 }
 
@@ -1410,8 +1444,9 @@ void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
 }
 
 // Apply the latest configuration
-void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy,
-                              VrfEntry *old_vrf, const Ip4Address &old_addr,
+void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
+                              bool old_policy, VrfEntry *old_vrf,
+                              const Ip4Address &old_addr,
                               int old_ethernet_tag, bool old_need_linklocal_ip,
                               bool old_ipv6_active,
                               const Ip6Address &old_v6_addr,
@@ -1420,7 +1455,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               bool old_dhcp_enable,
                               bool old_layer3_forwarding,
                               bool force_update,
-                              const Ip4Address &old_dhcp_addr) {
+                              const Ip4Address &old_dhcp_addr,
+                              bool old_metadata_ip_active) {
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
@@ -1444,15 +1480,27 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         vrf_->CreateTableLabel();
     }
 
+    // Add/Update L3 Metadata
+    if (metadata_ip_active_) {
+        UpdateL3MetadataIp(old_vrf, force_update, policy_change,
+                           old_metadata_ip_active);
+    }
+
     // Add/Del/Update L3 
     if ((ipv4_active_ || ipv6_active_) && layer3_forwarding_) {
         UpdateL3(old_ipv4_active, old_vrf, old_addr, old_ethernet_tag, force_update,
                  policy_change, old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen, old_dhcp_addr);
     } else if ((old_ipv4_active || old_ipv6_active)) {
-        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip, 
+        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip,
                  old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen, old_ethernet_tag, old_dhcp_addr);
+    }
+
+    // Del L3 Metadata after deleting L3
+    if (!metadata_ip_active_ && old_metadata_ip_active) {
+        DeleteL3MetadataIp(old_vrf, force_update, policy_change,
+                           old_metadata_ip_active, old_need_linklocal_ip);
     }
 
     // Add/Del/Update L2 
@@ -2091,6 +2139,19 @@ bool VmInterfaceGlobalVrouterData::OnResync(const InterfaceTable *table,
     return ret;
 }
 
+VmInterfaceHealthCheckData::VmInterfaceHealthCheckData() :
+    VmInterfaceData(NULL, NULL, HEALTH_CHECK, Interface::TRANSPORT_INVALID) {
+}
+
+VmInterfaceHealthCheckData::~VmInterfaceHealthCheckData() {
+}
+
+bool VmInterfaceHealthCheckData::OnResync(const InterfaceTable *table,
+                                          VmInterface *vmi,
+                                          bool *force_update) const {
+    return vmi->UpdateIsHealthCheckActive();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
@@ -2180,7 +2241,7 @@ bool VmInterface::IsActive()  const {
     return mac_set_;
 }
 
-bool VmInterface::IsIpv4Active() const {
+bool VmInterface::IsMetaDataIPActive() const {
     if (!layer3_forwarding()) {
         return false;
     }
@@ -2196,8 +2257,32 @@ bool VmInterface::IsIpv4Active() const {
     return IsActive();
 }
 
+bool VmInterface::IsIpv4Active() const {
+    if (!layer3_forwarding()) {
+        return false;
+    }
+
+    if (subnet_.is_unspecified() && primary_ip_addr_.to_ulong() == 0) {
+        return false;
+    }
+
+    if (subnet_.is_unspecified() == false && parent_ == NULL) {
+        return false;
+    }
+
+    if (!is_hc_active_) {
+        return false;
+    }
+
+    return IsActive();
+}
+
 bool VmInterface::IsIpv6Active() const {
     if (!layer3_forwarding() || (primary_ip6_addr_.is_unspecified())) {
+        return false;
+    }
+
+    if (!is_hc_active_) {
         return false;
     }
 
@@ -2298,6 +2383,7 @@ void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change) {
     if (label_ == MplsTable::kInvalidLabel) {
         label_ = agent->mpls_table()->AllocLabel();
         new_entry = true;
+        UpdateMetaDataIpInfo();
     }
 
     if (force_update || policy_change || new_entry)
@@ -2314,6 +2400,7 @@ void VmInterface::DeleteL3MplsLabel() {
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     MplsLabel::Delete(agent, label_);
     label_ = MplsTable::kInvalidLabel;
+    UpdateMetaDataIpInfo();
 }
 
 // Allocate MPLS Label for Bridge entries 
@@ -2350,7 +2437,7 @@ void VmInterface::UpdateL3TunnelId(bool force_update, bool policy_change) {
 }
 
 void VmInterface::DeleteL3TunnelId() {
-    if (!ipv4_active_ && !ipv6_active_) {
+    if (!metadata_ip_active_) {
         DeleteL3MplsLabel();
     }
 }
@@ -2448,16 +2535,6 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     }
 }
 
-void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
-    if (old_ipv4_active || old_ipv6_active) {
-        return;
-    }
-    if (Ipv4Activated(old_ipv4_active) || Ipv6Activated(old_ipv6_active)) {
-        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
-                                           MacAddress::FromString(vm_mac_), vrf_->GetName());
-    }
-}
-
 void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
     if (old_vrf == NULL)
         return;
@@ -2476,14 +2553,6 @@ void VmInterface::DeleteL2NextHop(bool old_l2_active) {
     }
 }
 
-void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
-    if (Ipv4Deactivated(old_ipv4_active) || Ipv6Deactivated(old_ipv6_active)) {
-        if (!ipv4_active_ && !ipv6_active_) {
-            InterfaceNH::DeleteL3InterfaceNH(GetUuid());
-        }
-    }
-}
-
 void VmInterface::DeleteMulticastNextHop() {
     InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
 }
@@ -2496,6 +2565,26 @@ void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
         BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
                                       GetVifMac(agent), 0);
     }
+}
+
+bool VmInterface::UpdateIsHealthCheckActive() {
+    bool is_hc_active = true;
+    HealthCheckInstanceSet::iterator it = hc_instance_set_.begin();
+    while (it != hc_instance_set_.end()) {
+        if ((*it)->active() == false) {
+            // if any of the health check instance reports not active
+            // status mark interface health check status inactive
+            is_hc_active = false;
+            break;
+        }
+        it++;
+    }
+
+    if (is_hc_active_ != is_hc_active) {
+        is_hc_active_ = is_hc_active;
+        return true;
+    }
+    return false;
 }
 
 IpAddress VmInterface::GetServiceIp(const IpAddress &vm_ip) const {
@@ -2607,8 +2696,9 @@ void VmInterface::DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
 }
 
 // Add meta-data route if linklocal_ip is needed
-void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
-    if (ipv4_active_ == false || old_ipv4_active == true)
+void VmInterface::UpdateMetadataRoute(bool old_metadata_ip_active,
+                                      VrfEntry *old_vrf) {
+    if (metadata_ip_active_ == false || old_metadata_ip_active == true)
         return;
 
     if (!need_linklocal_ip_) {
@@ -2617,15 +2707,12 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    table->VmPortToMetaDataIp(id(), vrf_->vrf_id(), &mdata_addr_);
-
-    PathPreference path_preference;
-    SetPathPreference(&path_preference, false, Ip4Address(0));
-
-    InetUnicastAgentRouteTable::AddLocalVmRoute
-        (agent->link_local_peer(), agent->fabric_vrf_name(), mdata_addr_,
-         32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(),
-         CommunityList(), true, path_preference, Ip4Address(0));
+    if (mdata_ip_.get() == NULL) {
+        mdata_ip_.reset(new MetaDataIp(agent->metadata_ip_allocator(),
+                                       this, id()));
+    }
+    //mdata_ip_->set_nat_src_ip(Ip4Address(METADATA_IP_ADDR));
+    mdata_ip_->set_active(true);
 }
 
 // Delete meta-data route
@@ -2634,12 +2721,9 @@ void VmInterface::DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
     if (!old_need_linklocal_ip) {
         return;
     }
-
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
-    InetUnicastAgentRouteTable::Delete(agent->link_local_peer(),
-                                       agent->fabric_vrf_name(),
-                                       mdata_addr_, 32);
+    if (mdata_ip_.get() != NULL) {
+        mdata_ip_->set_active(false);
+    }
 }
 
 void VmInterface::CleanupFloatingIpList() {
@@ -4180,6 +4264,54 @@ bool VmInterface::IsFloatingIp(const IpAddress &ip) const {
         it++;
     }
     return false;
+}
+
+Ip4Address VmInterface::mdata_ip_addr() const {
+    if (mdata_ip_.get() == NULL) {
+        return Ip4Address(0);
+    }
+
+    return mdata_ip_->GetLinkLocalIp();
+}
+
+MetaDataIp *VmInterface::GetMetaDataIp(const Ip4Address &ip) const {
+    MetaDataIpMap::const_iterator it = metadata_ip_map_.find(ip);
+    if (it != metadata_ip_map_.end()) {
+        return it->second;
+    }
+
+    return NULL;
+}
+
+void VmInterface::InsertMetaDataIpInfo(MetaDataIp *mip) {
+    std::pair<MetaDataIpMap::iterator, bool> ret;
+    ret = metadata_ip_map_.insert(std::pair<Ip4Address, MetaDataIp*>
+                                  (mip->GetLinkLocalIp(), mip));
+    assert(ret.second);
+}
+
+void VmInterface::DeleteMetaDataIpInfo(MetaDataIp *mip) {
+    std::size_t ret = metadata_ip_map_.erase(mip->GetLinkLocalIp());
+    assert(ret != 0);
+}
+
+void VmInterface::UpdateMetaDataIpInfo() {
+    MetaDataIpMap::iterator it = metadata_ip_map_.begin();
+    while (it != metadata_ip_map_.end()) {
+        it->second->UpdateInterfaceCb();
+        it++;
+    }
+}
+
+void VmInterface::InsertHealthCheckInstance(HealthCheckInstance *hc_inst) {
+    std::pair<HealthCheckInstanceSet::iterator, bool> ret;
+    ret = hc_instance_set_.insert(hc_inst);
+    assert(ret.second);
+}
+
+void VmInterface::DeleteHealthCheckInstance(HealthCheckInstance *hc_inst) {
+    std::size_t ret = hc_instance_set_.erase(hc_inst);
+    assert(ret != 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////

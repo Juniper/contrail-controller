@@ -103,6 +103,8 @@ struct ItfSandeshData {
    49: optional string ipv4_active;
    50: list<string> fixed_ip4_list;
    51: list<string> fixed_ip6_list;
+   52: optional string health_check_active;
+   53: optional string metadata_ip_active;
 }
 
 struct VnIpamData {
@@ -1326,3 +1328,39 @@ response sandesh IFMapNodePolicyResp {
 request sandesh IFMapNodePolicyReq {
     1: string node;
 }
+
+traceobject sandesh HealthCheckTrace {
+    1: string log;
+}
+
+struct HealthCheckInstanceSandeshData {
+    1: string vm_interface (link="ItfReq");
+    2: string metadata_ip;
+    3: string service_ip;
+    4: string health_check_ip;
+    5: bool active;
+    6: bool running;
+    7: string last_update_time;
+}
+
+struct HealthCheckSandeshData {
+    1: string uuid;
+    2: string name;
+    3: string monitor_type;
+    4: string http_method;
+    5: string url_path;
+    6: string expected_codes;
+    7: u32 delay;
+    8: u32 timeout;
+    9: u32 max_retries;
+    10: list<HealthCheckInstanceSandeshData> inst_list;
+}
+
+request sandesh HealthCheckSandeshReq {
+    1: string uuid;
+}
+
+response sandesh HealthCheckSandeshResp {
+    1: list<HealthCheckSandeshData> hc_list;
+}
+

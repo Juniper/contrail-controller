@@ -19,6 +19,10 @@ class InstanceTask {
  public:
     typedef boost::function<void(InstanceTask *task, const std::string errors)>
         OnErrorCallback;
+    typedef boost::function<void(InstanceTask *task, const std::string msg)>
+        OnDataCallback;
+    typedef boost::function<void(InstanceTask *task,
+            const boost::system::error_code &ec)>OnExitCallback;
 
     InstanceTask();
     virtual ~InstanceTask() {}
@@ -45,18 +49,28 @@ class InstanceTask {
         on_error_cb_ = cb;
     }
 
+    void set_on_data_cb(OnDataCallback cb) {
+        on_data_cb_ = cb;
+    }
+
+    void set_on_exit_cb(OnExitCallback cb) {
+        on_exit_cb_ = cb;
+    }
+
  protected:
     bool is_running_;
     time_t start_time_;
     OnErrorCallback on_error_cb_;
+    OnDataCallback on_data_cb_;
+    OnExitCallback on_exit_cb_;
 };
 
 class InstanceTaskExecvp : public InstanceTask {
  public:
     static const size_t kBufLen = 4096;
 
-    InstanceTaskExecvp(const std::string &cmd,
-        int cmd_type, EventManager *evm);
+    InstanceTaskExecvp(const std::string &name, const std::string &cmd,
+                       int cmd_type, EventManager *evm);
 
     bool Run();
     void Stop();
@@ -74,17 +88,23 @@ class InstanceTaskExecvp : public InstanceTask {
             return cmd_type_;
     }
 
- private:
-    void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
+    void set_pipe_stdout(bool pipe) {
+        pipe_stdout_ = pipe;
+    }
 
+ private:
+    void ReadData(const boost::system::error_code &ec, size_t read_bytes);
+
+    const std::string name_;
     const std::string cmd_;
-    boost::asio::posix::stream_descriptor errors_;
+    boost::asio::posix::stream_descriptor input_;
     std::stringstream errors_data_;
     char rx_buff_[kBufLen];
     AgentSignal::SignalChildHandler sig_handler_;
 
     pid_t pid_;
     int cmd_type_;
+    bool pipe_stdout_;
 };
 
 class InstanceTaskMethod : public InstanceTask {

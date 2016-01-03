@@ -112,6 +112,7 @@ public:
     VrfEntry *vrf() const {return vrf_.get();}
     bool ipv4_active() const {return ipv4_active_;}
     bool ipv6_active() const {return ipv6_active_;}
+    bool metadata_ip_active() const {return metadata_ip_active_;}
     bool ip_active(Address::Family family) const;
     bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
@@ -142,6 +143,10 @@ protected:
     uint32_t l2_label_;
     bool ipv4_active_;
     bool ipv6_active_;
+    // if interface is marked active by health check
+    bool is_hc_active_;
+    // interface has metadata ip active
+    bool metadata_ip_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;

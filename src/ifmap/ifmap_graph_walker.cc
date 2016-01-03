@@ -370,6 +370,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("loadbalancer-member");
     traversal_white_list_->include_vertex.insert("loadbalancer-healthmonitor");
     traversal_white_list_->include_vertex.insert("subnet");
+    traversal_white_list_->include_vertex.insert("service-health-check");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -473,5 +474,7 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     // getting the pool from. EG: public-network (might not have any VMs)
     traversal_white_list_->include_edge.insert(
         "source=floating-ip-pool,target=virtual-network");
+    traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=service-health-check");
 }
 

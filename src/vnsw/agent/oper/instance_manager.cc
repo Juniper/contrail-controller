@@ -649,8 +649,8 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
         cmd_str << props.IdToCmdLineStr();
     }
 
-    InstanceTask *task = new InstanceTaskExecvp(cmd_str.str(), Stop,
-                                agent_->event_manager());
+    InstanceTask *task = new InstanceTaskExecvp("NetNS", cmd_str.str(), Stop,
+                                                agent_->event_manager());
     std::stringstream info;
     info << "NetNS stale run command queued: " << task->cmd();
     Enqueue(task, props.instance_id);
