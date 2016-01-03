@@ -21,7 +21,8 @@ extern void RouterIdDepInit(Agent *agent);
 VnswInterfaceListenerBase::VnswInterfaceListenerBase(Agent *agent) :
     agent_(agent), read_buf_(NULL), sock_fd_(-1),
     sock_(*(agent->event_manager())->io_service()),
-    intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
+    intf_listener_id_(DBTableBase::kInvalidId),
+    fabric_listener_id_(DBTableBase::kInvalidId), seqno_(0),
     vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL),
     vhost_update_count_(0), ll_add_count_(0), ll_del_count_(0) {
 }
@@ -44,6 +45,10 @@ VnswInterfaceListenerBase::~VnswInterfaceListenerBase() {
 void VnswInterfaceListenerBase::Init() {
     intf_listener_id_ = agent_->interface_table()->Register
         (boost::bind(&VnswInterfaceListenerBase::InterfaceNotify, this, _1, _2));
+
+    fabric_listener_id_ = agent_->fabric_inet4_unicast_table()->Register
+        (boost::bind(&VnswInterfaceListenerBase::FabricRouteNotify,
+                     this, _1, _2));
 
     /* Allocate Route Event Workqueue */
     revent_queue_ = new WorkQueue<Event *>
@@ -68,6 +73,8 @@ void VnswInterfaceListenerBase::Init() {
 }
 
 void VnswInterfaceListenerBase::Shutdown() {
+    agent_->interface_table()->Unregister(intf_listener_id_);
+    agent_->fabric_inet4_unicast_table()->Unregister(fabric_listener_id_);
     // Expect only one entry for vhost0 during shutdown
     assert(host_interface_table_.size() == 0);
     if (agent_->test_mode()) {
@@ -95,19 +102,7 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
         return;
     }
 
-    DBState *s = e->GetState(part->parent(), intf_listener_id_);
-    State *state = static_cast<State *>(s);
-
-    // Get old and new addresses
-    Ip4Address addr = vmport->mdata_ip_addr();
-    if (vmport->IsDeleted() || vmport->ipv4_active() == false) {
-        addr = Ip4Address(0);
-    }
-
-    Ip4Address old_addr(0);
-    if (state) {
-        old_addr = Ip4Address(state->addr_);
-    }
+    DBState *state = e->GetState(part->parent(), intf_listener_id_);
 
     if (vmport->IsDeleted()) {
         if (state) {
@@ -117,27 +112,52 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
         }
     } else {
         if (state == NULL) {
-            state = new State(vmport->mdata_ip_addr());
+            state = new DBState();
             e->SetState(part->parent(), intf_listener_id_, state);
             SetSeen(vmport->name(), true);
             HostInterfaceEntry *entry = GetHostInterfaceEntry(vmport->name());
             entry->oper_id_ = vmport->id();
-        } else {
-            state->addr_ = addr;
         }
     }
 
-    if (addr != old_addr) {
-        if (old_addr.to_ulong()) {
+    return;
+}
+
+/****************************************************************************
+ * Fabric unicast route notification handler. Triggers add/delete of
+ * link-local route
+ ****************************************************************************/
+void VnswInterfaceListenerBase::FabricRouteNotify(DBTablePartBase *part,
+                                                  DBEntryBase *e) {
+    const InetUnicastRouteEntry *rt = dynamic_cast<InetUnicastRouteEntry *>(e);
+    if (rt == NULL || rt->GetTableType() != Agent::INET4_UNICAST) {
+        return;
+    }
+
+    DBState *state = e->GetState(part->parent(), fabric_listener_id_);
+
+    if (rt->IsDeleted()) {
+        if (state) {
+            e->ClearState(part->parent(), fabric_listener_id_);
+            delete state;
             revent_queue_->Enqueue(new Event(Event::DEL_LL_ROUTE,
-                                             vmport->name(), old_addr));
+                                             "", rt->addr().to_v4()));
+        }
+    } else {
+        // listen to only metadata ip routes
+        const AgentPath *path = rt->GetActivePath();
+        if (path == NULL || path->peer() != agent_->link_local_peer()) {
+            return;
         }
 
-        if (addr.to_ulong()) {
+        if (state == NULL) {
+            state = new DBState();
+            e->SetState(part->parent(), fabric_listener_id_, state);
             revent_queue_->Enqueue(new Event(Event::ADD_LL_ROUTE,
-                                             vmport->name(), addr));
+                                             "", rt->addr().to_v4()));
         }
     }
+
     return;
 }
 

@@ -49,7 +49,8 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
         cmd_str << " --update";
     }
 
-    return new InstanceTaskExecvp(cmd_str.str(), START, agent_->event_manager());
+    return new InstanceTaskExecvp("NetNS", cmd_str.str(), START,
+                                  agent_->event_manager());
 }
 
 InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Properties &props) {
@@ -80,7 +81,8 @@ InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Proper
         cmd_str << props.IdToCmdLineStr();
     }
 
-    return new InstanceTaskExecvp(cmd_str.str(), STOP, agent_->event_manager());
+    return new InstanceTaskExecvp("NetNS", cmd_str.str(), STOP,
+                                  agent_->event_manager());
 }
 
 bool NetNSInstanceAdapter::isApplicable(const ServiceInstance::Properties &props) {

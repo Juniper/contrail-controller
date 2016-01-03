@@ -29,7 +29,7 @@ public:
         testfile.close();
         std::stringstream cmd_str;
         cmd_str << "/bin/sh" << " " <<tmpfilename;
-        task_ = new InstanceTaskExecvp(cmd_str.str(), 1, &evm);
+        task_ = new InstanceTaskExecvp("FdTestTask", cmd_str.str(), 1, &evm);
     }
 
     virtual void TearDown() {

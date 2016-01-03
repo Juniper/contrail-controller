@@ -58,6 +58,9 @@ public:
             entries_.resize(index + kGrowSize);
         }
 
+        // index should not be already in use
+        assert(bitmap_[index] == 1);
+
         bitmap_.set(index, 0);
         entries_[index] = entry;
         return index;

@@ -35,6 +35,7 @@ class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
 class FlowStatsManager;
+class MetaDataIpAllocator;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -125,12 +126,18 @@ typedef boost::intrusive_ptr<const PhysicalDeviceVn> PhysicalDeviceVnConstRef;
 void intrusive_ptr_release(const PhysicalDeviceVn *p);
 void intrusive_ptr_add_ref(const PhysicalDeviceVn *p);
 
+class HealthCheckService;
+typedef boost::intrusive_ptr<HealthCheckService> HealthCheckServiceRef;
+void intrusive_ptr_release(const HealthCheckService* p);
+void intrusive_ptr_add_ref(const HealthCheckService* p);
+
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 typedef std::vector<std::string> CommunityList;
 
 class AgentDBTable;
 class InterfaceTable;
+class HealthCheckTable;
 class NextHopTable;
 class VmTable;
 class VnTable;
@@ -747,6 +754,12 @@ public:
     FlowStatsManager *flow_stats_manager() const;
     void set_flow_stats_manager(FlowStatsManager *fsc);
 
+    HealthCheckTable *health_check_table() const;
+    void set_health_check_table(HealthCheckTable *table);
+
+    MetaDataIpAllocator *metadata_ip_allocator() const;
+    void set_metadata_ip_allocator(MetaDataIpAllocator *allocator);
+
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
 
@@ -1002,6 +1015,8 @@ private:
     AgentInit *agent_init_;
     VrfEntry *fabric_vrf_;
     InterfaceTable *intf_table_;
+    HealthCheckTable *health_check_table_;
+    std::auto_ptr<MetaDataIpAllocator> metadata_ip_allocator_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;

@@ -11,25 +11,31 @@ InstanceTask::InstanceTask()
 : is_running_(false), start_time_(0)
 {}
 
-InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
-                            int cmd_type, EventManager *evm) :
-        cmd_(cmd), errors_(*(evm->io_service())),
-        pid_(0), cmd_type_(cmd_type) {
+InstanceTaskExecvp::InstanceTaskExecvp(const std::string &name,
+                                       const std::string &cmd,
+                                       int cmd_type, EventManager *evm) :
+        name_(name), cmd_(cmd), input_(*(evm->io_service())),
+        pid_(0), cmd_type_(cmd_type), pipe_stdout_(false) {
 }
 
-void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
-                                                   size_t read_bytes) {
+void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
+                                  size_t read_bytes) {
     if (read_bytes) {
-        errors_data_ << rx_buff_;
+        if (!on_data_cb_.empty()) {
+            std::string data(rx_buff_, read_bytes);
+            on_data_cb_(this, data);
+        } else {
+            errors_data_ << rx_buff_;
+        }
     }
 
     if (ec) {
         boost::system::error_code close_ec;
-        errors_.close(close_ec);
+        input_.close(close_ec);
 
         std::string errors = errors_data_.str();
         if (errors.length() > 0) {
-            LOG(ERROR, "NetNS run errors: " << std::endl << errors);
+            LOG(ERROR, name_ << "NetNS run errors: " << errors);
 
             if (!on_error_cb_.empty()) {
                 on_error_cb_(this, errors);
@@ -37,14 +43,15 @@ void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
         }
         errors_data_.clear();
 
+        if (!on_exit_cb_.empty()) {
+            on_exit_cb_(this, ec);
+        }
         return;
     }
 
     bzero(rx_buff_, sizeof(rx_buff_));
-    boost::asio::async_read(
-                    errors_,
-                    boost::asio::buffer(rx_buff_, kBufLen),
-                    boost::bind(&InstanceTaskExecvp::ReadErrors,
+    input_.async_read_some(boost::asio::buffer(rx_buff_, kBufLen),
+                    boost::bind(&InstanceTaskExecvp::ReadData,
                                 this, boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred));
 }
@@ -89,11 +96,17 @@ bool InstanceTaskExecvp::Run() {
     pid_ = vfork();
     if (pid_ == 0) {
         close(err[0]);
-        dup2(err[1], STDERR_FILENO);
+        if (pipe_stdout_) {
+            dup2(err[1], STDOUT_FILENO);
+        } else {
+            dup2(err[1], STDERR_FILENO);
+        }
         close(err[1]);
 
-        close(STDOUT_FILENO);
-        close(STDIN_FILENO);
+        if (!pipe_stdout_) {
+            close(STDOUT_FILENO);
+            close(STDIN_FILENO);
+        }
 
         /* Close all the open fds before execvp */
         CloseTaskFds();
@@ -115,15 +128,15 @@ bool InstanceTaskExecvp::Run() {
         return is_running_ = false;
     }
     boost::system::error_code ec;
-    errors_.assign(fd, ec);
+    input_.assign(fd, ec);
     if (ec) {
         close(fd);
         return is_running_ = false;
     }
 
     bzero(rx_buff_, sizeof(rx_buff_));
-    boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
-            boost::bind(&InstanceTaskExecvp::ReadErrors,
+    input_.async_read_some(boost::asio::buffer(rx_buff_, kBufLen),
+            boost::bind(&InstanceTaskExecvp::ReadData,
                         this, boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     return true;
