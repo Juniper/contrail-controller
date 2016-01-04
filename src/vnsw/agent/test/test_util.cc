@@ -2664,7 +2664,12 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         }
         if (with_ip6) {
             sprintf(instance_ip6, "instance6%d", input[i].intf_id);
-            AddInstanceIp(instance_ip6, input[i].intf_id, input[i].ip6addr);
+            if (ecmp) {
+                AddActiveActiveInstanceIp(instance_ip6, input[i].intf_id,
+                                          input[i].ip6addr);
+            } else {
+                AddInstanceIp(instance_ip6, input[i].intf_id, input[i].ip6addr);
+            }
         }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
@@ -2745,6 +2750,12 @@ void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id,
                        const char *vn, const char *vrf, bool with_v4_ip) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false,
                             with_v4_ip, false, true, true);
+}
+
+void CreateV6VmportWithEcmp(struct PortInfo *input, int count, int acl_id,
+                       const char *vn, const char *vrf, bool with_v4_ip) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false,
+                            with_v4_ip, true, true, true);
 }
 
 void FlushFlowTable() {

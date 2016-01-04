@@ -289,6 +289,9 @@ void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,
                           const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportWithoutNova(struct PortInfo *input, int count, int acl_id = 0,
                              const char *vn = NULL, const char *vrf = NULL);
+void CreateV6VmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,
+                            const char *vn = NULL, const char *vrf = NULL,
+                            bool with_v4_ip = true);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,
                 const char *dip, uint8_t proto, uint16_t sport, uint16_t dport,

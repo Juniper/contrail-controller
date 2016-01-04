@@ -152,6 +152,8 @@ protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
+    InetUnicastAgentRouteTable *PrefixToRouteTable(const std::string &vrf_name,
+                                                   const IpAddress &prefix_addr);
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
     void AddRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                   autogen::ItemType *item);
@@ -162,7 +164,7 @@ private:
                       autogen::EnetItemType *item);
     void AddRemoteRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                         autogen::ItemType *item);
-    void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
+    void AddEcmpRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                       autogen::ItemType *item);
     //Common helpers
     bool ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,

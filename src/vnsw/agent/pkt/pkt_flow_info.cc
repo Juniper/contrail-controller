@@ -444,9 +444,6 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         return;
     }
 
-    if (pkt->family == Address::INET6) {
-        //TODO::ECMP for v6
-    }
     Agent *agent = flow_info->agent;
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(in->rt_);
