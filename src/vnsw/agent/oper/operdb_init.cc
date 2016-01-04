@@ -276,6 +276,9 @@ void OperDB::Shutdown() {
     route_preference_module_->Shutdown();
     domain_config_->Terminate();
     vrouter_.reset();
+    if (agent()->mirror_table()) {
+        agent()->mirror_table()->Shutdown();
+    }
 }
 
 void OperDB::DeleteRoutes() {
