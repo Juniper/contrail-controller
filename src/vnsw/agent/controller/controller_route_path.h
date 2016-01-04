@@ -121,7 +121,7 @@ private:
 
 class ControllerEcmpRoute : public ControllerPeerPath {
 public:
-    ControllerEcmpRoute(const Peer *peer, const Ip4Address &dest_addr,
+    ControllerEcmpRoute(const Peer *peer, const IpAddress &dest_addr,
                         uint8_t plen, const string &vn_name, uint32_t label,
                         bool local_ecmp_nh, const string &vrf_name,
                         SecurityGroupList sg_list,
@@ -141,7 +141,7 @@ public:
     virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
-    Ip4Address dest_addr_;
+    IpAddress dest_addr_;
     uint8_t plen_;
     string vn_name_;
     uint32_t label_;

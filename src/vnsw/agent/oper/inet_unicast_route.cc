@@ -1127,7 +1127,7 @@ InetUnicastAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
     req.data.reset(data);
-    Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
+    InetUnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
 
 // Create Route for a local VM
