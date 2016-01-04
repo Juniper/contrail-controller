@@ -54,7 +54,6 @@ DBEntry *MirrorTable::Add(const DBRequest *req) {
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
     //Get Mirror NH
     OnChange(mirror_entry, req);
-    LOG(DEBUG, "Mirror Add");
     return mirror_entry;
 }
 
@@ -63,22 +62,83 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     MirrorEntryData *data = static_cast<MirrorEntryData *>(req->data.get());
 
-    MirrorNHKey nh_key(data->vrf_name_, data->sip_, data->sport_, 
-                       data->dip_, data->dport_);
+    mirror_entry->vrf_name_ = data->vrf_name_;
+    mirror_entry->sip_ = data->sip_;
+    mirror_entry->sport_ = data->sport_;
+    mirror_entry->dip_ = data->dip_;
+    mirror_entry->dport_ = data->dport_;
+
+    DBRequest nh_req;
+    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    MirrorNHKey *nh_key = new MirrorNHKey(data->vrf_name_, data->sip_,
+                                  data->sport_, data->dip_, data->dport_);
+    nh_req.key.reset(nh_key);
+    nh_req.data.reset(NULL);
+    agent()->nexthop_table()->Process(nh_req);
+
     NextHop *nh = static_cast<NextHop *>
-                  (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
-    assert(nh);
+                  (agent()->nexthop_table()->FindActiveEntry(nh_key));
+    if (nh == NULL) {
+        //Make the mirror NH point to discard
+        //and change the nexthop once the VRF is
+        //available
+        AddUnresolved(mirror_entry);
+        DiscardNH key;
+        nh = static_cast<NextHop *>
+            (agent()->nexthop_table()->FindActiveEntry(&key));
+    }
 
     if (mirror_entry->nh_ != nh) {
         mirror_entry->nh_ = nh;
-        mirror_entry->sip_ = data->sip_;
-        mirror_entry->sport_ = data->sport_;
-        mirror_entry->dip_ = data->dip_;
-        mirror_entry->dport_ = data->dport_;
-        mirror_entry->vrf_ = Agent::GetInstance()->vrf_table()->FindVrfFromName(data->vrf_name_);
+        mirror_entry->vrf_ =
+            agent()->vrf_table()->FindVrfFromName(data->vrf_name_);
         ret = true;
     }
     return ret;
+}
+
+bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
+    MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
+    RemoveUnresolved(mirror_entry);
+    return true;
+}
+
+void MirrorTable::AddUnresolved(MirrorEntry *entry) {
+    UnresolvedEntryList::iterator it =
+        unresolved_entry_list_.find(entry->vrf_name_);
+
+    if (it != unresolved_entry_list_.end()) {
+        MirrorEntryList::const_iterator list_it = it->second.begin();
+        for (; list_it != it->second.end(); list_it++) {
+            if (*list_it == entry) {
+                //Entry already present
+                return;
+            }
+        }
+        it->second.push_back(entry);
+        return;
+    }
+
+    MirrorEntryList list;
+    list.push_back(entry);
+    unresolved_entry_list_.insert(UnresolvedEntry(entry->vrf_name_, list));
+}
+
+void MirrorTable::RemoveUnresolved(MirrorEntry *entry) {
+    UnresolvedEntryList::iterator it =
+        unresolved_entry_list_.find(entry->vrf_name_);
+
+    if (it == unresolved_entry_list_.end()) {
+        return;
+    }
+
+    MirrorEntryList::iterator list_it = it->second.begin();
+    for(;list_it != it->second.end(); list_it++) {
+        if (*list_it == entry) {
+            it->second.erase(list_it);
+            break;
+        }
+    }
 }
 
 void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
@@ -93,7 +153,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     MirrorNHKey *nh_key = new MirrorNHKey(vrf_name, sip, sport, dip, dport);
     req.key.reset(nh_key);
     req.data.reset(NULL);
-    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+    mirror_table_->agent()->nexthop_table()->Enqueue(&req);
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
@@ -124,6 +184,48 @@ DBTableBase *MirrorTable::CreateTable(DB *db, const std::string &name) {
     return mirror_table_;
 };
 
+void MirrorTable::Initialize() {
+    VrfListenerInit();
+}
+
+void MirrorTable::VrfListenerInit() {
+    vrf_listener_id_ = agent()->vrf_table()->
+                           Register(boost::bind(&MirrorTable::VrfNotify,
+                                    this, _1, _2));
+}
+
+void MirrorTable::VrfNotify(DBTablePartBase *base, DBEntryBase *entry) {
+    const VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    if (vrf->IsDeleted()) {
+        return;
+    }
+
+    UnresolvedEntryList::iterator it =
+        unresolved_entry_list_.find(vrf->GetName());
+    if (it == unresolved_entry_list_.end()) {
+        return;
+    }
+
+    MirrorEntryList::iterator list_it = it->second.begin();
+    for(;list_it != it->second.end(); list_it++) {
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+        MirrorEntryKey *key = new MirrorEntryKey((*list_it)->GetAnalyzerName());
+        key->sub_op_ = AgentKey::RESYNC;
+        MirrorEntryData *data = new MirrorEntryData((*list_it)->vrf_name(),
+                                        *((*list_it)->GetSip()),
+                                        (*list_it)->GetSPort(),
+                                        *((*list_it)->GetDip()),
+                                        (*list_it)->GetDPort());
+        req.key.reset(key);
+        req.data.reset(data);
+        Enqueue(&req);
+    }
+
+    unresolved_entry_list_.erase(it);
+}
+
 void MirrorTable::ReadHandler(const boost::system::error_code &ec,
                               size_t bytes_transferred) {
 
@@ -142,7 +244,7 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
 void MirrorTable::MirrorSockInit(void) {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->event_manager();
+    event_mgr = agent()->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
     ip::udp::endpoint ep(ip::udp::v4(), 0);
 
@@ -157,7 +259,7 @@ void MirrorTable::MirrorSockInit(void) {
 
     ip::udp::endpoint sock_ep = udp_sock_->local_endpoint(ec);
     assert(ec.value() == 0);
-    Agent::GetInstance()->set_mirror_port(sock_ep.port());
+    agent()->set_mirror_port(sock_ep.port());
 
     udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
                              boost::bind(&MirrorTable::ReadHandler, this, 
@@ -166,7 +268,11 @@ void MirrorTable::MirrorSockInit(void) {
 }
 
 VrfEntry *MirrorTable::FindVrfEntry(const string &vrf_name) const {
-    return Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    return agent()->vrf_table()->FindVrfFromName(vrf_name);
+}
+
+void MirrorTable::Shutdown() {
+    agent()->vrf_table()->Unregister(vrf_listener_id_);
 }
 
 uint32_t MirrorEntry::vrf_id() const {
