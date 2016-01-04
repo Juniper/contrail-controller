@@ -475,6 +475,13 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.sandesh_send_rate_limit")) {
         send_ratelimit_ = Sandesh::get_send_rate_limit();
     }
+
+    if (optional<bool> subnet_hosts_resolvable_opt =
+            tree_.get_optional<bool>("DEFAULT.subnet_hosts_resolvable")) {
+        subnet_hosts_resolvable_ = *subnet_hosts_resolvable_opt;
+    } else {
+        subnet_hosts_resolvable_ = true;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -684,8 +691,9 @@ void AgentParam::ParseDefaultSectionArguments
 
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                           "DEFAULT.sandesh_send_rate_limit");
+    GetOptValue<bool>(var_map, subnet_hosts_resolvable_,
+                      "DEFAULT.subnet_hosts_resolvable");
 }
-
 
 void AgentParam::ParseMetadataProxyArguments
     (const boost::program_options::variables_map &var_map) {
@@ -1169,7 +1177,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         physical_interface_mac_addr_(""),
         agent_base_dir_(),
         send_ratelimit_(sandesh_send_rate_limit()),
-        flow_thread_count_(agent->kDefaultFlowThreadCount) {
+        flow_thread_count_(agent->kDefaultFlowThreadCount),
+        subnet_hosts_resolvable_(true) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1246,6 +1255,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          opt::value<uint32_t>()->default_value(
          Sandesh::get_send_rate_limit()),
          "Sandesh send rate limit in messages/sec")
+        ("DEFAULT.subnet_hosts_resolvable",
+          opt::value<bool>()->default_value(true))
         ;
     options_.add(generic);
 

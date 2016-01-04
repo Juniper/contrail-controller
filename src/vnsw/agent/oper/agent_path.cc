@@ -7,6 +7,7 @@
 #include <boost/foreach.hpp>
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
+#include <init/agent_param.h>
 
 #include <vnc_cfg_types.h> 
 #include <agent_types.h>
@@ -278,7 +279,15 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     }
 
     if (rt == NULL || rt->plen() == 0) {
-        unresolved = true;
+       if (agent->params()->subnet_hosts_resolvable() == false &&
+            agent->fabric_vrf_name() == vrf_name_) {
+            unresolved = false;
+            table->AddArpReq(vrf_name_, gw_ip_, vrf_name_,
+                             agent->vhost_interface(), false,
+                             dest_vn_name_, sg_list_);
+        } else {
+            unresolved = true;
+        }
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());

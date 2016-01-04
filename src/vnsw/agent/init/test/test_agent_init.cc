@@ -59,6 +59,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
+    EXPECT_EQ(param.subnet_hosts_resolvable(), true);
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -81,6 +82,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
     EXPECT_EQ(param.flow_thread_count(), 2);
+    EXPECT_EQ(param.subnet_hosts_resolvable(), false);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -125,7 +127,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 21;
+    int argc = 23;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -140,6 +142,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
         (char *) "--DEFAULT.flow_thread_count",     (char *)"3",
+        (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -159,10 +162,11 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
     EXPECT_EQ(param.flow_thread_count(), 3);
+    EXPECT_EQ(param.subnet_hosts_resolvable(), false);
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
-    int argc = 9;
+    int argc = 11;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file",
@@ -188,7 +192,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
-    int argc = 9;
+    int argc = 11;
     char *argv[] = {
         (char *) "",
         (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
