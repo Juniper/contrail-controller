@@ -485,15 +485,10 @@ void AgentParam::ParseDefaultSection() {
 }
 
 void AgentParam::ParseTaskSection() {
-    if (!GetValueFromTree<uint32_t>(tbb_exec_delay_,
-                                    "TASK.log_exec_threshold")) {
-        tbb_exec_delay_ = 0;
-    }
-
-    if (!GetValueFromTree<uint32_t>(tbb_schedule_delay_,
-                                    "TASK.log_schedule_threshold")) {
-        tbb_schedule_delay_ = 0;
-    }
+    GetValueFromTree<uint32_t>(tbb_thread_count_, "TASK.thread_count");
+    GetValueFromTree<uint32_t>(tbb_exec_delay_, "TASK.log_exec_threshold");
+    GetValueFromTree<uint32_t>(tbb_schedule_delay_,
+                               "TASK.log_schedule_threshold");
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -709,6 +704,8 @@ void AgentParam::ParseDefaultSectionArguments
 
 void AgentParam::ParseTaskSectionArguments
     (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint32_t>(var_map, tbb_thread_count_,
+                          "TASK.thread_count");
     GetOptValue<uint32_t>(var_map, tbb_exec_delay_,
                           "TASK.log_exec_threshold");
     GetOptValue<uint32_t>(var_map, tbb_schedule_delay_,
@@ -1021,20 +1018,8 @@ void AgentParam::InitVhostAndXenLLPrefix() {
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 }
 
-void AgentParam::InitPlatform() {
-    Ip4Address ip = Ip4Address::from_string("127.0.0.1");
-    if (platform_ == VROUTER_ON_NIC) {
-        agent_->set_vrouter_server_ip(ip);
-        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
-        agent_->set_pkt_interface_name("pkt0");
-    } else if (platform_ == VROUTER_ON_HOST_DPDK) {
-        agent_->set_vrouter_server_ip(ip);
-        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
-        agent_->set_pkt_interface_name("unix");
-    }
-}
-
 void AgentParam::Init(const string &config_file, const string &program_name) {
+
     config_file_ = config_file;
     program_name_ = program_name;
 
@@ -1042,10 +1027,8 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     InitFromConfig();
     InitFromArguments();
     InitVhostAndXenLLPrefix();
-
-    vgw_config_table_->Init(tree_);
     ComputeFlowLimits();
-    InitPlatform();
+    vgw_config_table_->InitFromConfig(tree_);
 }
 
 void AgentParam::LogConfig() const {
@@ -1157,7 +1140,7 @@ void AgentParam::ParseArguments(int argc, char *argv[]) {
     boost::program_options::notify(var_map_);
 }
 
-AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
+AgentParam::AgentParam(bool enable_flow_options,
                        bool enable_vhost_options,
                        bool enable_hypervisor_options,
                        bool enable_service_options,
@@ -1166,7 +1149,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        agent_mode_(agent_mode), agent_(agent), vhost_(),
+        agent_mode_(agent_mode), vhost_(),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
@@ -1183,6 +1166,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
+        vgw_config_table_(new VirtualGatewayConfigTable() ),
         headless_mode_(false), dhcp_relay_mode_(false),
         xmpp_auth_enable_(false),
         xmpp_server_cert_(""), xmpp_server_key_(""), xmpp_ca_cert_(""),
@@ -1199,19 +1183,17 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         physical_interface_mac_addr_(""),
         agent_base_dir_(),
         send_ratelimit_(sandesh_send_rate_limit()),
-        flow_thread_count_(agent->kDefaultFlowThreadCount),
+        flow_thread_count_(Agent::kDefaultFlowThreadCount),
         subnet_hosts_resolvable_(true),
+        tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0) {
-    vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
-        (new VirtualGatewayConfigTable(agent));
-
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
         ("help", "help message")
         ("config_file",
-         opt::value<string>()->default_value(agent->config_file()),
+         opt::value<string>()->default_value(Agent::config_file_),
          "Configuration file")
         ("version", "Display version information")
         ("CONTROL-NODE.server",
@@ -1223,10 +1205,10 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Collector server list")
         ("DEFAULT.debug", "Enable debug logging")
         ("DEFAULT.flow_cache_timeout",
-         opt::value<uint16_t>()->default_value(agent->kDefaultFlowCacheTimeout),
+         opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
         ("DEFAULT.flow_thread_count",
-         opt::value<uint16_t>()->default_value(agent->kDefaultFlowThreadCount),
+         opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
          "Number of threads for flow setup")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
@@ -1289,7 +1271,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file",
-         opt::value<string>()->default_value(agent->log_file()),
+         opt::value<string>()->default_value(Agent::log_file_),
          "Filename for the logs to be written to")
         ("DEFAULT.log_files_count", opt::value<int>()->default_value(10),
          "Maximum log file roll over index")
@@ -1373,6 +1355,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
 
     opt::options_description tbb("TBB specific options");
     tbb.add_options()
+        ("TASK.thread_count", opt::value<uint32_t>(),
+         "Max number of threads used by TBB")
         ("TASK.log_exec_threshold", opt::value<uint32_t>(),
          "Log message if task takes more than threshold (msec) to execute")
         ("TASK.log_schedule_threshold", opt::value<uint32_t>(),

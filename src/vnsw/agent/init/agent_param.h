@@ -61,7 +61,7 @@ public:
         Ip4Address gw_;
     };
 
-    AgentParam(Agent *agent, bool enable_flow_options = true,
+    AgentParam(bool enable_flow_options = true,
                bool enable_vhost_options = true,
                bool enable_hypervisor_options = true,
                bool enable_service_options = true,
@@ -74,7 +74,6 @@ public:
         return vhost_.addr_.to_ulong() != 0? true : false;
     }
 
-    void set_agent(Agent *agent) { agent_ = agent; }
     const std::string &vhost_name() const { return vhost_.name_; }
     const Ip4Address &vhost_addr() const { return vhost_.addr_; }
     const Ip4Address &vhost_prefix() const { return vhost_.prefix_; }
@@ -230,6 +229,7 @@ public:
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
 
+    uint32_t tbb_thread_count() const { return tbb_thread_count_; }
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
 protected:
@@ -429,6 +429,7 @@ private:
     bool subnet_hosts_resolvable_;
 
     // TBB related
+    uint32_t tbb_thread_count_;
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);

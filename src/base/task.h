@@ -143,7 +143,7 @@ public:
     TaskScheduler(int thread_count = 0);
     ~TaskScheduler();
 
-    static void Initialize();
+    static void Initialize(uint32_t thread_count = 0);
     static TaskScheduler *GetInstance();
 
     // Enqueue a task. This may result in the task being immedietly added to

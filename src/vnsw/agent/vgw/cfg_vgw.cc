@@ -29,7 +29,8 @@ using boost::optional;
 
 // Config init. Read the "gateway" node and add the configuration
 // Handle only one gateway config for now
-void VirtualGatewayConfigTable::Init(const boost::property_tree::ptree pt) {
+void VirtualGatewayConfigTable::InitFromConfig
+(const boost::property_tree::ptree pt) {
     const std::string gw_str = "GATEWAY";
 
     BOOST_FOREACH(const ptree::value_type &section, pt) {
@@ -93,13 +94,22 @@ void VirtualGatewayConfigTable::BuildSubnetList
     }
 }
 
+void VirtualGatewayConfigTable::InitDone(Agent *agent) {
+    agent_ = agent;
+    work_queue_.reset(new WorkQueue<boost::shared_ptr<VirtualGatewayData> >
+                      (agent_->task_scheduler()->GetTaskId("db::DBTable"), 0,
+                       boost::bind(&VirtualGatewayConfigTable::ProcessRequest,
+                                   this, _1)));
+    work_queue_->set_name("VGW");
+}
+
 void VirtualGatewayConfigTable::Shutdown() {
-    work_queue_.Shutdown();
+    work_queue_->Shutdown();
 }
 
 void VirtualGatewayConfigTable::Enqueue(
                                 boost::shared_ptr<VirtualGatewayData> request) {
-    work_queue_.Enqueue(request);
+    work_queue_->Enqueue(request);
 }
 
 bool VirtualGatewayConfigTable::ProcessRequest(

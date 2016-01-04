@@ -18,10 +18,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 }
 
 int main(int argc, char *argv[]) {
-    // Initialize the agent-init control class
-    TorAgentInit init;
-    Agent *agent = init.agent();
-    TorAgentParam params(agent);
+    TorAgentParam params;
 
     try {
         // Add ToR speicific options
@@ -57,14 +54,22 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Read agent parameters from config file and arguments
+    params.Init(init_file, argv[0]);
+
+    // Initialize TBB
+    // Call to GetScheduler::GetInstance() will also create Task Scheduler
+    TaskScheduler::Initialize(params.tbb_thread_count());
+
+    // Initialize the agent-init control class
+    TorAgentInit init;
+    Agent *agent = init.agent();
+    init.set_agent_param(&params);
+    agent->set_agent_init(&init);
+
     string build_info;
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
-
-    init.set_agent_param(&params);
-    agent->set_agent_init(&init);
-    // Read agent parameters from config file and arguments
-    init.ProcessOptions(init_file, argv[0]);
 
     // kick start initialization
     int ret = 0;
