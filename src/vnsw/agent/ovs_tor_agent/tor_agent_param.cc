@@ -15,8 +15,8 @@ using std::string;
 using boost::optional;
 namespace boost_po = boost::program_options;
 
-TorAgentParam::TorAgentParam(Agent *agent) :
-    AgentParam(agent, false, false, false, false) {
+TorAgentParam::TorAgentParam() :
+    AgentParam(false, false, false, false) {
 }
 
 TorAgentParam::~TorAgentParam() {

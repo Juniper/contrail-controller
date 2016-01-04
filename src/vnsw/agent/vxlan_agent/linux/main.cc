@@ -25,10 +25,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 }
 
 int main(int argc, char *argv[]) {
-    // Initialize the agent-init control class
-    LinuxVxlanAgentInit init;
-    Agent *agent = init.agent();
-    AgentParam params(agent, false, false, false, false);
+    AgentParam params(false, false, false, false);
 
     const opt::variables_map &var_map = params.var_map();
     try {
@@ -62,13 +59,22 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Read agent parameters from config file and arguments
+    params.Init(init_file, argv[0]);
+
+    // Initialize TBB
+    // Call to GetScheduler::GetInstance() will also create Task Scheduler
+    TaskScheduler::Initialize(params.tbb_thread_count());
+
+    // Initialize the agent-init control class
+    LinuxVxlanAgentInit init;
+    Agent *agent = init.agent();
     string build_info;
+
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
     init.set_agent_param(&params);
-    // Read agent parameters from config file and arguments
-    init.ProcessOptions(init_file, argv[0]);
 
     // kick start initialization
     int ret = 0;
