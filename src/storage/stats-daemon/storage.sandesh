@@ -55,6 +55,8 @@ struct DiskStats {
     4: u64 write_kbytes;
     5: u64 iops;
     6: u64 bw;
+    7: u64 op_r_latency;
+    8: u64 op_w_latency;
 }
 
 struct ComputeStorageDisk {
