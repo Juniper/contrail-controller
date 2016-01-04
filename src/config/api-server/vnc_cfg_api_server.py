@@ -1658,6 +1658,11 @@ class VncApiServer(object):
                 400, 'Object fields needed for property list get')
         obj_fields = get_request().query.fields.split(',')
 
+        if 'position' in get_request().query:
+            fields_position = get_request().query.position
+        else:
+            fields_position = None
+
         try:
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         except NoIdError:
@@ -1680,7 +1685,8 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         try:
-            ok, result = self._db_conn.prop_list_get(obj_uuid, obj_fields)
+            ok, result = self._db_conn.prop_list_get(
+                obj_uuid, obj_fields, fields_position)
             if not ok:
                 self.config_object_error(
                     obj_uuid, None, None, 'prop_list_http_get', result)
@@ -1724,14 +1730,19 @@ class VncApiServer(object):
             obj_field = req_param.get('field')
             req_oper = req_param.get('operation').lower()
             field_val = req_param.get('value')
-            field_pos = req_param.get('position')
-            if req_oper not in ('add', 'delete'):
+            field_pos = str(req_param.get('position'))
+            if req_oper not in ('add', 'modify', 'delete'):
                 err_msg = 'Unsupported operation %s in request %s' %(
                     req_oper, json.dumps(req_param))
                 raise cfgm_common.exceptions.HttpError(400, err_msg)
             if ((req_oper == 'add') and
                 None in (obj_field, field_val)):
                 err_msg = 'Add needs field and value in request %s' %(
+                    req_oper, json.dumps(req_param))
+                raise cfgm_common.exceptions.HttpError(400, err_msg)
+            elif ((req_oper == 'modify') and
+                None in (obj_field, field_val, field_pos)):
+                err_msg = 'Modify needs field, value and position in request %s' %(
                     req_oper, json.dumps(req_param))
                 raise cfgm_common.exceptions.HttpError(400, err_msg)
             elif ((req_oper == 'delete') and

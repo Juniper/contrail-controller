@@ -742,6 +742,12 @@ class VncServerCassandraClient(VncCassandraClient):
                 prop_elem_pos = oper_param.get('position') or str(uuid.uuid4())
                 self._add_to_prop_list(bch, obj_uuid,
                     prop_name, prop_elem_val, prop_elem_pos)
+            elif oper == 'modify':
+                prop_elem_val = oper_param['value']
+                prop_elem_pos = oper_param['position']
+                # modify is practically an insert so use add
+                self._add_to_prop_list(bch, obj_uuid,
+                    prop_name, prop_elem_val, prop_elem_pos)
             elif oper == 'delete':
                 prop_elem_pos = oper_param['position']
                 self._delete_from_prop_list(bch, obj_uuid,
@@ -1976,9 +1982,9 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
-    def prop_list_get(self, obj_uuid, obj_fields):
+    def prop_list_get(self, obj_uuid, obj_fields, position):
         (ok, cassandra_result) = self._cassandra_db.prop_list_read(
-            obj_uuid, obj_fields)
+            obj_uuid, obj_fields, position)
         return ok, cassandra_result
     # end prop_list_get
 
