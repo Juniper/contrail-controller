@@ -865,6 +865,11 @@ void TunnelNH::SendObjectLog(const NextHopTable *table,
 // Mirror NH routines
 /////////////////////////////////////////////////////////////////////////////
 bool MirrorNH::CanAdd() const {
+    if (vrf_ == NULL) {
+        LOG(ERROR, "Invalid VRF in mirror NH");
+        return false;
+    }
+
     return true;
 }
 

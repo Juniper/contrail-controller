@@ -31,7 +31,8 @@ struct MirrorEntryData : public AgentData {
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
 public:
     MirrorEntry(std::string analyzer_name) : 
-           analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL) { };
+           analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL),
+           vrf_name_("") { };
     virtual ~MirrorEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -55,6 +56,7 @@ public:
     const Ip4Address *GetDip() const {return &dip_;}
     uint16_t GetDPort() const {return dport_;}
     const NextHop *GetNH() const {return nh_.get();}
+    const std::string vrf_name() const {return vrf_name_;}
 
 private:
     std::string analyzer_name_;
@@ -64,12 +66,17 @@ private:
     Ip4Address dip_;
     uint16_t dport_;
     NextHopRef nh_;
+    std::string vrf_name_;
     friend class MirrorTable;
 };
 
 class MirrorTable : public AgentDBTable {
 public:
     const static unsigned bufLen = 512;
+    typedef std::vector<MirrorEntry *> MirrorEntryList;
+    typedef std::map<std::string , MirrorEntryList> VrfMirrorEntryList;
+    typedef std::pair<std::string , MirrorEntryList> VrfMirrorEntry;
+
     MirrorTable(DB *db, const std::string &name) : AgentDBTable(db, name) {
     }
     virtual ~MirrorTable();
@@ -79,7 +86,11 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *request) { return true; }
+    virtual bool Delete(DBEntry *entry, const DBRequest *request);
+    virtual bool Resync(DBEntry *entry, const DBRequest *req) {
+        bool ret = OnChange(entry, req);
+        return ret;
+    }
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
     VrfEntry *FindVrfEntry(const std::string &vrf_name) const;
@@ -93,10 +104,26 @@ public:
     static MirrorTable *GetInstance() {return mirror_table_;}
     void MirrorSockInit(void);
     void ReadHandler(const boost::system::error_code& error, size_t bytes);
+    void AddUnresolved(MirrorEntry *entry);
+    void RemoveUnresolved(MirrorEntry *entry);
+    void AddResolvedVrfMirrorEntry(MirrorEntry *entry);
+    void DeleteResolvedVrfMirrorEntry(MirrorEntry *entry);
+    void ResyncMirrorEntry(VrfMirrorEntryList &list, const VrfEntry *vrf);
+    void ResyncResolvedMirrorEntry(const VrfEntry *vrf);
+    void ResyncUnresolvedMirrorEntry(const VrfEntry *vrf);
+    void Add(VrfMirrorEntryList &vrf_entry_map, MirrorEntry *entry);
+    void Delete(VrfMirrorEntryList &vrf_entry_map, MirrorEntry *entry);
+    void VrfListenerInit();
+    void VrfNotify(DBTablePartBase *root, DBEntryBase *entry);
+    void Shutdown();
+    void Initialize();
 
 private:
     std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
     static MirrorTable *mirror_table_;
     char rx_buff_[bufLen];
+    VrfMirrorEntryList unresolved_entry_list_;
+    VrfMirrorEntryList resolved_entry_list_;
+    DBTableBase::ListenerId vrf_listener_id_;
 };
 #endif
