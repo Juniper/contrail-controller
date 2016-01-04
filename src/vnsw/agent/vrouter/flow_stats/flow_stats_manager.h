@@ -109,6 +109,9 @@ public:
     void AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
+    uint32_t flow_export_rate() const {
+        return flow_export_rate_;
+    }
     uint32_t flow_export_count() const {
         return flow_export_count_;
     }
