@@ -28,7 +28,8 @@ class LinkUve(object):
                                       self._conf.collectors(), 
                                       self._node_type_name,
                                       self._conf.http_port(),
-                                      ['contrail_topology.sandesh'])
+                                      ['contrail_topology.sandesh'],
+                                      self._conf._disc)
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
             category=self._conf.log_category(),
@@ -40,8 +41,7 @@ class LinkUve(object):
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
-
-        # generator_init()
+        # end __init__
 
     def send(self, data):
         pprint.pprint(data)

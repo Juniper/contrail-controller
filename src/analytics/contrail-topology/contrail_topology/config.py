@@ -4,7 +4,9 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import HttpPortTopology
+from sandesh_common.vns.constants import ModuleNames, HttpPortTopology
+from sandesh_common.vns.ttypes import Module
+import discoveryclient.client as discovery_client
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-topology.conf'
@@ -12,6 +14,7 @@ class CfgParser(object):
         self._args = None
         self.__pat = None
         self._argv = argv or ' '.join(sys.argv[1:])
+        self._disc = None
 
     def parse(self):
         '''
@@ -61,7 +64,7 @@ optional arguments:
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
         defaults = {
-            'collectors'      : ['127.0.0.1:8086'],
+            'collectors'      : None,
             'analytics_api'   : ['127.0.0.1:8081'],
             'log_local'       : False,
             'log_level'       : SandeshLevel.SYS_DEBUG,
@@ -74,6 +77,10 @@ optional arguments:
             'zookeeper'       : '127.0.0.1:2181',
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         }
+        disc_opts = {
+            'disc_server_ip'     : '127.0.0.1',
+            'disc_server_port'   : 5998,
+        }
 
         config = None
         if args.conf_file:
@@ -82,6 +89,8 @@ optional arguments:
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+            if 'DISCOVERY' in config.sections():
+                disc_opts.update(dict(config.items('DISCOVERY')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -92,6 +101,7 @@ optional arguments:
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
+        defaults.update(disc_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics_api",
             help="List of analytics-api IP addresses in ip:port format",
@@ -121,6 +131,10 @@ optional arguments:
             help="introspect server port")
         parser.add_argument("--zookeeper",
             help="ip:port of zookeeper server")
+        parser.add_argument("--disc_server_ip",
+            help="Discovery Server IP address")
+        parser.add_argument("--disc_server_port", type=int,
+            help="Discovery Server port")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
         self._args = parser.parse_args(remaining_argv)
@@ -130,6 +144,10 @@ optional arguments:
             self._args.analytics_api = self._args.analytics_api.split()
 
         self._args.config_sections = config
+        self._disc = discovery_client.DiscoveryClient(
+                        self._args.disc_server_ip,
+                        self._args.disc_server_port,
+                        ModuleNames[Module.CONTRAIL_TOPOLOGY])
 
     def _pat(self):
         if self.__pat is None:
