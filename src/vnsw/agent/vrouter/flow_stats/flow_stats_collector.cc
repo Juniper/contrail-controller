@@ -625,15 +625,27 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
                                     FlowExportInfo *info,
                                     uint64_t diff_bytes,
                                     uint64_t diff_pkts) {
+    uint32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
+                        flow_export_rate();
     /* We should always try to export flows with Action as LOG regardless of
      * configured flow-export-rate */
-    if (!info->IsActionLog() &&
-        !agent_uve_->agent()->oper_db()->global_vrouter()->flow_export_rate()) {
+    if (!info->IsActionLog() && !cfg_rate) {
         flow_stats_manager_->flow_export_msg_drops_++;
         return;
     }
 
-    if (!info->IsActionLog() && (diff_bytes < threshold_)) {
+    /* Subject a flow to sampling algorithm only when all of below is met:-
+     * a. if Log is not configured as action for flow
+     * b. actual flow-export-rate is >= 80% of configured flow-export-rate
+     * c. diff_bytes is lesser than the threshold
+     */
+    bool subject_flows_to_algorithm = false;
+    if (!info->IsActionLog() && (diff_bytes < threshold()) &&
+        flow_stats_manager_->flow_export_rate() >= ((double)cfg_rate) * 0.8) {
+        subject_flows_to_algorithm = true;
+    }
+
+    if (subject_flows_to_algorithm) {
         double probability = diff_bytes/threshold_;
         uint32_t num = rand() % threshold();
         if (num > diff_bytes) {
@@ -783,17 +795,13 @@ bool FlowStatsManager::UpdateFlowThreshold() {
         return true;
     }
     // Update sampling threshold based on flow_export_rate_
-    if (flow_export_rate_ < cfg_rate/4) {
-        UpdateThreshold((threshold_ / 8));
-    } else if (flow_export_rate_ < cfg_rate/2) {
-        UpdateThreshold((threshold_ / 4));
-    } else if (flow_export_rate_ < cfg_rate/1.25) {
-        UpdateThreshold((threshold_ / 2));
+    if (flow_export_rate_ < ((double)cfg_rate) * 0.8) {
+        UpdateThreshold(kDefaultFlowSamplingThreshold);
     } else if (flow_export_rate_ > (cfg_rate * 3)) {
         UpdateThreshold((threshold_ * 4));
     } else if (flow_export_rate_ > (cfg_rate * 2)) {
         UpdateThreshold((threshold_ * 3));
-    } else if (flow_export_rate_ > (cfg_rate * 1.25)) {
+    } else if (flow_export_rate_ > ((double)cfg_rate) * 1.25) {
         UpdateThreshold((threshold_ * 2));
     }
     prev_cfg_flow_export_rate_ = cfg_rate;
