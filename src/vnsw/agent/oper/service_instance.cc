@@ -303,6 +303,10 @@ static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
             autogen::LoadbalancerPool *pool =
                     static_cast<autogen::LoadbalancerPool *>(adj->GetObject());
             properties->pool_id = IdPermsGetUuid(pool->id_perms());
+        } else if (IsNodeType(adj, "loadbalancer")) {
+            autogen::Loadbalancer *lb =
+                    static_cast<autogen::Loadbalancer *>(adj->GetObject());
+            properties->loadbalancer_id = IdPermsGetUuid(lb->id_perms());
         }
     }
 }
@@ -341,6 +345,7 @@ void ServiceInstance::Properties::Clear() {
     instance_data.clear();
     
     pool_id = boost::uuids::nil_uuid();
+    loadbalancer_id = boost::uuids::nil_uuid();
 }
 
 template <typename Type>
@@ -420,6 +425,12 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
         if (!pool_id.is_nil())
             return !cmp;
     }
+
+    cmp = compare(loadbalancer_id, rhs.loadbalancer_id);
+    if (cmp == 0) {
+        if (!loadbalancer_id.is_nil())
+            return !cmp;
+    }
     return cmp;
 }
 
@@ -467,6 +478,11 @@ std::string ServiceInstance::Properties::DiffString(
         ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
     }
 
+    if (compare(loadbalancer_id, rhs.loadbalancer_id)) {
+        ss << " loadbalancer_id: -" << loadbalancer_id << " +"
+            << rhs.loadbalancer_id;
+    }
+
     if (compare(gw_ip, rhs.gw_ip)) {
         ss << " gw_ip: -" << gw_ip << " +" << rhs.gw_ip;
     }
@@ -509,7 +525,7 @@ bool ServiceInstance::Properties::Usable() const {
         return false;
 
     if (service_type == LoadBalancer) {
-        return (!pool_id.is_nil());
+        return (!pool_id.is_nil() || !loadbalancer_id.is_nil());
     }
 
     return true;

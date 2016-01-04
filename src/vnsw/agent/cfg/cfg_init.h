@@ -69,6 +69,10 @@ public:
         return cfg_loadbalancer_table_;
     }
 
+    IFMapAgentTable *cfg_loadbalancer_pool_table() const {
+        return cfg_loadbalancer_pool_table_;
+    }
+
     IFMapAgentTable *cfg_service_instance_table() const {
         return cfg_service_instance_table_;
     }
@@ -133,6 +137,7 @@ private:
     IFMapAgentTable *cfg_subnet_table_;
     IFMapAgentTable *cfg_logical_port_table_;
     IFMapAgentTable *cfg_loadbalancer_table_;
+    IFMapAgentTable *cfg_loadbalancer_pool_table_;
     IFMapAgentTable *cfg_service_instance_table_;
     IFMapAgentTable *cfg_security_group_table_;
     IFMapAgentTable *cfg_physical_device_table_;

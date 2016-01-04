@@ -15,8 +15,9 @@
 #include "io/event_manager.h"
 #include "oper/instance_task.h"
 #include "oper/loadbalancer.h"
+#include "oper/loadbalancer_pool.h"
 #include "oper/loadbalancer_config.h"
-#include "oper/loadbalancer_properties.h"
+#include "oper/loadbalancer_pool_info.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "oper/vm.h"
@@ -129,6 +130,7 @@ InstanceManager::~InstanceManager() {
 InstanceManager::InstanceManager(Agent *agent)
         : si_listener_(DBTableBase::kInvalidId),
           lb_listener_(DBTableBase::kInvalidId),
+          lb_pool_listener_(DBTableBase::kInvalidId),
           netns_timeout_(-1),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&InstanceManager::DequeueEvent, this, _1)),
@@ -156,6 +158,11 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
     assert(lb_table);
     lb_listener_ = lb_table->Register(
         boost::bind(&InstanceManager::LoadbalancerObserver, this, _1, _2));
+
+    DBTableBase *lb_pool_table = agent_->loadbalancer_pool_table();
+    assert(lb_pool_table);
+    lb_pool_listener_ = lb_pool_table->Register(
+        boost::bind(&InstanceManager::LoadbalancerPoolObserver, this, _1, _2));
 
     DBTableBase *si_table = agent_->service_instance_table();
     assert(si_table);
@@ -395,6 +402,8 @@ void InstanceManager::Terminate() {
     StateClear();
     agent_->loadbalancer_table()->Unregister(lb_listener_);
     agent_->loadbalancer_table()->Clear();
+    agent_->loadbalancer_pool_table()->Unregister(lb_pool_listener_);
+    agent_->loadbalancer_pool_table()->Clear();
     agent_->service_instance_table()->Unregister(si_listener_);
     agent_->service_instance_table()->Clear();
 
@@ -721,39 +730,86 @@ void InstanceManager::EventObserver(
     }
 }
 
-void InstanceManager::LoadbalancerObserver(
-    DBTablePartBase *db_part, DBEntryBase *entry) {
+void InstanceManager::LoadbalancerObserver(DBTablePartBase *db_part,
+                                           DBEntryBase *entry) {
     Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
     std::stringstream pathgen;
-        pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
+    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
 
-        boost::system::error_code error;
-        if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
-            boost::filesystem::path dir(pathgen.str());
-            if (!boost::filesystem::exists(dir, error)) {
-#if 0
-                if (error) {
-                    LOG(ERROR, error.message());
-                    return;
-                }
-#endif
-                boost::filesystem::create_directories(dir, error);
-                if (error) {
-                    LOG(ERROR, error.message());
-                    return;
-                }
+    boost::system::error_code error;
+    if (!loadbalancer->IsDeleted()) {
+        boost::filesystem::path dir(pathgen.str());
+        if (!boost::filesystem::exists(dir, error)) {
+            boost::filesystem::create_directories(dir, error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
             }
-            pathgen << "/conf.json";
-            lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
-                                       *loadbalancer->properties());
-        } else {
+        }
+        pathgen << "/conf.json";
+        lb_config_->GenerateV2Config(pathgen.str(), loadbalancer);
+    } else {
+        boost::filesystem::remove_all(pathgen.str(), error);
+        if (error) {
+            LOG(ERROR, error.message());
+            return;
+        }
+    }
+}
+
+void InstanceManager::LoadbalancerPoolObserver(
+    DBTablePartBase *db_part, DBEntryBase *entry) {
+    LoadbalancerPool *loadbalancer = static_cast<LoadbalancerPool *>(entry);
+    LBPoolState *state = static_cast<LBPoolState *>
+            (entry->GetState(db_part->parent(), lb_pool_listener_));
+    std::stringstream pathgen;
+    boost::system::error_code error;
+    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
+    if (state) {
+        if (loadbalancer->IsDeleted() || (loadbalancer->properties() == NULL) ||
+            ((state->type == LoadbalancerPool::LBAAS_V1) &&
+             (loadbalancer->type() != LoadbalancerPool::LBAAS_V1))) {
              boost::filesystem::remove_all(pathgen.str(), error);
              if (error) {
                  LOG(ERROR, error.message());
-                 return;
              }
+             entry->ClearState(db_part->parent(), lb_pool_listener_);
+             delete state;
+             return;
         }
     }
+    /* Ignore ADD notifications for LoadbalancerPool if it is not of type
+     * LBAAS_V1 as config generation for them is taken care in context of
+     * Loadbalancer object
+     */
+    if (loadbalancer->type() != LoadbalancerPool::LBAAS_V1) {
+        return;
+    }
+
+    if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
+        boost::filesystem::path dir(pathgen.str());
+        if (!boost::filesystem::exists(dir, error)) {
+#if 0
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
+#endif
+            boost::filesystem::create_directories(dir, error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
+        }
+        pathgen << "/conf.json";
+        lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+                                   *loadbalancer->properties());
+        if (!state) {
+            state = new LBPoolState(LoadbalancerPool::LBAAS_V1);
+            entry->SetState(db_part->parent(), lb_pool_listener_, state);
+        }
+    }
+}
 
 bool InstanceManager::StaleTimeout() {
 

@@ -10,6 +10,7 @@
 #include "db/db_table.h"
 #include "oper/service_instance.h"
 #include "oper/instance_manager_adapter.h"
+#include "oper/loadbalancer_pool.h"
 
 class Agent;
 class DB;
@@ -36,6 +37,11 @@ class InstanceManager {
         SigChldEvent = 1,
         OnErrorEvent,
         OnTaskTimeoutEvent
+    };
+
+    struct LBPoolState :public DBState {
+        LBPoolState (LoadbalancerPool::Type t) : type(t) { }
+        LoadbalancerPool::Type type;
     };
 
     struct InstanceManagerChildEvent {
@@ -138,9 +144,11 @@ class InstanceManager {
      * Event observer for changes in the "db.loadbalancer.0" table.
      */
     void LoadbalancerObserver(DBTablePartBase *db_part, DBEntryBase *entry);
+    void LoadbalancerPoolObserver(DBTablePartBase *db_part, DBEntryBase *entry);
 
     DBTableBase::ListenerId si_listener_;
     DBTableBase::ListenerId lb_listener_;
+    DBTableBase::ListenerId lb_pool_listener_;
     std::string netns_cmd_;
     int netns_timeout_;
     WorkQueue<InstanceManagerChildEvent> work_queue_;

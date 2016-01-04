@@ -2,23 +2,23 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef VNSW_AGENT_OPER_LOADBALANCER_PROPERTIES_H__
-#define VNSW_AGENT_OPER_LOADBALANCER_PROPERTIES_H__
+#ifndef VNSW_AGENT_OPER_LBPOOL_INFO_H__
+#define VNSW_AGENT_OPER_LBPOOL_INFO_H__
 
 #include <map>
 #include <boost/uuid/uuid.hpp>
 #include "schema/vnc_cfg_types.h"
 
-class LoadbalancerProperties {
+class LBPoolInfo {
 public:
     typedef std::map<boost::uuids::uuid, autogen::LoadbalancerMemberType>
             MemberMap;
     typedef std::map<boost::uuids::uuid,
             autogen::LoadbalancerHealthmonitorType> HealthmonitorMap;
-    LoadbalancerProperties();
-    ~LoadbalancerProperties();
+    LBPoolInfo();
+    ~LBPoolInfo();
 
-    int CompareTo(const LoadbalancerProperties &rhs) const;
+    int CompareTo(const LBPoolInfo &rhs) const;
 
     const autogen::LoadbalancerPoolType &pool_properties() const {
         return pool_;
@@ -44,7 +44,7 @@ public:
         vip_ = vip;
     }
 
-    std::string DiffString(const LoadbalancerProperties *current) const;
+    std::string DiffString(const LBPoolInfo *current) const;
 
     const MemberMap &members() const {
         return members_;
@@ -79,4 +79,4 @@ private:
     std::vector<autogen::KeyValuePair> custom_attributes_;
 };
 
-#endif  // VNSW_AGENT_OPER_LOADBALANCER_PROPERTIES_H__
+#endif  // VNSW_AGENT_OPER_LBPOOL_INFO_H__
