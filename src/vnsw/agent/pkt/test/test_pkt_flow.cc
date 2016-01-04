@@ -105,6 +105,8 @@ public:
         boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
         vhost = static_cast<InetInterface *>(Agent::GetInstance()->
                 interface_table()->FindActiveEntry(key.get()));
+        flow_stats_collector_ = Agent::GetInstance()->flow_stats_manager()->
+                                    default_flow_stats_collector();
     }
 
     bool FlowTableWait(size_t count) {
@@ -770,12 +772,13 @@ protected:
     Agent *agent() {return agent_;}
     FlowProto *get_flow_proto() const { return flow_proto_; }
 
-private:
+protected:
     static bool ksync_init_;
     BgpPeer *peer_;
 public:
     Agent *agent_;
     FlowProto *flow_proto_;
+    FlowStatsCollector* flow_stats_collector_;
 };
 
 bool FlowTest::ksync_init_;
@@ -1219,9 +1222,9 @@ TEST_F(FlowTest, ShortFlow_1) {
 
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -1278,15 +1281,15 @@ TEST_F(FlowTest, FlowAge_1) {
     WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
 
     //Restore flow aging time
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
 }
 
 // Aging with more than 2 entries
 TEST_F(FlowTest, FlowAge_3) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -1363,12 +1366,12 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Restore flow aging time
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
     int tmp_age_time = 200 * 1000;
-    int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
     int total_flows = 200;
 
     for (int i = 0; i < total_flows; i++) {
@@ -1393,30 +1396,30 @@ TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
     EXPECT_EQ((total_flows * 2), 
             get_flow_proto()->FlowCount());
     //Set the flow age time to 200 milliseconds
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
 
-    agent()->flow_stats_collector()->run_counter_ = 0;
+    flow_stats_collector_->run_counter_ = 0;
 
     int passes = GetFlowPassCount((total_flows * 2), tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle(5);
-    WAIT_FOR(5000, 1000, (agent()->flow_stats_collector()->run_counter_ >= passes));
+    WAIT_FOR(5000, 1000, (flow_stats_collector_->run_counter_ >= passes));
     usleep(tmp_age_time + 1000);
-        WAIT_FOR(5000, 1000, (agent()->flow_stats_collector()->run_counter_ >= (passes * 2)));
+        WAIT_FOR(5000, 1000, (flow_stats_collector_->run_counter_ >= (passes * 2)));
         client->WaitForIdle(2);
 
     WAIT_FOR(5000, 500, (0U == get_flow_proto()->FlowCount()));
     EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Restore flow aging time
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, Nat_FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
 
     TestFlow flow[] = {
         {
@@ -1452,7 +1455,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 
     //Restore flow aging time
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, NonNatFlowAdd_1) {
@@ -1983,13 +1986,13 @@ TEST_F(FlowTest, FlowAudit) {
     client->WaitForIdle();
     usleep(500);
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = agent()->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
     //Set the flow age time to 10 microsecond
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
-    agent()->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
     KFlowPurgeHold();
 }
 

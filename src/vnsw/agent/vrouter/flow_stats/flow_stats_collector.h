@@ -8,18 +8,21 @@
 #include <pkt/flow_table.h>
 #include <pkt/flow_mgmt_request.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/index_vector.h>
 #include <uve/stats_collector.h>
 #include <uve/interface_uve_stats_table.h>
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <sandesh/common/flow_types.h>
 #include <vrouter/flow_stats/flow_export_request.h>
 #include <vrouter/flow_stats/flow_export_info.h>
+#include <vrouter/flow_stats/flow_stats_manager.h>
 
 // Forward declaration
 class AgentUtXmlFlowThreshold;
 class AgentUtXmlFlowThresholdValidate;
 class FlowStatsRecordsReq;
 class FetchFlowStatsRecord;
+class FlowStatsManager;
 
 //Defines the functionality to periodically read flow stats from
 //shared memory (between agent and Kernel) and export this stats info to
@@ -37,7 +40,7 @@ public:
 
     // Comparator for FlowEntryPtr
     struct FlowEntryCmp {
-        bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
+        bool operator()(const FlowKey &lhs, const FlowKey &rhs) const {
             const FlowKey &lhs_base = static_cast<const FlowKey &>(lhs);
             return lhs_base.IsLess(rhs);
         }
@@ -47,11 +50,17 @@ public:
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
-                       AgentUveBase *uve);
+                       AgentUveBase *uve, uint32_t instance_id,
+                       FlowAgingTableKey *key,
+                       FlowStatsManager *aging_module);
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
-    uint32_t flow_age_time_intvl_in_secs() {
+    void set_flow_age_time_intvl(uint64_t interval) {
+        flow_age_time_intvl_ = interval;
+    }
+
+    uint32_t flow_age_time_intvl_in_secs() const {
         return flow_age_time_intvl_/(1000 * 1000);
     }
     uint64_t flow_tcp_syn_age_time() const {
@@ -63,7 +72,7 @@ public:
     uint32_t flow_export_count()  const { return flow_export_count_; }
     void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
     uint32_t flow_export_rate()  const { return flow_export_rate_; }
-    uint32_t threshold()  const { return threshold_; }
+    uint32_t threshold()  const;
     uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
     void UpdateFlowMultiplier();
     bool Run();
@@ -86,6 +95,7 @@ public:
     void SourceIpOverride(const FlowKey &key, FlowExportInfo *info,
                           FlowDataIpv4 &s_flow);
     FlowExportInfo *FindFlowExportInfo(const FlowKey &flow);
+    const FlowExportInfo *FindFlowExportInfo(const FlowKey &flow) const;
     void ExportFlow(const FlowKey &key, FlowExportInfo *info,
                     uint64_t diff_bytes, uint64_t diff_pkts);
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
@@ -93,10 +103,20 @@ public:
     void FlowIndexUpdateEvent(const FlowKey &key, uint32_t idx);
     size_t Size() const { return flow_tree_.size(); }
     void NewFlow(const FlowKey &key, const FlowExportInfo &info);
+    void set_deleted(bool val) {
+        deleted_ = val;
+    }
+    bool deleted() const {
+        return deleted_;
+    }
+    const FlowAgingTableKey& flow_aging_key() const {
+        return flow_aging_key_;
+    }
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsRecordsReq;
     friend class FetchFlowStatsRecord;
+    friend class FlowStatsManager;
 protected:
     virtual void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
 
@@ -108,7 +128,6 @@ private:
                                     std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowDataIpv4 &s_flow);
     bool SetUnderlayPort(FlowExportInfo *info, FlowDataIpv4 &s_flow);
-    void UpdateFlowThreshold(uint64_t curr_time);
     void UpdateThreshold(uint32_t new_value);
 
     void UpdateInterVnStats(FlowExportInfo *info,
@@ -156,7 +175,10 @@ private:
     uint32_t prev_cfg_flow_export_rate_;
     std::vector<FlowDataIpv4> msg_list_;
     uint8_t msg_index_;
+    tbb::atomic<bool> deleted_;
+    FlowAgingTableKey flow_aging_key_;
+    uint32_t instance_id_;
+    FlowStatsManager *flow_stats_manager_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
-
 #endif //vnsw_agent_flow_stats_collector_h

@@ -274,7 +274,8 @@ public:
     }
     void NewFlow(FlowEntry *f) {
         Agent *agent = Agent::GetInstance();
-        FlowStatsCollector *table = agent->flow_stats_collector();
+        FlowStatsCollector *table =
+            agent->flow_stats_manager()->default_flow_stats_collector();
         FlowExportInfo info(f, UTCTimestampUsec());
         table->NewFlow(f->key(), info);
     }

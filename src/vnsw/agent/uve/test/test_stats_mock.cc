@@ -40,7 +40,7 @@ VmInterface *test0, *test1;
 class StatsTestMock : public ::testing::Test {
 public:
     StatsTestMock() : util_(), agent_(Agent::GetInstance()) {
-        col_ = agent_->flow_stats_collector();
+        col_ = agent_->flow_stats_manager()->default_flow_stats_collector();
         flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
@@ -111,8 +111,8 @@ public:
         assert(test1);
 
         //To disable flow aging set the flow age time to high value
-        Agent::GetInstance()->flow_stats_collector()->
-            UpdateFlowAgeTime(1000000 * 60 * 10);
+        Agent::GetInstance()->flow_stats_manager()->
+            default_flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
     }
     static void TestTeardown() {
@@ -492,10 +492,12 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
 
     int tmp_age_time = 1000 * 1000;
     Agent* agent = Agent::GetInstance();
-    int bkp_age_time = agent->flow_stats_collector()->flow_age_time_intvl();
+    int bkp_age_time = agent->flow_stats_manager()->
+                           default_flow_stats_collector()->flow_age_time_intvl();
 
     //Set the flow age time to 1000 microsecond
-    agent->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    agent->flow_stats_manager()->default_flow_stats_collector()->
+        UpdateFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -503,7 +505,8 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     WAIT_FOR(100, 10000, (flow_proto_->FlowCount() == 0U));
 
     //Restore flow aging time
-    agent->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    agent->flow_stats_manager()->default_flow_stats_collector()->
+        UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
@@ -1007,7 +1010,8 @@ TEST_F(StatsTestMock, Underlay_3) {
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_collector());
+        (Agent::GetInstance()->flow_stats_manager()->
+         default_flow_stats_collector());
     FlowDataIpv4 flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
@@ -1236,7 +1240,7 @@ TEST_F(StatsTestMock, FlowSyncFlow) {
     KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
     KSyncSockTypeMap::SetTcpFlag(hash_id, VR_FLOW_TCP_SYN);
     KSyncSockTypeMap::SetTcpFlag(f2_rev->flow_handle(), VR_FLOW_TCP_SYN_R);
-    Agent::GetInstance()->flow_stats_collector()->
+    Agent::GetInstance()->flow_stats_manager()->default_flow_stats_collector()->
          set_flow_tcp_syn_age_time(1000000 * 1);
     sleep(1);
     //Invoke FlowStatsCollector to update the stats

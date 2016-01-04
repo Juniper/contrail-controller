@@ -123,6 +123,7 @@ public:
         vr_agent_hdr->hdr_cmd = htons(hdr.cmd);
         vr_agent_hdr->hdr_cmd_param = htonl(hdr.cmd_param);
         vr_agent_hdr->hdr_cmd_param_1 = htonl(hdr.cmd_param_1);
+        return 0;
     }
 
     // Transmit packet on VrouterControlInterface.

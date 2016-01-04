@@ -27,10 +27,84 @@
 #include <oper/agent_route_walker.h>
 #include <oper/agent_route_resync.h>
 #include <oper/global_vrouter.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
 const Ip4Address GlobalVrouter::kLoopBackIp = Ip4Address(0x7f000001);
 
+static int ProtocolToString(const std::string proto) {
+    if (proto == "TCP" || proto == "tcp") {
+        return IPPROTO_TCP;
+    }
+
+    if (proto == "UDP" || proto == "udp") {
+        return IPPROTO_UDP;
+    }
+
+    if (proto == "ICMP" || proto == "icmp") {
+        return IPPROTO_ICMP;
+    }
+
+    if (proto == "all") {
+        return 0;
+    }
+    return -1;
+}
+
+void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
+    if (oper_->agent()->flow_stats_req_handler() == NULL) {
+        return;
+    }
+
+    std::vector<autogen::FlowAgingTimeout>::const_iterator new_list_it =
+        cfg->flow_aging_timeout_list().begin();
+    FlowAgingTimeoutMap new_flow_aging_timeout_map;
+
+    while (new_list_it != cfg->flow_aging_timeout_list().end()) {
+        int proto = ProtocolToString(new_list_it->protocol);
+        if (proto < 0) {
+            new_list_it++;
+            continue;
+        }
+        FlowAgingTimeoutKey key(proto, new_list_it->port);
+        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
+                proto, new_list_it->port,
+                new_list_it->timeout_in_seconds);
+
+        flow_aging_timeout_map_.erase(key);
+        new_flow_aging_timeout_map.insert(
+                FlowAgingTimeoutPair(key, new_list_it->timeout_in_seconds));
+        new_list_it++;
+    }
+
+    FlowAgingTimeoutMap::const_iterator old_list_it =
+        flow_aging_timeout_map_.begin();
+    while (old_list_it != flow_aging_timeout_map_.end()) {
+        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
+                                                 old_list_it->first.protocol,
+                                                 old_list_it->first.port,
+                                                 0);
+        old_list_it++;
+    }
+    flow_aging_timeout_map_ = new_flow_aging_timeout_map;
+}
+
+void GlobalVrouter::DeleteFlowAging() {
+
+    if (oper_->agent()->flow_stats_req_handler() == NULL) {
+        return;
+    }
+
+    FlowAgingTimeoutMap::const_iterator old_list_it =
+        flow_aging_timeout_map_.begin();
+    while (old_list_it != flow_aging_timeout_map_.end()) {
+        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
+                                                 old_list_it->first.protocol,
+                                                 old_list_it->first.port,
+                                                 0);
+    }
+    flow_aging_timeout_map_.clear();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -444,11 +518,13 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         } else {
             flow_export_rate_ = kDefaultFlowExportRate;
         }
+        UpdateFlowAging(cfg);
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
         resync_route = true;
         flow_export_rate_ = kDefaultFlowExportRate;
+        DeleteFlowAging();
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             

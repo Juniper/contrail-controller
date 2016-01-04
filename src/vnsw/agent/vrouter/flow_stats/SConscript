@@ -15,6 +15,7 @@ libflowstats = env.Library('flowstats',
                           FlowStatsSandeshGenObjs +
                          [
                           'flow_export_info.cc',
-                          'flow_stats_collector.cc'
+                          'flow_stats_collector.cc',
+                          'flow_stats_manager.cc'
                          ])
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

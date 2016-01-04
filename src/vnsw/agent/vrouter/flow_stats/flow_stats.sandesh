@@ -88,3 +88,28 @@ request sandesh FetchFlowStatsRecord {
 response sandesh FlowStatsRecordResp {
     1: SandeshFlowExportInfo info;
 }
+request sandesh ShowAgingConfig {
+}
+
+struct AgingConfig {
+    1: u32 protocol;
+    2: u32 port;
+    3: u32 stats_interval;
+    4: u32 cache_timeout;
+}
+
+response sandesh AgingConfigResponse {
+    1: list<AgingConfig> aging_config_list;
+}
+
+request sandesh AddAgingConfig {
+    1: u32 protocol;
+    2: u32 port;
+    3: optional u32 stats_interval;
+    4: optional u32 cache_timeout;
+}
+
+request sandesh DeleteAgingConfig {
+    1: u32 protocol;
+    2: u32 port;
+}

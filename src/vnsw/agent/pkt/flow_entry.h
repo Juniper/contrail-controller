@@ -37,6 +37,7 @@ class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
 class KSyncFlowIndexEntry;
+class FlowStatsCollector;
 
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
@@ -424,6 +425,13 @@ class FlowEntry {
                                Agent *agent) const;
     uint32_t InterfaceKeyToId(Agent *agent, const VmInterfaceKey &key);
     KSyncFlowIndexEntry *ksync_index_entry() { return ksync_index_entry_.get();}
+    FlowStatsCollector* fsc() const {
+        return fsc_;
+    }
+
+    void set_fsc(FlowStatsCollector *fsc) {
+        fsc_ = fsc;
+    }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -471,6 +479,7 @@ private:
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;
     boost::intrusive::list_member_hook<> free_list_node_;
+    FlowStatsCollector *fsc_;
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 
     static InetUnicastRouteEntry inet4_route_key_;
