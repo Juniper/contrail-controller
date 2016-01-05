@@ -182,7 +182,7 @@ class DiscoveryServer():
         node_type_name = NodeTypeNames[node_type]
         instance_id = self._args.worker_id
         disc_client = discovery_client.DiscoveryClient(
-            '127.0.0.1', self._args.listen_port,
+            self._args.listen_ip_addr, self._args.listen_port,
             ModuleNames[Module.DISCOVERY_SERVICE])
         self._sandesh.init_generator(
             module_name, socket.gethostname(), node_type_name, instance_id,
