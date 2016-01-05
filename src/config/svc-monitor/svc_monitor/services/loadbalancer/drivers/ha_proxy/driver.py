@@ -50,7 +50,7 @@ class OpencontrailLoadbalancerDriver(
             return instance_ip.address
         return None
 
-    def _calculate_instance_properties(self, pool, vip_vmi, listener_id=None):
+    def _calculate_instance_properties(self, pool, vip_vmi, lb_id=None):
         """ ServiceInstance settings
         - right network: public side, determined by the vip
         - left network: backend, determined by the pool subnet
@@ -74,7 +74,7 @@ class OpencontrailLoadbalancerDriver(
         if_list.append(right_if)
 
         # Calculate the Left Interface from Pool property
-        if not listener_id:
+        if not lb_id:
             pool_attrs = pool.params
             pool_vn_id = self._api.kv_retrieve(pool_attrs['subnet_id']).split()[0]
             if pool_vn_id != vip_vn.uuid:
@@ -139,7 +139,7 @@ class OpencontrailLoadbalancerDriver(
         vmi = VirtualMachineInterfaceSM.get(vmi_id)
         return vmi
 
-    def _update_loadbalancer_instance(self, pool_id, vip_id=None, listener_id=None):
+    def _update_loadbalancer_instance(self, pool_id, vip_id=None):
         """ Update the loadbalancer service instance.
 
         Prerequisites:
@@ -151,7 +151,7 @@ class OpencontrailLoadbalancerDriver(
             self._svc_manager.logger.log_error(msg)
             return
 
-        vip_vmi = self._get_vip_vmi(pool, vip_id, listener_id)
+        vip_vmi = self._get_vip_vmi(pool, vip_id)
         if vip_vmi is None:
             msg = ('Unable to retrieve vip port for pool %s' % pool.uuid)
             self._svc_manager.logger.log_error(msg)
@@ -162,7 +162,7 @@ class OpencontrailLoadbalancerDriver(
 
         si_refs = pool.service_instance
         si_obj = ServiceInstanceSM.get(si_refs)
-        props = self._calculate_instance_properties(pool, vip_vmi, listener_id)
+        props = self._calculate_instance_properties(pool, vip_vmi)
         if props is None:
             try:
                 self._api.service_instance_delete(id=si_refs)
@@ -207,24 +207,78 @@ class OpencontrailLoadbalancerDriver(
             self._svc_manager.logger.log_error(str(ex))
         self.db.pool_remove(pool_id, ['service_instance'])
 
+    def _update_loadbalancer_instance_v2(self, lb_id):
+        lb = LoadbalancerSM.get(lb_id)
+        if lb is None:
+            msg = ('Unable to retrieve loadbalancer %s' % lb_id)
+            self._svc_manager.logger.log_error(msg)
+            return
+
+        fq_name = lb.fq_name[:-1]
+        fq_name.append(lb_id)
+
+        si_refs = lb.service_instance
+        si_obj = ServiceInstanceSM.get(si_refs)
+        vip_vmi = VirtualMachineInterfaceSM.get(lb.virtual_machine_interface)
+        props = self._calculate_instance_properties(None, vip_vmi, lb_id)
+        if props is None:
+            try:
+                self._api.service_instance_delete(id=si_refs)
+                ServiceInstanceSM.delete(si_refs)
+            except RefsExistError as ex:
+                self._svc_manager.logger.log_error(str(ex))
+            return
+
+        if si_obj:
+            self._service_instance_update_props(si_obj, props)
+        else:
+            si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
+                fq_name=fq_name, service_instance_properties=props)
+            si_obj.set_service_template(self.get_lb_template())
+            self._api.service_instance_create(si_obj)
+            ServiceInstanceSM.locate(si_obj.uuid)
+
+        if si_refs is None or si_refs != si_obj.uuid:
+            self._api.ref_update('loadbalancer', lb.uuid,
+                'service_instance_refs', si_obj.uuid, None, 'ADD')
+
+    def _clear_loadbalancer_instance_v2(self, lb_id):
+        driver_data = self.db.loadbalancer_driver_info_get(lb_id)
+        if driver_data is None:
+            return
+        si_id = driver_data['service_instance']
+        si = ServiceInstanceSM.get(si_id)
+        if si is None:
+            return
+
+        lb_id = si.loadbalancer
+        lb = LoadbalancerSM.get(lb_id)
+        if lb:
+            self._api.ref_update('loadbalancer', lb_id,
+                  'service_instance_refs', si_id, None, 'DELETE')
+        try:
+            self._api.service_instance_delete(id=si_id)
+            ServiceInstanceSM.delete(si_id)
+        except RefsExistError as ex:
+            self._svc_manager.logger.log_error(str(ex))
+
+    def create_loadbalancer(self, loadbalancer):
+        self._update_loadbalancer_instance_v2(loadbalancer['id'])
+
+    def update_loadbalancer(self, old_loadbalancer, loadbalancer):
+        self._update_loadbalancer_instance_v2(loadbalancer['id'])
+
+    def delete_loadbalancer(self, loadbalancer):
+        self._clear_loadbalancer_instance_v2(loadbalancer['id'])
+
     def create_listener(self, listener):
-        self._get_template()
-        if listener['pool_id']:
-            self._update_loadbalancer_instance(listener['pool_id'],
-                listener_id=listener['id'])
+        self._update_loadbalancer_instance_v2(listener['loadbalancer_id'])
 
     def update_listener(self, old_listener, listener):
-        if old_listener['pool_id'] != listener['pool_id']:
-            self._clear_loadbalancer_instance(
-                old_listener['tenant_id'], old_listener['pool_id'])
-
-        if listener['pool_id']:
-            self._update_loadbalancer_instance(listener['pool_id'],
-                listener_id=listener['id'])
+        self._update_loadbalancer_instance_v2(listener['loadbalancer_id'])
 
     def delete_listener(self, listener):
-        if listener['pool_id']:
-            self._clear_loadbalancer_instance(listener['tenant_id'], listener['pool_id'])
+        self._update_loadbalancer_instance_v2(listener['loadbalancer_id'])
 
     def create_vip(self, vip):
         """A real driver would invoke a call to his backend
@@ -235,7 +289,7 @@ class OpencontrailLoadbalancerDriver(
         """
         self._get_template()
         if vip['pool_id']:
-            self._update_loadbalancer_instance(vip['pool_id'], vip_id=vip['id'])
+            self._update_loadbalancer_instance(vip['pool_id'], vip['id'])
 
     def update_vip(self, old_vip, vip):
         """Driver may call the code below in order to update the status.
@@ -246,7 +300,7 @@ class OpencontrailLoadbalancerDriver(
                 old_vip['tenant_id'], old_vip['pool_id'])
 
         if vip['pool_id']:
-            self._update_loadbalancer_instance(vip['pool_id'], vip_id=vip['id'])
+            self._update_loadbalancer_instance(vip['pool_id'], vip['id'])
 
     def delete_vip(self, vip):
         """A real driver would invoke a call to his backend
@@ -263,12 +317,10 @@ class OpencontrailLoadbalancerDriver(
                                   constants.ACTIVE)
         """
         self._get_template()
-        if pool.get('listener_id', None):
-            self._update_loadbalancer_instance(pool['id'],
-                listener_id=pool['listener_id'])
+        if pool.get('loadbalancer_id', None):
+            self._update_loadbalancer_instance_v2(pool['id'], pool['loadbalancer_id'])
         elif pool.get('vip_id', None):
-            self._update_loadbalancer_instance(pool['id'],
-                vip_id=pool['vip_id'])
+            self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
 
     def update_pool(self, old_pool, pool):
         """Driver may call the code below in order to update the status.
@@ -276,12 +328,10 @@ class OpencontrailLoadbalancerDriver(
                                   Pool,
                                   pool["id"], constants.ACTIVE)
         """
-        if pool.get('listener_id', None):
-            self._update_loadbalancer_instance(pool['id'],
-                listener_id=pool['listener_id'])
+        if pool.get('loadbalancer_id', None):
+            self._update_loadbalancer_instance_v2(pool['id'], pool['loadbalancer_id'])
         elif pool.get('vip_id', None):
-            self._update_loadbalancer_instance(pool['id'],
-                vip_id=pool['vip_id'])
+            self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
 
     def delete_pool(self, pool):
         """Driver can call the code below in order to delete the pool.

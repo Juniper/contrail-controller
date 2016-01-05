@@ -514,6 +514,11 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.InterfaceRouteTableSM.reset()
         config_db.ServiceApplianceSetSM.reset()
         config_db.ServiceApplianceSM.reset()
+        config_db.LoadbalancerSM.reset()
+        config_db.LoadbalancerListenerSM.reset()
+        config_db.LoadbalancerPoolSM.reset()
+        config_db.LoadbalancerMemberSM.reset()
+        config_db.VirtualIpSM.reset()
         del config_db.DBBaseSM._cassandra
         del self.vnc_mock
 
