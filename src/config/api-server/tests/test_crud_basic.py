@@ -29,6 +29,7 @@ import kombu
 import requests
 import bottle
 import stevedore
+import netaddr
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
@@ -1672,6 +1673,86 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(read_id_perms.uuid.uuid_lslong,
                          orig_id_perms.uuid.uuid_lslong)
     # end test_id_perms_uuid_update_should_fail
+
+    def test_ip_addr_not_released_on_delete_error(self):
+        ipam_obj = NetworkIpam('ipam-%s' %(self.id()))
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        vn_obj.add_network_ipam(ipam_obj,
+            VnSubnetsType(
+                [IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        # instance-ip test
+        iip_obj = InstanceIp('iip-%s' %(self.id()))
+        iip_obj.add_virtual_network(vn_obj)
+        self._vnc_lib.instance_ip_create(iip_obj)
+        # read back to get allocated ip
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+
+        def err_on_delete(orig_method, *args, **kwargs):
+            if args[0].replace('-', '_') == 'instance_ip':
+                raise Exception("Faking db delete for instance ip")
+            return orig_method(*args, **kwargs)
+        with test_common.patch(
+            self._api_server._db_conn, 'dbe_delete', err_on_delete):
+            try:
+                self._vnc_lib.instance_ip_delete(id=iip_obj.uuid)
+                self.assertTrue(
+                    False, 'Instance IP delete worked unexpectedly')
+            except Exception as e:
+                self.assertThat(str(e),
+                    Contains('"Faking db delete for instance ip"'))
+                # assert reservation present in zookeeper and value in iip
+                zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
+                    iip_obj.instance_ip_address))}
+                zk_path = '/api-server/subnets/%s:1.1.1.0/28/%s' %(
+                    vn_obj.get_fq_name_str(), zk_node)
+                mock_zk = self._api_server._db_conn._zk_db._zk_client._zk_client
+                self.assertEqual(
+                    mock_zk._values[zk_path][0], iip_obj.uuid)
+                self.assertEqual(
+                    self._vnc_lib.instance_ip_read(
+                        id=iip_obj.uuid).instance_ip_address,
+                    iip_obj.instance_ip_address)
+
+        # floating-ip test
+        fip_pool_obj = FloatingIpPool(
+            'fip-pool-%s' %(self.id()), parent_obj=vn_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        fip_obj = FloatingIp('fip-%s' %(self.id()), parent_obj=fip_pool_obj)
+        fip_obj.add_project(Project())
+        self._vnc_lib.floating_ip_create(fip_obj)
+        # read back to get allocated floating-ip
+        fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
+
+        def err_on_delete(orig_method, *args, **kwargs):
+            if args[0].replace('-', '_') == 'floating_ip':
+                raise Exception("Faking db delete for floating ip")
+            return orig_method(*args, **kwargs)
+        with test_common.patch(
+            self._api_server._db_conn, 'dbe_delete', err_on_delete):
+            try:
+                self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
+                self.assertTrue(
+                    False, 'Floating IP delete worked unexpectedly')
+            except Exception as e:
+                self.assertThat(str(e),
+                    Contains('"Faking db delete for floating ip"'))
+                # assert reservation present in zookeeper and value in iip
+                zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
+                    fip_obj.floating_ip_address))}
+                zk_path = '/api-server/subnets/%s:1.1.1.0/28/%s' %(
+                    vn_obj.get_fq_name_str(), zk_node)
+                mock_zk = self._api_server._db_conn._zk_db._zk_client._zk_client
+                self.assertEqual(
+                    mock_zk._values[zk_path][0], fip_obj.uuid)
+                self.assertEqual(
+                    self._vnc_lib.floating_ip_read(
+                        id=fip_obj.uuid).floating_ip_address,
+                    fip_obj.floating_ip_address)
+    # end test_ip_addr_not_released_on_delete_error
+
 # end class TestVncCfgApiServer
 
 

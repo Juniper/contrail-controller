@@ -183,25 +183,16 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
     @classmethod
-    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
         db_conn.config_log('AddrMgmt: free FIP %s for vn=%s'
                            % (fip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
-        def undo():
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=fip_addr,
-                                       alloc_id=obj_dict['uuid'])
-            db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure'
-                               % (obj_dict['floating_ip_address'], vn_fq_name),
-                               level=SandeshLevel.SYS_DEBUG)
-            return True, ""
-        # end undo
-        get_context().push_undo(undo)
 
         return True, ""
-    # end pre_dbe_delete
+    # end post_dbe_delete
 
 
     @classmethod
@@ -314,7 +305,7 @@ class InstanceIpServer(Resource, InstanceIp):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -332,20 +323,9 @@ class InstanceIpServer(Resource, InstanceIp):
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
-        def undo():
-            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=ip_addr,
-                                       alloc_id=obj_dict['uuid'])
-            db_conn.config_log(
-                'AddrMgmt: alloc %s for vn=%s to recover DELETE failure'
-                % (obj_dict['instance_ip_address'], vn_fq_name),
-                level=SandeshLevel.SYS_DEBUG)
-
-            return True, ""
-        # end undo
-        get_context().push_undo(undo)
 
         return True, ""
-    # end pre_dbe_delete
+    # end post_dbe_delete
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
