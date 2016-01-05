@@ -739,6 +739,8 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
           { 'name' : 'info_stats.iops', 'datatype': 'int', 'index' : false},
           { 'name' : 'info_stats.bw', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_r_latency', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_w_latency', 'datatype': 'int', 'index' : false},
         ]
     },
     {
