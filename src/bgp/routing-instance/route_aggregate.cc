@@ -102,13 +102,12 @@ public:
                        BgpRoute *route, bool deleted);
 
     void UpdateNexthop(IpAddress nexthop) {
-        IpAddress old_nexthop = nexthop_;
         nexthop_ = nexthop;
-        UpdateAggregateRoute(old_nexthop);
+        UpdateAggregateRoute();
     }
 
     void AddAggregateRoute();
-    void UpdateAggregateRoute(IpAddress prev_nexthop);
+    void UpdateAggregateRoute();
     void RemoveAggregateRoute();
 
     void set_aggregate_route(BgpRoute *aggregate);
@@ -241,16 +240,14 @@ void AggregateRoute<T>::AddAggregateRoute() {
         aggregate_route->ClearDelete();
     }
 
-    uint32_t path_id = nexthop().to_v4().to_ulong();
-    BgpPath *existing_path =
-        aggregate_route->FindPath(BgpPath::Aggregation, NULL, path_id);
+    BgpPath *existing_path = aggregate_route->FindPath(BgpPath::Aggregation, 0);
     assert(existing_path == NULL);
 
     BgpAttrSpec attrs;
-    BgpAttrNextHop nexthop(path_id);
-    attrs.push_back(&nexthop);
+    BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
+    attrs.push_back(&attr_nexthop);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
-    BgpPath *new_path = new BgpPath(path_id, BgpPath::Aggregation,
+    BgpPath *new_path = new BgpPath(BgpPath::Aggregation,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
     bgp_table()->path_resolver()->StartPathResolution(partition->index(),
                                                      new_path, aggregate_route);
@@ -261,7 +258,7 @@ void AggregateRoute<T>::AddAggregateRoute() {
 
 // UpdateAggregateRoute
 template <typename T>
-void AggregateRoute<T>::UpdateAggregateRoute(IpAddress prev_nexthop) {
+void AggregateRoute<T>::UpdateAggregateRoute() {
     CHECK_CONCURRENCY("bgp::Config");
 
     if (aggregate_route_ == NULL) return;
@@ -271,20 +268,17 @@ void AggregateRoute<T>::UpdateAggregateRoute(IpAddress prev_nexthop) {
 
     aggregate_route_->ClearDelete();
 
-    uint32_t path_id = prev_nexthop.to_v4().to_ulong();
-    BgpPath *existing_path = aggregate_route_->FindPath(BgpPath::Aggregation,
-                                                    NULL, path_id);
+    BgpPath *existing_path = aggregate_route_->FindPath(BgpPath::Aggregation, 0);
     if (existing_path)
         bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                          existing_path);
-    aggregate_route_->RemovePath(BgpPath::Aggregation, NULL, path_id);
+    aggregate_route_->RemovePath(BgpPath::Aggregation);
 
-    path_id = nexthop().to_v4().to_ulong();
     BgpAttrSpec attrs;
-    BgpAttrNextHop nexthop(path_id);
-    attrs.push_back(&nexthop);
+    BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
+    attrs.push_back(&attr_nexthop);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
-    BgpPath *new_path = new BgpPath(path_id, BgpPath::Aggregation,
+    BgpPath *new_path = new BgpPath(BgpPath::Aggregation,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
     bgp_table()->path_resolver()->StartPathResolution(partition->index(),
                                                     new_path, aggregate_route_);
@@ -303,14 +297,13 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
     DBTablePartition *partition = static_cast<DBTablePartition *>
         (bgp_table()->GetTablePartition(aggregate_route_));
 
-    uint32_t path_id = nexthop().to_v4().to_ulong();
     BgpPath *existing_path =
-        aggregate_route->FindPath(BgpPath::Aggregation, NULL, path_id);
+        aggregate_route->FindPath(BgpPath::Aggregation, 0);
     assert(existing_path != NULL);
 
     bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                      existing_path);
-    aggregate_route->RemovePath(BgpPath::Aggregation, NULL, path_id);
+    aggregate_route->RemovePath(BgpPath::Aggregation);
 
     if (!aggregate_route->BestPath()) {
         partition->Delete(aggregate_route);
