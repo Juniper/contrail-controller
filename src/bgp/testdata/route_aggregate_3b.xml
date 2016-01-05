@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <route-aggregate name='vn_subnet_0'>
+        <aggregate-route>
+            <prefix>2.2.0.0/17</prefix>
+            <nexthop>1.1.1.1</nexthop>
+        </aggregate-route>
+    </route-aggregate>
+
+    <route-aggregate name='vn_subnet_1'>
+        <aggregate-route>
+            <prefix>3.3.0.0/17</prefix>
+            <nexthop>1.1.1.1</nexthop>
+        </aggregate-route>
+    </route-aggregate>
+
+    <route-aggregate name='vn_subnet_2'>
+        <aggregate-route>
+            <prefix>4/8</prefix>
+            <nexthop>1.1.1.1</nexthop>
+        </aggregate-route>
+    </route-aggregate>
+    <routing-instance name="test">
+        <route-aggregate to="vn_subnet_1"/>
+        <route-aggregate to="vn_subnet_0"/>
+        <route-aggregate to="vn_subnet_2"/>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

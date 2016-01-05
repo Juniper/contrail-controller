@@ -137,7 +137,7 @@ public:
         return NULL;
     }
 
-    IRouteAggregator *route_aggregator(Address::Family family) {
+    IRouteAggregator *route_aggregator(Address::Family family) const {
         if (family == Address::INET)
             return inet_route_aggregator_.get();
         if (family == Address::INET6)
@@ -159,6 +159,13 @@ public:
     void AddRoutingPolicy(RoutingPolicyPtr policy);
 
     bool ProcessRoutingPolicy(const BgpRoute *route, BgpPath *path) const;
+
+    // Check whether the route is aggregate route
+    bool IsAggregateRoute(const BgpTable *table, const BgpRoute *route) const;
+
+    // Check whether the route is contributing route to aggregate route
+    bool IsContributingRoute(const BgpTable *table,
+                             const BgpRoute *route) const;
 
 private:
     friend class RoutingInstanceMgr;

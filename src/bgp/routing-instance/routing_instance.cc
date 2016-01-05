@@ -1202,3 +1202,15 @@ void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
         inet6_route_aggregator_.reset();
     }
 }
+
+// Check whether the route is aggregating route
+bool RoutingInstance::IsAggregateRoute(const BgpTable *table,
+                                       const BgpRoute *route) const {
+    return route_aggregator(table->family())->IsAggregateRoute(route);
+}
+
+// Check whether the route is contributing route to aggregate route
+bool RoutingInstance::IsContributingRoute(const BgpTable *table,
+                                          const BgpRoute *route) const {
+    return route_aggregator(table->family())->IsContributingRoute(route);
+}
