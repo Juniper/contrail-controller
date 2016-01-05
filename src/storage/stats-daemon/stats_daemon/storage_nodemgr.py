@@ -560,8 +560,8 @@ class EventManager:
 
     def create_and_send_disk_stats(self):
         # iostat to get the raw disk list
-        cmd = 'iostat 4 2 | awk \'{arr[NR]=$0} \
-            END{for(i=NR/2;i<NR;i++) { print arr[i] }}\''
+        cmd = 'iostat -x 4 2 | awk \'{arr[NR]=$0} \
+            END{for(i=(NR/2)+1;i<NR;i++) { print arr[i] }}\''
         res = self.call_subprocess(cmd)
         if res is None:
             return
@@ -640,8 +640,8 @@ class EventManager:
                     resp1[8].find('ata') != -1):
                     new_dict[resp1[-1].split('/')[2]] = resp1[8]
 
-        cs_disk1 = ComputeStorageDisk()
-        cs_disk1.list_of_curr_disks = []
+        #cs_disk1 = ComputeStorageDisk()
+        #cs_disk1.list_of_curr_disks = []
         for line in disk_list:       # this will have all rows
             # replace multiple spaces to single space here
             result = re.sub('\s+', ' ', line).strip()
@@ -650,7 +650,19 @@ class EventManager:
                 arr1[0].find('vd') != -1):
                 cs_disk = ComputeStorageDisk()
                 cs_disk.name = self._hostname + ':' + arr1[0]
-                cs_disk1.list_of_curr_disks.append(arr1[0])
+                osd_id = self.exec_local('cat /proc/mounts | \
+                            grep %s | grep ceph | grep -v tmp | \
+                            awk \'{print $2}\' | cut -d \'-\' -f 2'
+                            %(arr1[0]))
+                if osd_id == '':
+                    cs_disk.uuid = ''
+                else:
+                    uuid = self.exec_local('ceph --admin-daemon \
+                            /var/run/ceph/ceph-osd.%s.asok status 2>/dev/null | \
+                            grep osd_fsid  | awk \'{print $2}\' | \
+                            cut -d \'"\' -f 2' %(osd_id))
+                    cs_disk.uuid = uuid
+                #cs_disk1.list_of_curr_disks.append(arr1[0])
                 cs_disk.is_osd_disk = self.find_osdmaplist(osd_map, arr1[0])
                 disk_usage_obj = self.find_diskusagelist(disk_usage, arr1[0])
                 if disk_usage_obj is None:
@@ -664,47 +676,50 @@ class EventManager:
                 disk_stats.writes = 0
                 disk_stats.read_kbytes = 0
                 disk_stats.write_kbytes = 0
+                disk_stats.op_r_latency = 0
+                disk_stats.op_w_latency = 0
                 if arr1[0] in new_dict:
                     cs_disk.uuid = new_dict.get(arr1[0])
-                disk_stats.iops = int(float(arr1[1]))
-                disk_stats.bw = int(float(arr1[2])) + \
-                    int(float(arr1[3]))
-                cmd = "cat /sys/block/"+ arr1[0] +"/stat"
-                res = self.call_subprocess(cmd)
-                if res is None:
-                    continue
-                arr = re.sub('\s+', ' ', res).strip().split()
-                disk_stats.reads = int(arr[0])
-                disk_stats.writes = int(arr[4])
-                disk_stats.read_kbytes = int(arr[2])
-                disk_stats.write_kbytes = int(arr[6])
+                disk_stats.iops = int(float(arr1[3]) + float(arr1[4]))
+                disk_stats.bw = int(float(arr1[5])) + \
+                    int(float(arr1[6]))
+                disk_stats.reads = int(float(arr1[3]))
+                disk_stats.writes = int(float(arr1[4]))
+                disk_stats.read_kbytes = int(float(arr1[5]))
+                disk_stats.write_kbytes = int(float(arr1[6]))
+                disk_stats.op_r_latency = int(float(arr1[10]))
+                disk_stats.op_w_latency = int(float(arr1[11]))
                 cs_disk.info_stats = [disk_stats]
                 disk_stats_trace = ComputeStorageDiskTrace(data=cs_disk)
                 self.call_send(disk_stats_trace)
 
-        cs_disk1_trace = ComputeStorageDiskTrace(data=cs_disk1)
+        #cs_disk1_trace = ComputeStorageDiskTrace(data=cs_disk1)
         # sys.stderr.write('sending UVE:' +str(cs_disk1_trace))
-        if len(set(cs_disk1.list_of_curr_disks).
-               difference(set(self.prev_list))) != 0:
-            self.call_send(cs_disk1_trace)
-        self.prev_list = []
-        for i in xrange(0, len(cs_disk1.list_of_curr_disks)-1):
-            self.prev_list.append(cs_disk1.list_of_curr_disks[i])
+        #if len(set(cs_disk1.list_of_curr_disks).
+        #       difference(set(self.prev_list))) != 0:
+        #    self.call_send(cs_disk1_trace)
+        #self.prev_list = []
+        #for i in xrange(0, len(cs_disk1.list_of_curr_disks)-1):
+        #    self.prev_list.append(cs_disk1.list_of_curr_disks[i])
 
     # send UVE for updated process state database
     def send_process_state_db(self):
-        self.create_and_send_pool_stats()
-        self.create_and_send_osd_stats()
-        self.create_and_send_disk_stats()
+        if (self.node_type == "storage-master"):
+            self.create_and_send_pool_stats()
+            time.sleep(10)
+        elif (self.node_type == "storage-compute"):
+            self.create_and_send_osd_stats()
+            self.create_and_send_disk_stats()
+            time.sleep(6)
+        else:
+            time.sleep(60)
         return
 
     def runforever(self, test=False):
         # sleep for 6 seconds. There is a sleep in iostat for 4 seconds
         # send pool/disk/osd information to db
         while 1:
-            if (self.node_type == "storage-compute"):
-                self.send_process_state_db()
-            time.sleep(6)
+            self.send_process_state_db()
 
 def parse_args(args_str):
 
@@ -776,7 +791,7 @@ def main(args_str=None):
     prog = EventManager(args.node_type)
 
     collector_addr = []
-    if (args.node_type == 'storage-compute'):
+    if (args.node_type == 'storage-compute' or args.node_type == 'storage-master'):
         try:
             import discovery.client as client
         except:
