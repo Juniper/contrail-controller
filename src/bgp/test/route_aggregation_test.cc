@@ -531,7 +531,7 @@ TEST_F(RouteAggregationTest, ConfigDelete) {
 
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     VERIFY_EQ(2, RouteCount("test.inet.0"));
@@ -669,12 +669,12 @@ TEST_F(RouteAggregationTest, ConfigDelete_Add) {
 
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     // Link the route aggregate config from vrf
     ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     EnableUnregResolveTask("test", Address::INET);
@@ -876,7 +876,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
 
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     EnableRouteAggregateUpdate("test", Address::INET);
@@ -920,7 +920,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_1) {
     DisableRouteAggregateUpdate("test", Address::INET);
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     EnableRouteAggregateUpdate("test", Address::INET);

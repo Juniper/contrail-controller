@@ -39,10 +39,10 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('aggregate-route-entries', 'route-aggregate') -->
 
-<xsd:element name="routing-instance-route-aggregate"/>
+<xsd:element name="route-aggregate-routing-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('routing-instance-route-aggregate',
-          'routing-instance', 'route-aggregate', ['ref']) -->
+     Link('route-aggregate-routing-instance',
+          'route-aggregate', 'routing-instance', ['ref']) -->
 
 <xsd:simpleType name="SequenceNumberType">
     <xsd:annotation>

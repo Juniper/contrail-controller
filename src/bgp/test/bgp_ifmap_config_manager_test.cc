@@ -2250,7 +2250,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Unlink) {
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_0", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 0);
@@ -2258,7 +2258,7 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_Unlink) {
 
     // Link routing instance and route aggregate
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_0", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
@@ -2472,9 +2472,9 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet_Unlink) {
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_0", "route-aggregate-routing-instance");
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_1", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 1);
