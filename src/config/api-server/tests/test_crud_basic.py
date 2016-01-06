@@ -2386,6 +2386,8 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
                 'parent_type': 'project',
                 'virtual_machine_interface_bindings': {
                     'key_value_pair': [
+                        {'key': 'vif_type', 'value': 'vrouter'},
+                        {'key': 'vnic_type', 'value': 'normal'},
                         {'key': 'k1', 'value': 'v1'},
                         {'key': 'k2', 'value': 'v2'},
                     ]
@@ -2409,9 +2411,11 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         vmi_read = json.loads(
             requests.get(vmi_url).content)['virtual-machine-interface']
         rd_bindings = vmi_read['virtual_machine_interface_bindings']
-        self.assertEqual(len(rd_bindings['key_value_pair']), 2)
-        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'k1')
-        self.assertEqual(rd_bindings['key_value_pair'][1]['key'], 'k2')
+        self.assertEqual(len(rd_bindings['key_value_pair']), 4)
+        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'vif_type')
+        self.assertEqual(rd_bindings['key_value_pair'][1]['key'], 'vnic_type')
+        self.assertEqual(rd_bindings['key_value_pair'][2]['key'], 'k1')
+        self.assertEqual(rd_bindings['key_value_pair'][3]['key'], 'k2')
 
         vmi_body = {
             'virtual-machine-interface': {
