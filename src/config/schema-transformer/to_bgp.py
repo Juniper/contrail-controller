@@ -214,7 +214,7 @@ class VirtualNetworkST(DBBase):
                     if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
                         self.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
 
-        for ri in self.obj.get_routing_instances() or []:
+        for ri in getattr(self.obj, 'routing_instances', None) or []:
             ri_name = ri['to'][-1]
             if ri_name not in self.rinst:
                 sc_id = self._get_service_id_from_ri(ri_name)
