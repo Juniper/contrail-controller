@@ -766,17 +766,18 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         ri_uuid = db_conn.fq_name_to_uuid(
             'routing-instance', ri_fq_name)
 
-        backref_fields = list(RoutingInstance.backref_fields)
+        backref_fields = RoutingInstance.backref_fields
+        children_fields = RoutingInstance.children_fields
         ok, result = db_conn.dbe_read(
             obj_type='routing-instance',
             obj_ids={'uuid': ri_uuid},
-            obj_fields=backref_fields)
+            obj_fields=backref_fields|children_fields)
         if not ok:
             return ok, result
 
         ri_obj_dict = result
+        backref_field_types = RoutingInstance.backref_field_types
         for backref_field in backref_fields:
-            backref_field_types = RoutingInstance.backref_field_types
             obj_type = backref_field_types[backref_field][0]
             def drop_ref(obj_uuid):
                 # drop ref from ref_uuid to ri_uuid
@@ -786,6 +787,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             # end drop_ref
             for backref in ri_obj_dict.get(backref_field, []):
                 drop_ref(backref['uuid'])
+
+        children_field_types = RoutingInstance.children_field_types
+        for child_field in children_fields:
+            obj_type = children_field_types[child_field][0]
+            for child in ri_obj_dict.get(child_field, []):
+                cls.server.internal_request_delete(obj_type, child['uuid'])
 
         cls.server.internal_request_delete('routing-instance', ri_uuid)
 
