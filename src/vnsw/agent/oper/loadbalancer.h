@@ -25,9 +25,15 @@ class LoadbalancerKey : public AgentOperDBKey {
 class Loadbalancer : public AgentRefCount<Loadbalancer>,
     public AgentOperDBEntry {
 public:
-    typedef std::map<boost::uuids::uuid, autogen::LoadbalancerListenerType>
-            ListenerMap;
     typedef std::set<boost::uuids::uuid> PoolSet;
+    struct ListenerInfo {
+        autogen::LoadbalancerListenerType properties;
+        PoolSet pools;
+        ListenerInfo(const autogen::LoadbalancerListenerType &p,
+                     const PoolSet &pls) : properties(p), pools(pls) {
+        }
+    };
+    typedef std::map<boost::uuids::uuid, ListenerInfo> ListenerMap;
 
     Loadbalancer();
     ~Loadbalancer();
@@ -49,8 +55,6 @@ public:
     bool IsListenerMapEqual(const ListenerMap &rhs);
     void set_listeners(const ListenerMap &list) { listeners_ = list; }
     const ListenerMap &listeners() const { return listeners_; }
-    void set_pools(const PoolSet &list) { pools_ = list; }
-    const PoolSet &pools() const { return pools_; }
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
 
@@ -58,7 +62,6 @@ private:
     boost::uuids::uuid uuid_;
     autogen::LoadbalancerType lb_info_;
     ListenerMap listeners_;
-    PoolSet pools_;
     DISALLOW_COPY_AND_ASSIGN(Loadbalancer);
 };
 
