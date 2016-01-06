@@ -253,10 +253,19 @@ void RouteExport::SubscribeFabricMulticast(const Agent *agent,
         (active_path->peer()->GetType() != Peer::OVS_PEER) &&
         ((state->fabric_multicast_exported_ == false) ||
          (state->force_chg_ == true))) {
+        //TODO optimize by checking for force_chg? In other cases duplicate
+        //request can be filtered.
+        if (state->fabric_multicast_exported_ == true) {
+            //Unsubscribe before re-sending subscription, this makes sure in any
+            //corner case control-node does not see this as a duplicate request.
+            AgentXmppChannel::ControllerSendMcastRouteDelete(bgp_xmpp_peer,
+                                                             route);
+            state->fabric_multicast_exported_ = false;
+        }
         //Sending 255.255.255.255 for fabric tree
         state->fabric_multicast_exported_ =
             AgentXmppChannel::ControllerSendMcastRouteAdd(bgp_xmpp_peer,
-                                                              route);
+                                                          route);
     }
 }
 
