@@ -2056,7 +2056,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_1) {
     PauseChangeListPropagation();
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -2089,7 +2089,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_2) {
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -2097,7 +2097,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_2) {
     PauseChangeListPropagation();
     // link routing instance and route aggregate
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
@@ -2129,7 +2129,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_3) {
 
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -2241,7 +2241,7 @@ TEST_F(BgpConfigListenerTest, RouteAggregate_6) {
     PauseChangeListPropagation();
     // unlink routing instance and route aggregate
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "test_0",
-        "route-aggregate", "vn_subnet_0", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_0", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());

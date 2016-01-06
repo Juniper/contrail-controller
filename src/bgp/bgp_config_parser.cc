@@ -306,11 +306,11 @@ static bool ParseInstanceRouteAggregate(const string &instance,
     if (add_change) {
         MapObjectLinkAttr("routing-instance", instance,
             "route-aggregate", aggregate_name,
-            "routing-instance-route-aggregate", NULL, requests);
+            "route-aggregate-routing-instance", NULL, requests);
     } else {
         MapObjectUnlink("routing-instance", instance,
             "route-aggregate", aggregate_name,
-            "routing-instance-route-aggregate", requests);
+            "route-aggregate-routing-instance", requests);
     }
 
     return true;
