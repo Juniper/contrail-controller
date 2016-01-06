@@ -43,6 +43,11 @@ std::string eth_itf;
 void RouterIdDepInit(Agent *agent) {
 }
 
+static void WalkDone(DBTableBase *base)
+{
+    return;
+}
+
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //TBD
     //Validate the response by the expectation
@@ -874,6 +879,8 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     //Delete VM
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
+    //Label should have been released
+    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(new MplsLabelKey(evpn_mpls_label)) == NULL);
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
@@ -893,8 +900,6 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
-    //Label should have been released
-    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(new MplsLabelKey(evpn_mpls_label)) == NULL);
     //route should get deleted
     EXPECT_TRUE(rt->FindPath(bgp_peer_ptr) == NULL);
 
@@ -905,8 +910,8 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
                     Ip4Address(0));
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(1000, 1000, (rt->FindPath(agent_->local_vm_peer()) != NULL));
-    //New label taken
-    EXPECT_TRUE(rt->GetActivePath()->label() != evpn_mpls_label);
+    //New label taken, should re-use old one
+    EXPECT_TRUE(rt->GetActivePath()->label() == evpn_mpls_label);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -1106,7 +1111,7 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
 
     //Reset agent xmpp channel and back up the original channel.
     AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
-    agent_->set_controller_xmpp_channel(NULL, 1);
+    agent_->reset_controller_xmpp_channel(1);
     //Take VRF reference and delete VRF.
     VrfEntryRef vrf_ref = VrfGet("vrf1");
     DelVrf("vrf1");
@@ -1333,6 +1338,73 @@ TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
     client->WaitForIdle();
     bgp_peer.reset();
     bgp_peer_2.reset();
+}
+
+TEST_F(RouteTest, multiple_peer_evpn_label_check) {
+    client->Reset();
+    AddVrf("vrf1");
+    AddVn("vn1", 1);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                                                   oper_db()->multicast());
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist, 1);
+    client->WaitForIdle();
+    MulticastGroupObject *obj =
+        mc_handler->FindFloodGroupObject("vrf1");
+    uint32_t evpn_label = obj->evpn_mpls_label();
+    EXPECT_FALSE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_label));
+
+    //Delete remote paths
+    mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+                                    multicast_tree_builder_peer(),
+                                    "vrf1",
+                                    IpAddress::from_string("255.255.255.255").to_v4(),
+                                    IpAddress::from_string("0.0.0.0").to_v4(),
+                                    4100, olist,
+                                    ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    TunnelOlist del_olist;
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+    mc_handler->ModifyTorMembers(bgp_peer_ptr,
+                                 "vrf1",
+                                 del_olist,
+                                 10,
+                                 ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+
+    DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

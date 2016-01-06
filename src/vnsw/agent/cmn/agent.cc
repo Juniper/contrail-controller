@@ -414,7 +414,7 @@ Agent::Agent() :
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
     diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
-    agent_xmpp_channel_(), ifmap_channel_(), xmpp_client_(), xmpp_init_(),
+    ifmap_channel_(), xmpp_client_(), xmpp_init_(),
     dns_xmpp_channel_(), dns_xmpp_client_(), dns_xmpp_init_(),
     agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL), ds_client_(NULL),
     host_name_(""), agent_name_(""), prog_name_(""), introspect_port_(0),
@@ -433,7 +433,7 @@ Agent::Agent() :
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
     discovery_client_name_(),
-    label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
@@ -470,6 +470,9 @@ Agent::Agent() :
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
 
     config_manager_.reset(new ConfigManager(this));
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        (agent_xmpp_channel_[count]).reset();
+    }
 }
 
 Agent::~Agent() {
@@ -635,39 +638,6 @@ const string Agent::BuildDiscoveryClientName(string mod_name, string id) {
     return (mod_name + ":" + id);
 }
 
-void Agent::SetAgentMcastLabelRange(uint8_t idx) {
-    std::stringstream str;
-    //Logic for multicast label allocation
-    //  1> Reserve minimum 4k label for unicast
-    //  2> In the remaining label space
-    //       * Try allocating labels equal to no. of VN
-    //         for each control node
-    //       * If label space is not huge enough
-    //         split remaining unicast label for both control
-    //         node
-    //  Remaining label would be used for unicast mpls label
-    if (vrouter_max_labels_ == 0) {
-        str << 0 << "-" << 0;
-        label_range_[idx] = str.str();
-        return;
-    }
-
-    uint32_t max_mc_labels = 2 * vrouter_max_vrfs_;
-    uint32_t mc_label_count = 0;
-    if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels_) {
-        mc_label_count = vrouter_max_vrfs_;
-    } else {
-        mc_label_count = (vrouter_max_labels_ - MIN_UNICAST_LABEL_RANGE)/2;
-    }
-
-    uint32_t start = vrouter_max_labels_ - ((idx + 1) * mc_label_count);
-    uint32_t end = (vrouter_max_labels_ - ((idx) * mc_label_count) - 1);
-    str << start << "-" << end;
-
-    mpls_table_->ReserveLabel(start, end + 1);
-    label_range_[idx] = str.str();
-}
-
 uint16_t
 Agent::ProtocolStringToInt(const std::string &proto) {
     if (proto == "tcp" || proto == "TCP") {
@@ -704,4 +674,17 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
 void Agent::set_flow_table_size(uint32_t count) {
     flow_table_size_ = count;
     max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
+}
+
+void Agent::set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
+    assert(channel != NULL);
+    (agent_xmpp_channel_[idx]).reset(channel);
+}
+
+void Agent::reset_controller_xmpp_channel(uint8_t idx) {
+    (agent_xmpp_channel_[idx]).reset();
+}
+
+boost::shared_ptr<AgentXmppChannel> Agent::controller_xmpp_channel_ref(uint8_t idx) {
+    return agent_xmpp_channel_[idx];
 }

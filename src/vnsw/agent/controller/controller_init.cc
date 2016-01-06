@@ -45,7 +45,8 @@ VNController::VNController(Agent *agent)
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
     config_cleanup_timer_(agent),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp"), 0,
-        boost::bind(&VNController::ControllerWorkQueueProcess, this, _1)) {
+        boost::bind(&VNController::ControllerWorkQueueProcess, this, _1)),
+    fabric_multicast_label_range_() {
     decommissioned_peer_list_.clear();
 }
 
@@ -53,11 +54,62 @@ VNController::~VNController() {
     work_queue_.Shutdown();
 }
 
+void VNController::FillMcastLabelRange(uint32_t *start_idx,
+                                       uint32_t *end_idx,
+                                       uint8_t idx) const {
+    uint32_t max_mc_labels = 2 * (agent_->vrouter_max_vrfs());
+    uint32_t mc_label_count = 0;
+    uint32_t vrouter_max_labels = agent_->vrouter_max_labels();
+
+    if (max_mc_labels + MIN_UNICAST_LABEL_RANGE < vrouter_max_labels) {
+        mc_label_count = agent_->vrouter_max_vrfs();
+    } else {
+        mc_label_count = (vrouter_max_labels - MIN_UNICAST_LABEL_RANGE)/2;
+    }
+
+    *start_idx = vrouter_max_labels - ((idx + 1) * mc_label_count);
+    *end_idx = (vrouter_max_labels - ((idx) * mc_label_count) - 1);
+}
+
+void VNController::SetAgentMcastLabelRange(uint8_t idx) {
+    uint32_t start = 0;
+    uint32_t end = 0;
+    std::stringstream str;
+
+    //Logic for multicast label allocation
+    //  1> Reserve minimum 4k label for unicast
+    //  2> In the remaining label space
+    //       * Try allocating labels equal to no. of VN
+    //         for each control node
+    //       * If label space is not huge enough
+    //         split remaining unicast label for both control
+    //         node
+    //  Remaining label would be used for unicast mpls label
+    if (agent_->vrouter_max_labels() == 0) {
+        str << 0 << "-" << 0;
+        fabric_multicast_label_range_[idx].start = 0;
+        fabric_multicast_label_range_[idx].end = 0;
+        fabric_multicast_label_range_[idx].fabric_multicast_label_range_str =
+            str.str();
+        return;
+    }
+
+    FillMcastLabelRange(&start, &end, idx);
+    str << start << "-" << end;
+
+    agent_->mpls_table()->ReserveMulticastLabel(start, end + 1, idx);
+    fabric_multicast_label_range_[idx].start = start;
+    fabric_multicast_label_range_[idx].end = (end + 1);
+    fabric_multicast_label_range_[idx].fabric_multicast_label_range_str =
+        str.str();
+}
+
 void VNController::XmppServerConnect() {
 
     uint8_t count = 0;
 
     while (count < MAX_XMPP_SERVERS) {
+        SetAgentMcastLabelRange(count);
         if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
 
             AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
@@ -95,11 +147,11 @@ void VNController::XmppServerConnect() {
 
             XmppInit *xmpp = new XmppInit();
             xmpp->AddXmppChannelConfig(xmpp_cfg);
-            agent_->SetAgentMcastLabelRange(count);
             // create bgp peer
             AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_,
                               agent_->controller_ifmap_xmpp_server(count),
-                              agent_->multicast_label_range(count),
+                              fabric_multicast_label_range(count).
+                                               fabric_multicast_label_range_str,
                               count);
             client->RegisterConnectionEvent(xmps::BGP,
                boost::bind(&AgentXmppChannel::XmppClientChannelEvent,
@@ -254,10 +306,13 @@ void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
 
     BgpPeer *bgp_peer = channel->bgp_peer_id();
     if (bgp_peer != NULL) {
+        //Defer delete of channel till delete walk of bgp peer is over.
+        //Till walk is over, unregister as table listener is not done and there
+        //may be notifications(which will be ignored though, but valid pointer is
+        //needed). BgpPeer destructor will handle deletion of channel.
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
     }
-    delete channel;
 }
 
 //Trigger shutdown and cleanup of routes for the client
@@ -329,9 +384,8 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
     agent_->set_controller_ifmap_xmpp_client(NULL, idx);
 
     //cleanup AgentXmppChannel
-    agent_->ResetAgentMcastLabelRange(idx);
     DeleteAgentXmppChannel(agent_->controller_xmpp_channel(idx));
-    agent_->set_controller_xmpp_channel(NULL, idx);
+    agent_->reset_controller_xmpp_channel(idx);
 
     //cleanup AgentIfmapXmppChannel
     delete agent_->ifmap_xmpp_channel(idx);

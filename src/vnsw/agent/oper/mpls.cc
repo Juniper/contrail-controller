@@ -21,7 +21,7 @@ MplsLabel::~MplsLabel() {
     if (label_ == MplsTable::kInvalidLabel) {
         return;
     }
-    if ((type_ != MplsLabel::MCAST_NH) &&
+    if (!IsFabricMulticastReservedLabel() &&
         free_label_) {
         agent_->mpls_table()->FreeLabel(label_);
     }
@@ -49,7 +49,7 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
 
     mpls->free_label_ = true;
-    if (mpls->type_ != MplsLabel::MCAST_NH) {
+    if (!mpls->IsFabricMulticastReservedLabel()) {
         UpdateLabel(key->label_, mpls);
     }
     ChangeHandler(mpls, req);
@@ -208,28 +208,6 @@ void MplsLabel::CreateVPortLabel(const Agent *agent,
     return;
 }
 
-void MplsLabel::CreateMcastLabelReq(const Agent *agent,
-                                    uint32_t label,
-                                    COMPOSITETYPE type,
-                                    ComponentNHKeyList &component_nh_key_list,
-                                    const std::string vrf_name) {
-    if (label == 0 || label == MplsTable::kInvalidLabel)
-        return;
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
-                                            vrf_name);
-    req.data.reset(data);
-
-    agent->mpls_table()->Enqueue(&req);
-    return;
-}
-
 void MplsLabel::CreateEcmpLabel(const Agent *agent,
                                 uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
@@ -245,18 +223,6 @@ void MplsLabel::CreateEcmpLabel(const Agent *agent,
     req.data.reset(data);
 
     agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::DeleteMcastLabelReq(const Agent *agent, uint32_t src_label) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
-    req.key.reset(key);
-    req.data.reset(NULL);
-
-    agent->mpls_table()->Enqueue(&req);
     return;
 }
 
@@ -282,6 +248,13 @@ void MplsLabel::DeleteReq(const Agent *agent, uint32_t label) {
     agent->mpls_table()->Enqueue(&req);
 }
 
+bool MplsLabel::IsFabricMulticastReservedLabel() const {
+    if (type_ != MplsLabel::MCAST_NH)
+        return false;
+
+    return (agent_->mpls_table()->
+            IsFabricMulticastLabel(label_));
+}
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);
@@ -415,4 +388,53 @@ AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                            const std::string &context) {
     return AgentSandeshPtr(new AgentMplsSandesh(context,
                                            args->GetString("type"), args->GetString("label")));
+}
+
+void MplsTable::CreateMcastLabel(uint32_t label,
+                                 COMPOSITETYPE type,
+                                 ComponentNHKeyList &component_nh_key_list,
+                                 const std::string vrf_name) {
+    if (label == 0 || label == MplsTable::kInvalidLabel)
+        return;
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
+                                            vrf_name);
+    req.data.reset(data);
+
+    Process(req);
+    return;
+}
+
+void MplsTable::DeleteMcastLabel(uint32_t src_label) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
+    req.key.reset(key);
+    req.data.reset(NULL);
+
+    Process(req);
+    return;
+}
+
+void MplsTable::ReserveMulticastLabel(uint32_t start,
+                                      uint32_t end,
+                                      uint8_t idx) {
+    multicast_label_start_[idx] = start;
+    multicast_label_end_[idx] = end;
+    ReserveLabel(start, end);
+}
+
+bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if ((label >= multicast_label_start_[count]) &&
+            (label <= multicast_label_end_[count])) return true;
+    }
+    return false;
 }
