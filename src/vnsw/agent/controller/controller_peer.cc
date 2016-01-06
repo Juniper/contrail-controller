@@ -1475,7 +1475,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                                          xmps::PeerState state) {
     Agent *agent = peer->agent();
     peer->UpdateConnectionInfo(state);
-    bool change_agent_mcast_builder = false;
     bool headless_mode = agent->headless_agent_mode();
 
     if (state == xmps::READY) {
@@ -1505,29 +1504,9 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                              "NULL", "BGP peer set as config server.");
         }
 
-        // Evaluate switching over Multicast Tree Builder
-        AgentXmppChannel *agent_mcast_builder =
-            agent->mulitcast_builder();
-        //Either mcast builder is being set for first time or a lower peer has
-        //come up. In both cases its time to set new mcast peer as builder.
-        change_agent_mcast_builder = agent_mcast_builder ? false : true;
-
-        if (agent_mcast_builder && (agent_mcast_builder != peer)) {
-            // Check whether new peer can be a potential mcast builder
-            boost::system::error_code ec;
-            IpAddress ip1 = ip::address::from_string(peer->GetXmppServer(),ec);
-            IpAddress ip2 = ip::address::from_string(agent_mcast_builder->
-                                                     GetXmppServer(),ec);
-            if (ip1.to_v4().to_ulong() < ip2.to_v4().to_ulong()) {
-                change_agent_mcast_builder = true;
-                // Walk route-tables and send dissociate to older peer
-                // for subnet and broadcast routes
-                agent_mcast_builder->bgp_peer_id()->
-                    PeerNotifyMulticastRoutes(false);
-            }
-        }
-
-        if (change_agent_mcast_builder) {
+        AgentXmppChannel *agent_mcast_builder = agent->mulitcast_builder();
+        //Mcast builder was not set it, use the new peer
+        if (agent_mcast_builder == NULL) {
             //Since this is first time mcast peer so old and new peer are same
             AgentXmppChannel::SetMulticastPeer(peer, peer);
             CleanMulticastStale(peer);
