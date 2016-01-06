@@ -779,6 +779,23 @@ class VncApi(object):
     # end prop_list_add_element
 
     @check_homepage
+    def prop_list_modify_element(self, obj_uuid, obj_field, value, position):
+        uri = self._action_uri['prop-list-update']
+        if isinstance(value, GeneratedsSuper):
+            serialized_value = value.exportDict('')
+        else:
+            serialized_value = value
+
+        oper_param = {'field': obj_field,
+                      'operation': 'modify',
+                      'value': serialized_value,
+                      'position': position}
+        dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
+        return self._request_server(
+            rest.OP_POST, uri, data=json.dumps(dict_body))
+    # end prop_list_modify_element
+
+    @check_homepage
     def prop_list_delete_element(self, obj_uuid, obj_field, position):
         uri = self._action_uri['prop-list-update']
         oper_param = {'field': obj_field,
@@ -790,9 +807,12 @@ class VncApi(object):
     # end prop_list_delete_element
 
     @check_homepage
-    def prop_list_get(self, obj_uuid, obj_field):
+    def prop_list_get(self, obj_uuid, obj_field, position=None):
         uri = self._action_uri['prop-list-get']
         query_params = {'uuid': obj_uuid, 'fields': obj_field}
+        if position:
+            query_params['position'] = position
+
         content = self._request_server(
             rest.OP_GET, uri, data=query_params)
 

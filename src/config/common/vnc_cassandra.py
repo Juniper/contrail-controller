@@ -789,7 +789,7 @@ class VncCassandraClient(object):
         return (True, '')
     # end object_delete
 
-    def prop_list_read(self, obj_uuid, obj_fields):
+    def prop_list_read(self, obj_uuid, obj_fields, position):
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
         try:
@@ -803,9 +803,16 @@ class VncCassandraClient(object):
 
         # read in prop-list fields
         for field in obj_fields:
+            if position:
+                col_start = 'propl:%s:%s' %(field, position)
+                col_end = 'propl:%s:%s' %(field, position)
+            else:
+                col_start = 'propl:%s:' %(field)
+                col_end = 'propl:%s;' %(field)
+
             obj_cols = self._obj_uuid_cf.get(obj_uuid,
-                column_start='propl:%s:' %(field),
-                column_finish='propl:%s;' %(field),
+                column_start=col_start,
+                column_finish=col_end,
                 column_count=self._MAX_COL,
                 include_timestamp=True)
 
