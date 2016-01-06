@@ -5,6 +5,7 @@
 #ifndef VNSW_AGENT_OPER_SERVICE_INSTANCE_H__
 #define VNSW_AGENT_OPER_SERVICE_INSTANCE_H__
 
+#include <string>
 #include <map>
 #include <boost/uuid/uuid.hpp>
 #include "cmn/agent_db.h"
@@ -56,6 +57,8 @@ public:
 
         bool Usable() const;
         std::string DiffString(const Properties &rhs) const;
+        std::string IdToCmdLineStr() const;
+        boost::uuids::uuid ToId() const;
 
         /* template parameters */
         int service_type;

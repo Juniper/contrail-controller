@@ -637,6 +637,14 @@ response sandesh LoadBalancerResp {
     1: list<LoadBalancerSandeshData> load_balancer_list;
 }
 
+struct SandeshLoadBalancerListener {
+    1: string uuid;
+    2: string protocol;
+    3: u32 port;
+    4: bool admin_state;
+    5: list<string> pool_list;
+}
+
 struct LoadBalancerV2SandeshData {
     1: string uuid;
     2: string status;
@@ -644,9 +652,8 @@ struct LoadBalancerV2SandeshData {
     4: string operating_status;
     5: string vip_subnet;
     6: string vip_address;
-    7: bool admin_state
-    8: list<string> listener_list;
-    9: list<string> pool_list;
+    7: bool admin_state;
+    8: list<SandeshLoadBalancerListener> listener_list;
 }
 
 request sandesh LoadBalancerV2Req {
