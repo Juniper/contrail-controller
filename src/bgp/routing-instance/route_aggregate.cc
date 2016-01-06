@@ -91,7 +91,8 @@ public:
     bool IsMoreSpecific(BgpRoute *route) const {
         const RouteT *ip_route = static_cast<RouteT *>(route);
         const PrefixT &ip_prefix = ip_route->GetPrefix();
-        if (ip_prefix != aggregate_route_prefix_ &&
+        if (ip_prefix.addr() != GetAddress(nexthop()) &&
+            ip_prefix != aggregate_route_prefix_ &&
             ip_prefix.IsMoreSpecific(aggregate_route_prefix_)) {
             return true;
         }
