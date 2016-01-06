@@ -16,8 +16,8 @@ class LoadbalancerData : public AgentOperDBData {
     }
 };
 
-static bool IsListenerEqual(const autogen::LoadbalancerListenerType &lhs,
-                            const autogen::LoadbalancerListenerType &rhs) {
+static bool IsListenerPropsEqual(const autogen::LoadbalancerListenerType &lhs,
+                                 const autogen::LoadbalancerListenerType &rhs) {
     if (lhs.protocol != rhs.protocol) {
         return false;
     }
@@ -25,6 +25,17 @@ static bool IsListenerEqual(const autogen::LoadbalancerListenerType &lhs,
         return false;
     }
     if (lhs.admin_state != rhs.admin_state) {
+        return false;
+    }
+    return true;
+}
+
+static bool IsListenerEqual(const Loadbalancer::ListenerInfo &lhs,
+                            const Loadbalancer::ListenerInfo &rhs) {
+    if (!IsListenerPropsEqual(lhs.properties, rhs.properties)) {
+        return false;
+    }
+    if (lhs.pools != rhs.pools) {
         return false;
     }
     return true;
@@ -49,8 +60,7 @@ static void FetchPoolList(DBGraph *graph, IFMapNode *node,
 
 static void CalculateProperties(DBGraph *graph, IFMapNode *node,
                                 autogen::LoadbalancerType *lb_info,
-                                Loadbalancer::ListenerMap *list,
-                                Loadbalancer::PoolSet *pool_list) {
+                                Loadbalancer::ListenerMap *list) {
     autogen::Loadbalancer *cfg_lb =
             static_cast<autogen::Loadbalancer *>(node->GetObject());
     if (cfg_lb->IsPropertySet(autogen::Loadbalancer::PROPERTIES)) {
@@ -66,15 +76,17 @@ static void CalculateProperties(DBGraph *graph, IFMapNode *node,
             autogen::LoadbalancerListener *listener =
                 static_cast<autogen::LoadbalancerListener *>(adj->GetObject());
             boost::uuids::uuid uuid;
+            Loadbalancer::PoolSet pool_list;
             const autogen::IdPermsType &id = listener->id_perms();
             CfgUuidSet(id.uuid.uuid_mslong, id.uuid.uuid_lslong, uuid);
-            list->insert(std::make_pair(uuid, listener->properties()));
-            FetchPoolList(graph, adj, pool_list);
+            FetchPoolList(graph, adj, &pool_list);
+            Loadbalancer::ListenerInfo info(listener->properties(), pool_list);
+            list->insert(std::make_pair(uuid, info));
         }
     }
 }
 
-Loadbalancer::Loadbalancer() : lb_info_(), listeners_(), pools_() {
+Loadbalancer::Loadbalancer() : lb_info_(), listeners_() {
 }
 
 Loadbalancer::~Loadbalancer() {
@@ -159,21 +171,27 @@ bool Loadbalancer::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     data.set_vip_address(lb_info_.vip_address);
     data.set_admin_state(lb_info_.admin_state);
 
-    std::vector<std::string> listener_list;
+    std::vector<SandeshLoadBalancerListener> listener_list;
     ListenerMap::const_iterator it = listeners_.begin();
     while (it != listeners_.end()) {
-        listener_list.push_back(UuidToString(it->first));
+        const Loadbalancer::ListenerInfo &info = it->second;
+        SandeshLoadBalancerListener entry;
+        entry.set_uuid(UuidToString(it->first));
+        entry.set_protocol(info.properties.protocol);
+        entry.set_port(info.properties.protocol_port);
+        entry.set_admin_state(info.properties.admin_state);
+
+        std::vector<std::string> pool_list;
+        PoolSet::const_iterator pit = info.pools.begin();
+        while (pit != info.pools.end()) {
+            pool_list.push_back(UuidToString(*pit));
+            ++pit;
+        }
+        entry.set_pool_list(pool_list);
+        listener_list.push_back(entry);
         ++it;
     }
     data.set_listener_list(listener_list);
-
-    std::vector<std::string> pool_list;
-    PoolSet::const_iterator pit = pools_.begin();
-    while (pit != pools_.end()) {
-        pool_list.push_back(UuidToString(*pit));
-        ++pit;
-    }
-    data.set_pool_list(pool_list);
 
     std::vector<LoadBalancerV2SandeshData> &list =
             const_cast<std::vector<LoadBalancerV2SandeshData>&>
@@ -214,16 +232,13 @@ std::auto_ptr<DBEntry> LoadbalancerTable::AllocEntry(
 DBEntry *LoadbalancerTable::OperDBAdd(const DBRequest *request) {
     autogen::LoadbalancerType lb_info;
     Loadbalancer::ListenerMap listeners;
-    Loadbalancer::PoolSet pools;
 
     Loadbalancer *loadbalancer = new Loadbalancer();
     LoadbalancerData *data =
             static_cast<LoadbalancerData *>(request->data.get());
-    CalculateProperties(graph_, data->ifmap_node(), &lb_info, &listeners,
-                        &pools);
+    CalculateProperties(graph_, data->ifmap_node(), &lb_info, &listeners);
     loadbalancer->set_lb_info(lb_info);
     loadbalancer->set_listeners(listeners);
-    loadbalancer->set_pools(pools);
     loadbalancer->SetKey(request->key.get());
     return loadbalancer;
 }
@@ -234,22 +249,17 @@ bool LoadbalancerTable::OperDBDelete(DBEntry *entry, const DBRequest *request) {
 
 bool LoadbalancerTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
-    Loadbalancer::PoolSet pool_list;
 
     LoadbalancerData *data = static_cast<LoadbalancerData *>(req->data.get());
 
     autogen::LoadbalancerType lb_info;
     Loadbalancer::ListenerMap listener_list;
-    CalculateProperties(graph_, data->ifmap_node(), &lb_info, &listener_list,
-                        &pool_list);
+    CalculateProperties(graph_, data->ifmap_node(), &lb_info, &listener_list);
     if (!loadbalancer->IsLBInfoEqual(lb_info)) {
         loadbalancer->set_lb_info(lb_info);
     }
     if (!loadbalancer->IsListenerMapEqual(listener_list)) {
         loadbalancer->set_listeners(listener_list);
-    }
-    if (loadbalancer->pools() != pool_list) {
-        loadbalancer->set_pools(pool_list);
     }
     loadbalancer->SetKey(req->key.get());
     return true;

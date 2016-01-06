@@ -7,10 +7,10 @@
 #include <ostream>
 #include <boost/uuid/uuid.hpp>
 #include "base/util.h"
+#include "loadbalancer.h"
 
 class LoadBalancerPoolInfo;
 class Agent;
-class Loadbalancer;
 
 class LoadbalancerConfig {
 public:
@@ -35,7 +35,8 @@ private:
                                   const std::string &indent) const;
     void GenerateLoadbalancer(std::ostream *out, Loadbalancer *lb) const;
     void GenerateListeners(std::ostream *out, Loadbalancer *lb) const;
-    void GeneratePools(std::ostream *out, Loadbalancer *lb) const;
+    void GeneratePools(std::ostream *out, const Loadbalancer::PoolSet &pools)
+        const;
 
     Agent *agent_;
 
