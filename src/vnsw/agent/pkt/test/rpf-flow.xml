@@ -9,8 +9,7 @@
     <virtual-machine-interface nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:01:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.4"
-    />
-
+     />
     <validate name="validate-1">
         <virtual-network name="vn1" uuid="1" present="1" />
         <virtual-machine-interface name="tap1" uuid="1" present="1"/>
@@ -27,6 +26,26 @@
         <virtual-machine name="vm2" uuid="2" present="1"/>
         <virtual-machine-interface name="tap2" uuid="2" present="1"/>
     </validate>
+
+    <virtual-machine uuid="3" name="vm3"/>
+    <virtual-machine-interface nova="1"
+     uuid="3" name="tap3" mac="00:00:00:00:01:03" vn-name="vn1" vn-uuid="1"
+     vm-name="vm3" vm-uuid="3" vrf="vrf1" ip="1.1.1.6"
+     />
+    <instance-ip name="iip1" uuid="1" ip="1.1.1.6" vmi="tap3" ecmp="1"/>
+    <vmi-vrf uuid="1" name="tap3-vm3" />
+
+    <virtual-machine uuid="4" name="vm4"/>
+    <virtual-machine-interface nova="1"
+     uuid="4" name="tap4" mac="00:00:00:00:01:04" vn-name="vn1" vn-uuid="1"
+     vm-name="vm4" vm-uuid="4" vrf="vrf1" ip="1.1.1.6"
+     />
+    <instance-ip name="iip2" uuid="2" ip="1.1.1.6" vmi="tap4" ecmp="1"/>
+    <vmi-vrf uuid="1" name="tap4-vm4" />
+
+    <fdb uuid="2" id="2" name="fdb_2" mac="00:00:00:00:02:02" vrf="vrf1"
+        vn="vn1" vxlan_id="0" tunnel-dest="5.5.5.5" tunnel-type="vxlan" sg="2"
+        label="5" />
 
     <!-- RPF evalution has to happen on layer3 routes when present
          We create 3 flow with below behaviour
@@ -52,6 +71,10 @@
      smac="00:00:00:00:01:01" dmac="00:00:5e:00:01:00"
      sip="1.1.1.4" dip="1.1.1.5" proto="udp" sport="1" dport="11"
      type="flow" />
+    <packet uuid="1" id="1" name="l3-udp-from-ecmp-vm" intf="3" fwd_mode="l2"
+     smac="00:00:00:00:01:03" dmac="00:00:00:00:02:02"
+     sip="1.1.1.6" dip="1.1.1.2" proto="udp" sport="1" dport="14"
+     type="flow" />
     <validate name="validate-1">
         <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
@@ -62,6 +85,9 @@
         <flow name="l3-udp-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="12"/>
+        <flow name="l3-udp-from-ecmp-vm" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.6"
+         dip="1.1.1.2" proto="udp" sport="1" dport="14" svn="vn1"
+         dvn="vn1" action="deny" rpf_nh="2"/>
     </validate>
 
     <!-- Update SG of the interface and verify RPF NH gets
@@ -129,10 +155,10 @@
          dvn="vn1" action="deny" rpf_nh="2"/>
         <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="16"/>
+         dvn="vn1" action="deny" rpf_nh="28"/>
         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="16"/>
+         dvn="vn1" action="deny" rpf_nh="28"/>
     </validate>
 
      <l3-route delete="1" uuid="1" id="1" name="route_1" src-ip="1.1.1.4" plen="32"
@@ -154,6 +180,8 @@
 
     <fdb delete="1" uuid="1" id="1" name="fdb_1" mac="00:00:00:00:01:01"
         vrf="vrf1"/>
+    <fdb delete="1" uuid="2" id="2" name="fdb_2" mac="00:00:00:00:02:02"
+        vrf="vrf1"/>
 
     <link delete="1" left="virtual-machine-interface" left-name="tap1"
         right="security-group" right-name="sg1" />
@@ -169,6 +197,16 @@
      uuid="2" name="tap2" mac="00:00:00:00:01:02" vn-name="vn1" vn-uuid="1"
      vm-name="vm2" vm-uuid="2" vrf="vrf1" ip="1.1.1.5"
     />
+    <virtual-machine-interface delete="1" nova="1"
+     uuid="3" name="tap2" mac="00:00:00:00:01:03" vn-name="vn1" vn-uuid="1"
+     vm-name="vm3" vm-uuid="3" vrf="vrf1" ip="1.1.1.6"
+    />
+    <virtual-machine-interface delete="1" nova="1"
+     uuid="4" name="tap2" mac="00:00:00:00:01:04" vn-name="vn1" vn-uuid="1"
+     vm-name="vm4" vm-uuid="4" vrf="vrf1" ip="1.1.1.6"
+     />
+    <instance-ip delete="1" name="iip1" uuid="1" ip="1.1.1.6" vmi="tap3" />
+    <instance-ip delete="1" name="iip2" uuid="1" ip="1.1.1.6" vmi="tap4" />
 
     <virtual-network delete="1" uuid="1" name="vn1"/>
     <virtual-machine delete="1" uuid="1" name="vm1"/>

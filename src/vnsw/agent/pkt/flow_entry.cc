@@ -81,6 +81,7 @@ const std::map<uint16_t, const char*>
          "SHORT_LINKLOCAL_SRC_NAT")
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "SHORT_FAILED_VROUTER_INST")
+        ((uint16_t)SHORT_INVALID_L2_FLOW,    "SHORT_INVALID_L2_FLOW")
         ((uint16_t)DROP_POLICY,              "DROP_POLICY")
         ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
         ((uint16_t)DROP_SG,                  "DROP_SG")
@@ -574,6 +575,14 @@ static bool ShouldDrop(uint32_t action) {
 /////////////////////////////////////////////////////////////////////////////
 // Flow entry fileds updation routines
 /////////////////////////////////////////////////////////////////////////////
+std::string FlowEntry::DropReasonStr(uint16_t reason) {
+    std::map<uint16_t, const char*>::const_iterator it =
+        FlowDropReasonStr.find(reason);
+    if (it != FlowDropReasonStr.end()) {
+        return string(it->second);
+    }
+    return "UNKNOWN";
+}
 
 // Get src-vn/sg-id/plen from route
 // src-vn and sg-id are used for policy lookup
@@ -665,16 +674,23 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
-        assert(l3_flow_ == true);
-            //Logic for RPF check for ecmp
-            //  Get reverse flow, and its corresponding ecmp index
-            //  Check if source matches composite nh in reverse flow ecmp index,
-            //  if not DP would trap packet for ECMP resolve.
-            //  If there is only one instance of ECMP in compute node, then 
-            //  RPF NH would only point to local interface NH.
-            //  If there are multiple instances of ECMP in local server
-            //  then RPF NH would point to local composite NH(containing 
-            //  local members only)
+        if (l3_flow_ == false) {
+            if (is_flags_set(FlowEntry::ShortFlow) == false) {
+                MakeShortFlow(SHORT_INVALID_L2_FLOW);
+                data_.nh = NULL;
+                ret = true;
+            }
+            return ret;
+        }
+        //Logic for RPF check for ecmp
+        //  Get reverse flow, and its corresponding ecmp index
+        //  Check if source matches composite nh in reverse flow ecmp index,
+        //  if not DP would trap packet for ECMP resolve.
+        //  If there is only one instance of ECMP in compute node, then 
+        //  RPF NH would only point to local interface NH.
+        //  If there are multiple instances of ECMP in local server
+        //  then RPF NH would point to local composite NH(containing 
+        //  local members only)
         const InetUnicastRouteEntry *route =
             static_cast<const InetUnicastRouteEntry *>(rt);
         nh = route->GetLocalNextHop();

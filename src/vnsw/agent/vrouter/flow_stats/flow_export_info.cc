@@ -9,7 +9,7 @@ FlowExportInfo::FlowExportInfo() :
     vm_cfg_name_(), peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0), underlay_sport_exported_(false), exported_(false),
     fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), tcp_flags_(0) {
-    drop_reason_ = FlowEntry::FlowDropReasonStr.at(FlowEntry::DROP_UNKNOWN);
+    drop_reason_ = FlowEntry::DropReasonStr(FlowEntry::DROP_UNKNOWN);
     rev_flow_key_.Reset();
     interface_uuid_ = boost::uuids::nil_uuid();
 }
@@ -37,7 +37,7 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     } else {
         interface_uuid_ = boost::uuids::nil_uuid();
     }
-    drop_reason_ = FlowEntry::FlowDropReasonStr.at(fe->data().drop_reason);
+    drop_reason_ = FlowEntry::DropReasonStr(fe->data().drop_reason);
 }
 
 bool FlowExportInfo::IsActionLog() const {
