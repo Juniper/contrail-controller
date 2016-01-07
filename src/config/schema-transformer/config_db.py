@@ -2068,6 +2068,14 @@ class RoutingInstanceST(DBBaseST):
             if rp:
                 rp.delete_routing_instance(self.name)
         self.routing_policys = {}
+        bgpaas_server_name = self.obj.get_fq_name_str() + ':bgpaas-server'
+        bgpaas_server = BgpRouterST.get(bgpaas_server_name)
+        if bgpaas_server:
+            try:
+                self._vnc_lib.bgp_router_delete(id=bgpaas_server.obj.uuid)
+            except NoIdError:
+                pass
+            BgpRouterST.delete(bgpaas_server_name)
         try:
             DBBaseST._vnc_lib.routing_instance_delete(id=self.obj.uuid)
         except NoIdError:
@@ -2647,6 +2655,7 @@ class BgpRouterST(DBBaseST):
                     except NoIdError:
                         pass
                 self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
+                BgpRouterST.delete(self.name)
             elif ret:
                 self._vnc_lib.bgp_router_update(self.obj)
         elif self.router_type != 'bgpaas-server':
