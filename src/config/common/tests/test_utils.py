@@ -69,6 +69,22 @@ class FakeWSGIHandler(gevent.wsgi.WSGIHandler):
                 FakeWSGIHandler.logger.log(logging.INFO, message)
         server.log = LoggerWriter()
 
+class FakeSystemManager(object):
+    _keyspaces = []
+
+    def __init__(*args, **kwargs):
+        pass
+
+    def create_keyspace(self, name, *args, **kwargs):
+        if name not in self._keyspaces:
+            self._keyspaces.append(name)
+
+    def list_keyspaces(self):
+        return self._keyspaces
+
+    def create_column_family(self, *args, **kwargs):
+        pass
+
 class CassandraCFs(object):
     _all_cfs = {}
 
@@ -1169,8 +1185,8 @@ class ZnodeStat(object):
 class FakeKazooClient(object):
     class Election(object):
         __init__ = stub
-        def run(self, cb, func, *args, **kwargs):
-            cb(func, *args, **kwargs)
+        def run(self, cb, *args, **kwargs):
+            cb(*args, **kwargs)
 
     def __init__(self, *args, **kwargs):
         self.add_listener = stub

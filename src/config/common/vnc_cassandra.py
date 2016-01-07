@@ -23,6 +23,7 @@ import utils
 import datetime
 import re
 from operator import itemgetter
+import itertools
 
 class VncCassandraClient(object):
     # Name to ID mapping keyspace + tables
@@ -38,6 +39,10 @@ class VncCassandraClient(object):
     # where type is entity object is being shared with. Project initially
     _OBJ_SHARED_CF_NAME = 'obj_shared_table'
 
+    _UUID_KEYSPACE = {_UUID_KEYSPACE_NAME:
+        [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
+         (_OBJ_SHARED_CF_NAME, None)]}
+
     _MAX_COL = 10000000
 
     @classmethod
@@ -48,8 +53,8 @@ class VncCassandraClient(object):
         return db_info
     # end get_db_info
 
-    def __init__(self, server_list, db_prefix, keyspaces, logger,
-                 generate_url=None, reset_config=[], credential=None):
+    def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
+            logger, generate_url=None, reset_config=False, credential=None):
         self._re_match_parent = re.compile('parent:')
         self._re_match_prop = re.compile('prop:')
         self._re_match_prop_list = re.compile('propl:')
@@ -73,13 +78,11 @@ class VncCassandraClient(object):
         # returns an empty string
         self._generate_url = generate_url or (lambda x,y: '')
         self._cf_dict = {}
-        self._keyspaces = {
-            self._UUID_KEYSPACE_NAME: [(self._OBJ_UUID_CF_NAME, None),
-                                       (self._OBJ_FQ_NAME_CF_NAME, None),
-                                       (self._OBJ_SHARED_CF_NAME, None)]}
-
-        if keyspaces:
-            self._keyspaces.update(keyspaces)
+        self._ro_keyspaces = ro_keyspaces or {}
+        self._rw_keyspaces = rw_keyspaces or {}
+        if ((self._UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
+            (self._UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
+            self._ro_keyspaces.update(self._UUID_KEYSPACE)
         self._cassandra_init(server_list)
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
@@ -130,8 +133,8 @@ class VncCassandraClient(object):
             except AllServersUnavailable as e:
                 if self._conn_state != ConnectionStatus.DOWN:
                     self._update_sandesh_status(ConnectionStatus.DOWN)
-                    msg = 'Cassandra connection down. Exception in %s' \
-                          %(str(func))
+                    msg = 'Cassandra connection down. Exception in %s' %(
+                        str(func))
                     self._logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
@@ -157,9 +160,15 @@ class VncCassandraClient(object):
         ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove)
         Mutator.send = self._handle_exceptions(Mutator.send)
 
-        for ks,cf_list in self._keyspaces.items():
+        self.sys_mgr = self._cassandra_system_manager()
+        self.existing_keyspaces = self.sys_mgr.list_keyspaces()
+        for ks,cf_list in self._rw_keyspaces.items():
             keyspace = '%s%s' %(self._db_prefix, ks)
-            self._cassandra_ensure_keyspace(server_list, keyspace, cf_list)
+            self._cassandra_ensure_keyspace(keyspace, cf_list)
+
+        for ks,cf_list in self._ro_keyspaces.items():
+            keyspace = '%s%s' %(self._db_prefix, ks)
+            self._cassandra_wait_for_keyspace(keyspace)
 
         self._cassandra_init_conn_pools()
     # end _cassandra_init
@@ -171,7 +180,8 @@ class VncCassandraClient(object):
         while not connected:
             try:
                 cass_server = self._server_list[server_idx]
-                sys_mgr = SystemManager(cass_server, credentials=self._credential)
+                sys_mgr = SystemManager(cass_server,
+                                        credentials=self._credential)
                 connected = True
             except Exception:
                 # TODO do only for
@@ -181,23 +191,30 @@ class VncCassandraClient(object):
         return sys_mgr
     # end _cassandra_system_manager
 
-    def _cassandra_ensure_keyspace(self, server_list,
-                                   keyspace_name, cf_info_list):
-        sys_mgr = self._cassandra_system_manager()
+    def _cassandra_wait_for_keyspace(self, keyspace):
+        # Wait for it to be created by another process
+        while keyspace not in self.existing_keyspaces:
+            gevent.sleep(1)
+            self._logger("Waiting for keyspace %s to be created" % keyspace,
+                         level=SandeshLevel.SYS_NOTICE)
+            self.existing_keyspaces = self.sys_mgr.list_keyspaces()
+    # end _cassandra_wait_for_keyspace
 
-        if keyspace_name in self._reset_config:
+    def _cassandra_ensure_keyspace(self, keyspace_name, cf_info_list):
+        if self._reset_config and keyspace_name in self.existing_keyspaces:
             try:
-                sys_mgr.drop_keyspace(keyspace_name)
+                self.sys_mgr.drop_keyspace(keyspace_name)
+            except pycassa.cassandra.ttypes.InvalidRequestException as e:
+                # TODO verify only EEXISTS
+                self._logger(str(e), level=SandeshLevel.SYS_NOTICE)
+
+        if (self._reset_config or keyspace_name not in self.existing_keyspaces):
+            try:
+                self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
+                        {'replication_factor': str(self._num_dbnodes)})
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-
-        try:
-            sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(self._num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            # TODO verify only EEXISTS
-            self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
         gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
@@ -205,25 +222,26 @@ class VncCassandraClient(object):
             try:
                 (cf_name, comparator_type) = cf_info
                 if comparator_type:
-                    sys_mgr.create_column_family(
+                    self.sys_mgr.create_column_family(
                         keyspace_name, cf_name,
                         comparator_type=comparator_type,
                         gc_grace_seconds=gc_grace_sec,
                         default_validation_class='UTF8Type')
                 else:
-                    sys_mgr.create_column_family(keyspace_name, cf_name,
+                    self.sys_mgr.create_column_family(keyspace_name, cf_name,
                         gc_grace_seconds=gc_grace_sec,
                         default_validation_class='UTF8Type')
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-                sys_mgr.alter_column_family(keyspace_name, cf_name,
+                self.sys_mgr.alter_column_family(keyspace_name, cf_name,
                     gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type')
     # end _cassandra_ensure_keyspace
 
     def _cassandra_init_conn_pools(self):
-        for ks,cf_list in self._keyspaces.items():
+        for ks,cf_list in itertools.chain(self._rw_keyspaces.items(),
+                                          self._ro_keyspaces.items()):
             pool = pycassa.ConnectionPool(
                 ks, self._server_list, max_overflow=-1, use_threadlocal=True,
                 prefill=True, pool_size=20, pool_timeout=120,
@@ -318,7 +336,8 @@ class VncCassandraClient(object):
 
         # Update fqname table
         fq_name_str = ':'.join(obj_dict['fq_name'])
-        fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_id: json.dumps(None)}
+        fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_id:
+                        json.dumps(None)}
         self._obj_fq_name_cf.insert(obj_type, fq_name_cols)
 
         return (True, '')
@@ -335,7 +354,8 @@ class VncCassandraClient(object):
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
         if (field_names is None or
-            (set(field_names) & (obj_class.backref_fields | obj_class.children_fields))):
+            (set(field_names) & (obj_class.backref_fields |
+                                 obj_class.children_fields))):
             # atleast one backref/children field is needed
             obj_rows = obj_uuid_cf.multiget(obj_uuids,
                                        column_count=self._MAX_COL,
@@ -364,7 +384,8 @@ class VncCassandraClient(object):
                     result['parent_type'] = parent_type
                     try:
                         result['parent_uuid'] = parent_uuid
-                        result['parent_href'] = self._generate_url(parent_type, parent_uuid)
+                        result['parent_href'] = self._generate_url(parent_type,
+                                                                   parent_uuid)
                     except NoIdError:
                         err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
                         return (False, err_msg)
@@ -397,22 +418,25 @@ class VncCassandraClient(object):
 
                     child_tstamp = obj_cols[col_name][1]
                     try:
-                        self._read_child(result, obj_uuid, child_type, child_uuid, child_tstamp)
+                        self._read_child(result, obj_uuid, child_type,
+                                         child_uuid, child_tstamp)
                     except NoIdError:
                         continue
 
                 if self._re_match_ref.match(col_name):
                     (_, ref_type, ref_uuid) = col_name.split(':')
-                    self._read_ref(result, obj_uuid, ref_type, ref_uuid, obj_cols[col_name][0])
+                    self._read_ref(result, obj_uuid, ref_type, ref_uuid,
+                                   obj_cols[col_name][0])
 
                 if self._re_match_backref.match(col_name):
                     (_, back_ref_type, back_ref_uuid) = col_name.split(':')
-                    if field_names and '%s_back_refs' %(back_ref_type) not in field_names:
+                    if (field_names and
+                        '%s_back_refs' %(back_ref_type) not in field_names):
                         continue
 
                     try:
-                        self._read_back_ref(result, obj_uuid, back_ref_type, back_ref_uuid,
-                                            obj_cols[col_name][0])
+                        self._read_back_ref(result, obj_uuid, back_ref_type,
+                                            back_ref_uuid, obj_cols[col_name][0])
                     except NoIdError:
                         continue
 
@@ -502,7 +526,8 @@ class VncCassandraClient(object):
                 if prop_name == 'id_perms':
                     # id-perms always has to be updated for last-mod timestamp
                     # get it from request dict(or from db if not in request dict)
-                    new_id_perms = new_obj_dict.get(prop_name, json.loads(obj_cols[col_name]))
+                    new_id_perms = new_obj_dict.get(
+                        prop_name, json.loads(obj_cols[col_name]))
                     self.update_last_modified(bch, obj_uuid, new_id_perms)
                 elif prop_name in new_obj_dict:
                     self._update_prop(bch, obj_uuid, prop_name, new_props)
@@ -516,14 +541,16 @@ class VncCassandraClient(object):
 
             if self._re_match_ref.match(col_name):
                 (_, ref_type, ref_uuid) = col_name.split(':')
-                self._update_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid, new_ref_infos)
+                self._update_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid,
+                                 new_ref_infos)
         # for all column names
 
         # create new refs
         for ref_type in new_ref_infos.keys():
             for ref_uuid in new_ref_infos[ref_type].keys():
                 ref_data = new_ref_infos[ref_type][ref_uuid]
-                self._create_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid, ref_data)
+                self._create_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid,
+                                 ref_data)
 
         # create new props
         for prop_name in new_props.keys():
@@ -619,18 +646,21 @@ class VncCassandraClient(object):
                     child_uuid = col_name.split(':')[2]
                     if obj_uuids and child_uuid not in obj_uuids:
                         continue
-                    all_child_infos[child_uuid] = {'uuid': child_uuid, 'tstamp': col_val_ts[1]}
+                    all_child_infos[child_uuid] = {'uuid': child_uuid,
+                                                   'tstamp': col_val_ts[1]}
 
                 filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
                 if filter_cols:
-                    filt_child_infos = filter_rows(all_child_infos, filter_cols, filter_fields)
+                    filt_child_infos = filter_rows(all_child_infos, filter_cols,
+                                                   filter_fields)
                 else: # no filter specified
                     filt_child_infos = all_child_infos
 
                 if not sort:
                     ret_child_infos = filt_child_infos.values()
                 else:
-                    ret_child_infos = sorted(filt_child_infos.values(), key=itemgetter('tstamp'))
+                    ret_child_infos = sorted(filt_child_infos.values(),
+                                             key=itemgetter('tstamp'))
 
                 return get_fq_name_uuid_list(r['uuid'] for r in ret_child_infos)
             # end filter_rows_parent_anchor
@@ -678,7 +708,8 @@ class VncCassandraClient(object):
                 else: # no filter specified
                     filt_backref_infos = all_backref_infos
 
-                return get_fq_name_uuid_list(r['uuid'] for r in filt_backref_infos.values())
+                return get_fq_name_uuid_list(r['uuid'] for r in
+                                             filt_backref_infos.values())
             # end filter_rows_backref_anchor
 
             if count:
@@ -732,7 +763,8 @@ class VncCassandraClient(object):
 
                     filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
                     if filter_cols:
-                        filt_obj_infos = filter_rows(all_obj_infos, filter_cols, filter_fields)
+                        filt_obj_infos = filter_rows(all_obj_infos, filter_cols,
+                                                     filter_fields)
                     else: # no filters specified
                         filt_obj_infos = all_obj_infos
 
