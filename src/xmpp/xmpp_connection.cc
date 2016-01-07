@@ -62,8 +62,6 @@ XmppConnection::~XmppConnection() {
     TimerManager::DeleteTimer(keepalive_timer_);
     XMPP_UTDEBUG(XmppConnectionDelete, "XmppConnection destructor",
                FromString(), ToString());
-    last_msg_.release();
-
 }
 
 std::string XmppConnection::GetXmppAuthenticationType() const {
