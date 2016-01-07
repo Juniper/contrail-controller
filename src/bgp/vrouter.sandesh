@@ -11,6 +11,11 @@ struct VrouterCtrl {  // Control plane view of the vrouter
     6: optional i64 out_xmpp_msgs; 
 }
 
+/**
+ * @description: contrail-vrouter-agent state information as seen in contrail-control
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 uve sandesh UveVrouterCtrl {
     1: VrouterCtrl data;
 }
