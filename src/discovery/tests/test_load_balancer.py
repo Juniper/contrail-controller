@@ -37,18 +37,18 @@ def validate_assignment_count(response, context):
 class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures):
     def setUp(self):
         extra_config_knobs = [
-            ('Collector', 'load-balance', 'True'),
+            ('SvcActiveLoadBalance', 'load-balance', 'True'),
         ]
         super(DiscoveryServerTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
 
     def test_load_balance(self):
-        # publish 3 instances of service foobar
+        # publish 3 instances
         tasks = []
-        service_type = 'foobar'
+        service_type = 'SvcLoadBalance'
         for i in range(3):
             client_type = 'test-discovery'
             pub_id = 'test_discovery-%d' % i
-            pub_data = {service_type : '%s-%d' % ('foobar', i)}
+            pub_data = {service_type : '%s-%d' % (service_type, i)}
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
@@ -61,7 +61,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         response = json.loads(msg)
         self.assertEqual(len(response['services']), 3)
-        self.assertEqual(response['services'][0]['service_type'], 'foobar')
+        self.assertEqual(response['services'][0]['service_type'], service_type)
 
         # multiple subscribers for 2 instances each
         subcount = 20
@@ -87,7 +87,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # start one more publisher
         pub_id = 'test_discovery-3'
-        pub_data = {service_type : 'foobar-3'}
+        pub_data = {service_type : '%s-3' % service_type}
         disc = client.DiscoveryClient(
                     self._disc_server_ip, self._disc_server_port,
                     client_type, pub_id)
@@ -113,13 +113,13 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         self.assertEqual(subs, subcount*service_count)
 
         # verify newly added in-use count is 0
-        data = [item for item in response['services'] if item['service_id'] == 'test_discovery-3:foobar']
+        data = [item for item in response['services'] if item['service_id'] == 'test_discovery-3:%s' % service_type]
         entry = data[0]
         self.assertEqual(len(data), 1)
         self.assertEqual(entry['in_use'], 0)
 
         # Issue load-balance command
-        (code, msg) = self._http_post('/load-balance/foobar', '')
+        (code, msg) = self._http_post('/load-balance/%s' % service_type, '')
         self.assertEqual(code, 200)
 
         # wait for all TTL to expire before looking at publisher's counters
@@ -135,7 +135,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
         self.assertEqual(subs, subcount*service_count)
 
         # verify newly added in-use count is 10
-        data = [item for item in response['services'] if item['service_id'] == 'test_discovery-3:foobar']
+        data = [item for item in response['services'] if item['service_id'] == 'test_discovery-3:%s' % service_type]
         entry = data[0]
         self.assertEqual(len(data), 1)
         print 'After LB entry %s' % entry
@@ -144,11 +144,11 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
     def test_active_load_balance(self):
         # publish 3 instances of service. Active LB must be enabled!
         tasks = []
-        service_type = 'Collector'
+        service_type = 'SvcActiveLoadBalance'
         for i in range(3):
             client_type = 'test-discovery'
             pub_id = 'test_discovery-%d' % i
-            pub_data = {service_type : '%s-%d' % ('collector', i)}
+            pub_data = {service_type : '%s-%d' % (service_type, i)}
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
@@ -192,7 +192,7 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         # start one more publisher
         pub_id = 'test_discovery-3'
-        pub_data = {service_type : 'collector-3'}
+        pub_data = {service_type : '%s-3' % service_type}
         pub_url = '/service/%s' % pub_id
         disc = client.DiscoveryClient(
                     self._disc_server_ip, self._disc_server_port,
