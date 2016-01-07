@@ -42,11 +42,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
             ]
         }
 
-        cass_reset_config = [self._keyspace] if reset_config else []
-
         super(DiscoveryCassandraClient, self).__init__(
-            cass_srv_list, None, keyspaces,
-            config_log, reset_config=cass_reset_config)
+            cass_srv_list, None, keyspaces, None
+            config_log, reset_config=reset_config)
 
         DiscoveryCassandraClient._disco_cf = self._cf_dict[self._DISCOVERY_CF_NAME]
     #end __init__

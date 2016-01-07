@@ -20,10 +20,6 @@ class ServiceMonitorDB(VncCassandraClient):
 
     def __init__(self, args, logger):
         self._db_logger = logger
-        if args.reset_config:
-            reset_config = [self._KEYSPACE]
-        else:
-            reset_config = []
 
         self._keyspaces = {
             self._KEYSPACE: [
@@ -33,16 +29,17 @@ class ServiceMonitorDB(VncCassandraClient):
         }
 
         cred = None
-        if args.cassandra_user is not None and \
-           args.cassandra_password is not None:
+        if (args.cassandra_user is not None and
+            args.cassandra_password is not None):
             cred={'username':args.cassandra_user,
                   'password':args.cassandra_password}
 
         super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
                                                None,
                                                self._keyspaces,
+                                               None,
                                                self._db_logger.log,
-                                               reset_config=reset_config,
+                                               reset_config=args.reset_config,
                                                credential=cred)
 
         self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
