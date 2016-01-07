@@ -2771,7 +2771,7 @@ class BgpAsAServiceST(DBBaseST):
         session_attrib = self.obj.get_bgpaas_session_attributes()
         bgp_session = BgpSession()
         if session_attrib:
-            bgp_session.attributes=[self.session_attrib]
+            bgp_session.attributes=[session_attrib]
         self.peering_attribs = BgpPeeringAttributes(session=[bgp_session])
         self.update_multiple_refs('virtual_machine_interface', self.obj)
         self.update_multiple_refs('bgp_router', self.obj)
