@@ -116,7 +116,23 @@ def _set_defaults(config):
 
     return _construct_config_block(config, conf, "default", default_custom_attributes)
 
+def _set_frontend_v2(config, conf_dir, keystone_auth_conf_file):
+    port = config['listeners'][0]['port']
+    conf = [
+        'frontend %s' % config['loadbalancer']['id'],
+        'option tcplog',
+        'bind %s:%d' % (config['loadbalancer']['vip-address'], port),
+        'mode %s' % PROTO_MAP[config['listeners'][0]['protocol']],
+        'default_backend %s' % config['listeners'][0]['pools'][0]['pool']['id']
+    ]
+
+    res = "\n\t".join(conf)
+    return res
+
 def _set_frontend(config, conf_dir, keystone_auth_conf_file):
+    if 'loadbalancer' in config:
+        return _set_frontend_v2(config, conf_dir, keystone_auth_conf_file)
+
     port = config['vip']['port']
     vip_custom_attributes = validator(config, 'vip', keystone_auth_conf_file)
     ssl = ''
@@ -144,7 +160,29 @@ def _set_frontend(config, conf_dir, keystone_auth_conf_file):
 
     return _construct_config_block(config, conf, "vip", vip_custom_attributes)
 
+def _set_backend_v2(config):
+    conf = [
+        'backend %s' % config['listeners'][0]['pools'][0]['pool']['id'],
+        'mode %s' % PROTO_MAP[config['listeners'][0]['protocol']],
+        'balance %s' % 'roundrobin'
+    ]
+    if config['listeners'][0]['protocol'] == PROTO_HTTP:
+        conf.append('option forwardfor')
+
+    for member in config['listeners'][0]['pools'][0]['members']:
+        if not member['admin-state']:
+            continue
+        server = (('server %(id)s %(address)s:%(port)s '
+                  'weight %(weight)s') % member) + ''
+        conf.append(server)
+
+    res = "\n\t".join(conf)
+    return res
+
 def _set_backend(config):
+    if 'loadbalancer' in config:
+        return _set_backend_v2(config)
+
     pool_custom_attributes = validator(config, 'pool')
     conf = [
         'backend %s' % config['pool']['id'],

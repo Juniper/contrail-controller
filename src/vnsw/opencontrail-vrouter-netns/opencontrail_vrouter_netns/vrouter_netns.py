@@ -60,7 +60,7 @@ class NetnsManager(object):
     def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
                  root_helper='sudo', cfg_file=None, update=False,
                  pool_id=None, gw_ip=None, namespace_name=None,
-                 keystone_auth_cfg_file=None):
+                 keystone_auth_cfg_file=None, loadbalancer_id=None):
         self.vm_uuid = vm_uuid
         if namespace_name is None:
             self.namespace = self.NETNS_PREFIX + self.vm_uuid
@@ -68,6 +68,8 @@ class NetnsManager(object):
             self.namespace = namespace_name
         if pool_id:
             self.namespace = self.namespace + ":" + pool_id
+        elif loadbalancer_id:
+            self.namespace = self.namespace + ":" + loadbalancer_id
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
@@ -324,6 +326,10 @@ class VRouterNetns(object):
             default=None,
             help=("Loadbalancer Pool"))
         create_parser.add_argument(
+            "--loadbalancer-id",
+            default=None,
+            help=("Loadbalancer"))
+        create_parser.add_argument(
             "--keystone-auth-cfg-file",
             default=None,
             help=("Keystone auth config file for lbaas"))
@@ -351,6 +357,10 @@ class VRouterNetns(object):
             "--pool-id",
             default=None,
             help=("Loadbalancer Pool"))
+        destroy_parser.add_argument(
+            "--loadbalancer-id",
+            default=None,
+            help=("Loadbalancer"))
         destroy_parser.set_defaults(func=self.destroy)
 
         self.args = parser.parse_args(remaining_argv)
@@ -389,6 +399,7 @@ class VRouterNetns(object):
                              cfg_file=self.args.cfg_file,
                              update=self.args.update, gw_ip=self.args.gw_ip,
                              pool_id=self.args.pool_id,
+                             loadbalancer_id=self.args.loadbalancer_id,
                              keystone_auth_cfg_file=self.args.keystone_auth_cfg_file)
 
         if (self.args.update is False):
@@ -424,7 +435,8 @@ class VRouterNetns(object):
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
                                  cfg_file=self.args.cfg_file, gw_ip=None,
-                                 pool_id=self.args.pool_id)
+                                 pool_id=self.args.pool_id,
+                                 loadbalancer_id=self.args.loadbalancer_id)
 
         netns_mgr.unplug_namespace_interface()
         if self.args.service_type == self.SOURCE_NAT:
