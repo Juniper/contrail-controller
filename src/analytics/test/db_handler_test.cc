@@ -636,7 +636,6 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 << "\":\"" << dit->get_sourcevn() << "\",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTVN]
                 << "\":\"" << dit->get_destvn() << "\",";
-#ifdef INET_SUPPORT
             std::string source_ip_s;
             EXPECT_TRUE(ipv4_address_to_string(dit->get_sourceip(),
                 &source_ip_s));
@@ -647,12 +646,6 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 &dest_ip_s));
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP]
                 << "\":\"" << dest_ip_s << "\",";
-#else // INET_SUPPORT
-            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEIP]
-                << "\":" << (uint32_t)dit->get_sourceip() << ",";
-            cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP]
-                << "\":" << (uint32_t)dit->get_destip() << ",";
-#endif // !INET_SUPPORT
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_PROTOCOL]
                 << "\":" << (uint16_t)dit->get_protocol() << ",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SPORT]
@@ -686,14 +679,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 colname->reserve(4);
                 colname->push_back(dit->get_sourcevn());
 #ifdef USE_CASSANDRA_CQL
-#ifdef INET_SUPPORT
-                std::string source_ip_s;
-                EXPECT_TRUE(ipv4_address_to_string(dit->get_sourceip(),
-                    &source_ip_s));
-                colname->push_back(source_ip_s);
-#else // INET_SUPPORT
-                colname->push_back((uint32_t)dit->get_sourceip());
-#endif // !INET_SUPPORT
+                colname->push_back(Ip4Address((uint32_t)dit->get_sourceip()));
 #else // USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)dit->get_sourceip());
 #endif // !USE_CASSANDRA_CQL
@@ -731,14 +717,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 colname->reserve(4);
                 colname->push_back(dit->get_destvn());
 #ifdef USE_CASSANDRA_CQL
-#ifdef INET_SUPPORT
-                std::string dest_ip_s;
-                EXPECT_TRUE(ipv4_address_to_string(dit->get_destip(),
-                    &dest_ip_s));
-                colname->push_back(dest_ip_s);
-#else // INET_SUPPORT
-                colname->push_back((uint32_t)dit->get_destip());
-#endif // !INET_SUPPORT
+                colname->push_back(Ip4Address((uint32_t)dit->get_destip()));
 #else // USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)dit->get_destip());
 #endif // !USE_CASSANDRA_CQL

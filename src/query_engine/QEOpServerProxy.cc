@@ -114,8 +114,9 @@ public:
                     rapidjson::Value val(rapidjson::kStringType);
                     val.SetString(map_it->second.c_str());
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
-                } else if (columns[j].datatype == "ipv4") {
+                } else if (columns[j].datatype == "ipaddr") {
                     rapidjson::Value val(rapidjson::kStringType);
+#ifndef USE_CASSANDRA_CQL
                     char str[INET_ADDRSTRLEN];
                     uint32_t ipaddr = 0;
 
@@ -123,7 +124,7 @@ public:
                     ipaddr = htonl(ipaddr);
                     inet_ntop(AF_INET, &(ipaddr), str, INET_ADDRSTRLEN);
                     map_it->second = str;
-
+#endif // !USE_CASSANDRA_CQL
                     val.SetString(map_it->second.c_str(), map_it->second.size());
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
 

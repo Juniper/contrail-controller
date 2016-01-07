@@ -1205,6 +1205,11 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
         val.SetDouble(tdouble);
         dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
     }
+    void operator()(const IpAddress &tipaddr) {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(tipaddr.to_string().c_str(), dd_.GetAllocator());
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
     void operator()(const boost::blank &tblank) {
     }
     void SetName(const std::string &name) {
@@ -1404,16 +1409,22 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
 #ifdef USE_CASSANDRA_CQL
         case GenDb::DbDataType::InetType:
             {
-                uint32_t v4;
-                stringToInteger(node.child_value(), v4);
-                boost::asio::ip::address_v4 v4_addr(v4);
-                boost::system::error_code ec;
-                std::string v4_addr_s(v4_addr.to_string(ec));
-                if (ec) {
-                    LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
-                        node.child_value() << ") INVALID");
+                // Handle old datatype
+                if (strcmp(node.attribute("type").value(), "i32") == 0) {
+                    uint32_t v4;
+                    stringToInteger(node.child_value(), v4);
+                    Ip4Address ip4addr(v4);
+                    values_[ftinfo.get<0>()] = ip4addr;
+                } else {
+                    boost::system::error_code ec;
+                    IpAddress ipaddr(IpAddress::from_string(
+                                     node.child_value(), ec));
+                    if (ec) {
+                        LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
+                            node.child_value() << ") INVALID");
+                    }
+                    values_[ftinfo.get<0>()] = ipaddr;
                 }
-                values_[ftinfo.get<0>()] = v4_addr_s;
                 break;
             }
 #endif // USE_CASSANDRA_CQL
