@@ -11,7 +11,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VncPermissions(object):
 
-    mode_str = {PERMS_R: 'read', PERMS_W: 'write', PERMS_X: 'link'}
+    mode_str = {PERMS_R: 'R', PERMS_W: 'W', PERMS_X: 'X',
+                PERMS_WX: 'WX', PERMS_RX: 'RX', PERMS_RW: 'RW', PERMS_RWX: 'RWX'}
 
     def __init__(self, server_mgr, args):
         self._server_mgr = server_mgr
@@ -36,14 +37,14 @@ class VncPermissions(object):
         try:
             id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
         except NoIdError:
-            return (True, '')
+            return (True, 'RWX')
 
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]
         if is_admin:
-            return (True, '')
+            return (True, 'RWX')
 
         owner = id_perms['permissions']['owner']
         group = id_perms['permissions']['group']
@@ -61,12 +62,13 @@ class VncPermissions(object):
             mask = 07
 
         mode_mask = mode | mode << 3 | mode << 6
-        ok = is_admin or (mask & perms & mode_mask)
+        ok = (mask & perms & mode_mask)
+        granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
         if ok and mode == PERMS_W:
             ok = self.validate_user_visible_perm(id_perms, is_admin)
 
-        return (True, '') if ok else (False, err_msg)
+        return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
     def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R):
@@ -81,7 +83,7 @@ class VncPermissions(object):
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]
         if is_admin:
-            return (True, '')
+            return (True, 'RWX')
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID', None)
@@ -93,7 +95,7 @@ class VncPermissions(object):
         perms |= perms2['global_access']
 
         # build perms
-        mask = 0
+        mask = 07
         if tenant == owner:
             mask |= 0700
 
@@ -105,11 +107,9 @@ class VncPermissions(object):
                 mask |= 0070
                 break
 
-        if mask == 0:   # neither user nor shared
-            mask = 07
-
         mode_mask = mode | mode << 3 | mode << 6
-        ok = is_admin or (mask & perms & mode_mask)
+        ok = (mask & perms & mode_mask)
+        granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
         msg = '%s %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
             (usr=%s/own=%s/sh=%s)' \
@@ -118,7 +118,7 @@ class VncPermissions(object):
                tenant, owner, tenants)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
-        return (True, '') if ok else (False, err_msg)
+        return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
     # retreive user/role from incoming request
@@ -182,5 +182,21 @@ class VncPermissions(object):
         else:
             return (True, '')
     # end check_perms_link
+
+    # This API sends perms instead of error code & message
+    def obj_perms(self, request, id):
+        app = request.environ['bottle.app']
+        if app.config.local_auth or self._server_mgr.is_auth_disabled():
+            return 'RWX'
+
+        if self._rbac:
+            ok, perms = self.validate_perms_rbac(request, id, PERMS_RWX)
+        elif self._multi_tenancy:
+            ok, perms = self.validate_perms(request, id, PERMS_RWX)
+        else:
+            return 'RWX'
+
+        return perms if ok else ''
+    # end obj_perms
 
 
