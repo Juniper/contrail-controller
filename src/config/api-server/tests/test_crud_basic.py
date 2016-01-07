@@ -1753,6 +1753,32 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     fip_obj.floating_ip_address)
     # end test_ip_addr_not_released_on_delete_error
 
+    def test_uve_trace_delete_name_from_msg(self):
+        test_obj = self._create_test_object()
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        db_client = self._api_server._db_conn
+
+        uve_delete_trace_invoked = []
+        def spy_uve_trace(orig_method, *args, **kwargs):
+            oper = args[0].upper()
+            obj_uuid = args[2]
+            if oper == 'DELETE' and obj_uuid == test_obj.uuid:
+                if not uve_delete_trace_invoked:
+                    uve_delete_trace_invoked.append(True)
+                def assert_on_call():
+                    self.assertTrue(False,
+                        'uuid_to_fq_name invoked in delete at dbe_uve_trace')
+                with test_common.patch(db_client,
+                    'uuid_to_fq_name', assert_on_call):
+                    return orig_method(*args, **kwargs)
+            else:
+                return orig_method(*args, **kwargs)
+        with test_common.patch(db_client,
+            'dbe_uve_trace', spy_uve_trace):
+            self._delete_test_object(test_obj)
+            self.assertTill(self.ifmap_doesnt_have_ident, obj=test_obj)
+            self.assertEqual(len(uve_delete_trace_invoked), 1)
+    # end test_uve_trace_delete_name_from_msg
 # end class TestVncCfgApiServer
 
 
