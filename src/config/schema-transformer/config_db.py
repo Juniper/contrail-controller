@@ -219,14 +219,14 @@ class VirtualNetworkST(DBBaseST):
             self.rt_list = set()
         import_rt_list = self.obj.get_import_route_target_list()
         if import_rt_list:
-            self.import_rt_list = set(rt_list.get_route_target())
+            self.import_rt_list = set(import_rt_list.get_route_target())
             for rt in self.import_rt_list:
                 RouteTargetST.locate(rt)
         else:
             self.import_rt_list = set()
         export_rt_list = self.obj.get_export_route_target_list()
         if export_rt_list:
-            self.export_rt_list = set(rt_list.get_route_target())
+            self.export_rt_list = set(export_rt_list.get_route_target())
             for rt in self.export_rt_list:
                 RouteTargetST.locate(rt)
         else:
@@ -2807,7 +2807,7 @@ class BgpAsAServiceST(DBBaseST):
             server_router = server_router.obj
         bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
         params = BgpRouterParams(
-            autonomous_system=self.asn,
+            autonomous_system=int(self.asn) if self.asn else None,
             ip_address=self.ip_address,
             identifier=self.ip_address,
             source_port=self._cassandra.alloc_bgpaas_port(router_fq_name),

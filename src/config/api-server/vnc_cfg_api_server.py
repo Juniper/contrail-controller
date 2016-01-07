@@ -264,7 +264,7 @@ class VncApiServer(object):
                     self._validate_complex_type(prop_cls, prop_value)
                 except Exception as e:
                     err_msg = 'Error validating property %s value %s ' \
-                              %(prop_name, prop_dict)
+                              %(prop_name, prop_value)
                     err_msg += str(e)
                     return False, err_msg
             elif isinstance(prop_value, list):
@@ -1905,7 +1905,7 @@ class VncApiServer(object):
 
         # invoke the extension
         try:
-            pre_func = 'pre_'+obj_type+'_update'
+            pre_func = 'pre_'+obj_type.replace('-', '_')+'_update'
             self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, obj_dict)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
@@ -1952,7 +1952,7 @@ class VncApiServer(object):
 
         # invoke the extension
         try:
-            post_func = 'post_'+obj_type+'_update'
+            post_func = 'post_'+obj_type.replace('-', '_')+'_update'
             self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict, read_result)
         except RuntimeError:
             # lack of registered extension leads to RuntimeError
