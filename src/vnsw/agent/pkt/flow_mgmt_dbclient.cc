@@ -454,7 +454,8 @@ bool FlowMgmtDbClient::HandleTrackingIpChange(const AgentRoute *rt,
     for(Route::PathList::const_iterator it = rt->GetPathList().begin();
             it != rt->GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+        const Peer *peer = path->peer();
+        if (peer && peer->GetType() != Peer::LOCAL_VM_PORT_PEER) {
             continue;
         }
 
