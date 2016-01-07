@@ -127,6 +127,13 @@ std::string GenDb::DbDataValueToString(const GenDb::DbDataValue &db_value) {
         vstr = integerToString(vdouble);
         break;
       }
+      case GenDb::DB_VALUE_INET: {
+        IpAddress ip = boost::get<IpAddress>(db_value);
+        boost::system::error_code ec;
+        vstr = ip.to_string(ec);
+        assert(ec == 0);
+        break;
+      }
       default: {
         assert(0);
         break;
