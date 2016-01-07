@@ -147,6 +147,18 @@ public:
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
+    bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
+                                   std::stringstream &node_id,
+                                   AgentRoute *route,
+                                   const Ip4Address *nh_ip,
+                                   const std::string &vn,
+                                   const SecurityGroupList *sg_list,
+                                   const CommunityList *communities,
+                                   uint32_t label,
+                                   uint32_t tunnel_bmap,
+                                   bool associate,
+                                   const AgentPath *path,
+                                   bool assisted_replication);
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
@@ -188,18 +200,6 @@ private:
                                   const std::string &destination,
                                   const std::string &source,
                                   bool associate);
-    bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
-                                   std::stringstream &node_id,
-                                   AgentRoute *route,
-                                   const Ip4Address *nh_ip,
-                                   const std::string &vn,
-                                   const SecurityGroupList *sg_list,
-                                   const CommunityList *communities,
-                                   uint32_t label,
-                                   uint32_t tunnel_bmap,
-                                   bool associate,
-                                   const AgentPath *path,
-                                   bool assisted_replication);
     bool BuildEvpnUnicastMessage(autogen::EnetItemType &item,
                                  std::stringstream &node_id,
                                  AgentRoute *route,

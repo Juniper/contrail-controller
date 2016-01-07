@@ -1931,6 +1931,7 @@ bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
     return true;
 }
 
+//TODO simplify label selection below.
 bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
                                                  stringstream &node_id,
                                                  AgentRoute *route,
@@ -2000,7 +2001,10 @@ bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
                 nh.label = path->vxlan_id();
                 item.entry.nlri.ethernet_tag = nh.label;
             } else {
-                nh.label = 0;
+                //Before marking label as 0 check for local_peer path as well.
+                path = route->FindPath(agent_->local_peer());
+                if (path == NULL)
+                    nh.label = 0;
             }
             nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
         }
@@ -2197,11 +2201,12 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
                 return false;;
             ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
         } else {
+            const AgentPath *path =
+                l2_route->FindPath(agent_->multicast_peer());
             if (BuildEvpnMulticastMessage(item, ss_node, route, nh_ip, vn,
                                           sg_list, communities, label,
                                           tunnel_bmap, associate,
-                                          l2_route->FindPath(agent_->
-                                                             multicast_peer()),
+                                          path,
                                           false) == false)
                 return false;
             ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
