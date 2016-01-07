@@ -130,6 +130,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'stop_profile'},
     {'uri': '/list-bulk-collection', 'link_name': 'list-bulk-collection',
      'method': 'POST', 'method_name': 'list_bulk_collection_http_post'},
+    {'uri': '/obj-perms', 'link_name': 'obj-perms',
+     'method': 'GET', 'method_name': 'obj_perms_http_get'},
 ]
 
 
@@ -1646,6 +1648,39 @@ class VncApiServer(object):
                 filename,
                 root=doc_root)
     # end documentation_http_get
+
+    def obj_perms_http_get(self):
+        if 'token' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'User token needed for validation')
+        if 'uuid' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Object uuid needed for validation')
+        obj_uuid = get_request().query.uuid
+        user_token = get_request().query.token
+
+        result = {'permissions' : ''}
+
+        # get permissions in internal context
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {
+                 'HTTP_X_AUTH_TOKEN':  user_token,
+                 'REQUEST_METHOD'   : 'GET',
+                 'bottle.app': orig_request.environ['bottle.app'],
+                })
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            if self._auth_svc.validate_user_token(get_request()):
+                result['permissions']= self._permissions.obj_perms(get_request(), obj_uuid)
+        finally:
+            set_context(orig_context)
+
+        return result
+    #end check_obj_perms_http_get
 
     def prop_list_http_get(self):
         if 'uuid' not in get_request().query:

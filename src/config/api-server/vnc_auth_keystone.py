@@ -254,6 +254,20 @@ class AuthServiceKeystone(object):
                 return None
     # end
 
+    # gets called from keystone middleware after token check
+    def token_valid(self, env, start_response):
+        status = env.get('HTTP_X_IDENTITY_STATUS')
+        return True if status != 'Invalid' else False
+
+    def validate_user_token(self, request):
+        # following config forces keystone middleware to always return the result
+        # back in HTTP_X_IDENTITY_STATUS env variable
+        conf_info = self._conf_info.copy()
+        conf_info['delay_auth_decision'] = True
+
+        auth_middleware = auth_token.AuthProtocol(self.token_valid, conf_info)
+        return auth_middleware(request.headers.environ, None)
+
     # convert keystone user id to name
     def user_id_to_name(self, id):
         if id in self._ks_users:
