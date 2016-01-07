@@ -206,3 +206,154 @@
    ...
 }
 
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   msync(start)
+   fun:__msync_nocancel
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   fun:_ULx86_64_step
+   fun:_Z13GetStackTracePPvii
+   fun:_ZN8tcmalloc8PageHeap8GrowHeapEm
+   fun:_ZN8tcmalloc8PageHeap3NewEm
+   fun:_ZN8tcmalloc15CentralFreeList8PopulateEv
+   fun:_ZN8tcmalloc15CentralFreeList18FetchFromSpansSafeEv
+   fun:_ZN8tcmalloc15CentralFreeList11RemoveRangeEPPvS2_i
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN5boost6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EE4seedINS_5uuids6detail18generator_iteratorINS5_8seed_rngEEEEEvRT_S9_
+   fun:_ZN5boost5uuids6detail4seedINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEEvRT_
+   fun:_ZN5boost5uuids22basic_random_generatorINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEC1Ev
+   fun:_ZN9FlowTable4InitEv
+   fun:_ZN9FlowProto4InitEv
+   fun:_ZN9PktModule4InitEb
+   fun:_ZN18ContrailInitCommon11InitModulesEv
+   fun:_ZN9AgentInit15InitModulesBaseEv
+   fun:_ZN9AgentInit8InitBaseEv
+   fun:_ZNK5boost4_mfi3mf0Ib9AgentInitEclEPS2_
+   fun:_ZN5boost3_bi5list1INS0_5valueIP9AgentInitEEEclIbNS_4_mfi3mf0IbS3_EENS0_5list0EEET_NS0_4typeISC_EERT0_RT1_l
+   fun:_ZN5boost3_bi6bind_tIbNS_4_mfi3mf0Ib9AgentInitEENS0_5list1INS0_5valueIPS4_EEEEEclEv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   sendmsg(msg.msg_iov[0])
+   obj:/lib/x86_64-linux-gnu/libpthread-2.19.so
+   fun:_ZN5boost4asio6detail10socket_ops6sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail10socket_ops11sync_sendtoEihPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail23reactive_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS5_19implementation_typeERKT_RKNS3_14basic_endpointIS4_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio23datagram_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS0_6detail23reactive_socket_serviceIS3_E19implementation_typeERKT_RKNS2_14basic_endpointIS3_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio21basic_datagram_socketINS0_2ip3udpENS0_23datagram_socket_serviceIS3_EEE7send_toINS0_17mutable_buffers_1EEEmRKT_RKNS2_14basic_endpointIS3_EE
+   fun:_ZN16KSyncSockTypeMap13PurgeTxBufferEv
+   fun:_ZN16KSyncSockTypeMap14ProcessSandeshEPKhmP20KSyncUserSockContext
+   fun:_ZN16KSyncSockTypeMap6SendToEPSt6vectorIN5boost4asio17mutable_buffers_1ESaIS3_EEj
+   fun:_ZN9KSyncSock15SendBulkMessageEP23KSyncBulkSandeshContextj
+   fun:_ZN9KSyncSock13SendAsyncImplEP9IoContext
+   fun:_ZNK5boost4_mfi3mf1Ib9KSyncSockP9IoContextEclEPS2_S4_
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:vfprintf
+   fun:vsnprintf
+   fun:snprintf
+   fun:inet_ntoa
+   fun:_ZNK12NHKSyncEntry13FillObjectLogEN10sandesh_op4typeER11KSyncNhInfo
+   fun:_ZN12NHKSyncEntry6AddMsgEPci
+   fun:_ZN19KSyncNetlinkDBEntry3AddEv
+   fun:_Z11KSyncSM_AddP11KSyncObjectP10KSyncEntry
+   fun:_Z12KSyncSM_TempP11KSyncObjectP10KSyncEntryNS1_10KSyncEventE
+   fun:_ZN11KSyncObject11NotifyEventEP10KSyncEntryNS0_10KSyncEventE
+   fun:_ZN13KSyncDBObject6NotifyEP15DBTablePartBaseP11DBEntryBase
+   fun:_ZNK5boost4_mfi3mf2Iv13KSyncDBObjectP15DBTablePartBaseP11DBEntryBaseEclEPS2_S4_S6_
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   sendmsg(msg.msg_iov[0])
+   obj:/lib/x86_64-linux-gnu/libpthread-2.19.so
+   fun:_ZN5boost4asio6detail10socket_ops6sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail10socket_ops11sync_sendtoEihPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail23reactive_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS5_19implementation_typeERKT_RKNS3_14basic_endpointIS4_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio23datagram_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS0_6detail23reactive_socket_serviceIS3_E19implementation_typeERKT_RKNS2_14basic_endpointIS3_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio21basic_datagram_socketINS0_2ip3udpENS0_23datagram_socket_serviceIS3_EEE7send_toINS0_17mutable_buffers_1EEEmRKT_RKNS2_14basic_endpointIS3_EE
+   fun:_ZN16KSyncSockTypeMap13PurgeTxBufferEv
+   fun:_ZN16KSyncSockTypeMap14ProcessSandeshEPKhmP20KSyncUserSockContext
+   fun:_ZN16KSyncSockTypeMap6SendToEPSt6vectorIN5boost4asio17mutable_buffers_1ESaIS3_EEj
+   fun:_ZN9KSyncSock15SendBulkMessageEP23KSyncBulkSandeshContextj
+   fun:_ZN9KSyncSock12OnEmptyQueueEb
+   fun:_ZNK5boost4_mfi3mf1Iv9KSyncSockbEclEPS2_b
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   sendmsg(msg.msg_iov[0])
+   obj:/lib/x86_64-linux-gnu/libpthread-2.19.so
+   fun:_ZN5boost4asio6detail10socket_ops6sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail10socket_ops19non_blocking_sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeERm
+   fun:_ZN5boost4asio6detail30reactive_socket_sendto_op_baseISt6vectorINS0_12const_bufferESaIS4_EENS0_2ip14basic_endpointINS7_3udpEEEE10do_performEPNS1_10reactor_opE
+   fun:_ZN5boost4asio6detail10reactor_op7performEv
+   fun:_ZN5boost4asio6detail13epoll_reactor8start_opEiiRPNS2_16descriptor_stateEPNS1_10reactor_opEbb
+   fun:_ZN5boost4asio6detail28reactive_socket_service_base8start_opERNS2_24base_implementation_typeEiPNS1_10reactor_opEbbb
+   fun:_ZN5boost4asio6detail23reactive_socket_serviceINS0_2ip3udpEE13async_send_toISt6vectorINS0_12const_bufferESaIS8_EENS_3_bi6bind_tIvNS_4_mfi3mf4Iv17TestPkt0InterfaceRKNS_6system10error_codeEmNS_10shared_ptrI12PacketBufferEEPhEENSB_5list5INSB_5valueIPSF_EEPFNS_3argILi1EEEvEPFNST_ILi2EEEvENSQ_ISM_EENSQ_ISN_EEEEEEEEvRNS5_19implementation_typeERKT_RKNS3_14basic_endpointIS4_EEiRT0_
+   fun:_ZN5boost4asio23datagram_socket_serviceINS0_2ip3udpEE13async_send_toISt6vectorINS0_12const_bufferESaIS7_EENS_3_bi6bind_tIvNS_4_mfi3mf4Iv17TestPkt0InterfaceRKNS_6system10error_codeEmNS_10shared_ptrI12PacketBufferEEPhEENSA_5list5INSA_5valueIPSE_EEPFNS_3argILi1EEEvEPFNSS_ILi2EEEvENSP_ISL_EENSP_ISM_EEEEEEEENS0_12async_resultINS0_12handler_typeIT0_FvSG_mEE4typeEE4typeERNS0_6detail23reactive_socket_serviceIS3_E19implementation_typeERKT_RKNS2_14basic_endpointIS3_EEiRKS15_
+   fun:_ZN5boost4asio21basic_datagram_socketINS0_2ip3udpENS0_23datagram_socket_serviceIS3_EEE13async_send_toISt6vectorINS0_12const_bufferESaIS9_EENS_3_bi6bind_tIvNS_4_mfi3mf4Iv17TestPkt0InterfaceRKNS_6system10error_codeEmNS_10shared_ptrI12PacketBufferEEPhEENSC_5list5INSC_5valueIPSG_EEPFNS_3argILi1EEEvEPFNSU_ILi2EEEvENSR_ISN_EENSR_ISO_EEEEEEEENS0_12async_resultINS0_12handler_typeIT0_FvSI_mEE4typeEE4typeERKT_RKNS2_14basic_endpointIS3_EERKS17_
+   fun:_ZN17TestPkt0Interface4SendEPhtRKN5boost10shared_ptrI12PacketBufferEE
+   fun:_ZN23VrouterControlInterface4SendERK8AgentHdrRKN5boost10shared_ptrI12PacketBufferEE
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_itoa_word
+   fun:vfprintf
+   fun:vsnprintf
+   fun:snprintf
+   fun:inet_ntoa
+   fun:_ZNK12NHKSyncEntry13FillObjectLogEN10sandesh_op4typeER11KSyncNhInfo
+   fun:_ZN12NHKSyncEntry6AddMsgEPci
+   fun:_ZN19KSyncNetlinkDBEntry3AddEv
+   fun:_Z11KSyncSM_AddP11KSyncObjectP10KSyncEntry
+   fun:_Z12KSyncSM_TempP11KSyncObjectP10KSyncEntryNS1_10KSyncEventE
+   fun:_ZN11KSyncObject11NotifyEventEP10KSyncEntryNS0_10KSyncEventE
+   fun:_ZN13KSyncDBObject6NotifyEP15DBTablePartBaseP11DBEntryBase
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:_itoa_word
+   fun:vfprintf
+   fun:vsnprintf
+   fun:snprintf
+   fun:inet_ntoa
+   fun:_ZNK12NHKSyncEntry13FillObjectLogEN10sandesh_op4typeER11KSyncNhInfo
+   fun:_ZN12NHKSyncEntry6AddMsgEPci
+   fun:_ZN19KSyncNetlinkDBEntry3AddEv
+   fun:_Z11KSyncSM_AddP11KSyncObjectP10KSyncEntry
+   fun:_Z12KSyncSM_TempP11KSyncObjectP10KSyncEntryNS1_10KSyncEventE
+   fun:_ZN11KSyncObject11NotifyEventEP10KSyncEntryNS0_10KSyncEventE
+   fun:_ZN13KSyncDBObject6NotifyEP15DBTablePartBaseP11DBEntryBase
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   msync(start)
+   obj:/lib/x86_64-linux-gnu/libpthread-2.19.so
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   obj:/usr/lib/x86_64-linux-gnu/libunwind.so.8.0.1
+   fun:_ULx86_64_step
+   fun:_Z13GetStackTracePPvii
+   fun:_ZN8tcmalloc8PageHeap8GrowHeapEm
+   fun:_ZN8tcmalloc8PageHeap3NewEm
+   fun:_ZN8tcmalloc15CentralFreeList8PopulateEv
+   fun:_ZN8tcmalloc15CentralFreeList18FetchFromSpansSafeEv
+   fun:_ZN8tcmalloc15CentralFreeList11RemoveRangeEPPvS2_i
+}
+
