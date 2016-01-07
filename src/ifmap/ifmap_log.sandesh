@@ -2,6 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Message definitions for IFMap module.
+ * The IFMap module is responsible for handling incoming IFMap messages.
+ */
+
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh JoinVertex {
     1: string vertex_name
     2: ", current"
@@ -10,6 +20,11 @@ systemlog sandesh JoinVertex {
     5: string adding
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh LinkOper {
     1: string oper
     2: string left_name
@@ -21,6 +36,11 @@ systemlog sandesh LinkOper {
     8: string right_interest
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh CleanupInterest {
     1: string name
     2: string interest
@@ -28,6 +48,11 @@ systemlog sandesh CleanupInterest {
     4: string nmask
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapServerClientRegUnreg {
     1: string start_msg
     2: string client_name
@@ -35,36 +60,75 @@ systemlog sandesh IFMapServerClientRegUnreg {
     4: u32 client_index
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapServerPendingVmReg {
     1: string vm_uuid
     2: string vr_name
     3: bool subscribe
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Table has not been created
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapTblNotFound {
     1: string error_msg
+    /** Name of the table that was not found */
     2: string table_name
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Configuration node was not found
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapIdentifierNotFound {
     1: string error_msg
+    /** Name of the configuration node that was not found */
     2: string identifier_name
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapString {
     1: string message
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapIntString {
     1: u32 value
     2: string message
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapServerConnection {
     1: string str1
     2: string str2
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapUrlInfo {
     1: string message1
     2: string hostname
@@ -72,13 +136,28 @@ systemlog sandesh IFMapUrlInfo {
     4: string port
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Received an unknown XMPP message
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapXmppUnknownMessage {
+    /** Type field in the unknown message */
     1: string iq_type
+    /** Action field in the unknown message */
     2: string iq_action
+    /** Name of the peer sending the unknown messsage */
     3: string iq_node_name
+    /** Channel name of the peer sending the unknown messsage */
     4: string client_name (key="ObjectVRouter")
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapStaleEntriesCleanerInfo {
     1: "SeqNum:"
     2: u64 sequence_number
@@ -92,69 +171,150 @@ systemlog sandesh IFMapStaleEntriesCleanerInfo {
     10: u32 objects_deleted
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapStaleEntriesCleanupTimerFired {
     1: string str1
     2: string str2
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapChannelUnregisterMessage {
     1: string message
     2: string client_name (key="ObjectVRouter")
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapSmExpiredTimerMessage {
     1: u32 value
     2: string message
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapSmTransitionMessage {
     1: string from_state
     2: string to
     3: string to_state
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: VM messages are being received for unknown virtual router
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapNoVrSub {
+    /** Subscribe or Unsubscribe */
     1: string op
+    /** Channel name of the peer sending the messsage */
     2: string client_name (key="ObjectVRouter")
+    /** Fully qualified name of the client */
     3: string client_fqn
+    /** UUID of the virtual machine */
     4: string vm_uuid
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: VM messages are being received for unknown virtual machine
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapNoVmSub {
+    /** Channel name of the peer sending the messsage */
     1: string client_name (key="ObjectVRouter")
+    /** Fully qualified name of the client */
     2: string client_fqn
+    /** UUID of the vm */
     3: string vm_uuid
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Received duplicate virtual router subscribe message 
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapDuplicateVrSub {
+    /** Channel name of the peer sending the messsage */
     1: string client_name (key="ObjectVRouter")
+    /** Fully qualified name of the client */
     2: string client_fqn
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Received duplicate virtual machine subscribe message 
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapDuplicateVmSub {
+    /** Channel name of the peer sending the messsage */
     1: string client_name (key="ObjectVRouter")
+    /** Fully qualified name of the client */
     2: string client_fqn
+    /** UUID of the virtual machine */
     3: string vm_uuid
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Connection to the ifmap-server has detected errors
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapPeerConnError {
+    /** Error message */
     1: string error
+    /** Last state of the state machine when the error occured */
     2: string last_state
+    /** Current state of the state machine when the error occured */
     3: string current_state
+    /** Last event that was processed before the error occured */
     4: string last_event
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapBestPeer {
     1: string event
     2: string peer
     3: bool valid
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapDSResp {
     1: string current_peer
     2: string new_response
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapChannelProcResp {
     1: string str1
     2: u32 header_length
@@ -164,18 +324,33 @@ systemlog sandesh IFMapChannelProcResp {
     6: u32 total_length
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapXmppChannelEvent {
     1: string event
     2: string client_name (key="ObjectVRouter")
     3: string client_fqn
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapXmppVrSubUnsub {
     1: string op
     2: string client_name (key="ObjectVRouter")
     3: string client_fqn
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapXmppVmSubUnsub {
     1: string op
     2: string client_name (key="ObjectVRouter")
@@ -183,6 +358,11 @@ systemlog sandesh IFMapXmppVmSubUnsub {
     4: string vm_name
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapClientSendInfo {
     1: "Sent"
     2: string operation
@@ -193,21 +373,42 @@ systemlog sandesh IFMapClientSendInfo {
     7: string client_name (key="ObjectVRouter")
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapNodeOperation {
     1: string op
     2: string node_name
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh IFMapLinkOperation {
     1: string op
     2: string node_name
 }
 
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Error detected in loading incoming XML message
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh IFMapXmlLoadError {
     1: string message
+    /** Length of the incoming message that encountered the error */
     2: u32 length
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh JoinVertexTrace {
     1: string vertex_name
     2: ", current"
@@ -216,6 +417,10 @@ trace sandesh JoinVertexTrace {
     5: string adding
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh LinkOperTrace {
     1: string oper
     2: string left_name
@@ -227,6 +432,10 @@ trace sandesh LinkOperTrace {
     8: string right_interest
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh CleanupInterestTrace {
     1: string name
     2: string interest
@@ -234,6 +443,10 @@ trace sandesh CleanupInterestTrace {
     4: string nmask
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapServerClientRegUnregTrace {
     1: string start_msg
     2: string client_name
@@ -241,36 +454,64 @@ trace sandesh IFMapServerClientRegUnregTrace {
     4: u32 client_index
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapServerPendingVmRegTrace {
     1: string vm_uuid
     2: string vr_name
     3: bool subscribe
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapTblNotFoundTrace {
     1: string error_msg
     2: string table_name
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapIdentifierNotFoundTrace {
     1: string error_msg
     2: string identifier_name
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapStringTrace {
     1: string message
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapIntStringTrace {
     1: u32 value
     2: string message
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapServerConnectionTrace {
     1: string str1
     2: string str2
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapUrlInfoTrace {
     1: string message1
     2: string hostname
@@ -278,6 +519,10 @@ trace sandesh IFMapUrlInfoTrace {
     4: string port
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapXmppUnknownMessageTrace {
     1: string iq_type
     2: string iq_action
@@ -285,6 +530,10 @@ trace sandesh IFMapXmppUnknownMessageTrace {
     4: string client_name (key="ObjectVRouter")
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     1: "SeqNum:"
     2: u64 sequence_number
@@ -298,27 +547,47 @@ trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     10: u32 objects_deleted
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapStaleEntriesCleanupTimerFiredTrace {
     1: string str1
     2: string str2
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapChannelUnregisterMessageTrace {
     1: string message
     2: string client_name (key="ObjectVRouter")
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapSmExpiredTimerMessageTrace {
     1: u32 value
     2: string message
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapSmTransitionMessageTrace {
     1: string from_state
     2: string to
     3: string to_state
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapNoVrSubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
@@ -326,23 +595,39 @@ trace sandesh IFMapNoVrSubTrace {
     4: string vm_uuid
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapNoVmSubTrace {
     1: string client_name (key="ObjectVRouter")
     2: string client_fqn
     3: string vm_uuid
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapDuplicateVrSubTrace {
     1: string client_name (key="ObjectVRouter")
     2: string client_fqn
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapDuplicateVmSubTrace {
     1: string client_name (key="ObjectVRouter")
     2: string client_fqn
     3: string vm_uuid
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapPeerConnErrorTrace {
     1: string error
     2: string last_state
@@ -350,17 +635,29 @@ trace sandesh IFMapPeerConnErrorTrace {
     4: string last_event
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapBestPeerTrace {
     1: string event
     2: string peer
     3: bool valid
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapDSRespTrace {
     1: string current_peer
     2: string new_response
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapChannelProcRespTrace {
     1: string str1
     2: u32 header_length
@@ -370,18 +667,30 @@ trace sandesh IFMapChannelProcRespTrace {
     6: u32 total_length
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapXmppChannelEventTrace {
     1: string event
     2: string client_name (key="ObjectVRouter")
     3: string client_fqn
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapXmppVrSubUnsubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
     3: string client_fqn
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapXmppVmSubUnsubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
@@ -389,16 +698,28 @@ trace sandesh IFMapXmppVmSubUnsubTrace {
     4: string vm_name
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapNodeOperationTrace {
     1: string op
     2: string node_name
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapLinkOperationTrace {
     1: string op
     2: string node_name
 }
 
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
 trace sandesh IFMapXmlLoadErrorTrace {
     1: string message
     2: u32 length
