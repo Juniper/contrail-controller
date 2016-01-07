@@ -119,6 +119,8 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     uint32_t rid = rorig_id ? rorig_id : rhs.peer_->bgp_identifier();
     KEY_COMPARE(id, rid);
 
+    KEY_COMPARE(attr_->cluster_list_length(), rattr->cluster_list_length());
+
     const BgpPeer *lpeer = dynamic_cast<const BgpPeer *>(peer_);
     const BgpPeer *rpeer = dynamic_cast<const BgpPeer *>(rhs.peer_);
     if (lpeer != NULL && rpeer != NULL) {

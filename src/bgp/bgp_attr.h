@@ -29,7 +29,7 @@
 // all information in the UPDATE except: NLRI (prefix) and label.
 
 class BgpAttr;
-class AsPathDB;
+class ClusterListDB;
 
 struct BgpAttrOrigin : public BgpAttribute {
     static const int kSize = 1;
@@ -148,6 +148,82 @@ struct BgpAttrOriginatorId : public BgpAttribute {
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+};
+
+struct ClusterListSpec : public BgpAttribute {
+    static const int kSize = -1;
+    static const uint8_t kFlags = Optional;
+    ClusterListSpec() : BgpAttribute(ClusterList, kFlags) { }
+    explicit ClusterListSpec(const BgpAttribute &rhs) : BgpAttribute(rhs) { }
+    explicit ClusterListSpec(const ClusterListSpec &rhs)
+        : BgpAttribute(BgpAttribute::ClusterList, kFlags) {
+        cluster_list = rhs.cluster_list;
+    }
+    virtual int CompareTo(const BgpAttribute &rhs) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+    std::vector<uint32_t> cluster_list;
+};
+
+class ClusterList {
+public:
+    ClusterList(ClusterListDB *cluster_list_db, const ClusterListSpec &spec);
+    ~ClusterList() { }
+    void Remove();
+    int CompareTo(const ClusterList &rhs) const {
+        return spec_.CompareTo(rhs.cluster_list());
+    }
+
+    const ClusterListSpec &cluster_list() const { return spec_; }
+    size_t size() const { return spec_.cluster_list.size(); }
+
+    friend std::size_t hash_value(const ClusterList &cluster_list) {
+        size_t hash = 0;
+        return hash;
+    }
+
+private:
+    friend int intrusive_ptr_add_ref(const ClusterList *ccluster_list);
+    friend int intrusive_ptr_del_ref(const ClusterList *ccluster_list);
+    friend void intrusive_ptr_release(const ClusterList *ccluster_list);
+
+    mutable tbb::atomic<int> refcount_;
+    ClusterListDB *cluster_list_db_;
+    ClusterListSpec spec_;
+};
+
+inline int intrusive_ptr_add_ref(const ClusterList *ccluster_list) {
+    return ccluster_list->refcount_.fetch_and_increment();
+}
+
+inline int intrusive_ptr_del_ref(const ClusterList *ccluster_list) {
+    return ccluster_list->refcount_.fetch_and_decrement();
+}
+
+inline void intrusive_ptr_release(const ClusterList *ccluster_list) {
+    int prev = ccluster_list->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        ClusterList *cluster_list = const_cast<ClusterList *>(ccluster_list);
+        cluster_list->Remove();
+        assert(cluster_list->refcount_ == 0);
+        delete cluster_list;
+    }
+}
+
+typedef boost::intrusive_ptr<ClusterList> ClusterListPtr;
+
+struct ClusterListCompare {
+    bool operator()(const ClusterList *lhs, const ClusterList *rhs) {
+        return lhs->CompareTo(*rhs) < 0;
+    }
+};
+
+class ClusterListDB : public BgpPathAttributeDB<ClusterList, ClusterListPtr,
+                                                ClusterListSpec,
+                                                ClusterListCompare,
+                                                ClusterListDB> {
+public:
+    explicit ClusterListDB(BgpServer *server);
 };
 
 struct BgpMpNlri : public BgpAttribute {
@@ -703,6 +779,7 @@ public:
     void set_params(uint64_t params) { params_ = params; }
     void set_as_path(AsPathPtr aspath);
     void set_as_path(const AsPathSpec *spec);
+    void set_cluster_list(const ClusterListSpec *spec);
     void set_community(CommunityPtr comm);
     void set_community(const CommunitySpec *comm);
     void set_ext_community(ExtCommunityPtr extcomm);
@@ -731,6 +808,10 @@ public:
     uint64_t params() const { return params_; }
     const AsPath *as_path() const { return as_path_.get(); }
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
+    const ClusterList *cluster_list() const { return cluster_list_.get(); }
+    size_t cluster_list_length() const {
+        return cluster_list_ ? cluster_list_->size() : 0;
+    }
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
     const OriginVnPath *origin_vn_path() const { return origin_vn_path_.get(); }
@@ -767,6 +848,7 @@ private:
     EthernetSegmentId esi_;
     uint64_t params_;
     AsPathPtr as_path_;
+    ClusterListPtr cluster_list_;
     CommunityPtr community_;
     ExtCommunityPtr ext_community_;
     OriginVnPathPtr origin_vn_path_;

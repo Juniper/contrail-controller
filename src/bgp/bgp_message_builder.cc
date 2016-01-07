@@ -59,6 +59,12 @@ bool BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(originator_id);
     }
 
+    if (attr->cluster_list()) {
+        ClusterListSpec *clist =
+            new ClusterListSpec(attr->cluster_list()->cluster_list());
+        update.path_attributes.push_back(clist);
+    }
+
     if (attr->as_path()) {
         AsPathSpec *path = new AsPathSpec(attr->as_path()->path());
         update.path_attributes.push_back(path);

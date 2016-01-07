@@ -152,6 +152,7 @@ struct ShowRoutePath {
     20: list<string> origin_vn_path;
     21: ShowPmsiTunnel pmsi_tunnel;
     22: ShowLoadBalance load_balance;
+    23: list<string> cluster_list;
 }
 
 struct ShowRoute {

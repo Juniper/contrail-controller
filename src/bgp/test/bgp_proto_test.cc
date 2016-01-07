@@ -61,6 +61,17 @@ protected:
         BgpProto::BgpMessage *msg = BgpProto::Decode(new_data, data_size);
         if (msg) delete msg;
     }
+
+    const BgpAttribute *BgpFindAttribute(const BgpProto::Update *update,
+        BgpAttribute::Code code) {
+        for (vector<BgpAttribute *>::const_iterator it =
+             update->path_attributes.begin();
+             it != update->path_attributes.end(); ++it) {
+            if ((*it)->code == code)
+                return *it;
+        }
+        return NULL;
+    }
 };
 
 class BuildUpdateMessage {
@@ -481,6 +492,41 @@ TEST_F(BgpProtoTest, EvpnUpdate) {
         EXPECT_EQ(0, result->CompareTo(update));
         delete result;
     }
+}
+
+//
+// Decode, parse and encode the cluster-list attribute
+//
+TEST_F(BgpProtoTest, ClusterList) {
+    const uint8_t data[] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0x00, 0x34,     // Length
+        0x02,           // Update
+        0x00, 0x00,     // Withdrawn Routes Length
+        0x00, 0x1d,     // Path Attribute Length
+        0x40, 0x01, 0x01, 0x01, // ORIGIN
+        0x40, 0x02, 0x04, 0x02, 0x01, 0x00, 0x01, // AS_PATH
+        0x40, 0x05, 0x04, 0x00, 0x00, 0x00, 0x64, // LOCAL_PREF
+        // CLUSTER_LIST
+        0x80, 0x0a, 0x08, 0x0a, 0x0b, 0x0c, 0x0d, 0xca, 0xfe, 0xd0, 0xd0,
+    };
+    ParseErrorContext context;
+    boost::scoped_ptr<const BgpProto::Update> update(
+        static_cast<const BgpProto::Update *>(
+            BgpProto::Decode(data, sizeof(data), &context)));
+    ASSERT_TRUE(update.get() != NULL);
+
+    const ClusterListSpec *clist_spec = static_cast<const ClusterListSpec *>(
+        BgpFindAttribute(update.get(), BgpAttribute::ClusterList));
+    ASSERT_TRUE(clist_spec != NULL);
+    EXPECT_EQ(0x0a0b0c0dul, clist_spec->cluster_list[0]);
+    EXPECT_EQ(0xcafed0d0ul, clist_spec->cluster_list[1]);
+
+    uint8_t buffer[4096];
+    int res = BgpProto::Encode(update.get(), buffer, sizeof(buffer));
+    EXPECT_EQ(sizeof(data), res);
+    EXPECT_EQ(0, memcmp(buffer, data, sizeof(data)));
 }
 
 TEST_F(BgpProtoTest, OpenError) {

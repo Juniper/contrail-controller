@@ -274,6 +274,75 @@ TEST_F(BgpRouteTest, PathCompareOriginatorId4) {
 }
 
 //
+// Path with shorter cluster list length is better.
+// Both paths have a cluster list.
+// Path with longer cluster list is learnt from peer with lower address.
+//
+TEST_F(BgpRouteTest, PathCompareClusterList1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.100", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    ClusterListSpec clist_spec1;
+    clist_spec1.cluster_list.push_back(100);
+    clist_spec1.cluster_list.push_back(200);
+    spec1.push_back(&clist_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.251", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    Ip4Address origid2 = Ip4Address::from_string("10.1.1.100", ec);
+    BgpAttrOriginatorId origid_spec2(origid2.to_ulong());
+    spec2.push_back(&origid_spec2);
+    ClusterListSpec clist_spec2;
+    clist_spec2.cluster_list.push_back(100);
+    spec2.push_back(&clist_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.252", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
+//
+// Path with shorter cluster list length is better.
+// One path has a cluster list while other one has none.
+// Path with longer cluster list is learnt from peer with lower address.
+//
+TEST_F(BgpRouteTest, PathCompareClusterList2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrLocalPref lpref_spec1(100);
+    spec1.push_back(&lpref_spec1);
+    Ip4Address origid1 = Ip4Address::from_string("10.1.1.100", ec);
+    BgpAttrOriginatorId origid_spec1(origid1.to_ulong());
+    spec1.push_back(&origid_spec1);
+    ClusterListSpec clist_spec1;
+    clist_spec1.cluster_list.push_back(100);
+    spec1.push_back(&clist_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrLocalPref lpref_spec2(100);
+    spec2.push_back(&lpref_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.100", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
+//
 // Path with lower med is better.
 //
 TEST_F(BgpRouteTest, PathCompareMed1) {

@@ -310,6 +310,15 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
     show_route->set_paths(show_route_paths);
 }
 
+static void FillRoutePathClusterListInfo(const ClusterList *clist,
+    ShowRoutePath *show_path) {
+    const vector<uint32_t> &list = clist->cluster_list().cluster_list;
+    for (vector<uint32_t>::const_iterator it = list.begin(); it != list.end();
+         ++it) {
+        show_path->cluster_list.push_back(Ip4Address(*it).to_string());
+    }
+}
+
 static void FillRoutePathCommunityInfo(const Community *comm,
     ShowRoutePath *show_path) {
     comm->BuildStringList(&show_path->communities);
@@ -449,6 +458,9 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_primary_table(replicated->src_table()->name());
         } else {
             srp.set_replicated(false);
+        }
+        if (attr->cluster_list()) {
+            FillRoutePathClusterListInfo(attr->cluster_list(), &srp);
         }
         if (attr->community()) {
             FillRoutePathCommunityInfo(attr->community(), &srp);

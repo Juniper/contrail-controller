@@ -26,6 +26,7 @@ protected:
         : server_(&evm_),
           attr_db_(server_.attr_db()),
           aspath_db_(server_.aspath_db()),
+          cluster_list_db_(server_.cluster_list_db()),
           comm_db_(server_.comm_db()),
           edge_discovery_db_(server_.edge_discovery_db()),
           edge_forwarding_db_(server_.edge_forwarding_db()),
@@ -53,6 +54,7 @@ protected:
     BgpServer server_;
     BgpAttrDB *attr_db_;
     AsPathDB *aspath_db_;
+    ClusterListDB *cluster_list_db_;
     CommunityDB *comm_db_;
     EdgeDiscoveryDB *edge_discovery_db_;
     EdgeForwardingDB *edge_forwarding_db_;
@@ -386,6 +388,52 @@ TEST_F(BgpAttrTest, AsPathFormat2) {
 
     AsPath path(aspath_db_, spec);
     EXPECT_EQ("100 200 {300 400} 600 500", path.path().ToString());
+}
+
+TEST_F(BgpAttrTest, ClusterList) {
+    BgpAttrSpec attr_spec;
+    ClusterListSpec spec;
+    for (int idx = 1; idx < 5; idx++)
+        spec.cluster_list.push_back(100 * idx);
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr_ptr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(4, attr_ptr->cluster_list_length());
+    BgpAttr attr(*attr_ptr);
+    EXPECT_EQ(attr_ptr->cluster_list(), attr.cluster_list());
+}
+
+TEST_F(BgpAttrTest, ClusterListCompare1) {
+    ClusterListSpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.cluster_list.push_back(100 * idx);
+    ClusterList clist1(cluster_list_db_, spec1);
+    EXPECT_EQ(4, clist1.size());
+
+    ClusterListSpec spec2;
+    for (int idx = 4; idx >= 1; idx--)
+        spec2.cluster_list.push_back(100 * idx);
+    ClusterList clist2(cluster_list_db_, spec2);
+    EXPECT_EQ(4, clist2.size());
+
+    EXPECT_EQ(-1, clist1.CompareTo(clist2));
+    EXPECT_EQ(1, clist2.CompareTo(clist1));
+}
+
+TEST_F(BgpAttrTest, ClusterListCompare2) {
+    ClusterListSpec spec1;
+    for (int idx = 1; idx < 3; idx++)
+        spec1.cluster_list.push_back(100 * idx);
+    ClusterList clist1(cluster_list_db_, spec1);
+    EXPECT_EQ(2, clist1.size());
+
+    ClusterListSpec spec2;
+    for (int idx = 1; idx < 5; idx++)
+        spec2.cluster_list.push_back(100 * idx);
+    ClusterList clist2(cluster_list_db_, spec2);
+    EXPECT_EQ(4, clist2.size());
+
+    EXPECT_EQ(-1, clist1.CompareTo(clist2));
+    EXPECT_EQ(1, clist2.CompareTo(clist1));
 }
 
 TEST_F(BgpAttrTest, CommunityCompare1) {

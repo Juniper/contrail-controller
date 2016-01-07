@@ -139,6 +139,44 @@ std::string BgpAttrOriginatorId::ToString() const {
     return std::string(repr);
 }
 
+int ClusterListSpec::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    KEY_COMPARE(cluster_list,
+        static_cast<const ClusterListSpec &>(rhs_attr).cluster_list);
+    return 0;
+}
+
+void ClusterListSpec::ToCanonical(BgpAttr *attr) {
+    attr->set_cluster_list(this);
+}
+
+std::string ClusterListSpec::ToString() const {
+    std::stringstream repr;
+    repr << "CLUSTER_LIST <code: " << (int) code;
+    repr << ", flags: " << std::hex << (int) flags << "> :";
+    for (std::vector<uint32_t>::const_iterator iter = cluster_list.begin();
+         iter != cluster_list.end(); ++iter) {
+        repr << " " << Ip4Address(*iter).to_string();
+    }
+    repr << std::endl;
+    return repr.str();
+}
+
+ClusterList::ClusterList(ClusterListDB *cluster_list_db,
+    const ClusterListSpec &spec)
+    : cluster_list_db_(cluster_list_db),
+      spec_(spec) {
+    refcount_ = 0;
+}
+
+void ClusterList::Remove() {
+    cluster_list_db_->Delete(this);
+}
+
+ClusterListDB::ClusterListDB(BgpServer *server) {
+}
+
 int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
@@ -786,6 +824,7 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       originator_id_(rhs.originator_id_),
       source_rd_(rhs.source_rd_), esi_(rhs.esi_), params_(rhs.params_),
       as_path_(rhs.as_path_),
+      cluster_list_(rhs.cluster_list_),
       community_(rhs.community_),
       ext_community_(rhs.ext_community_),
       origin_vn_path_(rhs.origin_vn_path_),
@@ -807,6 +846,14 @@ void BgpAttr::set_as_path(const AsPathSpec *spec) {
         as_path_ = attr_db_->server()->aspath_db()->Locate(*spec);
     } else {
         as_path_ = NULL;
+    }
+}
+
+void BgpAttr::set_cluster_list(const ClusterListSpec *spec) {
+    if (spec) {
+        cluster_list_ = attr_db_->server()->cluster_list_db()->Locate(*spec);
+    } else {
+        cluster_list_ = NULL;
     }
 }
 
@@ -933,6 +980,7 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(olist_.get(), rhs.olist_.get());
     KEY_COMPARE(leaf_olist_.get(), rhs.leaf_olist_.get());
     KEY_COMPARE(as_path_.get(), rhs.as_path_.get());
+    KEY_COMPARE(cluster_list_.get(), rhs.cluster_list_.get());
     KEY_COMPARE(community_.get(), rhs.community_.get());
     KEY_COMPARE(ext_community_.get(), rhs.ext_community_.get());
     KEY_COMPARE(origin_vn_path_.get(), rhs.origin_vn_path_.get());
