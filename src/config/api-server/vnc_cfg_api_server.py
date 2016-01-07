@@ -130,6 +130,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'stop_profile'},
     {'uri': '/list-bulk-collection', 'link_name': 'list-bulk-collection',
      'method': 'POST', 'method_name': 'list_bulk_collection_http_post'},
+    {'uri': '/check-obj-perms', 'link_name': 'check-obj-perms',
+     'method': 'GET', 'method_name': 'check_obj_perms_http_get'},
 ]
 
 
@@ -1646,6 +1648,56 @@ class VncApiServer(object):
                 filename,
                 root=doc_root)
     # end documentation_http_get
+
+    def check_obj_perms_http_get(self):
+        if 'token' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'User token needed for validation')
+        if 'uuid' not in get_request().query:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Object uuid needed for validation')
+        obj_uuid = get_request().query.uuid
+        user_token = get_request().query.token
+
+        result = {'permissions' : 0}
+
+        # validate token with keystone
+        env = self._auth_svc.validate_user_token(user_token)
+        if not env:
+            return result
+
+        # properly validate response from middleware must have user name,
+        # role and tenant id
+        try:
+            user = env['HTTP_X_USER_NAME']
+            roles = env['HTTP_X_ROLE']
+            tenant = env['HTTP_X_PROJECT_ID']
+        except KeyError:
+            raise cfgm_common.exceptions.HttpError(500,
+                   "Missing user, role or tenant in valid token")
+
+        # check permissions in internal context
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            # create environ
+            b_req = bottle.BaseRequest(
+                {
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': user,
+                 'HTTP_X_ROLE': roles,
+                 'HTTP_X_PROJECT_ID': tenant,
+                })
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            (ok, granted) = self._permissions.check_perms(get_request(), obj_uuid)
+            result['permissions'] = granted
+        finally:
+            set_context(orig_context)
+
+        return result
+    #end check_obj_perms_http_get
 
     def prop_list_http_get(self):
         if 'uuid' not in get_request().query:

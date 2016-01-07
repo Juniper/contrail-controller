@@ -105,6 +105,12 @@ class User(object):
        rg_name.append('default-api-access-list')
        return rg_name
 
+   def check_perms(self, obj_uuid):
+       query = 'token=%s&uuid=%s' % (self.vnc_lib.get_token(), obj_uuid)
+       rv = self.vnc_lib._request_server(rest.OP_GET, "/check-obj-perms", data=query)
+       rv = json.loads(rv)
+       return rv['permissions']
+
 # display resource id-perms
 def print_perms(obj_perms):
     share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.share]
@@ -283,6 +289,7 @@ class MyVncApi(VncApi):
         tenant_name = None, api_server_host = None, api_server_port = None):
         self._username = username
         self._tenant_name = tenant_name
+        self.auth_token = None
         self._kc = keystone.Client(username='admin', password='contrail123',
                        tenant_name='admin',
                        auth_url='http://127.0.0.1:5000/v2.0')
@@ -297,7 +304,11 @@ class MyVncApi(VncApi):
             'default-domain', role_name, uobj.tenant_id)
         new_headers = headers or {}
         new_headers['X-AUTH-TOKEN'] = rval
+        self.auth_token = rval
         return new_headers
+
+    def get_token(self):
+        return self.auth_token
 
 # This is needed for VncApi._authenticate invocation from within Api server.
 # We don't have access to user information so we hard code admin credentials.
@@ -637,6 +648,86 @@ class TestPermissions(test_case.ApiServerTestCase):
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
 
         self.assertEquals(expected, received)
+
+    def test_check_obj_perms_api(self):
+        logger.info('')
+        logger.info( '########### CHECK OBJ PERMS API ##################')
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        # allow permission to create virtual-network
+        for user in self.users:
+            logger.info( "%s: project %s to allow full access to role %s" % \
+                (user.name, user.project, user.role))
+            # note that collection API is set for create operation
+            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+                rule_str = 'virtual-networks %s:CRUD' % user.role)
+
+        logger.info( '')
+        logger.info( 'alice: trying to create VN in her project')
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        self.assertThat(testfail, Equals(False))
+
+        ExpectedPerms = {'admin':7, 'alice':7, 'bob':0}
+        for user in self.users:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        logger.info( 'Enable share in virtual network for bob project')
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn_fq_name)
+        set_perms(vn, share = [(bob.project_uuid, PERMS_R)])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        ExpectedPerms = {'admin':07, 'alice':07, 'bob':04}
+        for user in self.users:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        logger.info('')
+        logger.info( '########### READ (DISABLE READ SHARING) ##################')
+        logger.info( 'Disable share in virtual networks for others')
+        set_perms(vn, share = [])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        ExpectedPerms = {'admin':07, 'alice':07, 'bob':00}
+        for user in self.users:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+        logger.info( 'Reading VN as bob ... should fail')
+
+        logger.info('')
+        logger.info( '########### READ (GLOBALLY SHARED) ##################')
+        logger.info( 'Enable virtual networks in alice project for global sharing (read only)')
+        set_perms(vn, share = [], global_access = PERMS_R)
+        alice.vnc_lib.virtual_network_update(vn)
+
+        ExpectedPerms = {'admin':07, 'alice':07, 'bob':04}
+        for user in self.users:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+        logger.info( 'Reading VN as bob ... should fail')
+
+        logger.info('')
+        logger.info( '########### WRITE (GLOBALLY SHARED) ##################')
+        logger.info( 'Enable virtual networks in alice project for global sharing (read, write)')
+        set_perms(vn, global_access = PERMS_RW)
+        alice.vnc_lib.virtual_network_update(vn)
+
+        ExpectedPerms = {'admin':07, 'alice':07, 'bob':06}
+        for user in self.users:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
 
     def tearDown(self):
         self._api_svr_greenlet.kill()
