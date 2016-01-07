@@ -238,6 +238,10 @@ bool LoadbalancerTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 
     LoadbalancerData *data = static_cast<LoadbalancerData *>(req->data.get());
 
+    /* Ignore change notifications if the entry is marked for delete */
+    if (data->ifmap_node()->IsDeleted()) {
+        return false;
+    }
     autogen::LoadbalancerType lb_info;
     Loadbalancer::ListenerMap listener_list;
     CalculateProperties(graph_, data->ifmap_node(), &lb_info, &listener_list,
