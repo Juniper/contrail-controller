@@ -713,16 +713,11 @@ class VncServerCassandraClient(VncCassandraClient):
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
                       cassandra_credential):
         self._db_client_mgr = db_client_mgr
-        keyspaces = {
-            self._USERAGENT_KEYSPACE_NAME: [(self._USERAGENT_KV_CF_NAME, None)]
-        }
-        if reset_config:
-            reset_config = [self._USERAGENT_KEYSPACE_NAME,
-                            VncCassandraClient._UUID_KEYSPACE_NAME]
-        else:
-            reset_config = []
+        keyspaces = self._UUID_KEYSPACE.copy()
+        keyspaces[self._USERAGENT_KEYSPACE_NAME] = [
+            (self._USERAGENT_KV_CF_NAME, None)]
         super(VncServerCassandraClient, self).__init__(
-            cass_srv_list, db_prefix, keyspaces, self.config_log,
+            cass_srv_list, db_prefix, keyspaces, None, self.config_log,
             generate_url=db_client_mgr.generate_url,
             reset_config=reset_config,credential=cassandra_credential)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
@@ -1193,6 +1188,7 @@ class VncZkClient(object):
         client_name = client_pfx + 'api-' + instance_id
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
+        self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
         self._reconnect_zk_greenlet = None
@@ -1211,6 +1207,12 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True);
         self._subnet_allocators = {}
     # end __init__
+
+    def master_election(self, func, *args):
+        self._zk_client.master_election(
+            self._zk_path_pfx + "/api-server-election", os.getpid(),
+            func, *args)
+    # end master_election
 
     def _reconnect_zk(self):
         self._zk_client.connect()
@@ -1366,16 +1368,19 @@ class VncDbClient(object):
         self._ifmap_db = VncIfmapClient(
             self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
 
-        msg = "Connecting to cassandra on %s" % (cass_srv_list,)
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-        self._cassandra_db = VncServerCassandraClient(
-            self, cass_srv_list, reset_config, db_prefix, cassandra_credential)
-
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
                                   reset_config, db_prefix, self.config_log)
+
+        def cassandra_client_init():
+            msg = "Connecting to cassandra on %s" % (cass_srv_list)
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+            self._cassandra_db = VncServerCassandraClient(
+                self, cass_srv_list, reset_config, db_prefix, cassandra_credential)
+
+        self._zk_db.master_election(cassandra_client_init)
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
                                             rabbit_port, self._ifmap_db,
