@@ -1169,8 +1169,8 @@ class ZnodeStat(object):
 class FakeKazooClient(object):
     class Election(object):
         __init__ = stub
-        def run(self, cb, func, *args, **kwargs):
-            cb(func, *args, **kwargs)
+        def run(self, cb, *args, **kwargs):
+            cb(*args, **kwargs)
 
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
