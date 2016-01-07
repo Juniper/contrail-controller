@@ -123,9 +123,9 @@ public:
                 ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTVN] <<
                     "\":\"" << tuple.dest_vn << "\",";
                 ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEIP] <<
-                    "\":" << tuple.source_ip << ",";
+                    "\":\"" << tuple.source_ip << "\",";
                 ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP] <<
-                    "\":" << tuple.dest_ip << ",";
+                    "\":\"" << tuple.dest_ip << "\",";
                 ss << "\"" << frnames[FlowRecordFields::FLOWREC_PROTOCOL] <<
                     "\":" << tuple.protocol << ",";
                 ss << "\"" << frnames[FlowRecordFields::FLOWREC_SPORT] <<
@@ -266,12 +266,25 @@ SelectFSQueryTest::flowseries_data_init() {
     std::string vr1("vrouter1");
     std::string svn1("vn1");
     std::string dvn1("vn2");
+#ifdef USE_CASSANDRA_CQL
+    boost::system::error_code ec;
+    flow_tuple tuple1(vr1, svn1, dvn1,
+                      IpAddress::from_string("10.10.10.1", ec),
+                      IpAddress::from_string("11.11.11.1", ec), 1, 10, 11, 1);
+#else // USE_CASSANDRA_CQL
     flow_tuple tuple1(vr1, svn1, dvn1, 0x0A0A0A01, 0x0B0B0B01, 
                       1, 10, 11, 1);
+#endif // !USE_CASSANDRA_CQL
     SelectFSQueryTest::FlowSeriesData fs_data1(tuple1, 
         SelectFSQueryTest::start_time_, 60, 5, 1, 50);
+#ifdef USE_CASSANDRA_CQL
+    flow_tuple tuple2(vr1, svn1, dvn1,
+                      IpAddress::from_string("10.10.10.2", ec),
+                      IpAddress::from_string("11.11.11.2", ec), 2, 20, 21, 1);
+#else // USE_CASSANDRA_CQL
     flow_tuple tuple2(vr1, svn1, dvn1, 0x0A0A0A02, 0x0B0B0B02,
                       2, 20, 21, 1);
+#endif // !USE_CASSANDRA_CQL
     SelectFSQueryTest::FlowSeriesData fs_data2(tuple2, 
         SelectFSQueryTest::start_time_, 30, 4, 2, 100);
     static FlowSeriesData fs_data[] = {fs_data1, fs_data2};
@@ -699,7 +712,6 @@ TEST_F(SelectFSQueryTest, SelectTSStats) {
     
     // Fill the expected result
     SelectFSQueryTest::BufferT expected_res;
-    FlowSeriesData* fs_data = flowseries_data();
     uint64_t gmsec = granularity*1000*1000;
     boost::tuple<uint64_t, uint64_t> expt[] = {
         make_tuple(start_time(), 6),
@@ -854,7 +866,7 @@ TEST_F(FlowColumnValuesTest, Json) {
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN] <<
         "\":\"" << dest_vn << "\",";
     // Source IP
-#ifdef INET_SUPPORT
+#ifdef USE_CASSANDRA_CQL
     std::string source_ip("1.1.1.1");
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
@@ -864,7 +876,7 @@ TEST_F(FlowColumnValuesTest, Json) {
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
        "\":\"" << dest_ip << "\",";
-#else // INET_SUPPORT
+#else // USE_CASSANDRA_CQL
     uint32_t source_ip(0x01010101);
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
@@ -874,7 +886,7 @@ TEST_F(FlowColumnValuesTest, Json) {
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
         "\":" << dest_ip << ",";
-#endif // !INET_SUPPORT
+#endif // !USE_CASSANDRA_CQL
     // Protocol
     int protocol(6);
     ss << "\"" <<
@@ -892,8 +904,16 @@ TEST_F(FlowColumnValuesTest, Json) {
         "\":" << dest_port << "}";
     std::string jsonline(ss.str());
     flow_stats exp_stats(diff_bytes, diff_packets, short_flow);
+#ifdef USE_CASSANDRA_CQL
+    boost::system::error_code ec;
+    flow_tuple exp_tuple(vrouter, source_vn, dest_vn,
+        IpAddress::from_string("1.1.1.1", ec),
+        IpAddress::from_string("2.2.2.2", ec),
+        protocol, source_port, dest_port, 0);
+#else // USE_CASSANDRA_CQL
     flow_tuple exp_tuple(vrouter, source_vn, dest_vn, 0x01010101, 0x02020202,
         protocol, source_port, dest_port, 0);
+#endif // !USE_CASSANDRA_CQL
     boost::uuids::uuid act_flow_uuid;
     flow_stats act_stats;
     flow_tuple act_tuple;

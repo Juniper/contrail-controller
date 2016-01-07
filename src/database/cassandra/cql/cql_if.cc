@@ -518,10 +518,19 @@ static GenDb::DbDataValue CassValue2DbDataValue(const CassValue *cvalue) {
         CassInet ctinet;
         CassError rc(cass_value_get_inet(cvalue, &ctinet));
         assert(rc == CASS_OK);
-        assert(ctinet.address_length == CASS_INET_V4_LENGTH);
-        uint32_t v4_addr;
-        memcpy(&v4_addr, ctinet.address, sizeof(v4_addr));
-        return v4_addr;
+        IpAddress ipaddr;
+        if (ctinet.address_length == CASS_INET_V4_LENGTH) {
+            Ip4Address::bytes_type ipv4;
+            memcpy(ipv4.c_array(), ctinet.address, CASS_INET_V4_LENGTH);
+            ipaddr = Ip4Address(ipv4);
+        } else if (ctinet.address_length == CASS_INET_V6_LENGTH) {
+            Ip6Address::bytes_type ipv6;
+            memcpy(ipv6.c_array(), ctinet.address, CASS_INET_V6_LENGTH);
+            ipaddr = Ip6Address(ipv6);
+        } else {
+            assert(0);
+        }
+        return ipaddr;
       }
       case CASS_VALUE_TYPE_UNKNOWN: {
         // null type

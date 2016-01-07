@@ -54,6 +54,7 @@
 #include <boost/ptr_container/ptr_map.hpp>
 #include "base/util.h"
 #include "base/task.h"
+#include "net/address.h"
 #include "base/parse_object.h"
 #include <tbb/mutex.h>
 #include <boost/bind.hpp>
@@ -199,10 +200,23 @@ struct flow_stats {
 
 // 8-tuple corresponding to a flow
 struct flow_tuple {
+#ifdef USE_CASSANDRA_CQL
+    flow_tuple() : protocol(0), source_port(0), dest_port(0), direction(0) {
+    }
+
+    flow_tuple(const std::string& vr, const std::string& svn,
+               const std::string& dvn, const IpAddress& sip,
+               const IpAddress& dip, uint32_t proto,
+               uint32_t sport, uint32_t dport, uint32_t dir) :
+        vrouter(vr), source_vn(svn), dest_vn(dvn), source_ip(sip),
+        dest_ip(dip), protocol(proto), source_port(sport),
+        dest_port(dport), direction(dir) {
+    }
+#else // USE_CASSANDRA_CQL
     flow_tuple() : source_ip(0), dest_ip(0), protocol(0), source_port(0),
                    dest_port(0), direction(0) {
     }
-    
+
     flow_tuple(std::string& vr, std::string& svn, std::string& dvn, 
                uint32_t sip, uint32_t dip, uint32_t proto, 
                uint32_t sport, uint32_t dport, uint32_t dir) :
@@ -210,6 +224,7 @@ struct flow_tuple {
         dest_ip(dip), protocol(proto), source_port(sport), 
         dest_port(dport), direction(dir) {
     }
+#endif // !USE_CASSANDRA_CQL
     
     bool operator<(const flow_tuple& rhs) const {
         if (vrouter < rhs.vrouter) return true;
@@ -259,8 +274,13 @@ struct flow_tuple {
     std::string vrouter;
     std::string source_vn;
     std::string dest_vn;
+#ifdef USE_CASSANDRA_CQL
+    IpAddress source_ip;
+    IpAddress dest_ip;
+#else // USE_CASSANDRA_CQL
     uint32_t source_ip;
     uint32_t dest_ip;
+#endif // !USE_CASSANDRA_CQL
     uint32_t protocol;
     uint32_t source_port;
     uint32_t dest_port;
