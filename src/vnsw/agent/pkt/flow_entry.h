@@ -231,6 +231,8 @@ struct FlowData {
 class FlowEntry {
     public:
     enum FlowShortReason {
+        /* Please update FlowEntry::FlowDropReasonStr whenever entries are added
+         * to the below enum */
         SHORT_UNKNOWN = 0,
         SHORT_UNAVIALABLE_INTERFACE,
         SHORT_IPV4_FWD_DIS,
@@ -245,10 +247,13 @@ class FlowEntry {
         SHORT_FLOW_LIMIT,
         SHORT_LINKLOCAL_SRC_NAT,
         SHORT_FAILED_VROUTER_INSTALL,
+        SHORT_INVALID_L2_FLOW,
         SHORT_MAX
     };
 
     enum FlowDropReason {
+        /* Please update FlowEntry::FlowDropReasonStr whenever entries are added
+         * to the below enum */
         DROP_UNKNOWN = 0,
         DROP_POLICY = SHORT_MAX,
         DROP_OUT_POLICY,
@@ -432,6 +437,7 @@ class FlowEntry {
     void set_fsc(FlowStatsCollector *fsc) {
         fsc_ = fsc;
     }
+    static std::string DropReasonStr(uint16_t reason);
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
