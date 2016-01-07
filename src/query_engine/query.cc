@@ -776,40 +776,30 @@ static void get_8tuple_from_json(const rapidjson::Document &dd,
     const std::string &tsource_ip_s(
         frnames[FlowRecordFields::FLOWREC_SOURCEIP]);
     if (dd.HasMember(tsource_ip_s.c_str())) {
-#ifdef INET_SUPPORT
+#ifdef USE_CASSANDRA_CQL
         QE_ASSERT(dd[tsource_ip_s.c_str()].IsString());
         std::string ipaddr_s(dd[tsource_ip_s.c_str()].GetString());
         boost::system::error_code ec;
-        boost::asio::ip::address ipaddr(
-            boost::asio::ip::address::from_string(ipaddr_s, ec));
+        tuple->source_ip = IpAddress::from_string(ipaddr_s, ec);
         QE_ASSERT(ec == 0);
-        if (ipaddr.is_v4()) {
-            boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
-            tuple->source_ip = v4_addr.to_ulong();
-        }
-#else // INET_SUPPORT
+#else // USE_CASSANDRA_CQL
         QE_ASSERT(dd[tsource_ip_s.c_str()].IsUint());
         tuple->source_ip = dd[tsource_ip_s.c_str()].GetUint();
-#endif // !INET_SUPPORT
+#endif // !USE_CASSANDRA_CQL
     }
     const std::string &tdest_ip_s(
         frnames[FlowRecordFields::FLOWREC_DESTIP]);
     if (dd.HasMember(tdest_ip_s.c_str())) {
-#ifdef INET_SUPPORT
+#ifdef USE_CASSANDRA_CQL
         QE_ASSERT(dd[tdest_ip_s.c_str()].IsString());
         std::string ipaddr_s(dd[tdest_ip_s.c_str()].GetString());
         boost::system::error_code ec;
-        boost::asio::ip::address ipaddr(
-            boost::asio::ip::address::from_string(ipaddr_s, ec));
+        tuple->dest_ip = IpAddress::from_string(ipaddr_s, ec);
         QE_ASSERT(ec == 0);
-        if (ipaddr.is_v4()) {
-            boost::asio::ip::address_v4 v4_addr(ipaddr.to_v4());
-            tuple->dest_ip = v4_addr.to_ulong();
-        }
-#else // INET_SUPPORT
+#else // USE_CASSANDRA_CQL
         QE_ASSERT(dd[tdest_ip_s.c_str()].IsUint());
         tuple->dest_ip = dd[tdest_ip_s.c_str()].GetUint();
-#endif // !INET_SUPPORT
+#endif // !USE_CASSANDRA_CQL
     }
     const std::string &tprotocol_s(
         frnames[FlowRecordFields::FLOWREC_PROTOCOL]);
