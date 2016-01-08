@@ -4,7 +4,7 @@
 
 import copy
 import uuid
-from netaddr import IPNetwork, IPAddress, IPSet, IPRange
+from netaddr import IPNetwork, IPAddress, IPSet, IPRange, all_matching_cidrs
 from vnc_quota import QuotaHelper
 from pprint import pformat
 from cfgm_common import jsonutils as json
