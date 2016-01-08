@@ -117,7 +117,7 @@ public:
     virtual void ConfigEventHandler(IFMapNode *node, DBEntry *entry) {
         DBRequest req;
         IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
-        boost::uuids::uuid new_uuid;
+        boost::uuids::uuid new_uuid = boost::uuids::nil_uuid();
         IFNodeToUuid(node, new_uuid);
         IFMapNodeState *state = dep->IFMapNodeGet(node);
         boost::uuids::uuid old_uuid = state->uuid();

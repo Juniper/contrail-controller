@@ -102,6 +102,57 @@ void ProfileData::DBTableStats::Accumulate(const DBTable *table) {
     notify_count_ += table->notify_count();
 }
 
+void ProfileData::WorkQueueStats::Reset() {
+    queue_count_ = 0;
+    enqueue_count_ = 0;
+    max_queue_count_ = 0;
+    task_start_count_ = 0;
+}
+
+void ProfileData::FlowStats::Reset() {
+     flow_count_ = 0;
+     add_count_ = 0;
+     del_count_= 0;
+     audit_count_ = 0;
+     reval_count_ = 0;
+     pkt_flow_queue_count_.Reset();
+}
+
+void ProfileData::PktStats::Reset() {
+     arp_count_ = 0;
+     dhcp_count_ = 0;
+     dns_count_ = 0;
+     icmp_count_ = 0;
+}
+void ProfileData::XmppStats::Reset() {
+     inet4_add_count_ = 0;
+     inet4_del_count_ = 0;
+     inet6_add_count_ = 0;
+     inet6_del_count_ = 0;
+     mcast_add_count_ = 0;
+     mcast_del_count_ = 0;
+     bridge_add_count_ = 0;
+     bridge_del_count_ = 0;
+}
+
+ProfileData::ProfileData():time_() {
+    flow_.Reset();
+    pkt_.Reset();
+    interface_.Reset();
+    vn_.Reset();
+    vm_.Reset();
+    acl_.Reset();
+    vrf_.Reset();
+    inet4_routes_.Reset();
+    inet6_routes_.Reset();
+    bridge_routes_.Reset();
+    multicast_routes_.Reset();
+    rx_stats_.Reset();
+    tx_stats_.Reset();
+    ksync_tx_queue_count_.Reset();
+    ksync_rx_queue_count_.Reset();
+}
+
 void ProfileData::Get(Agent *agent) {
     std::ostringstream str;
     str << boost::posix_time::second_clock::local_time();

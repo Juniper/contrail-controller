@@ -8,12 +8,15 @@ class Timer;
 
 class ProfileData {
 public:
+    ProfileData();
+    ~ProfileData(){}
     struct WorkQueueStats {
         uint64_t queue_count_;
         uint64_t enqueue_count_;
         uint64_t dequeue_count_;
         uint64_t max_queue_count_;
         uint64_t task_start_count_;
+        void Reset();
         void Get();
     };
 
@@ -36,6 +39,7 @@ public:
         uint64_t reval_count_;
         WorkQueueStats pkt_flow_queue_count_;
         void Get();
+        void Reset();
     };
 
     struct PktStats {
@@ -44,6 +48,7 @@ public:
         uint64_t dns_count_;
         uint64_t icmp_count_;
         void Get();
+        void Reset();
     };
 
     struct XmppStats {
@@ -56,6 +61,7 @@ public:
         uint64_t bridge_add_count_;
         uint64_t bridge_del_count_;
         void Get();
+        void Reset();
     };
 
     struct NovaIpcStats {
