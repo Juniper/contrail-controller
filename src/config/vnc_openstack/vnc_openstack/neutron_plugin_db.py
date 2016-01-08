@@ -2482,7 +2482,7 @@ class DBInterface(object):
                                 continue
                             if not self._filters_is_present(filters,
                                                             'tenant_id',
-                                                            sn_proj_id):
+                                                            str(uuid.UUID(sn_proj_id))):
                                 continue
                             if not self._filters_is_present(filters,
                                                             'network_id',
