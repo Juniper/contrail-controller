@@ -142,6 +142,8 @@ public:
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
     const VnIpam *GetIpam(const IpAddress &ip) const;
+    IpAddress GetGatewayFromIpam(const IpAddress &ip) const;
+    IpAddress GetDnsFromIpam(const IpAddress &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
                          std::vector<OperDhcpOptions::HostRoute> *routes) const;
     bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;
@@ -179,6 +181,8 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
     void ResyncRoutes();
+    bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
+                                     bool *is_dns, bool *is_gateway) const;
 
 private:
     friend class VnTable;

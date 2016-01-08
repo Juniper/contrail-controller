@@ -350,7 +350,13 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         }
     }
 
-    if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
+    if (rflow_rev && (rflow->is_flags_set(FlowEntry::BgpRouterService) ==
+                      true)) {
+        Delete(rflow_rev->key(), false);
+    }
+
+    if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL) &&
+        (rflow->is_flags_set(FlowEntry::BgpRouterService) == false)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
         if (ValidFlowMove(flow, rflow_rev) == false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);

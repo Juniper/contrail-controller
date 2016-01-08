@@ -58,7 +58,8 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
         (DEFAULT_GW_ICMP_OR_DNS,   "00000000-0000-0000-0000-000000000003")
         (LINKLOCAL_FLOW,           "00000000-0000-0000-0000-000000000004")
         (MULTICAST_FLOW,           "00000000-0000-0000-0000-000000000005")
-        (NON_IP_FLOW,              "00000000-0000-0000-0000-000000000006");
+        (NON_IP_FLOW,              "00000000-0000-0000-0000-000000000006")
+        (BGPROUTERSERVICE_FLOW,    "00000000-0000-0000-0000-000000000007");
 
 const std::map<uint16_t, const char*>
     FlowEntry::FlowDropReasonStr = boost::assign::map_list_of
@@ -137,6 +138,7 @@ void FlowData::Reset() {
     enable_rpf = true;
     l2_rpf_plen = Address::kMaxV4PrefixLen;
     vm_cfg_name = "";
+    bgp_as_a_service_port = 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -319,6 +321,13 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
         set_flags(FlowEntry::TcpAckFlow);
     } else {
         reset_flags(FlowEntry::TcpAckFlow);
+    }
+    if (info->bgp_router_service_flow) {
+        set_flags(FlowEntry::BgpRouterService);
+        data_.bgp_as_a_service_port = info->nat_sport; 
+    } else {
+        reset_flags(FlowEntry::BgpRouterService);
+        data_.bgp_as_a_service_port = 0;
     }
 
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
@@ -826,9 +835,11 @@ void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
         data_.match_p.m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for linklocal and subnet broadcast flow
+    // Dont apply network-policy for linklocal, bgp router service
+    // and subnet broadcast flow
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
-        is_flags_set(FlowEntry::Multicast)) {
+        is_flags_set(FlowEntry::Multicast) ||
+        is_flags_set(FlowEntry::BgpRouterService)) {
         return;
     }
 
@@ -1092,6 +1103,8 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                 info->uuid = FlowPolicyStateStr.at(LINKLOCAL_FLOW);
             } else if (is_flags_set(FlowEntry::Multicast)) {
                 info->uuid = FlowPolicyStateStr.at(MULTICAST_FLOW);
+            } else if (is_flags_set(FlowEntry::BgpRouterService)) {
+                info->uuid = FlowPolicyStateStr.at(BGPROUTERSERVICE_FLOW);
             } else {
                 /* We need to make sure that info is not already populated
                  * before setting it to IMPLICIT_ALLOW. This is required
