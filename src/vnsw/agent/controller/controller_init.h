@@ -77,6 +77,7 @@ public:
 
 class VNController {
 public:
+    typedef boost::function<void(uint8_t)> XmppChannelDownCb;
     typedef boost::shared_ptr<ControllerXmppData> ControllerXmppDataType;
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
@@ -154,13 +155,16 @@ public:
     bool XmppMessageProcess(ControllerXmppDataType data);
     Agent *agent() {return agent_;}
     void Enqueue(ControllerWorkQueueDataType data);
-    void DeleteAgentXmppChannel(AgentXmppChannel *ch);
+    void DeleteAgentXmppChannel(uint8_t idx);
     void SetAgentMcastLabelRange(uint8_t idx);
     void FillMcastLabelRange(uint32_t *star_idx,
                              uint32_t *end_idx,
                              uint8_t idx) const;
     const FabricMulticastLabelRange &fabric_multicast_label_range(uint8_t idx) const {
         return fabric_multicast_label_range_[idx];
+    }
+    void RegisterControllerChangeCallback(XmppChannelDownCb xmpp_channel_down_cb) {
+        xmpp_channel_down_cb_ = xmpp_channel_down_cb;
     }
 
 private:
@@ -181,6 +185,7 @@ private:
     ConfigCleanupTimer config_cleanup_timer_;
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
     FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
+    XmppChannelDownCb xmpp_channel_down_cb_;
 };
 
 extern SandeshTraceBufferPtr ControllerInfoTraceBuf;

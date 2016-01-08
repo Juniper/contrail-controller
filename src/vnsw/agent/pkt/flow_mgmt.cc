@@ -1,4 +1,8 @@
 #include <bitset>
+#include <boost/uuid/uuid_io.hpp>
+#include "cmn/agent.h"
+#include "controller/controller_init.h"
+#include "oper/bgp_as_service.h"
 #include "pkt/flow_proto.h"
 #include "pkt/flow_mgmt.h"
 #include "pkt/flow_mgmt_request.h"
@@ -23,6 +27,10 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)) {
     request_queue_.set_name("Flow management");
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        bgp_as_a_service_flow_mgmt_tree_[count].reset(
+            new BgpAsAServiceFlowMgmtTree(this));
+    }
 }
 
 void FlowMgmtManager::Init() {
@@ -32,6 +40,12 @@ void FlowMgmtManager::Init() {
     agent_->acl_table()->set_acl_flow_sandesh_data_cb
         (boost::bind(&FlowMgmtManager::SetAclFlowSandeshData, this, _1, _2,
                      _3));
+    // If BGP service is deleted then flush off all the flows for the VMI.
+    agent_->oper_db()->bgp_as_a_service()->RegisterServiceDeleteCb(boost::bind
+                       (&FlowMgmtManager::BgpAsAServiceNotify, this, _1, _2));
+    // If control node goes off delete all flows frmo its tree.
+    agent_->controller()->RegisterControllerChangeCallback(boost::bind
+                          (&FlowMgmtManager::ControllerNotify, this, _1));
 }
 
 void FlowMgmtManager::Shutdown() {
@@ -39,6 +53,23 @@ void FlowMgmtManager::Shutdown() {
     flow_mgmt_dbclient_->Shutdown();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// BGP as a service callbacks
+/////////////////////////////////////////////////////////////////////////////
+void FlowMgmtManager::BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
+                                          uint32_t source_port) {
+    boost::shared_ptr<FlowMgmtRequest>req
+        (new BgpAsAServiceFlowMgmtRequest(vm_uuid, source_port));
+    request_queue_.Enqueue(req);
+}
+
+void FlowMgmtManager::ControllerNotify(uint8_t index) {
+    boost::shared_ptr<FlowMgmtRequest>req
+        (new BgpAsAServiceFlowMgmtRequest(index));
+    request_queue_.Enqueue(req);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////
@@ -200,6 +231,92 @@ bool FlowMgmtManager::DBEntryRequestHandler(FlowMgmtRequest *req,
     return true;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Bgp as a service flow management
+/////////////////////////////////////////////////////////////////////////////
+bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
+                                                    const FlowMgmtRequest *req,
+                                                    FlowMgmtKey *key) {
+    oper_state_ = OPER_DEL_SEEN;
+    gen_id_ = req->gen_id();
+    FlowEvent::Event event = req->GetResponseEvent();
+    if (event == FlowEvent::INVALID)
+        return false;
+
+    Tree::iterator it = tree_.begin();
+    while (it != tree_.end()) {
+        FlowEvent flow_resp(event, (*it)->key(), true);
+        flow_resp.set_flow(*it);
+        mgr->EnqueueFlowEvent(flow_resp);
+        it++;
+    }
+    return true;
+}
+
+void BgpAsAServiceFlowMgmtTree::FreeNotify(FlowMgmtKey *key, uint32_t gen_id) {
+    assert(key->db_entry() == NULL);
+}
+
+void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
+                                            FlowMgmtKeyTree *tree) {
+    if (flow->is_flags_set(FlowEntry::BgpRouterService) == false)
+        return;
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(flow->intf_entry());
+    if (!vm_intf || (flow->bgp_as_a_service_port() == 0))
+        return;
+
+    BgpAsAServiceFlowMgmtKey *key =
+        new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
+                                     flow->bgp_as_a_service_port());
+    AddFlowMgmtKey(tree, key);
+}
+
+FlowMgmtEntry *BgpAsAServiceFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
+    return new BgpAsAServiceFlowMgmtEntry();
+}
+
+bool BgpAsAServiceFlowMgmtTree::BgpAsAServiceDelete
+(BgpAsAServiceFlowMgmtKey &key, const FlowMgmtRequest *req) {
+    FlowMgmtEntry *entry = Find(&key);
+    if (entry == NULL) {
+        return true;
+    }
+
+    entry->NonOperEntryDelete(mgr_, req, &key);
+    return TryDelete(&key, entry);
+}
+
+void BgpAsAServiceFlowMgmtTree::DeleteAll() {
+    Tree::iterator it = tree_.begin();
+    while (it != tree_.end()) {
+        BgpAsAServiceFlowMgmtKey *key =
+            static_cast<BgpAsAServiceFlowMgmtKey *>(it->first);
+        mgr_->BgpAsAServiceNotify(key->uuid(), key->source_port());
+    }
+}
+
+bool
+FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
+
+    BgpAsAServiceFlowMgmtRequest *bgp_as_a_service_request =
+        dynamic_cast<BgpAsAServiceFlowMgmtRequest *>(req);
+    if (bgp_as_a_service_request->type() == BgpAsAServiceFlowMgmtRequest::VMI) {
+        BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
+                                     bgp_as_a_service_request->source_port());
+        //Delete it for for all CN trees
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+            bgp_as_a_service_flow_mgmt_tree_[count].get()->
+                BgpAsAServiceDelete(key, req);
+        }
+    } else if (bgp_as_a_service_request->type() ==
+               BgpAsAServiceFlowMgmtRequest::CONTROLLER) {
+        bgp_as_a_service_flow_mgmt_tree_[bgp_as_a_service_request->index()].get()->
+            DeleteAll();
+    }
+    return true;
+}
+
 bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
@@ -240,6 +357,11 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
         break;
     }
 
+    case FlowMgmtRequest::DELETE_BGP_AAS_FLOWS: {
+        BgpAsAServiceRequestHandler(req.get());
+        break;
+    }
+
     default:
          assert(0);
 
@@ -270,6 +392,10 @@ void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
     ip6_route_flow_mgmt_tree_.ExtractKeys(flow, tree);
     bridge_route_flow_mgmt_tree_.ExtractKeys(flow, tree);
     nh_flow_mgmt_tree_.ExtractKeys(flow, tree);
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        bgp_as_a_service_flow_mgmt_tree_[count].get()->
+            ExtractKeys(flow, tree);
+    }
 }
 
 void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
@@ -478,6 +604,11 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         nh_flow_mgmt_tree_.Add(key, flow);
         break;
 
+    case FlowMgmtKey::BGPASASERVICE:
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
+            bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow);
+        break;
+
     default:
         assert(0);
     }
@@ -526,6 +657,11 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         nh_flow_mgmt_tree_.Delete(key, flow);
         break;
 
+    case FlowMgmtKey::BGPASASERVICE:
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
+            bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow);
+        break;
+
     default:
         assert(0);
     }
@@ -554,6 +690,8 @@ FlowEvent::Event FlowMgmtKey::FreeDBEntryEvent() const {
     case VM:
         event = FlowEvent::INVALID;
         break;
+    case BGPASASERVICE:
+        event = FlowEvent::INVALID;
 
     default:
         assert(0);
@@ -1249,7 +1387,7 @@ void BridgeRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
 }
 
 FlowMgmtEntry *BridgeRouteFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
-    return new BridgeRouteFlowMgmtEntry();
+    return new BgpAsAServiceFlowMgmtEntry();
 }
 
 bool BridgeRouteFlowMgmtTree::HasVrfFlows(uint32_t vrf,

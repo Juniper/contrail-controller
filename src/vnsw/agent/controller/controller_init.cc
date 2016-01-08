@@ -47,7 +47,7 @@ VNController::VNController(Agent *agent)
     work_queue_(agent->task_scheduler()->GetTaskId("Agent::ControllerXmpp"), 0,
                 boost::bind(&VNController::ControllerWorkQueueProcess, this,
                             _1)),
-    fabric_multicast_label_range_() {
+    fabric_multicast_label_range_(), xmpp_channel_down_cb_() {
     work_queue_.set_name("Controller Queue");
     decommissioned_peer_list_.clear();
 }
@@ -302,7 +302,8 @@ void VNController::DnsXmppServerDisConnect() {
 //If not agent never got a channel down state and is being removed
 //as it is not part of discovery list.
 //Artificially inject NOT_READY in agent xmpp channel.
-void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
+void VNController::DeleteAgentXmppChannel(uint8_t idx) {
+    AgentXmppChannel *channel = agent_->controller_xmpp_channel(idx);
     if (!channel)
         return;
 
@@ -315,6 +316,9 @@ void VNController::DeleteAgentXmppChannel(AgentXmppChannel *channel) {
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
     }
+    //Every delete of channel should delete flow of bgp-as-a-service,
+    //which is using this CN.
+    xmpp_channel_down_cb_(idx);
 }
 
 //Trigger shutdown and cleanup of routes for the client
@@ -386,7 +390,7 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
     agent_->set_controller_ifmap_xmpp_client(NULL, idx);
 
     //cleanup AgentXmppChannel
-    DeleteAgentXmppChannel(agent_->controller_xmpp_channel(idx));
+    DeleteAgentXmppChannel(idx);
     agent_->reset_controller_xmpp_channel(idx);
 
     //cleanup AgentIfmapXmppChannel
