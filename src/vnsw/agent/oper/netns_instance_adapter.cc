@@ -4,17 +4,6 @@
 #include "agent.h"
 #include "init/agent_param.h"
 
-boost::uuids::uuid NetNSInstanceAdapter::PropertyToId
-    (const ServiceInstance::Properties &props) const {
-    boost::uuids::uuid lb_id = boost::uuids::nil_uuid();
-    if (!props.pool_id.is_nil()) {
-        lb_id = props.pool_id;
-    } else if (!props.loadbalancer_id.is_nil()) {
-        lb_id = props.loadbalancer_id;
-    }
-    return lb_id;
-}
-
 InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Properties &props, bool update) {
     std::stringstream cmd_str;
 
@@ -46,10 +35,10 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
     cmd_str << " --gw-ip " << props.gw_ip;
 
     if (props.service_type == ServiceInstance::LoadBalancer) {
-        boost::uuids::uuid lb_id = PropertyToId(props);
+        boost::uuids::uuid lb_id = props.ToId();
         cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
             << "/conf.json";
-        cmd_str << " --pool-id " << props.pool_id;
+        cmd_str << props.IdToCmdLineStr();
         if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
             cmd_str << " --keystone-auth-cfg-file " <<
                 agent_->params()->si_lb_keystone_auth_conf_path();
@@ -85,10 +74,10 @@ InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Proper
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
     if (props.service_type == ServiceInstance::LoadBalancer) {
-        boost::uuids::uuid lb_id = PropertyToId(props);
+        boost::uuids::uuid lb_id = props.ToId();
         cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
             << "/conf.json";
-        cmd_str << " --pool-id " << props.pool_id;
+        cmd_str << props.IdToCmdLineStr();
     }
 
     return new InstanceTaskExecvp(cmd_str.str(), STOP, agent_->event_manager());

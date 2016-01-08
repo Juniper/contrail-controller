@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <sstream>
 #include "service_instance.h"
 
 #include "ifmap/ifmap_node.h"
@@ -534,6 +535,26 @@ bool ServiceInstance::Properties::Usable() const {
 const std::string &ServiceInstance::Properties::ServiceTypeString() const {
     return ServiceInstanceTypesMapping::IntServiceTypeToStr(
         static_cast<ServiceType>(service_type));
+}
+
+std::string ServiceInstance::Properties::IdToCmdLineStr() const {
+    std::stringstream cmd_line;
+    if (!pool_id.is_nil()) {
+        cmd_line << " --pool-id " << pool_id;
+    } else if (!loadbalancer_id.is_nil()) {
+        cmd_line << " --loadbalancer-id " << loadbalancer_id;
+    }
+    return cmd_line.str();
+}
+
+boost::uuids::uuid ServiceInstance::Properties::ToId() const {
+    boost::uuids::uuid lb_id = boost::uuids::nil_uuid();
+    if (!pool_id.is_nil()) {
+        lb_id = pool_id;
+    } else if (!loadbalancer_id.is_nil()) {
+        lb_id = loadbalancer_id;
+    }
+    return lb_id;
 }
 
 /*

@@ -12,7 +12,6 @@
 #include "init/agent_param.h"
 
 #include "loadbalancer_pool_info.h"
-#include "loadbalancer.h"
 #include "loadbalancer_pool.h"
 
 using namespace std;
@@ -207,7 +206,8 @@ void LoadbalancerConfig::GenerateListeners(ostream *out,
     for (Loadbalancer::ListenerMap::const_iterator iter =
          lb->listeners().begin();
          iter != lb->listeners().end(); ++iter) {
-        const autogen::LoadbalancerListenerType &listener = iter->second;
+        const Loadbalancer::ListenerInfo &info = iter->second;
+        const autogen::LoadbalancerListenerType &listener = info.properties;
         if (count) {
             ostr << "," << endl;
         }
@@ -216,22 +216,25 @@ void LoadbalancerConfig::GenerateListeners(ostream *out,
              << "         \"protocol\":\"" << listener.protocol << "\"," << endl
              << "         \"port\":" << listener.protocol_port << "," << endl
              << "         \"admin-state\":" << std::boolalpha
-             << listener.admin_state << endl
-             << "      }";
+             << listener.admin_state << "," << endl;
+        *out << ostr.str();
+        ostr.str(std::string());
+        GeneratePools(out, info.pools);
+        *out << "      }";
         count++;
     }
     if (count) {
-        ostr << endl;
+        *out << endl;
     }
-    ostr << "   ]," << endl;
-    *out << ostr.str();
+    *out << "   ]" << endl;
 }
 
-void LoadbalancerConfig::GeneratePools(ostream *out, Loadbalancer *lb) const {
-    *out << "   \"pools\":[" << endl;
+void LoadbalancerConfig::GeneratePools
+    (ostream *out, const Loadbalancer::PoolSet &pools) const {
+    *out << "         \"pools\":[" << endl;
     int count = 0;
-    for (Loadbalancer::PoolSet::const_iterator iter = lb->pools().begin();
-         iter != lb->pools().end(); ++iter) {
+    for (Loadbalancer::PoolSet::const_iterator iter = pools.begin();
+         iter != pools.end(); ++iter) {
         boost::uuids::uuid u = *iter;
         LoadbalancerPoolKey key(u);
         LoadbalancerPool *pool = static_cast<LoadbalancerPool *>
@@ -243,19 +246,19 @@ void LoadbalancerConfig::GeneratePools(ostream *out, Loadbalancer *lb) const {
         if (count) {
             *out << "," << endl;
         }
-        *out << "      {" << endl;
+        *out << "            {" << endl;
         const LoadBalancerPoolInfo *info = pool->properties();
-        GeneratePool(out, u, *info, "      ");
-        GenerateMembers(out, *info, "      ");
-        GenerateHealthMonitors(out, *info, "      ");
-        GenerateCustomAttributes(out, *info, "      ");
+        GeneratePool(out, u, *info, "            ");
+        GenerateMembers(out, *info, "            ");
+        GenerateHealthMonitors(out, *info, "            ");
+        GenerateCustomAttributes(out, *info, "            ");
         count++;
-        *out << "      }";
+        *out << "            }";
     }
     if (count) {
         *out << endl;
     }
-    *out << "   ]" << endl;
+    *out << "         ]" << endl;
 }
 
 void LoadbalancerConfig::GenerateV2Config(const string &filename,
@@ -270,7 +273,6 @@ void LoadbalancerConfig::GenerateV2Config(const string &filename,
        << "\"," << endl;
     GenerateLoadbalancer(&fs, lb);
     GenerateListeners(&fs, lb);
-    GeneratePools(&fs, lb);
     fs << "}" << endl;
     fs.close();
 }
