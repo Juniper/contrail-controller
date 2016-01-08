@@ -21,6 +21,7 @@ class NexthopManager;
 class AgentSandeshManager;
 class AgentProfile;
 class VRouter;
+class BgpAsAService;
 
 class OperDB {
 public:
@@ -56,6 +57,7 @@ public:
         return agent_sandesh_manager_.get();
     }
     VRouter *vrouter() const { return vrouter_.get(); }
+    BgpAsAService *bgp_as_a_service() const { return bgp_as_a_service_.get(); }
 
     AgentProfile *agent_profile() const { return profile_.get(); }
 private:
@@ -72,6 +74,7 @@ private:
     std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
     std::auto_ptr<AgentProfile> profile_;
     std::auto_ptr<VRouter> vrouter_;
+    std::auto_ptr<BgpAsAService> bgp_as_a_service_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

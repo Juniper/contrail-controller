@@ -207,6 +207,7 @@ struct FlowData {
     uint32_t mirror_vrf;
     uint32_t dest_vrf;
     uint32_t component_nh_idx;
+    uint32_t bgp_as_a_service_port;
 
     // Stats
     uint8_t source_plen;
@@ -270,6 +271,7 @@ class FlowEntry {
         DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
         LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
         MULTICAST_FLOW, /* No policy applied for multicast flow */
+        BGPROUTERSERVICE_FLOW, /* No policy applied for bgp router service flow */
         NON_IP_FLOW,    /* Flow due to bridging */
     };
 
@@ -300,7 +302,8 @@ class FlowEntry {
         // a local port bind is done (used as as src port for linklocal nat)
         LinkLocalBindLocalSrcPort = 1 << 9,
         TcpAckFlow      = 1 << 10,
-        UnknownUnicastFlood = 1 << 11
+        UnknownUnicastFlood = 1 << 11,
+        BgpRouterService   = 1 << 12,
     };
 
     FlowEntry(FlowTable *flow_table);
@@ -385,6 +388,11 @@ class FlowEntry {
     const VmEntry *in_vm_entry() const { return data_.in_vm_entry.get(); }
     const VmEntry *out_vm_entry() const { return data_.out_vm_entry.get(); }
     const NextHop *nh() const { return data_.nh.get(); }
+    const uint32_t bgp_as_a_service_port() const {
+        if (is_flags_set(FlowEntry::BgpRouterService))
+            return data_.bgp_as_a_service_port;
+        return 0;
+    }
     const MatchPolicy &match_p() const { return data_.match_p; }
 
     bool ImplicitDenyFlow() const { 

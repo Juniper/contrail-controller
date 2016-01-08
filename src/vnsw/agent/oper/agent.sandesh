@@ -1326,3 +1326,20 @@ response sandesh IFMapNodePolicyResp {
 request sandesh IFMapNodePolicyReq {
     1: string node;
 }
+
+struct BgpAsAServiceSandeshList {
+   1: string vm_bgp_peer_ip;
+   2: i32 vm_nat_source_port;
+   3: string vmi_uuid (link="ItfReq"); // intf uuid
+}
+
+request sandesh BgpAsAServiceSandeshReq {
+}
+
+response sandesh BgpAsAServiceSandeshResp {
+    1: list<BgpAsAServiceSandeshList> bgp_as_a_service_list;
+}
+
+trace sandesh BgpAsAServiceTrace {
+    1: string message;
+}
