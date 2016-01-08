@@ -12,8 +12,10 @@ class AddressMismatchCompute(AlarmBase):
     def __call__(self, uve_key, uve_data):
         or_list = []
         try:
-            lval = json.loads(uve_data["ContrailConfig"]["elements"][\
-                "virtual_router_ip_address"])
+            uattr = uve_data["ContrailConfig"]["elements"]
+            if isinstance(uattr,list):
+                uattr = uattr[0][0]
+            lval = json.loads(uattr["virtual_router_ip_address"])
         except KeyError:
             lval = None
 
@@ -65,8 +67,10 @@ class AddressMismatchControl(AlarmBase):
     def __call__(self, uve_key, uve_data):
 
         try:
-            lval = json.loads(uve_data["ContrailConfig"]["elements"][\
-                "bgp_router_parameters"])["address"]
+            uattr = uve_data["ContrailConfig"]["elements"]
+            if isinstance(uattr,list):
+                uattr = uattr[0][0]
+            lval = json.loads(uattr["bgp_router_parameters"])["address"]
         except KeyError:
             lval = None
 
