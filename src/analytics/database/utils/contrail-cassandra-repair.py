@@ -87,7 +87,7 @@ def main():
                 # print script description with -h/--help
                 description=__doc__,
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-H", "--host", dest="host", default=platform.node(),
+    parser.add_argument("-H", "--host", dest="host", default='127.0.0.1',
                       metavar="HOST", help="Hostname to check status")
 
     parser.add_argument("-n", "--nodetool", dest="nodetool", default="nodetool",
