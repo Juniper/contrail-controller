@@ -207,7 +207,10 @@ public:
         // time we were processing those queues.
         return queue_->RunnerDone();
     }
-    
+
+    std::string Description() {
+        return "DBPartition QueueRunner";
+    }
 private:
     WorkQueue *queue_;
 };

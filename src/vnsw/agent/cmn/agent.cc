@@ -14,6 +14,10 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <base/sandesh/task_types.h>
+
 #include <init/agent_param.h>
 #include <cmn/agent_signal.h>
 #include <cfg/cfg_init.h>
@@ -50,6 +54,7 @@ const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 const std::string Agent::xmpp_dns_server_connection_name_prefix_ = "dns-server:";
 const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-node:";
 
+SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
 Agent *Agent::singleton_;
 
 const string &Agent::GetHostInterfaceName() const {
@@ -212,6 +217,9 @@ void Agent::SetAgentTaskPolicy() {
                      flow_stats_manager_exclude_list,
                      sizeof(flow_stats_manager_exclude_list) / sizeof(char *));
 
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->RegisterLog(boost::bind(&Agent::TaskTrace, this,
+                                       _1, _2, _3, _4, _5));
 }
 
 void Agent::CreateLifetimeManager() {
@@ -688,3 +696,12 @@ void Agent::reset_controller_xmpp_channel(uint8_t idx) {
 boost::shared_ptr<AgentXmppChannel> Agent::controller_xmpp_channel_ref(uint8_t idx) {
     return agent_xmpp_channel_[idx];
 }
+
+void Agent::TaskTrace(const char *file_name, uint32_t line_no,
+                      const Task *task, const char *description,
+                      uint32_t delay) {
+    TaskTrace::TraceMsg(TaskTraceBuf, file_name, line_no,
+                        task->GetTaskId(), task->GetTaskInstance(),
+                        description, delay, task->Description());
+}
+

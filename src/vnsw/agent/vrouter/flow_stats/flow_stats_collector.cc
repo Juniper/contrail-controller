@@ -63,6 +63,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         flow_count_per_pass_ = FlowCountPerPass;
         UpdateFlowMultiplier();
         deleted_ = false;
+        request_queue_.set_name("Flow stats collector");
 }
 
 FlowStatsCollector::~FlowStatsCollector() {

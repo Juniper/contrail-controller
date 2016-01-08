@@ -31,6 +31,10 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
         route_walkid_[table_type].clear();
         walkable_route_tables_ |= (1 << table_type);
     }
+
+    std::ostringstream str;
+    str << "Agent Route Walker. Type " << type;
+    work_queue_.set_name(str.str());
 }
 
 AgentRouteWalker::~AgentRouteWalker() {

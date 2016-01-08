@@ -879,6 +879,7 @@ PathPreferenceModule::PathPreferenceModule(Agent *agent):
     agent_(agent), vrf_id_(DBTableBase::kInvalidId),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                 boost::bind(&PathPreferenceModule::DequeueEvent, this, _1)) {
+    work_queue_.set_name("Path Preference");
 }
 
 bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {

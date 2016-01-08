@@ -217,6 +217,9 @@ public:
     static const uint32_t kDefaultFlowCacheTimeout = 0;
     // default number of threads for flow setup
     static const uint32_t kDefaultFlowThreadCount = 1;
+    // Max number of threads
+    static const uint32_t kMaxTbbThreads = 8;
+
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -949,6 +952,9 @@ public:
         flow_stats_req_handler_ = req;
     }
  
+    void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
+                   const char *description, uint32_t delay);
+
     static uint16_t ProtocolStringToInt(const std::string &str);
 private:
 
