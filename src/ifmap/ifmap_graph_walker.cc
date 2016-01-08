@@ -371,6 +371,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("loadbalancer-healthmonitor");
     traversal_white_list_->include_vertex.insert("subnet");
     traversal_white_list_->include_vertex.insert("service-health-check");
+    traversal_white_list_->include_vertex.insert("bgp-as-a-service");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -476,5 +477,11 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=floating-ip-pool,target=virtual-network");
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=service-health-check");
+    traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=bgp-as-a-service");
+    traversal_white_list_->include_edge.insert(
+        "source=bgp-as-a-service,target=bgp-router");
+    traversal_white_list_->include_edge.insert(
+        "source=bgp-router,target=routing-instance");
 }
 

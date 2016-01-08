@@ -6,6 +6,7 @@
 #define vnsw_agent_vm_interface_hpp
 
 #include <oper/oper_dhcp_options.h>
+#include <oper/audit_list.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of VM Port interfaces
@@ -24,6 +25,7 @@ class MetaDataIp;
 class HealthCheckInstance;
 
 class LocalVmPortPeer;
+
 /////////////////////////////////////////////////////////////////////////////
 // Definition for VmInterface
 // Agent supports multiple type of VMInterfaces

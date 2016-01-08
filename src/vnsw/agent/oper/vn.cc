@@ -167,6 +167,22 @@ const VnIpam *VnEntry::GetIpam(const IpAddress &ip) const {
     return NULL;
 }
 
+IpAddress VnEntry::GetGatewayFromIpam(const IpAddress &ip) const {
+    const VnIpam *ipam = GetIpam(ip);
+    if (ipam) {
+        return ipam->default_gw;
+    }
+    return IpAddress();
+}
+
+IpAddress VnEntry::GetDnsFromIpam(const IpAddress &ip) const {
+    const VnIpam *ipam = GetIpam(ip);
+    if (ipam) {
+        return ipam->dns_server;
+    }
+    return IpAddress();
+}
+
 bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
                               autogen::IpamType *ipam_type,
                               autogen::VirtualDnsType *vdns_type) const {

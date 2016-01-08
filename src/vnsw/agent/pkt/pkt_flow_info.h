@@ -39,6 +39,7 @@ public:
     static const int kLinkLocalInvalidFd = -1;
     static const Ip4Address kDefaultIpv4;
     static const Ip6Address kDefaultIpv6;
+    static const int kBgpRouterServiceInvalidFd = -1;
 
     PktFlowInfo(Agent *a, boost::shared_ptr<PktInfo> info, FlowTable *ftable) :
         l3_flow(info->l3_forwarding), family(info->family), pkt(info),
@@ -52,7 +53,7 @@ public:
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
         trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
-        flood_unknown_unicast(false) {
+        flood_unknown_unicast(false), bgp_router_service_flow(false) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -62,6 +63,10 @@ public:
     void LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
                                   PktControlInfo *out);
     void LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
+                                   PktControlInfo *out);
+    void BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
+                                PktControlInfo *out);
+    void BgpRouterServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
                                    PktControlInfo *out);
     void FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
                         PktControlInfo *out);
@@ -96,13 +101,32 @@ public:
     void ApplyFlowLimits(const PktControlInfo *in, const PktControlInfo *out);
     void LinkLocalPortBind(const PktInfo *pkt, const PktControlInfo *in,
                            const FlowEntry *flow);
-
+    bool IngressRouteAllowNatLookup(const AgentRoute *in_rt,
+                                    const AgentRoute *out_rt,
+                                    uint32_t sport,
+                                    uint32_t dport,
+                                    const Interface *intf);
+    bool EgressRouteAllowNatLookup(const AgentRoute *in_rt,
+                                   const AgentRoute *out_rt,
+                                   uint32_t sport,
+                                   uint32_t dport,
+                                   const Interface *intf);
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
     void CalculatePort(const PktInfo *p, const Interface *intf);
+    bool RouteAllowNatLookupCommon(const AgentRoute *rt,
+                                   uint32_t sport,
+                                   uint32_t dport,
+                                   const Interface *intf);
+    bool IsBgpRouterServiceRoute(const AgentRoute *in_rt,
+                                 const AgentRoute *out_rt,
+                                 const Interface *intf,
+                                 uint32_t sport,
+                                 uint32_t dport);
+
     bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
@@ -161,6 +185,9 @@ public:
     // flow entry obtained from flow IPC, which requires recomputation.
     FlowEntry           *flow_entry;
     bool                 flood_unknown_unicast;
+
+    //BGP router service info
+    bool                 bgp_router_service_flow;
 };
 
 #endif // __agent_pkt_flow_info_h_

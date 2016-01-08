@@ -41,6 +41,7 @@
 #include <oper/agent_profile.h>
 #include <oper/agent_sandesh.h>
 #include <oper/vrouter.h>
+#include <oper/bgp_as_service.h>
 #include <nexthop_server/nexthop_manager.h>
 
 using boost::assign::map_list_of;
@@ -209,6 +210,7 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_physical_device_vn_table(dev_vn_table);
     profile_.reset(new AgentProfile(agent_, true));
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
+    bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
 }
 
 void OperDB::Init() {

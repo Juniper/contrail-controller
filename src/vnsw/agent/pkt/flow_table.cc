@@ -350,6 +350,19 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         }
     }
 
+    if (rflow && rflow->is_flags_set(FlowEntry::BgpRouterService)) {
+        //In BGP router service for some reason if tcp connection does not
+        //succeed, then client will try again with new source port and this will
+        //create a new flow. Now there will be two flows - one with old source
+        //port and other with new source port. However both of them will have
+        //same reverse flow as its is nat'd with fabric sip/dip.
+        //To avoid this delete old flow and dont let new flow to be short flow.
+        if (rflow_rev) {
+            Delete(rflow_rev->key(), false);
+            rflow_rev = NULL;
+        }
+    }
+    
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
         if (ValidFlowMove(flow, rflow_rev) == false) {

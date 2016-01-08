@@ -71,6 +71,8 @@ IFMapDependencyManager::~IFMapDependencyManager() {
 void IFMapDependencyManager::Initialize(Agent *agent) {
     static const char *ifmap_types[] = {
         "access-control-list",
+        "bgp-as-a-service",
+        "bgp-router",
         "floating-ip",
         "floating-ip-pool",
         "instance-ip",
@@ -657,6 +659,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "physical-interface", false,
                                "physical-router-physical-interface",
                                "physical-router", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("bgpaas-virtual-machine-interface",
+                               "bgp-as-a-service", true,
+                               "bgpaas-bgp-router",
+                               "bgp-router", true,
+                               "instance-bgp-router",
+                               "routing-instance", true));
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
     ////////////////////////////////////////////////////////////////////////
