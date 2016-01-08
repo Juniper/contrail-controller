@@ -1134,6 +1134,7 @@ private:
     FlowStatsReqHandler flow_stats_req_handler_;
 
     // Constants
+public:
     static const std::string config_file_;
     static const std::string log_file_;
     static const std::string null_string_;
