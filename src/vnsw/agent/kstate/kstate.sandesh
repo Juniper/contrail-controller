@@ -89,9 +89,13 @@ struct KFlowInfo {
    12: i32           bytes;
    13: i32           pkts;
    14: i32           insight;
+   18: i32           nhid;
+   19: u16           underlay_udp_sport;
    15: optional byte mirror_id (link = "KMirrorReq");
    16: optional byte sec_mirror_id (link = "KMirrorReq");
    17: optional i16  ecmp_index;
+   20: optional string tcp_flags;
+   21: optional string drop_reason;
 }
 
 struct KVxLanInfo {
