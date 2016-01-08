@@ -20,8 +20,8 @@ public:
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
         RETRY_DELETE_VRF,
-        UPDATE_FLOW_INDEX
-
+        UPDATE_FLOW_INDEX,
+        DELETE_BGP_AAS_FLOWS
     };
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
@@ -47,6 +47,9 @@ public:
     // response. Returns INVALID if no message to be enqueued
     FlowEvent::Event GetResponseEvent() const {
         FlowEvent::Event resp_event = FlowEvent::INVALID;
+        if (event_ == DELETE_BGP_AAS_FLOWS)
+            return FlowEvent::DELETE_FLOW;
+
         if (db_entry_ == NULL)
             return resp_event;
 
@@ -92,4 +95,33 @@ private:
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };
 
+class BgpAsAServiceFlowMgmtRequest : public FlowMgmtRequest {
+public:
+    enum Type {
+        VMI,
+        CONTROLLER
+    };
+
+    BgpAsAServiceFlowMgmtRequest(uint8_t index) :
+        FlowMgmtRequest(FlowMgmtRequest::DELETE_BGP_AAS_FLOWS, NULL, 0),
+        type_(BgpAsAServiceFlowMgmtRequest::CONTROLLER), vm_uuid_(),
+        source_port_(), index_(index) { }
+    BgpAsAServiceFlowMgmtRequest(boost::uuids::uuid vm_uuid,
+                                 uint32_t source_port) :
+        FlowMgmtRequest(FlowMgmtRequest::DELETE_BGP_AAS_FLOWS, NULL, 0),
+        type_(BgpAsAServiceFlowMgmtRequest::VMI), vm_uuid_(vm_uuid),
+        source_port_(source_port), index_() { }
+    virtual ~BgpAsAServiceFlowMgmtRequest() { }
+    BgpAsAServiceFlowMgmtRequest::Type type() const { return type_; }
+    const boost::uuids::uuid &vm_uuid() const { return vm_uuid_; }
+    uint32_t source_port() const { return source_port_; }
+    uint8_t index() const { return index_; }
+
+private:
+    BgpAsAServiceFlowMgmtRequest::Type type_;
+    boost::uuids::uuid vm_uuid_;
+    uint32_t source_port_;
+    uint8_t index_;
+    DISALLOW_COPY_AND_ASSIGN(BgpAsAServiceFlowMgmtRequest);
+};
 #endif //  __AGENT_FLOW_MGMT_REQUEST_H__
