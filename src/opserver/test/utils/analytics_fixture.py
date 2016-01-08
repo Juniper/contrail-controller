@@ -2085,7 +2085,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_collector_object_log_after_purge
 
-    @retry(delay=2, tries=5)
+    @retry(delay=5, tries=5)
     def verify_database_purge_status(self, purge_id):
         self.logger.info('verify database purge status: purge_id [%s]' %
                          (purge_id))
