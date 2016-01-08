@@ -15,12 +15,13 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <database/gendb_types.h>
+#include <net/address.h>
 
 namespace GenDb {
 
 /* New stuff */
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
-    boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
+    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress> DbDataValue;
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
     DB_VALUE_STRING = 1,
@@ -30,6 +31,7 @@ enum DbDataValueType {
     DB_VALUE_UINT8 = 5,
     DB_VALUE_UINT16 = 6,
     DB_VALUE_DOUBLE = 7,
+    DB_VALUE_INET = 8
 };
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
@@ -73,6 +75,9 @@ class DbDataValueCqlPrinter : public boost::static_visitor<> {
     // CQL bigint is 64 bit signed long
     void operator()(const uint64_t &tu64) const {
         os_ << (int64_t)tu64;
+    }
+    void operator()(const IpAddress &tipaddr) const {
+        os_ << "'" << tipaddr << "'";
     }
     std::ostream &os_;
     bool quote_strings_;
