@@ -21,6 +21,7 @@
 #include "oper/global_vrouter.h"
 #include "oper/operdb_init.h"
 #include "oper/tunnel_nh.h"
+#include "oper/bgp_aas.h"
 
 #include "filter/packet_header.h"
 #include "filter/acl.h"
@@ -414,10 +415,50 @@ static bool IntfHasFloatingIp(PktFlowInfo *pkt_info, const Interface *intf,
     return static_cast<const VmInterface *>(intf)->HasFloatingIp(family);
 }
 
-static bool IsLinkLocalRoute(Agent *agent, const AgentRoute *rt) {
+static bool IsLinkLocalRoute(Agent *agent, const AgentRoute *rt,
+                             uint32_t sport, uint32_t dport) {
+    //Local CN and BGP has been allowed for testing purpose.
+    if ((sport == DEFAULT_CONTROL_NODE_BGP_PORT) ||
+        (dport == DEFAULT_CONTROL_NODE_BGP_PORT))
+        return false;
+
     const AgentPath *path = rt->GetActivePath();
     if (path && path->peer() == agent->link_local_peer())
         return true;
+
+    return false;
+}
+
+static bool IsBgpRouterServiceRoute(Agent *agent,
+                                    const AgentRoute *in_rt,
+                                    const AgentRoute *out_rt,
+                                    const Interface *intf,
+                                    uint32_t sport,
+                                    uint32_t dport) {
+    if (intf == NULL) return false;
+
+    if ((sport != DEFAULT_CONTROL_NODE_BGP_PORT) &&
+        (dport != DEFAULT_CONTROL_NODE_BGP_PORT))
+        return false;
+
+    if (intf->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf =
+            dynamic_cast<const VmInterface *>(intf);
+        const InetUnicastRouteEntry *inet_in_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(in_rt);
+        const InetUnicastRouteEntry *inet_out_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(out_rt);
+        if ((inet_in_rt == NULL) || (inet_out_rt == NULL))
+            return false;
+        return agent->oper_db()->bgp_aas()->IsBgpService(vm_intf,
+                                                         inet_in_rt->addr(),
+                                                         inet_out_rt->addr());
+    }
+
+    if ((intf->type() == Interface::INET) &&
+        (agent->oper_db()->bgp_aas()->IsBgpServicePort(dport))) {
+        return true;
+    }
 
     return false;
 }
@@ -515,12 +556,19 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     }
 }
 
-static bool RouteAllowNatLookup(Agent *agent, const AgentRoute *rt) {
+static bool RouteAllowNatLookup(Agent *agent,
+                                const AgentRoute *in_rt,
+                                const AgentRoute *out_rt,
+                                uint32_t sport,
+                                uint32_t dport,
+                                const Interface *intf) {
     // No NAT for bridge routes
-    if (dynamic_cast<const BridgeRouteEntry *>(rt) != NULL)
+    if (dynamic_cast<const BridgeRouteEntry *>(in_rt) != NULL)
         return false;
 
-    if (rt != NULL && IsLinkLocalRoute(agent, rt)) {
+    if (in_rt != NULL && (IsLinkLocalRoute(agent, in_rt, sport, dport) ||
+                       IsBgpRouterServiceRoute(agent, in_rt, out_rt, intf,
+                                               sport, dport))) {
         // skip NAT lookup if found route has link local peer.
         return false;
     }
@@ -727,6 +775,73 @@ void PktFlowInfo::LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *
         LinkLocalServiceFromVm(pkt, in, out);
     } else {
         LinkLocalServiceFromHost(pkt, in, out);
+    }
+}
+
+void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
+                                         PktControlInfo *out) {
+
+    // Link local services supported only for IPv4 for now
+    if (pkt->family != Address::INET) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    const VmInterface *vm_port =
+        static_cast<const VmInterface *>(in->intf_);
+
+    const VnEntry *vn = static_cast<const VnEntry *>(vm_port->vn());
+    uint32_t sport = 0;
+    IpAddress nat_server = IpAddress();
+
+    if (vn == NULL) {
+        in->rt_ = NULL;
+        out->rt_ = NULL;
+        return;
+    }
+
+    if (agent->oper_db()->bgp_aas()->GetBgpRouterServiceDestination(vm_port,
+                                                pkt->ip_saddr.to_v4(),
+                                                pkt->ip_daddr.to_v4(),
+                                                &nat_server,
+                                                &sport) == false) {
+        return;
+    }
+
+    out->vrf_ = agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
+    dest_vrf = out->vrf_->vrf_id();
+
+    // Set NAT flow fields
+    bgp_router_service_flow = true;
+    nat_done = true;
+    //Populate NAT
+    nat_ip_saddr = agent->router_id();
+    nat_ip_daddr = nat_server;
+    nat_sport = sport;
+    nat_dport = pkt->dport;
+    if ((nat_ip_daddr == agent->router_id()) &&
+        (nat_ip_daddr == nat_ip_saddr)) {
+        boost::system::error_code ec;
+        //TODO may be use MDATA well known address.
+        nat_ip_saddr = vm_port->mdata_ip_addr();
+    }
+
+    nat_vrf = dest_vrf;
+    nat_dest_vrf = vm_port->vrf_id();
+
+
+    out->rt_ = FlowEntry::GetUcRoute(out->vrf_, nat_server);
+    out->intf_ = agent->vhost_interface();
+    out->nh_ = out->intf_->flow_key_nh()->id();
+    return;
+}
+
+void PktFlowInfo::BgpRouterServiceTranslate(const PktInfo *pkt,
+                                            PktControlInfo *in,
+                                            PktControlInfo *out) {
+    if (in->intf_->type() == Interface::VM_INTERFACE) {
+        BgpRouterServiceFromVm(pkt, in, out);
     }
 }
 
@@ -1050,7 +1165,11 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    if (RouteAllowNatLookup(agent, out->rt_)) {
+    if (RouteAllowNatLookup(agent, in->rt_,
+                            out->rt_,
+                            pkt->sport,
+                            pkt->dport,
+                            in->intf_)) {
         // If interface has floating IP, check if we have more specific route in
         // public VN (floating IP)
         if (IntfHasFloatingIp(this, in->intf_, pkt->family)) {
@@ -1068,9 +1187,19 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Packets needing linklocal service will have route added by LinkLocal peer
-    if ((in->rt_ && IsLinkLocalRoute(agent, in->rt_)) ||
-        (out->rt_ && IsLinkLocalRoute(agent, out->rt_))) {
+    if ((in->rt_ && IsLinkLocalRoute(agent, in->rt_, pkt->sport, pkt->dport)) ||
+        (out->rt_ && IsLinkLocalRoute(agent, out->rt_,
+                                      pkt->sport, pkt->dport))) {
         LinkLocalServiceTranslate(pkt, in, out);
+    }
+
+    //Packets needing bgp router service handling
+    if ((in->rt_ && IsBgpRouterServiceRoute(agent, in->rt_, out->rt_, in->intf_,
+                                            pkt->sport, pkt->dport)) ||
+        (out->rt_ && IsBgpRouterServiceRoute(agent, in->rt_, out->rt_,
+                                             out->intf_, pkt->sport,
+                                             pkt->dport))) {
+        BgpRouterServiceTranslate(pkt, in, out);
     }
 
     // If out-interface was not found, get it based on out-route
@@ -1174,7 +1303,12 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (RouteAllowNatLookup(agent, out->rt_)) {
+    if (RouteAllowNatLookup(agent,
+                            in->rt_,
+                            out->rt_,
+                            pkt->sport,
+                            pkt->dport,
+                            out->intf_)) {
         // If interface has floating IP, check if destination is one of the
         // configured floating IP.
         if (IntfHasFloatingIp(this, out->intf_, pkt->family)) {
@@ -1393,6 +1527,7 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
     }
 
     // Dont generate Traffic seen for egress flows or short or linklocal flows
+    // or bgp router service flows
     if (ingress == false || short_flow || linklocal_flow) {
         return;
     }
@@ -1492,7 +1627,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     // In case the packet is for a reverse flow of a linklocal flow,
     // link to that flow (avoid creating a new reverse flow entry for the case)
     FlowEntryPtr rflow = flow->reverse_flow_entry();
-    if (rflow && rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort)) {
+    if (rflow && (rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
+                  rflow->is_flags_set(FlowEntry::BgpRouterService))) {
         return;
     }
 
