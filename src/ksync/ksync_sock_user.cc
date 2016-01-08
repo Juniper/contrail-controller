@@ -614,9 +614,9 @@ void KSyncSockTypeMap::Init(boost::asio::io_service &ios, int count) {
     assert(singleton_ == NULL);
     singleton_ = new KSyncSockTypeMap(ios);
 
-    singleton_->local_ep_.address(ip::address::from_string("127.0.0.1"));
+    singleton_->local_ep_.address(boost::asio::ip::address::from_string("127.0.0.1"));
     singleton_->local_ep_.port(0);
-    singleton_->sock_.open(ip::udp::v4());
+    singleton_->sock_.open(boost::asio::ip::udp::v4());
     singleton_->sock_.bind(singleton_->local_ep_);
     singleton_->local_ep_ = singleton_->sock_.local_endpoint();
 
