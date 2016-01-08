@@ -35,6 +35,10 @@
 #include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"
 
+#include "xmpp/xmpp_init.h"
+#include "xmpp_multicast_types.h"
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
 #include <controller/controller_export.h>
 #include <boost/assign/list_of.hpp>
 using namespace boost::assign;
@@ -1405,6 +1409,68 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
 
     DeleteBgpPeer(bgp_peer_ptr);
     client->WaitForIdle();
+}
+
+// Bug# 1529665 
+TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+    AddVrf("vrf1", 1);
+    AddVn("vn1", 1, true);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    client->WaitForIdle();
+
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    EXPECT_TRUE(rt != NULL);
+    RouteExport::State *route_state = static_cast<RouteExport::State *>
+        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
+                                        rt));
+    //EXPECT_TRUE(route_state->label_ != 0);
+
+    autogen::EnetItemType item;
+    stringstream ss_node;
+    AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
+    SecurityGroupList sg;
+    CommunityList communities;
+    channel1->BuildEvpnMulticastMessage(item,
+                                        ss_node,
+                                        rt,
+                                        agent_->router_ip_ptr(),
+                                        "vn1",
+                                        &sg,
+                                        &communities,
+                                        route_state->label_,
+                                        TunnelType::AllType(),
+                                        true,
+                                        rt->FindPath(agent_->multicast_peer()),
+                                        false);
+    autogen::EnetNextHopType nh = item.entry.next_hops.next_hop.back();
+    EXPECT_TRUE(nh.label != 0);
+    //Add VM
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    route_state = static_cast<RouteExport::State *>
+        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
+                                        rt));
+    EXPECT_TRUE(route_state->label_ != 0);
+
+    //Delete all
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    bgp_peer.reset();
 }
 
 int main(int argc, char *argv[]) {
