@@ -20,7 +20,7 @@ from neutron.common import constants
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
-from vnc_api.common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
+from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
 import vnc_openstack
 
 _DEFAULT_HEADERS = {
