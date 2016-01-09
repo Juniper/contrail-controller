@@ -19,6 +19,10 @@ objectlog sandesh RoutingInstanceCollector {
     1: RoutingInstanceInfo routing_instance;
 }
 
+/**
+ * @description Routing Instance specific generic message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceMessage {
     1: "RoutingInstance";
     2: string name (key="ObjectRoutingInstance");
@@ -26,6 +30,12 @@ traceobject sandesh RoutingInstanceMessage {
     4: string Message;
 }
 
+/**
+ * @description Routing Instance specific generic message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceMessageLog {
     1: "RoutingInstance";
     2: string name (key="ObjectRoutingInstance");
@@ -33,6 +43,10 @@ systemlog sandesh RoutingInstanceMessageLog {
     4: string Message;
 }
 
+/**
+ * @description Routing Instance creation message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceCreate {
     6: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -46,6 +60,12 @@ traceobject sandesh RoutingInstanceCreate {
     5: i32 index;
 }
 
+/**
+ * @description Routing Instance creation message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceCreateLog {
     6: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -59,16 +79,30 @@ systemlog sandesh RoutingInstanceCreateLog {
     5: i32 index;
 }
 
+/**
+ * @description Routing Instance deletion message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceDelete {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance deletion message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceDeleteLog {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance update message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceUpdate {
     6: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -82,6 +116,12 @@ traceobject sandesh RoutingInstanceUpdate {
     5: i32 index;
 }
 
+/**
+ * @description Routing Instance update message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceUpdateLog {
     6: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -95,26 +135,50 @@ systemlog sandesh RoutingInstanceUpdateLog {
     5: i32 index;
 }
 
+/**
+ * @description Routing Instance destroy message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceDestroy {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance destroy message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceDestroyLog {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance shutdown message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceShutdown {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance shutdown message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceShutdownLog {
     2: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
 }
 
+/**
+ * @description Routing Instance's peer creation message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstancePeerCreate {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -122,6 +186,12 @@ traceobject sandesh RoutingInstancePeerCreate {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer creation message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstancePeerCreateLog {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -129,6 +199,10 @@ systemlog sandesh RoutingInstancePeerCreateLog {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer clear message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstancePeerClear {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -136,6 +210,12 @@ traceobject sandesh RoutingInstancePeerClear {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer clear message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstancePeerClearLog {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -143,6 +223,10 @@ systemlog sandesh RoutingInstancePeerClearLog {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer delete message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstancePeerDelete {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -150,6 +234,12 @@ traceobject sandesh RoutingInstancePeerDelete {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer delete message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstancePeerDeleteLog {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -157,6 +247,10 @@ systemlog sandesh RoutingInstancePeerDeleteLog {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer destroy message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstancePeerDestroy {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -164,6 +258,12 @@ traceobject sandesh RoutingInstancePeerDestroy {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's peer destroy message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstancePeerDestroyLog {
     3: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -171,6 +271,10 @@ systemlog sandesh RoutingInstancePeerDestroyLog {
     2: string peer;
 }
 
+/**
+ * @description Routing Instance's table create message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceTableCreate {
     4: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -180,6 +284,12 @@ traceobject sandesh RoutingInstanceTableCreate {
     3: string family;
 }
 
+/**
+ * @description Routing Instance's table create message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceTableCreateLog {
     4: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -189,6 +299,10 @@ systemlog sandesh RoutingInstanceTableCreateLog {
     3: string family;
 }
 
+/**
+ * @description Routing Instance's table destroy message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RoutingInstanceTableDestroy {
     4: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -198,6 +312,12 @@ traceobject sandesh RoutingInstanceTableDestroy {
     3: string family;
 }
 
+/**
+ * @description Routing Instance's table destroy message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RoutingInstanceTableDestroyLog {
     4: "Routing Instance";
     1: string name (key="ObjectRoutingInstance");
@@ -207,6 +327,10 @@ systemlog sandesh RoutingInstanceTableDestroyLog {
     3: string family;
 }
 
+/**
+ * @description Route Replication from a primary table to a secondary table
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprReplicate {
     1: string primary_table;
     2: string primary_rt;
@@ -216,6 +340,12 @@ traceobject sandesh RprReplicate {
     5: string secondary_rt;
 }
 
+/**
+ * @description Route Replication from a primary table to a secondary table
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprReplicateLog {
     1: string primary_table;
     2: string primary_rt;
@@ -224,6 +354,10 @@ systemlog sandesh RprReplicateLog {
     5: string secondary_rt;
 }
 
+/**
+ * @description Rplicated route flush message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprFlush {
     2: string secondary_table;
     1: string secondary_route;
@@ -234,6 +368,12 @@ traceobject sandesh RprFlush {
     5: string action;
 }
 
+/**
+ * @description Rplicated route flush message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprFlushLog {
     2: string secondary_table;
     1: string secondary_route;
@@ -243,58 +383,118 @@ systemlog sandesh RprFlushLog {
     5: string action;
 }
 
+/**
+ * @description Route Replication table walk message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprWalk {
     1: string table;
 }
 
+/**
+ * @description Route Replication table walk message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprWalkLog {
     1: string table;
 }
 
+/**
+ * @description Route Replication table join message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprTableJoin {
     1: string table;
     2: string group;
     3: bool is_import;
 }
 
+/**
+ * @description Route Replication table join message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprTableJoinLog {
     1: string table;
     2: string group;
     3: bool is_import;
 }
 
+/**
+ * @description Route Replication table leave message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprTableLeave {
     1: string table;
     2: string group;
     3: bool is_import;
 }
 
+/**
+ * @description Route Replication table leave message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprTableLeaveLog {
     1: string table;
     2: string group;
     3: bool is_import;
 }
 
+/**
+ * @description Route Replication walk completion message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprWalkDone {
     1: string table;
 }
 
+/**
+ * @description Route Replication walk completion message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprWalkDoneLog {
     1: string table;
 }
 
+/**
+ * @description Route Replication table registration message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprRegTable {
     1: string table;
 }
 
+/**
+ * @description Route Replication table registration message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprRegTableLog {
     1: string table;
 }
 
+/**
+ * @description Route Replication table unregistration message
+ * @severity: DEBUG / ERROR
+ */
 traceobject sandesh RprUnregTable {
     1: string table;
 }
 
+/**
+ * @description Route Replication table unregistration message
+ * @severity: DEBUG / ERROR
+ * @cause: Normal operation / An internal software failure occurred
+ * @action: Contact your technical support representative in case of Error
+ */
 systemlog sandesh RprUnregTableLog {
     1: string table;
 }

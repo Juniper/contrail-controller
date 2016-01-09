@@ -520,6 +520,11 @@ struct BgpPeerInfoData {
    19: optional peer_info.PeerStatsInfo peer_stats_info;
 }
 
+/**
+ * @description: BGP Peer specific information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 uve sandesh BGPPeerInfo {
     1: BgpPeerInfoData data;
 }

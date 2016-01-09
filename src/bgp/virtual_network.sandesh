@@ -11,6 +11,11 @@ struct UveVirtualNetworkCtrl {  // Control plane view of the virtual network
     // Add additional items here
 }
 
+/**
+ * @description: contrail-control state information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 uve sandesh UveVirtualNetworkCtrlTrace {
     1: UveVirtualNetworkCtrl                data;
 }
