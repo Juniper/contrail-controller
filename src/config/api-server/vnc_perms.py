@@ -76,7 +76,7 @@ class VncPermissions(object):
         try:
             perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
         except NoIdError:
-            return (False, err_msg)
+            return (True, '')
 
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]
