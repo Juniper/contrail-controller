@@ -18,7 +18,6 @@ sys.path.insert(
     os.path.realpath('/opt/contrail/api-venv/lib/python2.7/site-packages/vnc_cfg_api_server/'))
 
 from vnc_api.vnc_api import *
-from vnc_api.common import exceptions as vnc_exceptions
 import vnc_cfg_api_server
 
 

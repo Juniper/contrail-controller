@@ -16,7 +16,6 @@ sys.path.insert(
     os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
 
 from vnc_api.vnc_api import *
-from vnc_api.common import exceptions as vnc_exceptions
 import vnc_cfg_api_server
 from svc_monitor import svc_monitor
 from novaclient import client as nc
