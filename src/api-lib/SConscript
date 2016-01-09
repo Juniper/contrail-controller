@@ -68,23 +68,12 @@ local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(env.Install("vnc_api", "#/controller/src/api-lib/" + file))
 
-common_sources = [
-                  '__init__.py',
-                  'rest.py',
-                  'exceptions.py'
-                 ]
-
-common_sources_rules = []
-for file in common_sources:
-    common_sources_rules.append(env.Install("vnc_api/common", "#/controller/src/config/common/" + file))
-
 generateds_rule = env.Install("vnc_api/gen", "#/controller/src/config/common/generatedssuper.py")
 cfixture_rule = env.Install("vnc_api/gen", "#/controller/src/config/common/cfixture.py")
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(common_sources_rules)
 sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
                         'setup.py', cd_cmd + 'python setup.py sdist')
 

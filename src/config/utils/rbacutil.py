@@ -237,7 +237,7 @@ if vnc_op.args.on or vnc_op.args.off:
     data = {'enabled': vnc_op.args.on}
     try:
         rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
-    except vnc_api.common.exceptions.PermissionDenied:
+    except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
 elif vnc_op.args.uuid and vnc_op.args.name:
