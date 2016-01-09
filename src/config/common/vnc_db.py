@@ -5,7 +5,9 @@
 """
 This file contains implementation of database model for contrail config daemons
 """
-from vnc_api.common.exceptions import NoIdError
+from exceptions import NoIdError
+from vnc_api.gen.resource_client import *
+from utils import obj_type_to_vnc_class
 
 class DBBase(object):
     # This is the base class for all DB objects. All derived objects must
