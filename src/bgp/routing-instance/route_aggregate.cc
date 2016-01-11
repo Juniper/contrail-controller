@@ -39,6 +39,7 @@ private:
 template <typename T>
 class AggregateRoute : public ConditionMatch {
 public:
+    typedef typename T::TableT TableT;
     typedef typename T::RouteT RouteT;
     typedef typename T::PrefixT PrefixT;
     typedef typename T::AddressT AddressT;
@@ -135,11 +136,21 @@ public:
         return false;
     }
 
+    void NotifyContributingRoute(BgpRoute *route) {
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_NOTIFY;
+        RouteT *ip_route = static_cast<RouteT *>(route);
+        const PrefixT &prefix = ip_route->GetPrefix();
+        req.key.reset(new typename TableT::RequestKey(prefix, NULL));
+        bgp_table()->Enqueue(&req);
+    }
+
     void AddContributingRoute(BgpRoute *route) {
         contributors_[route->get_table_partition()->index()].insert(route);
         AggregateRouteState *state =
             new AggregateRouteState(AggregateRoutePtr(this), true);
         route->SetState(bgp_table(), manager_->listener_id(), state);
+        NotifyContributingRoute(route);
     }
 
     void RemoveContributingRoute(BgpRoute *route) {
@@ -150,6 +161,7 @@ public:
         if (state) {
             route->ClearState(bgp_table(), manager_->listener_id());
             delete state;
+            NotifyContributingRoute(route);
         } else {
             assert(num_deleted != 1);
         }
@@ -477,12 +489,11 @@ BgpTable *RouteAggregator<T>::bgp_table() const {
 }
 
 template <typename T>
-void RouteAggregator<T>::LocateTableListenerId() {
-    if (listener_id_ == DBTableBase::kInvalidId) {
-        listener_id_ = bgp_table()->Register(
+void RouteAggregator<T>::Initialize() {
+    // Register to the table before adding first match condition
+    listener_id_ = bgp_table()->Register(
          boost::bind(&RouteAggregator::RouteListener, this, _1, _2),
-                                             "RouteAggregator");
-    }
+         "RouteAggregator");
 }
 
 template <typename T>
@@ -576,8 +587,6 @@ void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig
     AggregateRoutePtr aggregate_route_match = AggregateRoutePtr(match);
     aggregate_route_map_.insert(make_pair(prefix, aggregate_route_match));
 
-    // Register to the table before adding first match condition
-    this->LocateTableListenerId();
     condition_listener_->AddMatchCondition(match->bgp_table(),
            aggregate_route_match.get(), BgpConditionListener::RequestDoneCb());
     return;

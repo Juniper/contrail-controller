@@ -51,6 +51,7 @@ public:
                              ExtCommunityPtr ptr);
 
     virtual bool IsRoutingPolicySupported() const { return true; }
+    virtual bool IsRouteAggregationSupported() const { return true; }
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
