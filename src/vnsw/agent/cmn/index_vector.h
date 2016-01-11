@@ -58,6 +58,12 @@ public:
             entries_.resize(index + kGrowSize);
         }
 
+        // TODO(prabhjot) need to enable assertion below
+        // currently disabled due to some issue with MPLS
+        // label allocation
+        // index should not be already in use
+        // assert(bitmap_[index] == 1);
+
         bitmap_.set(index, 0);
         entries_[index] = entry;
         return index;

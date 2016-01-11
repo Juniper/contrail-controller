@@ -458,4 +458,21 @@ private:
     void Alloc();
 };
 
+class AgentHealthCheckSandesh : public AgentSandesh {
+public:
+    AgentHealthCheckSandesh(const std::string &context, const std::string &u);
+    ~AgentHealthCheckSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    friend class VnListReq;
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string uuid_str_;
+
+    boost::uuids::uuid uuid_;
+
+};
+
 #endif // vnsw_agent_sandesh_h_

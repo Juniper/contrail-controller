@@ -78,6 +78,7 @@ public:
                              const boost::uuids::uuid &vn);
     void DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
+    void AddHealthCheckServiceNode(IFMapNode *node);
     uint32_t PhysicalDeviceVnCount() const;
     bool CanUseNode(IFMapNode *node);
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
@@ -102,6 +103,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> vn_list_;
     std::auto_ptr<ConfigManagerNodeList> vrf_list_;
     std::auto_ptr<ConfigManagerNodeList> vm_list_;
+    std::auto_ptr<ConfigManagerNodeList> hc_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];

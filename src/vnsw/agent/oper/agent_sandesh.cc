@@ -10,6 +10,7 @@
 #include <oper/peer.h>
 #include <oper/vrf.h>
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
 #include <oper/nexthop.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
@@ -1058,3 +1059,36 @@ void VrouterObjectLimitsReq::HandleRequest() const {
    resp->set_vrouter_object_limit(vr_limits);
    resp->Response();
 }
+
+AgentHealthCheckSandesh::AgentHealthCheckSandesh(const std::string &context,
+                                                 const std::string &u) :
+        AgentSandesh(context, ""), uuid_str_(u) {
+    boost::system::error_code ec;
+    uuid_ = StringToUuid(u);
+}
+
+DBTable *AgentHealthCheckSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->health_check_table());
+}
+
+void AgentHealthCheckSandesh::Alloc() {
+    resp_ = new HealthCheckSandeshResp();
+}
+
+bool AgentHealthCheckSandesh::Filter(const DBEntryBase *entry) {
+    const HealthCheckService *service =
+        dynamic_cast<const HealthCheckService *>(entry);
+    assert(service);
+
+    if (MatchUuid(uuid_str_ , uuid_,  service->uuid()) == false)
+        return false;
+
+    return true;
+}
+
+bool AgentHealthCheckSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_str_);
+
+    return true;
+}
+

@@ -369,6 +369,7 @@ int main(int argc, char *argv[]) {
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();
+    Agent::GetInstance()->ksync()->vnsw_interface_listner()->Shutdown();
     delete client;
     return ret;
 }

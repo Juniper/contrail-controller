@@ -14,6 +14,7 @@
 #include <oper/config_manager.h>
 
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
 #include <oper/vn.h>
@@ -209,6 +210,8 @@ void ConfigManager::Init() {
     vn_list_.reset(new ConfigManagerNodeList(agent_->vn_table()));
     vrf_list_.reset(new ConfigManagerNodeList(agent_->vrf_table()));
     vm_list_.reset(new ConfigManagerNodeList(agent_->vm_table()));
+    hc_list_.reset(new ConfigManagerNodeList
+                       (agent_->health_check_table()));
     device_vn_list_.reset(new ConfigManagerDeviceVnList
                           (agent_->physical_device_vn_table()));
 }
@@ -223,6 +226,7 @@ uint32_t ConfigManager::Size() const {
         vn_list_->Size() +
         vrf_list_->Size() +
         vm_list_->Size() +
+        hc_list_->Size() +
         device_vn_list_->Size();
 }
 
@@ -236,6 +240,7 @@ uint32_t ConfigManager::ProcessCount() const {
         vn_list_->process_count() +
         vrf_list_->process_count() +
         vm_list_->process_count() +
+        hc_list_->process_count() +
         device_vn_list_->process_count();
 }
 
@@ -286,6 +291,7 @@ int ConfigManager::Run() {
     count += logical_interface_list_->Process(max_count - count);
     count += vmi_list_->Process(max_count - count);
     count += device_list_->Process(max_count - count);
+    count += hc_list_->Process(max_count - count);
     count += device_vn_list_->Process(max_count - count);
     return count;
 }
@@ -312,6 +318,10 @@ uint32_t ConfigManager::LogicalInterfaceNodeCount() const {
 
 void ConfigManager::AddPhysicalDeviceNode(IFMapNode *node) {
     device_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddHealthCheckServiceNode(IFMapNode *node) {
+    hc_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddSgNode(IFMapNode *node) {
