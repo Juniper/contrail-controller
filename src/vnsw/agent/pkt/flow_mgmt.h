@@ -389,7 +389,7 @@ public:
 
     FlowMgmtEntry *Locate(FlowMgmtKey *key);
     FlowMgmtEntry *Find(FlowMgmtKey *key);
-    FlowMgmtKey *UpperBound(FlowMgmtKey *key);
+    FlowMgmtKey *LowerBound(FlowMgmtKey *key);
     Tree &tree() { return tree_; }
     FlowMgmtManager *mgr() const { return mgr_; }
     static bool AddFlowMgmtKey(FlowMgmtKeyTree *tree, FlowMgmtKey *key);

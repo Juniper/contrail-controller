@@ -460,6 +460,10 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     if (ip->secondary() != true) {
         is_primary = true;
         if (addr.is_v4()) {
+            if (addr == Ip4Address(0)) {
+                return;
+            }
+
             if (data->addr_ == Ip4Address(0) ||
                 data->addr_ > addr.to_v4()) {
                 data->addr_ = addr.to_v4();
@@ -470,6 +474,9 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
                 }
             }
         } else if (addr.is_v6()) {
+            if (addr == Ip6Address()) {
+                return;
+            }
             if (data->ip6_addr_ == Ip6Address() ||
                 data->ip6_addr_ > addr.to_v6()) {
                 data->ip6_addr_ = addr.to_v6();

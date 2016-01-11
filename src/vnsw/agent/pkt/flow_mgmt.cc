@@ -584,8 +584,8 @@ FlowMgmtEntry *FlowMgmtTree::Locate(FlowMgmtKey *key) {
     return entry;
 }
 
-FlowMgmtKey *FlowMgmtTree::UpperBound(FlowMgmtKey *key) {
-    Tree::iterator it = tree_.upper_bound(key);
+FlowMgmtKey *FlowMgmtTree::LowerBound(FlowMgmtKey *key) {
+    Tree::iterator it = tree_.lower_bound(key);
     if (it == tree_.end())
         return NULL;
 
@@ -1179,10 +1179,10 @@ bool InetRouteFlowMgmtTree::HasVrfFlows(uint32_t vrf,
 
     if (type == Agent::INET4_UNICAST) {
         InetRouteFlowMgmtKey key(vrf, Ip4Address(0), 0);
-        next_key = static_cast<InetRouteFlowMgmtKey *>(UpperBound(&key));
+        next_key = static_cast<InetRouteFlowMgmtKey *>(LowerBound(&key));
     } else {
         InetRouteFlowMgmtKey key(vrf, Ip6Address(), 0);
-        next_key = static_cast<InetRouteFlowMgmtKey *>(UpperBound(&key));
+        next_key = static_cast<InetRouteFlowMgmtKey *>(LowerBound(&key));
     }
 
     if (next_key == NULL)
@@ -1257,7 +1257,7 @@ bool BridgeRouteFlowMgmtTree::HasVrfFlows(uint32_t vrf,
                                           Agent::RouteTableType type) {
     BridgeRouteFlowMgmtKey key(vrf, MacAddress::ZeroMac());
     BridgeRouteFlowMgmtKey *next_key = static_cast<BridgeRouteFlowMgmtKey *>
-        (UpperBound(&key));
+        (LowerBound(&key));
     if (next_key == false)
         return false;
 
