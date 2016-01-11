@@ -1432,6 +1432,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
     Link('project-routing-policy', 'project', 'routing-policy', ['has']) -->
 
+<xsd:element name="project-route-aggregate"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('project-route-aggregate', 'project', 'route-aggregate', ['has']) -->
+
 <xsd:element name="customer-attachment-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-virtual-machine-interface',

@@ -1244,7 +1244,7 @@ class VirtualNetworkST(DBBaseST):
         for ri_name in self.routing_instances:
             ri = RoutingInstanceST.get(ri_name)
             if ri:
-                ri.update_routing_policy()
+                ri.update_routing_policy_and_aggregates()
     # end evaluate
 
     def get_prefixes(self, ip_version):
@@ -1767,6 +1767,7 @@ class RoutingInstanceST(DBBaseST):
         self.add_to_parent(self.obj)
         self.route_target = None
         self.routing_policys = {}
+        self.route_aggregates = set()
         if self.obj.get_parent_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
                                              common.LINK_LOCAL_VN_FQ_NAME]:
             return
@@ -1816,7 +1817,7 @@ class RoutingInstanceST(DBBaseST):
         return ri_name[8:44]
     # end _get_service_id_from_ri
 
-    def update_routing_policy(self):
+    def update_routing_policy_and_aggregates(self):
         if not self.service_chain:
             return
         sc = ServiceChain.get(self.service_chain)
@@ -1830,10 +1831,14 @@ class RoutingInstanceST(DBBaseST):
                 rp_dict = dict((rp, attr.get_left_sequence())
                                for rp, attr in si.routing_policys.items()
                                if attr.get_left_sequence())
+                ra_set = set(ra for ra, if_type in si.route_aggregates.items()
+                             if if_type == 'left')
             elif sc.right_vn == self.virtual_network:
                 rp_dict = dict((rp, attr.get_right_sequence())
                                for rp, attr in si.routing_policys.items()
                                if attr.get_right_sequence())
+                ra_set = set(ra for ra, if_type in si.route_aggregates.items()
+                             if if_type == 'right')
             else:
                 break
             for rp_name in self.routing_policys:
@@ -1848,7 +1853,16 @@ class RoutingInstanceST(DBBaseST):
                     if rp:
                         rp.add_routing_instance(self, seq)
             self.routing_policys = rp_dict
-    # end update_routing_policy
+            for ra_name in self.route_aggregates - ra_set:
+                ra = RouteAggregateST.get(ra_name)
+                if ra:
+                    ra.delete_routing_instance(self)
+            for ra_name in ra_set - self.route_aggregates:
+                ra = RouteAggregateST.get(ra_name)
+                if ra:
+                    ra.add_routing_instance(self)
+            self.route_aggregates = ra_set
+    # end update_routing_policy_and_aggregates
 
     def locate_route_target(self):
         old_rtgt = self._cassandra.get_route_target(self.name)
@@ -2067,7 +2081,12 @@ class RoutingInstanceST(DBBaseST):
             rp = RoutingPolicyST.get(rp_name)
             if rp:
                 rp.delete_routing_instance(self.name)
+        for ra_name in self.route_aggregates:
+            ra = RouteAggregateST.get(ra_name)
+            if ra:
+                ra.delete_routing_instance(self.name)
         self.routing_policys = {}
+        self.route_aggregates = set()
         bgpaas_server_name = self.obj.get_fq_name_str() + ':bgpaas-server'
         bgpaas_server = BgpRouterST.get(bgpaas_server_name)
         if bgpaas_server:
@@ -3379,11 +3398,14 @@ class ServiceInstanceST(DBBaseST):
         self.left_vn_str = None
         self.right_vn_str = None
         self.routing_policys = {}
+        self.route_aggregates = {}
         self.update(obj)
         self.network_policys = NetworkPolicyST.get_by_service_instance(self.name)
         self.route_tables = RouteTableST.get_by_service_instance(self.name)
         for ref in self.obj.get_routing_policy_back_refs() or []:
             self.routing_policys[':'.join(ref['to'])] = ref['attr']
+        for ref in self.obj.get_route_aggregate_back_refs() or []:
+            self.route_aggregate[':'.join(ref['to'])] = ref['attr'].interface_type
     # end __init__
 
     def update(self, obj=None):
@@ -3571,6 +3593,51 @@ class RoutingPolicyST(DBBaseST):
                                  'routing_instance', ri.obj.uuid,
                                  None, 'DELETE')
         self.routing_instances.discard(ri.name)
-
     # end delete_routing_instance
 # end RoutingPolicyST
+
+class RouteAggregateST(DBBaseST):
+    _dict = {}
+    obj_type = 'route_aggregate'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.service_instances = {}
+        self.routing_instances = set()
+        self.update(obj)
+    # end __init__
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        new_refs = dict((':'.join(ref['to']), ref['attr'].interface_type)
+                        for ref in self.obj.get_service_instance_refs() or [])
+        for ref in set(self.service_instances.keys()) - set(new_refs.keys()):
+            si = ServiceInstanceST.get(ref)
+            if si and self.name in si.route_aggregates:
+                del si.route_aggregates[self.name]
+        for ref in set(new_refs.keys()):
+            si = ServiceInstanceST.get(ref)
+            if si:
+                si.route_aggregates[self.name] = new_refs[ref]
+        self.service_instances = new_refs
+        self.update_multiple_refs('routing_instance', self.obj)
+    # end update
+
+    def add_routing_instance(self, ri):
+        if ri.name in self.routing_instances:
+            return
+        self._vnc_lib.ref_update('route_aggregate', self.obj.uuid,
+                                 'routing_instance', ri.obj.uuid,
+                                 None, 'ADD')
+        self.routing_instances.add(ri.name)
+    # end add_routing_instance
+
+    def delete_routing_instance(self, ri):
+        if ri.name not in self.routing_instances:
+            return
+        self._vnc_lib.ref_update('route_aggregate', self.obj.uuid,
+                                 'routing_instance', ri.obj.uuid,
+                                 None, 'DELETE')
+        self.routing_instances.discard(ri.name)
+    # end delete_routing_instance
+# end RouteAggregateST

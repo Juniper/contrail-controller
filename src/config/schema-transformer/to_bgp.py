@@ -88,6 +88,7 @@ class SchemaTransformer(object):
         'service_instance': {
             'self': ['network_policy'],
             'routing_policy': ['network_policy'],
+            'route_aggregate': ['network_policy'],
             'virtual_machine': ['network_policy'],
             'network_policy': ['virtual_machine']
         },
@@ -126,6 +127,9 @@ class SchemaTransformer(object):
             'self': [],
         },
         'routing_policy': {
+            'self': ['service_instance'],
+        },
+        'route_aggregate': {
             'self': ['service_instance'],
         }
     }

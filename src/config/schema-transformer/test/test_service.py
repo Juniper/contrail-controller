@@ -637,6 +637,21 @@ class TestPolicy(test_case.STTestCase):
         rp.del_service_instance(si_obj)
         self._vnc_lib.routing_policy_update(rp)
         self.wait_to_remove_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self._vnc_lib.routing_policy_delete(id=rp.uuid)
+
+        ra = RouteAggregate('ra1')
+        sit = ServiceInterfaceTag(interface_type='left')
+        ra.add_service_instance(si_obj, sit)
+        self._vnc_lib.route_aggregate_create(ra)
+        self.wait_to_get_object(config_db.RouteAggregateST,
+                                ra.get_fq_name_str())
+        ident_name = self.get_obj_imid(ra)
+        self.wait_to_get_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        ra.del_service_instance(si_obj)
+        self._vnc_lib.route_aggregate_update(ra)
+        self.wait_to_remove_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self._vnc_lib.route_aggregate_delete(id=ra.uuid)
+
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
