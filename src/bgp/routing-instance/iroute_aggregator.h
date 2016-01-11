@@ -14,6 +14,7 @@ class IRouteAggregator {
 public:
     virtual ~IRouteAggregator() { }
 
+    virtual void Initialize() = 0;
     virtual void ProcessAggregateRouteConfig() = 0;
     virtual void UpdateAggregateRouteConfig() = 0;
     virtual void FlushAggregateRouteConfig() = 0;

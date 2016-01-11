@@ -1206,11 +1206,13 @@ void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
 // Check whether the route is aggregating route
 bool RoutingInstance::IsAggregateRoute(const BgpTable *table,
                                        const BgpRoute *route) const {
+    if (!route_aggregator(table->family())) return false;
     return route_aggregator(table->family())->IsAggregateRoute(route);
 }
 
 // Check whether the route is contributing route to aggregate route
 bool RoutingInstance::IsContributingRoute(const BgpTable *table,
                                           const BgpRoute *route) const {
+    if (!route_aggregator(table->family())) return false;
     return route_aggregator(table->family())->IsContributingRoute(route);
 }

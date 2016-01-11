@@ -517,6 +517,61 @@ TEST_F(RouteAggregationTest, Basic_1) {
     task_util::WaitForIdle();
 }
 
+TEST_F(RouteAggregationTest, Basic_NoReplication) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Link the two routing instances
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add more specific route
+    AddRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    // Aggregate route is created with infeasible path  and not replicated till
+    // nexthop is resolved
+    VERIFY_EQ(2, RouteCount("test_0.inet.0"));
+    VERIFY_EQ(0, RouteCount("test_1.inet.0"));
+
+    // Add nexthop route
+    AddRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.2.1/32", 100);
+    task_util::WaitForIdle();
+
+    // Verify that aggregate route is created
+    VERIFY_EQ(3, RouteCount("test_0.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test_0.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+
+    // Verify that aggregate route is replicated
+    VERIFY_EQ(2, RouteCount("test_1.inet.0"));
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    // Verify that nexthop route is replicated
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.2.1/32");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    // Verify that more specific route is no longer replicated
+    rt = RouteLookup<InetDefinition>("test_1.inet.0", "2.2.1.1/32");
+    ASSERT_TRUE(rt == NULL);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.1.1/32");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+    task_util::WaitForIdle();
+}
 //
 // Delete the nexthop route and verify that aggregate route's best path is
 // not feasible. Now delete the more specific route and validate that aggregate
