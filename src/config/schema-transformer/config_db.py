@@ -2836,7 +2836,7 @@ class BgpAsAServiceST(DBBaseST):
         bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
         params = BgpRouterParams(
             autonomous_system=int(self.asn) if self.asn else None,
-            ip_address=self.ip_address,
+            address=self.ip_address,
             identifier=self.ip_address,
             source_port=self._cassandra.alloc_bgpaas_port(router_fq_name),
             router_type='bgpaas-client')
