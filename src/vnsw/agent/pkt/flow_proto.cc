@@ -4,6 +4,7 @@
 #include <init/agent_param.h>
 #include <cmn/agent_stats.h>
 #include <oper/agent_profile.h>
+#include <vrouter/ksync/flowtable_ksync.h>
 #include "flow_proto.h"
 #include "flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
@@ -14,7 +15,8 @@ static void UpdateStats(FlowEvent::Event event, FlowStats *stats);
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
-                       boost::bind(&FlowProto::FlowEventHandler, this, _1)),
+                       boost::bind(&FlowProto::FlowEventHandler, this, _1,
+                                   static_cast<FlowTable *>(NULL))),
     stats_() {
     flow_update_queue_.set_name("Flow update queue");
     agent->SetFlowProto(this);
@@ -31,7 +33,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
         flow_event_queue_.push_back
             (new FlowEventQueue(task_id, i,
                                 boost::bind(&FlowProto::FlowEventHandler, this,
-                                            _1)));
+                                            _1, flow_table_list_[i])));
     }
 }
 
@@ -164,6 +166,10 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 /////////////////////////////////////////////////////////////////////////////
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
+void FlowProto::EnqueueEvent(const FlowEvent &event, FlowTable *table) {
+    flow_event_queue_[table->table_index()]->Enqueue(event);
+}
+
 void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
     // Keep UpdateStats in-sync on add of new events
     UpdateStats(event.event(), &stats_);
@@ -205,6 +211,16 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
         break;
     }
 
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+    case FlowEvent::KSYNC_VROUTER_ERROR:
+    case FlowEvent::KSYNC_EVENT: {
+        FlowTableKSyncObject *ksync_obj = static_cast<FlowTableKSyncObject *>
+            (event.ksync_entry()->GetObject());
+        FlowTable *table = ksync_obj->flow_table();
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
     default:
         assert(0);
         break;
@@ -213,7 +229,7 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
     return;
 }
 
-bool FlowProto::FlowEventHandler(const FlowEvent &req) {
+bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     switch (req.event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
         ProcessProto(req.pkt_info());
@@ -275,6 +291,31 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req) {
         break;
     }
 
+    case FlowEvent::FLOW_HANDLE_UPDATE: {
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+        FlowEntry *flow = ksync_entry->flow_entry().get();
+        table->KSyncSetFlowHandle(flow, req.flow_handle());
+        break;
+    }
+
+    case FlowEvent::KSYNC_EVENT: {
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+        FlowTableKSyncObject *ksync_object = static_cast<FlowTableKSyncObject *>
+            (ksync_entry->GetObject());
+        ksync_object->GenerateKSyncEvent(ksync_entry, req.ksync_event());
+        break;
+    }
+
+    case FlowEvent::KSYNC_VROUTER_ERROR: {
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+        FlowEntry *flow = ksync_entry->flow_entry().get();
+        flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+        break;
+    }
+
     default: {
         assert(0);
         break;
@@ -307,6 +348,23 @@ void FlowProto::CreateAuditEntry(FlowEntry *flow) {
 
 void FlowProto::GrowFreeListRequest(const FlowKey &key) {
     EnqueueFlowEvent(FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
+    return;
+}
+
+void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
+                                  KSyncEntry::KSyncEvent event) {
+    EnqueueFlowEvent(FlowEvent(ksync_entry, event));
+    return;
+}
+
+void FlowProto::KSyncFlowHandleRequest(KSyncEntry *ksync_entry,
+                                       uint32_t flow_handle) {
+    EnqueueFlowEvent(FlowEvent(ksync_entry, flow_handle));
+    return;
+}
+
+void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry) {
+    EnqueueFlowEvent(FlowEvent(ksync_entry));
     return;
 }
 

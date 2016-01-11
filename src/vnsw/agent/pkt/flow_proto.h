@@ -57,13 +57,17 @@ public:
     bool AddFlow(FlowEntry *flow);
     bool UpdateFlow(FlowEntry *flow);
 
+    void EnqueueEvent(const FlowEvent &event, FlowTable *table);
     void EnqueueFlowEvent(const FlowEvent &event);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow);
     void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle);
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
     void CreateAuditEntry(FlowEntry *flow);
-    bool FlowEventHandler(const FlowEvent &req);
+    bool FlowEventHandler(const FlowEvent &req, FlowTable *table);
     void GrowFreeListRequest(const FlowKey &key);
+    void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
+    void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);
+    void KSyncFlowErrorRequest(KSyncEntry *ksync_entry);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);
