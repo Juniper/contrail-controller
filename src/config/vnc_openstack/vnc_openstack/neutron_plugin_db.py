@@ -2020,6 +2020,16 @@ class DBInterface(object):
             for kvp in kvps:
                 port_q_dict['binding:'+kvp.key] = kvp.value
 
+        # 1. upgrade case, port created before bindings prop was
+        #    defined on vmi OR
+        # 2. defaults for keys needed by neutron
+        if 'binding:vif_details' not in port_q_dict:
+            port_q_dict['binding:vif_details'] = {'port_filter': True}
+        if 'binding:vif_type' not in port_q_dict:
+            port_q_dict['binding:vif_type'] = 'vrouter'
+        if 'binding:vnic_type' not in port_q_dict:
+            port_q_dict['binding:vnic_type'] = 'normal'
+
         dhcp_options_list = port_obj.get_virtual_machine_interface_dhcp_option_list()
         if dhcp_options_list and dhcp_options_list.dhcp_option:
             dhcp_options = []
