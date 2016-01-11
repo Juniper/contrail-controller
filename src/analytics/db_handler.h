@@ -250,12 +250,12 @@ class DbHandlerInitializer {
  * pugi walker to process flow message
  */
 template <typename T>
-class FlowDataIpv4ObjectWalker : public pugi::xml_tree_walker {
+class FlowLogDataObjectWalker : public pugi::xml_tree_walker {
 public:
-    FlowDataIpv4ObjectWalker(T &values) :
+    FlowLogDataObjectWalker(T &values) :
         values_(values) {
     }
-    ~FlowDataIpv4ObjectWalker() {}
+    ~FlowLogDataObjectWalker() {}
 
     // Callback that is called when traversal begins
     virtual bool begin(pugi::xml_node& node) {

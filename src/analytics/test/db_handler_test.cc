@@ -479,15 +479,6 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     delete msg;
 }
 
-#ifdef USE_CASSANDRA_CQL
-static bool ipv4_address_to_string(uint32_t v4, std::string *v4_s) {
-    boost::asio::ip::address_v4 ipv4_addr(v4);
-    boost::system::error_code ec;
-    *v4_s = ipv4_addr.to_string(ec);
-    return ec == 0;
-}
-#endif // USE_CASSANDRA_CQL
-
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
 #ifdef USE_CASSANDRA_CQL
     init_vizd_tables(true);
@@ -500,19 +491,19 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     hdr.set_Module("VizdTest");
     hdr.set_Source("127.0.0.1");
     std::string messagetype("");
-    std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > > flow_msgs;
+    std::vector<std::pair<std::string, std::vector<FlowLogData> > > flow_msgs;
     // Flow sandesh with single flow sample
     {
         std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowDataIpv4></flowdata></FlowDataIpv4Object>";
 
-        std::vector<FlowDataIpv4> flowdata_list;
-        FlowDataIpv4 flow_data1;
+        std::vector<FlowLogData> flowdata_list;
+        FlowLogData flow_data1;
         flow_data1.set_flowuuid("555788e0-513c-4351-8711-3fc481cf2eb4");
         flow_data1.set_direction_ing(0);
         flow_data1.set_sourcevn("default-domain:demo:vn1");
-        flow_data1.set_sourceip(-1062731011);
+        flow_data1.set_sourceip(Ip4Address((uint32_t)-1062731011));
         flow_data1.set_destvn("default-domain:demo:vn0");
-        flow_data1.set_destip(-1062731267);
+        flow_data1.set_destip(Ip4Address((uint32_t)-1062731267));
         flow_data1.set_protocol(6);
         flow_data1.set_sport(5201);
         flow_data1.set_dport(-24590);
@@ -526,14 +517,14 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     {
         std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"list\" identifier=\"1\"><list type=\"struct\" size=\"2\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">511788e0-513f-4351-8711-3fc481cf2efa</flowuuid><direction_ing type=\"byte\" identifier=\"2\">1</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:contrail:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">168430081</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn1</destvn><destip type=\"i32\" identifier=\"6\">-1062731263</destip><protocol type=\"byte\" identifier=\"7\">17</protocol><sport type=\"i16\" identifier=\"8\">12345</sport><dport type=\"i16\" identifier=\"9\">8087</dport><vm type=\"string\" identifier=\"12\">04430130-6641-1b89-9287-39d71f351206</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee6-d616-4e59-b8f7-96e896587c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">1024</bytes><packets type=\"i64\" identifier=\"24\">4</packets><diff_bytes type=\"i64\" identifier=\"26\">256</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">1</diff_packets></FlowDataIpv4><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">525538ef-513f-435f-871f-3fc482cf2ebf</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn0</destvn><destip type=\"i32\" identifier=\"6\">168430082</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">11221</sport><dport type=\"i16\" identifier=\"9\">8086</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-3456-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee3-d613-4e53-b8f3-96f896487c93</reverse_uuid><bytes type=\"i64\" identifier=\"23\">512</bytes><packets type=\"i64\" identifier=\"24\">2</packets><diff_bytes type=\"i64\" identifier=\"26\">512</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">2</diff_packets></FlowDataIpv4></list></flowdata></FlowDataIpv4Object>";
 
-        std::vector<FlowDataIpv4> flowdata_list;
-        FlowDataIpv4 flow_data1;
+        std::vector<FlowLogData> flowdata_list;
+        FlowLogData flow_data1;
         flow_data1.set_flowuuid("511788e0-513f-4351-8711-3fc481cf2efa");
         flow_data1.set_direction_ing(1);
         flow_data1.set_sourcevn("default-domain:contrail:vn0");
-        flow_data1.set_sourceip(168430081);
+        flow_data1.set_sourceip(Ip4Address(168430081));
         flow_data1.set_destvn("default-domain:contrail:vn1");
-        flow_data1.set_destip(-1062731263);
+        flow_data1.set_destip(Ip4Address((uint32_t)-1062731263));
         flow_data1.set_protocol(17);
         flow_data1.set_sport(12345);
         flow_data1.set_dport(8087);
@@ -541,13 +532,13 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         flow_data1.set_diff_packets(1);
         flowdata_list.push_back(flow_data1);
 
-        FlowDataIpv4 flow_data2;
+        FlowLogData flow_data2;
         flow_data2.set_flowuuid("525538ef-513f-435f-871f-3fc482cf2ebf");
         flow_data2.set_direction_ing(0);
         flow_data2.set_sourcevn("default-domain:demo:vn0");
-        flow_data2.set_sourceip(-1062731011);
+        flow_data2.set_sourceip(Ip4Address((uint32_t)-1062731011));
         flow_data2.set_destvn("default-domain:contrail:vn0");
-        flow_data2.set_destip(168430082);
+        flow_data2.set_destip(Ip4Address(168430082));
         flow_data2.set_protocol(6);
         flow_data2.set_sport(11221);
         flow_data2.set_dport(8086);
@@ -556,6 +547,65 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         flowdata_list.push_back(flow_data2);
         flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
     }
+
+    // Flow sandesh with single flow sample -
+    // Renamed "FlowDataIpv4Object" to "FlowLogDataObject"
+    {
+        std::string xmlmessage = "<FlowLogDataObject type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowLogData><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowLogData></flowdata></FlowLogDataObject>";
+
+        std::vector<FlowLogData> flowdata_list;
+        FlowLogData flow_data1;
+        flow_data1.set_flowuuid("555788e0-513c-4351-8711-3fc481cf2eb4");
+        flow_data1.set_direction_ing(0);
+        flow_data1.set_sourcevn("default-domain:demo:vn1");
+        flow_data1.set_sourceip(Ip4Address((uint32_t)-1062731011));
+        flow_data1.set_destvn("default-domain:demo:vn0");
+        flow_data1.set_destip(Ip4Address((uint32_t)-1062731267));
+        flow_data1.set_protocol(6);
+        flow_data1.set_sport(5201);
+        flow_data1.set_dport(-24590);
+        flow_data1.set_diff_bytes(0);
+        flow_data1.set_diff_packets(0);
+        flowdata_list.push_back(flow_data1);
+        flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
+    }
+
+    // Flow sandesh with list of flow samples -
+    // Renamed "FlowDataIpv4Object" to "FlowLogDataObject"
+    {
+        std::string xmlmessage = "<FlowLogDataObject type=\"sandesh\"><flowdata type=\"list\" identifier=\"1\"><list type=\"struct\" size=\"2\"><FlowLogData><flowuuid type=\"string\" identifier=\"1\">511788e0-513f-4351-8711-3fc481cf2efa</flowuuid><direction_ing type=\"byte\" identifier=\"2\">1</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:contrail:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">168430081</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn1</destvn><destip type=\"i32\" identifier=\"6\">-1062731263</destip><protocol type=\"byte\" identifier=\"7\">17</protocol><sport type=\"i16\" identifier=\"8\">12345</sport><dport type=\"i16\" identifier=\"9\">8087</dport><vm type=\"string\" identifier=\"12\">04430130-6641-1b89-9287-39d71f351206</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee6-d616-4e59-b8f7-96e896587c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">1024</bytes><packets type=\"i64\" identifier=\"24\">4</packets><diff_bytes type=\"i64\" identifier=\"26\">256</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">1</diff_packets></FlowLogData><FlowLogData><flowuuid type=\"string\" identifier=\"1\">525538ef-513f-435f-871f-3fc482cf2ebf</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn0</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:contrail:vn0</destvn><destip type=\"i32\" identifier=\"6\">168430082</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">11221</sport><dport type=\"i16\" identifier=\"9\">8086</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-3456-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee3-d613-4e53-b8f3-96f896487c93</reverse_uuid><bytes type=\"i64\" identifier=\"23\">512</bytes><packets type=\"i64\" identifier=\"24\">2</packets><diff_bytes type=\"i64\" identifier=\"26\">512</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">2</diff_packets></FlowLogData></list></flowdata></FlowLogDataObject>";
+
+        std::vector<FlowLogData> flowdata_list;
+        FlowLogData flow_data1;
+        flow_data1.set_flowuuid("511788e0-513f-4351-8711-3fc481cf2efa");
+        flow_data1.set_direction_ing(1);
+        flow_data1.set_sourcevn("default-domain:contrail:vn0");
+        flow_data1.set_sourceip(Ip4Address(168430081));
+        flow_data1.set_destvn("default-domain:contrail:vn1");
+        flow_data1.set_destip(Ip4Address((uint32_t)-1062731263));
+        flow_data1.set_protocol(17);
+        flow_data1.set_sport(12345);
+        flow_data1.set_dport(8087);
+        flow_data1.set_diff_bytes(256);
+        flow_data1.set_diff_packets(1);
+        flowdata_list.push_back(flow_data1);
+
+        FlowLogData flow_data2;
+        flow_data2.set_flowuuid("525538ef-513f-435f-871f-3fc482cf2ebf");
+        flow_data2.set_direction_ing(0);
+        flow_data2.set_sourcevn("default-domain:demo:vn0");
+        flow_data2.set_sourceip(Ip4Address((uint32_t)-1062731011));
+        flow_data2.set_destvn("default-domain:contrail:vn0");
+        flow_data2.set_destip(Ip4Address(168430082));
+        flow_data2.set_protocol(6);
+        flow_data2.set_sport(11221);
+        flow_data2.set_dport(8086);
+        flow_data2.set_diff_bytes(512);
+        flow_data2.set_diff_packets(2);
+        flowdata_list.push_back(flow_data2);
+        flow_msgs.push_back(std::make_pair(xmlmessage, flowdata_list));
+    }
+
     // FieldNames will be call 7 times each for FlowTable and FlowSeriesTable
     // This dataset has 3 unique svn, 3 unique dvn, and a single vrouter
     {
@@ -589,7 +639,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
 	    .WillRepeatedly(Return(true));
     }
 
-    std::vector<std::pair<std::string, std::vector<FlowDataIpv4> > >::
+    std::vector<std::pair<std::string, std::vector<FlowLogData> > >::
         const_iterator fit;
     for (fit = flow_msgs.begin(); fit != flow_msgs.end(); fit++) {
         std::auto_ptr<SandeshXMLMessageTest> msg(
@@ -597,7 +647,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 builder_->Create(reinterpret_cast<const uint8_t *>(
                     fit->first.c_str()), fit->first.size())));
         msg->SetHeader(hdr);
-        std::vector<FlowDataIpv4>::const_iterator dit;
+        std::vector<FlowLogData>::const_iterator dit;
         for (dit = fit->second.begin(); dit != fit->second.end(); dit++) {
             boost::uuids::uuid flowu = StringToUuid(dit->get_flowuuid());
             // set expectations for FLOW_TABLE
@@ -636,16 +686,10 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 << "\":\"" << dit->get_sourcevn() << "\",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTVN]
                 << "\":\"" << dit->get_destvn() << "\",";
-            std::string source_ip_s;
-            EXPECT_TRUE(ipv4_address_to_string(dit->get_sourceip(),
-                &source_ip_s));
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SOURCEIP]
-                << "\":\"" << source_ip_s << "\",";
-            std::string dest_ip_s;
-            EXPECT_TRUE(ipv4_address_to_string(dit->get_destip(),
-                &dest_ip_s));
+                << "\":\"" << dit->get_sourceip() << "\",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_DESTIP]
-                << "\":\"" << dest_ip_s << "\",";
+                << "\":\"" << dit->get_destip() << "\",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_PROTOCOL]
                 << "\":" << (uint16_t)dit->get_protocol() << ",";
             cv_ss << "\"" << frnames[FlowRecordFields::FLOWREC_SPORT]
@@ -665,8 +709,8 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
             ocolvalue.push_back(hdr.get_Source()); // vrouter
             ocolvalue.push_back(dit->get_sourcevn());
             ocolvalue.push_back(dit->get_destvn());
-            ocolvalue.push_back((uint32_t)dit->get_sourceip());
-            ocolvalue.push_back((uint32_t)dit->get_destip());
+            ocolvalue.push_back(dit->get_sourceip().to_v4().to_ulong());
+            ocolvalue.push_back(dit->get_destip().to_v4().to_ulong());
             ocolvalue.push_back((uint8_t)dit->get_protocol());
             ocolvalue.push_back((uint16_t)dit->get_sport());
             ocolvalue.push_back((uint16_t)dit->get_dport());
@@ -679,9 +723,9 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 colname->reserve(4);
                 colname->push_back(dit->get_sourcevn());
 #ifdef USE_CASSANDRA_CQL
-                colname->push_back(Ip4Address((uint32_t)dit->get_sourceip()));
+                colname->push_back(dit->get_sourceip());
 #else // USE_CASSANDRA_CQL
-                colname->push_back((uint32_t)dit->get_sourceip());
+                colname->push_back(dit->get_sourceip().to_v4().to_ulong());
 #endif // !USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)(hdr.get_Timestamp() &
                                               g_viz_constants.RowTimeInMask));
@@ -717,9 +761,9 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                 colname->reserve(4);
                 colname->push_back(dit->get_destvn());
 #ifdef USE_CASSANDRA_CQL
-                colname->push_back(Ip4Address((uint32_t)dit->get_destip()));
+                colname->push_back(dit->get_destip());
 #else // USE_CASSANDRA_CQL
-                colname->push_back((uint32_t)dit->get_destip());
+                colname->push_back(dit->get_destip().to_v4().to_ulong());
 #endif // !USE_CASSANDRA_CQL
                 colname->push_back((uint32_t)(hdr.get_Timestamp() &
                                               g_viz_constants.RowTimeInMask));

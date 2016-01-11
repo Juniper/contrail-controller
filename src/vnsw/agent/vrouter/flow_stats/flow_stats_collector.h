@@ -93,7 +93,7 @@ public:
     void AddEvent(FlowEntryPtr &flow);
     void DeleteEvent(const FlowKey &key);
     void SourceIpOverride(const FlowKey &key, FlowExportInfo *info,
-                          FlowDataIpv4 &s_flow);
+                          FlowLogData &s_flow);
     FlowExportInfo *FindFlowExportInfo(const FlowKey &flow);
     const FlowExportInfo *FindFlowExportInfo(const FlowKey &flow) const;
     void ExportFlow(const FlowKey &key, FlowExportInfo *info,
@@ -118,7 +118,7 @@ public:
     friend class FetchFlowStatsRecord;
     friend class FlowStatsManager;
 protected:
-    virtual void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
+    virtual void DispatchFlowMsg(const std::vector<FlowLogData> &lst);
 
 private:
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
@@ -126,8 +126,8 @@ private:
     void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
-    void SetUnderlayInfo(FlowExportInfo *info, FlowDataIpv4 &s_flow);
-    bool SetUnderlayPort(FlowExportInfo *info, FlowDataIpv4 &s_flow);
+    void SetUnderlayInfo(FlowExportInfo *info, FlowLogData &s_flow);
+    bool SetUnderlayPort(FlowExportInfo *info, FlowLogData &s_flow);
     void UpdateThreshold(uint32_t new_value);
 
     void UpdateInterVnStats(FlowExportInfo *info,
@@ -173,7 +173,7 @@ private:
     uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
-    std::vector<FlowDataIpv4> msg_list_;
+    std::vector<FlowLogData> msg_list_;
     uint8_t msg_index_;
     tbb::atomic<bool> deleted_;
     FlowAgingTableKey flow_aging_key_;
