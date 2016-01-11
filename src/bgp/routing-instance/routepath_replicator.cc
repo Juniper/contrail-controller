@@ -473,8 +473,14 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
         static_cast<RtReplicated *>(rt->GetState(table, id));
     RtReplicated::ReplicatedRtPathList replicated_path_list;
 
+    //
     // Cleanup if the route is not usable.
-    if (!rt->IsUsable()) {
+    // If route aggregation is enabled, contributing route/more specific route
+    // for a aggregate route will NOT be replicated to destination table
+    //
+    if (!rt->IsUsable() || (table->IsRouteAggregationSupported() &&
+                            !rtinstance->deleted() &&
+                            rtinstance->IsContributingRoute(table, rt))) {
         if (!dbstate) {
             return true;
         }

@@ -147,6 +147,12 @@ protected:
         table->DestroyPathResolver();
     }
 
+    void DestroyRouteAggregator(const char *instance, Address::Family fmly) {
+        RoutingInstance *rti =
+            a_->routing_instance_mgr()->GetRoutingInstance(instance);
+        rti->DestroyRouteAggregator(fmly);
+    }
+
     void AddInetRoute(std::string prefix_str, BgpPeer *peer,
                       const char *inst = NULL) {
         BgpAttrPtr attr_ptr;
@@ -610,8 +616,9 @@ TEST_F(ShowRouteTest1, Basic) {
 TEST_F(ShowRouteTest1, TableListeners) {
     Configure();
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ListenerCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, ListenerCount("blue"));
     DestroyPathResolver("blue");
+    DestroyRouteAggregator("blue", Address::INET);
     TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
 
     AddInetRoute("192.240.11.0/12", peers_[0], "blue");

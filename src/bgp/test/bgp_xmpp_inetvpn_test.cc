@@ -225,6 +225,49 @@ static const char *config_2_control_nodes_different_asn = "\
 </config>\
 ";
 
+static const char *config_2_control_nodes_route_aggregate = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <route-aggregate name='vn_subnet'>\
+        <aggregate-route>\
+            <prefix>2.2.0.0/16</prefix>\
+            <nexthop>2.2.1.1</nexthop>\
+        </aggregate-route>\
+    </route-aggregate>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <route-aggregate to='vn_subnet'/>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+
+
 //
 // Control Nodes X and Y.
 // Agents A and B.
@@ -2223,6 +2266,195 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, EcmpOriginVn4) {
     // Verify that route is deleted at agents A and B.
     VerifyRouteNoExists(agent_a_, "blue", route_a.str());
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that with route aggregation enabled, contributing route is not
+// published to xmpp agent
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteAggregation_NoExportContributing) {
+    // Configure bgp server X.
+    Configure(bs_x_, config_2_control_nodes_route_aggregate);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 2);
+
+    // Add blue path from agent A.
+    stringstream route_contributing;
+    route_contributing << "2.2.2.1/32";
+    agent_a_->AddRoute("blue", route_contributing.str(), "192.168.1.1", 100);
+    stringstream route_nexthop;
+    route_nexthop << "2.2.1.1/32";
+    agent_a_->AddRoute("blue", route_nexthop.str(), "192.168.1.1", 100);
+    task_util::WaitForIdle();
+
+    stringstream route_aggregate;
+    route_aggregate << "2.2.0.0/16";
+    VerifyRouteExists(agent_a_, "blue", route_aggregate.str(), "192.168.1.1");
+    VerifyRouteExists(agent_b_, "blue", route_aggregate.str(), "192.168.1.1");
+
+    // Contributing route is not published to agents
+    VerifyRouteNoExists(agent_b_, "blue", route_contributing.str());
+    // Nexthop route is published to agents
+    VerifyRouteExists(agent_b_, "blue", route_nexthop.str(), "192.168.1.1");
+
+    // Delete blue path from agent A.
+    agent_a_->DeleteRoute("blue", route_contributing.str());
+    agent_a_->DeleteRoute("blue", route_nexthop.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_aggregate.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_aggregate.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that with route aggregation enabled, contributing route is not
+// published to bgp peers
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteAggregation_NoExportContributing_1) {
+    // Configure bgp server X & Y.
+    Configure(config_2_control_nodes_route_aggregate);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 2);
+
+    // Add blue path from agent A.
+    stringstream route_contributing;
+    route_contributing << "2.2.2.1/32";
+    agent_a_->AddRoute("blue", route_contributing.str(), "192.168.1.1", 100);
+    stringstream route_nexthop;
+    route_nexthop << "2.2.1.1/32";
+    agent_a_->AddRoute("blue", route_nexthop.str(), "192.168.1.1", 100);
+    task_util::WaitForIdle();
+
+    stringstream route_aggregate;
+    route_aggregate << "2.2.0.0/16";
+    VerifyRouteExists(agent_a_, "blue", route_aggregate.str(), "192.168.1.1");
+    VerifyRouteExists(agent_b_, "blue", route_aggregate.str(), "192.168.1.1");
+
+    // Contributing route is not published to agents
+    VerifyRouteNoExists(agent_b_, "blue", route_contributing.str());
+    // Nexthop route is published to agents
+    VerifyRouteExists(agent_b_, "blue", route_nexthop.str(), "192.168.1.1");
+
+    // Delete blue path from agent A.
+    agent_a_->DeleteRoute("blue", route_contributing.str());
+    agent_a_->DeleteRoute("blue", route_nexthop.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_aggregate.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_aggregate.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Verify that contributing route is published when route-aggregation config is
+// removed from the routing instance
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteAggregation_NoExportContributing_2) {
+    // Configure bgp server X & Y.
+    Configure(config_2_control_nodes_route_aggregate);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 2);
+
+    // Add blue path from agent A.
+    stringstream route_contributing;
+    route_contributing << "2.2.2.1/32";
+    agent_a_->AddRoute("blue", route_contributing.str(), "192.168.1.1", 100);
+    stringstream route_nexthop;
+    route_nexthop << "2.2.1.1/32";
+    agent_a_->AddRoute("blue", route_nexthop.str(), "192.168.1.1", 100);
+    task_util::WaitForIdle();
+
+    stringstream route_aggregate;
+    route_aggregate << "2.2.0.0/16";
+    VerifyRouteExists(agent_a_, "blue", route_aggregate.str(), "192.168.1.1");
+    VerifyRouteExists(agent_b_, "blue", route_aggregate.str(), "192.168.1.1");
+
+    // Contributing route is not published to agents
+    VerifyRouteNoExists(agent_b_, "blue", route_contributing.str());
+    // Nexthop route is published to agents
+    VerifyRouteExists(agent_b_, "blue", route_nexthop.str(), "192.168.1.1");
+
+
+    ifmap_test_util::IFMapMsgUnlink(bs_x_->config_db(), "routing-instance",
+    "blue", "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(bs_y_->config_db(), "routing-instance",
+    "blue", "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
+    task_util::WaitForIdle();
+
+    // Contributing route is published to agents
+    VerifyRouteExists(agent_b_, "blue", route_contributing.str(), "192.168.1.1");
+    VerifyRouteNoExists(agent_b_, "blue", route_aggregate.str());
+    VerifyRouteNoExists(agent_a_, "blue", route_aggregate.str());
+
+    // Delete blue path from agent A.
+    agent_a_->DeleteRoute("blue", route_contributing.str());
+    agent_a_->DeleteRoute("blue", route_nexthop.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_aggregate.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_aggregate.str());
 
     // Close the sessions.
     agent_a_->SessionDown();
