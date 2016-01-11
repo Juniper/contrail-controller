@@ -293,6 +293,7 @@ BgpServer::BgpServer(EventManager *evm)
       destroyed_(false),
       aspath_db_(new AsPathDB(this)),
       olist_db_(new BgpOListDB(this)),
+      cluster_list_db_(new ClusterListDB(this)),
       comm_db_(new CommunityDB(this)),
       edge_discovery_db_(new EdgeDiscoveryDB(this)),
       edge_forwarding_db_(new EdgeForwardingDB(this)),
