@@ -246,6 +246,35 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
     client->WaitForIdle(10);
 }
 
+TEST_F(FlowMgmtRouteTest, RouteDelete_5) {
+    VrfAddReq("vrf10");
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip4Address remote_ip1 = Ip4Address::from_string("0.0.0.0", ec);
+    Ip4Address remote_compute = Ip4Address::from_string("1.1.1.1", ec);
+    char router_id[80];
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+
+    string vn_name = "vn10";
+    Inet4TunnelRouteAdd(agent_->local_peer(), "vrf10", remote_ip1, 0,
+                        remote_compute, TunnelType::AllType(), 10,
+                        vn_name, SecurityGroupList(),
+                        PathPreference());
+    Inet4TunnelRouteAdd(agent_->local_peer(), "vrf10", remote_compute, 24,
+                        remote_compute, TunnelType::AllType(), 10,
+                        vn_name, SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    VrfDelReq("vrf10");
+    client->WaitForIdle();
+    DeleteRoute("vrf10", "1.1.1.1",  24, agent_->local_peer());
+    client->WaitForIdle();
+    DeleteRoute("vrf10", "0.0.0.0",  0, agent_->local_peer());
+    client->WaitForIdle();
+}
+
+
 int main(int argc, char *argv[]) {
     int ret = 0;
 
