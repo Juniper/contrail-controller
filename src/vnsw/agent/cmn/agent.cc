@@ -178,8 +178,6 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::StatsCollector",
         "db::DBTable",
         "Agent::PktFlowResponder",
-        kTaskFlowEvent,
-        kTaskFlowUpdate,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 

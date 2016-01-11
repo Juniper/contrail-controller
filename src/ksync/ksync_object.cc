@@ -1443,6 +1443,7 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
 
     std::vector<KSyncEntry *>::iterator it = buf.begin();
     while (it != buf.end()) {
+        tbb::recursive_mutex::scoped_lock lock((*it)->GetObject()->lock_);
         NotifyEvent(*it, KSyncEntry::RE_EVAL);
         it++;
     }
