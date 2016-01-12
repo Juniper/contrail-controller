@@ -19,6 +19,10 @@ class VncPermissions(object):
     # end __init__
 
     @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
+    @property
     def _multi_tenancy(self):
         return self._server_mgr._args.multi_tenancy
     # end
@@ -42,7 +46,7 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
@@ -76,17 +80,21 @@ class VncPermissions(object):
 
         # retrieve object and permissions
         try:
-            perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+            config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
+            perms2 = json.loads(config.get('prop:perms2'))
+            obj_name = config.get("fq_name")
+            obj_type = config.get("type")
         except NoIdError:
             return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID', None)
+        tenant_name = env.get('HTTP_X_PROJECT_NAME', '*')
         if tenant is None:
             return (False, err_msg)
 
@@ -111,11 +119,11 @@ class VncPermissions(object):
         ok = (mask & perms & mode_mask)
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
-        msg = '%s %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
-            (usr=%s/own=%s/sh=%s)' \
-            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
+        msg = '%s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
+            (usr=%s(%s)/own=%s/sh=%s)' \
+            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid, obj_type, obj_name,
                'yes' if is_admin else 'no', mode_mask, mask, perms,
-               tenant, owner, tenants)
+               tenant, tenant_name, owner, tenants)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
