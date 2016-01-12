@@ -27,7 +27,7 @@ public:
         uint64_t input_count_;
         uint64_t notify_count_;
         void Get(const DBTable *table);
-        void Accumulate(const DBTable *table);
+        void Accumulate(const DBTableBase *table);
         void Reset();
     };
 
@@ -84,6 +84,7 @@ public:
     DBTableStats inet6_routes_;
     DBTableStats bridge_routes_;
     DBTableStats multicast_routes_;
+    DBTableStats evpn_routes_;
     XmppStats    rx_stats_;
     XmppStats    tx_stats_;
     WorkQueueStats ksync_tx_queue_count_;
