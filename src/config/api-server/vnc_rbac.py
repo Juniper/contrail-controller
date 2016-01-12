@@ -20,6 +20,10 @@ class VncRbac(object):
         self._server_mgr = server_mgr
     # end __init__
 
+    @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
     def multi_tenancy_with_rbac(self):
         return self._server_mgr.is_multi_tenancy_with_rbac_set()
     # end
@@ -189,7 +193,7 @@ class VncRbac(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
 
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
