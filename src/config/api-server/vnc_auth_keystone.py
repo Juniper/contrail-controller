@@ -93,11 +93,7 @@ class AuthPreKeystone(object):
         self.mt = value
 
     def __call__(self, env, start_response):
-        if (env.get('PATH_INFO') and
-            env['PATH_INFO'].startswith('/documentation')):
-            app = bottle.app()
-        else:
-            app = self.app if self.mt else bottle.app()
+        app = self.app if self.mt else bottle.app()
 
         return app(env, start_response)
 
