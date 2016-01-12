@@ -299,6 +299,24 @@ void FlowStatsManager::FlowIndexUpdateEvent(const FlowEntryPtr &flow) {
     fsc->FlowIndexUpdateEvent(flow->key(), flow->flow_handle());
 }
 
+void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
+                                        uint32_t bytes, uint32_t packets,
+                                        uint32_t oflow_bytes) {
+    if (flow == NULL) {
+        return;
+    }
+
+    FlowStatsCollector *fsc = NULL;
+    if (flow->fsc() == NULL) {
+        fsc = GetFlowStatsCollector(flow->key());
+        flow->set_fsc(fsc);
+    } else {
+        fsc = flow->fsc();
+    }
+
+    fsc->UpdateStatsEvent(flow->key(), bytes, packets, oflow_bytes);
+}
+
 void FlowStatsManager::FreeIndex(uint32_t idx) {
     instance_table_.Remove(idx);
 }

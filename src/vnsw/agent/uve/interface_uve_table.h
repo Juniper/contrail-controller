@@ -119,6 +119,7 @@ public:
             uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts,
             bool &diff_list_send) const;
         void RemoveFloatingIp(const VmInterface::FloatingIp &fip);
+        void AddFloatingIp(const VmInterface::FloatingIp &fip);
         InterfaceUveTable::FloatingIp *FipEntry(uint32_t ip,
                                                 const std::string &vn);
         bool FrameInterfaceMsg(const std::string &name,

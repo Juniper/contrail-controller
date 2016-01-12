@@ -10,6 +10,7 @@
 #include <vrouter/ksync/sandesh_ksync.h>
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <vrouter/ksync/interface_ksync.h>
+#include <pkt/flow_mgmt.h>
 #include <pkt/flow_table.h>
 #include <oper/mirror_table.h>
 #include <vrouter/ksync/ksync_init.h>
@@ -126,6 +127,16 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         }
     }
 
+    KSyncFlowIndexManager *imgr = flow_ksync_->ksync()->
+        ksync_flow_index_manager();
+    FlowMgmtManager *mgr = flow_ksync_->ksync()->agent()->pkt()->
+        flow_mgmt_manager();
+    FlowEntryPtr evicted_flow = imgr->FindByIndex(r->get_fr_index());
+    if (evicted_flow.get() && evicted_flow->deleted() == false) {
+        mgr->FlowStatsUpdateEvent(evicted_flow.get(), r->get_fr_flow_bytes(),
+                                  r->get_fr_flow_packets(),
+                                  r->get_fr_flow_stats_oflow());
+    }
     proto->KSyncFlowHandleRequest(ksync_entry, r->get_fr_index());
     return;
 }
