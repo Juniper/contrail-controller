@@ -66,8 +66,7 @@ void Options::Initialize(EventManager &evm,
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
-    vector<string> default_collector_server_list;
-    default_collector_server_list.push_back("127.0.0.1:8086");
+    default_collector_server_list_.push_back("127.0.0.1:8086");
     // Command line and config file options.
     opt::options_description cassandra_config("Configuration options");
     cassandra_config.add_options()
@@ -83,8 +82,7 @@ void Options::Initialize(EventManager &evm,
              opt::value<int>()->default_value(0),
              "global TTL(hours) for analytics data")
         ("DEFAULT.collectors",
-           opt::value<vector<string> >()->default_value(
-               default_collector_server_list, "127.0.0.1:8086"),
+           opt::value<vector<string> >(),
              "Collector server list")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(
