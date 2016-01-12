@@ -1974,7 +1974,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
             def __call__(self, env, start_response):
                 # in multi-tenancy mode only admin role admitted
                 # by api-server till full rbac support
-                env['HTTP_X_ROLE'] = getattr(self._test_case_self, '_rbac_role', 'admin')
+                env['HTTP_X_ROLE'] = getattr(self._test_case_self, '_rbac_role', 'cloud-admin')
                 return self._app(env, start_response)
             # end __call__
             def get_admin_token(self):

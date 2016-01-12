@@ -967,7 +967,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self._args.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -987,7 +987,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self._args.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -1007,7 +1007,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self._args.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 None, None)
@@ -1033,7 +1033,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/ref-update',
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self._args.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 req_dict, None)
@@ -1594,7 +1594,7 @@ class VncApiServer(object):
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
-                return 'admin' in [x.lower() for x in roles]
+                return self._args.cloud_admin_role in [x.lower() for x in roles]
         return False
 
     # Check for the system created VN. Disallow such VN delete
@@ -1997,7 +1997,7 @@ class VncApiServer(object):
         ok, result = self._permissions.check_perms_read(bottle.request, id)
         if not ok:
             err_code, err_msg = result
-            bottle.abort(err_code, err_msg)
+            raise cfgm_common.exceptions.HttpError(err_code, err_msg)
 
         return {'uuid': id}
     # end fq_name_to_id_http_post
@@ -2406,7 +2406,7 @@ class VncApiServer(object):
             {
                 'rule_object':'*',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]
+                'rule_perms': [{'role_name':self._args.cloud_admin_role, 'role_crud':'CRUD'}]
             },
             {
                 'rule_object':'fqname-to-id',
@@ -2984,6 +2984,9 @@ class VncApiServer(object):
     # indication if multi tenancy with rbac is enabled or disabled
     def rbac_http_get(self):
         return {'enabled': self._args.multi_tenancy_with_rbac}
+
+    def cloud_admin_role(self):
+        return self._args.cloud_admin_role
 
     def publish_self_to_discovery(self):
         # publish API server

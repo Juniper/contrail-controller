@@ -63,7 +63,7 @@ class LocalAuth(object):
                 bottle.abort(401, 'Authentication check failed')
 
             # Add admin role to the request
-            bottle.request.environ['HTTP_X_ROLE'] = 'admin'
+            bottle.request.environ['HTTP_X_ROLE'] = self._conf_info['cloud_admin_role']
     # end __init__
 
     def start_http_server(self):
@@ -116,9 +116,10 @@ class AuthPostKeystone(object):
 
         # only allow admin access when MT is on
         roles = []
+        cloud_admin_role = self.conf['auth_svc']._conf_info['cloud_admin_role']
         if 'HTTP_X_ROLE' in env:
             roles = env['HTTP_X_ROLE'].split(',')
-        if not 'admin' in [x.lower() for x in roles]:
+        if not cloud_admin_role in [x.lower() for x in roles]:
             resp = auth_token.MiniResp('Permission Denied', env)
             start_response('403 Permission Denied', resp.headers)
             return resp.body
@@ -144,6 +145,7 @@ class AuthServiceKeystone(object):
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
             'insecure':args.insecure,
+            'cloud_admin_role': args.cloud_admin_role,
         }
         if _kscertbundle:
            self._conf_info['cafile'] = _kscertbundle
