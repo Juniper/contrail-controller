@@ -84,8 +84,6 @@ public:
         UpdateFlowAgeTime(secs * 1000 * 1000);
     }
 
-    void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
-                         uint64_t &diff_pkts);
     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
                                uint64_t pkts);
     void Shutdown();
@@ -101,6 +99,8 @@ public:
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
                                uint64_t bytes, uint64_t pkts);
     void FlowIndexUpdateEvent(const FlowKey &key, uint32_t idx);
+    void UpdateStatsEvent(const FlowKey &key, uint32_t bytes, uint32_t packets,
+                          uint32_t oflow_bytes);
     size_t Size() const { return flow_tree_.size(); }
     void NewFlow(const FlowKey &key, const FlowExportInfo &info);
     void set_deleted(bool val) {
@@ -121,6 +121,29 @@ protected:
     virtual void DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst);
 
 private:
+    void UpdateStatsAndExportFlow(FlowExportInfo *info, const FlowKey &key,
+                                  uint64_t teardown_time);
+    void EvictedFlowStatsUpdate(const FlowKey &key,
+                                uint32_t bytes,
+                                uint32_t packets,
+                                uint32_t oflow_bytes);
+    void UpdateAndExportInternal(FlowExportInfo *info,
+                                 const FlowKey &key,
+                                 uint32_t bytes,
+                                 uint16_t oflow_bytes,
+                                 uint32_t pkts,
+                                 uint16_t oflow_pkts,
+                                 uint64_t time,
+                                 bool teardown_time);
+    void UpdateFlowStatsInternal(FlowExportInfo *info,
+                                 uint32_t bytes,
+                                 uint16_t oflow_bytes,
+                                 uint32_t pkts,
+                                 uint16_t oflow_pkts,
+                                 uint64_t time,
+                                 bool teardown_time,
+                                 uint64_t *diff_bytes,
+                                 uint64_t *diff_pkts);
     void FlowDeleteEnqueue(const FlowKey &key, bool rev);
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
@@ -149,6 +172,8 @@ private:
     void AddFlow(const FlowKey &key, FlowExportInfo info);
     void DeleteFlow(const FlowKey &key);
     void UpdateFlowIndex(const FlowKey &key, uint32_t idx);
+    void HandleFlowStatsUpdate(const FlowKey &key, uint32_t bytes,
+                               uint32_t packets, uint32_t oflow_bytes);
 
     void UpdateFlowStats(FlowExportInfo *flow, uint64_t &diff_bytes,
                          uint64_t &diff_pkts);

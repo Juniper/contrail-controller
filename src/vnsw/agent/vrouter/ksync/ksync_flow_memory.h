@@ -31,7 +31,9 @@ public:
     void Shutdown();
 
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx,
-                                            bool ignore_active_status);
+                                            bool ignore_active_status) const;
+    const vr_flow_entry *GetValidKFlowEntry(const FlowKey &key,
+                                            uint32_t idx) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
 
     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
@@ -49,6 +51,9 @@ public:
         flow_table_path_ = path;
     }
 private:
+    bool IsEvictionMarked(const vr_flow_entry *entry) const;
+    void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
+
     KSync                   *ksync_;
     vr_flow_entry           *flow_table_;
     // Name of file used to map flow table

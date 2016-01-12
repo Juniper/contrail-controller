@@ -122,6 +122,20 @@ void FlowMgmtManager::FlowIndexUpdateEvent(FlowEntry *flow) {
     request_queue_.Enqueue(req);
 }
 
+void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
+                                           uint32_t packets,
+                                           uint32_t oflow_bytes) {
+    if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
+        return;
+    }
+
+    FlowEntryPtr flow_ptr(flow);
+    boost::shared_ptr<FlowMgmtRequest>
+        req(new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW_STATS, flow_ptr,
+                                bytes, packets, oflow_bytes));
+    request_queue_.Enqueue(req);
+}
+
 void FlowMgmtManager::AddEvent(const DBEntry *entry, uint32_t gen_id) {
     boost::shared_ptr<FlowMgmtRequest>
         req(new FlowMgmtRequest(FlowMgmtRequest::ADD_DBENTRY, entry, gen_id));
@@ -345,6 +359,13 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
         break;
     }
 
+    case FlowMgmtRequest::UPDATE_FLOW_STATS: {
+        //Handle Flow stats update for flow-mgmt
+        UpdateFlowStats(req->flow(), req->bytes(), req->packets(),
+                        req->oflow_bytes());
+        break;
+    }
+
     case FlowMgmtRequest::ADD_DBENTRY:
     case FlowMgmtRequest::CHANGE_DBENTRY:
     case FlowMgmtRequest::DELETE_DBENTRY: {
@@ -493,6 +514,13 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow) {
 void FlowMgmtManager::UpdateFlowIndex(FlowEntryPtr &flow) {
     //Enqueue Flow Index Update Event request to flow-stats-collector
     agent_->flow_stats_manager()->FlowIndexUpdateEvent(flow);
+}
+
+void FlowMgmtManager::UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes,
+                                      uint32_t packets, uint32_t oflow_bytes) {
+    //Enqueue Flow Index Update Event request to flow-stats-collector
+    agent_->flow_stats_manager()->UpdateStatsEvent(flow, bytes, packets,
+                                                   oflow_bytes);
 }
 
 bool FlowMgmtManager::HasVrfFlows(uint32_t vrf_id) {

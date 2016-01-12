@@ -133,16 +133,19 @@ struct AgentHdr {
 
     AgentHdr() :
         ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), cmd_param_1(-1),
+        cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
         nh(-1), flow_index(-1), mtu(0) {}
 
     AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p) :
         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1),
-        cmd_param_1(-1), nh(-1), flow_index(-1), mtu(0) {}
+        cmd_param_1(-1), cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
+        nh(-1), flow_index(-1), mtu(0) {}
 
     AgentHdr(uint32_t ifindex_p, uint32_t vrf_p, uint16_t cmd_p,
              uint32_t param1, uint32_t param2) :
         ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(param1),
-        cmd_param_1(param2), nh(-1), flow_index(-1), mtu(0) {}
+        cmd_param_1(param2), cmd_param_2(0), cmd_param_3(0), cmd_param_4(0),
+        nh(-1), flow_index(-1), mtu(0) {}
 
     ~AgentHdr() {}
 
@@ -152,6 +155,9 @@ struct AgentHdr {
     uint16_t            cmd;
     uint32_t            cmd_param;
     uint32_t            cmd_param_1;
+    uint32_t            cmd_param_2;
+    uint32_t            cmd_param_3;
+    uint32_t            cmd_param_4;
     uint32_t            nh;
     uint32_t            flow_index;
     uint16_t            mtu;

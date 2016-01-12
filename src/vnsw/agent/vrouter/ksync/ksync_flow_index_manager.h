@@ -18,7 +18,7 @@
 //     Each entry in tree is of type KSyncFlowIndexManager::IndexEntry.
 //     It contains,
 //     owner_      : Flow owning the index
-//     wait_entry_ : Flow waiting for index to be aviable.
+//     wait_entry_ : Flow waiting for index to be available.
 //                   VRouter does not evict flows in Hold state. Hence, the
 //                   assumtion is, there can atmost be one flow waiting
 //                   on an index
@@ -51,8 +51,8 @@
 //    Processing:
 //    Sets state for Flow-1 to INDEX_WAIT
 //    Sets state for Flow-2 to INDEX_EVICT
-//    Starts eviction of flow-2 by deleting it
-//    After Flow-1 is deleted, Flow-1 is allocated index index-1
+//    Starts eviction of Flow-2 by deleting it
+//    After Flow-2 is deleted, Flow-1 is allocated index index-1
 //
 // 3. Flow is evicted and created again with same index as before
 //    Scenario:
@@ -70,7 +70,7 @@
 //    Processing:
 //    Flow-1 is marked for INDEX_CHANGE
 //    Flow-1 is evicted in agent. KSync entry is deleted as part of eviction
-//    After KSync entry is deleted, Flow-1 is allocated index-1 again
+//    After KSync entry is deleted, Flow-1 is allocated with index-2
 //
 // 5. Flow is evicted and gets created with index of another evicted flow
 //    Scenario:
@@ -80,8 +80,8 @@
 //    Processing:
 //    Sets state for Flow-1 to INDEX_WAIT
 //    Sets state for Flow-2 to INDEX_EVICT
-//    Starts eviction of flow-2 by deleting it
-//    After Flow-1 is deleted, Flow-1 is allocated index index-1
+//    Starts eviction of Flow-2 by deleting it
+//    After Flow-2 is deleted, Flow-1 is allocated index index-2
 //
 // 6. Flow-1 has index-1, Flow-2 has index-2. Both Flow-1 and Flow-2 evicted
 //    In next iteration Flow-1 has index-2 and Flow-2 has index-1
@@ -167,6 +167,7 @@ public:
 
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t handle);
     void ReleaseRequest(FlowEntry *flow);
+    FlowEntry *FindByIndex(uint32_t idx);
 
     void Add(FlowEntry *flow);
     void Change(FlowEntry *flow);

@@ -30,7 +30,7 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_handler.h"
-#include "pkt/flow_table.h"
+#include "pkt/flow_mgmt.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_sandesh_flow.h"
 #include "cmn/agent_stats.h"
@@ -1642,10 +1642,27 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
 
     return;
 }
-    
+
+void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
+    Agent *agent = flow_table->agent();
+    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager();
+    KSyncFlowIndexManager *imgr = agent->ksync()->ksync_flow_index_manager();
+    FlowEntryPtr flow = imgr->FindByIndex(pkt->agent_hdr.cmd_param);
+
+    if (flow.get() && flow->deleted() == false) {
+        mgr->FlowStatsUpdateEvent(flow.get(), pkt->agent_hdr.cmd_param_2,
+                                  pkt->agent_hdr.cmd_param_3,
+                                  pkt->agent_hdr.cmd_param_4);
+    }
+}
+
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     bool update = false;
+    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
+        UpdateEvictedFlowStats(pkt);
+    }
+
     if (pkt->type == PktType::MESSAGE &&
         pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
         update = true;

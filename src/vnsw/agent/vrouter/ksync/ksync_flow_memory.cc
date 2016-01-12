@@ -172,8 +172,55 @@ void KSyncFlowMemory::Shutdown() {
     UnmapFlowMemTest();
 }
 
+void KSyncFlowMemory::KFlow2FlowKey(const vr_flow_entry *kflow,
+                                    FlowKey *key) const {
+    key->nh = kflow->fe_key.flow4_nh_id;
+    Address::Family family = (kflow->fe_key.flow_family == AF_INET)?
+                              Address::INET : Address::INET6;
+    CharArrayToIp(kflow->fe_key.flow_ip, sizeof(kflow->fe_key.flow_ip),
+                  family, &key->src_addr, &key->dst_addr);
+    key->src_port = ntohs(kflow->fe_key.flow4_sport);
+    key->dst_port = ntohs(kflow->fe_key.flow4_dport);
+    key->protocol = kflow->fe_key.flow4_proto;
+    key->family = family;
+}
+
+bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
+    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+        return true;
+    }
+    if (entry->fe_flags & VR_FLOW_FLAG_EVICT_CANDIDATE) {
+        return true;
+    }
+    return false;
+}
+
+const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
+                                                         uint32_t idx) const {
+    const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
+    if (!kflow) {
+        return NULL;
+    }
+    if (key.protocol == IPPROTO_TCP) {
+        FlowProto *proto = ksync_->agent()->GetFlowProto();
+        FlowTable *table = proto->GetFlowTable(key);
+        if (table->IsEvictedFlow(key) && !IsEvictionMarked(kflow)) {
+            return NULL;
+        }
+        FlowKey rhs;
+        KFlow2FlowKey(kflow, &rhs);
+        if (!key.IsEqual(rhs)) {
+            return NULL;
+        }
+        /* TODO: If a flow is evicted from vrouter and later flow with same
+         * key is assigned with same index, then we may end up reading
+         * wrong stats */
+    }
+    return kflow;
+}
+
 const vr_flow_entry *KSyncFlowMemory::GetKernelFlowEntry
-    (uint32_t idx, bool ignore_active_status) {
+    (uint32_t idx, bool ignore_active_status) const {
     if (idx == FlowEntry::kInvalidFlowHandle) {
         return NULL;
     }
