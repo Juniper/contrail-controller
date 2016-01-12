@@ -79,13 +79,18 @@ class User(object):
            if tenant.name == self.project:
                 break
        self.project_uuid = tenant.id
+       self.tenant = tenant
 
        if self.name not in kc_users:
            logger.info( 'user %s missing from keystone ... creating' % self.name)
-           user = kc.users.create(self.name, self.password, '', tenant_id=tenant.id)
+           kc.users.create(self.name, self.password, '', tenant_id=tenant.id)
 
        role_dict = {role.name:role for role in kc.roles.list()}
        user_dict = {user.name:user for user in kc.users.list()}
+       self.user = user_dict[self.name]
+
+       # update tenant ID (needed if user entry already existed in keystone)
+       self.user.tenant_id = tenant.id
 
        logger.info( 'Adding user %s with role %s to tenant %s' \
             % (name, role, project))
@@ -312,7 +317,7 @@ class MyVncApi(VncApi):
 # This is needed for VncApi._authenticate invocation from within Api server.
 # We don't have access to user information so we hard code admin credentials.
 def ks_admin_authenticate(self, response=None, headers=None):
-    rval = token_from_user_info('admin', 'admin', 'default-domain', 'admin')
+    rval = token_from_user_info('admin', 'admin', 'default-domain', 'cloud-admin')
     new_headers = {}
     new_headers['X-AUTH-TOKEN'] = rval
     return new_headers
@@ -332,6 +337,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                             test_utils.FakeAuthProtocol)]
         extra_config_knobs = [
             ('DEFAULTS', 'multi_tenancy_with_rbac', 'True'),
+            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestPermissions, cls).setUpClass(extra_mocks=extra_mocks,
@@ -347,41 +353,40 @@ class TestPermissions(test_case.ApiServerTestCase):
                        auth_url='http://127.0.0.1:5000/v2.0')
 
         # prepare token before vnc api invokes keystone
-        alice = User(ip, port, kc, 'alice', 'alice123', 'alice-role', 'alice-proj-%s' % self.id())
-        bob =   User(ip, port, kc, 'bob', 'bob123', 'bob-role', 'bob-proj-%s' % self.id())
-        admin = User(ip, port, kc, 'admin', 'contrail123', 'admin', 'admin-%s' % self.id())
+        self.alice = User(ip, port, kc, 'alice', 'alice123', 'alice-role', 'alice-proj-%s' % self.id())
+        self.bob =   User(ip, port, kc, 'bob', 'bob123', 'bob-role', 'bob-proj-%s' % self.id())
+        self.admin = User(ip, port, kc, 'admin', 'contrail123', 'cloud-admin', 'admin-%s' % self.id())
+        self.admin1 = User(ip, port, kc, 'admin1', 'contrail123', 'admin', 'admin1-%s' % self.id())
+        self.admin2 = User(ip, port, kc, 'admin2', 'contrail123', 'admin', 'admin2-%s' % self.id())
 
-        self.alice = alice
-        self.bob   = bob
-        self.admin = admin
-        self.users = [self.alice, self.bob]
+        self.users = [self.alice, self.bob, self.admin1, self.admin2]
 
         """
         1. create project in API server
         2. read objects back and pupolate locally
         3. reassign ownership of projects to user from admin
         """
-        for user in [admin, alice, bob]:
+        for user in [self.admin, self.alice, self.bob, self.admin1, self.admin2]:
             project_obj = Project(user.project)
             project_obj.uuid = user.project_uuid
             logger.info( 'Creating Project object for %s, uuid %s' \
                 % (user.project, user.project_uuid))
-            admin.vnc_lib.project_create(project_obj)
+            self.admin.vnc_lib.project_create(project_obj)
 
             # read projects back
-            user.project_obj = vnc_read_obj(admin.vnc_lib,
+            user.project_obj = vnc_read_obj(self.admin.vnc_lib,
                 'project', obj_uuid = user.project_uuid)
 
             logger.info( 'Change owner of project %s to %s' % (user.project, user.project_uuid))
             set_perms(user.project_obj, owner=user.project_uuid, share = [])
-            admin.vnc_lib.project_update(user.project_obj)
+            self.admin.vnc_lib.project_update(user.project_obj)
 
         # delete test VN if it exists
-        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
-        vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        vn_fq_name = [self.domain_name, self.alice.project, self.vn_name]
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
         if vn:
             logger.info( '%s exists ... deleting to start fresh' % vn_fq_name)
-            admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
         # allow permission to create objects
         for user in self.users:
@@ -389,6 +394,69 @@ class TestPermissions(test_case.ApiServerTestCase):
                 (user.name, user.project, user.role))
             vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
                 rule_str = '* %s:CRUD' % user.role)
+
+    def test_delete_non_admin_role(self):
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        # allow permission to create all objects
+        for user in self.users:
+            logger.info( "%s: project %s to allow full access to role %s" % \
+                (user.name, user.project, user.role))
+            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+                rule_str = '* %s:CRUD' % user.role)
+
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+
+        # delete test VN if it exists
+        if vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name):
+            logger.info( '%s exists ... deleting to start fresh' % vn_fq_name)
+            admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+
+        # bob - delete VN  ... should fail
+        try:
+            bob.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.assertTrue(False, '*** Bob Deleted VN ... test failed!')
+        except PermissionDenied as e:
+            self.assertTrue(True, 'Error deleting VN ... test passed!')
+
+        # Alice - delete VN  ... should succeed
+        try:
+            alice.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.assertTrue(True, 'Deleted VN ... test succeeded!')
+        except PermissionDenied as e:
+            self.assertTrue(False, '*** Alice Error deleting VN ... test failed!')
+    # end
+
+    def test_delete_admin_role(self):
+        vn = VirtualNetwork('admin1-vn', self.admin1.project_obj)
+        vn_fq_name = vn.get_fq_name()
+
+        # delete test VN if it exists
+        if vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name):
+            logger.info( '%s exists ... deleting to start fresh' % vn_fq_name)
+            self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        self.admin1.vnc_lib.virtual_network_create(vn)
+
+        # admin2 - delete VN  ... should fail
+        try:
+            self.admin2.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.assertTrue(False, '*** Deleted VN ... test failed!')
+        except PermissionDenied as e:
+            self.assertTrue(True, 'Error deleting VN ... test passed!')
+
+        # admin1 - delete VN  ... should succeed
+        try:
+            self.admin1.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.assertTrue(True, 'Deleted VN ... test succeeded!')
+        except PermissionDenied as e:
+            self.assertTrue(False, '*** Error deleting VN ... test failed!')
+    # end
 
     # delete api-access-list for alice and bob and disallow api access to their projects
     # then try to create VN in the project. This should fail
@@ -680,7 +748,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.assertThat(testfail, Equals(False))
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':''}
-        for user in self.users:
+        for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
@@ -691,7 +759,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice.vnc_lib.virtual_network_update(vn)
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
-        for user in self.users:
+        for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
@@ -702,7 +770,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice.vnc_lib.virtual_network_update(vn)
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':''}
-        for user in self.users:
+        for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
         logger.info( 'Reading VN as bob ... should fail')
@@ -714,7 +782,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice.vnc_lib.virtual_network_update(vn)
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
-        for user in self.users:
+        for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
         logger.info( 'Reading VN as bob ... should fail')
@@ -726,7 +794,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice.vnc_lib.virtual_network_update(vn)
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RW'}
-        for user in self.users:
+        for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
