@@ -98,6 +98,7 @@ class InstanceManager(object):
 
         iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
         iip_obj.add_virtual_network(vn_obj)
+        iip_obj.set_service_instance_ip(True)
         for iip in InstanceIpSM.values():
             if iip.name == iip_name:
                 iip_obj.uuid = iip.uuid
