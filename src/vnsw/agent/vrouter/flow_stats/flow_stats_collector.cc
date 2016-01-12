@@ -266,35 +266,76 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
     }
 }
 
-void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
-                                         uint64_t &diff_bytes,
-                                         uint64_t &diff_packets) {
+void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
+                                                  const FlowKey &key,
+                                                  uint64_t teardown_time) {
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
                                          ksync_flow_memory();
-    diff_bytes = 0;
-    diff_packets = 0;
     if (!info) {
         return;
     }
-    const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
-        (info->flow_handle(), false);
+    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(key, info->
+                                                                flow_handle());
     if (k_flow) {
-        uint64_t k_bytes, k_packets, bytes, packets;
-        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
-                               k_flow->fe_stats.flow_bytes);
-        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
-                                 k_flow->fe_stats.flow_packets);
-        bytes = GetUpdatedFlowBytes(info, k_bytes);
-        packets = GetUpdatedFlowPackets(info, k_packets);
-        diff_bytes = bytes - info->bytes();
-        diff_packets = packets - info->packets();
-        info->set_bytes(bytes);
-        info->set_packets(packets);
+        UpdateAndExportInternal(info, key, k_flow->fe_stats.flow_bytes,
+                                k_flow->fe_stats.flow_bytes_oflow,
+                                k_flow->fe_stats.flow_packets,
+                                k_flow->fe_stats.flow_packets_oflow,
+                                teardown_time, true);
+        return;
     }
+    /* If reading of stats fails, send a message with just teardown time */
+    info->set_teardown_time(teardown_time);
+    ExportFlow(key, info, 0, 0);
 }
 
 void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
+}
+
+void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
+                                                 uint32_t bytes,
+                                                 uint16_t oflow_bytes,
+                                                 uint32_t pkts,
+                                                 uint16_t oflow_pkts,
+                                                 uint64_t time,
+                                                 bool teardown_time,
+                                                 uint64_t *diff_bytes,
+                                                 uint64_t *diff_pkts) {
+    uint64_t k_bytes, k_packets, total_bytes, total_packets;
+    k_bytes = GetFlowStats(oflow_bytes, bytes);
+    k_packets = GetFlowStats(oflow_pkts, pkts);
+
+    total_bytes = GetUpdatedFlowBytes(info, k_bytes);
+    total_packets = GetUpdatedFlowPackets(info, k_packets);
+    *diff_bytes = total_bytes - info->bytes();
+    *diff_pkts = total_packets - info->packets();
+    info->set_bytes(total_bytes);
+    info->set_packets(total_packets);
+
+    //Update Inter-VN stats
+    UpdateInterVnStats(info, *diff_bytes, *diff_pkts);
+    //Update Floating-IP stats
+    UpdateFloatingIpStats(info, *diff_bytes, *diff_pkts);
+    if (teardown_time) {
+        info->set_teardown_time(time);
+    } else {
+        info->set_last_modified_time(time);
+    }
+}
+
+void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
+                                                 const FlowKey &key,
+                                                 uint32_t bytes,
+                                                 uint16_t oflow_bytes,
+                                                 uint32_t pkts,
+                                                 uint16_t oflow_pkts,
+                                                 uint64_t time,
+                                                 bool teardown_time) {
+    uint64_t diff_bytes, diff_pkts;
+    UpdateFlowStatsInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
+                            teardown_time, &diff_bytes, &diff_pkts);
+    ExportFlow(key, info, diff_bytes, diff_pkts);
 }
 
 // FIXME : Handle multiple tables
@@ -304,7 +345,6 @@ bool FlowStatsCollector::Run() {
     FlowExportInfo *info = NULL;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
-    uint64_t diff_bytes, diff_pkts;
     Agent *agent = agent_uve_->agent();
     FlowTable *flow_obj = agent->pkt()->flow_table(0);
     FlowKey key;
@@ -328,16 +368,16 @@ bool FlowStatsCollector::Run() {
         deleted = false;
 
         flow_iteration_key_ = it->first;
-        const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
-            (info->flow_handle(), false);
+        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
+            (key, info->flow_handle());
         // Can the flow be aged?
         if (ShouldBeAged(info, k_flow, curr_time, key)) {
             rev_info = FindFlowExportInfo(info->rev_flow_key());
             // If reverse_flow is present, wait till both are aged
             if (rev_info) {
                 const vr_flow_entry *k_flow_rev;
-                k_flow_rev = ksync_obj->GetKernelFlowEntry
-                    (rev_info->flow_handle(), false);
+                k_flow_rev = ksync_obj->GetValidKFlowEntry
+                    (info->rev_flow_key(), rev_info->flow_handle());
                 if (ShouldBeAged(rev_info, k_flow_rev, curr_time,
                                  info->rev_flow_key())) {
                     deleted = true;
@@ -378,22 +418,11 @@ bool FlowStatsCollector::Run() {
             /* Don't account for agent overflow bits while comparing change in
              * stats */
             if (bytes != k_bytes) {
-                uint64_t packets, k_packets;
-
-                k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
-                                         k_flow->fe_stats.flow_packets);
-                bytes = GetUpdatedFlowBytes(info, k_bytes);
-                packets = GetUpdatedFlowPackets(info, k_packets);
-                diff_bytes = bytes - info->bytes();
-                diff_pkts = packets - info->packets();
-                //Update Inter-VN stats
-                UpdateInterVnStats(info, diff_bytes, diff_pkts);
-                //Update Floating-IP stats
-                UpdateFloatingIpStats(info, diff_bytes, diff_pkts);
-                info->set_bytes(bytes);
-                info->set_packets(packets);
-                info->set_last_modified_time(curr_time);
-                ExportFlow(key, info, diff_bytes, diff_pkts);
+                UpdateAndExportInternal(info, key, k_flow->fe_stats.flow_bytes,
+                                        k_flow->fe_stats.flow_bytes_oflow,
+                                        k_flow->fe_stats.flow_packets,
+                                        k_flow->fe_stats.flow_packets_oflow,
+                                        curr_time, false);
             } else if (!info->exported()) {
                 /* export flow (reverse) for which traffic is not seen yet. */
                 ExportFlow(key, info, 0, 0);
@@ -488,6 +517,15 @@ void FlowStatsCollector::FlowIndexUpdateEvent(const FlowKey &key,
                                               uint32_t idx) {
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_INDEX, key, 0, idx));
+    request_queue_.Enqueue(req);
+}
+
+void FlowStatsCollector::UpdateStatsEvent(const FlowKey &key, uint32_t bytes,
+                                          uint32_t packets,
+                                          uint32_t oflow_bytes) {
+    boost::shared_ptr<FlowExportReq>
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, key, bytes,
+                              packets, oflow_bytes));
     request_queue_.Enqueue(req);
 }
 
@@ -822,15 +860,17 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
 
     case FlowExportReq::DELETE_FLOW: {
         /* Fetch the update stats and export the flow with teardown_time */
-        uint64_t diff_bytes, diff_packets;
         FlowExportInfo *info = FindFlowExportInfo(req->key());
         if (!info) {
             /* Do not expect duplicate deletes */
             assert(0);
         }
-        info->set_teardown_time(req->time());
-        UpdateFlowStats(info, diff_bytes, diff_packets);
-        ExportFlow(req->key(), info, diff_bytes, diff_packets);
+        /* While updating stats for evicted flows, we set the teardown_time
+         * and export the flow. So delete handling for evicted flows need not
+         * update stats and export flow */
+        if (!info->teardown_time()) {
+            UpdateStatsAndExportFlow(info, req->key(), req->time());
+        }
         /* ExportFlow will enqueue FlowLog message for send. If we have not hit
          * max messages to be sent, it will not dispatch. Invoke
          * DispatchPendingFlowMsg to send any enqueued messages in the queue
@@ -843,6 +883,17 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
 
     case FlowExportReq::UPDATE_FLOW_INDEX: {
         UpdateFlowIndex(req->key(), req->index());
+        break;
+    }
+
+    case FlowExportReq::UPDATE_FLOW_STATS: {
+        EvictedFlowStatsUpdate(req->key(), req->bytes(), req->packets(),
+                              req->oflow_bytes());
+        /* ExportFlow will enqueue FlowLog message for send. If we have not hit
+         * max messages to be sent, it will not dispatch. Invoke
+         * DispatchPendingFlowMsg to send any enqueued messages in the queue
+         * even if we don't have max messages to be sent */
+        DispatchPendingFlowMsg();
         break;
     }
 
@@ -934,6 +985,21 @@ void FlowStatsCollector::UpdateFlowIndex(const FlowKey &key, uint32_t idx) {
     FlowExportInfo *info = FindFlowExportInfo(key);
     if (info) {
         info->set_flow_handle(idx);
+    }
+}
+
+void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowKey &key,
+                                                uint32_t bytes,
+                                                uint32_t packets,
+                                                uint32_t oflow_bytes) {
+    FlowExportInfo *info = FindFlowExportInfo(key);
+    if (info) {
+        /* We are updating stats of evicted flow. Set teardown_time here.
+         * When delete event is being handled we don't export flow if
+         * teardown time is set */
+        UpdateAndExportInternal(info, key, bytes, oflow_bytes & 0xFFFF,
+                                packets, oflow_bytes & 0xFFFF0000,
+                                UTCTimestampUsec(), true);
     }
 }
 

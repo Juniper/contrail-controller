@@ -224,12 +224,9 @@ void InterfaceUveTable::InterfaceAddHandler(const VmInterface* itf,
     /* Mark the entry as changed to account for change in any fields of VMI */
     entry->changed_ = true;
 
-    /* We need to handle only floating-ip deletion. The add of floating-ip is
-     * taken care when stats are available for them during flow stats
-     * collection */
     const VmInterface::FloatingIpSet &new_list = itf->floating_ip_list().list_;
-    /* We need to look for entries which are present in old_list and not
-     * in new_list */
+    /* Remove old entries, by checking entries which are present in old list,
+     * but not in new list */
     VmInterface::FloatingIpSet::const_iterator old_it = old_list.begin();
     while (old_it != old_list.end()) {
         VmInterface::FloatingIp fip = *old_it;
@@ -244,6 +241,19 @@ void InterfaceUveTable::InterfaceAddHandler(const VmInterface* itf,
         if (new_it == new_list.end()) {
             entry->RemoveFloatingIp(fip);
         }
+    }
+    /* Add entries in new list. Ignore if entries already present */
+    VmInterface::FloatingIpSet::const_iterator fip_it = new_list.begin();
+    while (fip_it != new_list.end()) {
+        VmInterface::FloatingIp fip = *fip_it;
+        ++fip_it;
+        /* Skip entries which are not installed as they wouldn't have been
+         * added
+         */
+        if (!fip.installed_) {
+            continue;
+        }
+        entry->AddFloatingIp(fip);
     }
 }
 
@@ -356,6 +366,10 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
     tbb::mutex::scoped_lock lock(mutex_);
     FloatingIp *entry = FipEntry(fip_info.fip_, fip_info.vn_);
+    /* Ignore stats update request if it comes after entry is removed */
+    if (entry == NULL) {
+        return;
+    }
     entry->UpdateFloatingIpStats(fip_info);
 }
 
@@ -365,12 +379,12 @@ InterfaceUveTable::FloatingIp *InterfaceUveTable::UveInterfaceEntry::FipEntry
     FloatingIpPtr key(new FloatingIp(addr, vn));
     FloatingIpSet::iterator fip_it =  fip_tree_.find(key);
     if (fip_it == fip_tree_.end()) {
-        fip_tree_.insert(key);
-        return key.get();
+        return NULL;
     } else {
         return (*fip_it).get();
     }
 }
+
 void InterfaceUveTable::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_info) {
     if (fip_info.is_local_flow_) {
         if (fip_info.is_reverse_flow_) {
@@ -500,6 +514,18 @@ void InterfaceUveTable::UveInterfaceEntry::SetStats
     fip.set_in_pkts(in_pkts);
     fip.set_out_bytes(out_bytes);
     fip.set_out_pkts(out_pkts);
+}
+
+void InterfaceUveTable::UveInterfaceEntry::AddFloatingIp
+    (const VmInterface::FloatingIp &fip) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    FloatingIpPtr key(new FloatingIp(fip.floating_ip_,
+                                     fip.vn_.get()->GetName()));
+    FloatingIpSet::iterator it = fip_tree_.find(key);
+    if (it != fip_tree_.end()) {
+        return;
+    }
+    fip_tree_.insert(key);
 }
 
 void InterfaceUveTable::UveInterfaceEntry::RemoveFloatingIp

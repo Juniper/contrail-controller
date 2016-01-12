@@ -131,7 +131,8 @@ public:
 
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     void Free(KSyncEntry *key);
-    bool DoEventTrace(void) { return false; }
+    //bool DoEventTrace(void) { return false; }
+    bool DoEventTrace(void) { return true; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
     void PreFree(KSyncEntry *entry);
 

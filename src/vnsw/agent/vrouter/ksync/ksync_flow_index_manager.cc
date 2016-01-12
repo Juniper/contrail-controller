@@ -237,6 +237,13 @@ FlowEntryPtr KSyncFlowIndexManager::ReleaseIndex(FlowEntry *flow) {
     return wait_flow;
 }
 
+FlowEntry *KSyncFlowIndexManager::FindByIndex(uint32_t idx) {
+    tbb::mutex::scoped_lock lock(index_list_[idx].mutex_);
+    if (index_list_[idx].owner_.get() != NULL)
+        return index_list_[idx].owner_.get();
+    return NULL;
+}
+
 FlowEntryPtr KSyncFlowIndexManager::AcquireIndex(FlowEntry *flow) {
     FlowEntryPtr ret(NULL);
     // Sanity checks for a new flow

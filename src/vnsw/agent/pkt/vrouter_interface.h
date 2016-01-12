@@ -84,6 +84,9 @@ public:
         hdr->cmd = VrCmdToAgentCmd(ntohs(vr_agent_hdr->hdr_cmd));
         hdr->cmd_param = ntohl(vr_agent_hdr->hdr_cmd_param);
         hdr->nh = ntohl(vr_agent_hdr->hdr_cmd_param_1);
+        hdr->cmd_param_2 = ntohl(vr_agent_hdr->hdr_cmd_param_2);
+        hdr->cmd_param_3 = ntohl(vr_agent_hdr->hdr_cmd_param_3);
+        hdr->cmd_param_4 = ntohl(vr_agent_hdr->hdr_cmd_param_4);
         if (hdr->cmd == AGENT_TRAP_HANDLE_DF) {
             hdr->mtu = ntohl(vr_agent_hdr->hdr_cmd_param);
             hdr->flow_index = ntohl(vr_agent_hdr->hdr_cmd_param_1);

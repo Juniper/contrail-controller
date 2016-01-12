@@ -147,6 +147,9 @@ void InterfaceUveStatsTable::UpdateFloatingIpStats(const FipInfo &fip_info) {
         return;
     }
     VmInterface *vmi = static_cast<VmInterface *>(intf);
+    if (vmi->floating_ip_list().list_.size() == 0U) {
+        return;
+    }
     InterfaceMap::iterator intf_it = interface_tree_.find(vmi->cfg_name());
 
     /*

@@ -89,6 +89,8 @@ public:
     void AddEvent(FlowEntryPtr &flow);
     void DeleteEvent(const FlowEntryPtr &flow);
     void FlowIndexUpdateEvent(const FlowEntryPtr &flow);
+    void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
+                          uint32_t packets, uint32_t oflow_bytes);
     uint32_t flow_export_msg_drops() { return 0;}
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);
