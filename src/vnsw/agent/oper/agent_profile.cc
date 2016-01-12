@@ -23,6 +23,8 @@
 #include <oper/vm.h>
 #include <oper/vrf.h>
 #include <filter/acl.h>
+#include "db/db.h"
+
 using namespace std;
 
 AgentProfile::AgentProfile(Agent *agent, bool enable) :
@@ -94,7 +96,7 @@ void ProfileData::DBTableStats::Get(const DBTable *table) {
     notify_count_ = table->notify_count();
 }
 
-void ProfileData::DBTableStats::Accumulate(const DBTable *table) {
+void ProfileData::DBTableStats::Accumulate(const DBTableBase *table) {
     db_entry_count_ += table->Size();
     walker_count_ += table->walker_count();
     enqueue_count_ += table->enqueue_count();
@@ -147,6 +149,7 @@ ProfileData::ProfileData():time_() {
     inet6_routes_.Reset();
     bridge_routes_.Reset();
     multicast_routes_.Reset();
+    evpn_routes_.Reset();
     rx_stats_.Reset();
     tx_stats_.Reset();
     ksync_tx_queue_count_.Reset();
@@ -157,12 +160,29 @@ void ProfileData::Get(Agent *agent) {
     std::ostringstream str;
     str << boost::posix_time::second_clock::local_time();
     time_ = str.str();
+    DB::TableMap::const_iterator itr =
+        agent->GetInstance()->db()->const_begin();
+    DB::TableMap::const_iterator itrend =
+        agent->GetInstance()->db()->const_end();
 
     interface_.Get(agent->interface_table());
     vn_.Get(agent->vn_table());
     vm_.Get(agent->vm_table());
     acl_.Get(agent->acl_table());
     vrf_.Get(agent->vrf_table());
+    for (; itr != itrend; ++itr) {
+        if(itr->first.rfind("uc.route.0") != std::string::npos) {
+           inet4_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind("uc.route6.0") != std::string::npos) {
+           inet6_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind("l2.route.0") != std::string::npos) {
+           bridge_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind("mc.route.0") != std::string::npos) {
+           multicast_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind("evpn.route.0") != std::string::npos) {
+           evpn_routes_.Accumulate(itr->second);
+        }
+    }
 
     TaskScheduler *sched = TaskScheduler::GetInstance();
     task_stats_[2] = *sched->GetTaskGroupStats(2);

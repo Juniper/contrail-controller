@@ -194,12 +194,10 @@ public:
             const boost::uuids::uuid &u);
     bool ProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
-
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);
     VrfEntry *FindVrfFromIdIncludingDeletedVrf(size_t index);
     void FreeVrfId(size_t index) {index_table_.Remove(index);};
-
     virtual bool CanNotify(IFMapNode *dbe);
     
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
