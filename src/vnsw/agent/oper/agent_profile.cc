@@ -23,6 +23,8 @@
 #include <oper/vm.h>
 #include <oper/vrf.h>
 #include <filter/acl.h>
+#include "db/db.h"
+
 using namespace std;
 
 AgentProfile::AgentProfile(Agent *agent, bool enable) :
@@ -94,7 +96,7 @@ void ProfileData::DBTableStats::Get(const DBTable *table) {
     notify_count_ = table->notify_count();
 }
 
-void ProfileData::DBTableStats::Accumulate(const DBTable *table) {
+void ProfileData::DBTableStats::Accumulate(const DBTableBase *table) {
     db_entry_count_ += table->Size();
     walker_count_ += table->walker_count();
     enqueue_count_ += table->enqueue_count();
@@ -138,31 +140,49 @@ void ProfileData::XmppStats::Reset() {
 ProfileData::ProfileData():time_() {
     flow_.Reset();
     pkt_.Reset();
-    interface_.Reset();
-    vn_.Reset();
-    vm_.Reset();
-    acl_.Reset();
-    vrf_.Reset();
     inet4_routes_.Reset();
     inet6_routes_.Reset();
     bridge_routes_.Reset();
     multicast_routes_.Reset();
+    evpn_routes_.Reset();
     rx_stats_.Reset();
     tx_stats_.Reset();
     ksync_tx_queue_count_.Reset();
     ksync_rx_queue_count_.Reset();
+
 }
 
 void ProfileData::Get(Agent *agent) {
     std::ostringstream str;
     str << boost::posix_time::second_clock::local_time();
     time_ = str.str();
+    DB::TableMap::const_iterator itr =
+        agent->db()->const_begin();
+    DB::TableMap::const_iterator itrend =
+        agent->db()->const_end();
 
-    interface_.Get(agent->interface_table());
-    vn_.Get(agent->vn_table());
-    vm_.Get(agent->vm_table());
-    acl_.Get(agent->acl_table());
-    vrf_.Get(agent->vrf_table());
+    for ( ;itr != itrend; ++itr) {
+        if(itr->first.rfind(kV4UnicastRouteDbTableSuffix) !=
+                   std::string::npos) {
+           inet4_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind(kV6UnicastRouteDbTableSuffix) !=
+                   std::string::npos) {
+           inet6_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind(kL2RouteDbTableSuffix) !=
+                   std::string::npos) {
+           bridge_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind(kMcastRouteDbTableSuffix) !=
+                   std::string::npos) {
+           multicast_routes_.Accumulate(itr->second);
+        } else if (itr->first.rfind(kEvpnRouteDbTableSuffix) !=
+                   std::string::npos) {
+           evpn_routes_.Accumulate(itr->second);
+        } else {
+            ProfileData::DBTableStats stats;
+            stats.Get(dynamic_cast<DBTable*>(itr->second));
+            profile_stats_table_.insert(make_pair(itr->first,stats));
+        }
+    }
 
     TaskScheduler *sched = TaskScheduler::GetInstance();
     task_stats_[2] = *sched->GetTaskGroupStats(2);
@@ -193,18 +213,46 @@ static void GetDBTableStats(SandeshDBTableStatsInfo *stats, int index,
     stats->set_index(index);
     stats->set_time_str(data->time_);
     std::vector<SandeshDBTableStats> db_stats_list;
-
     SandeshDBTableStats db_stats;
-    DBStatsToSandesh(&db_stats, "Interface", data->interface_);
+    std::map<std::string, ProfileData::DBTableStats >::iterator itr = 
+        data->profile_stats_table_.begin();
+
+    DBStatsToSandesh(&db_stats, "Ipv4 Unicast route", data->inet4_routes_);
     db_stats_list.push_back(db_stats);
-    DBStatsToSandesh(&db_stats, "VN", data->vn_);
+    DBStatsToSandesh(&db_stats, "Ipv6 Unicast route", data->inet6_routes_);
     db_stats_list.push_back(db_stats);
-    DBStatsToSandesh(&db_stats, "VM", data->vm_);
+    DBStatsToSandesh(&db_stats, "Multicast route", data->multicast_routes_);
     db_stats_list.push_back(db_stats);
-    DBStatsToSandesh(&db_stats, "ACL", data->acl_);
+    DBStatsToSandesh(&db_stats, "Evpn route", data->evpn_routes_);
     db_stats_list.push_back(db_stats);
-    DBStatsToSandesh(&db_stats, "VRF", data->vrf_);
+    DBStatsToSandesh(&db_stats, "Bridge", data->bridge_routes_);
     db_stats_list.push_back(db_stats);
+    while (itr != data->profile_stats_table_.end()) {
+        if(itr->first.find(kInterfaceDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Interface", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kMplsDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Mpls", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kLoadBalnceDbTablePrefix) !=
+                   std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Loadbalancer", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kVnDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Vn", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kVmDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Vm", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kVrfDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Vrf", itr->second);
+           db_stats_list.push_back(db_stats);
+        } else if (itr->first.find(kAclDbTablePrefix) != std::string::npos) {
+           DBStatsToSandesh(&db_stats, "Acl", itr->second);
+           db_stats_list.push_back(db_stats);
+        }
+        ++itr;
+    }
     stats->set_stats(db_stats_list);
 }
 
