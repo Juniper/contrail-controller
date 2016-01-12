@@ -20,6 +20,10 @@ class VncRbac(object):
         self._server_mgr = server_mgr
     # end __init__
 
+    @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
     def multi_tenancy_with_rbac(self):
         return self._server_mgr.is_multi_tenancy_with_rbac_set()
     # end
@@ -179,17 +183,20 @@ class VncRbac(object):
     def validate_request(self, request):
         domain_id = request.headers.environ.get('HTTP_X_DOMAIN_ID', None)
         project_id = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
+        project_name = request.headers.environ.get('HTTP_X_PROJECT_NAME', '*')
 
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
         if not self.multi_tenancy_with_rbac():
             return (True, '')
+        if self._server_mgr.path_in_white_list(request):
+            return (True, '')
 
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
 
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
@@ -209,8 +216,8 @@ class VncRbac(object):
         except Exception:
             obj_dict = {}
 
-        msg = 'u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s, dom:%s' \
-            % (user, roles, obj_type, api_op, len(rule_list), project_id, domain_id)
+        msg = 'u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
+            % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         # match all rules - longest prefix match wins
@@ -225,6 +232,7 @@ class VncRbac(object):
                 ps += perm['role_name'] + ':' + perm['role_crud'] + ','
             o_f = "%s.%s" % (o,f) if f else o
             # check CRUD perms if object and field matches
+            length = -1; match = False
             if o == '*' or \
                 (o == obj_type and (f is None or f == '*' or f == '')) or \
                 (o == obj_type and (f is not None and f in obj_dict)):
@@ -234,6 +242,9 @@ class VncRbac(object):
                     length = 2
                 else:
                     length = 1
+                # skip rule with no matching op
+                if True not in [api_op in rc['role_crud'] for rc in p]:
+                    continue
                 role_match = [rc['role_name'] in (roles + ['*']) and api_op in rc['role_crud'] for rc in p]
                 match = True if True in role_match else False
                 result[length] = (idx, match)
@@ -241,8 +252,10 @@ class VncRbac(object):
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             idx += 1
 
-        x = sorted(result.items(), reverse = True)
-        ok = x[0][1][1]
+        ok = False
+        if len(result) > 0:
+            x = sorted(result.items(), reverse = True)
+            ok = x[0][1][1]
 
         # temporarily allow all access to admin till we figure out default creation of rbac group in domain
         ok = ok or is_admin

@@ -927,7 +927,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -947,7 +947,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -967,7 +967,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 None, None)
@@ -993,7 +993,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/ref-update',
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 req_dict, None)
@@ -1382,7 +1382,20 @@ class VncApiServer(object):
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
+        self.white_list = [
+            "/documentation",
+        ]
+
     # end __init__
+
+    def path_in_white_list(self, request):
+        path = request.headers.environ.get('PATH_INFO')
+        if path is None:
+            return False
+        for prefix in self.white_list:
+            if path.startswith(prefix):
+                return True
+        return False
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
         stats = self._disc.get_stats()
@@ -1585,7 +1598,7 @@ class VncApiServer(object):
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
-                return 'admin' in [x.lower() for x in roles]
+                return self.cloud_admin_role in [x.lower() for x in roles]
         return False
 
     # Check for the system created VN. Disallow such VN delete
@@ -1611,6 +1624,10 @@ class VncApiServer(object):
 
     def homepage_http_get(self):
         set_context(ApiContext(external_req=bottle.request))
+        (ok, status) = self._rbac.validate_request(get_request())
+        if not ok:
+            (code, err_msg) = status
+            bottle.abort(code, err_msg)
         json_body = {}
         json_links = []
         # strip trailing '/' in url
@@ -2094,15 +2111,22 @@ class VncApiServer(object):
         ok, result = self._permissions.check_perms_read(bottle.request, id)
         if not ok:
             err_code, err_msg = result
-            bottle.abort(err_code, err_msg)
+            raise cfgm_common.exceptions.HttpError(err_code, err_msg)
 
         return {'uuid': id}
     # end fq_name_to_id_http_post
 
     def id_to_fq_name_http_post(self):
         self._post_common(get_request(), None, None)
+        obj_uuid = get_request().json['uuid']
+
+        # ensure user has access to this id
+        ok, result = self._permissions.check_perms_read(get_request(), obj_uuid)
+        if not ok:
+            err_code, err_msg = result
+            raise cfgm_common.exceptions.HttpError(err_code, err_msg)
+
         try:
-            obj_uuid = get_request().json['uuid']
             fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
@@ -2488,24 +2512,21 @@ class VncApiServer(object):
         fq_name = ['default-domain', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-            msg = 'RBAC: %s already exists ... leaving rules intact' % fq_name
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-            return
         except NoIdError:
             self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
+            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
 
-        id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid': id})
 
         # allow full access to cloud admin
         rbac_rules = [
             {
-                'rule_object':'*',
+                'rule_object':'fqname-to-id',
                 'rule_field': '',
-                'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]
+                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
             },
             {
-                'rule_object':'fqname-to-id',
+                'rule_object':'id-to-fqname',
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
             },
@@ -2580,7 +2601,7 @@ class VncApiServer(object):
         for fq_name, uuid in result:
             (ok, status) = self._permissions.check_perms_read(get_request(), uuid)
             if not ok and status[0] == 403:
-                result.remove((fq_name,iuuid))
+                result.remove((fq_name, uuid))
 
         # include objects shared with tenant
         env = get_request().headers.environ
@@ -2911,7 +2932,10 @@ class VncApiServer(object):
         self._ensure_perms2_present(obj_type, None, obj_dict)
 
         # set ownership of object to creator tenant
-        owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
+        if obj_type == 'project':
+            owner = str(obj_dict['uuid']).replace('-','')
+        else:
+            owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
         obj_dict['perms2']['owner'] = owner
 
         # TODO check api + resource perms etc.
@@ -3081,6 +3105,10 @@ class VncApiServer(object):
     # indication if multi tenancy with rbac is enabled or disabled
     def rbac_http_get(self):
         return {'enabled': self._args.multi_tenancy_with_rbac}
+
+    @property
+    def cloud_admin_role(self):
+        return self._args.cloud_admin_role if self._args.multi_tenancy_with_rbac else "admin"
 
     def publish_self_to_discovery(self):
         # publish API server
