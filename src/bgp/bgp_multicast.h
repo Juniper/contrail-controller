@@ -102,6 +102,7 @@ public:
 
     uint8_t level() const { return level_; }
     uint32_t label() const { return label_; }
+    const LabelBlock *label_block() const { return label_block_.get(); }
     Ip4Address address() const { return address_; }
     std::vector<std::string> encap() const { return encap_; }
     ErmVpnRoute *route() { return route_; }
@@ -239,7 +240,7 @@ private:
 
     typedef std::set<McastForwarder *, McastForwarderCompare> ForwarderSet;
 
-    bool IsTreeBuilder(uint8_t level);
+    bool IsTreeBuilder(uint8_t level) const;
     void UpdateTree(uint8_t level);
     void UpdateRoutes(uint8_t level);
 
@@ -310,6 +311,7 @@ public:
     DBTablePartBase *GetTablePartition();
     const RoutingInstance *routing_instance() const;
     BgpServer *server();
+    const BgpServer *server() const;
     McastTreeManager *tree_manager() const { return tree_manager_; }
 
     bool empty() const { return sg_list_.empty(); }
@@ -394,6 +396,7 @@ public:
     virtual UpdateInfo *GetUpdateInfo(ErmVpnRoute *route);
     DBTablePartBase *GetTablePartition(size_t part_id);
     ErmVpnTable *table() { return table_; }
+    const ErmVpnTable *table() const { return table_; }
 
     void ManagedDelete();
     void Shutdown();

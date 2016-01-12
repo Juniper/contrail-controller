@@ -166,38 +166,47 @@ public:
         return (new MulticastManagerDetailData);
     }
 
-    static void FillMulticastLinkInfo(ShowMulticastForwarder *fwd,
-            const McastForwarder *forwarder) {
-        ShowMulticastTreeLink link;
-        link.set_address(forwarder->address().to_string());
-        link.set_label(forwarder->label());
-        fwd->links.push_back(link);
+    static void FillMulticastLinkInfo(const McastForwarder *forwarder,
+        ShowMulticastTreeLink *smtl) {
+        smtl->set_address(forwarder->address().to_string());
+        smtl->set_label(forwarder->label());
     }
 
-    static void FillMulticastForwarderInfo(ShowMulticastTree *tree,
-            const McastForwarder *forwarder) {
-        ShowMulticastForwarder fwd;
-        fwd.set_address(forwarder->address().to_string());
-        fwd.set_label(forwarder->label());
+    static void FillMulticastForwarderInfo(const McastForwarder *forwarder,
+        ShowMulticastForwarder *smf) {
+        smf->set_address(forwarder->address().to_string());
+        smf->set_label(forwarder->label());
+        smf->set_label_block(forwarder->label_block()->ToString());
+        smf->set_router_id(forwarder->router_id().to_string());
         for (McastForwarderList::const_iterator it =
              forwarder->tree_links_.begin();
-             it != forwarder->tree_links_.end(); it++) {
-            FillMulticastLinkInfo(&fwd, *it);
+             it != forwarder->tree_links_.end(); ++it) {
+            ShowMulticastTreeLink smtl;
+            FillMulticastLinkInfo(*it, &smtl);
+            smf->links.push_back(smtl);
         }
-        tree->forwarders.push_back(fwd);
     }
 
-    static void FillMulticastTreeInfo(MulticastManagerDetailData *data,
-            const McastSGEntry *sg) {
-        ShowMulticastTree tree;
-        tree.set_group(sg->group().to_string());
-        tree.set_source(sg->source().to_string());
-        for (McastSGEntry::ForwarderSet::const_iterator it =
-             sg->forwarder_sets_[0]->begin();
-             it != sg->forwarder_sets_[0]->end(); it++) {
-            FillMulticastForwarderInfo(&tree, *it);
+    static void FillMulticastTreeInfo(const McastSGEntry *sg,
+        ShowMulticastTree *smt) {
+        smt->set_group(sg->group().to_string());
+        smt->set_source(sg->source().to_string());
+        for (uint8_t level = McastTreeManager::LevelFirst;
+             level < McastTreeManager::LevelCount; ++level) {
+            if (!sg->IsTreeBuilder(level))
+                continue;
+            for (McastSGEntry::ForwarderSet::const_iterator it =
+                 sg->forwarder_sets_[level]->begin();
+                 it != sg->forwarder_sets_[level]->end(); ++it) {
+                ShowMulticastForwarder smf;
+                FillMulticastForwarderInfo(*it, &smf);
+                if (level == McastTreeManager::LevelNative) {
+                    smt->level0_forwarders.push_back(smf);
+                } else {
+                    smt->level1_forwarders.push_back(smf);
+                }
+            }
         }
-        data->tree_list.push_back(tree);
     }
 
     static void FillMulticastPartitionInfo(MulticastManagerDetailData *data,
@@ -207,7 +216,9 @@ public:
         for (McastManagerPartition::SGList::const_iterator it =
              partition->sg_list_.begin();
              it != partition->sg_list_.end(); it++) {
-            FillMulticastTreeInfo(data, *it);
+            ShowMulticastTree smt;
+            FillMulticastTreeInfo(*it, &smt);
+            data->tree_list.push_back(smt);
         }
     }
 
