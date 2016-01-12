@@ -69,7 +69,12 @@ string AgentInit::InstanceId() {
 }
 
 void AgentInit::InitPlatform() {
-    Ip4Address ip = Ip4Address::from_string("127.0.0.1");
+    boost::system::error_code ec;
+    Ip4Address ip = Ip4Address::from_string("127.0.0.1", ec);
+    if (ec.value() != 0) {
+        assert(0);
+    }
+
     if (agent_param_->platform() == AgentParam::VROUTER_ON_NIC) {
         agent_->set_vrouter_server_ip(ip);
         agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
