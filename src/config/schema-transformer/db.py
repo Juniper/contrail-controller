@@ -64,14 +64,9 @@ class SchemaTransformerDB(VncCassandraClient):
                              (self._SERVICE_CHAIN_UUID_CF, None)]}
         cass_server_list = self._args.cassandra_server_list
 
-        if self._args.reset_config:
-            cass_reset_config = [self._keyspace]
-        else:
-            cass_reset_config = []
-
         super(SchemaTransformerDB, self).__init__(
-            cass_server_list, self._args.cluster_id, keyspaces,
-            manager.config_log, reset_config=cass_reset_config)
+            cass_server_list, self._args.cluster_id, keyspaces, None,
+            manager.config_log, reset_config=self._args.reset_config)
 
         SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
         SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]

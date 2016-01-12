@@ -1348,13 +1348,13 @@ class DMCassandraDB(VncCassandraClient):
 
         cass_server_list = self._args.cassandra_server_list
         cred = None
-        if self._args.cassandra_user is not None and \
-           self._args.cassandra_password is not None:
+        if (self._args.cassandra_user is not None and
+            self._args.cassandra_password is not None):
             cred = {'username': self._args.cassandra_user,
                     'password': self._args.cassandra_password}
 
         super(DMCassandraDB, self).__init__(
-            cass_server_list, self._args.cluster_id, keyspaces,
+            cass_server_list, self._args.cluster_id, keyspaces, None,
             manager.config_log, credential=cred)
 
         self.pr_vn_ip_map = {}

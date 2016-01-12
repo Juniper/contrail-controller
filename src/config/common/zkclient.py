@@ -331,16 +331,9 @@ class ZookeeperClient(object):
 
     # end
 
-    def _zk_election_callback(self, func, *args, **kwargs):
-        func(*args, **kwargs)
-        # Exit if running master encounters error or exception
-        exit(1)
-    # end
-
     def master_election(self, path, identifier, func, *args, **kwargs):
-        while True:
-            self._election = self._zk_client.Election(path, identifier)
-            self._election.run(self._zk_election_callback, func, *args, **kwargs)
+        self._election = self._zk_client.Election(path, identifier)
+        self._election.run(func, *args, **kwargs)
     # end master_election
 
     def create_node(self, path, value=None):

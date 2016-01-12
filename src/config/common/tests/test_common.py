@@ -307,8 +307,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         (ifmap_client.client, 'call_async_result', FakeIfmapClient.call_async_result),
 
         (pycassa.system_manager.Connection, '__init__',stub),
-        (pycassa.system_manager.SystemManager, 'create_keyspace',stub),
-        (pycassa.system_manager.SystemManager, 'create_column_family',stub),
+        (pycassa.system_manager.SystemManager, '__new__',FakeSystemManager),
         (pycassa.ConnectionPool, '__init__',stub),
         (pycassa.ColumnFamily, '__new__',FakeCF),
         (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
