@@ -1698,6 +1698,7 @@ void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
 
 void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     BgpNeighborResp *bnr, bool summary) const {
+    bnr->set_instance_name(rtinstance_->name());
     bnr->set_peer(peer_basename_);
     bnr->set_deleted(IsDeleted());
     bnr->set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
