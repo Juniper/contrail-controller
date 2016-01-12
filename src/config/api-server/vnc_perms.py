@@ -19,6 +19,10 @@ class VncPermissions(object):
     # end __init__
 
     @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
+    @property
     def _multi_tenancy(self):
         return self._server_mgr._args.multi_tenancy
     # end
@@ -42,7 +46,7 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
@@ -81,7 +85,7 @@ class VncPermissions(object):
             return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
