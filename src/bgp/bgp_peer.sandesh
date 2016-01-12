@@ -381,13 +381,15 @@ struct ShowMulticastForwarder {
     1: string address;
     2: string label_block;
     3: u32 label;
+    5: string router_id;
     4: list<ShowMulticastTreeLink> links;
 }
 
 struct ShowMulticastTree {
     1: string group;
     2: string source;
-    3: list<ShowMulticastForwarder> forwarders;
+    3: list<ShowMulticastForwarder> level0_forwarders;
+    4: list<ShowMulticastForwarder> level1_forwarders;
 }
 
 struct ShowBgpServiceChainConfig {
