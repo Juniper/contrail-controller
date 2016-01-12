@@ -90,7 +90,6 @@ public:
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key)const;
     bool UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id);
-
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
     void StartDeleteTimer();
@@ -106,7 +105,6 @@ public:
     std::vector<ComponentNHData>* GetNHList(Ip4Address ip, uint8_t plen);
     bool FindNH(const Ip4Address &ip, uint8_t plen,
                 const ComponentNHData &nh_data);
-
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable() const;
     AgentRouteTable *GetInet4MulticastRouteTable() const;
     AgentRouteTable *GetEvpnRouteTable() const;
@@ -194,12 +192,10 @@ public:
             const boost::uuids::uuid &u);
     bool ProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
-
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);
     VrfEntry *FindVrfFromIdIncludingDeletedVrf(size_t index);
     void FreeVrfId(size_t index) {index_table_.Remove(index);};
-
     virtual bool CanNotify(IFMapNode *dbe);
     
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable

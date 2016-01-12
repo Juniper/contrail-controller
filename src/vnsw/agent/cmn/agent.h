@@ -208,6 +208,19 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowEvent "Agent::FlowEvent"
 #define kTaskFlowAudit "KSync::FlowAudit"
 
+#define DB_INTERFACE_TABLE "db.interface"
+#define DB_VN_TABLE  "db.vn"
+#define DB_VM_TABLE  "db.vm"
+#define DB_VRF_TABLE "db.vrf.0"
+#define DB_LOADBALNCE_TABLE "db.loadbalancer.0"
+#define DB_MPLS_TABLE "db.mpls"
+#define DB_ACL_TABLE  "db.acl"
+#define DB_IPV4_UNICAST_ROUTE_TABLE "uc.route.0"
+#define DB_IPV6_UNICAST_ROUTE_TABLE "uc.route6.0"
+#define DB_L2_ROUTE_TABLE  "l2.route.0"
+#define DB_MCAST_ROUTE_TABLE "mc.route.0"
+#define DB_EVPN_ROUTE_TABLE  "evpn.route.0"
+
 class Agent {
 public:
     static const uint32_t kDefaultMaxLinkLocalOpenFds = 2048;
