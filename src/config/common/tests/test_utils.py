@@ -1012,7 +1012,7 @@ class FakeAuthProtocol(object):
             'X-User-Name': self.conf['admin_user'],
             'X-Project-Name': self.conf['admin_tenant_name'],
             'X-Domain-Name' : 'default-domain',
-            'X-Role': 'admin',
+            'X-Role': 'cloud-admin',
         }
         rval = json.dumps(token_dict)
         # print '**** generated admin token %s ****' % rval
