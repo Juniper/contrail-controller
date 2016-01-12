@@ -84,6 +84,7 @@ public:
 
     uint32_t AllocateLabel();
     void ReleaseLabel(uint32_t value);
+    std::string ToString() const;
     uint32_t first() { return first_; }
     uint32_t last() { return last_; }
     LabelBlockManagerPtr block_manager() { return block_manager_; }

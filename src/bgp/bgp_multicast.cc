@@ -575,12 +575,12 @@ void McastSGEntry::UpdateRoutes(uint8_t level) {
 //
 // Implement tree builder election.
 //
-bool McastSGEntry::IsTreeBuilder(uint8_t level) {
+bool McastSGEntry::IsTreeBuilder(uint8_t level) const {
     if (level == McastTreeManager::LevelNative)
         return true;
 
-    ForwarderSet *forwarders = forwarder_sets_[level];
-    ForwarderSet::iterator it = forwarders->begin();
+    const ForwarderSet *forwarders = forwarder_sets_[level];
+    ForwarderSet::const_iterator it = forwarders->begin();
     if (it == forwarders->end())
         return false;
 
@@ -792,11 +792,17 @@ BgpServer *McastManagerPartition::server() {
     return tree_manager_->table()->server();
 }
 
+const BgpServer *McastManagerPartition::server() const {
+    return tree_manager_->table()->server();
+}
+
 //
 // Constructor for McastTreeManager.
 //
 McastTreeManager::McastTreeManager(ErmVpnTable *table)
-    : table_(table), table_delete_ref_(this, table->deleter()) {
+    : table_(table),
+      listener_id_(DBTable::kInvalidId),
+      table_delete_ref_(this, table->deleter()) {
     deleter_.reset(new DeleteActor(this));
 }
 
