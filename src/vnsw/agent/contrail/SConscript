@@ -121,7 +121,7 @@ doc_files += env['AGENT_FLOW_DOC_FILES']
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
 env.Alias('install', env.Install(env['INSTALL_EXAMPLE'],
-          'contrail_vrouter_agent_health_check.py'))
+          'contrail-vrouter-agent-health-check.py'))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
 env.Alias('install',
