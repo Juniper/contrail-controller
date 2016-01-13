@@ -295,6 +295,9 @@ private:
         aggregate_host_route_ = value;
     }
 
+    virtual void DisableResolveTrigger() { resolve_trigger_->set_disable(); }
+    virtual void EnableResolveTrigger() { resolve_trigger_->set_enable(); }
+
     // Work Queue to handle requests posted from Match function, called
     // in the context of db::DBTable task.
     // The actions are performed in the bgp::ServiceChain task context.

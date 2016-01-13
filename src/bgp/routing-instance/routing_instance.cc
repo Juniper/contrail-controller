@@ -397,6 +397,10 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     RTINSTANCE_LOG(Delete, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
+    rtinstance->ProcessServiceChainConfig();
+    rtinstance->FlushStaticRouteConfig();
+    rtinstance->FlushRouteAggregationConfig();
+
     NotifyInstanceOp(name, INSTANCE_DELETE);
     rtinstance->ManagedDelete();
 }

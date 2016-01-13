@@ -11,6 +11,7 @@
 #include "base/util.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
@@ -285,6 +286,27 @@ public:
 private:
     typedef std::map<boost::uuids::uuid, BgpPeer *> PeerByUuidMap;
     PeerByUuidMap peers_by_uuid_;
+};
+
+class BgpLifetimeManagerTest : public BgpLifetimeManager {
+public:
+    BgpLifetimeManagerTest(BgpServer *server, int task_id)
+        : BgpLifetimeManager(server, task_id), destroy_not_ok_(false) {
+    }
+    virtual ~BgpLifetimeManagerTest() {
+    }
+
+    virtual bool MayDestroy() { return !destroy_not_ok_; }
+    virtual void SetQueueDisable(bool disabled) {
+        LifetimeManager::SetQueueDisable(disabled);
+    }
+
+    void set_destroy_not_ok(bool destroy_not_ok) {
+        destroy_not_ok_ = destroy_not_ok;
+    }
+
+private:
+    bool destroy_not_ok_;
 };
 
 class XmppStateMachineTest : public XmppStateMachine {

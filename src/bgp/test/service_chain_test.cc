@@ -30,6 +30,7 @@
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
@@ -234,6 +235,21 @@ protected:
         boost::system::error_code ec;
         peers_.push_back(new BgpPeerMock(Ip4Address::from_string(address, ec)));
         assert(ec.value() == 0);
+    }
+
+    void SetLifetimeManagerQueueDisable(bool disabled) {
+        BgpLifetimeManagerTest *ltm = dynamic_cast<BgpLifetimeManagerTest *>(
+            bgp_server_->lifetime_manager());
+        assert(ltm);
+        ltm->SetQueueDisable(disabled);
+    }
+
+    void DisableResolveTrigger() {
+        service_chain_mgr_->DisableResolveTrigger();
+    }
+
+    void EnableResolveTrigger() {
+        service_chain_mgr_->EnableResolveTrigger();
     }
 
     bool IsServiceChainQEmpty() {
@@ -861,6 +877,10 @@ protected:
     }
 
     void RemoveRoutingInstance(string name, string connection) {
+        ifmap_test_util::IFMapMsgUnlink(&config_db_,
+                                        "virtual-network", name,
+                                        "routing-instance", name,
+                                        "virtual-network-routing-instance");
         ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                         "routing-instance", name,
                                         "routing-instance", connection,
@@ -1953,6 +1973,41 @@ TYPED_TEST(ServiceChainTest, UnresolvedPendingChain) {
 
     // Delete connected
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+TYPED_TEST(ServiceChainTest, DeletePendingChain) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    // Configure chain with bad service chain address to ensure that it gets
+    // added to the pending queue.
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_9.xml");
+
+    // Verify that it's on the pending queue.
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+
+    // Pause processing of pending chains.
+    this->DisableResolveTrigger();
+
+    // Pause the lifetime manager and remove configuration for blue-i1.
+    // This ensures that blue-i1 is marked deleted but Shutdown does not
+    // get invoked yet.
+    this->SetLifetimeManagerQueueDisable(true);
+    this->RemoveRoutingInstance("blue-i1", "blue");
+    this->ClearServiceChainInformation("blue-i1");
+
+    // Resume processing of pending chains.
+    // This ensures that we try to resolve the chain after the instance has
+    // been deleted but before shutdown has been called for it.
+    this->EnableResolveTrigger();
+
+    // Resume lifetime manager so that it's can proceed and destroy blue-i1.
+    this->SetLifetimeManagerQueueDisable(false);
+    task_util::WaitForIdle();
 }
 
 TYPED_TEST(ServiceChainTest, UpdateChain) {
@@ -4174,6 +4229,8 @@ static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpObjectFactory::Register<BgpConfigManager>(
         boost::factory<BgpIfmapConfigManager *>());
+    BgpObjectFactory::Register<BgpLifetimeManager>(
+        boost::factory<BgpLifetimeManagerTest *>());
 }
 
 static void TearDown() {

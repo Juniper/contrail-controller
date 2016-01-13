@@ -16,10 +16,11 @@ class BgpConfigListener;
 class BgpConfigManager;
 class BgpExport;
 class BgpInstanceConfig;
-class BgpRoutingPolicyConfig;
+class BgpLifetimeManager;
 class BgpMessageBuilder;
 class BgpNeighborConfig;
 class BgpPeer;
+class BgpRoutingPolicyConfig;
 class BgpServer;
 class BgpSessionManager;
 class BgpXmppMessageBuilder;
@@ -59,6 +60,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingPolicyMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RTargetGroupMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
+    FACTORY_TYPE_N2(BgpObjectFactory, BgpLifetimeManager, BgpServer *, int);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);
     FACTORY_TYPE_N3(BgpObjectFactory, BgpPeer,
