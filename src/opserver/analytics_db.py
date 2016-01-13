@@ -26,6 +26,14 @@ import pdb
 import argparse
 import socket
 import struct
+from cassandra.cluster import Cluster
+from cassandra.auth import PlainTextAuthProvider
+from cassandra import ConsistencyLevel
+from cassandra.query import dict_factory, named_tuple_factory
+from cassandra.io.geventreactor import GeventConnection
+from cassandra.query import named_tuple_factory
+from cassandra.query import PreparedStatement, tuple_factory
+import platform
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
@@ -36,13 +44,32 @@ class AnalyticsDb(object):
         self._redis_query_port = redis_query_port
         self._redis_password = redis_password
         self._pool = None
+        self._session = None
         self._cassandra_user = cassandra_user
         self._cassandra_password = cassandra_password
         self.connect_db()
         self.number_of_purge_requests = 0
     # end __init__
 
+    @staticmethod
+    def use_cql():
+        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+        if PLATFORM.lower() == 'ubuntu':
+            if VERSION.find('12.') == 0:
+                return False
+        if PLATFORM.lower() == 'centos':
+            if VERSION.find('6.') == 0:
+                return False
+        return True
+    # end use_cql
+
     def connect_db(self):
+        if not AnalyticsDb.use_cql():
+            self.connect_db_thrift()
+        else:
+            self.get_cql_session(COLLECTOR_KEYSPACE_CQL)
+
+    def connect_db_thrift(self):
         try:
              creds=None
              if self._cassandra_user is not None and \
@@ -77,7 +104,30 @@ class AnalyticsDb(object):
         return None
     # end _get_sysm
 
-    def _get_analytics_ttls(self):
+    def _get_analytics_ttls_cql(self):
+        ret_row = {}
+        if (self._session is None) :
+            self._logger.error("Session to %s not initialized" % \
+                COLLECTOR_KEYSPACE_CQL)
+            return None
+        try:
+            ttl_query = "SELECT * FROM %s" % SYSTEM_OBJECT_TABLE.lower()
+            self._session.row_factory = dict_factory
+            rs = self._session.execute(ttl_query)
+            for r in rs:
+                row = r
+            self._session.row_factory = named_tuple_factory
+            return (row, 0)
+        except Exception as e:
+            self._logger.error("Exception: analytics_start_time Failure ")
+            ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = AnalyticsFlowTTL
+            ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = AnalyticsStatisticsTTL
+            ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = AnalyticsConfigAuditTTL
+            ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
+            return (ret_row, -1)
+    # end _get_analytics_ttls_cql
+
+    def _get_analytics_ttls_thrift(self):
         ret_row = {}
         try:
             col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
@@ -88,7 +138,18 @@ class AnalyticsDb(object):
             ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = AnalyticsStatisticsTTL
             ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = AnalyticsConfigAuditTTL
             ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
-            return ret_row
+            return (ret_row, -1)
+        return (row, 0)
+
+    def _get_analytics_ttls(self):
+        ret_row = {}
+        if (AnalyticsDb.use_cql):
+            (row, status) = self._get_analytics_ttls_cql()
+        else:
+            (row, status) = self._get_analytics_ttls_thrift()
+
+        if status == -1:
+            return row
 
         if (SYSTEM_OBJECT_FLOW_DATA_TTL not in row):
             ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = AnalyticsFlowTTL
@@ -110,14 +171,39 @@ class AnalyticsDb(object):
         return ret_row
     # end _get_analytics_ttls
 
-    def _get_analytics_start_time(self):
+    def _get_analytics_start_time_cql(self):
+        # old_row_factory is usually named_tuple_factory
+        old_row_factory = self._session.row_factory
+        self._session.row_factory = dict_factory
         try:
-            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
+            start_time_query = "SELECT * FROM %s" % \
+                (SYSTEM_OBJECT_TABLE)
+            rs = self._session.execute(start_time_query)
+            for r in rs:
+                row = r
+            self._session.row_factory = old_row_factory
+            return row
         except Exception as e:
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
             return None
 
+    def _get_analytics_start_time_thrift(self):
+        try:
+            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
+            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
+            return row
+        except Exception as e:
+            self._logger.error("Exception: analytics_start_time Failure %s" % e)
+            return None
+
+    def _get_analytics_start_time(self):
+        if AnalyticsDb.use_cql() is True:
+            row = self._get_analytics_start_time_cql()
+        else:
+            row = self._get_analytics_start_time_thrift()
+
+        if row is None:
+            return row
         # Initialize the dictionary before returning
         if (SYSTEM_OBJECT_START_TIME not in row):
             return None
@@ -139,13 +225,49 @@ class AnalyticsDb(object):
         return ret_row
     # end _get_analytics_start_time
 
-    def _update_analytics_start_time(self, start_times):
+    def get_cql_session(self, keyspace):
+        creds=None
+        try:
+            if self._cassandra_user is not None and \
+               self._cassandra_password is not None:
+                   creds = PlainTextAuthProvider(username=self._cassandra_user,
+                       password=self._cassandra_password)
+            # Extract the server_list and port number seperately
+            server_list = [i.split(":")[0] for i in self._cassandra_server_list]
+            cql_port = self._cassandra_server_list[0].split(":")[1]
+            if cql_port == '9160':
+                cql_port = '9042'
+            cluster = Cluster(contact_points = server_list,
+                auth_provider = creds, port = cql_port)
+            self._session=cluster.connect(keyspace)
+            self._session.connection_class = GeventConnection
+            self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
+        except Exception as e:
+            self._logger.error("Exception: get_cql_session Failure %s" % e)
+            return None
+
+    def _update_analytics_start_time_cql(self, start_times):
+        insert_query = "INSERT INTO SYSTEM_OBJECT_TABLE VALUES(%s, %s) " % \
+            (SYSTEM_OBJECT_ANALYTICS, start_times)
+        try:
+            self._session.execute(insert_query)
+        except Exception as e:
+            self._logger.error("Exception: update_analytics_start_time "
+                "Connection Failure %s" % e)
+
+    def _update_analytics_start_time_thrift(self, start_times):
         try:
             col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
             col_family.insert(SYSTEM_OBJECT_ANALYTICS, start_times)
         except Exception as e:
             self._logger.error("Exception: update_analytics_start_time "
                 "Connection Failure %s" % e)
+
+    def _update_analytics_start_time(self, start_times):
+        if AnalyticsDb.use_cql() is True:
+            self._update_analytics_start_time_cql(start_times)
+        else:
+            self._update_analytics_start_time_thrift(start_times)
     # end _update_analytics_start_time
 
     def set_analytics_db_purge_status(self, purge_id, purge_cutoff):
@@ -209,7 +331,128 @@ class AnalyticsDb(object):
         return None
     # end get_analytics_db_purge_status
 
+    def db_purge_cql(self, purge_cutoff, purge_id):
+        total_rows_deleted = 0 # total number of rows deleted
+        purge_error_details = []
+        table_list = self._session.cluster.metadata.\
+                     keyspaces[COLLECTOR_KEYSPACE_CQL].tables.keys()
+        if (table_list == None):
+            self._logger.error('Failed to get table list')
+            purge_error_details.append('Failed to get table list')
+            return (-1, purge_error_details)
+
+        COLLECTOR_GLOBAL_TABLE_TO_LOWER = COLLECTOR_GLOBAL_TABLE.lower()
+        _FLOW_TABLES_TO_LOWER = [i.lower() for i in _FLOW_TABLES]
+        _STATS_TABLES_TO_LOWER = [i.lower() for i in _STATS_TABLES]
+        _MSG_TABLES_TO_LOWER = [i.lower() for i in _MSG_TABLES]
+        _NO_AUTO_PURGE_TABLES_TO_LOWER = [i.lower() for i in \
+            _NO_AUTO_PURGE_TABLES]
+        # delete entries from message table
+        msg_table = COLLECTOR_GLOBAL_TABLE_TO_LOWER
+        # total number of rows deleted from this table
+        msg_table_deleted = 0
+
+        for table in table_list:
+            # purge from index tables
+            if (table not in _NO_AUTO_PURGE_TABLES_TO_LOWER):
+                self._logger.info("purge_id %s deleting old records from "
+                                  "table: %s" % (purge_id, table))
+
+                # determine purge cutoff time
+                if (table in _FLOW_TABLES_TO_LOWER):
+                    purge_time = purge_cutoff['flow_cutoff']
+                elif (table in _STATS_TABLES_TO_LOWER):
+                    purge_time = purge_cutoff['stats_cutoff']
+                elif (table in _MSG_TABLES_TO_LOWER):
+                    purge_time = purge_cutoff['msg_cutoff']
+                else:
+                    purge_time = purge_cutoff['other_cutoff']
+
+                del_msg_uuids = [] # list of uuids of messages to be deleted
+
+                # total number of rows deleted from each table
+                per_table_deleted = 0
+                try:
+                    # Get the partition keys for the table
+                    partion_key_list = self._session.cluster.metadata.\
+                        keyspaces[COLLECTOR_KEYSPACE_CQL].tables[table].\
+                        partition_key
+                    pk_name = [i.name for i in partion_key_list]
+                    query_str = "SELECT %s,value FROM %s" % \
+                        ((','.join(pk_name)), table)
+                    try:
+                        # Having tuple factory makes it easier for substitution later
+                        old_row_factory = self._session.row_factory
+                        self._session.row_factory=tuple_factory
+                        result = self._session.execute(query_str)
+                        self._session.row_factory = old_row_factory
+                    except Exception as e:
+                        self._logger.error("purge_id %s Failure in fetching "
+                            "the columnfamily %s" % (purge_id,e))
+                        purge_error_details.append("Failure in fetching "
+                            "the columnfamily %s" % e)
+                        return (-1, purge_error_details)
+                    # create a prepare stmt for delete keyword
+                    # Bind values to it for every row
+                    del_query = "DELETE FROM %s WHERE %s" % (table,
+                                    ' AND '.join([s+"=?" for s in pk_name]))
+                    prepared_stmt=self._session.prepare(del_query)
+                    for row in result:
+                        t2 = row[0]
+                        # each row will have equivalent of 2^23 = 8388608 usecs
+                        row_time = (float(t2)*pow(2, RowTimeInBits))
+                        if (row_time < purge_time):
+                            per_table_deleted +=1
+                            total_rows_deleted +=1
+                            if table == MESSAGE_TABLE_SOURCE.lower():
+                                # get message table uuids to delete
+                                del_msg_uuids.extend([row[len(row)-1]])
+                            try:
+                                bound_stmt = prepared_stmt.bind(list(row[0:len(row)-1]))
+                                self._session.execute(bound_stmt)
+                            except Exception as e:
+                                self._logger.error("Exception: Purge_id:%s table:%s "
+                                        "error: %s" % (purge_id, table, e))
+                                continue
+
+                    if len(del_msg_uuids) != 0:
+                        # delete uuids from the message table
+                        del_query = "DELETE FROM MessageTable WHERE key = ?"
+                        prepared_stmt=self._session.prepare(del_query)
+                        try:
+                            for key in del_msg_uuids:
+                                msg_table_deleted +=1
+                                total_rows_deleted +=1
+                                bound_stmt = prepared_stmt.bind([key])
+                                self._session.execute(bound_stmt)
+                        except Exception as e:
+                            self._logger.error("Exception: Purge_id %s message table "
+                                "doesnot have uuid %s" % (purge_id, e))
+                            purge_error_details.append("Exception: Message table "
+                                "doesnot have uuid %s" % (e))
+                except Exception as e:
+                    self._logger.error("Exception: Purge_id:%s table:%s "
+                            "error: %s" % (purge_id, table, e))
+                    purge_error_details.append("Exception: Table:%s "
+                            "error: %s" % (table, e))
+                    continue
+                self._logger.warning("Purge_id %s deleted %d rows from "
+                    "table: %s" % (purge_id, per_table_deleted, table))
+
+        self._logger.warning("Purge_id %s deleted %d rows from table: %s"
+            % (purge_id, msg_table_deleted, COLLECTOR_GLOBAL_TABLE))
+        self._logger.warning("Purge_id %s total rows deleted: %s"
+            % (purge_id, total_rows_deleted))
+        return (total_rows_deleted, purge_error_details)
+    #end db_purge_cql
+
     def db_purge(self, purge_cutoff, purge_id):
+        if (AnalyticsDb.use_cql() is True) :
+            return self.db_purge_cql(purge_cutoff, purge_id)
+        else:
+            return self.db_purge_thrift(purge_cutoff, purge_id)
+
+    def db_purge_thrift(self, purge_cutoff, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
         purge_error_details = []
         if (self._pool == None):
