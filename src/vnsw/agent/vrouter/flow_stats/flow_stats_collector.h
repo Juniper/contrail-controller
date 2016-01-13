@@ -170,7 +170,6 @@ private:
     uint32_t flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
-    uint32_t threshold_;
     uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
     std::vector<FlowDataIpv4> msg_list_;
