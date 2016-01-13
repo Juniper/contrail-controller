@@ -185,6 +185,14 @@ bgp_ip_test = env.UnitTest('bgp_ip_test',
                            ['bgp_ip_test.cc'])
 env.Alias('src/bgp:bgp_ip_test', bgp_ip_test)
 
+bgp_ip_test1 = env.UnitTest('bgp_ip_test1',
+                            ['bgp_ip_test1.cc'])
+env.Alias('src/bgp:bgp_ip_test1', bgp_ip_test1)
+
+bgp_ip_test2 = env.UnitTest('bgp_ip_test2',
+                            ['bgp_ip_test2.cc'])
+env.Alias('src/bgp:bgp_ip_test2', bgp_ip_test2)
+
 bgp_msg_builder_test = env.UnitTest('bgp_msg_builder_test',
                                    ['bgp_msg_builder_test.cc'])
 env.Alias('src/bgp:bgp_msg_builder_test', bgp_msg_builder_test)
@@ -528,7 +536,8 @@ test_suite = [
     bgp_export_rstate_test,
     bgp_export_rtupdate_test,
     bgp_export_uplist_test,
-    bgp_ip_test,
+    bgp_ip_test1,
+    bgp_ip_test2,
     bgp_msg_builder_test,
     bgp_multicast_test,
     bgp_peer_close_test,

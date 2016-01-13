@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
+#include <boost/program_options.hpp>
+
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
@@ -12,6 +16,7 @@
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 
+using namespace boost::program_options;
 using std::string;
 
 class PeerMock : public IPeer {
@@ -81,20 +86,22 @@ static const char *cfg_template = "\
 </config>\
 ";
 
+// Overlay nexthop address family.
+static bool nexthop_family_is_inet;
+
 //
 // Template structure to pass to fixture class template. Needed because
 // gtest fixture class template can accept only one template parameter.
 //
-template <typename T1, typename T2, typename T3>
+template <typename T1, typename T2>
 struct TypeDefinition {
   typedef T1 TableT;
   typedef T2 PrefixT;
-  typedef T3 AddressT;
 };
 
 // TypeDefinitions that we want to test.
-typedef TypeDefinition<InetTable, Ip4Prefix, Ip4Address> InetDefinition;
-typedef TypeDefinition<Inet6Table, Inet6Prefix, Ip6Address> Inet6Definition;
+typedef TypeDefinition<InetTable, Ip4Prefix> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix> Inet6Definition;
 
 //
 // Fixture class template - instantiated later for each TypeDefinition.
@@ -104,7 +111,6 @@ class BgpIpTest : public ::testing::Test {
 protected:
     typedef typename T::TableT TableT;
     typedef typename T::PrefixT PrefixT;
-    typedef typename T::AddressT AddressT;
 
     BgpIpTest()
         : thread_(&evm_),
@@ -114,7 +120,7 @@ protected:
           peer_yx_(NULL),
           family_(GetFamily()),
           master_(BgpConfigManager::kMasterInstance),
-          ipv6_prefix_("::ffff:") {
+          ipv6_prefix_("::") {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         bs_x_->session_manager()->Initialize(0);
         bs_y_.reset(new BgpServerTest(&evm_, "Y"));
@@ -197,7 +203,11 @@ protected:
             return ipv4_addr;
         }
         if (family_ == Address::INET6) {
-            return ipv6_prefix_ + ipv4_addr;
+            if (nexthop_family_is_inet) {
+                return ipv4_addr;
+            } else {
+                return ipv6_prefix_ + ipv4_addr;
+            }
         }
         assert(false);
         return "";
@@ -252,7 +262,7 @@ protected:
         path_spec.path_segments.push_back(path_seg);
         attr_spec.push_back(&path_spec);
 
-        AddressT nh_addr = AddressT::from_string(nexthop_str, ec);
+        IpAddress nh_addr = IpAddress::from_string(nexthop_str, ec);
         EXPECT_FALSE(ec);
         BgpAttrNextHop nh_spec(nh_addr);
         attr_spec.push_back(&nh_spec);
@@ -544,12 +554,37 @@ static void TearDown() {
     scheduler->Terminate();
 }
 
-int main(int argc, char **argv) {
+static void process_command_line_args(int argc, const char **argv) {
+    options_description desc("BgpIpTest");
+    desc.add_options()
+        ("help", "produce help message")
+        ("nexthop-address-family", value<string>()->default_value("inet"),
+             "set nexthop address family (inet/inet6)");
+    variables_map vm;
+    store(parse_command_line(argc, argv, desc), vm);
+    notify(vm);
+
+    if (vm.count("nexthop-address-family")) {
+        nexthop_family_is_inet =
+            (vm["nexthop-address-family"].as<string>() == "inet");
+    }
+}
+
+int bgp_ip_test_main(int argc, const char **argv) {
     bgp_log_test::init();
-    ::testing::InitGoogleTest(&argc, argv);
+    ::testing::InitGoogleTest(&argc, const_cast<char **>(argv));
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
+    process_command_line_args(argc, const_cast<const char **>(argv));
     SetUp();
     int result = RUN_ALL_TESTS();
     TearDown();
     return result;
 }
+
+#ifndef __BGP_IP_TEST_WRAPPER_TEST_SUITE__
+
+int main(int argc, char **argv) {
+    return bgp_ip_test_main(argc, const_cast<const char **>(argv));
+}
+
+#endif
