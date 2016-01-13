@@ -289,6 +289,150 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
     client->WaitForIdle();
 }
 
+TEST_F(MirrorTableTest, MirrorEntryAddDel_5) {
+    Ip4Address vhost_ip(agent_->router_id());
+    Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
+    //Add mirror entry pointing to same vhost IP
+    std::string ana = analyzer + "r";
+    std::string analyzer1 = analyzer + "1";
+    std::string analyzer2 = "analyzer2";
+    MirrorTable::AddMirrorEntry(ana, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    MirrorTable::AddMirrorEntry(analyzer1, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    MirrorTable::AddMirrorEntry(analyzer2 , "vrf2",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    client->WaitForIdle();
+    //Mirror NH would point to a gateway route
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::DISCARD);
+
+    MirrorEntryKey key1(analyzer1);
+    const MirrorEntry *mirr_entry1 = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key1));
+    EXPECT_TRUE(mirr_entry1 != NULL);
+    const MirrorNH *mirr_nh1 = static_cast<const MirrorNH *>(mirr_entry1->GetNH());
+    EXPECT_TRUE(mirr_nh1->GetType() == NextHop::DISCARD);
+
+
+    AddVrf("vrf3");
+    client->WaitForIdle();
+
+    mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::MIRROR);
+
+    mirr_nh1 = static_cast<const MirrorNH *>(mirr_entry1->GetNH());
+    EXPECT_TRUE(mirr_nh1->GetType() == NextHop::MIRROR);
+
+    MirrorEntryKey key2(analyzer2);
+    const MirrorEntry *mirr_entry2 = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key2));
+    EXPECT_TRUE(mirr_entry2 != NULL);
+    const MirrorNH *mirr_nh2 = static_cast<const MirrorNH *>(mirr_entry2->GetNH());
+    EXPECT_TRUE(mirr_nh2->GetType() == NextHop::DISCARD);
+
+    MirrorTable::DelMirrorEntry(ana);
+    MirrorTable::DelMirrorEntry(analyzer1);
+    MirrorTable::DelMirrorEntry(analyzer2);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+    usleep(1000);
+    DelVrf("vrf3");
+    client->WaitForIdle();
+}
+
+TEST_F(MirrorTableTest, MirrorInvalidVrf_1) {
+    Ip4Address vhost_ip(agent_->router_id());
+    string analyser("analyzer-no-vrf");
+    string vrf("invalid-vrf");
+
+    //Add mirror entry pointing to same vhost IP
+    MirrorTable::AddMirrorEntry(analyzer, vrf, vhost_ip, 0x1, vhost_ip, 0x2);
+    client->WaitForIdle();
+
+    //Mirror NH would point to a route, whose nexthop would be RCV NH
+    MirrorEntryKey key(analyzer);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+        (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+
+    //Make sure mirror nh internally points to receive router
+    const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::DISCARD);
+
+    MirrorTable::DelMirrorEntry(analyzer);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+        (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+}
+
+TEST_F(MirrorTableTest, MirrorEntryAddDel_6) {
+    AddVrf("vrf3");
+    client->WaitForIdle();
+
+    Ip4Address vhost_ip(agent_->router_id());
+    Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
+    //Add mirror entry pointing to same vhost IP
+    std::string ana = analyzer + "r";
+    std::string analyzer1 = analyzer + "1";
+    std::string analyzer2 = "analyzer2";
+    MirrorTable::AddMirrorEntry(ana, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    MirrorTable::AddMirrorEntry(analyzer1, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    MirrorTable::AddMirrorEntry(analyzer2 , "vrf2",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    client->WaitForIdle();
+    //Mirror NH would point to a gateway route
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::MIRROR);
+
+    MirrorEntryKey key1(analyzer1);
+    const MirrorEntry *mirr_entry1 = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key1));
+    EXPECT_TRUE(mirr_entry1 != NULL);
+    const MirrorNH *mirr_nh1 = static_cast<const MirrorNH *>(mirr_entry1->GetNH());
+    EXPECT_TRUE(mirr_nh1->GetType() == NextHop::MIRROR);
+
+
+    DelVrf("vrf3");
+    client->WaitForIdle();
+
+    mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::DISCARD);
+
+    mirr_nh1 = static_cast<const MirrorNH *>(mirr_entry1->GetNH());
+    EXPECT_TRUE(mirr_nh1->GetType() == NextHop::DISCARD);
+
+    MirrorEntryKey key2(analyzer2);
+    const MirrorEntry *mirr_entry2 = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key2));
+    EXPECT_TRUE(mirr_entry2 != NULL);
+    const MirrorNH *mirr_nh2 = static_cast<const MirrorNH *>(mirr_entry2->GetNH());
+    EXPECT_TRUE(mirr_nh2->GetType() == NextHop::DISCARD);
+
+    MirrorTable::DelMirrorEntry(ana);
+    MirrorTable::DelMirrorEntry(analyzer1);
+    MirrorTable::DelMirrorEntry(analyzer2);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

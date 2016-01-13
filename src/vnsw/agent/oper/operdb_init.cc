@@ -157,6 +157,7 @@ void OperDB::CreateDBTables(DB *db) {
     assert(mirror_table);
     agent_->set_mirror_table(mirror_table);
     mirror_table->set_agent(agent_);
+    mirror_table->Initialize();
 
     VrfAssignTable *vassign_table = static_cast<VrfAssignTable *>
                    (db->CreateTable("db.vrf_assign.0"));
@@ -302,6 +303,9 @@ void OperDB::Shutdown() {
     route_preference_module_->Shutdown();
     domain_config_->Terminate();
     vrouter_.reset();
+    if (agent()->mirror_table()) {
+        agent()->mirror_table()->Shutdown();
+    }
 }
 
 void OperDB::DeleteRoutes() {
