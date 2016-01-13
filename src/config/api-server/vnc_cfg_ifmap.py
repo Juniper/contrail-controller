@@ -1146,7 +1146,8 @@ class VncServerKombuClient(VncKombuClient):
     def _dbe_delete_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
 
-        self.dbe_uve_trace("DELETE", obj_info['type'], obj_info['uuid'], None)
+        self.dbe_uve_trace(
+            "DELETE", obj_info['type'], obj_info['uuid'], obj_dict)
 
         db_client_mgr = self._db_client_mgr
         db_client_mgr._cassandra_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
@@ -1672,7 +1673,10 @@ class VncDbClient(object):
     def dbe_uve_trace(self, oper, typ, uuid, obj_dict):
         oo = {}
         oo['uuid'] = uuid
-        oo['name'] = self.uuid_to_fq_name(uuid)
+        if oper.upper() == 'DELETE':
+            oo['name'] = obj_dict['fq_name']
+        else:
+            oo['name'] = self.uuid_to_fq_name(uuid)
         oo['value'] = obj_dict
         oo['type'] = typ
 

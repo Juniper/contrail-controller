@@ -425,6 +425,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _create_test_object(self):
         return self._create_test_objects()[0]
 
+    def _delete_test_object(self, obj):
+        self._vnc_lib.virtual_network_delete(id=obj.uuid)
+
     def ifmap_has_ident(self, obj=None, id=None):
         if obj:
             _type = obj.get_type()
@@ -438,6 +441,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         return False
+
+    def ifmap_doesnt_have_ident(self, obj=None, id=None):
+        return not self.ifmap_has_ident(obj, id)
 
     def assertTill(self, expr_or_cb, *cb_args, **cb_kwargs):
         tries = 0
