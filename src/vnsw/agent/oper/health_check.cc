@@ -365,23 +365,25 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
     const autogen::ServiceHealthCheckType &p = s->properties();
     Ip4Address dest_ip;
     std::string url_path;
+
     if (p.monitor_type.find("HTTP") == std::string::npos) {
-        boost::system::error_code ec;
         dest_ip = Ip4Address::from_string(p.url_path, ec);
         url_path = p.url_path;
     } else {
         std::string url = p.url_path;
         boost::algorithm::to_lower(url);
         std::size_t found = url.find("http://");
-        assert(found == 0);
-        std::string url_path = p.url_path.substr(7);
-        found = url_path.find("/");
-        assert(found != 0);
-        std::string dest_ip_str = p.url_path.substr(7, found);
-        url_path = p.url_path.substr(7 + found + 1);
-        boost::system::error_code ec;
-        dest_ip = Ip4Address::from_string(dest_ip_str, ec);
+        if (found == 0) {
+            std::string url_path_substr = p.url_path.substr(7);
+            found = url_path_substr.find("/");
+            if (found != 0) {
+                std::string dest_ip_str = p.url_path.substr(7, found);
+                url_path = p.url_path.substr(7 + found + 1);
+                dest_ip = Ip4Address::from_string(dest_ip_str, ec);
+            }
+        }
     }
+
     HealthCheckServiceData *data =
         new HealthCheckServiceData(agent, dest_ip, node->name(),
                                    p.monitor_type, p.http_method, url_path,
