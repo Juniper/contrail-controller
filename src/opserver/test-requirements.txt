@@ -31,3 +31,4 @@ cassandra-driver
 ../opserver/plugins/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz
 ../opserver/plugins/alarm_vrouter_interface/dist/alarm_vrouter_interface-0.1dev.tar.gz
 ../opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz
+../opserver/plugins/alarm_storage/dist/alarm_storage-0.1dev.tar.gz

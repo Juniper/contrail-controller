@@ -1,0 +1,44 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('OpEnv')
+
+env = OpEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(env.Install(".",
+        "#/controller/src/opserver/plugins/alarm_storage/" + file))
+
+local_sources = [
+    '__init__.py',
+    'main.py',
+]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install(Dir("alarm_storage"), file))
+
+sdist_depends = [setup_sources_rules, local_sources_rules]
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist/alarm_storage-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+OpEnv['ALARM_STORAGE_PKG'] = sdist_gen
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None,
+                      'setup.py',
+                      cd_cmd + 'python setup.py install %s' %
+                      env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+

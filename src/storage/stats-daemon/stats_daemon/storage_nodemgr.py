@@ -156,6 +156,66 @@ class EventManager:
         send_inst.send()
 
     '''
+    This function reads the ceph cluster status
+    Parses the health status output and gets error reason if present \
+    StorageCluster object created and information is Populated
+    UVE send call invoked to send the StorageCluster object
+    '''
+
+    def create_and_send_cluster_stats(self, mon_id):
+        res = self.call_subprocess('/usr/bin/ceph health detail | grep -v ^pg')
+        if res is None:
+            return
+        cluster_id = self.exec_local('ceph --admin-daemon \
+                          /var/run/ceph/ceph-mon.%s.asok quorum_status | \
+                          grep fsid | \
+                          cut -d \'"\'  -f4' %(mon_id))
+        cluster_stats = StorageCluster()
+        cluster_stats.cluster_id = cluster_id
+        cluster_stats.name = cluster_id
+        status = res.split(' ')[0]
+        status_count = res.count(' ')
+        if status_count >= 1:
+            detail_info = res.split(' ', 1)[1]
+            summary_info = res.split(' ', 1)[1].splitlines()[0]
+            osd_stat = self.call_subprocess('/usr/bin/ceph osd dump | \
+                          egrep -w \'(down|out)\' | cut -d \' \' -f 1')
+            multiple = 0
+            osd_string = ''
+            if osd_stat != '':
+                osd_entries = osd_stat.splitlines()
+                for osd_entry in osd_entries:
+                    if osd_entry != '':
+                        if osd_string == '':
+                            osd_string = osd_entry
+                        else:
+                            multiple = 1
+                            osd_string = osd_string + ', ' + osd_entry
+                if multiple == 0:
+                    detail_info = detail_info + (' OSD %s is down' %(osd_string))
+                    summary_info = summary_info + ('; OSD %s is down' %(osd_string))
+                else:
+                    detail_info = detail_info + (' OSDs %s are down' %(osd_string))
+                    summary_info = summary_info + ('; OSDs %s are down' %(osd_string))
+            detail_info = re.sub('\n', ';', detail_info)
+        else:
+            status = res.splitlines()[0]
+            detail_info = ''
+            summary_info = ''
+        cluster_info = ClusterInfo()
+        if status == 'HEALTH_OK':
+            cluster_info.status = 0
+        elif status == 'HEALTH_WARN':
+            cluster_info.status = 1
+        elif status == 'HEALTH_ERR':
+            cluster_info.status = 2
+        cluster_info.health_detail = detail_info
+        cluster_info.health_summary = summary_info
+        cluster_stats.info_stats = [cluster_info]
+        cluster_stats_trace = StorageClusterTrace(data=cluster_stats)
+        self.call_send(cluster_stats_trace)
+
+    '''
     This function reads the ceph rados statistics.
     Parses this statistics output and gets the read_cnt/read_bytes \
     write_cnt/write_bytes. ComputeStoragePool object created and all \
@@ -704,15 +764,32 @@ class EventManager:
 
     # send UVE for updated process state database
     def send_process_state_db(self):
-        if (self.node_type == "storage-master"):
-            self.create_and_send_pool_stats()
-            time.sleep(10)
-        elif (self.node_type == "storage-compute"):
+        sleep_time = 20
+        # Check if the mon is the mon leader
+        # Send pool stats and cluster stats from the mon leader alone
+        mon_running = self.exec_local('ls /var/run/ceph/ceph-mon*.asok \
+                                        2> /dev/null | wc -l')
+
+        if mon_running != '0':
+            mon_id = self.exec_local('ls  /var/run/ceph/ceph-mon*.asok | \
+                                        cut -d \'.\'  -f 2')
+            mon_leader = self.exec_local('ceph --admin-daemon \
+                          /var/run/ceph/ceph-mon.%s.asok quorum_status | \
+                          grep quorum_leader_name | \
+                          cut -d \'"\'  -f4' %(mon_id))
+            if mon_id == mon_leader:
+                self.create_and_send_cluster_stats(mon_id)
+                self.create_and_send_pool_stats()
+                if self.node_type != "storage-compute":
+                    sleep_time = 10
+
+        # Send disk stats from all the storage compute nodes
+        if self.node_type == "storage-compute":
             self.create_and_send_osd_stats()
             self.create_and_send_disk_stats()
-            time.sleep(6)
-        else:
-            time.sleep(60)
+            sleep_time = 6
+
+        time.sleep(sleep_time)
         return
 
     def runforever(self, test=False):
