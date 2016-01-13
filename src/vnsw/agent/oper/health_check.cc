@@ -374,8 +374,8 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         boost::algorithm::to_lower(url);
         std::size_t found = url.find("http://");
         assert(found == 0);
-        std::string url_path = p.url_path.substr(7);
-        found = url_path.find("/");
+        std::string url_path_substr = p.url_path.substr(7);
+        found = url_path_substr.find("/");
         assert(found != 0);
         std::string dest_ip_str = p.url_path.substr(7, found);
         url_path = p.url_path.substr(7 + found + 1);
