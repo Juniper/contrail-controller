@@ -3,6 +3,7 @@
  */
 
 #include <oper/route_common.h>
+#include <oper/ecmp_load_balance.h>
 #include <oper/interface_common.h>
 #include <oper/vm_interface.h>
 #include <oper/inet_unicast_route.h>
@@ -119,13 +120,15 @@ void MetaDataIpAllocator::ReleaseIndex(MetaDataIp *ip) {
 
 void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
     PathPreference path_preference;
+    EcmpLoadBalance ecmp_load_balance;
     ip->intf_->SetPathPreference(&path_preference, false, Ip4Address(0));
 
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (agent_->link_local_peer(), agent_->fabric_vrf_name(),
          ip->GetLinkLocalIp(), 32, ip->intf_->GetUuid(),
          ip->intf_->vn()->GetName(), ip->intf_->label(), SecurityGroupList(),
-         CommunityList(), true, path_preference, Ip4Address(0));
+         CommunityList(), true, path_preference, Ip4Address(0),
+         ecmp_load_balance);
 }
 
 void MetaDataIpAllocator::DelFabricRoute(MetaDataIp *ip) {

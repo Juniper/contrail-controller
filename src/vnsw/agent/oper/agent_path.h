@@ -19,6 +19,7 @@ class InterfaceKey;
 class PhysicalInterface;
 class Peer;
 class EvpnPeer;
+class EcmpLoadBalance;
 
 class PathPreference {
 public:
@@ -261,6 +262,12 @@ public:
     const IpAddress& GetFixedIp() const {
         return path_preference_.dependent_ip();
     }
+    const EcmpLoadBalance &ecmp_load_balance() const {
+        return ecmp_load_balance_;
+    }
+    void set_ecmp_load_balance(const EcmpLoadBalance &ecmp_load_balance) {
+        ecmp_load_balance_ = ecmp_load_balance;
+    }
 
 private:
     const Peer *peer_;
@@ -327,6 +334,7 @@ private:
     // set true if path was supposed to be ecmp, however ecmp was suppressed
     // by taking only one of the nexthop from the path
     bool ecmp_suppressed_;
+    EcmpLoadBalance ecmp_load_balance_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -432,13 +440,16 @@ public:
                  uint8_t flags, const SecurityGroupList &sg_list,
                  const CommunityList &communities,
                  const PathPreference &path_preference,
-                 const IpAddress &subnet_service_ip) :
+                 const IpAddress &subnet_service_ip,
+                 const EcmpLoadBalance &ecmp_load_balance) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(false), sync_route_(false),
         flags_(flags), sg_list_(sg_list), communities_(communities),
         tunnel_bmap_(TunnelType::MplsType()),
-        path_preference_(path_preference), subnet_service_ip_(subnet_service_ip) {
+        path_preference_(path_preference),
+        subnet_service_ip_(subnet_service_ip),
+        ecmp_load_balance_(ecmp_load_balance) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -470,6 +481,7 @@ private:
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
     IpAddress subnet_service_ip_;
+    EcmpLoadBalance ecmp_load_balance_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

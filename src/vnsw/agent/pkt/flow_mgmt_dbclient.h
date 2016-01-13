@@ -6,6 +6,7 @@
 
 #include "pkt/flow_mgmt.h"
 
+class EcmpLoadBalance;
 ////////////////////////////////////////////////////////////////////////////
 // Request to the Flow Management module
 ////////////////////////////////////////////////////////////////////////////
@@ -72,7 +73,8 @@ public:
     };
 
     struct RouteFlowHandlerState : public FlowMgmtState {
-        RouteFlowHandlerState() : sg_l_(), active_nh_(NULL), local_nh_(NULL) {}
+        RouteFlowHandlerState() : sg_l_(), active_nh_(NULL), local_nh_(NULL),
+            ecmp_load_balance_() {}
         virtual ~RouteFlowHandlerState() { }
         typedef std::map<InterfaceConstRef, IpAddress> FixedIpMap;
         typedef std::pair<InterfaceConstRef, IpAddress> FixedIpEntry;
@@ -81,6 +83,7 @@ public:
         const NextHop* active_nh_;
         const NextHop* local_nh_;
         FixedIpMap fixed_ip_map_;
+        EcmpLoadBalance ecmp_load_balance_;
     };
 
     struct NhFlowHandlerState : public FlowMgmtState {

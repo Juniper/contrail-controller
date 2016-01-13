@@ -22,6 +22,7 @@
 #include "oper/peer.h"
 #include "oper/vxlan.h"
 #include "oper/agent_path.h"
+#include "oper/ecmp_load_balance.h"
 #include "cmn/agent_stats.h"
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
@@ -604,8 +605,44 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
     }
 }
 
+static void GetEcmpHashFieldsToUse(ItemType *item,
+                                   EcmpLoadBalance &ecmp_load_balance) {
+    if (item->entry.load_balance.load_balance_decision.empty() ||
+        item->entry.load_balance.load_balance_decision !=
+            LoadBalanceDecision)
+        ecmp_load_balance.SetAll();
+
+    uint8_t field_list_size =  item->entry.
+        load_balance.load_balance_fields.load_balance_field_list.size();
+    if (field_list_size == 0)
+        ecmp_load_balance.SetAll();
+
+    for (uint32_t i = 0; i < field_list_size; i++) {
+        std::string field_type = item->entry.
+            load_balance.load_balance_fields.load_balance_field_list[i];
+        if (field_type == ecmp_load_balance.source_mac_str())
+            ecmp_load_balance.set_source_mac();
+        if (field_type == ecmp_load_balance.destination_mac_str())
+            ecmp_load_balance.set_destination_mac();
+        if (field_type == ecmp_load_balance.source_ip_str())
+            ecmp_load_balance.set_source_ip();
+        if (field_type == ecmp_load_balance.destination_ip_str())
+            ecmp_load_balance.set_destination_ip();
+        if (field_type == ecmp_load_balance.ip_protocol_str())
+            ecmp_load_balance.set_ip_protocol();
+        if (field_type == ecmp_load_balance.source_port_str())
+            ecmp_load_balance.set_source_port();
+        if (field_type == ecmp_load_balance.destination_port_str())
+            ecmp_load_balance.set_destination_port();
+    }
+}
+
 void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                                     uint32_t prefix_len, ItemType *item) {
+    //Extract the load balancer fields.
+    EcmpLoadBalance ecmp_load_balance;
+    GetEcmpHashFieldsToUse(item, ecmp_load_balance);
+
     PathPreference::Preference preference = PathPreference::LOW;
     TunnelType::TypeBmap encap = TunnelType::MplsType(); //default
     if (item->entry.local_preference == PathPreference::HIGH) {
@@ -690,7 +727,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                                 item->entry.virtual_network, -1,
                                 false, vrf_name,
                                 item->entry.security_group_list.security_group,
-                                rp, encap, nh_req);
+                                rp, encap, ecmp_load_balance, nh_req);
 
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
@@ -898,6 +935,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     SecurityGroupList sg_list = item->entry.security_group_list.security_group;
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_nh->GetIfUuid(), "");
     ControllerLocalVmRoute *local_vm_route = NULL;
+    EcmpLoadBalance ecmp_load_balance;
+
     if (encap == TunnelType::VxlanType()) {
         local_vm_route =
             new ControllerLocalVmRoute(intf_key,
@@ -907,6 +946,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                        InterfaceNHFlags::BRIDGE,
                                        sg_list, path_preference,
                                        unicast_sequence_number(),
+                                       ecmp_load_balance,
                                        this);
     } else {
         local_vm_route =
@@ -918,6 +958,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                        InterfaceNHFlags::BRIDGE,
                                        sg_list, path_preference,
                                        unicast_sequence_number(),
+                                       ecmp_load_balance,
                                        this);
     }
     rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
@@ -984,6 +1025,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
 
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
                                     intf_nh->GetIfUuid(), "");
+            EcmpLoadBalance ecmp_load_balance;
             BgpPeer *bgp_peer = bgp_peer_id();
             if (interface->type() == Interface::VM_INTERFACE) {
                 ControllerLocalVmRoute *local_vm_route =
@@ -994,6 +1036,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                                item->entry.security_group_list.security_group,
                                                path_preference,
                                                unicast_sequence_number(),
+                                               ecmp_load_balance,
                                                this);
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
@@ -1725,6 +1768,17 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     return true;
 }
 
+void PopulateEcmpHashFieldsToUse(ItemType &item,
+                                 const EcmpLoadBalance &ecmp_load_balance) {
+    item.entry.load_balance.load_balance_decision = LoadBalanceDecision;
+
+    if (ecmp_load_balance.AllSet())
+        return;
+
+    ecmp_load_balance.GetStringVector(
+        item.entry.load_balance.load_balance_fields.load_balance_field_list);
+}
+
 bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                        const std::string &vn,
                                        const SecurityGroupList *sg_list,
@@ -1733,7 +1787,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                        TunnelType::TypeBmap bmap,
                                        const PathPreference &path_preference,
                                        bool associate,
-                                       Agent::RouteTableType type) {
+                                       Agent::RouteTableType type,
+                                       const EcmpLoadBalance &ecmp_load_balance) {
 
     static int id = 0;
     ItemType item;
@@ -1756,6 +1811,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
 
     string rtr(agent_->router_id().to_string());
 
+    PopulateEcmpHashFieldsToUse(item, ecmp_load_balance);
     autogen::NextHopType nh;
     nh.af = BgpAf::IPv4;
     nh.address = rtr;
@@ -2384,8 +2440,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                               const SecurityGroupList *sg_list,
                                               const CommunityList *communities,
                                               Agent::RouteTableType type,
-                                              const PathPreference
-                                              &path_preference)
+                                              const PathPreference &path_preference,
+                                              const EcmpLoadBalance &ecmp_load_balance)
 {
     if (!peer) return false;
 
@@ -2400,7 +2456,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
         ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn,
                                                    sg_list, communities, label,
                                                    bmap, path_preference, true,
-                                                   type);
+                                                   type, ecmp_load_balance);
     }
     if (type == Agent::EVPN) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
@@ -2432,13 +2488,15 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
     bool ret = false;
     if (((type == Agent::INET4_UNICAST) || (type == Agent::INET6_UNICAST)) &&
          (peer->agent()->simulate_evpn_tor() == false)) {
+        EcmpLoadBalance ecmp_load_balance;
         ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn,
                                                        sg_list, communities,
                                                        label,
                                                        bmap,
                                                        path_preference,
                                                        false,
-                                                       type);
+                                                       type,
+                                                       ecmp_load_balance);
     }
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);

@@ -11,6 +11,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "net/address_util.h"
+#include "oper/ecmp_load_balance.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
@@ -914,31 +915,46 @@ void PktInfo::UpdateHeaderPtr() {
     transp.tcp = (struct tcphdr *)(ip + 1);
 }
 
-std::size_t PktInfo::hash() const {
+std::size_t PktInfo::hash(const EcmpLoadBalance &ecmp_load_balance) const {
     std::size_t seed = 0;
+
     if (family == Address::INET) {
-        boost::hash_combine(seed, ip_saddr.to_v4().to_ulong());
-        boost::hash_combine(seed, ip_daddr.to_v4().to_ulong());
+        if (ecmp_load_balance.is_source_ip_set()) {
+            boost::hash_combine(seed, ip_saddr.to_v4().to_ulong());
+        }
+        if (ecmp_load_balance.is_destination_ip_set()) {
+            boost::hash_combine(seed, ip_daddr.to_v4().to_ulong());
+        }
     } else if (family == Address::INET6) {
         uint32_t *words;
 
-        words = (uint32_t *) (ip_saddr.to_v6().to_bytes().c_array());
-        boost::hash_combine(seed, words[0]);
-        boost::hash_combine(seed, words[1]);
-        boost::hash_combine(seed, words[2]);
-        boost::hash_combine(seed, words[3]);
+        if (ecmp_load_balance.is_source_ip_set()) {
+            words = (uint32_t *) (ip_saddr.to_v6().to_bytes().c_array());
+            boost::hash_combine(seed, words[0]);
+            boost::hash_combine(seed, words[1]);
+            boost::hash_combine(seed, words[2]);
+            boost::hash_combine(seed, words[3]);
+        }
 
-        words = (uint32_t *) (ip_daddr.to_v6().to_bytes().c_array());
-        boost::hash_combine(seed, words[0]);
-        boost::hash_combine(seed, words[1]);
-        boost::hash_combine(seed, words[2]);
-        boost::hash_combine(seed, words[3]);
+        if (ecmp_load_balance.is_destination_ip_set()) {
+            words = (uint32_t *) (ip_daddr.to_v6().to_bytes().c_array());
+            boost::hash_combine(seed, words[0]);
+            boost::hash_combine(seed, words[1]);
+            boost::hash_combine(seed, words[2]);
+            boost::hash_combine(seed, words[3]);
+        }
     } else {
         assert(0);
     }
-    boost::hash_combine(seed, ip_proto);
-    boost::hash_combine(seed, sport);
-    boost::hash_combine(seed, dport);
+    if (ecmp_load_balance.is_ip_protocol_set()) {
+        boost::hash_combine(seed, ip_proto);
+    }
+    if (ecmp_load_balance.is_source_port_set()) {
+        boost::hash_combine(seed, sport);
+    }
+    if (ecmp_load_balance.is_destination_port_set()) {
+        boost::hash_combine(seed, dport);
+    }
     return seed;
 }
 

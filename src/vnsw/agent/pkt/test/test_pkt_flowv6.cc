@@ -7,6 +7,7 @@
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
+#include "oper/ecmp_load_balance.h"
 #include "oper/tunnel_nh.h"
 #include "pkt/flow_table.h"
 
@@ -64,7 +65,8 @@ public:
                                      intf->vn()->GetName(), label,
                                      SecurityGroupList(), CommunityList(), false,
                                      PathPreference(),
-                                     Ip6Address());
+                                     Ip6Address(),
+                                     EcmpLoadBalance());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFindV6(vrf, addr, 128));
     }
