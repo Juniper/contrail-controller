@@ -295,8 +295,8 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
         return true;
 
     VmInterfaceGlobalVrouterData data(vn->bridging(),
-                                      vn->layer3_forwarding(),
-                                      vn->GetVxLanId());
+                                 vn->layer3_forwarding(),
+                                 vn->GetVxLanId());
     return vm_intf->Resync(this, &data);
 }
 

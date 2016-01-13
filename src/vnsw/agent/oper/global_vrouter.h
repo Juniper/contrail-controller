@@ -14,6 +14,7 @@ class IFMapNode;
 class AgentRouteResync;
 class AgentRouteEncap;
 class AgentUtXmlFlowThreshold;
+class EcmpLoadBalance;
 
 namespace autogen {
     struct LinklocalServiceEntryType;
@@ -114,6 +115,7 @@ public:
 
     uint64_t PendingFabricDnsRequests() const;
     void ResyncRoutes();
+    const EcmpLoadBalance &ecmp_load_balance() const;
 
     friend class AgentUtXmlFlowThreshold;
 private:
@@ -142,6 +144,7 @@ private:
     Agent::ForwardingMode forwarding_mode_;
     uint32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
+    EcmpLoadBalance ecmp_load_balance_;
 };
 
 #endif // vnsw_agent_global_router_h_

@@ -190,7 +190,8 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
 // This is to avoid routing across fabric interface itself
 static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
                      PktControlInfo *in, PktControlInfo *out,
-                     bool force_vmport) {
+                     bool force_vmport,
+                     const EcmpLoadBalance &ecmp_load_balance) {
     bool ret = true;
 
     if (!nh->IsActive())
@@ -222,7 +223,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             if (info->out_component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx ||
                 (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
-                info->out_component_nh_idx = comp_nh->hash(pkt->hash());
+                info->out_component_nh_idx = comp_nh->hash(pkt->
+                                             hash(ecmp_load_balance));
             }
             nh = comp_nh->GetNH(info->out_component_nh_idx);
             // TODO: Should we re-hash here?
@@ -397,7 +399,8 @@ static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
         return false;
     }
 
-    return NhDecode(nh, pkt, info, in, out, false);
+    return NhDecode(nh, pkt, info, in, out, false,
+                    path->ecmp_load_balance());
 }
 
 static const VnEntry *InterfaceToVn(const Interface *intf) {
@@ -1311,7 +1314,8 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     if (nh == NULL) {
         return;
     }
-    if (NhDecode(nh, pkt, this, in, out, true) == false) {
+    //Delay hash pick up till route is picked.
+    if (NhDecode(nh, pkt, this, in, out, true, EcmpLoadBalance()) == false) {
         return;
     }
 
@@ -1355,6 +1359,12 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (out->rt_) {
+        if (ecmp && out->rt_->GetActivePath()) {
+            const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+            out_component_nh_idx = comp_nh->hash(pkt->
+                                   hash(out->rt_->GetActivePath()->
+                                        ecmp_load_balance()));
+        }
         if (out->rt_->GetActiveNextHop()->GetType() == NextHop::ARP ||
             out->rt_->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
             //If a packet came with mpls label pointing to

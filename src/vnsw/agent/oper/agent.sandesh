@@ -255,7 +255,7 @@ struct PathSandeshData {
     2: i32 label;                     // mpls label
     3: i32 vxlan_id;                // VN ID/VXLAN
     4: string peer;                   // peer originating the path 
-   20: list<string> dest_vn_list (link="VnListReq"); // destination VN list
+    5: list<string> dest_vn_list (link="VnListReq"); // destination VN list
     6: string unresolved;             // true or false
     7: optional string gw_ip;         // GW IP
     8: optional string vrf (link="VrfListReq"); // Vrf
@@ -269,6 +269,7 @@ struct PathSandeshData {
    17: optional string flood_dhcp;
    18: optional string vm_name;
    19: optional bool ecmp_suppressed;
+   20: optional string ecmp_hashing_fields;
 }
 
 struct RouteUcSandeshData {
