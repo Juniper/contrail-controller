@@ -647,7 +647,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     }
 
     if (subject_flows_to_algorithm) {
-        double probability = diff_bytes/threshold_;
+        double probability = diff_bytes/threshold();
         uint32_t num = rand() % threshold();
         if (num > diff_bytes) {
             /* Do not export the flow, if the random number generated is more
