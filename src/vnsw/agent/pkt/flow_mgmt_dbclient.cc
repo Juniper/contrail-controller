@@ -568,6 +568,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         }
     }
 
+    if (state->ecmp_hash_fields_to_use_ != path->ecmp_hash_fields_to_use()) {
+        state->ecmp_hash_fields_to_use_ = path->ecmp_hash_fields_to_use();
+        changed = true;
+    }
+
     if (changed == true && new_route == false) {
         ChangeEvent(route, state);
     }

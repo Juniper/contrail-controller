@@ -43,6 +43,8 @@ public:
     void set_destination_ip(const IpAddress &dst_ip);
 
     void set_active(bool active);
+    uint8_t ecmp_hash_fields_to_use() const;
+    void set_ecmp_hash_fields_to_use(uint8_t ecmp_hash_fields_to_use);
 
     void UpdateInterfaceCb();
 
@@ -60,6 +62,7 @@ private:
     IpAddress service_ip_;
     IpAddress destination_ip_;
     bool active_;
+    uint8_t ecmp_hash_fields_to_use_;
     DISALLOW_COPY_AND_ASSIGN(MetaDataIp);
 };
 

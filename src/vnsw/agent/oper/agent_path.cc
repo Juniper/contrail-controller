@@ -24,6 +24,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
+#include <oper/ecmp_load_balance.h>
 #include <oper/agent_sandesh.h>
 using namespace std;
 using namespace boost::asio;
@@ -713,6 +714,12 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     path->set_unresolved(false);
     path->SyncRoute(sync_route_);
+
+    if (hash_fields_to_use_ != path->ecmp_hash_fields_to_use()) {
+        path->set_ecmp_hash_fields_to_use(hash_fields_to_use_);
+        ret = true;
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -1184,6 +1191,17 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
         pdata.set_flood_dhcp(dhcp_path->flood_dhcp() ? "true" : "false");
         pdata.set_vm_name(dhcp_path->vm_interface()->ToString());
     }
+    std::vector<std::string> string_vector;
+    EcmpLoadBalance::GetStringVector(ecmp_hash_fields_to_use_,
+                                     string_vector);
+    std::vector<std::string>::iterator string_vector_iter =
+        string_vector.begin();
+    std::stringstream ss;
+    while (string_vector_iter != string_vector.end()) {
+        ss << (*string_vector_iter);
+        ss << ",";
+    }
+    pdata.set_ecmp_hashing_fields(ss.str());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

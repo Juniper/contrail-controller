@@ -261,6 +261,12 @@ public:
     const IpAddress& GetFixedIp() const {
         return path_preference_.dependent_ip();
     }
+    uint8_t ecmp_hash_fields_to_use() const {
+        return ecmp_hash_fields_to_use_;
+    }
+    void set_ecmp_hash_fields_to_use(uint8_t ecmp_hash_fields_to_use) {
+        ecmp_hash_fields_to_use_ = ecmp_hash_fields_to_use;
+    }
 
 private:
     const Peer *peer_;
@@ -327,6 +333,7 @@ private:
     // set true if path was supposed to be ecmp, however ecmp was suppressed
     // by taking only one of the nexthop from the path
     bool ecmp_suppressed_;
+    uint8_t ecmp_hash_fields_to_use_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -432,13 +439,16 @@ public:
                  uint8_t flags, const SecurityGroupList &sg_list,
                  const CommunityList &communities,
                  const PathPreference &path_preference,
-                 const IpAddress &subnet_service_ip) :
+                 const IpAddress &subnet_service_ip,
+                 uint8_t hash_fields_to_use) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(false), sync_route_(false),
         flags_(flags), sg_list_(sg_list), communities_(communities),
         tunnel_bmap_(TunnelType::MplsType()),
-        path_preference_(path_preference), subnet_service_ip_(subnet_service_ip) {
+        path_preference_(path_preference),
+        subnet_service_ip_(subnet_service_ip),
+        hash_fields_to_use_(hash_fields_to_use) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -470,6 +480,7 @@ private:
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
     IpAddress subnet_service_ip_;
+    uint8_t hash_fields_to_use_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

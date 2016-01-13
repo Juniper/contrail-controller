@@ -71,6 +71,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
                                                  path_preference_,
+                                                 hash_fields_to_use_,
                                                  tunnel_bmap_,
                                                  nh_req_, agent, path);
 }
@@ -248,11 +249,12 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                                                uint8_t flags,
                                                const SecurityGroupList &sg_list,
                                                const PathPreference &path_preference,
+                                               uint8_t hash_fields_to_use,
                                                uint64_t sequence_number,
                                                const AgentXmppChannel *channel) :
     LocalVmRoute(intf, mpls_label, vxlan_id, force_policy, vn_name, flags, sg_list,
                  CommunityList(),
-                 path_preference, Ip4Address(0)),
+                 path_preference, Ip4Address(0), hash_fields_to_use),
     sequence_number_(sequence_number), channel_(channel) { }
 
 bool ControllerLocalVmRoute::IsPeerValid(const AgentRouteKey *key) const {

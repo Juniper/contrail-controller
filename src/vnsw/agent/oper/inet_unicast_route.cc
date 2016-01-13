@@ -336,6 +336,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             SecurityGroupList sg_list,
                                             const PathPreference &path_preference,
                                             TunnelType::TypeBmap tunnel_bmap,
+                                            uint8_t ecmp_hash_fields_to_use,
                                             DBRequest &nh_req,
                                             Agent* agent, AgentPath *path) {
     bool ret = false;
@@ -373,6 +374,11 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
     path->set_dest_vn_name(vn_name);
     ret = true;
     path->set_unresolved(false);
+    if (path->ecmp_hash_fields_to_use() != ecmp_hash_fields_to_use) {
+        path->set_ecmp_hash_fields_to_use(ecmp_hash_fields_to_use);
+        ret = true;
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -424,6 +430,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                            path2->sg_list(),
                                            path2->path_preference(),
                                            path2->tunnel_bmap(),
+                                           path2->ecmp_hash_fields_to_use(),
                                            nh_req, agent, path);
 
     //Make MPLS label point to Composite NH
@@ -619,7 +626,8 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
     return true;
 }
 
-void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
+void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
+                                           AgentPath *path) {
     AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
     assert(ecmp_path);
 
@@ -644,7 +652,9 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_name(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                path->sg_list(), path->path_preference(),
-                               path->tunnel_bmap(), nh_req, agent, ecmp_path);
+                               path->tunnel_bmap(),
+                               path->ecmp_hash_fields_to_use(),
+                               nh_req, agent, ecmp_path);
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
@@ -685,7 +695,9 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
                                ecmp_path->dest_vn_name(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                ecmp_path->sg_list(), ecmp_path->path_preference(),
-                               ecmp_path->tunnel_bmap(), nh_req, agent, ecmp_path);
+                               ecmp_path->tunnel_bmap(),
+                               ecmp_path->ecmp_hash_fields_to_use(),
+                               nh_req, agent, ecmp_path);
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
@@ -1108,12 +1120,14 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                bool force_policy,
                                                const PathPreference
                                                &path_preference,
-                                               const IpAddress &subnet_service_ip) {
+                                               const IpAddress &subnet_service_ip,
+                                               uint8_t hash_fields_to_use) {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
                                     vn_name, InterfaceNHFlags::INET4, sg_list,
-                                    communities, path_preference, subnet_service_ip);
+                                    communities, path_preference,
+                                    subnet_service_ip, hash_fields_to_use);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1145,7 +1159,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             bool force_policy,
                                             const PathPreference
                                             &path_preference,
-                                            const IpAddress &subnet_service_ip)
+                                            const IpAddress &subnet_service_ip,
+                                            uint8_t hash_fields_to_use)
 {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
@@ -1154,7 +1169,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list, communities,
-                                    path_preference, subnet_service_ip));
+                                    path_preference, subnet_service_ip,
+                                    hash_fields_to_use));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 

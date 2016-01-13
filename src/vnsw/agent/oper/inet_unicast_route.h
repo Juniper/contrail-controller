@@ -82,6 +82,7 @@ public:
                                SecurityGroupList sg_list,
                                const PathPreference &path_preference,
                                TunnelType::TypeBmap tunnel_bmap,
+                               uint8_t ecmp_hash_fields_to_use,
                                DBRequest &nh_req,
                                Agent* agent,
                                AgentPath *path);
@@ -206,7 +207,8 @@ public:
                             const CommunityList &communities,
                             bool force_policy,
                             const PathPreference &path_preference,
-                            const IpAddress &subnet_service_ip);
+                            const IpAddress &subnet_service_ip,
+                            uint8_t hash_fields_to_use);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
@@ -215,7 +217,8 @@ public:
                                 const CommunityList &communities,
                                 bool force_policy,
                                 const PathPreference &path_preference,
-                                const IpAddress &subnet_service_ip);
+                                const IpAddress &subnet_service_ip,
+                                uint8_t hash_fields_to_use);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);

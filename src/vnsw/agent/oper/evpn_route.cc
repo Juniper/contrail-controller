@@ -212,7 +212,7 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           InterfaceNHFlags::BRIDGE,
                                           sg_id_list, CommunityList(),
                                           path_pref,
-                                          IpAddress());
+                                          IpAddress(), 0);
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

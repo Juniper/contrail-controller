@@ -3,6 +3,7 @@
  */
 
 #include <oper/route_common.h>
+#include <oper/ecmp_load_balance.h>
 #include <oper/interface_common.h>
 #include <oper/vm_interface.h>
 #include <oper/inet_unicast_route.h>
@@ -13,7 +14,7 @@ const IpAddress MetaDataIp::kDefaultIp;
 MetaDataIp::MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf) :
     allocator_(allocator), index_(-1), intf_(intf),
     intf_label_(MplsTable::kInvalidLabel), service_ip_(), destination_ip_(),
-    active_(false) {
+    active_(false), ecmp_hash_fields_to_use_() {
     index_ = allocator_->AllocateIndex(this);
     intf->InsertMetaDataIpInfo(this);
 }
@@ -22,7 +23,7 @@ MetaDataIp::MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf,
                        uint16_t index) :
     allocator_(allocator), index_(index), intf_(intf),
     intf_label_(MplsTable::kInvalidLabel), service_ip_(), destination_ip_(),
-    active_(false) {
+    active_(false), ecmp_hash_fields_to_use_() {
     allocator_->AllocateIndex(this, index_);
     intf_->InsertMetaDataIpInfo(this);
 }
@@ -67,6 +68,14 @@ void MetaDataIp::set_active(bool active) {
         active_ = active;
         UpdateRoute();
     }
+}
+
+uint8_t MetaDataIp::ecmp_hash_fields_to_use() const {
+    return ecmp_hash_fields_to_use_;
+}
+
+void MetaDataIp::set_ecmp_hash_fields_to_use(uint8_t ecmp_hash_fields_to_use) {
+    ecmp_hash_fields_to_use_ = ecmp_hash_fields_to_use;
 }
 
 void MetaDataIp::UpdateInterfaceCb() {
@@ -125,7 +134,8 @@ void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
         (agent_->link_local_peer(), agent_->fabric_vrf_name(),
          ip->GetLinkLocalIp(), 32, ip->intf_->GetUuid(),
          ip->intf_->vn()->GetName(), ip->intf_->label(), SecurityGroupList(),
-         CommunityList(), true, path_preference, Ip4Address(0));
+         CommunityList(), true, path_preference, Ip4Address(0),
+         ip->ecmp_hash_fields_to_use());
 }
 
 void MetaDataIpAllocator::DelFabricRoute(MetaDataIp *ip) {

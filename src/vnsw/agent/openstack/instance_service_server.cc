@@ -26,6 +26,7 @@
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
+#include <oper/ecmp_load_balance.h>
 #include <cfg/cfg_types.h>
 #include <openstack/instance_service_server.h>
 #include <base/contrail_ports.h>
@@ -422,7 +423,8 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
                            CommunityList(),
-                           false, PathPreference(), Ip4Address(0));
+                           false, PathPreference(), Ip4Address(0),
+                           EcmpLoadBalance::ALL);
     return true;
 }
 
