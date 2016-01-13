@@ -7,6 +7,7 @@
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
+#include "oper/ecmp_load_balance.h"
 #include "oper/mirror_table.h"
 #include "oper/physical_device_vn.h"
 #include "uve/test/vn_uve_table_test.h"
@@ -1448,7 +1449,8 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
 
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name,
-                                sg, path_preference, TunnelType::MplsType(), nh_req);
+                                sg, path_preference, TunnelType::MplsType(),
+                                EcmpLoadBalance(), nh_req);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 

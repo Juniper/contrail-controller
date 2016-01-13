@@ -9,6 +9,7 @@
 #include <route/route.h>
 
 #include <cmn/agent_cmn.h>
+#include <oper/ecmp_load_balance.h>
 #include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
@@ -72,6 +73,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                                  vrf_name_, sg_list_,
                                                  path_preference_,
                                                  tunnel_bmap_,
+                                                 ecmp_load_balance_,
                                                  nh_req_, agent, path);
 }
 
@@ -249,10 +251,11 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                                                const SecurityGroupList &sg_list,
                                                const PathPreference &path_preference,
                                                uint64_t sequence_number,
+                                               const EcmpLoadBalance &ecmp_load_balance,
                                                const AgentXmppChannel *channel) :
     LocalVmRoute(intf, mpls_label, vxlan_id, force_policy, vn_name, flags, sg_list,
                  CommunityList(),
-                 path_preference, Ip4Address(0)),
+                 path_preference, Ip4Address(0), ecmp_load_balance),
     sequence_number_(sequence_number), channel_(channel) { }
 
 bool ControllerLocalVmRoute::IsPeerValid(const AgentRouteKey *key) const {

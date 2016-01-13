@@ -12,6 +12,7 @@
 //Forward declaration
 class AgentXmppChannel;
 class AgentRouteData;
+class EcmpLoadBalance;
 class Peer;
 class BgpPeer;
 class TunnelNHKey;
@@ -127,11 +128,13 @@ public:
                         SecurityGroupList sg_list,
                         const PathPreference &path_preference,
                         TunnelType::TypeBmap tunnel_bmap,
+                        const EcmpLoadBalance &ecmp_load_balance,
                         DBRequest &nh_req) :
         ControllerPeerPath(peer), dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
         vrf_name_(vrf_name), sg_list_(sg_list),
-        path_preference_(path_preference), tunnel_bmap_(tunnel_bmap)
+        path_preference_(path_preference), tunnel_bmap_(tunnel_bmap),
+        ecmp_load_balance_(ecmp_load_balance)
         {nh_req_.Swap(&nh_req);}
 
     virtual ~ControllerEcmpRoute() { }
@@ -150,6 +153,7 @@ private:
     SecurityGroupList sg_list_;
     PathPreference path_preference_;
     TunnelType::TypeBmap tunnel_bmap_;
+    EcmpLoadBalance ecmp_load_balance_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };
@@ -167,6 +171,7 @@ public:
                            const SecurityGroupList &sg_list,
                            const PathPreference &path_preference,
                            uint64_t sequence_number,
+                           const EcmpLoadBalance &ecmp_load_balance,
                            const AgentXmppChannel *channel);
     virtual ~ControllerLocalVmRoute() { }
     virtual bool IsPeerValid(const AgentRouteKey *key) const;

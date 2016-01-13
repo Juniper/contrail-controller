@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "ksync/ksync_sock_user.h"
+#include "oper/ecmp_load_balance.h"
 
 #define MAX_VNET 4
 
@@ -128,7 +129,7 @@ public:
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
                                intf->vn()->GetName(), label,
                                SecurityGroupList(), CommunityList(), false, PathPreference(),
-                               Ip4Address(0));
+                               Ip4Address(0), EcmpLoadBalance());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

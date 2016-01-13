@@ -23,6 +23,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
+#include <oper/ecmp_load_balance.h>
 
 #include <oper/agent_route_walker.h>
 #include <oper/agent_route_resync.h>
@@ -460,7 +461,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
       agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
-      forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate){
+      forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
+      ecmp_load_balance_() {
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -492,8 +494,9 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
     IFMapNode *node = static_cast <IFMapNode *> (dbe);
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
-    bool resync_vm_interface = false;
+    bool resync_vn = false; //resync_vn walks internally calls VMI walk.
     bool resync_route = false;
+
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
@@ -510,7 +513,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         if (new_forwarding_mode != forwarding_mode_) {
             forwarding_mode_ = new_forwarding_mode;
             resync_route = true;
-            resync_vm_interface = true;
+            resync_vn = true;
         }
         if (cfg->IsPropertySet
                 (autogen::GlobalVrouterConfig::FLOW_EXPORT_RATE)) {
@@ -519,6 +522,8 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             flow_export_rate_ = kDefaultFlowExportRate;
         }
         UpdateFlowAging(cfg);
+        resync_vn = ecmp_load_balance_.UpdateFields(cfg->
+                                              ecmp_hashing_include_fields());
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
@@ -531,7 +536,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         oper_->agent()->vxlan_network_identifier_mode()) {
         oper_->agent()->
             set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
-        resync_vm_interface = true;
+        resync_vn = true;
     }
 
     //Rebakes
@@ -542,12 +547,11 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         //Update all routes irrespectively as this will handle change of
         //priority between MPLS-UDP to MPLS-GRE and vice versa.
         ResyncRoutes();
-        resync_vm_interface = true;
+        resync_vn = true;
     }
 
-    if (resync_vm_interface) {
+    if (resync_vn)
         oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
-    }
 }
 
 // Get link local service configuration info, for a given service name
@@ -813,6 +817,10 @@ bool GlobalVrouter::IsLinkLocalAddressInUse(const Ip4Address &ip) const {
 
 void GlobalVrouter::ResyncRoutes() {
     agent_route_resync_walker_.get()->Update();
+}
+
+const EcmpLoadBalance &GlobalVrouter::ecmp_load_balance() const {
+    return ecmp_load_balance_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -35,6 +35,8 @@
 #include <oper/oper_dhcp_options.h>
 #include <oper/inet_unicast_route.h>
 #include <oper/physical_device_vn.h>
+#include <oper/ecmp_load_balance.h>
+#include <oper/global_vrouter.h>
 #include <oper/ifmap_dependency_manager.h>
 
 #include <vnc_cfg_types.h>
@@ -70,7 +72,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
-    dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_() {
+    dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
+    ecmp_load_balance_() {
     metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
@@ -684,6 +687,36 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
     return NULL;
 }
 
+static void BuildEcmpHashingIncludeFields(VirtualMachineInterface *cfg,
+                                          IFMapNode *vn_node,
+                                          VmInterfaceConfigData *data) {
+    data->ecmp_load_balance_.set_use_global_vrouter(false);
+    if (cfg->IsPropertySet
+        (VirtualMachineInterface::ECMP_HASHING_INCLUDE_FIELDS)) {
+        data->ecmp_load_balance_.UpdateFields(cfg->
+                                              ecmp_hashing_include_fields());
+    } else {
+        //Extract from VN
+        if (!vn_node) {
+            data->ecmp_load_balance_.reset();
+            data->ecmp_load_balance_.set_use_global_vrouter(true);
+            return;
+        }
+        VirtualNetwork *vn_cfg =
+            static_cast <VirtualNetwork *> (vn_node->GetObject());
+        if (vn_cfg->IsPropertySet
+            (VirtualNetwork::ECMP_HASHING_INCLUDE_FIELDS) ==
+            false) {
+            data->ecmp_load_balance_.set_use_global_vrouter(true);
+            data->ecmp_load_balance_.reset();
+            return;
+        }
+        data->ecmp_load_balance_.UpdateFields(vn_cfg->
+                                              ecmp_hashing_include_fields());
+    }
+
+}
+
 static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VirtualMachineInterface *cfg,
                             VmInterfaceConfigData *data) {
@@ -957,6 +990,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     // Build parent for the virtual-machine-interface
     prouter = BuildParentInfo(agent_, data, cfg, node, li_node,
                               parent_vmi_node);
+    BuildEcmpHashingIncludeFields(cfg, vn_node, data);
 
     // Compute device-type and vmi-type for the interface
     ComputeTypeInfo(agent_, data, cfg_entry, prouter, node, li_node);
@@ -1565,7 +1599,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
-    logical_interface_(nil_uuid()) {
+    logical_interface_(nil_uuid()), ecmp_load_balance_() {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -1596,11 +1630,13 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
     bool sg_changed = false;
     bool ecmp_changed = false;
     bool local_pref_changed = false;
+    bool ecmp_load_balance_changed = false;
     bool ret = false;
 
     ret = vmi->CopyConfig(table, this, &sg_changed, &ecmp_changed,
-                          &local_pref_changed);
-    if (sg_changed || ecmp_changed || local_pref_changed)
+                          &local_pref_changed, &ecmp_load_balance_changed);
+    if (sg_changed || ecmp_changed || local_pref_changed ||
+        ecmp_load_balance_changed)
         *force_update = true;
 
     return ret;
@@ -1611,7 +1647,9 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
 bool VmInterface::CopyConfig(const InterfaceTable *table,
                              const VmInterfaceConfigData *data,
                              bool *sg_changed,
-                             bool *ecmp_changed, bool *local_pref_changed) {
+                             bool *ecmp_changed,
+                             bool *local_pref_changed,
+                             bool *ecmp_load_balance_changed) {
     bool ret = false;
     if (table) {
         VmEntry *vm = table->FindVmRef(data->vm_uuid_);
@@ -1897,6 +1935,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         }
     }
 
+    if (ecmp_load_balance_ != data->ecmp_load_balance_) {
+        ecmp_load_balance_.Copy(data->ecmp_load_balance_);
+        *ecmp_load_balance_changed = true;
+        ret = true;
+    }
     return ret;
 }
 
@@ -2106,6 +2149,11 @@ bool VmInterfaceGlobalVrouterData::OnResync(const InterfaceTable *table,
 
     if (vxlan_id_ != vmi->vxlan_id_)
         ret = true;
+
+    if (vmi->ecmp_load_balance().use_global_vrouter()) {
+        *force_update = true;
+        ret = true;
+    }
 
     return ret;
 }
@@ -2587,9 +2635,9 @@ IpAddress VmInterface::GetServiceIp(const IpAddress &vm_ip) const {
 
 // Add/Update route. Delete old route if VRF or address changed
 void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_update,
-                                         bool policy_change,
-                                         VrfEntry * old_vrf,
-                                         const Ip4Address &old_addr) {
+                            bool policy_change,
+                            VrfEntry * old_vrf,
+                            const Ip4Address &old_addr) {
     Ip4Address ip = GetServiceIp(primary_ip_addr_).to_v4();
 
     // If interface was already active earlier and there is no force_update or
@@ -2609,7 +2657,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
                      policy_enabled_, ecmp_, vm_ip_service_addr_, Ip4Address(0),
                      CommunityList());
-        } else if (policy_change == true) {
+        } else if (policy_change) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
             InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
@@ -2659,7 +2707,7 @@ void VmInterface::DeleteResolveRoute(VrfEntry *old_vrf,
 }
 
 void VmInterface::DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
-                                           const Ip4Address &old_addr) {
+                            const Ip4Address &old_addr) {
     if ((old_vrf == NULL) || (old_addr.to_ulong() == 0))
         return;
 
@@ -3149,6 +3197,13 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     pref->set_vrf(vrf()->GetName());
 }
 
+void VmInterface::CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance) {
+    if (ecmp_load_balance_.use_global_vrouter() == false)
+        return ecmp_load_balance.Copy(ecmp_load_balance_);
+    return ecmp_load_balance.Copy(agent()->oper_db()->global_vrouter()->
+                                  ecmp_load_balance());
+}
+
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
@@ -3162,11 +3217,14 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     PathPreference path_preference;
     SetPathPreference(&path_preference, ecmp, dependent_rt);
 
+    EcmpLoadBalance ecmp_load_balance;
+    CopyEcmpLoadBalance(ecmp_load_balance);
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
-                                                 plen, GetUuid(),
-                                                 dest_vn, label_,
-                                                 sg_id_list, communities, false,
-                                                 path_preference, service_ip);
+                                                plen, GetUuid(),
+                                                dest_vn, label_,
+                                                sg_id_list, communities, false,
+                                                path_preference, service_ip,
+                                                ecmp_load_balance);
     return;
 }
 

@@ -1,4 +1,5 @@
 #include "pkt/flow_mgmt_dbclient.h"
+#include "oper/ecmp_load_balance.h"
 
 void FlowMgmtDbClient::Init() {
     acl_listener_id_ = agent_->acl_table()->Register
@@ -566,6 +567,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         if (new_route == false) {
             AddEvent(route, state);
         }
+    }
+
+    if (state->ecmp_load_balance_ != path->ecmp_load_balance()) {
+        state->ecmp_load_balance_ = path->ecmp_load_balance();
+        changed = true;
     }
 
     if (changed == true && new_route == false) {

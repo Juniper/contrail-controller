@@ -12,6 +12,7 @@
 #include <oper/agent_path.h>
 
 class AgentPath;
+class EcmpLoadBalance;
 
 class RouteExport {
 public:
@@ -32,6 +33,7 @@ public:
         //destination and source are valid for tunnel NH.
         std::string destination_;
         std::string source_;
+        EcmpLoadBalance ecmp_load_balance_;
 
         bool Changed(const AgentRoute *route, const AgentPath *path) const;
         void Update(const AgentRoute *route, const AgentPath *path);
