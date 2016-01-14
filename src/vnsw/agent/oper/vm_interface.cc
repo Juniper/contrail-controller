@@ -3162,9 +3162,11 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     PathPreference path_preference;
     SetPathPreference(&path_preference, ecmp, dependent_rt);
 
+    std::set<std::string> vn_list;
+    vn_list.insert(dest_vn);
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
-                                                 dest_vn, label_,
+                                                 vn_list, label_,
                                                  sg_id_list, communities, false,
                                                  path_preference, service_ip);
     return;
@@ -4167,6 +4169,8 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
                                  0, entry.dmac_, vn()->GetName());
     table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
                                  0, entry.smac_, vn()->GetName());
+    std::set<std::string> vn_list;
+    vn_list.insert(vn()->GetName());
     if (ipv4_active_ && !entry.v4_rt_installed_ &&
         !entry.addr_.is_unspecified()) {
         PathPreference path_preference;
@@ -4174,7 +4178,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
-             GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list,
+             GetUuid(), entry.tag_, entry.label_, vn_list, sg_id_list,
              path_preference);
         entry.v4_rt_installed_ = true;
     }
@@ -4185,7 +4189,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (peer_.get(), entry.vrf_->GetName(), entry.addr6_, 128,
-             GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list,
+             GetUuid(), entry.tag_, entry.label_, vn_list, sg_id_list,
              path_preference);
         entry.v6_rt_installed_ = true;
     }

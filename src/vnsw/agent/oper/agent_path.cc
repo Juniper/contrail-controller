@@ -30,7 +30,7 @@ using namespace boost::asio;
 
 AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
-    vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
+    vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_list_(),
     sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
@@ -284,7 +284,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
             unresolved = false;
             table->AddArpReq(vrf_name_, gw_ip_, vrf_name_,
                              agent->vhost_interface(), false,
-                             dest_vn_name_, sg_list_);
+                             dest_vn_list_, sg_list_);
         } else {
             unresolved = true;
         }
@@ -292,7 +292,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
         table->AddArpReq(vrf_name_, gw_ip_, nh->interface()->vrf()->GetName(),
-                         nh->interface(), nh->PolicyEnabled(), dest_vn_name_,
+                         nh->interface(), nh->PolicyEnabled(), dest_vn_list_,
                          sg_list_);
         unresolved = true;
     } else {
@@ -447,9 +447,9 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    const std::string &dest_vn = reference_path_->dest_vn_name();
-    if (evpn_path->dest_vn_name() != dest_vn) {
-        evpn_path->set_dest_vn_name(dest_vn);
+    const std::set<std::string> &dest_vn_list = reference_path_->dest_vn_list();
+    if (evpn_path->dest_vn_list() != dest_vn_list) {
+        evpn_path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -467,8 +467,10 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -501,8 +503,10 @@ bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     path->set_unresolved(false);
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -555,8 +559,8 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
         ret = true;
     }
 
@@ -583,8 +587,10 @@ bool DropRoute::AddChangePath(Agent *agent, AgentPath *path,
                               const AgentRoute *rt) {
     bool ret = false;
 
-    if (path->dest_vn_name() != vn_) {
-        path->set_dest_vn_name(vn_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(vn_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -648,8 +654,8 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
         ret = true;
     }
 
@@ -738,8 +744,8 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
         ret = true;
     }
 
@@ -780,8 +786,10 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -820,8 +828,10 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
 
-    if (path->dest_vn_name() != vn_) {
-        path->set_dest_vn_name(vn_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(vn_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -896,7 +906,9 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t label,
                                         uint32_t tunnel_type,
                                         NextHop *nh) {
-    path->set_dest_vn_name(vn_name);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(vn_name);
+    path->set_dest_vn_list(dest_vn_list);
     path->set_unresolved(unresolved);
     path->set_vxlan_id(vxlan_id);
     path->set_label(label);
@@ -958,8 +970,10 @@ bool IpamSubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
     }
     path->set_is_subnet_discard(true);
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
         ret = true;
     }
 
@@ -1144,13 +1158,22 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
     }
 }
 
+void AgentPath::GetDestinationVnList(std::vector<std::string> *vn_list) const {
+    for (std::set<std::string>::const_iterator vnit = dest_vn_list().begin();
+         vnit != dest_vn_list().end(); ++vnit) {
+        vn_list->push_back(*vnit);
+    }
+}
+
 void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     const NextHop *nh = nexthop();
     if (nh != NULL) {
         nh->SetNHSandeshData(pdata.nh);
     }
     pdata.set_peer(const_cast<Peer *>(peer())->GetName());
-    pdata.set_dest_vn(dest_vn_name());
+    std::vector<std::string> vn_list;
+    GetDestinationVnList(&vn_list);
+    pdata.set_dest_vn_list(vn_list);
     pdata.set_unresolved(unresolved() ? "true" : "false");
 
     if (!gw_ip().is_unspecified()) {
@@ -1188,6 +1211,15 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
     local_ecmp_mpls_label_.reset(mpls);
+}
+
+bool AgentPath::dest_vn_match(const std::string &vn) const {
+    for (std::set<std::string>::const_iterator it = dest_vn_list_.begin();
+         it != dest_vn_list_.end(); ++it) {
+        if (vn == *it)
+            return true;
+    }
+    return false;
 }
 
 const MplsLabel* AgentPath::local_ecmp_mpls_label() const {

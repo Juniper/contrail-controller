@@ -76,7 +76,7 @@ public:
     AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
                                 const AgentPath *path2);
     static bool ModifyEcmpPath(const IpAddress &dest_addr,
-                               uint8_t plen, const string &vn_name,
+                               uint8_t plen, const std::set<std::string> &vn_name,
                                uint32_t label, bool local_ecmp_nh,
                                const string &vrf_name,
                                SecurityGroupList sg_list,
@@ -200,7 +200,8 @@ public:
                             LocalVmRoute *data);
     void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
                             const IpAddress &addr, uint8_t plen,
-                            const uuid &intf_uuid, const string &vn_name,
+                            const uuid &intf_uuid,
+                            const std::set<std::string> &vn_list,
                             uint32_t label,
                             const SecurityGroupList &sg_list,
                             const CommunityList &communities,
@@ -209,7 +210,8 @@ public:
                             const IpAddress &subnet_service_ip);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
-                                const uuid &intf_uuid, const string &vn_name,
+                                const uuid &intf_uuid,
+                                const std::set<std::string> &vn_list,
                                 uint32_t label,
                                 const SecurityGroupList &sg_list,
                                 const CommunityList &communities,
@@ -225,13 +227,13 @@ public:
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
                            const IpAddress &addr, uint8_t plen,
                            const uuid &intf_uuid, uint16_t tag,
-                           uint32_t label, const string &dest_vn_name,
+                           uint32_t label, const std::set<std::string> &dest_vn_list,
                            const SecurityGroupList &sg_list_,
                            const PathPreference &path_preference);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr, uint8_t plen,
                                const uuid &intf_uuid, uint16_t tag,
-                               uint32_t label, const string &dest_vn_name,
+                               uint32_t label, const std::set<std::string> &dest_vn_list,
                                const SecurityGroupList &sg_list_,
                                const PathPreference &path_preference);
     InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
@@ -239,13 +241,14 @@ public:
                                                    const Ip4Address &ip);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip,
                                   const Interface *intf,
-                                  const std::string &vn_name,
+                                  const std::set<std::string> &vn_name,
                                   const SecurityGroupList &sg);
     static void AddArpReq(const string &route_vrf_name,
                           const Ip4Address &ip,
                           const string &nh_vrf_name,
                           const Interface *intf,
-                          bool policy, const string &dest_vn_name,
+                          bool policy,
+                          const std::set<std::string> &dest_vn_list,
                           const SecurityGroupList &sg_list);
     static void ArpRoute(DBRequest::DBOperation op,
                          const string &route_vrf_name,
@@ -256,7 +259,7 @@ public:
                          bool resolved,
                          const uint8_t plen,
                          bool policy,
-                         const string &dest_vn_name,
+                         const std::set<std::string> &dest_vn_list,
                          const SecurityGroupList &sg_list);
     static void AddResolveRoute(const Peer *peer,
                                 const string &vrf_name, const Ip4Address &ip,
@@ -271,7 +274,8 @@ public:
     void AddInetInterfaceRouteReq(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &addr, uint8_t plen,
                                   const string &interface,
-                                  uint32_t label, const string &vn_name);
+                                  uint32_t label,
+                                  const std::set<std::string> &vn_list);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const string &interface,
                                   const IpAddress &addr, uint8_t plen,

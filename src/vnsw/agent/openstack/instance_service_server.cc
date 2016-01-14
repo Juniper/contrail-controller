@@ -346,6 +346,8 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
     uint32_t mpls_label;
     const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
+    std::set<std::string> vn_list;
+    vn_list.insert(vn);
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(agent_->local_peer(),
                                                  agent_->fabric_vrf_name(),
@@ -353,7 +355,7 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
                                                  vrf, gwv4,
                                                  TunnelType::AllType(),
                                                  mpls_label,
-                                                 vn, SecurityGroupList(),
+                                                 vn_list, SecurityGroupList(),
                                                  PathPreference(), false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
                                      vrf, ipv4, 32, data);
@@ -418,9 +420,11 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
+    std::set<std::string> vn_list;
+    vn_list.insert("instance-service");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
-                           "instance-service", mpls_label, SecurityGroupList(),
+                           vn_list, mpls_label, SecurityGroupList(),
                            CommunityList(),
                            false, PathPreference(), Ip4Address(0));
     return true;
@@ -453,11 +457,12 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
+    std::set<std::string> vn_list;
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(novaPeer_.get(),
                               agent_->fabric_vrf_name(),
                               agent_->router_id(), vrf, gw.to_v4(),
-                              TunnelType::AllType(), mpls_label, "",
+                              TunnelType::AllType(), mpls_label, vn_list,
                               SecurityGroupList(), PathPreference(), false);
     agent_->fabric_inet4_unicast_table()->
         AddRemoteVmRouteReq(novaPeer_.get(),

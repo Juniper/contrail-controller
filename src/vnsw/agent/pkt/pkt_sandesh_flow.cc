@@ -69,8 +69,10 @@ using boost::system::error_code;
             string("yes (") + GetShortFlowReason(fe->short_flow_reason()) + \
             ")": "no");                                                     \
     data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
-    data.set_src_vn(fe->data().source_vn);                                  \
-    data.set_dst_vn(fe->data().dest_vn);                                    \
+    data.set_src_vn_list(fe->data().SourceVnList());                        \
+    data.set_dst_vn_list(fe->data().DestinationVnList());                   \
+    data.set_src_vn_match(fe->data().source_vn_match);                      \
+    data.set_dst_vn_match(fe->data().dest_vn_match);                        \
     if (fe->is_flags_set(FlowEntry::EcmpFlow) &&                            \
         fe->data().component_nh_idx != CompositeNH::kInvalidComponentNHIdx) { \
         data.set_ecmp_index(fe->data().component_nh_idx);                     \

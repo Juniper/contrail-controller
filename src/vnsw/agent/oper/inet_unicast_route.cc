@@ -330,7 +330,7 @@ bool InetUnicastRouteEntry::IsHostRoute() const {
 }
 
 bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
-                                            uint8_t plen, const string &vn_name,
+                                            uint8_t plen, const std::set<std::string> &vn_list,
                                             uint32_t label, bool local_ecmp_nh,
                                             const string &vrf_name,
                                             SecurityGroupList sg_list,
@@ -370,7 +370,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
         ret = true;
     }
 
-    path->set_dest_vn_name(vn_name);
+    path->set_dest_vn_list(vn_list);
     ret = true;
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
@@ -419,7 +419,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
-    InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_name(),
+    InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_list(),
                                            label, true, vrf()->GetName(),
                                            path2->sg_list(),
                                            path2->path_preference(),
@@ -641,7 +641,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
-    InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_name(),
+    InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                path->sg_list(), path->path_preference(),
                                path->tunnel_bmap(), nh_req, agent, ecmp_path);
@@ -682,7 +682,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     nh_req.data.reset(new CompositeNHData());
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
-                               ecmp_path->dest_vn_name(),
+                               ecmp_path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                ecmp_path->sg_list(), ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(), nh_req, agent, ecmp_path);
@@ -748,8 +748,8 @@ bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path,
         static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
     
-    if (path->dest_vn_name() != vn_) {
-        path->set_dest_vn_name(vn_);
+    if (path->dest_vn_list() != vn_list_) {
+        path->set_dest_vn_list(vn_list_);
         ret = true;
     }
 
@@ -784,10 +784,12 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
         path->set_unresolved(true);
+        std::set<std::string> vn_list;
+        vn_list.insert(vn_name_);
         InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_,
                                               nh->interface()->vrf()->GetName(),
                                               nh->interface(), nh->PolicyEnabled(),
-                                              vn_name_, sg_list_);
+                                              vn_list, sg_list_);
     } else {
         path->set_unresolved(false);
     }
@@ -811,8 +813,10 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
     //Reset to new gateway route, no nexthop for indirect route
     path->set_gw_ip(gw_ip_);
     path->ResetDependantRoute(rt);
-    if (path->dest_vn_name() != vn_name_) {
-        path->set_dest_vn_name(vn_name_);
+    std::set<std::string> dest_vn_list;
+    dest_vn_list.insert(vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
     }
 
     return true;
@@ -830,8 +834,10 @@ bool Inet4UnicastInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
     bool ret = false;
 
     path->set_unresolved(false);
-    if (path->dest_vn_name() != agent->fabric_vn_name()) {
-        path->set_dest_vn_name(agent->fabric_vn_name());
+    std::set<std::string> vn_list;
+    vn_list.insert(agent->fabric_vn_name());
+    if (path->dest_vn_list() != vn_list) {
+        path->set_dest_vn_list(vn_list);
         ret = true;
     }
 
@@ -1049,12 +1055,12 @@ InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               const uuid &intf_uuid,
                                               uint16_t tag,
                                               uint32_t label,
-                                              const string &dest_vn_name,
+                                              const std::set<std::string> &dest_vn_list,
                                               const SecurityGroupList &sg_list,
                                               const PathPreference
                                               &path_preference) {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
-    VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label, dest_vn_name,
+    VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label, dest_vn_list,
                                         sg_list, path_preference);
     AddVlanNHRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1068,7 +1074,7 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
                                            const uuid &intf_uuid,
                                            uint16_t tag,
                                            uint32_t label,
-                                           const string &dest_vn_name,
+                                           const std::set<std::string> &dest_vn_list,
                                            const SecurityGroupList &sg_list,
                                            const PathPreference
                                            &path_preference) {
@@ -1076,7 +1082,7 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
-    req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
+    req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_list,
                                    sg_list, path_preference));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
@@ -1101,7 +1107,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const IpAddress &addr,
                                                uint8_t plen,
                                                const uuid &intf_uuid,
-                                               const string &vn_name,
+                                               const std::set<std::string> &vn_list,
                                                uint32_t label,
                                                const SecurityGroupList &sg_list,
                                                const CommunityList &communities,
@@ -1112,7 +1118,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
-                                    vn_name, InterfaceNHFlags::INET4, sg_list,
+                                    vn_list, InterfaceNHFlags::INET4, sg_list,
                                     communities, path_preference, subnet_service_ip);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
@@ -1138,7 +1144,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const IpAddress &addr,
                                             uint8_t plen,
                                             const uuid &intf_uuid,
-                                            const string &vn_name,
+                                            const std::set<std::string> &vn_list,
                                             uint32_t label,
                                             const SecurityGroupList &sg_list,
                                             const CommunityList &communities,
@@ -1152,7 +1158,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
-                                    force_policy, vn_name,
+                                    force_policy, vn_list,
                                     InterfaceNHFlags::INET4, sg_list, communities,
                                     path_preference, subnet_service_ip));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
@@ -1177,7 +1183,7 @@ InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
                                       const Ip4Address &ip,
                                       const string &nexthop_vrf_name,
                                       const Interface *intf, bool policy,
-                                      const std::string &vn_name,
+                                      const std::set<std::string> &vn_list,
                                       const SecurityGroupList &sg_list) {
     Agent *agent = Agent::GetInstance();
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -1190,7 +1196,7 @@ InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
     rt_req.key.reset(new InetUnicastRouteKey(agent->local_peer(),
                                               route_vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy,
-                                               vn_name, sg_list));
+                                               vn_list, sg_list));
     Inet4UnicastTableEnqueue(agent, &rt_req);
 }
 
@@ -1203,7 +1209,8 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
                                      const Interface &intf,
                                      bool resolved,
                                      const uint8_t plen,
-                                     bool policy, const std::string &vn_name,
+                                     bool policy,
+                                     const std::set<std::string> &vn_list,
                                      const SecurityGroupList &sg) {
     Agent *agent = Agent::GetInstance();
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -1229,7 +1236,7 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
     switch(op) {
     case DBRequest::DB_ENTRY_ADD_CHANGE:
         agent->nexthop_table()->Enqueue(&nh_req);
-        data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy, vn_name, sg);
+        data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy, vn_list, sg);
         break;
 
     case DBRequest::DB_ENTRY_DELETE: {
@@ -1243,7 +1250,7 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
         // If no other route is dependent on this, remove the route; else ignore
         if (rt && rt->IsDependantRouteEmpty() && rt->IsTunnelNHListEmpty()) {
             data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy,
-                                            vn_name, sg);
+                                            vn_list, sg);
         } else {
             rt_key->sub_op_ = AgentKey::RESYNC;
             rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1264,7 +1271,7 @@ void
 InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
                                               const Ip4Address &ip,
                                               const Interface *intf,
-                                              const std::string &vn_name,
+                                              const std::set<std::string> &vn_list,
                                               const SecurityGroupList &sg) {
 
     if (ip == Agent::GetInstance()->router_id() ||
@@ -1274,7 +1281,7 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
         // Currently, default GW Arp is added during init
         return;
     }
-    AddArpReq(vrf_name, ip, intf->vrf()->GetName(), intf, false, vn_name, sg);
+    AddArpReq(vrf_name, ip, intf->vrf()->GetName(), intf, false, vn_list, sg);
 }
 
 void InetUnicastAgentRouteTable::AddResolveRoute(const Peer *peer,
@@ -1304,10 +1311,10 @@ void InetUnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
                                                           uint8_t plen,
                                                           const string &interface,
                                                           uint32_t label,
-                                                          const string &vn_name) {
+                                                          const std::set<std::string> &vn_list) {
     InetInterfaceKey intf_key(interface);
     InetInterfaceRoute *data = new InetInterfaceRoute
-        (intf_key, label, TunnelType::GREType(), vn_name);
+        (intf_key, label, TunnelType::GREType(), vn_list);
 
     AddInetInterfaceRouteReq(peer, vm_vrf, addr, plen, data);
 }

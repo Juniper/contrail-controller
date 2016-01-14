@@ -24,7 +24,7 @@ public:
         bool fabric_multicast_exported_; //Used by multicast
         bool force_chg_;
         uint32_t label_;
-        std::string vn_;
+        std::set<std::string> vn_list_;
         SecurityGroupList sg_list_;
         CommunityList communities_;
         TunnelType::Type tunnel_type_;

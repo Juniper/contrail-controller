@@ -258,9 +258,10 @@ public:
     void Shutdown() { }
 
     static Agent *GetInstance() {return singleton_;}
-    static const std::string &NullString() {return null_string_;};
+    static const std::string &NullString() {return null_string_;}
+    static const std::set<std::string> &NullStringList() {return null_string_list_;}
     static const MacAddress &vrrp_mac() {return vrrp_mac_;}
-    static const std::string &BcastMac() {return bcast_mac_;};
+    static const std::string &BcastMac() {return bcast_mac_;}
     static const std::string &xmpp_dns_server_prefix() {
         return xmpp_dns_server_connection_name_prefix_;
     }
@@ -1153,6 +1154,7 @@ public:
     static const std::string config_file_;
     static const std::string log_file_;
     static const std::string null_string_;
+    static const std::set<std::string> null_string_list_;
     static std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;

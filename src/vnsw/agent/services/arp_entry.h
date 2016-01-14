@@ -45,7 +45,8 @@ public:
     void SendGratuitousArp();
     bool DeleteArpRoute();
     bool IsResolved();
-    void Resync(bool policy, const std::string &vn, const SecurityGroupList &sg);
+    void Resync(bool policy, const std::set<std::string> &vnlist,
+                const SecurityGroupList &sg);
 
 private:
     void StartTimer(uint32_t timeout, uint32_t mtype);

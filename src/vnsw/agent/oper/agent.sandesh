@@ -255,7 +255,7 @@ struct PathSandeshData {
     2: i32 label;                     // mpls label
     3: i32 vxlan_id;                // VN ID/VXLAN
     4: string peer;                   // peer originating the path 
-    5: string dest_vn (link="VnListReq"); // destination VN
+   20: list<string> dest_vn_list (link="VnListReq"); // destination VN list
     6: string unresolved;             // true or false
     7: optional string gw_ip;         // GW IP
     8: optional string vrf (link="VrfListReq"); // Vrf
@@ -598,6 +598,8 @@ struct FlowSandeshData {
     28: bool l3_flow;
     29: string smac;
     30: string dmac;
+    31: list<string> source_vn_list;
+    32: list<string> dest_vn_list;
 }
 
 struct VxLanSandeshData {

@@ -467,16 +467,16 @@ bool PktFlowInfo::IsBgpRouterServiceRoute(const AgentRoute *in_rt,
     return false;
 }
 
-static const string *RouteToVn(const AgentRoute *rt) {
+static const std::set<std::string> *RouteToVn(const AgentRoute *rt) {
     const AgentPath *path = NULL;
     if (rt) {
         path = rt->GetActivePath();
     }
     if (path == NULL) {
-        return &(Agent::NullString());
+        return &(Agent::NullStringList());
     }
 
-    return &path->dest_vn_name();
+    return &path->dest_vn_list();
 }
 
 static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,

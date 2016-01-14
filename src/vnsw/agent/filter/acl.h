@@ -27,6 +27,8 @@ struct FlowPolicyInfo {
     bool drop;
     bool terminal;
     bool other;
+    std::string src_policy;
+    std::string dst_policy;
     FlowPolicyInfo(const std::string &u);
 };
 

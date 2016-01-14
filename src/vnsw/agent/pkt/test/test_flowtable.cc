@@ -124,9 +124,11 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
+        std::set<std::string> vn_list;
+        vn_list.insert(intf->vn()->GetName());
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
-                               intf->vn()->GetName(), label,
+                               vn_list, label,
                                SecurityGroupList(), CommunityList(), false, PathPreference(),
                                Ip4Address(0));
         client->WaitForIdle();

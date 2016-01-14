@@ -1000,7 +1000,9 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     InetUnicastRouteEntry *rt =
         RouteGet("vrf1", Ip4Address::from_string("2.2.2.2"), 32);
     if (rt) {
-        EXPECT_STREQ(rt->GetActivePath()->dest_vn_name().c_str(), "vn2");
+        std::set<std::string> vn_list;
+        vn_list.insert("vn2");
+        EXPECT_TRUE(rt->GetActivePath()->dest_vn_list() == vn_list);
         EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
                     Ip4Address::from_string("1.1.1.1"));
     }
