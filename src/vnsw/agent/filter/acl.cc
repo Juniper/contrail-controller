@@ -38,7 +38,8 @@ using namespace autogen;
 SandeshTraceBufferPtr AclTraceBuf(SandeshTraceBufferCreate("Acl", 32000));
 
 FlowPolicyInfo::FlowPolicyInfo(const std::string &u)
-    : uuid(u), drop(false), terminal(false), other(false) {
+    : uuid(u), drop(false), terminal(false), other(false),
+      src_match_vn(), dst_match_vn() {
 }
 
 bool AclDBEntry::IsLess(const DBEntry &rhs) const {
@@ -485,7 +486,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end();
          ++iter) {
-        const AclEntry::ActionList &al = iter->PacketMatch(packet_header);
+        const AclEntry::ActionList &al = iter->PacketMatch(packet_header, info);
 	AclEntry::ActionList::const_iterator al_it;
 	for (al_it = al.begin(); al_it != al.end(); ++al_it) {
 	     TrafficAction *ta = static_cast<TrafficAction *>(*al_it.operator->());

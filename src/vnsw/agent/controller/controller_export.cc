@@ -20,7 +20,7 @@
 
 RouteExport::State::State() : 
     DBState(), exported_(false), fabric_multicast_exported_(false),
-    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""), sg_list_(),
+    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
     tunnel_type_(TunnelType::INVALID), path_preference_(),
     destination_(), source_() {
 }
@@ -171,19 +171,23 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     if (path) {
         if (state->Changed(route, path)) {
+            VnListType vn_list;
+            vn_list.insert(state->vn_);
             state->Update(route, path);
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route),
-                        path->NexthopIp(table->agent()), state->vn_,
+                        path->NexthopIp(table->agent()), vn_list,
                         state->label_, path->GetTunnelBmap(),
                         &path->sg_list(), &path->communities(),
                         type, state->path_preference_);
         }
     } else {
         if (state->exported_ == true) {
+            VnListType vn_list;
+            vn_list.insert(state->vn_);
             AgentXmppChannel::ControllerSendRouteDelete(bgp_xmpp_peer, 
-                    static_cast<AgentRoute *>(route), state->vn_, 
+                    static_cast<AgentRoute *>(route), vn_list,
                     (state->tunnel_type_ == TunnelType::VXLAN ?
                      state->label_ : 0),
                     TunnelType::AllType(), NULL, NULL,

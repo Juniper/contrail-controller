@@ -121,10 +121,12 @@ void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
     PathPreference path_preference;
     ip->intf_->SetPathPreference(&path_preference, false, Ip4Address(0));
 
+    VnListType vn_list;
+    vn_list.insert(ip->intf_->vn()->GetName());
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (agent_->link_local_peer(), agent_->fabric_vrf_name(),
          ip->GetLinkLocalIp(), 32, ip->intf_->GetUuid(),
-         ip->intf_->vn()->GetName(), ip->intf_->label(), SecurityGroupList(),
+         vn_list, ip->intf_->label(), SecurityGroupList(),
          CommunityList(), true, path_preference, Ip4Address(0));
 }
 

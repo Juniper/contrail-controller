@@ -48,8 +48,10 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    if (!path->dest_vn_match(dest_vn_name_)) {
+        VnListType vn_list;
+        vn_list.insert(dest_vn_name_);
+        path->set_dest_vn_list(vn_list);
         ret = true;
     }
 

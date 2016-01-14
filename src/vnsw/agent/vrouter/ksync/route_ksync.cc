@@ -323,7 +323,8 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
     // When L2 forwarding mode is disabled, reset the proxy arp to true and flood
     // of arp to false.
     VnEntry *vn= rt->vrf()->vn();
-    if (vn == NULL || (path->dest_vn_name() != vn->GetName()) ||
+    if (vn == NULL || !path->dest_vn_match(vn->GetName()) ||
+        (path->dest_vn_list().size() > 1) ||
         (vn->bridging() == false)) {
         proxy_arp = true;
         flood = false;

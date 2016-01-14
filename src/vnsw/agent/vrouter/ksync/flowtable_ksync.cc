@@ -161,12 +161,13 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back((action) & 0xFF);
     
     data.push_back(FlowEntry::PCAP_SOURCE_VN);
-    data.push_back(fe->data().source_vn.size());
-    data.insert(data.end(), fe->data().source_vn.begin(), 
-                fe->data().source_vn.end());
+    data.push_back(fe->data().source_vn_match.size());
+    data.insert(data.end(), fe->data().source_vn_match.begin(),
+                fe->data().source_vn_match.end());
     data.push_back(FlowEntry::PCAP_DEST_VN);
-    data.push_back(fe->data().dest_vn.size());
-    data.insert(data.end(), fe->data().dest_vn.begin(), fe->data().dest_vn.end());
+    data.push_back(fe->data().dest_vn_match.size());
+    data.insert(data.end(), fe->data().dest_vn_match.begin(),
+                fe->data().dest_vn_match.end());
     data.push_back(FlowEntry::PCAP_TLV_END);
     data.push_back(0x0);
 }

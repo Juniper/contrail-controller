@@ -16,6 +16,7 @@
 #include <agent_types.h>
 
 struct PacketHeader;
+struct FlowPolicyInfo;
 class AclEntrySpec;
 class TrafficAction;
 class AclEntryMatch;
@@ -47,7 +48,8 @@ public:
     void set_mirror_entry(MirrorEntryRef me);
 
     // Match packet header
-    const ActionList &PacketMatch(const PacketHeader &packet_header) const;
+    const ActionList &PacketMatch(const PacketHeader &packet_header,
+                                  FlowPolicyInfo *info) const;
     const ActionList &Actions() const {return actions_;};
 
     void SetAclEntrySandeshData(AclEntrySandeshData &data) const;

@@ -786,7 +786,7 @@ bool TunnelNH::Change(const DBRequest *req) {
                                               nh->interface()->vrf()->GetName(),
                                               nh->interface(),
                                               nh->PolicyEnabled(),
-                                              rt->GetActivePath()->dest_vn_name(),
+                                              rt->GetActivePath()->dest_vn_list(),
                                               rt->GetActivePath()->sg_list());
         rt = NULL;
     } else {
@@ -939,7 +939,7 @@ bool MirrorNH::Change(const DBRequest *req) {
                                               nh->interface()->vrf()->GetName(),
                                               nh->interface(),
                                               nh->PolicyEnabled(),
-                                              rt->GetActivePath()->dest_vn_name(),
+                                              rt->GetActivePath()->dest_vn_list(),
                                               rt->GetActivePath()->sg_list());
         rt = NULL;
     } else {
