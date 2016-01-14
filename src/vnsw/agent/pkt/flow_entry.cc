@@ -110,8 +110,10 @@ FlowData::~FlowData() {
 void FlowData::Reset() {
     smac = MacAddress();
     dmac = MacAddress();
-    source_vn = "";
-    dest_vn = "";
+    source_vn_list.clear();
+    source_vn_match = "";
+    dest_vn_match = "";
+    dest_vn_list.clear();
     source_sg_id_l.clear();
     dest_sg_id_l.clear();
     flow_source_vrf = VrfEntry::kInvalidIndex;
@@ -139,6 +141,23 @@ void FlowData::Reset() {
     l2_rpf_plen = Address::kMaxV4PrefixLen;
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
+}
+
+static std::vector<std::string> MakeList(const VnListType &ilist) {
+    std::vector<std::string> olist;
+    for (VnListType::const_iterator it = ilist.begin();
+         it != ilist.end(); ++it) {
+        olist.push_back(*it);
+    }
+    return olist;
+}
+
+std::vector<std::string> FlowData::SourceVnList() const {
+    return MakeList(source_vn_list);
+}
+
+std::vector<std::string> FlowData::DestinationVnList() const {
+    return MakeList(dest_vn_list);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -398,7 +417,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         } else {
             GetSourceRouteInfo(rev_ctrl->rt_);
         }
-        data_.dest_vn = data_.source_vn;
+        data_.dest_vn_list = data_.source_vn_list;
     } else {
         GetSourceRouteInfo(ctrl->rt_);
         GetDestRouteInfo(rev_ctrl->rt_);
@@ -473,7 +492,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         //SG id would be left empty, user who wants
         //unknown unicast to happen should modify the
         //SG to allow such traffic
-        data_.dest_vn = data_.source_vn;
+        data_.dest_vn_list = data_.source_vn_list;
     } else {
         GetSourceRouteInfo(ctrl->rt_);
         GetDestRouteInfo(rev_ctrl->rt_);
@@ -487,8 +506,8 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     flow_handle_ = flow_idx;
     set_flags(FlowEntry::ShortFlow);
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
-    data_.source_vn = FlowHandler::UnknownVn();
-    data_.dest_vn = FlowHandler::UnknownVn();
+    data_.source_vn_list = FlowHandler::UnknownVnList();
+    data_.dest_vn_list = FlowHandler::UnknownVnList();
     data_.source_sg_id_l = default_sg_list();
     data_.dest_sg_id_l = default_sg_list();
 }
@@ -602,11 +621,11 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
         path = rt->GetActivePath();
     }
     if (path == NULL) {
-        data_.source_vn = FlowHandler::UnknownVn();
+        data_.source_vn_list = FlowHandler::UnknownVnList();
         data_.source_sg_id_l = default_sg_list();
         data_.source_plen = 0;
     } else {
-        data_.source_vn = path->dest_vn_name();
+        data_.source_vn_list = path->dest_vn_list();
         data_.source_sg_id_l = path->sg_list();
         data_.source_plen = rt->plen();
     }
@@ -622,11 +641,11 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
     }
 
     if (path == NULL) {
-        data_.dest_vn = FlowHandler::UnknownVn();
+        data_.dest_vn_list = FlowHandler::UnknownVnList();
         data_.dest_sg_id_l = default_sg_list();
         data_.dest_plen = 0;
     } else {
-        data_.dest_vn = path->dest_vn_name();
+        data_.dest_vn_list = path->dest_vn_list();
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
     }
@@ -1180,8 +1199,8 @@ void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
         hdr->src_port = 0;
         hdr->dst_port = 0;
     }
-    hdr->src_policy_id = &(data_.source_vn);
-    hdr->dst_policy_id = &(data_.dest_vn);
+    hdr->src_policy_id = &(data_.source_vn_list);
+    hdr->dst_policy_id = &(data_.dest_vn_list);
     hdr->src_sg_id_l = &(data_.source_sg_id_l);
     hdr->dst_sg_id_l = &(data_.dest_sg_id_l);
 }
@@ -1203,8 +1222,8 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
         hdr->src_port = 0;
         hdr->dst_port = 0;
     }
-    hdr->src_policy_id = &(rflow->data().dest_vn);
-    hdr->dst_policy_id = &(rflow->data().source_vn);
+    hdr->src_policy_id = &(rflow->data().dest_vn_list);
+    hdr->dst_policy_id = &(rflow->data().source_vn_list);
     hdr->src_sg_id_l = &(rflow->data().dest_sg_id_l);
     hdr->dst_sg_id_l = &(rflow->data().source_sg_id_l);
 }
@@ -1373,6 +1392,8 @@ bool FlowEntry::DoPolicy() {
 
 done:
     nw_ace_uuid_ = nw_acl_info.uuid;
+    data_.source_vn_match = nw_acl_info.src_match_vn;
+    data_.dest_vn_match = nw_acl_info.dst_match_vn;
     // Set mirror vrf after evaluation of actions
     SetMirrorVrfFromAction();
     //Set VRF assign action
@@ -1652,8 +1673,10 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_protocol(key_.protocol);
     info.set_nh_id(key_.nh);
     info.set_vrf(data_.vrf);
-    info.set_source_vn(data_.source_vn);
-    info.set_dest_vn(data_.dest_vn);
+    info.set_source_vn_list(data_.SourceVnList());
+    info.set_dest_vn_list(data_.DestinationVnList());
+    info.set_source_vn_match(data_.source_vn_match);
+    info.set_dest_vn_match(data_.dest_vn_match);
     std::vector<uint32_t> v;
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin();
@@ -1782,9 +1805,10 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_acl_action_l(acl_action_l);
 
     fe_sandesh_data.set_flow_handle(integerToString(flow_handle_));
-    fe_sandesh_data.set_source_vn(data_.source_vn);
-    fe_sandesh_data.set_source_vn(data_.source_vn);
-    fe_sandesh_data.set_dest_vn(data_.dest_vn);
+    fe_sandesh_data.set_source_vn(data_.source_vn_match);
+    fe_sandesh_data.set_dest_vn(data_.dest_vn_match);
+    fe_sandesh_data.set_source_vn_list(data_.SourceVnList());
+    fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
     std::vector<uint32_t> v;
     if (!fsc_) {
         return;

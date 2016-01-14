@@ -24,6 +24,11 @@ public:
     bool Run();
 
     static const std::string UnknownVn() { return unknown_vn_; }
+    static const VnListType UnknownVnList() {
+        VnListType unknown_vn_list;
+        unknown_vn_list.insert(unknown_vn_);
+        return unknown_vn_list;
+    }
     static const std::string LinkLocalVn() {
         return Agent::GetInstance()->linklocal_vn_name();
     }

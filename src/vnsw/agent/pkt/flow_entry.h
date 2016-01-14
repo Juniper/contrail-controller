@@ -187,11 +187,15 @@ struct FlowData {
     ~FlowData();
 
     void Reset();
+    std::vector<std::string> SourceVnList() const;
+    std::vector<std::string> DestinationVnList() const;
 
     MacAddress smac;
     MacAddress dmac;
-    std::string source_vn;
-    std::string dest_vn;
+    std::string source_vn_match;
+    std::string dest_vn_match;
+    VnListType source_vn_list;
+    VnListType dest_vn_list;
     SecurityGroupList source_sg_id_l;
     SecurityGroupList dest_sg_id_l;
     uint32_t flow_source_vrf;

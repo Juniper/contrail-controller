@@ -312,10 +312,12 @@ static void Setup() {
 
     /* Add Local VM route in vrf1 from default-project:vn2:vn2 */
     addr = Ip4Address::from_string("2.1.1.10");
+    VnListType vn_list;
+    vn_list.insert(vnet[3]->vn()->GetName());
     vnet_table[2]->AddLocalVmRouteReq(agent_->local_peer(),
                                       "default-project:vn2:vn2", addr, 32,
                                       vnet[3]->GetUuid(),
-                                      vnet[3]->vn()->GetName(),
+                                      vn_list,
                                       vnet[3]->label(),
                                       SecurityGroupList(), CommunityList(), 0,
                                       PathPreference(), Ip4Address(0));
@@ -805,8 +807,9 @@ TEST_F(FlowTest, FlowValidateDestVn_1) {
     if (flow == NULL)
         return;
 
-    EXPECT_STREQ(flow->data().source_vn.c_str(), "default-project:vn2");
-    EXPECT_STREQ(flow->data().dest_vn.c_str(), "default-project:vn2");
+    std::string vn("default-project:vn2");
+    EXPECT_TRUE(VnMatch(flow->data().source_vn_list, vn));
+    EXPECT_TRUE(VnMatch(flow->data().dest_vn_list, vn));
 }
 
 // FloatingIP test for traffic from VM to local VM
@@ -1290,10 +1293,12 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
 //which was leaked due to policy
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from default-project:vn3:vn3 to default-project:vn2:vn2
+    VnListType vn_list;
+    vn_list.insert(vnet[5]->vn()->GetName());
     vnet_table[2]->AddLocalVmRouteReq(agent_->local_peer(), "default-project:vn2:vn2",
                                       vnet[5]->primary_ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
-                                      vnet[5]->vn()->GetName(),
+                                      vn_list,
                                       vnet[5]->label(), SecurityGroupList(),
                                       CommunityList(), 0,
                                       PathPreference(), Ip4Address(0));
