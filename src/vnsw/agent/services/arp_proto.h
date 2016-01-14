@@ -231,7 +231,7 @@ private:
     SecurityGroupList sg_list_;
     bool policy_;
     bool resolve_route_;
-    std::string vn_;
+    VnListType vn_list_;
     WaitForTrafficIntfMap wait_for_traffic_map_;
 };
 #endif // vnsw_agent_arp_proto_hpp

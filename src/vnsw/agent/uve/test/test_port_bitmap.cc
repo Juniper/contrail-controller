@@ -170,7 +170,7 @@ public:
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
 
-        L4PortBitmap *bmap = vut->GetVnUvePortBitmap(flow->data().source_vn);
+        L4PortBitmap *bmap = vut->GetVnUvePortBitmap(flow->data().source_vn_match);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
@@ -178,7 +178,7 @@ public:
             }
         }
 
-        bmap = vut->GetVnUvePortBitmap(flow->data().dest_vn);
+        bmap = vut->GetVnUvePortBitmap(flow->data().dest_vn_match);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {

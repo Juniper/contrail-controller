@@ -561,6 +561,7 @@ TEST_F(InterfaceUveTest, VmIntfAddDel_3) {
     vmut->ClearCount();
 }
 
+#if 0
 TEST_F(InterfaceUveTest, FipStats_1) {
     InterfaceUveTableTest *vmut = static_cast<InterfaceUveTableTest *>
         (Agent::GetInstance()->uve()->interface_uve_table());
@@ -941,6 +942,7 @@ TEST_F(InterfaceUveTest, FipStats_5) {
 
     vmut->ClearCount();
 }
+#endif
 
 /* Verify that VM name is not NULL-string in the interface UVE sent as part of
  * VM UVE */

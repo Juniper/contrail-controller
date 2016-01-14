@@ -200,9 +200,11 @@ public:
         const VmInterface *vm_intf = static_cast<const VmInterface *>
             (VmPortGet(intf_uuid));
         VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, MakeUuid(intf_uuid), "");
+        VnListType vn_list;
+        vn_list.insert(vn);
         ControllerLocalVmRoute *local_vm_route =
             new ControllerLocalVmRoute(intf_key, vm_intf->label(),
-                    VxLanTable::kInvalidvxlan_id, false, vn,
+                    VxLanTable::kInvalidvxlan_id, false, vn_list,
                     InterfaceNHFlags::INET4, SecurityGroupList(),
                     PathPreference(), ControllerPeerPath::kInvalidPeerIdentifier,
                     NULL);
@@ -217,11 +219,13 @@ public:
     void AddRemoteVmRoute(const string vrf_name, const string ip, uint32_t plen,
                           const string vn) {
         const Ip4Address addr = Ip4Address::from_string(ip);
+        VnListType vn_list;
+        vn_list.insert(vn);
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::AllType(), 16,
-                               vn, SecurityGroupList(),
+                               vn_list, SecurityGroupList(),
                                PathPreference(), false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
             vrf_name, addr, plen, data);
@@ -501,16 +505,17 @@ TEST_F(EcmpTest, EcmpTest_9) {
             VrfGet("default-project:vn3:vn3")->vrf_id());
     EXPECT_TRUE(entry->data().dest_vrf ==
             VrfGet("default-project:vn4:vn4")->vrf_id());
-    EXPECT_TRUE(entry->data().source_vn == "default-project:vn4");
-    EXPECT_TRUE(entry->data().dest_vn == "default-project:vn4");
+    std::string vn_name("default-project:vn4");
+    EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name));
+    EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().vrf == VrfGet("default-project:vn4:vn4")->vrf_id());
     EXPECT_TRUE(rev_entry->data().dest_vrf == VrfGet("default-project:vn3:vn3")->vrf_id());
-    EXPECT_TRUE(rev_entry->data().source_vn == "default-project:vn4");
-    EXPECT_TRUE(rev_entry->data().dest_vn == "default-project:vn4");
+    EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name));
+    EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name));
 }
 
 //Ping from vip to ECMP VIP with ingress vrf and egress VRF having
@@ -1346,8 +1351,10 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->data().vrf == vrf_id);
     EXPECT_TRUE(entry->data().dest_vrf == vrf_id);
-    EXPECT_TRUE(entry->data().source_vn == "vn10");
-    EXPECT_TRUE(entry->data().dest_vn == "vn11");
+    std::string vn_name_10("vn10");
+    std::string vn_name_11("vn11");
+    EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+    EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1355,8 +1362,8 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
     EXPECT_TRUE(rev_entry->data().dest_vrf == vrf_id);
-    EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-    EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+    EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+    EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
 
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf10", "11.1.1.0", 24);
@@ -1439,8 +1446,10 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
             EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
         }
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn _list, vn_name_11));
 
         //Reverse flow is no ECMP
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1456,8 +1465,8 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
             EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         }
         EXPECT_TRUE(rev_entry->data().dest_vrf == vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn _list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1578,8 +1587,10 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         //service vlan VRF
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn _list, vn_name_11));
 
         //Reverse flow is no ECMP
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1589,8 +1600,8 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn _list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1624,8 +1635,10 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         LOG(DEBUG, "Vrf" << entry->data().dest_vrf << ":" << service_vrf_id);
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         //Reverse flow is no ECMP
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1635,8 +1648,8 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1737,8 +1750,10 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         //Packet destined to vm11, vrf has to be vrf 11
         EXPECT_TRUE(entry->data().dest_vrf == vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
@@ -1748,8 +1763,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1771,8 +1786,10 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         //Packet destined to vm11, vrf has to be vrf11
         EXPECT_TRUE(entry->data().dest_vrf == vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         //make sure reverse flow points to right index
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1783,8 +1800,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         //Packet from vm11 to service vrf 
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1837,6 +1854,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
             "virtual-machine-interface", "vnet14");
     client->WaitForIdle();
 
+    std::string vn_name_10("vn10");
+    std::string vn_name_11("vn11");
     uint32_t service_vrf_id = 
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
@@ -1886,8 +1905,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         //Packet destined to remote server, vrf would be same as service vrf
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
@@ -1897,8 +1916,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1920,8 +1939,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         //Packet destined to remote server, vrf would be same as service vrf
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         //make sure reverse flow points to right index
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1931,8 +1950,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1956,8 +1975,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
                 CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(entry->data().source_vn == "vn11");
-        EXPECT_TRUE(entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_10));
 
         //make sure reverse flow is no ecmp
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1965,8 +1984,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
                 CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn10");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_11));
         sport++;
         dport++;
     }
@@ -1988,16 +2007,16 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
                 CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(entry->data().source_vn == "vn11");
-        EXPECT_TRUE(entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_10));
 
         //make sure reverse flow is no ecmp
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data().component_nh_idx == 0);
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn10");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_11));
         sport++;
         dport++;
     }
@@ -2018,16 +2037,16 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
                 CompositeNH::kInvalidComponentNHIdx);
 
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(entry->data().source_vn == "vn11");
-        EXPECT_TRUE(entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_10));
 
         //make sure reverse flow is no ecmp
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data().component_nh_idx == 1);
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn10");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_11));
         sport++;
         dport++;
     }
@@ -2119,8 +2138,10 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         //Packet destined to vm11, vrf has to be vrf 11
         EXPECT_TRUE(entry->data().dest_vrf == vrf_id);
 
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
@@ -2130,8 +2151,8 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -2209,8 +2230,10 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         EXPECT_TRUE(entry->data().vrf == service_vrf_id);
         //Packet destined to remote server, vrf has to be service vrf
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(entry->data().source_vn == "vn10");
-        EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        std::string vn_name_10("vn10");
+        std::string vn_name_11("vn11");
+        EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
         EXPECT_TRUE(entry->nh()->GetType() == NextHop::VLAN);
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -2220,8 +2243,8 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
-        EXPECT_TRUE(rev_entry->data().source_vn == "vn11");
-        EXPECT_TRUE(rev_entry->data().dest_vn == "vn10");
+        EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }

@@ -1057,6 +1057,7 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
     vnut->ClearCount();
 }
 
+#if 0
 //Inter VN stats test between same VN(VMport to VMport - Same VN)
 TEST_F(UveVnUveTest, InterVnStats_1) {
     KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
@@ -1234,6 +1235,7 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     vnut->ClearCount();
     EXPECT_EQ(0U, ksock->flow_map.size());
 }
+#endif
 
 int main(int argc, char **argv) {
     GETUSERARGS();

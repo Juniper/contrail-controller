@@ -411,8 +411,10 @@ TEST_F(CfgTest, EcmpNH_controller) {
     BgpPeer *peer_;
     peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1"),
                           "xmpp channel");
+    VnListType vn_list;
+    vn_list.insert("vn10");
     ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(peer_, prefix, 24, "vn10", -1,
+        new ControllerEcmpRoute(peer_, prefix, 24, vn_list, -1,
                                 false, "vrf10", sg, rp,
                                 (1 << TunnelType::MPLS_GRE),
                                 nh_req);

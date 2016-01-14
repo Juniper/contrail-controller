@@ -46,8 +46,10 @@ struct SandeshFlowData {
     23: optional u16 ecmp_index;
     24: optional string local_flow;
     25: optional string egress_uuid;
-    26: optional string src_vn;
-    27: optional string dst_vn;
+    53: optional list<string> src_vn_list;
+    54: optional list<string> dst_vn_list;
+    55: optional string src_vn_match;
+    56: optional string dst_vn_match;
     28: string reverse_flow;
     29: FlowAclInfo policy;
     30: FlowAclInfo out_policy;
@@ -159,8 +161,10 @@ struct FlowInfo {
    23: bool short_flow;
    24: optional u16 ecmp_index;
    25: optional bool trap;
-   26: optional string source_vn;
-   27: optional string dest_vn;
+   39: optional list<string> source_vn_list;
+   40: optional list<string> dest_vn_list;
+   41: optional string source_vn_match;
+   42: optional string dest_vn_match;
    28: optional list<u32> source_sg_id_l;
    29: optional list<u32> dest_sg_id_l;
    30: u16 nh_id;
@@ -235,7 +239,7 @@ traceobject sandesh FlowRouteUpdate {
    1: string vrf;
    2: string ip;
    3: u16 plen;
-   4: string vn;
+   9: list<string> vn_list;
    5: bool deleted;
    6: bool marked_delete;
    7: u32 num_sg;

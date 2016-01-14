@@ -203,6 +203,8 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                             const VirtualGatewayConfig::SubnetList &add_list,
                             const VirtualGatewayConfig::SubnetList &del_list,
                             bool add_default_route, bool del_default_route) {
+    VnListType name_list;
+    name_list.insert(vgw.vrf_name());
     if (vgw.routes().size() == 0 && del_default_route) {
         // no routes earlier, remove default route
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
@@ -213,7 +215,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                                            Ip4Address(0), 0,
                                            vgw.interface_name(),
                                            vgw.interface()->label(),
-                                           vgw.vrf_name());
+                                           name_list);
     }
     // remove old routes, add new routes
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
@@ -230,7 +232,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                                            add_list[idx].plen_,
                                            vgw.interface_name(),
                                            vgw.interface()->label(),
-                                           vgw.vrf_name());
+                                           name_list);
     }
 }
 
