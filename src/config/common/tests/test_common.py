@@ -360,7 +360,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         (disc_client.DiscoveryClient, 'publish',stub),
         (disc_client.DiscoveryClient, 'subscribe',stub),
         (disc_client.DiscoveryClient, 'syslog',stub),
-        (disc_client.DiscoveryClient, 'def_pub',stub),
 
         (kazoo.client.KazooClient, '__new__',FakeKazooClient),
         (kazoo.handlers.gevent.SequentialGeventHandler, '__init__',stub),
