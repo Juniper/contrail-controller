@@ -117,18 +117,21 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Uve",
         "Agent::KSync",
         "Agent::PktFlowResponder",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
 
     const char *flow_table_exclude_list[] = {
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskFlowEvent, flow_table_exclude_list,
                      sizeof(flow_table_exclude_list) / sizeof(char *));
 
     const char *flow_exclude_list[] = {
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskFlowUpdate, flow_exclude_list, 
@@ -140,6 +143,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::StatsCollector",
         "io::ReaderTask",
         "Agent::PktFlowResponder",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list, 
@@ -155,6 +159,7 @@ void Agent::SetAgentTaskPolicy() {
         "db::DBTable",
         "xmpp::StateMachine",
         "bgp::ShowCommand",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list, 
@@ -163,6 +168,7 @@ void Agent::SetAgentTaskPolicy() {
     const char *controller_xmpp_exclude_list[] = {
         "io::ReaderTask",
         "db::DBTable",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::ControllerXmpp", controller_xmpp_exclude_list,
@@ -171,6 +177,7 @@ void Agent::SetAgentTaskPolicy() {
     const char *walk_cancel_exclude_list[] = {
         "Agent::ControllerXmpp",
         "db::DBTable",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::RouteWalker", walk_cancel_exclude_list,
@@ -180,6 +187,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::StatsCollector",
         "db::DBTable",
         "Agent::PktFlowResponder",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 
@@ -187,6 +195,7 @@ void Agent::SetAgentTaskPolicy() {
 
     const char *stats_collector_exclude_list[] = {
         "Agent::PktFlowResponder",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("Agent::StatsCollector", stats_collector_exclude_list,
@@ -202,7 +211,8 @@ void Agent::SetAgentTaskPolicy() {
     const char *agent_init_exclude_list[] = {
         "xmpp::StateMachine",
         "http client",
-        "db::DBTable"
+        "db::DBTable",
+        AGENT_SHUTDOWN_TASKNAME
     };
     SetTaskPolicyOne(AGENT_INIT_TASKNAME, agent_init_exclude_list,
                      sizeof(agent_init_exclude_list) / sizeof(char *));
@@ -211,6 +221,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::StatsCollector",
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(AGENT_FLOW_STATS_MANAGER_TASK,
