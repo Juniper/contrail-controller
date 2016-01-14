@@ -153,6 +153,19 @@ protected:
         return table->Size();
     }
 
+    void DisableResolveTrigger(const string &instance_name) {
+        RoutingInstance *rtinstance =
+            ri_mgr_->GetRoutingInstance(instance_name);
+        rtinstance->static_route_mgr()->DisableResolveTrigger();
+    }
+
+    void EnableResolveTrigger(const string &instance_name) {
+        RoutingInstance *rtinstance =
+            ri_mgr_->GetRoutingInstance(instance_name);
+        if (rtinstance)
+            rtinstance->static_route_mgr()->EnableResolveTrigger();
+    }
+
     void DisableStaticRouteQ(const string &instance_name) {
         RoutingInstance *rtinstance = 
             ri_mgr_->GetRoutingInstance(instance_name);
@@ -1605,6 +1618,135 @@ TEST_F(StaticRouteTest, DeleteRoutingInstance) {
     // Delete nexthop route
     DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
     task_util::WaitForIdle();
+}
+
+//
+// Delete the static route config and instance with resolve_trigger disabled
+// Allow the routing instance to get deleted with Resolve trigger
+//
+TEST_F(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger) {
+    vector<string> instance_names = list_of("blue")("nat");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Add Nexthop Route
+    this->AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup("blue", "192.168.1.0/24"),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    // Disable resolve trigger
+    this->DisableResolveTrigger("nat");
+
+    // Delete the configuration for the nat instance.
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat", "static-route-entries");
+
+    // Delete nexthop route
+    this->DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->InetRouteLookup("blue", "192.168.1.0/24"),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat",
+            "virtual-network", "nat", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat", "route-target", "target:64496:2", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:2");
+    task_util::WaitForIdle();
+
+    this->EnableResolveTrigger("nat");
+}
+
+//
+// Delete the static route config and instance with resolve_trigger disabled
+// Routing instance is not destroyed when the task trigger is enabled.
+// Verify that enabling the task trigger ignores the deleted routing instance
+//
+TEST_F(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger_1) {
+    vector<string> instance_names = list_of("blue")("nat");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat", "static-route-entries", params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Add Nexthop Route
+    this->AddInetRoute(NULL, "nat", "192.168.1.254/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(this->InetRouteLookup("blue", "192.168.1.0/24"),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    // Disable resolve trigger
+    this->DisableResolveTrigger("nat");
+
+    // Delete the configuration for the nat instance.
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat", "static-route-entries");
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->InetRouteLookup("blue", "192.168.1.0/24"),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+
+    // Delete the nat routing instance
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat",
+            "virtual-network", "nat", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat", "route-target", "target:64496:2", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:2");
+    task_util::WaitForIdle();
+
+    RoutingInstance *nat_inst = this->ri_mgr_->GetRoutingInstance("nat");
+    TASK_UTIL_WAIT_EQ_NO_MSG(nat_inst->deleted(),
+            true, 1000, 10000, "Wait for nat instance to be marked deleted");
+    //
+    // Since the nexthop route is not yet deleted, routing instance is
+    // not destroyed
+    //
+    this->EnableResolveTrigger("nat");
+
+    // Delete nexthop route
+    this->DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
+    task_util::WaitForIdle();
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->ri_mgr_->GetRoutingInstance("nat"),
+            NULL, 1000, 10000, "Wait for nat instance to get destroyed");
 }
 
 //
