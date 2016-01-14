@@ -27,7 +27,7 @@ SandeshTraceBufferPtr
 HealthCheckTraceBuf(SandeshTraceBufferCreate("HealthCheck", 5000));
 
 const std::string HealthCheckInstance::kHealthCheckCmd
-("/opt/contrail/utils/contrail_vrouter_agent_health_check.py");
+("/usr/share/contrail-utils/contrail-vrouter-agent-health-check.py");
 
 HealthCheckService::HealthCheckService(const HealthCheckTable *table,
                                        const boost::uuids::uuid &id) :
