@@ -4,7 +4,7 @@
 import pprint, socket
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
-from opserver.sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.link.ttypes import LinkEntry, PRouterLinkEntry, PRouterLinkUVE
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
