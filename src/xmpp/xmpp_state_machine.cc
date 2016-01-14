@@ -1370,8 +1370,9 @@ void XmppStateMachine::OnMessage(XmppSession *session,
                         break;
                 }
 
-            } else if (stream_msg->strmtype ==
-                (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER ||
+            } else if ((stream_msg->strmtype ==
+                 XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER) ||
+                (stream_msg->strmtype ==
                  XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP)) {
                 session->Connection()->SetTo(msg->from);
                 enqueued = Enqueue(xmsm::EvXmppOpen(session, msg));
