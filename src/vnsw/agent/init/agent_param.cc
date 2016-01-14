@@ -16,6 +16,7 @@
 #include <net/if_arp.h>
 #include <unistd.h>
 #include <iostream>
+#include <string>
 
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/algorithm/string.hpp>
@@ -393,11 +394,6 @@ void AgentParam::ParseDefaultSection() {
         flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
     }
 
-    if (!GetValueFromTree<uint16_t>(flow_thread_count_,
-                                    "DEFAULT.flow_thread_count")) {
-        flow_thread_count_ = Agent::kDefaultFlowThreadCount;
-    }
-   
     if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
         log_level_ = "SYS_DEBUG";
     }
@@ -497,6 +493,11 @@ void AgentParam::ParseMetadataProxy() {
 }
 
 void AgentParam::ParseFlows() {
+    if (!GetValueFromTree<uint16_t>(flow_thread_count_,
+                                    "FLOWS.thread_count")) {
+        flow_thread_count_ = Agent::kDefaultFlowThreadCount;
+    }
+
     if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float) 100;
     }
@@ -668,8 +669,6 @@ void AgentParam::ParseDefaultSectionArguments
 
     GetOptValue<uint16_t>(var_map, flow_cache_timeout_,
                           "DEFAULT.flow_cache_timeout");
-    GetOptValue<uint16_t>(var_map, flow_thread_count_,
-                          "DEFAULT.flow_thread_count");
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
     GetOptValue<string>(var_map, agent_name_, "DEFAULT.agent_name");
     GetOptValue<uint16_t>(var_map, http_server_port_,
@@ -725,7 +724,13 @@ void AgentParam::ParseMetadataProxyArguments
 
 void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
-    GetOptValue<float>(var_map, max_vm_flows_, "FLOWS.max_vm_flows");
+    GetOptValue<uint16_t>(var_map, flow_thread_count_,
+                          "FLOWS.thread_count");
+    uint16_t val = 0;
+    if (GetOptValue<uint16_t>(var_map, val, "FLOWS.max_vm_flows")) {
+        max_vm_flows_ = (float)val;
+    }
+
     GetOptValue<uint16_t>(var_map, linklocal_system_flows_,
                           "FLOWS.max_system_linklocal_flows");
     GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
@@ -868,6 +873,7 @@ void AgentParam::InitFromArguments() {
     ParseHypervisorArguments(var_map_);
     ParseDefaultSectionArguments(var_map_);
     ParseTaskSectionArguments(var_map_);
+    ParseFlowArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
@@ -1221,9 +1227,6 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
-        ("DEFAULT.flow_thread_count",
-         opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
-         "Number of threads for flow setup")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
         ("DEFAULT.headless_mode", opt::value<bool>(),
@@ -1304,8 +1307,11 @@ AgentParam::AgentParam(bool enable_flow_options,
     if (enable_flow_options_) {
         opt::options_description flow("Flow options");
         flow.add_options()
+            ("FLOWS.thread_count", opt::value<uint16_t>(),
+             "Number of threads for flow setup")
             ("FLOWS.max_vm_flows", opt::value<uint16_t>(),
-             "Maximum flows allowed per VM - given as \% of maximum system flows")
+             "Maximum flows allowed per VM - given as \% (in integer) of "
+             "maximum system flows")
             ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(),
              "Maximum number of link-local flows allowed across all VMs")
             ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(),
