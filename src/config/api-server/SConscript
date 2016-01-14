@@ -89,12 +89,14 @@ cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
 
 doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 
+apis_introspect_pkg = env.SandeshGenPy('apis_introspect.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(doc_sources_rules)
+sdist_depends.extend(apis_introspect_pkg)
 sdist_depends.extend(sandesh_trace_pkg)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
@@ -115,6 +117,7 @@ env.Depends(sdist_gen, sdist_depends)
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('traces.sandesh')
+doc_files += env.SandeshGenDoc('apis_introspect.sandesh')
 doc_files += env['CFGM_DOC_FILES']
 
 if 'install' in BUILD_TARGETS:

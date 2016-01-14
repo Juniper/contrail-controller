@@ -101,6 +101,7 @@ from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
+from sandesh.apis_introspect import ttypes as sandesh
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 
@@ -1370,6 +1371,7 @@ class VncApiServer(object):
         if self._args.sandesh_send_rate_limit is not None:
             SandeshSystem.set_sandesh_send_rate_limit(
                 self._args.sandesh_send_rate_limit)
+        sandesh.DiscoveryClientStatsReq.handle_request = self.sandesh_disc_client_stats_handle_request
         module = Module.API_SERVER
         module_name = ModuleNames[Module.API_SERVER]
         node_type = Module2NodeType[module]
@@ -1384,7 +1386,7 @@ class VncApiServer(object):
                                      self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common'], self._disc,
+                                     ['cfgm_common', 'vnc_cfg_api_server.sandesh'], self._disc,
                                      logger_class=self._args.logger_class,
                                      logger_config_file=self._args.logging_conf)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
@@ -1455,6 +1457,47 @@ class VncApiServer(object):
         self._cpu_info = cpu_info
 
     # end __init__
+
+    # Return discovery client stats
+    def sandesh_disc_client_stats_handle_request(self, req):
+        stats = self._disc.get_stats()
+        resp = sandesh.DiscoveryClientStatsResp(subs=[])
+
+        # general stats
+        resp.client_type  = stats['client_type']
+
+        # pub stats
+        resp.pub_heartbeats  = stats['hb_iters']
+        resp.pub_exc_known   = stats['pub_exc_known']
+        resp.pub_exc_unknown = stats['pub_exc_unknown']
+        resp.pub_exc_info    = stats['pub_exc_info']
+        xxx = ['%s:%d' % (k[7:], v) for k, v in stats.items() if 'pub_sc_' in k]
+        resp.pub_http_status_code = ", ".join(xxx)
+        xxx = ['%s:%d' % (k[8:], v) for k, v in stats.items() if 'pub_svc_' in k]
+        resp.pub_internal = ", ".join(xxx)
+        xxx = ['%s:%d' % (k[8:], v) for k, v in stats.items() if 'api_pub_' in k]
+        resp.api_pub = ", ".join(xxx)
+        xxx = ['%s:%d' % (k[8:], v) for k, v in stats.items() if 'api_unpub_' in k]
+        resp.api_unpub = ", ".join(xxx)
+        xxx = ['%s:%d' % (k[8:], v) for k, v in stats.items() if 'api_sub_' in k]
+        resp.api_sub = ", ".join(xxx)
+
+        # sub stats
+        for sub in stats['subs']:
+            sub_stats = sandesh.SubscriberStats(service_type=sub['service_type'])
+            sub_stats.ttl_iters   = sub['ttl_iters']
+            sub_stats.exc_known   = sub['exc_known']
+            sub_stats.exc_unknown = sub['exc_unknown']
+            sub_stats.exc_info    = sub['exc_info']
+            sub_stats.sub_count   = sub['sub_count']
+            sub_stats.instances   = sub['instances']
+            sub_stats.blob        = sub['blob']
+            xxx = ['%s:%d' % (k[3:], v) for k, v in sub.items() if 'sc_' in k]
+            sub_stats.http_status_code = ", ".join(xxx)
+            resp.subs.append(sub_stats)
+
+        resp.response(req.context())
+    # end sandesh_disc_client_stats_handle_request
 
     def _extensions_transform_request(self, request):
         extensions = self._extension_mgrs.get('resourceApi')

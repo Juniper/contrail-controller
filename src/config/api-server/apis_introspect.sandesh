@@ -1,0 +1,34 @@
+//
+// Introspect structs for API server
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+struct SubscriberStats {
+    1: string service_type;
+    2: u32 ttl_iters;
+    3: u32 exc_known;
+    4: u32 exc_unknown;
+    5: string exc_info;
+    6: string http_status_code;
+    7: u32 sub_count;
+    8: u32 instances;
+    9: string blob;
+}
+
+request sandesh DiscoveryClientStatsReq {
+}
+
+response sandesh DiscoveryClientStatsResp {
+    1: string client_type;
+    2:  u32 pub_heartbeats;
+    3:  u32 pub_exc_known;
+    4:  u32 pub_exc_unknown;
+    5:  string pub_exc_info;
+    6:  string pub_http_status_code;
+    7:  string pub_internal;
+    8:  string api_pub;
+    9:  string api_sub;
+    10: string api_unpub;
+    11: list<SubscriberStats> subs;
+}

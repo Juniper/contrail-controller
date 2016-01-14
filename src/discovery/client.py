@@ -64,6 +64,17 @@ class Subscribe(object):
         self.sig = hashlib.md5(infostr).hexdigest()
         self.done = False
 
+        self.stats = {
+            'service_type' : service_type,
+            'ttl_iters'    : 0,
+            'exc_unknown'  : 0,
+            'exc_known'    : 0,
+            'exc_info'     : '',
+            'sub_count'    : 0,
+            'instances'    : count,
+            'blob'         : '',
+        }
+
         data = {
             'service': service_type,
             'instances': count,
@@ -88,8 +99,14 @@ class Subscribe(object):
             self.done = True
     # end
 
+    def inc_stats(self, key):
+        if key not in self.stats:
+            self.stats[key] = 0
+        self.stats[key] += 1
+
     def ttl_loop(self):
         while True:
+            self.stats['ttl_iters'] += 1
             self._query()
 
             # callback if service information has changed
@@ -110,6 +127,7 @@ class Subscribe(object):
             try:
                 r = requests.post(
                     self.url, data=self.post_body, headers=self._headers, timeout=5)
+                self.inc_stats('sc_%s' % r.status_code)
                 if r.status_code != 200:
                     self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
                     if not conn_state_updated:
@@ -127,6 +145,8 @@ class Subscribe(object):
                     connected = True
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, socket.timeout):
                 # discovery server down or restarting?
+                self.stats['exc_known'] += 1
+                self.stats['exc_info'] = str(sys.exc_info())
                 self.syslog('discovery server down or restarting?')
                 if not conn_state_updated:
                     conn_state_updated = True
@@ -148,6 +168,9 @@ class Subscribe(object):
         info = response[self.service_type]
         infostr = json.dumps(info)
         sig = hashlib.md5(infostr).hexdigest()
+
+        self.stats['sub_count'] += 1
+        self.stats['blob'] = infostr
 
         # convert to strings
         for obj in info:
@@ -196,6 +219,16 @@ class DiscoveryClient(object):
         self.task = None
         self._sandesh = None
 
+        self.stats = {
+            'client_type'    : client_type,
+            'hb_iters'       : 0,
+            'pub_exc_unknown': 0,
+            'pub_exc_known'  : 0,
+            'pub_exc_info'   : '',
+            'sub_exc_known'  : 0,
+            'sub_exc_info'   : '',
+        }
+
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect((server_ip, server_port))
@@ -237,6 +270,16 @@ class DiscoveryClient(object):
         log = sandesh.discClientLog(
             log_msg=log_msg, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
+
+    def inc_stats(self, key):
+        if key not in self.stats:
+            self.stats[key] = 0
+        self.stats[key] += 1
+
+    def get_stats(self):
+        stats = self.stats.copy()
+        stats['subs'] = [sub.stats for sub in self._subs]
+        return stats
     
     def exportJson(self, o):
         obj_json = json.dumps(lambda obj: dict((k, v)
@@ -255,6 +298,7 @@ class DiscoveryClient(object):
             try:
                 r = requests.post(
                     self.puburl, data=json.dumps(payload), headers=self._headers, timeout=5)
+                self.inc_stats('pub_sc_%s' % r.status_code)
                 if r.status_code == 200:
                     break
                 if not conn_state_updated:
@@ -267,6 +311,8 @@ class DiscoveryClient(object):
                         message = 'Publish Error - Status Code ' + 
                             str(r.status_code))
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                self.stats['pub_exc_known'] += 1
+                self.stats['pub_exc_info'] = str(sys.exc_info())
                 if not conn_state_updated:
                     conn_state_updated = True
                     ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
@@ -281,6 +327,7 @@ class DiscoveryClient(object):
         response = r.json()
         cookie = response['cookie']
         self.pubdata[cookie] = (service, data)
+        self.inc_stats('pub_svc_%s' % service)
         self.syslog('Saving token %s' % (cookie))
         ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
             name = service, status = ConnectionStatus.UP,
@@ -292,6 +339,7 @@ class DiscoveryClient(object):
     # publisher - send periodic heartbeat
     def heartbeat(self):
         while True:
+            self.stats['hb_iters'] += 1
             # Republish each published object seperately
             # dictionary can change size during iteration
             pub_list = self.pubdata.copy()
@@ -300,7 +348,12 @@ class DiscoveryClient(object):
                 self.syslog('Republish %s' % (cookie))
                 service, data = self.pubdata[cookie]
                 del self.pubdata[cookie]
-                self._publish_int(service, data)
+                try:
+                    self._publish_int(service, data)
+                except Exception as e:
+                    self.stats['pub_exc_unknown'] += 1
+                    msg = 'Error in publish service %s - %s' %(service, str(e))
+                    self.syslog(msg)
             gevent.sleep(HC_INTERVAL)
     # end client
 
@@ -340,6 +393,7 @@ class DiscoveryClient(object):
 
     # API publish service and data
     def publish(self, service, data):
+        self.inc_stats('api_pub_%s' % service)
         self._publish_int(service, data)
         return self.hbtask
     # end
@@ -364,6 +418,7 @@ class DiscoveryClient(object):
     # end unpublish
 
     def un_publish(self, service, data):
+        self.inc_stats('api_unpub_%s' % service)
         token = self._service_data_to_token(service, data)
         if token is None:
             #print 'Error: cannot find token for service %s, data %s'\
@@ -378,6 +433,7 @@ class DiscoveryClient(object):
 
     # subscribe request without callback is synchronous
     def subscribe(self, service_type, count, f=None, *args, **kw):
+        self.inc_stats('api_sub_%s' % service_type)
         obj = Subscribe(self, service_type, count, f, *args, **kw)
         if f:
             self._subs.append(obj)
