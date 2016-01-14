@@ -6,6 +6,7 @@
 #define ctrlplane_db_table_partition_h
 
 #include <boost/intrusive/list.hpp>
+#include <tbb/spin_rw_mutex.h>
 #include <tbb/mutex.h>
 
 #include "db/db_entry.h"
@@ -49,13 +50,13 @@ public:
     virtual DBEntryBase *GetFirst() = 0;
     virtual DBEntryBase *GetNext(const DBEntryBase *) = 0;
 
-    tbb::mutex &dbstate_mutex() {
+    tbb::spin_rw_mutex &dbstate_mutex() {
         return dbstate_mutex_;
     }
 
     virtual ~DBTablePartBase() {};
 private:
-    tbb::mutex dbstate_mutex_;
+    tbb::spin_rw_mutex dbstate_mutex_;
     DBTableBase *parent_;
     int index_;
     ChangeList change_list_;
