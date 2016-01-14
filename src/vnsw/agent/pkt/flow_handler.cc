@@ -92,29 +92,6 @@ bool FlowHandler::Run() {
         info.l3_flow = fe->l3_flow();
     } else {
         info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
-        if (pkt_info_->ip == NULL && pkt_info_->ip6 == NULL) {
-            if (pkt_info_->family == Address::INET) {
-                FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
-                           pkt_info_->agent_hdr.ifindex,
-                           pkt_info_->agent_hdr.vrf,
-                           pkt_info_->ip_saddr.to_v4().to_ulong(),
-                           pkt_info_->ip_daddr.to_v4().to_ulong(),
-                           "Flow : Non-IP packet. Dropping",
-                           pkt_info_->l3_forwarding, 0, 0, 0, 0);
-            } else if (pkt_info_->family == Address::INET6) {
-                uint64_t sip[2], dip[2];
-                Ip6AddressToU64Array(pkt_info_->ip_saddr.to_v6(), sip, 2);
-                Ip6AddressToU64Array(pkt_info_->ip_daddr.to_v6(), dip, 2);
-                FLOW_TRACE(DetailErr, pkt_info_->agent_hdr.cmd_param,
-                           pkt_info_->agent_hdr.ifindex,
-                           pkt_info_->agent_hdr.vrf, -1, -1,
-                           "Flow : Non-IP packet. Dropping",
-                           pkt_info_->l3_forwarding,
-                           sip[0], sip[1], dip[0], dip[1]);
-            } else {
-                assert(0);
-            }
-        }
     }
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {
