@@ -860,12 +860,16 @@ class VirtualNetworkST(DBBaseST):
         if si is None:
             return (None, None)
         vm_analyzer = list(si.virtual_machines)
-        if not vm_analyzer:
+        pt_list = list(si.port_tuples)
+        if not vm_analyzer and not pt_list:
             return (None, None)
-        vm_analyzer_obj = VirtualMachineST.get(vm_analyzer[0])
-        if vm_analyzer_obj is None:
+        if pt_list:
+            vm_pt = PortTupleST.get(pt[0])
+        else:
+            vm_pt = VirtualMachineST.get(vm_analyzer[0])
+        if vm_pt is None:
             return (None, None)
-        vmis = vm_analyzer_obj.virtual_machine_interfaces
+        vmis = vm_pt.virtual_machine_interfaces
         for vmi_name in vmis:
             vmi = VirtualMachineInterfaceST.get(vmi_name)
             if vmi and vmi.service_interface_type == 'left':
@@ -2070,9 +2074,11 @@ class RoutingInstanceST(DBBaseST):
             for vmi_name in list(self.virtual_machine_interfaces):
                 vmi = VirtualMachineInterfaceST.get(vmi_name)
                 if vmi:
-                    vm = VirtualMachineST.get(vmi.virtual_machine)
-                    if vm is not None:
-                        self._cassandra.free_service_chain_vlan(vm.uuid,
+                    vm_pt = PortTupleST.get(vmi.port_tuple)
+                    if vm_pt is None:
+                        vm_pt = VirtualMachineST.get(vmi.virtual_machine)
+                    if vm_pt is not None:
+                        self._cassandra.free_service_chain_vlan(vm_pt.uuid,
                                                                 service_chain)
                     vmi.delete_routing_instance(self)
             # end for vmi_name
@@ -2240,6 +2246,43 @@ class ServiceChain(DBBaseST):
         self._logger.error('service chain %s: ' + msg)
     # end log_error
 
+    def _get_vm_pt_info(self, vm_pt, mode):
+        # From a VirtualMachineST or PortTupleST object, create a vm_info
+        # dict to be used during service chain creation
+        vm_info = {'vm_uuid': vm_pt.uuid}
+
+        for interface_name in vm_pt.virtual_machine_interfaces:
+            interface = VirtualMachineInterfaceST.get(interface_name)
+            if not interface:
+                continue
+            if interface.service_interface_type not in ['left',
+                                                        'right']:
+                continue
+            v4_addr = None
+            v6_addr = None
+            if mode != 'transparent':
+                v4_addr = interface.get_any_instance_ip_address(4)
+                v6_addr = interface.get_any_instance_ip_address(6)
+                if v4_addr is None and v6_addr is None:
+                    self.log_error("No ip address found for interface "
+                                   + interface_name)
+                    return None
+            vmi_info = {'vmi': interface, 'v4-address': v4_addr,
+                        'v6-address': v6_addr}
+            vm_info[interface.service_interface_type] = vmi_info
+
+        if 'left' not in vm_info:
+            self.log_error('Left interface not found for %s' %
+                           service_vm)
+            return None
+        if ('right' not in vm_info and mode != 'in-network-nat' and
+            self.direction == '<>'):
+            self.log_error('Right interface not found for %s' %
+                           service_vm)
+            return None
+        return vm_info
+    # end _get_vm_info
+
     def check_create(self):
         # Check if this service chain can be created:
         # - all service instances have VMs
@@ -2254,8 +2297,9 @@ class ServiceChain(DBBaseST):
                 self.log_error("Service instance %s not found " + service)
                 return None
             vm_list = si.virtual_machines
-            if not vm_list:
-                self.log_error("No vms found for service instance " + service)
+            pt_list = si.port_tuples
+            if not vm_list and not pt_list:
+                self.log_error("No vms/pts found for service instance " + service)
                 return None
             mode = si.get_service_mode()
             if mode is None:
@@ -2267,36 +2311,17 @@ class ServiceChain(DBBaseST):
                 if vm_obj is None:
                     self.log_error('virtual machine %s not found' % service_vm)
                     return None
-                vm_info = {'vm_uuid': vm_obj.uuid}
-
-                for interface_name in vm_obj.virtual_machine_interfaces:
-                    interface = VirtualMachineInterfaceST.get(interface_name)
-                    if not interface:
-                        continue
-                    if interface.service_interface_type not in ['left',
-                                                                'right']:
-                        continue
-                    v4_addr = None
-                    v6_addr = None
-                    if mode != 'transparent':
-                        v4_addr = interface.get_any_instance_ip_address(4)
-                        v6_addr = interface.get_any_instance_ip_address(6)
-                        if v4_addr is None and v6_addr is None:
-                            self.log_error("No ip address found for interface "
-                                           + interface_name)
-                            return None
-                    vmi_info = {'vmi': interface, 'v4-address': v4_addr,
-                                'v6-address': v6_addr}
-                    vm_info[interface.service_interface_type] = vmi_info
-
-                if 'left' not in vm_info:
-                    self.log_error('Left interface not found for %s' %
-                                   service_vm)
+                vm_info = self._get_vm_pt_info(vm_obj, mode)
+                if vm_info is None:
                     return None
-                if ('right' not in vm_info and mode != 'in-network-nat' and
-                    self.direction == '<>'):
-                    self.log_error('Right interface not found for %s' %
-                                   service_vm)
+                vm_info_list.append(vm_info)
+            for pt in pt_list:
+                pt_obj = PortTupleST.get(pt)
+                if pt_obj is None:
+                    self.log_error('virtual machine %s not found' % pt)
+                    return None
+                vm_info = self._get_vm_pt_info(pt_obj, mode)
+                if vm_info is None:
                     return None
                 vm_info_list.append(vm_info)
             # end for service_vm
@@ -2674,7 +2699,7 @@ class BgpRouterST(DBBaseST):
                     except NoIdError:
                         pass
                 self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
-                BgpRouterST.delete(self.name)
+                self.delete(self.name)
             elif ret:
                 self._vnc_lib.bgp_router_update(self.obj)
         elif self.router_type != 'bgpaas-server':
@@ -2876,6 +2901,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.interface_mirror = None
         self.virtual_network = None
         self.virtual_machine = None
+        self.port_tuple = None
         self.logical_router = None
         self.bgp_as_a_service = None
         self.uuid = None
@@ -2888,6 +2914,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_multiple_refs('floating_ip', self.obj)
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
         self.update(self.obj)
+        self.update_single_ref('port_tuple', self.obj)
     # end __init__
 
     def update(self, obj=None):
@@ -2925,6 +2952,8 @@ class VirtualMachineInterfaceST(DBBaseST):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
             if ip.address is None:
+                continue
+            if not ip.service_instance_ip:
                 continue
             if not ip_version or IPAddress(ip.address).version == ip_version:
                 return ip.address
@@ -2977,19 +3006,23 @@ class VirtualMachineInterfaceST(DBBaseST):
         ri.virtual_machine_interfaces.discard(self.name)
     # end delete_routing_instance
 
+    def get_virtual_machine_or_port_tuple(self):
+        if self.port_tuple:
+            return PortTupleST.get(self.port_tuple)
+        elif self.virtual_machine:
+            return VirtualMachineST.get(self.virtual_machine)
+        return None
+    # end get_service_instance
+
     def _add_pbf_rules(self):
-        if (not self.virtual_machine or
-            self.service_interface_type not in ['left', 'right']):
+        if self.service_interface_type not in ['left', 'right']:
             return
 
-        vm_obj = VirtualMachineST.get(self.virtual_machine)
-        if vm_obj is None:
-            return
-        smode = vm_obj.get_service_mode()
-        if smode != 'transparent':
+        vm_pt = self.get_virtual_machine_or_port_tuple()
+        if not vm_pt or vm_pt.get_service_mode() != 'transparent':
             return
         for service_chain in ServiceChain.values():
-            if vm_obj.service_instance not in service_chain.service_list:
+            if vm_pt.service_instance not in service_chain.service_list:
                 continue
             if not service_chain.created:
                 continue
@@ -3001,12 +3034,12 @@ class VirtualMachineInterfaceST(DBBaseST):
                 vn_obj = VirtualNetworkST.locate(service_chain.right_vn)
 
             service_name = vn_obj.get_service_name(service_chain.name,
-                                                   vm_obj.service_instance)
+                                                   vm_pt.service_instance)
             service_ri = RoutingInstanceST.get(service_name)
             v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
                 service_name)
             vlan = self._cassandra.allocate_service_chain_vlan(
-                vm_obj.uuid, service_chain.name)
+                vm_pt.uuid, service_chain.name)
 
             service_chain.add_pbf_rule(self, service_ri, v4_address,
                                        v6_address, vlan)
@@ -3049,17 +3082,9 @@ class VirtualMachineInterfaceST(DBBaseST):
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
             return
-        if self.virtual_machine is None:
-            self._logger.error("vm is None for interface %s", self.name)
-            return
-
-        vm_obj = VirtualMachineST.get(self.virtual_machine)
-        if vm_obj is None:
-            self._logger.error(
-                "virtual machine %s not found", self.virtual_machine)
-            return
-        smode = vm_obj.get_service_mode()
-        if smode not in ['in-network', 'in-network-nat']:
+        vm_pt = self.get_virtual_machine_or_port_tuple()
+        if not vm_pt or vm_pt.get_service_mode() not in ['in-network',
+                                                         'in-network-nat']:
             return
 
         vrf_table = VrfAssignTableType()
@@ -3085,7 +3110,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             vrf_table.add_vrf_assign_rule(vrf_rule)
 
         policy_rule_count = 0
-        si_name = vm_obj.service_instance
+        si_name = vm_pt.service_instance
         for service_chain_list in vn.service_chains.values():
             for service_chain in service_chain_list:
                 if not service_chain.created:
@@ -3129,6 +3154,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             sandesh.RefsList('floating_ip', self.floating_ips),
             sandesh.RefsList('virtual_network', [self.virtual_network]),
             sandesh.RefsList('virtual_machine', [self.virtual_machine]),
+            sandesh.RefsList('port_tuple', [self.port_tuple]),
             sandesh.RefsList('logical_router', [self.logical_router]),
         ]
         resp.properties = [
@@ -3154,6 +3180,7 @@ class InstanceIpST(DBBaseST):
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         self.address = self.obj.get_instance_ip_address()
+        self.service_instance_ip = self.obj.get_service_instance_ip()
         self.update_multiple_refs('virtual_machine_interface', self.obj)
     # end update
 
@@ -3168,6 +3195,7 @@ class InstanceIpST(DBBaseST):
         ]
         resp.properties = [
             sandesh.PropList('address', self.address),
+            sandesh.PropList('service_instance_ip', self.service_instance_ip),
         ]
         return resp
     # end handle_st_object_req
@@ -3398,6 +3426,7 @@ class ServiceInstanceST(DBBaseST):
         self.left_vn_str = None
         self.right_vn_str = None
         self.routing_policys = {}
+        self.port_tuples = set()
         self.route_aggregates = {}
         self.update(obj)
         self.network_policys = NetworkPolicyST.get_by_service_instance(self.name)
@@ -3406,6 +3435,7 @@ class ServiceInstanceST(DBBaseST):
             self.routing_policys[':'.join(ref['to'])] = ref['attr']
         for ref in self.obj.get_route_aggregate_back_refs() or []:
             self.route_aggregate[':'.join(ref['to'])] = ref['attr'].interface_type
+        self.set_children('port_tuple', self.obj)
     # end __init__
 
     def update(self, obj=None):
@@ -3534,6 +3564,7 @@ class ServiceInstanceST(DBBaseST):
         resp = DBBaseST.handle_st_object_req()
         resp.obj_refs = [
             sandesh.RefsList('virtual_machine', self.virtual_machines),
+            sandesh.RefsList('port_tuple', self.port_tuples),
             sandesh.RefsList('service_template', [self.service_template]),
             sandesh.RefsList('network_policy', self.network_policys),
             sandesh.RefsList('route_table', self.route_tables),
@@ -3641,3 +3672,39 @@ class RouteAggregateST(DBBaseST):
         self.routing_instances.discard(ri.name)
     # end delete_routing_instance
 # end RouteAggregateST
+
+
+class PortTupleST(DBBaseST):
+    _dict = {}
+    obj_type = 'port_tuple'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.service_instance = None
+        self.virtual_machine_interfaces = set()
+        self.update(obj)
+        self.uuid = self.obj.uuid
+        self.add_to_parent(self.obj)
+    # end __init__
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.update_multiple_refs('virtual_machine_interface', self.obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('virtual_machine_interface', {})
+        self.remove_from_parent()
+    # end delete_obj
+
+    def get_service_mode(self):
+        if self.service_instance is None:
+            return None
+        si_obj = ServiceInstanceST.get(self.service_instance)
+        if si_obj is None:
+            self._logger.error("service instance %s not found"
+                               % self.service_instance)
+            return None
+        return si_obj.get_service_mode()
+    # end get_service_mode
+# end PortTupleST

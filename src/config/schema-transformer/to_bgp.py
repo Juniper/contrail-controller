@@ -71,6 +71,7 @@ class SchemaTransformer(object):
             'instance_ip': ['virtual_machine'],
             'floating_ip': ['virtual_machine'],
             'virtual_machine': [],
+            'port_tuple': [],
             'bgp_as_a_service': [],
         },
         'virtual_network': {
@@ -81,6 +82,11 @@ class SchemaTransformer(object):
             'route_table': [],
         },
         'virtual_machine': {
+            'self': ['service_instance'],
+            'virtual_machine_interface': ['service_instance'],
+            'service_instance': ['virtual_machine_interface']
+        },
+        'port_tuple': {
             'self': ['service_instance'],
             'virtual_machine_interface': ['service_instance'],
             'service_instance': ['virtual_machine_interface']
@@ -443,6 +449,15 @@ class SchemaTransformer(object):
                 continue
             si_st.add_properties(props)
 
+        gevent.sleep(0.001)
+        for rp in RoutingPolicyST.list_vnc_obj():
+            RoutingPolicyST.locate(rp.get_fq_name_str(), rp)
+        gevent.sleep(0.001)
+        for ra in RouteAggregateST.list_vnc_obj():
+            RouteAggregateST.locate(ra.get_fq_name_str(), ra)
+        gevent.sleep(0.001)
+        for pt in PortTupleST.list_vnc_obj():
+            PortTupleST.locate(pt.get_fq_name_str(), pt)
         for cls in DBBaseST.get_obj_type_map().values():
             for obj in cls.values():
                 obj.evaluate()
