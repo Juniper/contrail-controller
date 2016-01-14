@@ -197,7 +197,7 @@ private:
     Agent *agent_;
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
-    VrfEntryRef vrf_entry_;
+    VrfEntry *vrf_entry_;
     // VRF is stored to identify which VRF this table belonged to
     // in case lifetimeactor has reset the vrf_. 
     uint32_t vrf_id_;

@@ -46,7 +46,7 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
     virtual void Shutdown() {
     }
     virtual void Destroy() {
-        assert(table_->vrf_entry_.get() != NULL);
+        assert(table_->vrf_entry_ != NULL);
         table_->vrf_entry_->SetRouteTableDeleted(table_->GetTableType());
         //Release refernces
         table_->vrf_delete_ref_.Reset(NULL);
@@ -67,7 +67,7 @@ bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
 }
 
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name):
-    RouteTable(db, name), agent_(NULL), vrf_entry_(NULL, this), deleter_(NULL),
+    RouteTable(db, name), agent_(NULL), vrf_entry_(NULL), deleter_(NULL),
     vrf_delete_ref_(this, NULL) {
         OperDBTraceBuf = SandeshTraceBufferCreate("OperRoute", 5000);
 }
@@ -111,10 +111,8 @@ void AgentRouteTable::SetVrf(VrfEntry *vrf) {
 auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
-    VrfEntry *vrf = 
-        static_cast<VrfEntry *>(agent_->vrf_table()->Find(&vrf_key, true));
     AgentRoute *route = 
-        static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
+        static_cast<AgentRoute *>(key->AllocRouteEntry(vrf_entry_, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
 
@@ -550,7 +548,7 @@ const std::string &AgentRouteTable::vrf_name() const {
 }
 
 VrfEntry *AgentRouteTable::vrf_entry() const {
-    return vrf_entry_.get();
+    return vrf_entry_;
 }
 
 void AgentRouteTable::NotifyEntry(AgentRoute *e) {
