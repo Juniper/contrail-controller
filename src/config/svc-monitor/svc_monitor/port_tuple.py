@@ -62,14 +62,12 @@ class PortTupleAgent(Agent):
             tag = ServiceInterfaceTag(interface_type=port['type'])
             self._vnc_lib.ref_update('service-instance', si.uuid,
                 'instance-ip', iip_id, None, 'ADD', tag)
-            ServiceInstanceSM.locate(si.uuid)
-            InstanceIpSM.locate(iip_id)
+            si.update()
 
         if create_iip or update_vmi:
             self._vnc_lib.ref_update('instance-ip', iip_id,
                 'virtual-machine-interface', vmi.uuid, None, 'ADD')
-            VirtualMachineInterfaceSM.locate(vmi.uuid)
-            InstanceIpSM.locate(iip_id)
+            vmi.update()
 
         return
 
@@ -82,13 +80,25 @@ class PortTupleAgent(Agent):
         if port['service-health-check'] and not vmi.service_health_check:
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                 'service-health-check', port['service-health-check'], None, 'ADD')
-            VirtualMachineInterfaceSM.locate(vmi.uuid)
+            vmi.update()
 
     def set_port_static_routes(self, port, vmi):
         if port['interface-route-table'] and not vmi.interface_route_table:
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                 'interface-route-table', port['interface-route-table'], None, 'ADD')
-            VirtualMachineInterfaceSM.locate(vmi.uuid)
+            vmi.update()
+
+    def set_secondary_ip_tracking_ip(self, vmi):
+        for iip_id in vmi.instance_ips:
+            iip = InstanceIpSM.get(iip_id)
+            if not iip or not iip.instance_ip_secondary:
+                continue
+            if iip.secondary_tracking_ip == vmi.aaps[0]['ip']:
+                continue
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
+            iip_obj.set_secondary_ip_tracking_ip(vmi.aaps[0]['ip'])
+            self._vnc_lib.instance_ip_update(iip_obj)
+            iip.update()
 
     def set_port_allowed_address_pairs(self, port, vmi, vmi_obj):
         if not port['allowed-address-pairs']:
@@ -108,7 +118,8 @@ class PortTupleAgent(Agent):
             vmi_obj.set_virtual_machine_interface_allowed_address_pairs(
                 port['allowed-address-pairs'])
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-            VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
+            vmi.update()
+            self.set_secondary_ip_tracking_ip(vmi)
 
     def delete_shared_iip(self, iip_id):
         iip = InstanceIpSM.get(iip_id)
