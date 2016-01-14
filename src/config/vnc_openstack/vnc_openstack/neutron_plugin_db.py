@@ -1812,34 +1812,13 @@ class DBInterface(object):
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
 
-        host_id_modify = profile_modify = vnic_type_modify = False
-        bindings = port_obj.get_virtual_machine_interface_bindings()
-        kvps = []
-        if bindings:
-            kvps = bindings.get_key_value_pair()
-            for kvp in kvps:
-                if kvp.key == 'host_id':
-                    kvp.value = port_q.get('binding:host_id', kvp.value)
-                    host_id_modify = True
-
-                if kvp.key == 'profile':
-                    kvp.value = port_q.get('binding:profile', kvp.value)
-                    profile_modify = True
-
-                if kvp.key == 'vnic_type':
-                    kvp.value = port_q.get('binding:vnic_type', kvp.value)
-                    vnic_type_modify = True
-
-        if ('binding:vnic_type' in port_q) and (not vnic_type_modify):
-            kvps.append(KeyValuePair('vnic_type', port_q['binding:vnic_type']))
-
-        if ('binding:host_id' in port_q) and (not host_id_modify):
-            kvps.append(KeyValuePair('host_id', port_q['binding:host_id']))
-
-        if ('binding:profile' in port_q) and (not profile_modify):
-            kvps.append(KeyValuePair('profile', port_q['binding:profile']))
-
-        port_obj.set_virtual_machine_interface_bindings(KeyValuePairs(kvps))
+        # pick binding keys from neutron repr and persist as kvp elements.
+        # it is assumed allowing/denying oper*key is done at neutron-server.
+        vmi_binding_kvps = dict((k.replace('binding:',''), v)
+            for k,v in port_q.items() if k.startswith('binding:'))
+        for k,v in vmi_binding_kvps.items():
+            port_obj.add_virtual_machine_interface_bindings(
+                KeyValuePair(key=k, value=v), elem_position=k)
 
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])
