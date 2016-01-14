@@ -1,0 +1,61 @@
+//
+// Introspect structs for API server
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+struct SubscriberStats {
+    1:  string service_type;
+    2:  u32 Request;
+    3:  u32 Response;
+    4:  string HttpError;
+    5:  u32 ConnError;
+    6:  u32 Timeout;
+    7:  u32 unknown_exceptions;
+    8:  string exception_info;
+}
+
+struct PublisherStats {
+    1:  string service_type;
+    2:  u32 Request;
+    3:  u32 Response;
+    4:  string HttpError;
+    5:  u32 ConnError;
+    6:  u32 Timeout;
+    7:  u32 unknown_exceptions;
+    8:  string exception_info;
+}
+
+request sandesh DiscoveryClientStatsReq {
+}
+
+response sandesh DiscoveryClientStatsResp {
+    1:  list<PublisherStats> Publish;
+    2:  list<SubscriberStats> Subscribe;
+}
+
+struct SubscribeInfo {
+    1:  string service_type;
+    2:  u32 instances;
+    3:  u32 ttl;
+    4:  string blob;
+}
+
+request sandesh DiscoveryClientSubscribeInfoReq {
+}
+
+response sandesh DiscoveryClientSubscribeInfoResp {
+    1:  list<SubscribeInfo> Subscribe;
+}
+
+struct PublishInfo {
+    1:  string service_type;
+    2:  string blob;
+}
+
+request sandesh DiscoveryClientPublishInfoReq {
+}
+
+response sandesh DiscoveryClientPublishInfoResp {
+    1:  list<PublishInfo> Publish
+}

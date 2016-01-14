@@ -78,6 +78,8 @@ class DiscoveryServer():
             '503': 0,
             'count_lb': 0,
             'auto_lb': 0,
+            'db_exc_unknown': 0,
+            'db_exc_info': '',
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -356,6 +358,8 @@ class DiscoveryServer():
                 self._debug['503'] += 1
                 bottle.abort(503, 'Service Unavailable')
             except Exception as e:
+                self._debug['db_exc_unknown'] += 1
+                self._debug['db_exc_info'] = str(sys.exc_info())
                 raise
         return error_handler
 

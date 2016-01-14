@@ -64,6 +64,19 @@ class Subscribe(object):
         self.sig = hashlib.md5(infostr).hexdigest()
         self.done = False
 
+        self.stats = {
+            'service_type' : service_type,
+            'request'      : 0,
+            'response'     : 0,
+            'conn_error'   : 0,
+            'timeout'      : 0,
+            'exc_unknown'  : 0,
+            'exc_info'     : '',
+            'instances'    : count,
+            'ttl'          : 0,
+            'blob'         : '',
+        }
+
         data = {
             'service': service_type,
             'instances': count,
@@ -88,6 +101,11 @@ class Subscribe(object):
             self.done = True
     # end
 
+    def inc_stats(self, key):
+        if key not in self.stats:
+            self.stats[key] = 0
+        self.stats[key] += 1
+
     def ttl_loop(self):
         while True:
             self._query()
@@ -104,41 +122,34 @@ class Subscribe(object):
     #        u'ip_addr': u'10.84.7.1', u'port': u'8443'}]
     def _query(self):
         conn_state_updated = False
-        connected = False
         # hoping all errors are transient and a little wait will solve the problem
-        while not connected:
+        while True:
             try:
+                self.stats['request'] += 1
                 r = requests.post(
                     self.url, data=self.post_body, headers=self._headers, timeout=5)
-                if r.status_code != 200:
-                    self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
-                    if not conn_state_updated:
-                        conn_state_updated = True
-                        ConnectionState.update(
-                            conn_type = ConnectionType.DISCOVERY, 
-                            name = self.service_type,
-                            status = ConnectionStatus.DOWN,
-                            message = 'Subscribe - Error (code %d)' % \
-                                (r.status_code),
-                            server_addrs = ['%s:%s' % (self.dc._server_ip, \
-                                self.dc._server_port)])
-                    gevent.sleep(2)
-                else:
-                    connected = True
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, socket.timeout):
-                # discovery server down or restarting?
-                self.syslog('discovery server down or restarting?')
-                if not conn_state_updated:
-                    conn_state_updated = True
-                    ConnectionState.update(
-                        conn_type = ConnectionType.DISCOVERY, 
-                        name = self.service_type,
-                        status = ConnectionStatus.DOWN,
-                        message = 'Subscribe - ConnectionError',
-                        server_addrs = \
-                            ['%s:%s' % (self.dc._server_ip, \
-                             self.dc._server_port)])
-                gevent.sleep(2)
+                if r.status_code == 200:
+                    break
+                self.inc_stats('sc_%d' % r.status_code)
+                emsg = "Status Code %d" % r.status_code
+            except requests.exceptions.ConnectionError:
+                self.stats['conn_error'] += 1
+                emsg = 'Connection Error'
+            except (requests.exceptions.Timeout, socket.timeout):
+                self.stats['timeout'] += 1
+                emsg = 'Request Timeout'
+            self.syslog('connection error or failed to subscribe')
+            if not conn_state_updated:
+                conn_state_updated = True
+                ConnectionState.update(
+                    conn_type = ConnectionType.DISCOVERY,
+                    name = self.service_type,
+                    status = ConnectionStatus.DOWN,
+                    message = 'Subscribe - %s' % emsg,
+                    server_addrs = \
+                        ['%s:%s' % (self.dc._server_ip, \
+                         self.dc._server_port)])
+            gevent.sleep(2)
         # end while
 
         self.syslog('query resp => %s ' % r.text)
@@ -149,11 +160,9 @@ class Subscribe(object):
         infostr = json.dumps(info)
         sig = hashlib.md5(infostr).hexdigest()
 
-        # convert to strings
-        for obj in info:
-            if type(obj) is dict:
-                for k, v in obj.items():
-                    obj[k] = v.encode('utf-8')
+        self.stats['response'] += 1
+        self.stats['ttl'] = response['ttl']
+        self.stats['blob'] = infostr
 
         self.ttl = response['ttl']
         self.change = False
@@ -196,6 +205,12 @@ class DiscoveryClient(object):
         self.task = None
         self._sandesh = None
 
+        self.stats = {
+            'client_type'    : client_type,
+            'hb_iters'       : 0,
+        }
+        self.pub_stats = {}
+
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect((server_ip, server_port))
@@ -209,6 +224,7 @@ class DiscoveryClient(object):
 
         # token to re-publish information (token => service data)
         self.pubdata = {}
+        self.pub_data = {}
 
         # publish URL
         self.puburl = "http://%s:%s/publish/%s" % (
@@ -237,7 +253,36 @@ class DiscoveryClient(object):
         log = sandesh.discClientLog(
             log_msg=log_msg, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
-    
+
+    def inc_stats(self, key):
+        if key not in self.stats:
+            self.stats[key] = 0
+        self.stats[key] += 1
+
+    def inc_pub_stats(self, service, key, value = None):
+        if service not in self.pub_stats:
+            self.pub_stats[service] = {}
+            self.pub_stats[service]['service-type'] = service
+            self.pub_stats[service]['request'] = 0
+            self.pub_stats[service]['response'] = 0
+            self.pub_stats[service]['conn_error'] = 0
+            self.pub_stats[service]['timeout'] = 0
+            self.pub_stats[service]['exc_unknown'] = 0
+            self.pub_stats[service]['exc_info'] = ''
+            self.pub_stats[service]['blob'] = ''
+        if key not in self.pub_stats[service]:
+            self.pub_stats[service][key] = 0
+        if value:
+            self.pub_stats[service][key] = value
+        else:
+            self.pub_stats[service][key] += 1
+
+    def get_stats(self):
+        stats = self.stats.copy()
+        stats['subs'] = [sub.stats for sub in self._subs]
+        stats['pubs'] = self.pub_stats
+        return stats
+
     def exportJson(self, o):
         obj_json = json.dumps(lambda obj: dict((k, v)
                               for k, v in obj.__dict__.iteritems()))
@@ -250,79 +295,54 @@ class DiscoveryClient(object):
             'service-type' : service,
             'remote-addr'  : self._myip
         }
-        conn_state_updated = False
-        while True:
-            try:
-                r = requests.post(
-                    self.puburl, data=json.dumps(payload), headers=self._headers, timeout=5)
-                if r.status_code == 200:
-                    break
-                if not conn_state_updated:
-                    conn_state_updated = True
-                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service,
-                        status = ConnectionStatus.DOWN,
-                        server_addrs = ['%s:%s' % (self._server_ip, \
-                            self._server_port)],
-                        message = 'Publish Error - Status Code ' + 
-                            str(r.status_code))
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                if not conn_state_updated:
-                    conn_state_updated = True
-                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service,
-                        status = ConnectionStatus.DOWN,
-                        server_addrs = ['%s:%s' % (self._server_ip, \
-                            self._server_port)],
-                        message = 'Publish Error - Connection Error') 
-            self.syslog('connection error or failed to publish')
-            gevent.sleep(2)
+        emsg = None
+        cookie = None
+        try:
+            self.inc_pub_stats(service, 'request')
+            r = requests.post(
+                self.puburl, data=json.dumps(payload), headers=self._headers, timeout=5)
+            if r.status_code != 200:
+                self.inc_pub_stats(service, 'sc_%d' % r.status_code)
+                emsg = 'Status Code ' + str(r.status_code)
+        except requests.exceptions.ConnectionError:
+            self.inc_pub_stats(service, 'conn_error')
+            emsg = 'Connection Error'
+        except requests.exceptions.Timeout:
+            self.inc_pub_stats(service, 'timeout')
+            emsg = 'Request Timeout'
+        finally:
+            ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
+                name = service,
+                status = ConnectionStatus.DOWN if emsg else ConnectionStatus.UP,
+                server_addrs = ['%s:%s' % (self._server_ip, \
+                    self._server_port)],
+                message = 'Publish Error - %s' % emsg if emsg else 'Publish Success')
 
-        response = r.json()
-        cookie = response['cookie']
-        self.pubdata[cookie] = (service, data)
-        self.syslog('Saving token %s' % (cookie))
-        ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-            name = service, status = ConnectionStatus.UP,
-            server_addrs = ['%s:%s' % (self._server_ip, \
-                self._server_port)],
-            message = 'Publish Response')
+        if not emsg:
+            self.inc_pub_stats(service, 'response')
+            self.inc_pub_stats(service, 'blob', value = json.dumps(data))
+            response = r.json()
+            cookie = response['cookie']
+            self.pubdata[cookie] = (service, data)
+            self.syslog('Saving token %s' % (cookie))
         return cookie
 
     # publisher - send periodic heartbeat
     def heartbeat(self):
         while True:
+            self.stats['hb_iters'] += 1
             # Republish each published object seperately
             # dictionary can change size during iteration
-            pub_list = self.pubdata.copy()
-            for cookie in pub_list:
+            for service, data in self.pub_data.items():
                 gevent.sleep(0)
-                self.syslog('Republish %s' % (cookie))
-                service, data = self.pubdata[cookie]
-                del self.pubdata[cookie]
-                self._publish_int(service, data)
+                try:
+                    self._publish_int(service, data)
+                except Exception as e:
+                    self.inc_pub_stats(service, 'exc_unknown')
+                    msg = 'Error in publish service %s - %s' %(service, str(e))
+                    self.syslog(msg)
             gevent.sleep(HC_INTERVAL)
     # end client
-
-    # task to publish information which could not be published due to conn
-    # errors
-    def def_pub(self):
-        while True:
-            gevent.sleep(10)
-
-            def_list = self.pub_q.copy()
-            for sig, s_d in def_list.iteritems():
-                service, data = s_d
-                token = self._publish_int(service, data)
-                if token:
-                    self.syslog('Succeeded in publishing %s:%s' % (service, data))
-                    del self.pub_q[sig]
-
-            if not self.pub_q:
-                self.syslog('Deferred list is empty. Done')
-                self.pub_task = None
-                return
-    # end def_pub
 
     # API publish object
     # Tx {'name':u'ifmap-server', info:{u'ip_addr': u'10.84.7.1', u'port':
@@ -340,6 +360,7 @@ class DiscoveryClient(object):
 
     # API publish service and data
     def publish(self, service, data):
+        self.pub_data[service] = data
         self._publish_int(service, data)
         return self.hbtask
     # end

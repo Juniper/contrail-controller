@@ -10,7 +10,7 @@ import sys
 import discoveryclient.client as client
 import uuid
 import time
-
+import signal
 
 class TestDiscService():
 
@@ -80,9 +80,8 @@ class TestDiscService():
                 print 'Service name and data required for publish operation'
                 sys.exit()
         elif self.args.oper == 'pubtest':
-            if (self.args.service_data is None or
-                    self.args.service_type is None):
-                print 'Service name and data required for publish operation'
+            if self.args.service_type is None:
+                print 'Service name required for publish operation'
                 sys.exit()
 
         print 'Discovery server = %s:%s'\
@@ -96,11 +95,17 @@ def info_callback(info):
     print 'In subscribe callback handler'
     print '%s' % (info)
 
+def ctrl_c_handler(signal, frame):
+    print disc.get_stats()
+    sys.exit(0)
 
+signal.signal(signal.SIGINT, ctrl_c_handler)
+disc = None
 def main(args_str=None):
     x = TestDiscService(args_str)
     _uuid = str(uuid.uuid4())
     myid = 'test_disc:%s' % (_uuid[:8])
+    global disc
     disc = client.DiscoveryClient(
         x.args.server_ip, x.args.server_port, "test-discovery",
             pub_id = "test-discovery-%d" % os.getpid())
