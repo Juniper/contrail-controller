@@ -676,6 +676,7 @@ void StaticRouteMgr::RemoveStaticRoutePrefix(const Ip4Prefix &static_route) {
 
 void StaticRouteMgr::ProcessStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
+    if (routing_instance()->deleted() || !routing_instance()->config()) return;
     const BgpInstanceConfig::StaticRouteList &list =
         routing_instance()->config()->static_routes();
     typedef BgpInstanceConfig::StaticRouteList::const_iterator iterator_t;
@@ -690,6 +691,7 @@ bool StaticRouteMgr::ResolvePendingStaticRouteConfig() {
 }
 
 StaticRouteMgr::~StaticRouteMgr() {
+    resolve_trigger_->Reset();
     if (static_route_queue_)
         delete static_route_queue_;
 }

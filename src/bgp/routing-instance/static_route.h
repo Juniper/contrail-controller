@@ -75,6 +75,10 @@ private:
     RoutingInstance *instance_;
     BgpConditionListener *listener_;
     StaticRouteMap  static_route_map_;
+
+    void DisableResolveTrigger() { resolve_trigger_->set_disable(); }
+    void EnableResolveTrigger() { resolve_trigger_->set_enable(); }
+
     void DisableQueue() { static_route_queue_->set_disable(true); }
     void EnableQueue() { static_route_queue_->set_disable(false); }
     bool IsQueueEmpty() { return static_route_queue_->IsQueueEmpty(); }
