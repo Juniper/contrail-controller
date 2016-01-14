@@ -738,6 +738,7 @@ void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const PrefixT &static_route) {
 template <typename T>
 void StaticRouteMgr<T>::ProcessStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
+    if (routing_instance()->deleted() || !routing_instance()->config()) return;
     const BgpInstanceConfig::StaticRouteList &list =
         routing_instance()->config()->static_routes(GetFamily());
     typedef BgpInstanceConfig::StaticRouteList::const_iterator iterator_t;
@@ -754,6 +755,7 @@ bool StaticRouteMgr<T>::ResolvePendingStaticRouteConfig() {
 
 template <typename T>
 StaticRouteMgr<T>::~StaticRouteMgr() {
+    resolve_trigger_->Reset();
     if (static_route_queue_)
         delete static_route_queue_;
 }
