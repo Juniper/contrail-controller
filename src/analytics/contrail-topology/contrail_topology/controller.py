@@ -113,12 +113,14 @@ class Controller(object):
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
-                loc_pname = [x for x in d['PRouterEntry']['lldpTable'][
-                        'lldpLocalSystemData']['lldpLocPortTable'] if x[
-                        'lldpLocPortNum'] == pl['lldpRemLocalPortNum']][
-                        0]['lldpLocPortDesc']
-                pl['lldpRemLocalPortNum'] = [k for k in ifm if ifm[
-                                        k] == loc_pname][0]
+                if d['PRouterEntry']['lldpTable']['lldpLocalSystemData'][
+                    'lldpLocSysDesc'].startswith('Cisco'):
+                    loc_pname = [x for x in d['PRouterEntry']['lldpTable'][
+                            'lldpLocalSystemData']['lldpLocPortTable'] if x[
+                            'lldpLocPortNum'] == pl['lldpRemLocalPortNum']][
+                            0]['lldpLocPortDesc']
+                    pl['lldpRemLocalPortNum'] = [k for k in ifm if ifm[
+                                            k] == loc_pname][0]
                 if pl['lldpRemLocalPortNum'] in ifm and self._chk_lnk(
                         d['PRouterEntry'], pl['lldpRemLocalPortNum']):
                     if pl['lldpRemPortId'].isdigit():
