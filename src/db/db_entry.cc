@@ -22,7 +22,7 @@ DBEntryBase::~DBEntryBase() {
 void DBEntryBase::SetState(DBTableBase *tbl_base, ListenerId listener,
                            DBState *state) {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
-    tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
+    tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), true);
     pair<StateMap::iterator, bool> res = state_.insert(
         make_pair(listener, state));
     if (!res.second) {
@@ -36,7 +36,7 @@ void DBEntryBase::SetState(DBTableBase *tbl_base, ListenerId listener,
 
 DBState *DBEntryBase::GetState(DBTableBase *tbl_base, ListenerId listener) const {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
-    tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
+    tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), false);
     StateMap::const_iterator loc = state_.find(listener);
     if (loc != state_.end()) {
         return loc->second;
@@ -48,7 +48,7 @@ const DBState *DBEntryBase::GetState(const DBTableBase *tbl_base,
                                      ListenerId listener) const {
     DBTableBase *table = const_cast<DBTableBase *>(tbl_base);
     DBTablePartBase *tpart = table->GetTablePartition(this);
-    tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
+    tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), false);
     StateMap::const_iterator loc = state_.find(listener);
     if (loc != state_.end()) {
         return loc->second;
@@ -72,7 +72,7 @@ const DBState *DBEntryBase::GetState(const DBTableBase *tbl_base,
 //
 void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
-    tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
+    tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), true);
 
     if (state_.erase(listener) != 0) {
         // Account for state removal for this listener.
@@ -86,7 +86,7 @@ void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
 }
 
 bool DBEntryBase::is_state_empty(DBTablePartBase *tpart) {
-    tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());
+    tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), false);
     return state_.empty(); 
 }
 
