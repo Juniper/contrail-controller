@@ -571,7 +571,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
     # end test_multiple_policy
 
-    def test_service_policy(self):
+    def service_policy_test_with_version(self, version=None):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24', '1000::/16'])
@@ -581,7 +581,7 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24', '2000::/16'])
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], version=version)
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
@@ -663,6 +663,11 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end service_policy_test_with_version
+
+    def test_service_policy(self):
+        self.service_policy_test_with_version()
+        self.service_policy_test_with_version(2)
     # end test_service_policy
 
     def test_service_policy_with_any(self):
@@ -1886,7 +1891,7 @@ class TestPolicy(test_case.STTestCase):
         self.wait_to_remove_link(self.get_obj_imid(vmi), fip_fq_name)
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
-    def _test_pnf_service(self):
+    def test_pnf_service(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -1942,7 +1947,9 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         service_name = self.id() + 's1'
-        si_fq_name_str = self._create_service(vn1_obj, vn2_obj, service_name, False, service_mode='transparent', service_type='analyzer')
+        si_fq_name_str = self._create_service(
+            {'left': vn1_obj, 'right':vn2_obj}, service_name, False,
+            service_mode='transparent', service_type='analyzer')
 
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)

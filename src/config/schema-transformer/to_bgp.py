@@ -96,6 +96,7 @@ class SchemaTransformer(object):
             'routing_policy': ['network_policy'],
             'route_aggregate': ['network_policy'],
             'virtual_machine': ['network_policy'],
+            'port_tuple': ['network_policy'],
             'network_policy': ['virtual_machine']
         },
         'network_policy': {

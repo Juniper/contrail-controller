@@ -537,9 +537,21 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn1_name, vn2_name, si_name, auto_policy, **kwargs):
-        sti = [ServiceTemplateInterfaceType(
-            'left'), ServiceTemplateInterfaceType('right')]
+    def _create_service(self, vn_list, si_name, auto_policy, **kwargs):
+        sa_set = None
+        if kwargs.get('service_virtualization_type') == 'physical-device':
+            pr = PhysicalRouter(si_name)
+            self._vnc_lib.physical_router_create(pr)
+            sa_set = ServiceApplianceSet('sa_set-'+si_name)
+            self._vnc_lib.service_appliance_set_create(sa_set)
+            sa = ServiceAppliance('sa-'+si_name, parent_obj=sa_set)
+            for if_type in vn_list:
+               attr = ServiceApplianceInterfaceType(interface_type=if_type)
+               pi = PhysicalInterface('pi-'+si_name+if_type, parent_obj=pr)
+               self._vnc_lib.physical_interface_create(pi)
+               sa.add_physical_interface(pi, attr)
+            self._vnc_lib.service_appliance_create(sa)
+        sti = [ServiceTemplateInterfaceType(k) for k in vn_list.keys()]
         st_prop = ServiceTemplateType(
             flavor='medium',
             image_name='junk',
@@ -548,14 +560,16 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         service_template = ServiceTemplate(
             name=si_name + 'template',
             service_template_properties=st_prop)
+        if sa_set:
+            service_template.add_service_appliance_set(sa_set)
         self._vnc_lib.service_template_create(service_template)
         scale_out = ServiceScaleOutType()
         if kwargs.get('service_mode') == 'in-network':
-            if_list = [ServiceInstanceInterfaceType(virtual_network=vn1_name),
-                       ServiceInstanceInterfaceType(virtual_network=vn2_name)]
-            si_props = ServiceInstanceType(
-                auto_policy=auto_policy, interface_list=if_list,
-                scale_out=scale_out)
+            if_list = [ServiceInstanceInterfaceType(virtual_network=vn)
+                       for vn in vn_list.values()]
+            si_props = ServiceInstanceType(auto_policy=auto_policy,
+                                           interface_list=if_list,
+                                           scale_out=scale_out)
         else:
             if_list = [ServiceInstanceInterfaceType(),
                        ServiceInstanceInterfaceType()]
@@ -565,6 +579,21 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             name=si_name, service_instance_properties=si_props)
         service_instance.add_service_template(service_template)
         self._vnc_lib.service_instance_create(service_instance)
+
+        if kwargs.get('version') == 2:
+            proj = Project()
+            pt = PortTuple('pt-'+si_name, parent_obj=service_instance)
+            self._vnc_lib.port_tuple_create(pt)
+            for if_type, vn_name in vn_list.items():
+                port = VirtualMachineInterface(si_name+if_type, parent_obj=proj)
+                vmi_props = VirtualMachineInterfacePropertiesType(
+                    service_interface_type=if_type)
+                vn_obj = self._vnc_lib.virtual_network_read(fq_name_str=vn_name)
+                port.set_virtual_machine_interface_properties(vmi_props)
+                port.add_virtual_network(vn_obj)
+                port.add_port_tuple(pt)
+                self._vnc_lib.virtual_machine_interface_create(port)
+
         return service_instance.get_fq_name_str()
 
     def create_network_policy(self, vn1, vn2, service_list=None, mirror_service=None,
@@ -579,10 +608,11 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         if service_list:
             for service in si_list:
                 service_name_list.append(self._create_service(
-                    vn1_name, vn2_name, service, auto_policy, **kwargs))
+                    {'left': vn1_name, 'right': vn2_name}, service,
+                     auto_policy, **kwargs))
         if mirror_service:
             mirror_si = self._create_service(
-		vn1_name, vn2_name, mirror_service, False,
+                {'left': vn1_name, 'right': vn2_name}, mirror_service, False,
                 service_mode='transparent', service_type='analyzer')
         action_list = ActionListType()
         if mirror_service:
