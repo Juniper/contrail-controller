@@ -2273,12 +2273,12 @@ class ServiceChain(DBBaseST):
 
         if 'left' not in vm_info:
             self.log_error('Left interface not found for %s' %
-                           service_vm)
+                           vm_pt.name)
             return None
         if ('right' not in vm_info and mode != 'in-network-nat' and
             self.direction == '<>'):
             self.log_error('Right interface not found for %s' %
-                           service_vm)
+                           vm_pt.name)
             return None
         return vm_info
     # end _get_vm_info
