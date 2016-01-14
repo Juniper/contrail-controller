@@ -287,7 +287,7 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
-      lifetime_manager_(new BgpLifetimeManager(this,
+      lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       destroyed_(false),

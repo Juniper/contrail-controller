@@ -32,6 +32,8 @@ private:
     template <typename U> friend class ServiceChainTest;
 
     virtual void set_aggregate_host_route(bool value) = 0;
+    virtual void DisableResolveTrigger() = 0;
+    virtual void EnableResolveTrigger() = 0;
     virtual void DisableQueue() = 0;
     virtual void EnableQueue() = 0;
 };

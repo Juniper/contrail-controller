@@ -13,6 +13,10 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, EvpnManager, EvpnManager);
 #include "bgp/bgp_export.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpExport, BgpExport);
 
+#include "bgp/bgp_lifetime.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpLifetimeManager,
+    BgpLifetimeManager);
+
 #include "bgp/bgp_peer.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpPeer, BgpPeer);
 
