@@ -104,6 +104,9 @@ private:
     bool ResolvePendingStaticRouteConfig();
     bool StaticRouteEventCallback(StaticRouteRequest *req);
 
+    virtual void DisableResolveTrigger() { resolve_trigger_->set_disable(); }
+    virtual void EnableResolveTrigger() { resolve_trigger_->set_enable(); }
+
     virtual void DisableQueue() { static_route_queue_->set_disable(true); }
     virtual void EnableQueue() { static_route_queue_->set_disable(false); }
     virtual bool IsQueueEmpty() { return static_route_queue_->IsQueueEmpty(); }
