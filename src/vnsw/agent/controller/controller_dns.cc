@@ -132,9 +132,19 @@ void AgentDnsXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::UP, ep,
                                            last_state_name);
+        if (agent_->discovery_service_client()) {
+            agent_->discovery_service_client()->AddSubscribeInUseServiceList(
+                g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, ep);
+        }
     } else {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
+        if (state == xmps::TIMEDOUT) {
+            if (agent_->discovery_service_client()) {
+                agent_->discovery_service_client()->DeleteSubscribeInUseServiceList(
+                    g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, ep);
+            }
+        }
     }
 }

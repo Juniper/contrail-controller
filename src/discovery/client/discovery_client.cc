@@ -70,6 +70,15 @@ void DSSubscribeResponse::StartSubscribeTimer(int seconds) {
 
 void DSSubscribeResponse::AddInUseServiceList(
                           boost::asio::ip::tcp::endpoint ep) {
+    std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
+    for (it = inuse_service_list_.begin();
+         it != inuse_service_list_.end(); it++) {
+        boost::asio::ip::tcp::endpoint endpoint = *it;
+        if (ep.address().to_string().compare(
+            endpoint.address().to_string()) == 0) {
+            return;
+        }
+    }
     inuse_service_list_.push_back(ep);
 }
 
@@ -296,7 +305,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     if (loc != publish_response_map_.end()) {
         resp = loc->second;
     } else {
-        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientErrorLog, serviceName,
                                    "Stray Publish Response");
         if (conn) {
             http_client_->RemoveConnection(conn);
@@ -361,8 +370,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
         return;
     }
 
-    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler",
-                           serviceName, xmls);
     //Extract cookie from message
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node = pugi->FindNode("cookie");
@@ -476,6 +483,8 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
         "Publish");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
                            serviceName, pub_msg->publish_msg_);
+    DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, pub_msg->publish_hdr_,
+                                serviceName, pub_msg->publish_msg_);
 }
 
 void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
@@ -521,12 +530,15 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
             stringstream ss;
             impl->PrintDoc(ss);
             resp->publish_msg_ = ss.str();
+
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
+                                   serviceName, resp->publish_msg_);
+            DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, resp->publish_hdr_,
+                                        serviceName, resp->publish_msg_);
         }
 
         /* Send publish unconditionally */
         resp->pub_sent_++;
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
-                               serviceName, resp->publish_msg_);
         SendHttpPostMessage(resp->publish_hdr_, serviceName,
                             resp->publish_msg_);
     }
@@ -588,6 +600,8 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
         "Publish");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_,
                            serviceName, pub_msg->publish_msg_);
+    DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, pub_msg->publish_hdr_,
+                                serviceName, pub_msg->publish_msg_);
 }
 
 
@@ -600,9 +614,6 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
-
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_, 
-                               serviceName, resp->publish_msg_);
     }
 }
 
@@ -687,6 +698,8 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
         "Subscribe");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
                            serviceName, ss.str());
+    DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, "subscribe",
+                                serviceName, ss.str());
 }
 
 void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfInstances) {
@@ -704,14 +717,15 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
                 XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
                 pugi::xml_node node_service = pugi->FindNode(serviceName);
                 if (!pugi->IsNull(node_service)) {
-                    pugi->AddNode("service-in-use-list", "");
+                    pugi->ReadNode(serviceName); //SetContext
+                    pugi->AddChildNode("service-in-use-list", "");
                     std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
                     for (it = resp->inuse_service_list_.begin();
                          it != resp->inuse_service_list_.end(); it++) {
                         boost::asio::ip::tcp::endpoint ep = *it;
                         std::string pub_id =
                             resp->GetPublisherId(ep.address().to_string());
-                        pugi->AddChildNode("publiser-id", pub_id);
+                        pugi->AddChildNode("publisher-id", pub_id);
                         pugi->ReadNode("service-in-use-list");
                     }
                 }
@@ -721,6 +735,9 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
             stringstream ss;
             impl->PrintDoc(ss);
             SendHttpPostMessage("subscribe", serviceName, ss.str());
+
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
+                                   serviceName, ss.str());
         } else {
             SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
         }
@@ -761,7 +778,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     if (loc != service_response_map_.end()) {
         hdr = loc->second;
     } else {
-        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientErrorLog, serviceName,
                                    "Stray Subscribe Response");
         if (conn) {
             http_client_->RemoveConnection(conn);
@@ -963,7 +980,7 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
     if (loc != publish_response_map_.end()) {
         resp = loc->second;
     } else {
-        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientErrorLog, serviceName,
                                    "Stray HeartBeat Response");
         if (conn) {
             http_client_->RemoveConnection(conn);

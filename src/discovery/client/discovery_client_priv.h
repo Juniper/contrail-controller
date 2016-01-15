@@ -17,6 +17,13 @@ do {                                                                           \
     obj::Send(                                                                 \
       g_vns_constants.CategoryNames.find(Category::DISCOVERYCLIENT)->second,   \
       SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);               \
-} while (false)
+} while (false);\
+
+#define DISCOVERY_CLIENT_LOG_NOTICE(obj, ...)                                    \
+do {                                                                           \
+    obj::Send(                                                                 \
+      g_vns_constants.CategoryNames.find(Category::DISCOVERYCLIENT)->second,   \
+      SandeshLevel::SYS_NOTICE, __FILE__, __LINE__, ##__VA_ARGS__);              \
+} while (false); \
 
 #endif // __DISCOVERY_CLIENT_PRIV_H__

@@ -48,12 +48,7 @@ void DiscoveryAgentClient::DiscoverController() {
         agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
-        int xs_instances = 
-            agent_cfg_->agent()->discovery_xmpp_server_instances();
-        if ((xs_instances < 0) || (xs_instances > 2)) {
-            xs_instances = 2;
-        }
-
+        int xs_instances = 0;
         ds_client->Subscribe(
             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, xs_instances,
             boost::bind(&DiscoveryAgentClient::DiscoverySubscribeXmppHandler,
@@ -67,12 +62,7 @@ void DiscoveryAgentClient::ReDiscoverController() {
         agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
-        int xs_instances = 
-            agent_cfg_->agent()->discovery_xmpp_server_instances();
-        if ((xs_instances < 0) || (xs_instances > 2)) {
-            xs_instances = 2;
-        }
-
+        int xs_instances = 0;
         ds_client->Subscribe(
             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, xs_instances);
     }
@@ -85,12 +75,7 @@ void DiscoveryAgentClient::DiscoverDNS() {
         agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
-        int dns_instances = 
-            agent_cfg_->agent()->discovery_xmpp_server_instances();
-        if ((dns_instances < 0) || (dns_instances > 2)) {
-            dns_instances = 2;
-        }
-
+        int dns_instances = 0;
         ds_client->Subscribe(
             g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, dns_instances,
             boost::bind(&DiscoveryAgentClient::DiscoverySubscribeDNSHandler, 
@@ -104,12 +89,7 @@ void DiscoveryAgentClient::ReDiscoverDNS() {
         agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
-        int dns_instances = 
-            agent_cfg_->agent()->discovery_xmpp_server_instances();
-        if ((dns_instances < 0) || (dns_instances > 2)) {
-            dns_instances = 2;
-        }
-
+        int dns_instances = 0;
         ds_client->Subscribe(
             g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, dns_instances);
     }    
