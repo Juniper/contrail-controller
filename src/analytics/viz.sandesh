@@ -84,6 +84,7 @@ const string PROUTER_TABLE          = "ObjectPRouter"
 const string CONFIG_OBJECT_TABLE_USER = "ConfigObjectTableByUser"
 const string PHYSICAL_IF_TABLE      = "ObjectPhysicalInterfaceTable"
 const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
+const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -112,6 +113,7 @@ const string PROUTER_DISPLAY_NAME          = "pRouter"
 const string CONFIG_OBJECT_USER_DISPLAY_NAME = "Config Object by User Table"
 const string LOGICAL_IF_DISPLAY_NAME       = "Logical Interface"
 const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
+const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -399,7 +401,8 @@ const map<string, string> UVE_MAP = {
     "server" : SERVER_TABLE,
     "prouter" : PROUTER_TABLE,
     "physical-interface" : PHYSICAL_IF_TABLE,
-    "logical-interface" : LOGICAL_IF_TABLE
+    "logical-interface" : LOGICAL_IF_TABLE,
+    "storage-cluster" : STORAGE_CLUSTER_TABLE
 }
 
 struct objtable_info {
@@ -490,12 +493,15 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     POOL_TABLE          : {
         'objtable_display_name' : STORAGE_POOL_DISPLAY_NAME
+        'log_query_name'        : "storage-pool"
     }
     OSD_TABLE          : {
         'objtable_display_name' : STORAGE_OSD_DISPLAY_NAME
+        'log_query_name'        : "storage-osd"
     }
     DISK_TABLE          : {
         'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
+        'log_query_name'        : "storage-disk"
     }
     SERVER_TABLE          : {
         'objtable_display_name' : SERVER_TABLE_DISPLAY_NAME
@@ -511,6 +517,10 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     LOGICAL_IF_TABLE   : {
         'objtable_display_name' : LOGICAL_IF_DISPLAY_NAME
         'log_query_name'        : "logical-interface"
+    }
+    STORAGE_CLUSTER_TABLE    : {
+        'objtable_display_name' : STORAGE_CLUSTER_DISPLAY_NAME
+        'log_query_name'        : "storage-cluster"
     }
 }
 
@@ -695,6 +705,29 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'cpu_stats.rss', 'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_stats.virt_memory', 'datatype' : 'double', 'index' : false},
           { 'name' : 'cpu_stats.peak_virt_memory', 'datatype' : 'int',    'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Cluster Info',
+      'stat_type' : 'StorageCluster',
+      'stat_attr' : 'info_stats',
+      'obj_table' : STORAGE_CLUSTER_TABLE,
+      'attributes': [
+          { 'name' : 'cluster_id', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'info_stats.status',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.health_detail', 'datatype': 'string', 'index' : false},
+          { 'name' : 'info_stats.health_summary', 'datatype': 'string', 'index' : false},
+          { 'name' : 'info_stats.monitor_count', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.monitor_active', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osd_full', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osd_near_full', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osds_conf', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osds_in', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osds_out', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osds_up', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osds_down', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osd_full_ratio', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.osd_near_full_ratio', 'datatype': 'int', 'index' : false},
         ]
     },
     {

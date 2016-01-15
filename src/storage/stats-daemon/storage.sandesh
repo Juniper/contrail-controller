@@ -72,3 +72,31 @@ struct ComputeStorageDisk {
 uve sandesh ComputeStorageDiskTrace {
     1: ComputeStorageDisk data
 }
+
+struct ClusterInfo {
+    1: u64 status;
+    2: string health_detail;
+    3: string health_summary;
+    4: u64 monitor_count;
+    5: u64 monitor_active;
+    6: u64 osd_full;
+    7: u64 osd_near_full;
+    8: u64 osds_conf;
+    9: u64 osds_in;
+    10: u64 osds_out;
+    11: u64 osds_up;
+    12: u64 osds_down;
+    13: u64 osd_full_ratio;
+    14: u64 osd_near_full_ratio;
+}
+
+struct StorageCluster {
+    1: string name (key="ObjectStorageClusterTable")
+    2: optional bool                deleted
+    3: string cluster_id;
+    4: optional list<ClusterInfo> info_stats (tags="")
+}
+
+uve sandesh StorageClusterTrace {
+    1: StorageCluster data
+}
