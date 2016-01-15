@@ -253,10 +253,10 @@ static const char *config_2_control_nodes_route_aggregate = "\
         <network-id>1</network-id>\
     </virtual-network>\
     <route-aggregate name='vn_subnet'>\
-        <aggregate-route>\
-            <prefix>2.2.0.0/16</prefix>\
-            <nexthop>2.2.1.1</nexthop>\
-        </aggregate-route>\
+        <aggregate-route-entries>\
+            <route>2.2.0.0/16</route>\
+        </aggregate-route-entries>\
+        <nexthop>2.2.1.1</nexthop>\
     </route-aggregate>\
     <routing-instance name='blue'>\
         <virtual-network>blue</virtual-network>\

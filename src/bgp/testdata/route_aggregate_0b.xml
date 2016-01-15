@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <route-aggregate name='vn_subnet'>
-        <aggregate-route>
-            <prefix>3.3.0.0/16</prefix>
-            <nexthop>1.1.1.254</nexthop>
-        </aggregate-route>
+        <aggregate-route-entries>
+            <route>3.3.0.0/16</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.254</nexthop>
     </route-aggregate>
     <routing-instance name="test">
         <route-aggregate to="vn_subnet"/>
