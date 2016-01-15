@@ -55,8 +55,7 @@ public:
                          const Ip4Address &grp_addr,
                          const std::string &vn_name) :
         vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name),
-        evpn_mpls_label_(0), vxlan_id_(0), peer_identifier_(0),
-        deleted_(false) {
+        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -65,15 +64,12 @@ public:
                          const Ip4Address &grp_addr,
                          const Ip4Address &src_addr) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), src_address_(src_addr),
-        evpn_mpls_label_(0), vxlan_id_(0), peer_identifier_(0),
-        deleted_(false) {
+        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL) {
         local_olist_.clear();
     };     
     virtual ~MulticastGroupObject() { };
 
     bool CanBeDeleted() const;
-    uint32_t evpn_mpls_label() const {return evpn_mpls_label_;}
-    void set_evpn_mpls_label(uint32_t label) {evpn_mpls_label_ = label;}
 
     //Add local member is local VM in server.
     bool AddLocalMember(const boost::uuids::uuid &intf_uuid) { 
@@ -116,7 +112,9 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;}
     void set_peer_identifier(uint64_t peer_id) {peer_identifier_ = peer_id;}
     uint64_t peer_identifier() {return peer_identifier_;}
-    void CreateEvpnMplsLabel(const Agent *agent);
+    void set_vn(const VnEntry *vn);
+    void reset_vn();
+    const VnEntry *vn() const {return vn_.get();}
 
 private:
 
@@ -124,11 +122,11 @@ private:
     Ip4Address grp_address_;
     std::string vn_name_;
     Ip4Address src_address_;
-    uint32_t evpn_mpls_label_;
     uint32_t vxlan_id_;
     uint64_t peer_identifier_;
     bool deleted_;
     std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
+    VnEntryConstRef vn_;
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
@@ -144,7 +142,7 @@ public:
 
     MulticastGroupObject *CreateMulticastGroupObject(const string &vrf_name,
                                                      const Ip4Address &ip_addr,
-                                                     const string &vn_name,
+                                                     const VnEntry *vn,
                                                      uint32_t vxlan_id);
 
     /* Called by XMPP to add ctrl node sent olist and label */
