@@ -117,6 +117,8 @@ public:
     void set_peer_identifier(uint64_t peer_id) {peer_identifier_ = peer_id;}
     uint64_t peer_identifier() {return peer_identifier_;}
     void CreateEvpnMplsLabel(const Agent *agent);
+    void set_vn(VnEntry *vn);
+    void reset_vn();
 
 private:
 
@@ -129,6 +131,7 @@ private:
     uint64_t peer_identifier_;
     bool deleted_;
     std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
+    VnEntryRef vn_;
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
