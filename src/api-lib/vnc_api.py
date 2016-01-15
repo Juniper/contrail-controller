@@ -128,7 +128,8 @@ class VncApi(object):
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
-                 wait_for_connect=False, api_server_use_ssl=False):
+                 wait_for_connect=False, api_server_use_ssl=False,
+                 domain_name=None):
         # TODO allow for username/password to be present in creds file
 
         self._obj_serializer = self._obj_serializer_diff
@@ -189,6 +190,9 @@ class VncApi(object):
             self._tenant_name = tenant_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
+            self._domain_name = domain_name or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_DOMAIN',
+                          self._DEFAULT_DOMAIN_ID)
 
             #contrail-api SSL support
             try:
@@ -239,14 +243,14 @@ class VncApi(object):
                           ' "password":{' + \
                             ' "user":{' + \
                                ' "name": "%s",' % (self._username) + \
-                               ' "domain": { "id": "%s" },' % (self._DEFAULT_DOMAIN_ID) + \
+                               ' "domain": { "id": "%s" },' % (self._domain_name) + \
                                ' "password": "%s"' % (self._password) + \
                              '}' + \
                             '}' + \
                           '},' + \
                           ' "scope":{' + \
                             ' "project":{' + \
-                              ' "domain": { "id": "%s" },' % (self._DEFAULT_DOMAIN_ID) + \
+                              ' "domain": { "id": "%s" },' % (self._domain_name) + \
                               ' "name": "%s"' % (self._username) + \
                             '}' + \
                           '}' + \
