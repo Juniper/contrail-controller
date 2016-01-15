@@ -1271,3 +1271,17 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'READALL':
             return self.plugin_get_svc_instances(context, svc_instance)
 
+    def plugin_get_virtual_router(self, context, virtual_router):
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            vr_info = cfgdb.virtual_router_read(virtual_router['id'])
+            return vr_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise
+
+    def plugin_http_post_virtual_router(self):
+        context, virtual_router = self._get_requests_data()
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_virtual_router(context, virtual_router)

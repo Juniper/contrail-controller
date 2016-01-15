@@ -995,6 +995,10 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         self.route('/neutron/nat_instance',
                      'POST', self._npi.plugin_http_post_svc_instance)
 
+        # Bottle callbacks for virtual-router operations
+        self.route('/neutron/virtual_router',
+                     'POST', self._npi.plugin_http_post_virtual_router)
+
     def route(self, uri, method, handler):
         def handler_trap_exception(*args, **kwargs):
             try:
