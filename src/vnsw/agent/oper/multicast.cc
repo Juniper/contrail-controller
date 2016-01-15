@@ -116,7 +116,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
         obj->set_vxlan_id(new_vxlan_id);
         //Rebake new vxlan id in mcast route
         AddL2BroadcastRoute(obj, vn->GetVrf()->GetName(), vn->GetName(),
-                            broadcast, obj->evpn_mpls_label(), new_vxlan_id, 0);
+                            broadcast, MplsLabel::INVALID, new_vxlan_id, 0);
     }
 }
 
@@ -139,11 +139,11 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
     boost::system::error_code ec;
     Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
                                                    ec).to_v4();
-
     //Add operation
     if (!deleted) {
         MulticastGroupObject *all_broadcast =
             FindFloodGroupObject(vn->GetVrf()->GetName());
+
         if (!state) {
             state = new MulticastDBState(vn->GetVrf()->GetName(),
                                          vn_vxlan_id);
@@ -152,8 +152,9 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
                          state);
             //Also create multicast object
             if (all_broadcast == NULL) {
-                CreateMulticastGroupObject(state->vrf_name_, broadcast, 
-                                           vn->GetName(), state->vxlan_id_);
+                all_broadcast = CreateMulticastGroupObject(state->vrf_name_, broadcast,
+                                                           vn->GetName(), state->vxlan_id_);
+                all_broadcast->set_vn(vn);
             }
         } else {
             if (old_vxlan_id != vn_vxlan_id) {
@@ -183,9 +184,13 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
         if (!state)
             return;
 
-        if (deleted) {
-            DeleteMulticastObject(state->vrf_name_, broadcast);
+        MulticastGroupObject *all_broadcast =
+            FindFloodGroupObject(state->vrf_name_);
+        if (all_broadcast) {
+            all_broadcast->reset_vn();
         }
+
+        DeleteMulticastObject(state->vrf_name_, broadcast);
         BridgeAgentRouteTable::DeleteBroadcastReq(agent_->local_peer(),
                                                   state->vrf_name_,
                                                   old_vxlan_id,
@@ -206,7 +211,7 @@ void MulticastHandler::ModifyVN(DBTablePartBase *partition, DBEntryBase *e)
 }
 
 bool MulticastGroupObject::CanBeDeleted() const {
-    if (local_olist_.size() == 0)
+    if ((local_olist_.size() == 0) && (vn_.get() == NULL))
         return true;
     return false;
 }
@@ -218,7 +223,6 @@ MulticastGroupObject *MulticastHandler::CreateMulticastGroupObject
         new MulticastGroupObject(vrf_name, ip_addr, vn_name);
     obj->set_vxlan_id(vxlan_id);
     AddToMulticastObjList(obj);
-    obj->CreateEvpnMplsLabel(agent_);
     return obj;
 }
 
@@ -385,18 +389,12 @@ MulticastGroupObject *MulticastHandler::FindActiveGroupObject(
     return obj;
 }
 
-void MulticastGroupObject::CreateEvpnMplsLabel(const Agent *agent) {
-    //Already added
-    if ((evpn_mpls_label_ != MplsLabel::INVALID) &&
-        (evpn_mpls_label_ != 0)) {
-        return;
-    }
+void MulticastGroupObject::set_vn(VnEntry *vn) {
+    vn_.reset(vn);
+}
 
-    evpn_mpls_label_ = agent->mpls_table()->AllocLabel();
-    if (evpn_mpls_label_ == MplsLabel::INVALID) {
-        MCTRACE(Log, "allocation of  evpn mpls label failed",
-                vrf_name_, "FF:FF:FF:FF:FF:FF", 0);
-    }
+void MulticastGroupObject::reset_vn() {
+    vn_.reset();
 }
 
 ComponentNHKeyList
@@ -428,7 +426,7 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
     AgentRouteData *data =
         BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                    obj->GetVnName(),
-                                                   obj->evpn_mpls_label(),
+                                                   MplsLabel::INVALID,
                                                    obj->vxlan_id(),
                                                    route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
@@ -661,8 +659,7 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
-                             (obj ? obj->evpn_mpls_label() : 0), false,
-                             ethernet_tag);
+                             ethernet_tag, false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
@@ -687,8 +684,7 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::TOR,
-                             (obj ? obj->evpn_mpls_label() : 0), false,
-                             ethernet_tag);
+                             ethernet_tag, false, ethernet_tag);
     MCTRACE(Log, "Add external TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
