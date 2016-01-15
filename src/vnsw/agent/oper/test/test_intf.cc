@@ -1858,7 +1858,7 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_2) {
     NovaDel(1);
     ConfigDel(1);
     client->WaitForIdle();
-    EXPECT_TRUE(VmPortFindRetDel(1) == false);
+    EXPECT_TRUE(VmPortFind(1) == false);
 
     //Cleanup
     DelNode("virtual-machine-interface", input[0].name);
@@ -1873,6 +1873,7 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_2) {
     DelVn("vn2");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
+    EXPECT_TRUE(VmPortFindRetDel(1) == false);
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("vrf2"));
 }

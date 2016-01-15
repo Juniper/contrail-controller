@@ -1373,10 +1373,10 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
                                     IpAddress::from_string("0.0.0.0").to_v4(),
                                     4100, olist, 1);
     client->WaitForIdle();
-    MulticastGroupObject *obj =
-        mc_handler->FindFloodGroupObject("vrf1");
-    uint32_t evpn_label = obj->evpn_mpls_label();
-    EXPECT_FALSE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_label));
+    //MulticastGroupObject *obj =
+    //    mc_handler->FindFloodGroupObject("vrf1");
+    //uint32_t evpn_label = obj->evpn_mpls_label();
+    //EXPECT_FALSE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_label));
 
     //Delete remote paths
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->
@@ -1466,6 +1466,44 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
 
     //Delete all
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    bgp_peer.reset();
+}
+
+TEST_F(RouteTest, add_local_peer_and_then_vm) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    client->WaitForIdle();
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    EXPECT_TRUE(rt->FindPath(agent_->multicast_peer()));
+
+    MulticastGroupObject *obj =
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+    EXPECT_TRUE(obj->vn() != NULL);
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                    Ip4Address(0));
+    obj =
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+    EXPECT_TRUE(obj != NULL);
+
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     DeleteBgpPeer(bgp_peer.get());

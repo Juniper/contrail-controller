@@ -523,12 +523,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     AgentPath *evpn_peer_path = NULL;
     AgentPath *fabric_peer_path = NULL;
     AgentPath *tor_peer_path = NULL;
+    AgentPath *local_peer_path = NULL;
     bool tor_path = false;
-
-    //Delete path label
-    if (del && (path->peer()->GetType() != Peer::BGP_PEER)) {
-        agent->mpls_table()->DeleteMcastLabel(path->label());
-    }
 
     const CompositeNH *cnh =
          static_cast<const CompositeNH *>(path->nexthop());
@@ -582,12 +578,59 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
             fabric_peer_path = it_path;
         } else if (it_path->peer() == agent->multicast_peer()) {
             multicast_peer_path = it_path;
+        } else if (it_path->peer() == agent->local_peer()) {
+            local_peer_path = it_path;
         }
     }
 
     if (tor_path) {
         if ((del && (tor_peer_path == NULL)) || !del) {
             HandleDeviceMastershipUpdate(path, del);
+        }
+    }
+
+    //Delete path evpn label
+    if (del && (path->peer()->GetType() != Peer::BGP_PEER)) {
+        bool delete_label = false;
+        // On deletion of fabric path delete fabric label.
+        // Other type of label is evpn mcast label.
+        // EVPN label is deleted when both local peer and local_vm_peer path are
+        // gone.
+        if (path->peer()->GetType() == Peer::MULTICAST_FABRIC_TREE_BUILDER)
+            delete_label = true;
+        else if ((path->peer() == agent->local_vm_peer()) &&
+            (local_peer_path == NULL))
+            delete_label = true;
+        else if ((path->peer() == agent->local_peer()) &&
+                 (local_vm_peer_path == NULL))
+            delete_label = true;
+        if (delete_label)
+            agent->mpls_table()->DeleteMcastLabel(path->label());
+    }
+
+    uint32_t evpn_label = path->label();
+    //EVPN label add/update
+    if (!del && (local_peer_path || local_vm_peer_path) &&
+        (path->peer()->GetType() != Peer::BGP_PEER)) {
+        if (path == local_peer_path) {
+            if ((path->label() == MplsTable::kInvalidLabel) &&
+                local_vm_peer_path) {
+                evpn_label = local_vm_peer_path->label();
+                assert(evpn_label != MplsTable::kInvalidLabel);
+                path->set_label(evpn_label);
+            }
+        }
+        if (path == local_vm_peer_path) {
+            if ((path->label() == MplsTable::kInvalidLabel) &&
+                local_peer_path) {
+                evpn_label = local_peer_path->label();
+                assert(evpn_label != MplsTable::kInvalidLabel);
+                path->set_label(evpn_label);
+            }
+        }
+        if (evpn_label == MplsTable::kInvalidLabel) {
+            evpn_label = agent->mpls_table()->AllocLabel();
+            path->set_label(evpn_label);
         }
     }
 
@@ -669,7 +712,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     bool unresolved = false;
     uint32_t vxlan_id = 0;
     uint32_t label = 0;
-    uint32_t evpn_label = 0;
     uint32_t tunnel_bmap = TunnelType::AllType();
 
     //Select based on priority of path peer.
@@ -679,7 +721,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         vxlan_id = local_vm_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::AllType();
         label = local_vm_peer_path->label();
-        evpn_label = label;
     } else if (tor_peer_path) {
         dest_vn_name = tor_peer_path->dest_vn_name();
         unresolved = tor_peer_path->unresolved();
@@ -714,6 +755,14 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                              label,
                                              tunnel_bmap,
                                              nh);
+
+    if (evpn_label != MplsTable::kInvalidLabel) {
+        agent->mpls_table()->CreateMcastLabel(evpn_label,
+                                              Composite::L2COMP,
+                                              component_nh_list,
+                                              vrf()->GetName());
+    }
+
     //Bake all MPLS label
     if (fabric_peer_path) {
         //Add new label
@@ -727,13 +776,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         }
     }
 
-    //Populate label only when local vm peer path is present.
-    if (evpn_label != 0 && local_vm_peer_path) {
-        agent->mpls_table()->CreateMcastLabel(evpn_label,
-                                              Composite::L2COMP,
-                                              component_nh_list,
-                                              vrf()->GetName());
-    }
     return ret;
 }
 
