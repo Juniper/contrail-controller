@@ -19,20 +19,49 @@ using std::string;
 
 class AggregateRouteState : public DBState {
 public:
-    explicit AggregateRouteState(AggregateRoutePtr info, bool contributor)
-        : info_(info), contributor_(contributor) {
+    AggregateRouteState() : contributor_(false), aggregator_(false) {
     }
 
-    AggregateRoutePtr info() {
-        return info_;
+    void set_aggregating_info(AggregateRoutePtr aggregator) {
+        aggregating_info_ = aggregator;
+        aggregator_ = true;
+    }
+
+    void reset_aggregating_info() {
+        aggregating_info_ = NULL;
+        aggregator_ = false;
+    }
+
+    void set_contributing_info(AggregateRoutePtr aggregator) {
+        contributing_info_ = aggregator;
+        contributor_ = true;
+    }
+
+    void reset_contributing_info() {
+        contributing_info_ = NULL;
+        contributor_ = false;
+    }
+
+    AggregateRoutePtr contributing_info() {
+        return contributing_info_;
+    }
+
+    AggregateRoutePtr aggregating_info() {
+        return aggregating_info_;
     }
 
     bool contributor() const {
         return contributor_;
     }
+
+    bool aggregator() const {
+        return aggregator_;
+    }
 private:
-    AggregateRoutePtr info_;
+    AggregateRoutePtr contributing_info_;
     bool contributor_;
+    AggregateRoutePtr aggregating_info_;
+    bool aggregator_;
     DISALLOW_COPY_AND_ASSIGN(AggregateRouteState);
 };
 
@@ -100,6 +129,8 @@ public:
         return false;
     }
 
+    bool IsBestMatch(BgpRoute *route);
+
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
 
@@ -145,12 +176,28 @@ public:
         bgp_table()->Enqueue(&req);
     }
 
+    AggregateRouteState *LocateRouteState(BgpRoute *route) {
+        AggregateRouteState *state = static_cast<AggregateRouteState *>
+            (route->GetState(bgp_table(), manager_->listener_id()));
+        if (state == NULL) {
+            state = new AggregateRouteState();
+            route->SetState(bgp_table(), manager_->listener_id(), state);
+        }
+        return state;
+    }
+
     void AddContributingRoute(BgpRoute *route) {
         contributors_[route->get_table_partition()->index()].insert(route);
-        AggregateRouteState *state =
-            new AggregateRouteState(AggregateRoutePtr(this), true);
-        route->SetState(bgp_table(), manager_->listener_id(), state);
+        AggregateRouteState *state = LocateRouteState(route);
+        state->set_contributing_info(AggregateRoutePtr(this));
         NotifyContributingRoute(route);
+    }
+
+    void ClearRouteState(BgpRoute *route, AggregateRouteState *state) {
+        if (!state->aggregator() && !state->contributor()) {
+            route->ClearState(bgp_table(), manager_->listener_id());
+            delete state;
+        }
     }
 
     void RemoveContributingRoute(BgpRoute *route) {
@@ -159,8 +206,8 @@ public:
         AggregateRouteState *state = static_cast<AggregateRouteState *>
             (route->GetState(bgp_table(), manager_->listener_id()));
         if (state) {
-            route->ClearState(bgp_table(), manager_->listener_id());
-            delete state;
+            state->reset_contributing_info();
+            ClearRouteState(route, state);
             NotifyContributingRoute(route);
         } else {
             assert(num_deleted != 1);
@@ -205,6 +252,37 @@ typename AggregateRoute<T>::CompareResult AggregateRoute<T>::CompareAggregateRou
     return NoChange;
 }
 
+//
+// Calculate all aggregate prefixes to which the route can be contributing.
+// We need to calculate the longest prefix to which this route belongs.
+// E.g. routing instance is configured with 1/8, 1.1/16 and 1.1.1/24, 1.1.1.1/32
+// should match 1.1.1/24. Similarly, 1.1.1/24 should be most specific to 1.1/16
+// as so on
+//
+template <typename T>
+bool AggregateRoute<T>::IsBestMatch(BgpRoute *route) {
+    const RouteT *ip_route = static_cast<RouteT *>(route);
+    const PrefixT &ip_prefix = ip_route->GetPrefix();
+    typename RouteAggregator<T>::AggregateRouteMap::const_iterator it;
+    std::set<PrefixT> prefix_list;
+    for (it = manager_->aggregate_route_map().begin();
+         it != manager_->aggregate_route_map().end(); ++it) {
+        if (ip_prefix != it->first &&
+            ip_prefix.IsMoreSpecific(it->first)) {
+            prefix_list.insert(it->first);
+        }
+    }
+    // It should match atleast one prefix
+    assert(prefix_list.size());
+    //
+    // Longest prefix matches the aggregate prefix of current AggregateRoute
+    // return true to make this route as contributing route
+    // Longest prefix is the last prefix in the set
+    //
+    if (*(prefix_list.rbegin()) == aggregate_route_prefix_) return true;
+    return false;
+}
+
 // Match function called from BgpConditionListener
 // Concurrency : db::DBTable
 template <typename T>
@@ -214,6 +292,32 @@ bool AggregateRoute<T>::Match(BgpServer *server, BgpTable *table,
 
     // Only interested routes
     if (!IsMoreSpecific(route)) return false;
+
+    if (!deleted) {
+        //
+        // If the route is already contributing, check whether it is still
+        // most specific aggregate prefix. Else remove the route as contributing
+        // route. As part of the notification, route will become contributing to
+        // most specific aggregate route prefix.
+        //
+        if (contributors_[route->get_table_partition()->index()].find(route) !=
+            contributors_[route->get_table_partition()->index()].end()) {
+            if (!IsBestMatch(route)) deleted = true;
+        //
+        // If the route is already contributing route of other aggregate prefix
+        // of this bgp-table, ignore it
+        //
+        } else if (table->routing_instance()->IsContributingRoute(table, route))
+            return false;
+    }
+
+    //
+    // Consider route only if it matches most specific aggregate prefix
+    // configured on the routing instance. e.g. if routing instance has following
+    // prefixes configured, 1/8, 1.1/16 and 1.1.1/24, 1.1.1.1/32 should match to
+    // 1.1.1/24 as most specific route.
+    //
+    if (!deleted && !IsBestMatch(route)) return false;
 
     BgpConditionListener *listener = server->condition_listener(GetFamily());
     bool state_added = listener->CheckMatchState(table, route, this);
@@ -330,16 +434,15 @@ template <typename T>
 void AggregateRoute<T>::set_aggregate_route(BgpRoute *aggregate) {
     if (aggregate) {
         assert(aggregate_route_ == NULL);
-        AggregateRouteState *state =
-            new AggregateRouteState(AggregateRoutePtr(this), false);
-        aggregate->SetState(bgp_table(), manager_->listener_id(), state);
+        AggregateRouteState *state = LocateRouteState(aggregate);
+        state->set_aggregating_info(AggregateRoutePtr(this));
     } else {
         assert(aggregate_route_ != NULL);
         AggregateRouteState *state = static_cast<AggregateRouteState *>
             (aggregate_route_->GetState(bgp_table(), manager_->listener_id()));
         assert(state);
-        aggregate_route_->ClearState(bgp_table(), manager_->listener_id());
-        delete state;
+        state->reset_aggregating_info();
+        ClearRouteState(aggregate_route_, state);
     }
     aggregate_route_ = aggregate;
 }

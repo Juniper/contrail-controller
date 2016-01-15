@@ -996,7 +996,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_AddNew) {
 //
 // Update the config to update the prefix len of route-aggregate
 //
-TEST_F(RouteAggregationTest, DISABLED_ConfigUpdate_UpdateExisting) {
+TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1051,10 +1051,164 @@ TEST_F(RouteAggregationTest, DISABLED_ConfigUpdate_UpdateExisting) {
 }
 
 //
+// Config with multiple overlapping prefixes
+//
+TEST_F(RouteAggregationTest, OverlappingPrefixes) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(5, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Config update to add multiple overlapping prefixes
+//
+TEST_F(RouteAggregationTest, ConfigUpdate_OverlappingPrefixes) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    content = FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(5, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Config update to remove multiple overlapping prefixes
+//
+TEST_F(RouteAggregationTest, ConfigUpdate_RemoveOverlappingPrefixes) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(5, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_2", "routing-instance-route-aggregate");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.2.0/24");
+    ASSERT_TRUE(rt == NULL);
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.0.0.0/8");
+    ASSERT_TRUE(rt == NULL);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
+    task_util::WaitForIdle();
+}
+
+//
 // Update the config to update the prefix len of route-aggregate
 // Higher prefix len to lower
 //
-TEST_F(RouteAggregationTest, DISABLED_ConfigUpdate_UpdateExisting_1) {
+TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3b.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1090,7 +1244,7 @@ TEST_F(RouteAggregationTest, DISABLED_ConfigUpdate_UpdateExisting_1) {
     task_util::WaitForIdle();
 
     VERIFY_EQ(7, RouteCount("test.inet.0"));
-    rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/16");
+    rt = RouteLookup<InetDefinition>("test.inet.0", "3.3.0.0/17");
     ASSERT_TRUE(rt != NULL);
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
