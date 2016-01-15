@@ -1022,6 +1022,8 @@ public:
     void AddEvent(FlowEntry *low);
     void DeleteEvent(FlowEntry *flow);
     void FlowIndexUpdateEvent(FlowEntry *flow);
+    void FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes, uint32_t packets,
+                              uint32_t oflow_bytes);
     void AddEvent(const DBEntry *entry, uint32_t gen_id);
     void ChangeEvent(const DBEntry *entry, uint32_t gen_id);
     void DeleteEvent(const DBEntry *entry, uint32_t gen_id);
@@ -1046,6 +1048,8 @@ private:
     // Handle Delete of a flow. Updates FlowMgmtKeyTree for all objects
     void DeleteFlow(FlowEntryPtr &flow);
     void UpdateFlowIndex(FlowEntryPtr &flow);
+    void UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes, uint32_t packets,
+                         uint32_t oflow_bytes);
 
     // Add a FlowMgmtKey into the FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument

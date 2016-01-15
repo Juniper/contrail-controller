@@ -126,7 +126,7 @@ public:
                                  const Interface *intf,
                                  uint32_t sport,
                                  uint32_t dport);
-
+    void UpdateEvictedFlowStats(const PktInfo *pkt);
     bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;

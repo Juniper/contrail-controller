@@ -163,6 +163,7 @@ public:
     // Table managment routines
     FlowEntry *Locate(FlowEntry *flow, uint64_t t);
     FlowEntry *Find(const FlowKey &key);
+    bool IsEvictedFlow(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     void Update(FlowEntry *flow, FlowEntry *rflow);
     bool Delete(const FlowKey &key, bool del_reverse_flow);
