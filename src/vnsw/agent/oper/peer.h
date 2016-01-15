@@ -100,6 +100,9 @@ public:
     const AgentXmppChannel *GetBgpXmppPeerConst() const {
         return bgp_xmpp_peer_.get();
     }
+    boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer_ref() {
+        return bgp_xmpp_peer_;
+    }
 
     // Table Walkers
     void DelPeerRoutes(DelPeerDone walk_done_cb);
