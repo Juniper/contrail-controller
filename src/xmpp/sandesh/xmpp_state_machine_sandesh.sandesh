@@ -18,11 +18,19 @@ objectlog sandesh XmppConnectionLog {
     1: XmppConnectionInfo connection;
 }
 
+/**
+ * @description: XMPP StateMachine related message
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppStateMachineDebug {
     1: string f1;
     2: string f2;
 }
 
+/**
+ * @description: XMPP Event related message
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppEventLog {
     1: string f1;
     2: string f2;
@@ -33,6 +41,10 @@ systemlog sandesh XmppEventLog {
     7: ")";
 }
 
+/**
+ * @description: XMPP Open message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppOpen {
     1: "Send Xmpp Open: ";
     2: i32 f1;
@@ -42,6 +54,10 @@ systemlog sandesh XmppOpen {
     6: string f3;
 }
 
+/**
+ * @description: XMPP OpenConfirm message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppOpenConfirm {
     1: "Send Xmpp Open Confirm: ";
     2: i32 f1;
@@ -51,6 +67,10 @@ systemlog sandesh XmppOpenConfirm {
     6: string f3;
 }
 
+/**
+ * @description: XMPP control message
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppControlMessage {
     1: string f1
     2: i32 f2;
@@ -60,6 +80,10 @@ systemlog sandesh XmppControlMessage {
     6: string f4;
 }
 
+/**
+ * @description: XMPP Subscription message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppSendSubscription {
     1: "Send Subscription: ";
     2: i32 f1;
@@ -71,6 +95,10 @@ systemlog sandesh XmppSendSubscription {
     8: string f4;
 }
 
+/**
+ * @description: XMPP PubSub message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppSendPubSubPublish {
     1: "Send Publish Message: ";
     2: i32 f1;
@@ -82,6 +110,10 @@ systemlog sandesh XmppSendPubSubPublish {
     8: string f4;
 }
 
+/**
+ * @description: XMPP Chat message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmmpSendChatMessage {
     1: "Send Chat Message to: ";
     2: string f1;
@@ -89,6 +121,12 @@ systemlog sandesh XmmpSendChatMessage {
     4: string f2;
 }
 
+/**
+ * @description: XMPP KeepAlive timer error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software or heavily loaded system
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppKeepaliveTimeError {
     1: "Xmpp Keepalive timer error: ";
     2: string f1;
@@ -96,6 +134,10 @@ systemlog sandesh XmppKeepaliveTimeError {
     4: string f2;
 }
 
+/**
+ * @description: XMPP Close send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppClose {
     1: "Send Close: ";
     2: i32 f1;
@@ -105,6 +147,10 @@ systemlog sandesh XmppClose {
     6: string f3;
 }
 
+/**
+ * @description: XMPP Connection delete event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppConnectionDelete {
     1: "Deleted Xmpp ";
     2: string f1;
@@ -114,6 +160,12 @@ systemlog sandesh XmppConnectionDelete {
     6: string f3;
 }
 
+/**
+ * @description: XMPP State Machine Connect timer error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software or heavily loaded system
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppStateMachineConnectTimerError {
     1: string f1;
     2: "Connect Timer error: ";
@@ -122,6 +174,12 @@ systemlog sandesh XmppStateMachineConnectTimerError {
     5: string f3;
 }
 
+/**
+ * @description: XMPP State Machine Open timer error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software or heavily loaded system
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppStateMachineOpenTimerError {
     1: string f1;
     2: "Open Timer error: ";
@@ -130,6 +188,12 @@ systemlog sandesh XmppStateMachineOpenTimerError {
     5: string f3;
 }
 
+/**
+ * @description: XMPP State Machine Hold timer error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software or heavily loaded system
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppStateMachineHoldTimerError {
     1: string f1;
     2: "Hold Timer error: ";
@@ -138,12 +202,22 @@ systemlog sandesh XmppStateMachineHoldTimerError {
     5: string f3;
 }
 
+/**
+ * @description: XMPP Unknown event
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppUnknownEvent {
     1: string f1;
     2: "Event :";
     3: i32 f3;
 }
 
+/**
+ * @description: XMPP State Machine message discarded event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppUnconsumedEvent {
     1: string f1; 
     2: "Unconsumed Event";
@@ -151,12 +225,23 @@ systemlog sandesh XmppUnconsumedEvent {
     4: " in state ";
     5: string f3;
 }
+
+/**
+ * @description: XMPP message unsupported event
+ * @severity: INFO
+ * @cause: Possibly due to missing support in the software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppStateMachineUnsupportedMessage {
    1: "Xmpp message decode error ";
    2: string f1;
    3: i32 f2;
 }
 
+/**
+ * @description: XMPP State Machine timer expired event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppStateMachineTimerExpire {
     1: string f1;
     2: string f2;
@@ -164,6 +249,10 @@ systemlog sandesh XmppStateMachineTimerExpire {
     4: string f3;
 }
 
+/**
+ * @description: XMPP State Machine dequeue event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppStateMachineDequeueEvent {
    1: "RECV Processing ";
    2: string f1;
