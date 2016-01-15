@@ -3,6 +3,7 @@
  */
 #ifndef SRC_VNSW_AGENT_OPER_PROFILE_H_
 #define SRC_VNSW_AGENT_OPER_PROFILE_H_
+#include "db/db.h"
 class Agent;
 class Timer;
 
@@ -27,7 +28,7 @@ public:
         uint64_t input_count_;
         uint64_t notify_count_;
         void Get(const DBTable *table);
-        void Accumulate(const DBTable *table);
+        void Accumulate(const DBTableBase *table);
         void Reset();
     };
 
@@ -75,20 +76,17 @@ public:
     std::string  time_;
     FlowStats    flow_;
     PktStats     pkt_;
-    DBTableStats interface_;
-    DBTableStats vn_;
-    DBTableStats vm_;
-    DBTableStats acl_;
-    DBTableStats vrf_;
     DBTableStats inet4_routes_;
     DBTableStats inet6_routes_;
     DBTableStats bridge_routes_;
     DBTableStats multicast_routes_;
+    DBTableStats evpn_routes_;
     XmppStats    rx_stats_;
     XmppStats    tx_stats_;
     WorkQueueStats ksync_tx_queue_count_;
     WorkQueueStats ksync_rx_queue_count_;
     TaskStats   task_stats_[24];
+    std::map<std::string, DBTableStats > profile_stats_table_;
 };
 
 class AgentProfile {
