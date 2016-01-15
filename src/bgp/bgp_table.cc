@@ -11,6 +11,7 @@
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/path_resolver.h"
+#include "bgp/routing-instance/route_aggregate.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "net/community_type.h"
@@ -73,6 +74,9 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     deleter_.reset(new DeleteActor(this));
     instance_delete_ref_.Reset(rtinstance->deleter());
     path_resolver_ = CreatePathResolver();
+    if (IsRouteAggregationSupported())
+        rtinstance->route_aggregator(family())->Initialize();
+
 }
 
 BgpServer *BgpTable::server() {
@@ -130,6 +134,12 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     if (!path->IsFeasible())
         return NULL;
 
+    if (IsRouteAggregationSupported()) {
+        // Check whether the route is contributing route
+        if (routing_instance()->IsContributingRoute(this, route)) {
+            return NULL;
+        }
+    }
     // Needs to be outside the if block so it's not destroyed prematurely.
     BgpAttrPtr attr_ptr;
     const BgpAttr *attr = path->GetAttr();
@@ -351,12 +361,19 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
 
     // Create rt if it is not already there for adds/updates.
     if (!rt) {
-        if (req->oper == DBRequest::DB_ENTRY_DELETE) return;
+        if ((req->oper == DBRequest::DB_ENTRY_DELETE) ||
+            (req->oper == DBRequest::DB_ENTRY_NOTIFY))
+            return;
 
         rt = static_cast<BgpRoute *>(Add(req));
         static_cast<DBTablePartition *>(root)->Add(rt);
         BGP_LOG_ROUTE(this, const_cast<IPeer *>(peer), rt,
                       "Insert new BGP path");
+    }
+
+    if (req->oper == DBRequest::DB_ENTRY_NOTIFY) {
+        root->Notify(rt);
+        return;
     }
 
     // Use a map to mark and sweep deleted paths, update the rest.

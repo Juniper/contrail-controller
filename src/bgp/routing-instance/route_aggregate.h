@@ -14,25 +14,28 @@
 
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
+#include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_route.h"
+#include "bgp/inet6/inet6_table.h"
 
 class AggregateRouteConfig;
 
 template <typename T> class AggregateRoute;
 
-template <typename T1, typename T2, typename T3>
+template <typename T1, typename T2, typename T3, typename T4>
 struct AggregateRouteBase {
-  typedef T1 RouteT;
-  typedef T2 PrefixT;
-  typedef T3 AddressT;
+  typedef T1 TableT;
+  typedef T2 RouteT;
+  typedef T3 PrefixT;
+  typedef T4 AddressT;
 };
 
 class AggregateInetRoute : public AggregateRouteBase<
-    InetRoute, Ip4Prefix, Ip4Address> {
+    InetTable, InetRoute, Ip4Prefix, Ip4Address> {
 };
 
 class AggregateInet6Route : public AggregateRouteBase<
-    Inet6Route, Inet6Prefix, Ip6Address> {
+    Inet6Table, Inet6Route, Inet6Prefix, Ip6Address> {
 };
 
 typedef ConditionMatchPtr AggregateRoutePtr;
@@ -153,6 +156,8 @@ public:
     explicit RouteAggregator(RoutingInstance *instance);
     ~RouteAggregator();
 
+    virtual void Initialize();
+
     // Config
     virtual void ProcessAggregateRouteConfig();
     virtual void UpdateAggregateRouteConfig();
@@ -165,7 +170,6 @@ public:
     Address::Family GetFamily() const;
     AddressT GetAddress(IpAddress addr) const;
     BgpTable *bgp_table() const;
-    void LocateTableListenerId();
     DBTableBase::ListenerId listener_id() const {
         return listener_id_;
     }

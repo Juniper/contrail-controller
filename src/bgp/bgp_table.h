@@ -85,6 +85,7 @@ public:
     virtual Address::Family family() const = 0;
     virtual bool IsVpnTable() const { return false; }
     virtual bool IsRoutingPolicySupported() const { return false; }
+    virtual bool IsRouteAggregationSupported() const { return false; }
     virtual std::auto_ptr<DBEntry> AllocEntryStr(
         const std::string &key) const = 0;
 

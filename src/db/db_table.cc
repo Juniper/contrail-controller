@@ -365,12 +365,18 @@ void DBTable::Input(DBTablePartition *tbl_partition, DBClient *client,
                 tbl_partition->Add(entry);
             }
         }
-    } else {
+    } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         if (entry) {
             if (Delete(entry, req)) {
                 tbl_partition->Delete(entry);
             }
         }
+    } else if (req->oper == DBRequest::DB_ENTRY_NOTIFY) {
+        if (entry) {
+            tbl_partition->Notify(entry);
+        }
+    } else {
+        assert(0);
     }
 }
 

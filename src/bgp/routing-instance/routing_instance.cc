@@ -598,7 +598,9 @@ void RoutingInstance::FlushRouteAggregationConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        route_aggregator(family)->FlushAggregateRouteConfig();
+        IRouteAggregator *aggregator = route_aggregator(family);
+        if (aggregator)
+            aggregator->FlushAggregateRouteConfig();
     }
 }
 
@@ -1210,11 +1212,13 @@ void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
 // Check whether the route is aggregating route
 bool RoutingInstance::IsAggregateRoute(const BgpTable *table,
                                        const BgpRoute *route) const {
+    if (!route_aggregator(table->family())) return false;
     return route_aggregator(table->family())->IsAggregateRoute(route);
 }
 
 // Check whether the route is contributing route to aggregate route
 bool RoutingInstance::IsContributingRoute(const BgpTable *table,
                                           const BgpRoute *route) const {
+    if (!route_aggregator(table->family())) return false;
     return route_aggregator(table->family())->IsContributingRoute(route);
 }
