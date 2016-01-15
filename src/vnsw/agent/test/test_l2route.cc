@@ -1473,6 +1473,41 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     bgp_peer.reset();
 }
 
+TEST_F(RouteTest, add_local_peer_and_then_vm) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    boost::shared_ptr<BgpPeer> bgp_peer =
+        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    client->WaitForIdle();
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    EXPECT_TRUE(rt->FindPath(agent_->multicast_peer()));
+
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                    Ip4Address(0));
+    MulticastGroupObject *obj =
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+    EXPECT_TRUE(obj != NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer.get());
+    client->WaitForIdle();
+    bgp_peer.reset();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
