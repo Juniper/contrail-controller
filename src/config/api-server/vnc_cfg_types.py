@@ -375,6 +375,27 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
     portbindings['PORT_FILTER'] = True
 
+    @staticmethod
+    def _kvp_to_dict(kvps):
+        return dict((kvp['key'], kvp['value']) for kvp in kvps)
+    # end _kvp_to_dict
+
+    @classmethod
+    def _check_vrouter_link(cls, obj_dict, kvp_dict, db_conn):
+        host_id = kvp_dict.get('host_id')
+        vm_refs = obj_dict.get('virtual_machine_refs')
+
+        if (not host_id or not vm_refs or
+            kvp_dict.get('vif_type') != cls.portbindings['VIF_TYPE_HW_VEB']):
+            return
+        vrouter_fq_name = ['default-global-system-config', host_id]
+        vrouter_id = db_conn.fq_name_to_uuid('virtual-router', vrouter_fq_name)
+        cls.server.internal_request_ref_update(
+            'virtual-router', vrouter_id, 'ADD', 'virtual_machine',
+            vm_refs[0]['uuid'])
+        return
+    # end _check_vrouter_link
+
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
@@ -399,8 +420,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         proj_uuid = vn_dict['parent_uuid']
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
-		'fq_name': obj_dict['fq_name'],
-		'resource': 'virtual_machine_interfaces',
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'virtual_machine_interfaces',
                                'obj_type': 'virtual-machine-interface',
                                'user_visibility': user_visibility,
                                'proj_uuid': proj_uuid}
@@ -415,9 +436,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
             mc = obj_dict['virtual_machine_interface_mac_addresses']
             if 'mac_address' in mc:
-                if len(mc['mac_address'])==1:
+                if len(mc['mac_address']) == 1:
                     inmac = [m.replace("-",":") for m in mc['mac_address']]
-        if inmac!=None:
+        if inmac != None:
             mac_addrs_obj = MacAddressesType(inmac)
         else:
             mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
@@ -429,44 +450,42 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         mac_addrs_dict = json.loads(mac_addrs_json)
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
-        if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
-            aap_config = obj_dict['virtual_machine_interface_allowed_address_pairs']
-            if 'allowed_address_pair' in aap_config:
-                aaps = aap_config['allowed_address_pair']
-                for aap in aaps or []:
-                    if aap['mac'] == "":
-                        aap['mac'] = obj_dict['virtual_machine_interface_mac_addresses']['mac_address']
+        aap_config = obj_dict.get(
+            'virtual_machine_interface_allowed_address_pairs', {})
+        for aap in aap_config.get('allowed_address_pair', []):
+            if aap['mac'] == "":
+                aap['mac'] = mac_addrs_dict['mac_address']
 
         if 'virtual_machine_interface_bindings' in obj_dict:
             bindings = obj_dict['virtual_machine_interface_bindings']
             kvps = bindings['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
 
-            vif_type_presence = False
-            vnic_type_presence = False
-            for kvp in kvps:
-                if kvp['key'] == 'vif_type':
-                    vif_type_presence = True
-                if kvp['key'] == 'vnic_type':
-                    vnic_type_presence = True
-                    if kvp['value'] == cls.portbindings['VNIC_TYPE_DIRECT']:
-                        if not 'provider_properties' in  vn_dict:
-                            msg = 'No provider details in direct port'
-                            return (False, (400, msg))
-                        vif_type = {'key' : 'vif_type', 'value' : cls.portbindings['VIF_TYPE_HW_VEB']}
-                        vif_type_presence = True
-                        kvps.append(vif_type)
-                        vif_params = {'port_filter': cls.portbindings['PORT_FILTER'], 'vlan' : str(vn_dict['provider_properties']['segmentation_id'])}
-                        vif_details = {'key' : 'vif_details', 'value' : vif_params}
-                        kvps.append(vif_details)
+            if kvp_dict.get('vnic_type') == cls.portbinding('VNIC_TYPE_DIRECT'):
+                if not 'provider_properties' in  vn_dict:
+                    msg = 'No provider details in direct port'
+                    return (False, (400, msg))
+                kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
+                vif_type = {'key': 'vif_type',
+                            'value': cls.portbindings['VIF_TYPE_HW_VEB']}
+                kvps.append(vif_type)
+                vlan = vn_dict['provider_properties']['segmentation_id']
+                vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
+                              'vlan': str(vlan)}
+                vif_details = {'key': 'vif_details', 'value': vif_params}
+                kvps.append(vif_details)
 
-            if not vif_type_presence:
-                vif_type = {'key' : 'vif_type', 'value' : cls.portbindings['VIF_TYPE_VROUTER']}
+            if 'vif_type' not in kvp_dict:
+                vif_type = {'key': 'vif_type',
+                            'value': cls.portbindings['VIF_TYPE_VROUTER']}
                 kvps.append(vif_type)
 
-            if not vnic_type_presence:
-                vnic_type = {'key' : 'vnic_type', 'value' : cls.portbindings['VNIC_TYPE_NORMAL']}
+            if 'vnic_type' not in kvp_dict:
+                vnic_type = {'key': 'vnic_type',
+                             'value': cls.portbindings['VNIC_TYPE_NORMAL']}
                 kvps.append(vnic_type)
 
+        cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
         return True, ""
     # end pre_dbe_create
 
@@ -509,13 +528,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not read_ok:
             return (False, (500, read_result))
 
-        if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
-            aap_config = obj_dict['virtual_machine_interface_allowed_address_pairs']
-            if 'allowed_address_pair' in aap_config:
-                aaps = aap_config['allowed_address_pair']
-                for aap in aaps or []:
-                    if aap['mac'] == "":
-                        aap['mac'] = read_result['virtual_machine_interface_mac_addresses']['mac_address']
+        aap_config = obj_dict.get(
+            'virtual_machine_interface_allowed_address_pairs', {})
+        for aap in aap_config.get('allowed_address_pair', []):
+            if aap['mac'] == "":
+                aap['mac'] = read_result[
+                    'virtual_machine_interface_mac_addresses']['mac_address']
 
 
         old_vnic_type = 'normal'
@@ -541,6 +559,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if (old_vnic_type  != new_vnic_type):
             return (False, (409, "Vnic_type can not be modified"))
 
+        cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
         return True, ""
 
     # end pre_dbe_update
