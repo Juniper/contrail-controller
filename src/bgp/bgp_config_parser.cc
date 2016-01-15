@@ -558,16 +558,36 @@ bool BgpConfigParser::ParseRouteAggregate(const xml_node &node,
     string aggregate_name(node.attribute("name").value());
     assert(!aggregate_name.empty());
 
-    auto_ptr<autogen::AggregateRoutesType> aggregate_routes(
-        new autogen::AggregateRoutesType());
-    assert(aggregate_routes->XmlParse(node));
 
-    if (add_change) {
-        MapObjectSetProperty("route-aggregate", aggregate_name,
-            "aggregate-route-entries", aggregate_routes.release(), requests);
-    } else {
-        MapObjectClearProperty("route-aggregate", aggregate_name,
-            "aggregate-route-entries", requests);
+    for (xml_node child = node.first_child(); child;
+         child = child.next_sibling()) {
+        if (strcmp(child.name(), "aggregate-route-entries") == 0) {
+            if (add_change) {
+                auto_ptr<autogen::AggregateRoutesType>
+                    aggregate_routes(new autogen::AggregateRoutesType());
+                assert(aggregate_routes->XmlParse(child));
+                MapObjectSetProperty("route-aggregate", aggregate_name,
+                                     "aggregate-route-entries",
+                                     aggregate_routes.release(), requests);
+            } else {
+                MapObjectClearProperty("route-aggregate", aggregate_name,
+                                       "aggregate-route-entries", requests);
+            }
+        } else if (strcmp(child.name(), "nexthop") == 0) {
+            if (add_change) {
+                string nexthop = child.child_value();
+
+                autogen::RouteAggregate::StringProperty *nexthop_property =
+                    new autogen::RouteAggregate::StringProperty();
+                nexthop_property->data = nexthop;
+                MapObjectSetProperty("route-aggregate", aggregate_name,
+                                     "aggregate-route-nexthop",
+                                     nexthop_property, requests);
+            } else {
+                MapObjectClearProperty("route-aggregate", aggregate_name,
+                                       "aggregate-route-nexthop", requests);
+            }
+        }
     }
 
     return true;

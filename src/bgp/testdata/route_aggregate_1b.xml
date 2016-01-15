@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <route-aggregate name='vn_subnet_1'>
-        <aggregate-route>
-            <prefix>2002:db8:85a3::/64</prefix>
-            <nexthop>2002:db8:85a3::8a2e:370:7334</nexthop>
-        </aggregate-route>
+        <aggregate-route-entries>
+            <route>2002:db8:85a3::/64</route>
+        </aggregate-route-entries>
+        <nexthop>2002:db8:85a3::8a2e:370:7334</nexthop>
     </route-aggregate>
     <routing-instance name="test">
         <route-aggregate to="vn_subnet_1"/>

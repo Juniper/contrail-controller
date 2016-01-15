@@ -3,8 +3,9 @@
     <route-aggregate name='vn_subnet'>
         <aggregate-route-entries>
             <route>2.2.0.0/16</route>
+            <route>3.3.0.0/16</route>
         </aggregate-route-entries>
-        <nexthop>1.1.1.1</nexthop>
+        <nexthop>2.2.2.1</nexthop>
     </route-aggregate>
     <routing-instance name="test">
         <route-aggregate to="vn_subnet"/>

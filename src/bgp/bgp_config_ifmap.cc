@@ -746,24 +746,26 @@ static bool GetRouteAggregateConfig(DBGraph *graph, IFMapNode *node,
     const autogen::RouteAggregate *ra =
         static_cast<autogen::RouteAggregate *>(node->GetObject());
     if (ra == NULL) return false;
-    BOOST_FOREACH(const autogen::AggregateRouteType &aggregate_route,
-                  ra->aggregate_route_entries()) {
-        AggregateRouteConfig aggregate;
 
-        boost::system::error_code ec;
-        aggregate.nexthop = IpAddress::from_string(aggregate_route.nexthop, ec);
-        if (ec != 0) return false;
+    boost::system::error_code ec;
+    IpAddress nexthop =
+        IpAddress::from_string(ra->aggregate_route_nexthop(), ec);
+    if (ec != 0) return false;
+
+    BOOST_FOREACH(const std::string &route, ra->aggregate_route_entries()) {
+        AggregateRouteConfig aggregate;
+        aggregate.nexthop = nexthop;
 
         Ip4Address address;
-        ec = Ip4SubnetParse(aggregate_route.prefix, &address,
-                            &aggregate.prefix_length);
+        ec = Ip4SubnetParse(route, &address, &aggregate.prefix_length);
         if (ec == 0) {
+            if (!nexthop.is_v4()) continue;
             aggregate.aggregate = address;
             inet_list->push_back(aggregate);
         } else {
+            if (!nexthop.is_v6()) continue;
             Ip6Address address;
-            ec = Inet6SubnetParse(aggregate_route.prefix, &address,
-                                  &aggregate.prefix_length);
+            ec = Inet6SubnetParse(route, &address, &aggregate.prefix_length);
             if (ec != 0) return false;
             aggregate.aggregate = address;
             inet6_list->push_back(aggregate);
