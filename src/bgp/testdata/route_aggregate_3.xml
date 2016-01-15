@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <route-aggregate name='vn_subnet_0'>
-        <aggregate-route>
-            <prefix>2.2.0.0/16</prefix>
-            <nexthop>1.1.1.1</nexthop>
-        </aggregate-route>
+        <aggregate-route-entries>
+            <route>2.2.0.0/16</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.1</nexthop>
     </route-aggregate>
 
     <route-aggregate name='vn_subnet_1'>
-        <aggregate-route>
-            <prefix>3.3.0.0/16</prefix>
-            <nexthop>1.1.1.1</nexthop>
-        </aggregate-route>
+        <aggregate-route-entries>
+            <route>3.3.0.0/16</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.1</nexthop>
     </route-aggregate>
 
     <route-aggregate name='vn_subnet_2'>
-        <aggregate-route>
-            <prefix>4/8</prefix>
-            <nexthop>1.1.1.1</nexthop>
-        </aggregate-route>
+        <aggregate-route-entries>
+            <route>4/8</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.1</nexthop>
     </route-aggregate>
     <routing-instance name="test">
         <route-aggregate to="vn_subnet_1"/>
