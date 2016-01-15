@@ -36,13 +36,14 @@ class HealthCheckBase():
             else:
                 self.retries_done = 0
                 # TODO(prabhjot) need to add log for every transaction
-                if self.initial == True or ret != self.ret:
-                    # TODO(prabhjot) currently script uses failure to
-                    # write to stdout as a mechanism to identify parent
-                    # process close and exit, eventually we should
-                    # restore below line to optimize unneccessary message
-                    # exchange on the stdout pipe
-                    # self.initial = False
+                # TODO(prabhjot) currently script uses failure to
+                # write to stdout as a mechanism to identify parent
+                # process close and exit, eventually we should
+                # restore below line to optimize unneccessary message
+                # exchange on the stdout pipe
+                #if self.initial == True or ret != self.ret:
+                if True:
+                    self.initial = False
                     self.ret = ret
                     if self.ret == 0:
                         sys.stdout.write("Success\n")
