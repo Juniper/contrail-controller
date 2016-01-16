@@ -713,8 +713,23 @@ class VncServerCassandraClient(VncCassandraClient):
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
                       cassandra_credential):
         self._db_client_mgr = db_client_mgr
-        keyspaces = self._UUID_KEYSPACE.copy()
-        keyspaces[self._USERAGENT_KEYSPACE_NAME] = [
+        if db_prefix:
+            self._db_prefix = '%s_' %(db_prefix)
+            self._keyspace_name = '%s_%s' %(db_prefix, self._UUID_KEYSPACE_NAME)
+            self._useragent_keyspace_name = 
+                    '%s_%s' %(db_prefix, self._USERAGENT_KEYSPACE_NAME)
+      
+        else:
+            self._db_prefix = ''
+            self._keyspace_name = '%s' %(self._UUID_KEYSPACE_NAME)
+            self._useragent_keyspace_name = '%s' %(self._USERAGENT_KEYSPACE_NAME)
+
+        self._keyspace = {self._keyspace_name:
+                         [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
+                           (_OBJ_SHARED_CF_NAME, None)]}
+
+        keyspaces = self._keyspace.copy()
+        keyspaces[self._useragent_keyspace_name] = [
             (self._USERAGENT_KV_CF_NAME, None)]
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
