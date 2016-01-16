@@ -30,20 +30,19 @@ class DiscoveryCassandraClient(VncCassandraClient):
         return db_info
     # end get_db_info
 
-    def __init__(self, module, cass_srv_list, config_log, reset_config=False):
+    def __init__(self, module, cass_srv_list, config_log, reset_config=False, db_prefix=None):
         self._debug = {
             'db_upd_oper_state': 0,
         }
-        self._keyspace = self._DISCOVERY_KEYSPACE_NAME
 
         keyspaces = {
-            self._keyspace: [
+            self._DISCOVERY_KEYSPACE_NAME: [
                 (self._DISCOVERY_CF_NAME, CompositeType(AsciiType(), UTF8Type(), UTF8Type()))
             ]
         }
 
         super(DiscoveryCassandraClient, self).__init__(
-            cass_srv_list, None, keyspaces, None,
+            cass_srv_list, db_prefix, keyspaces, None,
             config_log, reset_config=reset_config)
 
         DiscoveryCassandraClient._disco_cf = self._cf_dict[self._DISCOVERY_CF_NAME]

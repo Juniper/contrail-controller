@@ -51,14 +51,12 @@ class SchemaTransformerDB(VncCassandraClient):
         self._zkclient = zkclient
 
         if self._args.cluster_id:
-            self._keyspace = '%s_%s' % (self._args.cluster_id, self._KEYSPACE)
             self._zk_path_pfx = self._args.cluster_id + '/'
         else:
-            self._keyspace = self._KEYSPACE
             self._zk_path_pfx = ''
 
         keyspaces = {
-            self._keyspace: [(self._RT_CF, None),
+            self._KEYSPACE: [(self._RT_CF, None),
                              (self._SC_IP_CF, None),
                              (self._SERVICE_CHAIN_CF, None),
                              (self._SERVICE_CHAIN_UUID_CF, None)]}
