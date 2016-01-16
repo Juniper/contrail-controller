@@ -66,8 +66,15 @@ class VncCassandraClient(object):
         self._cache_uuid_to_fq_name = {}
         if db_prefix:
             self._db_prefix = '%s_' %(db_prefix)
+            self._keyspace_name = '%s_%s' %(db_prefix, self._UUID_KEYSPACE_NAME)
         else:
             self._db_prefix = ''
+            self._keyspace_name = '%s' %(self._UUID_KEYSPACE_NAME)
+
+        self._keyspace = {self._keyspace_name:
+                         [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
+                           (_OBJ_SHARED_CF_NAME, None)]}
+
         self._server_list = server_list
         self._num_dbnodes = len(self._server_list)
         self._conn_state = ConnectionStatus.INIT
@@ -80,9 +87,9 @@ class VncCassandraClient(object):
         self._cf_dict = {}
         self._ro_keyspaces = ro_keyspaces or {}
         self._rw_keyspaces = rw_keyspaces or {}
-        if ((self._UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
-            (self._UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
-            self._ro_keyspaces.update(self._UUID_KEYSPACE)
+        if ((self._keyspace_name not in self._ro_keyspaces) and
+            (self._keyspace_name not in self._rw_keyspaces)):
+            self._ro_keyspaces.update(self._keyspace)
         self._cassandra_init(server_list)
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
@@ -116,6 +123,120 @@ class VncCassandraClient(object):
         except:
             return False
     #end
+
+    def get_range(self, func, ra):
+        try:
+            return self.get_cf(func).get_range(column_count=ra)
+        except:
+            return None
+    #end
+
+    def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
+        print "prop", obj_uuid, prop_name, prop_val, "\n"
+        bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
+    # end _create_prop
+
+    def _update_prop(self, bch, obj_uuid, prop_name, new_props):
+        if new_props[prop_name] is None:
+            bch.remove(obj_uuid, columns=['prop:' + prop_name])
+        else:
+            bch.insert(
+                obj_uuid,
+                {'prop:' + prop_name: json.dumps(new_props[prop_name])})
+
+        # prop has been accounted for, remove so only new ones remain
+        del new_props[prop_name]
+    # end _update_prop
+
+    def _create_child(self, bch, parent_type, parent_uuid,
+                      child_type, child_uuid):
+        child_col = {'children:%s:%s' %
+                     (child_type, child_uuid): json.dumps(None)}
+        bch.insert(parent_uuid, child_col)
+
+        parent_col = {'parent:%s:%s' %
+                      (parent_type, parent_uuid): json.dumps(None)}
+        bch.insert(child_uuid, parent_col)
+    # end _create_child
+
+    def _delete_child(self, bch, parent_type, parent_uuid,
+                      child_type, child_uuid):
+        child_col = {'children:%s:%s' %
+                     (child_type, child_uuid): json.dumps(None)}
+        bch.remove(parent_uuid, columns=[
+                   'children:%s:%s' % (child_type, child_uuid)])
+    # end _delete_child
+
+    def _create_ref(self, bch, obj_type, obj_uuid, ref_type,
+                    ref_uuid, ref_data):
+        print "ref", obj_uuid, ref_type 
+        bch.insert(
+            obj_uuid, {'ref:%s:%s' %
+                  (ref_type, ref_uuid): json.dumps(ref_data)})
+        if obj_type == ref_type:
+            bch.insert(
+                ref_uuid, {'ref:%s:%s' %
+                      (obj_type, obj_uuid): json.dumps(ref_data)})
+        else:
+            bch.insert(
+                ref_uuid, {'backref:%s:%s' %
+                      (obj_type, obj_uuid): json.dumps(ref_data)})
+    # end _create_ref
+
+    def _update_ref(self, bch, obj_type, obj_uuid, ref_type,
+                    old_ref_uuid, new_ref_infos):
+        print "ref", obj_uuid, ref_type 
+        if ref_type not in new_ref_infos:
+            # update body didn't touch this type, nop
+            return
+
+        if old_ref_uuid not in new_ref_infos[ref_type]:
+            # remove old ref
+            bch.remove(obj_uuid, columns=[
+                       'ref:%s:%s' % (ref_type, old_ref_uuid)])
+            if obj_type == ref_type:
+                bch.remove(old_ref_uuid, columns=[
+                           'ref:%s:%s' % (obj_type, obj_uuid)])
+            else:
+                bch.remove(old_ref_uuid, columns=[
+                           'backref:%s:%s' % (obj_type, obj_uuid)])
+        else:
+            # retain old ref with new ref attr
+            new_ref_data = new_ref_infos[ref_type][old_ref_uuid]
+            bch.insert(
+                obj_uuid,
+                {'ref:%s:%s' %
+                 (ref_type, old_ref_uuid): json.dumps(new_ref_data)})
+            if obj_type == ref_type:
+                bch.insert(
+                    old_ref_uuid,
+                    {'ref:%s:%s' %
+                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
+            else:
+                bch.insert(
+                    old_ref_uuid,
+                    {'backref:%s:%s' %
+                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
+            # uuid has been accounted for, remove so only new ones remain
+            del new_ref_infos[ref_type][old_ref_uuid]
+    # end _update_ref
+
+    def _delete_ref(self, bch, obj_type, obj_uuid, ref_type, ref_uuid):
+        send = False
+        if bch is None:
+            send = True
+            bch = self._cassandra_db._obj_uuid_cf.batch()
+        bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
+        if obj_type == ref_type:
+            bch.remove(ref_uuid, columns=[
+                       'ref:%s:%s' % (obj_type, obj_uuid)])
+        else:
+            bch.remove(ref_uuid, columns=[
+                       'backref:%s:%s' % (obj_type, obj_uuid)])
+        if send:
+            bch.send()
+    # end _delete_ref
+
 
     def _update_sandesh_status(self, status, msg=''):
         ConnectionState.update(conn_type=ConnType.DATABASE,
@@ -163,12 +284,12 @@ class VncCassandraClient(object):
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
         for ks,cf_list in self._rw_keyspaces.items():
-            keyspace = '%s%s' %(self._db_prefix, ks)
-            self._cassandra_ensure_keyspace(keyspace, cf_list)
+            #keyspace = '%s%s' %(self._db_prefix, ks)
+            self._cassandra_ensure_keyspace(ks, cf_list)
 
         for ks,cf_list in self._ro_keyspaces.items():
-            keyspace = '%s%s' %(self._db_prefix, ks)
-            self._cassandra_wait_for_keyspace(keyspace)
+            #keyspace = '%s%s' %(self._db_prefix, ks)
+            self._cassandra_wait_for_keyspace(ks)
 
         self._cassandra_init_conn_pools()
     # end _cassandra_init
@@ -345,7 +466,6 @@ class VncCassandraClient(object):
 
     def object_read(self, res_type, obj_uuids, field_names=None):
         # if field_names=None, all fields will be read/returned
-
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
@@ -478,6 +598,16 @@ class VncCassandraClient(object):
                                    max_count=self._MAX_COL)
         return (True, num_children)
     # end object_count_children
+
+    def update_last_modified(self, bch, obj_uuid, id_perms=None):
+        if id_perms is None:
+            id_perms = json.loads(
+                 self._obj_uuid_cf.get(obj_uuid,
+                                       ['prop:id_perms'])['prop:id_perms'])
+        id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
+        self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
+    # end update_last_modified
+ 
 
     def object_update(self, res_type, obj_uuid, new_obj_dict):
         obj_type = res_type.replace('-', '_')

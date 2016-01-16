@@ -30,11 +30,14 @@ class DiscoveryCassandraClient(VncCassandraClient):
         return db_info
     # end get_db_info
 
-    def __init__(self, module, cass_srv_list, config_log, reset_config=False):
+    def __init__(self, module, cass_srv_list, config_log, reset_config=False, db_prefix=None):
         self._debug = {
             'db_upd_oper_state': 0,
         }
-        self._keyspace = self._DISCOVERY_KEYSPACE_NAME
+        if db_prefix:
+             self._keyspace = '%s_%s' %(db_prefix, self._DISCOVERY_KEYSPACE_NAME) 
+        else: 
+             self._keyspace = self._DISCOVERY_KEYSPACE_NAME
 
         keyspaces = {
             self._keyspace: [

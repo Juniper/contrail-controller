@@ -76,6 +76,7 @@ optional arguments:
             'http_server_port': HttpPortTopology,
             'zookeeper'       : '127.0.0.1:2181',
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+            'cluster_id'      : '',
         }
         disc_opts = {
             'disc_server_ip'     : '127.0.0.1',
@@ -137,6 +138,9 @@ optional arguments:
             help="Discovery Server port")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
+        parser.add_argument("--cluster_id",
+            help="Used for database keyspace separation")
+
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -162,6 +166,9 @@ optional arguments:
 
     def zookeeper_server(self):
         return self._args.zookeeper
+
+    def cluster_id(self):
+        return self._args.cluster_id
 
     def analytics_api(self):
         return self._args.analytics_api
