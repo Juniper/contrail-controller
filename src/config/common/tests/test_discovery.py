@@ -127,8 +127,7 @@ def setup_extra_flexmock(mocks):
 
 def setup_common_flexmock():
     flexmock(pycassa.system_manager.Connection, __init__=stub)
-    flexmock(pycassa.system_manager.SystemManager, create_keyspace=stub,
-             create_column_family=stub, alter_column_family=stub)
+    flexmock(pycassa.system_manager.SystemManager, __new__=FakeSystemManager)
     flexmock(pycassa.ConnectionPool, __init__=stub)
     flexmock(pycassa.ColumnFamily, __new__=FakeCF)
     flexmock(pycassa.util, convert_uuid_to_time=Fake_uuid_to_time)
