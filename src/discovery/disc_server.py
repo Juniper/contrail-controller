@@ -295,7 +295,8 @@ class DiscoveryServer():
 
     def _db_connect(self, reset_config):
         self._db_conn = DiscoveryCassandraClient("discovery",
-            self._args.cassandra_server_list, self.config_log, reset_config)
+            self._args.cassandra_server_list, self.config_log, reset_config,
+            self._args.cluster_id)
     # end _db_connect
 
     def cleanup(self):
@@ -1241,6 +1242,7 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+        'cluster_id': None,
     }
 
     # per service options
@@ -1353,7 +1355,9 @@ def parse_args(args_str):
             help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
-
+    parser.add_argument("--cluster_id",
+            help="Used for database keyspace separation")
+ 
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config

@@ -1336,13 +1336,8 @@ class DMCassandraDB(VncCassandraClient):
         self._manager = manager
         self._args = manager._args
 
-        if self._args.cluster_id:
-            self._keyspace = '%s_%s' % (self._args.cluster_id, self._KEYSPACE)
-        else:
-            self._keyspace = self._KEYSPACE
-
         keyspaces = {
-            self._keyspace: [(self._PR_VN_IP_CF, None),
+            self._KEYSPACE: [(self._PR_VN_IP_CF, None),
                              (self._PNF_RESOURCE_CF, None)]}
 
         cass_server_list = self._args.cassandra_server_list
