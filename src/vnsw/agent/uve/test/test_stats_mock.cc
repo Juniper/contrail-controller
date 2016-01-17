@@ -1012,7 +1012,7 @@ TEST_F(StatsTestMock, Underlay_3) {
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
         (Agent::GetInstance()->flow_stats_manager()->
          default_flow_stats_collector());
-    FlowDataIpv4 flow_log = f->last_sent_flow_log();
+    FlowLogData flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
     //cleanup

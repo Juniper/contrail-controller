@@ -986,7 +986,7 @@ TEST_F(UveVmUveTest, SIP_override) {
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
-    std::vector<FlowDataIpv4> list = f->ingress_flow_log_list();
+    std::vector<FlowLogData> list = f->ingress_flow_log_list();
     EXPECT_EQ(0U, list.size());
 
     //Set the action as Log for the flow-entries to ensure that they are not
@@ -1004,17 +1004,17 @@ TEST_F(UveVmUveTest, SIP_override) {
     list = f->ingress_flow_log_list();
     EXPECT_EQ(2U, list.size());
 
-    Ip4Address dip_addr = Ip4Address::from_string(vm4_ip);
-    Ip4Address sip_addr = Ip4Address::from_string(vm1_fip);
+    IpAddress dip_addr = IpAddress::from_string(vm4_ip);
+    IpAddress sip_addr = IpAddress::from_string(vm1_fip);
     //Verify that the source-ip of one of the exported flow is overwritten
     //with FIP
-    FlowDataIpv4 fl1, fl2;
+    FlowLogData fl1, fl2;
     fl1 = list.at(0);
     fl2 = list.at(1);
-    if ((unsigned int)fl1.get_destip() == dip_addr.to_ulong()) {
-        EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
-    } else if ((unsigned int)fl2.get_destip() == dip_addr.to_ulong()) {
-        EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
+    if (fl1.get_destip() == dip_addr) {
+        EXPECT_EQ(fl1.get_sourceip(), sip_addr);
+    } else if (fl2.get_destip() == dip_addr) {
+        EXPECT_EQ(fl2.get_sourceip(), sip_addr);
     }
 
     f->ClearList();
@@ -1032,10 +1032,10 @@ TEST_F(UveVmUveTest, SIP_override) {
     //Verify that SIP is overwritten even for flows sent during flow delete
     fl1 = list.at(0);
     fl2 = list.at(1);
-    if ((unsigned int)fl1.get_destip() == dip_addr.to_ulong()) {
-        EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
-    } else if ((unsigned int)fl2.get_destip() == dip_addr.to_ulong()) {
-        EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
+    if (fl1.get_destip() == dip_addr) {
+        EXPECT_EQ(fl1.get_sourceip(), sip_addr);
+    } else if (fl2.get_destip() == dip_addr) {
+        EXPECT_EQ(fl2.get_sourceip(), sip_addr);
     }
     f->ClearList();
 

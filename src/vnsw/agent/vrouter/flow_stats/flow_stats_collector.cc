@@ -49,7 +49,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        instance_id,
                        boost::bind(&FlowStatsCollector::RequestHandler, 
                                    this, _1)),
-        msg_list_(kMaxFlowMsgsPerSend, FlowDataIpv4()), msg_index_(0),
+        msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
         flow_stats_manager_(aging_module) {
         flow_iteration_key_.Reset();
@@ -530,7 +530,7 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowKey &key, uint32_t bytes,
 }
 
 bool FlowStatsCollector::SetUnderlayPort(FlowExportInfo *info,
-                                         FlowDataIpv4 &s_flow) {
+                                         FlowLogData &s_flow) {
     uint16_t underlay_src_port = 0;
     bool exported = false;
     if (info->is_flags_set(FlowEntry::LocalFlow)) {
@@ -556,7 +556,7 @@ bool FlowStatsCollector::SetUnderlayPort(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
-                                         FlowDataIpv4 &s_flow) {
+                                         FlowLogData &s_flow) {
     string rid = agent_uve_->agent()->router_id().to_string();
     uint16_t underlay_src_port = 0;
     if (info->is_flags_set(FlowEntry::LocalFlow)) {
@@ -587,18 +587,13 @@ void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(const FlowKey &key,
                                           FlowExportInfo *info,
-                                          FlowDataIpv4 &s_flow) {
+                                          FlowLogData &s_flow) {
     FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_key());
     if (info->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rev_info) {
         const FlowKey *nat_key = &info->rev_flow_key();
         if (key.src_addr != nat_key->dst_addr) {
-            // TODO: IPV6
-            if (key.family == Address::INET) {
-                s_flow.set_sourceip(nat_key->dst_addr.to_v4().to_ulong());
-            } else {
-                s_flow.set_sourceip(0);
-            }
+            s_flow.set_sourceip(nat_key->dst_addr);
         }
     }
 }
@@ -630,20 +625,20 @@ void FlowStatsCollector::DispatchPendingFlowMsg() {
         return;
     }
 
-    vector<FlowDataIpv4>::const_iterator first = msg_list_.begin();
-    vector<FlowDataIpv4>::const_iterator last = msg_list_.begin() + msg_index_;
-    vector<FlowDataIpv4> new_list(first, last);
+    vector<FlowLogData>::const_iterator first = msg_list_.begin();
+    vector<FlowLogData>::const_iterator last = msg_list_.begin() + msg_index_;
+    vector<FlowLogData> new_list(first, last);
     DispatchFlowMsg(new_list);
     msg_index_ = 0;
 }
 
-void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowDataIpv4> &lst) {
-    FLOW_DATA_IPV4_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
+void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowLogData> &lst) {
+    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
 }
 
 uint8_t FlowStatsCollector::GetFlowMsgIdx() {
-    FlowDataIpv4 &obj = msg_list_[msg_index_];
-    obj = FlowDataIpv4();
+    FlowLogData &obj = msg_list_[msg_index_];
+    obj = FlowLogData();
     return msg_index_;
 }
 
@@ -702,7 +697,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
             diff_pkts = diff_pkts/probability;
         }
     }
-    FlowDataIpv4 &s_flow = msg_list_[GetFlowMsgIdx()];
+    FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
     s_flow.set_flowuuid(to_string(info->flow_uuid()));
     s_flow.set_bytes(info->bytes());
@@ -711,14 +706,8 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     s_flow.set_diff_packets(diff_pkts);
     s_flow.set_tcp_flags(info->tcp_flags());
 
-    // TODO: IPV6
-    if (key.family == Address::INET) {
-        s_flow.set_sourceip(key.src_addr.to_v4().to_ulong());
-        s_flow.set_destip(key.dst_addr.to_v4().to_ulong());
-    } else {
-        s_flow.set_sourceip(0);
-        s_flow.set_destip(0);
-    }
+    s_flow.set_sourceip(key.src_addr);
+    s_flow.set_destip(key.dst_addr);
     s_flow.set_protocol(key.protocol);
     s_flow.set_sport(key.src_port);
     s_flow.set_dport(key.dst_port);
@@ -776,7 +765,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
         s_flow.set_direction_ing(1);
         SourceIpOverride(key, info, s_flow);
         EnqueueFlowMsg();
-        FlowDataIpv4 &s_flow2 = msg_list_[GetFlowMsgIdx()];
+        FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
         s_flow2 = s_flow;
         s_flow2.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when

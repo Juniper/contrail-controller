@@ -1342,7 +1342,7 @@ static bool PopulateFlowIndexTables(const FlowValueArray &fvalues,
 }
 
 template <typename T>
-bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
+bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
     std::string col_name(node.name());
     FlowTypeMap::const_iterator it = flow_msg2type_map.find(col_name);
     if (it != flow_msg2type_map.end()) {
@@ -1366,7 +1366,23 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
         case GenDb::DbDataType::Unsigned32Type:
             {
                 int32_t val;
+#ifndef USE_CASSANDRA_CQL
+                if (strcmp(node.attribute("type").value(), "ipaddr") == 0) {
+                    boost::system::error_code ec;
+                    IpAddress ipaddr(IpAddress::from_string(
+                                     node.child_value(), ec));
+                    if (ec) {
+                        LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
+                            node.child_value() << ") INVALID");
+                    } else {
+                        val = ipaddr.to_v4().to_ulong();
+                    }
+                } else {
+                    stringToInteger(node.child_value(), val);
+                }
+#else // !USE_CASSANDRA_CQL
                 stringToInteger(node.child_value(), val);
+#endif // USE_CASSANDRA_CQL
                 values_[ftinfo.get<0>()] = static_cast<uint32_t>(val);
                 break;
             }
@@ -1443,7 +1459,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
                               const SandeshHeader& header) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
-    FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
+    FlowLogDataObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
     pugi::xml_node &mnode = const_cast<pugi::xml_node &>(flow_sample);
     if (!mnode.traverse(flow_msg_walker)) {
         VIZD_ASSERT(0);

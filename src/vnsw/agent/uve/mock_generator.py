@@ -131,13 +131,13 @@ class MockGenerator(object):
                             self._ip_start_index + nflow)
                         destip = int(self._ip_vns[other_vn] + \
                             self._ip_start_index + nflow)
-                        flows.append(FlowDataIpv4(
+                        flows.append(FlowLogData(
                             flowuuid = str(uuid.uuid1()),
                             direction_ing = random.randint(0, 1),
                             sourcevn = self._VN_PREFIX + str(vn),
                             destvn = self._VN_PREFIX + str(other_vn),
-                            sourceip = sourceip,
-                            destip = destip,
+                            sourceip = netaddr.IPAddress(sourceip),
+                            destip = netaddr.IPAddress(destip),
                             sport = random.randint(0, 65535),
                             dport = random.randint(0, 65535),
                             protocol = random.choice([6, 17, 1]),
@@ -158,7 +158,7 @@ class MockGenerator(object):
                 flow_data.bytes += new_bytes
                 flow_data.diff_packets = new_packets
                 flow_data.diff_bytes = new_bytes
-                flow_object = FlowDataIpv4Object(flowdata = flow_data,
+                flow_object = FlowLogDataObject(flowdata = flow_data,
                                   sandesh = self._sandesh_instance)
                 flow_object.send(sandesh = self._sandesh_instance)
                 flow_cnt += 1

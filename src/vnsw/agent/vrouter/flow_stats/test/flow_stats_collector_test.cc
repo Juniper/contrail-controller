@@ -20,8 +20,8 @@ FlowStatsCollectorTest::~FlowStatsCollectorTest() {
 }
 
 void FlowStatsCollectorTest::DispatchFlowMsg
-    (const std::vector<FlowDataIpv4> &msg_list) {
-    std::vector<FlowDataIpv4>::const_iterator it = msg_list.begin();
+    (const std::vector<FlowLogData> &msg_list) {
+    std::vector<FlowLogData>::const_iterator it = msg_list.begin();
     while (it != msg_list.end()) {
         flow_log_ = *it;
         if (flow_log_.get_direction_ing()) {
@@ -31,7 +31,7 @@ void FlowStatsCollectorTest::DispatchFlowMsg
     }
 }
 
-FlowDataIpv4 FlowStatsCollectorTest::last_sent_flow_log() const {
+FlowLogData FlowStatsCollectorTest::last_sent_flow_log() const {
     return flow_log_;
 }
 
