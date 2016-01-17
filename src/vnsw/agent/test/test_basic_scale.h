@@ -656,7 +656,7 @@ protected:
             //New bgp peer from agent
             bgp_peer[i].reset(new AgentBgpXmppPeerTest(
                                   Agent::GetInstance()->controller_ifmap_xmpp_server(i),
-                                  Agent::GetInstance()->multicast_label_range(i), i));
+                                  Agent::GetInstance()->controller()->fabric_multicast_label_range(i).fabric_multicast_label_range_str, i));
             bgp_peer[i].get()->RegisterXmppChannel(cchannel[i]);
             xc[i]->RegisterConnectionEvent(xmps::BGP,
                            boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 

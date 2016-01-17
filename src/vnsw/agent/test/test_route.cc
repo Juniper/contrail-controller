@@ -189,9 +189,11 @@ protected:
                         uint16_t label, const std::string &vn_name) {
 
         SecurityGroupList sg_l;
+        VnListType vn_list;
+        vn_list.insert(vn_name);
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddVlanNHRouteReq(NULL, vrf_name_, Ip4Address::from_string(ip), plen, 
-                              MakeUuid(id), tag, label, vn_name, sg_l,
+                              MakeUuid(id), tag, label, vn_list, sg_l,
                               PathPreference());
         client->WaitForIdle();
     }
@@ -1048,15 +1050,18 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
 
     TestNhPeer *peer = new TestNhPeer();
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
+    VnListType vn_list;
+    vn_list.insert("Test");
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer, "vrf1",
                                                             addr, 32,
-                                                            MakeUuid(1), "Test",
+                                                            MakeUuid(1), vn_list,
                                                             10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -1094,24 +1099,28 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
     TestNhPeer *peer2 = new TestNhPeer();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
+    VnListType vn_list;
+    vn_list.insert("Test");
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer1, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
-                                                            "Test", 10,
+                                                            vn_list, 10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer2, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
-                                                            "Test", 10,
+                                                            vn_list, 10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     client->WaitForIdle();
 
     DelNode("access-control-list", "acl1");
@@ -1121,12 +1130,13 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer1, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
-                                                            "Test", 10,
+                                                            vn_list, 10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer1, "vrf1", addr, 32, NULL);
@@ -1158,15 +1168,18 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
 
     TestNhPeer *peer = new TestNhPeer();
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
+    VnListType vn_list;
+    vn_list.insert("Test");
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
-                                                            "Test", 10,
+                                                            vn_list, 10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     client->WaitForIdle();
     DelVn("vn1");
     client->WaitForIdle();
@@ -1176,12 +1189,13 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
-                                                            "Test", 10,
+                                                            vn_list, 10,
                                                             SecurityGroupList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
-                                                            Ip4Address(0));
+                                                            Ip4Address(0),
+                                                            EcmpLoadBalance());
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -1601,7 +1615,9 @@ TEST_F(RouteTest, RouteResync_1) {
     rt_key->sub_op_ = AgentKey::RESYNC;
     req.key.reset(rt_key);
     InetInterfaceKey intf_key("vnet1");
-    req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(), "vn1"));
+    VnListType vn_list;
+    vn_list.insert("vn1");
+    req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(), vn_list));
     AgentRouteTable *table =
         agent_->vrf_table()->GetInet4UnicastRouteTable("vrf1");
     table->Enqueue(&req);

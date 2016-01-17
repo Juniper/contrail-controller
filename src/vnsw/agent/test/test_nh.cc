@@ -417,6 +417,7 @@ TEST_F(CfgTest, EcmpNH_controller) {
         new ControllerEcmpRoute(peer_, prefix, 24, vn_list, -1,
                                 false, "vrf10", sg, rp,
                                 (1 << TunnelType::MPLS_GRE),
+                                EcmpLoadBalance(),
                                 nh_req);
 
     //ECMP create component NH
@@ -1791,13 +1792,15 @@ TEST_F(CfgTest, EcmpNH_17) {
     CreateVmportEnv(input, 1, 1);
     client->WaitForIdle();
 
+    VnListType vn_list;
+    vn_list.insert("vn1");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
-            MakeUuid(1), "vn1", intf->label(),
+            MakeUuid(1), vn_list, intf->label(),
             SecurityGroupList(), CommunityList(), false, PathPreference(),
-            Ip4Address(0));
+            Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
@@ -2194,9 +2197,11 @@ TEST_F(CfgTest, Nexthop_keys) {
     agent_->nexthop_table()->Enqueue(&nh_req);
     client->WaitForIdle();
     SecurityGroupList sg_l;
+    VnListType vn_list;
+    vn_list.insert("vn10");
     agent_->fabric_inet4_unicast_table()->AddVlanNHRouteReq(NULL, "vrf10",
                           Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100,
-                          "vn10", sg_l, PathPreference());
+                          vn_list, sg_l, PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *vlan_rt =
         RouteGet("vrf10", Ip4Address::from_string("2.2.2.0"), 24);
@@ -2438,11 +2443,13 @@ TEST_F(CfgTest, EcmpNH_18) {
     const VmInterface *vm_intf =
         static_cast<const VmInterface *>(VmPortGet(1));
 
+    VnListType vn_list;
+    vn_list.insert("vn1");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
-                MakeUuid(1), "vn1", vm_intf->label(),
+                MakeUuid(1), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0));
+                Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 
