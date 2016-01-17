@@ -219,8 +219,8 @@ protected:
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc = new XmppClient(&evm_);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
-        Agent::GetInstance()->SetAgentMcastLabelRange(0);
-        Agent::GetInstance()->SetAgentMcastLabelRange(1);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(0);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(1);
 
         xs->Initialize(0, false);
 
@@ -259,7 +259,7 @@ protected:
 
     int GetStartLabel() {
         vector<int> entries;
-        assert(stringToIntegerList(Agent::GetInstance()->multicast_label_range(0), "-",
+        assert(stringToIntegerList(Agent::GetInstance()->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str, "-",
                                    entries));
         assert(entries.size() > 0);
         return entries[0];
@@ -566,7 +566,7 @@ protected:
 	//Create agent bgp peer
     bgp_peer.reset(new AgentBgpXmppPeerTest(
                        Agent::GetInstance()->controller_ifmap_xmpp_server(0),
-                       Agent::GetInstance()->multicast_label_range(0), 0));
+                       Agent::GetInstance()->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str, 0));
     bgp_peer.get()->RegisterXmppChannel(cchannel);
     xc->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent,
@@ -1556,7 +1556,7 @@ TEST_F(AgentXmppUnitTest, multicast_fabric_path_delete_on_vrf_delete) {
 TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
 
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
-    Agent::GetInstance()->SetAgentMcastLabelRange(1);
+    Agent::GetInstance()->controller()->SetAgentMcastLabelRange(1);
     client->Reset();
     XmppConnectionSetUp(true);
     client->WaitForIdle();
@@ -1589,7 +1589,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     //Create agent bgp peer
 	bgp_peer_s.reset(new AgentBgpXmppPeerTest(
                          Agent::GetInstance()->controller_ifmap_xmpp_server(1), 
-                         Agent::GetInstance()->multicast_label_range(1), 1));
+                         Agent::GetInstance()->controller()->fabric_multicast_label_range(1).fabric_multicast_label_range_str, 1));
     bgp_peer_s.get()->RegisterXmppChannel(cchannel_s);
 	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer_s.get(), 1);
 	xc_s->RegisterConnectionEvent(xmps::BGP,
