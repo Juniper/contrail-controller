@@ -1397,10 +1397,10 @@ TEST_F(MulticastTest, LabelRange) {
     //CN2 - 4900-4999
     agent_->set_vrouter_max_labels(5000);
     agent_->set_vrouter_max_vrfs(100);
-    agent_->SetAgentMcastLabelRange(0);
-    agent_->SetAgentMcastLabelRange(1);
-    EXPECT_TRUE(agent_->multicast_label_range(0) == "4900-4999");
-    EXPECT_TRUE(agent_->multicast_label_range(1) == "4800-4899");
+    agent_->controller()->SetAgentMcastLabelRange(0);
+    agent_->controller()->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str == "4900-4999");
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(1).fabric_multicast_label_range_str == "4800-4899");
 
     for (uint32_t i = 4800; i <= 4999; i++) {
         //Update label to verify that indices
@@ -1412,20 +1412,20 @@ TEST_F(MulticastTest, LabelRange) {
     //allocation, agent allocates 50 labels to each control node
     agent_->set_vrouter_max_labels(4198);
     agent_->set_vrouter_max_vrfs(1000);
-    agent_->SetAgentMcastLabelRange(0);
-    agent_->SetAgentMcastLabelRange(1);
-    EXPECT_TRUE(agent_->multicast_label_range(0) == "4148-4197");
-    EXPECT_TRUE(agent_->multicast_label_range(1) == "4098-4147");
+    agent_->controller()->SetAgentMcastLabelRange(0);
+    agent_->controller()->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str == "4148-4197");
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(1).fabric_multicast_label_range_str == "4098-4147");
 
     //Set VN count to be 1000
     //Since there is not enough space for VN label
     //allocation, agent allocates 49 labels to each control node
     agent_->set_vrouter_max_labels(4197);
     agent_->set_vrouter_max_vrfs(1000);
-    agent_->SetAgentMcastLabelRange(0);
-    agent_->SetAgentMcastLabelRange(1);
-    EXPECT_TRUE(agent_->multicast_label_range(0) == "4148-4196");
-    EXPECT_TRUE(agent_->multicast_label_range(1) == "4099-4147");
+    agent_->controller()->SetAgentMcastLabelRange(0);
+    agent_->controller()->SetAgentMcastLabelRange(1);
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str == "4148-4196");
+    EXPECT_TRUE(agent_->controller()->fabric_multicast_label_range(1).fabric_multicast_label_range_str == "4099-4147");
 }
 
 int main(int argc, char **argv) {

@@ -160,8 +160,8 @@ protected:
         xc_s = new XmppClient(&evm_);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 1);
-        Agent::GetInstance()->SetAgentMcastLabelRange(0);
-        Agent::GetInstance()->SetAgentMcastLabelRange(1);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(0);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(1);
 
         xs_p->Initialize(0, false);
         xs_s->Initialize(0, false);
@@ -218,7 +218,7 @@ protected:
 
     int GetStartLabel_XmppServer(uint8_t idx) {
         vector<int> entries;
-        assert(stringToIntegerList(Agent::GetInstance()->multicast_label_range(idx), "-",
+        assert(stringToIntegerList(Agent::GetInstance()->controller()->fabric_multicast_label_range(idx).fabric_multicast_label_range_str, "-",
                                    entries));
         assert(entries.size() > 0);
         return entries[0];
@@ -408,7 +408,7 @@ protected:
         //Create agent bgp peer
 	bgp_peer.reset(new AgentBgpXmppPeerTest(
                        Agent::GetInstance()->controller_ifmap_xmpp_server(0), 
-                       Agent::GetInstance()->multicast_label_range(0), 0));
+                       Agent::GetInstance()->controller()->fabric_multicast_label_range(0).fabric_multicast_label_range_str, 0));
     bgp_peer.get()->RegisterXmppChannel(cchannel_p);
 	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer.get(), 0);
 	xc_p->RegisterConnectionEvent(xmps::BGP,
@@ -436,7 +436,7 @@ protected:
         //Create agent bgp peer
 	bgp_peer_s.reset(new AgentBgpXmppPeerTest(
                          Agent::GetInstance()->controller_ifmap_xmpp_server(1), 
-                         Agent::GetInstance()->multicast_label_range(1), 1));
+                         Agent::GetInstance()->controller()->fabric_multicast_label_range(1).fabric_multicast_label_range_str, 1));
     bgp_peer_s.get()->RegisterXmppChannel(cchannel_s);
 	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer_s.get(), 1);
 	xc_s->RegisterConnectionEvent(xmps::BGP,
