@@ -13,6 +13,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include <net/address.h>
 #include <base/task.h>
 #include <base/logging.h>
 #include <sandesh/sandesh_types.h>
@@ -97,7 +98,7 @@ private:
                                 mgen_->ip_start_index_ + nvm);
                             uint32_t destip(mgen_->ip_vns_[other_vn] +
                                 mgen_->ip_start_index_ + nvm);
-                            FlowDataIpv4 flow_data;
+                            FlowLogData flow_data;
                             boost::uuids::uuid flowuuid(mgen_->u_rgen_());
                             flow_data.set_flowuuid(to_string(flowuuid));
                             flow_data.set_direction_ing(mgen_->dDirection(
@@ -108,8 +109,8 @@ private:
                             std::string destvn(mgen_->kVnPrefix +
                                 integerToString(other_vn));
                             flow_data.set_destvn(destvn);
-                            flow_data.set_sourceip(sourceip);
-                            flow_data.set_destip(destip);
+                            flow_data.set_sourceip(Ip4Address(sourceip));
+                            flow_data.set_destip(Ip4Address(destip));
                             flow_data.set_sport(mgen_->dPort(mgen_->rgen_));
                             flow_data.set_dport(mgen_->dPort(mgen_->rgen_));
                             flow_data.set_protocol(mgen_->kProtocols[
@@ -127,9 +128,9 @@ private:
             }
             // Send the flows periodically
             int lflow_cnt = 0;
-            for (std::vector<FlowDataIpv4>::iterator it = mgen_->flows_.begin() +
+            for (std::vector<FlowLogData>::iterator it = mgen_->flows_.begin() +
                  mgen_->flow_counter_; it != mgen_->flows_.end(); ++it) {
-                FlowDataIpv4 &flow_data(*it);
+                FlowLogData &flow_data(*it);
                 uint64_t new_packets(mgen_->dFlowPktsPerSec(mgen_->rgen_));
                 uint64_t new_bytes(new_packets *
                     mgen_->dBytesPerPacket(mgen_->rgen_));
@@ -139,9 +140,9 @@ private:
                 flow_data.set_bytes(old_bytes + new_bytes);
                 flow_data.set_diff_packets(new_packets);
                 flow_data.set_diff_bytes(new_bytes);
-                std::vector<FlowDataIpv4> v;
+                std::vector<FlowLogData> v;
                 v.push_back(flow_data);
-                FLOW_DATA_IPV4_OBJECT_SEND(v);
+                FLOW_LOG_DATA_OBJECT_SEND(v);
                 lflow_cnt++;
                 mgen_->flow_counter_++;
                 if (lflow_cnt == mgen_->num_flows_in_iteration_) {
@@ -194,7 +195,7 @@ private:
     const int ip_start_index_;
     const int num_flows_per_vm_;
     const int num_flows_in_iteration_;
-    std::vector<FlowDataIpv4> flows_;
+    std::vector<FlowLogData> flows_;
     static int flow_counter_;
     boost::random::mt19937 rgen_;
     boost::uuids::random_generator u_rgen_;

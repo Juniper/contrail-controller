@@ -8,13 +8,13 @@
  * Flow sandesh definitions
  */
 
-struct FlowDataIpv4 {
+struct FlowLogData {
     1: string             flowuuid;
     2: byte               direction_ing;
     3: optional string    sourcevn;
-    4: optional i32       sourceip;
+    4: optional ipaddr    sourceip;
     5: optional string    destvn;
-    6: optional i32       destip;
+    6: optional ipaddr    destip;
     7: optional byte      protocol;
     8: optional i16       sport;
     9: optional i16       dport;
@@ -49,6 +49,6 @@ struct FlowDataIpv4 {
     36: optional string    drop_reason;
 }
 
-flowlog sandesh FlowDataIpv4Object {
-    1: list<FlowDataIpv4>       flowdata;
+flowlog sandesh FlowLogDataObject {
+    1: list<FlowLogData>       flowdata;
 }

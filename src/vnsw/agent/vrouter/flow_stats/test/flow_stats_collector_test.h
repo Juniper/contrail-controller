@@ -18,16 +18,16 @@ public:
                            FlowAgingTableKey *key,
                            FlowStatsManager *aging_module);
     virtual ~FlowStatsCollectorTest();
-    void DispatchFlowMsg(const std::vector<FlowDataIpv4> &msg_list);
-    FlowDataIpv4 last_sent_flow_log() const;
-    std::vector<FlowDataIpv4> ingress_flow_log_list() const {
+    void DispatchFlowMsg(const std::vector<FlowLogData> &msg_list);
+    FlowLogData last_sent_flow_log() const;
+    std::vector<FlowLogData> ingress_flow_log_list() const {
         return ingress_flow_log_list_;
     }
     void ClearList();
 
 private:
-    FlowDataIpv4 flow_log_;
-    std::vector<FlowDataIpv4> ingress_flow_log_list_;
+    FlowLogData flow_log_;
+    std::vector<FlowLogData> ingress_flow_log_list_;
 };
 
 #endif  //  vnsw_agent_flow_stats_collector_test_h

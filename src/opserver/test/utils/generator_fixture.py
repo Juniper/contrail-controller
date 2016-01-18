@@ -112,7 +112,7 @@ class GeneratorFixture(fixtures.Fixture):
             drop_reason = flow.drop_reason
         else:
             action = drop_reason = None
-        flow_data = FlowDataIpv4(
+        flow_data = FlowLogData(
             flowuuid=flow.flowuuid, direction_ing=flow.direction_ing,
             sourcevn=flow.sourcevn, destvn=flow.destvn,
             sourceip=flow.sourceip, destip=flow.destip,
@@ -124,7 +124,8 @@ class GeneratorFixture(fixtures.Fixture):
             nw_ace_uuid=flow.nw_ace_uuid,
             vmi_uuid=flow.vmi_uuid,
             drop_reason=drop_reason)
-        flow_object = FlowDataIpv4Object(flowdata=[flow_data], sandesh=self._sandesh_instance)
+        flow_object = FlowLogDataObject(flowdata=[flow_data],
+                                        sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
             flow_object._timestamp = ts
@@ -143,38 +144,35 @@ class GeneratorFixture(fixtures.Fixture):
         self.egress_flow_start_time = None
         self.egress_flow_end_time = None
         for i in range(self.flow_cnt):
-            self.flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
-                                           direction_ing=1,
-                                           sourcevn='domain1:admin:vn1',
-                                           destvn='domain1:admin:vn2&>',
-                                           sourceip=0x0A0A0A01,
-                                           destip=0x0A0A0A02,
-                                           sport=i + 10, dport=i + 100,
-                                           protocol=i / 2,
-                                           action='pass',
-                                           sg_rule_uuid=str(uuid.uuid1()),
-                                           nw_ace_uuid=str(uuid.uuid1()),
-                                           vmi_uuid=self.flow_vmi_uuid))
+            self.flows.append(FlowLogData(flowuuid=str(uuid.uuid1()),
+                direction_ing=1,
+                sourcevn='domain1:admin:vn1',
+                destvn='domain1:admin:vn2&>',
+                sourceip=netaddr.IPAddress('10.10.10.1'),
+                destip=netaddr.IPAddress('2001:db8::2:1'),
+                sport=i+10, dport=i+100,
+                protocol=i/2, action='pass',
+                sg_rule_uuid=str(uuid.uuid1()),
+                nw_ace_uuid=str(uuid.uuid1()),
+                vmi_uuid=self.flow_vmi_uuid))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
         
         for i in range(self.flow_cnt):
-            self.egress_flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
-                                           direction_ing=0,
-                                           destvn='domain1:admin:vn1',
-                                           sourcevn='domain1:admin:vn2',
-                                           destip=0x0A0A0A01,
-                                           sourceip=0x0A0A0A02,
-                                           dport=i + 10, sport=i + 100,
-                                           protocol=i / 2,
-                                           action='drop',
-                                           sg_rule_uuid=str(uuid.uuid1()),
-                                           nw_ace_uuid=str(uuid.uuid1()),
-                                           vmi_uuid=self.flow_vmi_uuid,
-                                           drop_reason='Reason'+str(i)))
+            self.egress_flows.append(FlowLogData(flowuuid=str(uuid.uuid1()),
+                direction_ing=0,
+                destvn='domain1:admin:vn1',
+                sourcevn='domain1:admin:vn2',
+                destip=netaddr.IPAddress('10.10.10.1'),
+                sourceip=netaddr.IPAddress('2001:db8::1:2'),
+                dport=i+10, sport=i+100,
+                protocol=i/2, action='drop',
+                sg_rule_uuid=str(uuid.uuid1()),
+                nw_ace_uuid=str(uuid.uuid1()),
+                vmi_uuid=self.flow_vmi_uuid,
+                drop_reason='Reason'+str(i)))
             self.egress_flows[i].samples = []
             self._logger.info(str(self.egress_flows[i]))
-        
 
         # 'duration' - lifetime of the flow in seconds
         # 'tdiff'    - time difference between consecutive flow samples
