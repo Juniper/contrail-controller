@@ -82,6 +82,9 @@ void Pkt0Interface::ReadHandler(const boost::system::error_code &error,
         if (error == boost::system::errc::operation_canceled) {
             return;
         }
+
+        delete [] read_buff_;
+        read_buff_ = NULL;
     }
 
     if (!error) {
@@ -224,6 +227,9 @@ void Pkt0Socket::ReadHandler(const boost::system::error_code &error,
         if (error == boost::system::errc::operation_canceled) {
             return;
         }
+
+        delete [] read_buff_;
+        read_buff_ = NULL;
     }
 
     if (!error) {
