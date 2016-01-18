@@ -24,7 +24,7 @@ void RouterIdDepInit(Agent *agent) {
 }
 
 TEST_F(FlowTest, Agent_Conf_file_1) {
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
     EXPECT_STREQ(param.vhost_name().c_str(), "vhost0");
@@ -63,7 +63,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg1.ini", "test-param");
 
     EXPECT_EQ(param.max_vm_flows(), 100);
@@ -81,8 +81,75 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dns_port_2(), 12999);
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
-    EXPECT_EQ(param.flow_thread_count(), 2);
     EXPECT_EQ(param.subnet_hosts_resolvable(), false);
+}
+
+TEST_F(FlowTest, Agent_Flows_Option_1) {
+    int argc = 1;
+    char *argv[] = {
+        (char *) "",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/flows.ini", "test-param");
+    EXPECT_EQ(param.flow_thread_count(), 4);
+    EXPECT_EQ(param.max_vm_flows(), 50);
+    EXPECT_EQ(param.linklocal_system_flows(), 1024);
+    EXPECT_EQ(param.linklocal_vm_flows(), 512);
+}
+
+TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
+    int argc = 9;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--FLOWS.thread_count",                   (char *)"8",
+        (char *) "--FLOWS.max_vm_flows",                   (char *)"100",
+        (char *) "--FLOWS.max_system_linklocal_flows",     (char *)"24",
+        (char *) "--FLOWS.max_vm_linklocal_flows",         (char *)"20",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/flows.ini", "test-param");
+
+    EXPECT_EQ(param.flow_thread_count(), 8);
+    EXPECT_EQ(param.max_vm_flows(), 100);
+    EXPECT_EQ(param.linklocal_system_flows(), 24);
+    EXPECT_EQ(param.linklocal_vm_flows(), 20);
+}
+
+TEST_F(FlowTest, Agent_Tbb_Option_1) {
+    int argc = 1;
+    char *argv[] = {
+        (char *) "",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
+
+    EXPECT_EQ(param.tbb_thread_count(), 8);
+    EXPECT_EQ(param.tbb_exec_delay(), 10);
+    EXPECT_EQ(param.tbb_schedule_delay(), 25);
+}
+
+TEST_F(FlowTest, Agent_Tbb_Option_Arguments) {
+    int argc = 7;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--TASK.thread_count",                 (char *)"4",
+        (char *) "--TASK.log_exec_threshold",           (char *)"100",
+        (char *) "--TASK.log_schedule_threshold",      (char *)"200",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
+
+    EXPECT_EQ(param.tbb_thread_count(), 4);
+    EXPECT_EQ(param.tbb_exec_delay(), 100);
+    EXPECT_EQ(param.tbb_schedule_delay(), 200);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -92,7 +159,7 @@ TEST_F(FlowTest, Agent_Conf_file_3) {
     rl.rlim_cur = 64;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
-        AgentParam param(Agent::GetInstance());
+        AgentParam param;
         param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
         EXPECT_EQ(param.linklocal_system_flows(), 63);
@@ -106,7 +173,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
     rl.rlim_cur = 32;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
-        AgentParam param(Agent::GetInstance());
+        AgentParam param;
         param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
         EXPECT_EQ(param.linklocal_system_flows(), 0);
@@ -115,7 +182,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
 }
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg-xen.ini", "test-param");
 
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenapi");
@@ -127,7 +194,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 23;
+    int argc = 21;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -141,11 +208,10 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
-        (char *) "--DEFAULT.flow_thread_count",     (char *)"3",
         (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
     };
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg-xen.ini", "test-param");
 
@@ -161,12 +227,11 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-    EXPECT_EQ(param.flow_thread_count(), 3);
     EXPECT_EQ(param.subnet_hosts_resolvable(), false);
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
-    int argc = 11;
+    int argc = 9;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file",
@@ -176,7 +241,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
         (char *) "--HYPERVISOR.xen_ll_ip", (char *)"1.1.1.2/16",
     };
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
@@ -192,7 +257,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
-    int argc = 11;
+    int argc = 9;
     char *argv[] = {
         (char *) "",
         (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
@@ -200,7 +265,7 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
         (char *) "--DEFAULT.debug",   (char *)"0",
     };
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
     EXPECT_EQ(param.xmpp_server_1().to_ulong(),
@@ -226,7 +291,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
                         (char *)"controller/src/vnsw/agent/init/test/cfg-default1.ini",
     };
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
@@ -245,7 +310,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
 TEST_F(FlowTest, Default_Cmdline_arg2) {
     uint16_t http_server_port = ContrailPorts::HttpPortAgent();
     uint16_t flow_timeout = Agent::kDefaultFlowCacheTimeout;
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg-default2.ini",
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
@@ -271,7 +336,7 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
         (char *) "--HYPERVISOR.type", (char *)"vmware",
     };
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
@@ -292,7 +357,7 @@ TEST_F(FlowTest, MultitokenVector) {
     argv[1] = argv_1;
     argv[2] = argv_2;
 
-    AgentParam param(Agent::GetInstance());
+    AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
