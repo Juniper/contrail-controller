@@ -28,7 +28,6 @@ import requests
 import stevedore
 
 from vnc_api.vnc_api import *
-from vnc_api.common import exceptions as vnc_exceptions
 import cfgm_common
 
 sys.path.append('../common/tests')

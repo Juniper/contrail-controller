@@ -35,7 +35,6 @@ setup(
               'vnc_api.gen.heat',
               'vnc_api.gen.heat.resources',
               'vnc_api.gen.heat.template',
-              'vnc_api.common',
              ],
     long_description="VNC API Library Package",
     install_requires=[
