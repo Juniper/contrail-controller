@@ -124,6 +124,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
 
     ReactionMap react_si = map_list_of<string, PropagateList>
             ("loadbalancer-pool-service-instance", list_of("self"))
+            ("loadbalancer-service-instance", list_of("self"))
             ("service-instance-service-template", list_of("self"))
             ("virtual-machine-service-instance", list_of("self"))
             ("self", list_of("self"));
@@ -173,6 +174,12 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
             ("self", list_of("self")("loadbalancer-pool-service-instance"))
             ("virtual-ip-loadbalancer-pool", list_of("self"));
     policy->insert(make_pair("loadbalancer-pool", react_lb_pool));
+
+    ReactionMap react_lb = map_list_of<string, PropagateList>
+            ("loadbalancer-listener-loadbalancer",
+             list_of("self")("loadbalancer-service-instance"))
+            ("self", list_of("self")("loadbalancer-service-instance"));
+    policy->insert(make_pair("loadbalancer", react_lb));
 
     ReactionMap react_lb_vip = map_list_of<string, PropagateList>
             ("self", list_of("virtual-ip-loadbalancer-pool"));
@@ -712,6 +719,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "loadbalancer-pool", true,
                                "loadbalancer-pool-loadbalancer-member",
                                "loadbalancer-member", false));
+    AddDependencyPath("loadbalancer",
+                      MakePath("loadbalancer-listener-loadbalancer",
+                               "loadbalancer-listener", false,
+                               "loadbalancer-pool-loadbalancer-listener",
+                               "loadbalancer-pool", true,
+                               "loadbalancer-pool-loadbalancer-healthmonitor",
+                               "loadbalancer-healthmonitor", false));
     AddDependencyPath("loadbalancer",
                       MakePath("loadbalancer-listener-loadbalancer",
                                "loadbalancer-listener", false,
