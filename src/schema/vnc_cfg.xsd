@@ -807,9 +807,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
         <!-- Enable or disable unicast RPF for virtual-network -->
         <xsd:element name='rpf' type='RpfModeType'/>
-        <!-- Ecmp nexthop load balance criterias -->
-        <xsd:element name='ecmp-hashing-include-fields'
-                     type='EcmpHashingIncludeFields'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -832,6 +829,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network') -->
+
+<!-- Ecmp nexthop load balance criterias -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ecmp-hashing-include-fields', 'virtual-network') -->
 
 <xsd:element name="provider-properties" type="ProviderDetails"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1054,9 +1055,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="sub-interface-vlan-tag" type="xsd:integer"/>
-        <!-- Ecmp nexthop load balance criterias -->
-        <xsd:element name='ecmp-hashing-include-fields'
-                     type='EcmpHashingIncludeFields'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1076,6 +1074,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='allowed-address-pairs' type="AllowedAddressPairs" />
     </xsd:all>
 </xsd:complexType>
+
+<!-- Ecmp nexthop load balance criterias -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ecmp-hashing-include-fields', 'virtual-machine-interface') -->
 
 <xsd:element name="virtual-machine-interface-properties" 
              type="VirtualMachineInterfacePropertiesType"/>

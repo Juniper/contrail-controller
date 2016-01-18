@@ -9,6 +9,7 @@ class VlanNhRoute;
 class LocalVmRoute;
 class InetInterfaceRoute;
 class ClonedLocalPath;
+class EcmpLoadBalance;
 
 //////////////////////////////////////////////////////////////////
 //  UNICAST INET
@@ -82,6 +83,7 @@ public:
                                SecurityGroupList sg_list,
                                const PathPreference &path_preference,
                                TunnelType::TypeBmap tunnel_bmap,
+                               const EcmpLoadBalance &ecmp_ecmp_load_balance,
                                DBRequest &nh_req,
                                Agent* agent,
                                AgentPath *path);
@@ -207,7 +209,8 @@ public:
                             const CommunityList &communities,
                             bool force_policy,
                             const PathPreference &path_preference,
-                            const IpAddress &subnet_service_ip);
+                            const IpAddress &subnet_service_ip,
+                            const EcmpLoadBalance &ecmp_load_balance);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
                                 const uuid &intf_uuid,
@@ -217,7 +220,8 @@ public:
                                 const CommunityList &communities,
                                 bool force_policy,
                                 const PathPreference &path_preference,
-                                const IpAddress &subnet_service_ip);
+                                const IpAddress &subnet_service_ip,
+                                const EcmpLoadBalance &ecmp_load_balance);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);

@@ -24,6 +24,7 @@ class VrfEntry;
 class XmlPugi;
 class PathPreference;
 class AgentPath;
+class EcmpLoadBalance;
 
 class AgentXmppChannel {
 public:
@@ -73,7 +74,8 @@ public:
                                        const SecurityGroupList *sg_list,
                                        const CommunityList *communities,
                                        Agent::RouteTableType type,
-                                       const PathPreference &path_preference);
+                                       const PathPreference &path_preference,
+                                       const EcmpLoadBalance &ecmp_load_balance);
     static bool ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                            AgentRoute *route,
                                            const Ip4Address *nexthop_ip,
@@ -189,7 +191,8 @@ private:
                                             uint32_t tunnel_bmap,
                                             const PathPreference &path_preference,
                                             bool associate,
-                                            Agent::RouteTableType type);
+                                            Agent::RouteTableType type,
+                                            const EcmpLoadBalance &ecmp_load_balance);
     bool BuildTorMulticastMessage(autogen::EnetItemType &item,
                                   std::stringstream &node_id,
                                   AgentRoute *route,

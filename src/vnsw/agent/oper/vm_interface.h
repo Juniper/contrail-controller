@@ -7,6 +7,7 @@
 
 #include <oper/oper_dhcp_options.h>
 #include <oper/audit_list.h>
+#include <oper/ecmp_load_balance.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of VM Port interfaces
@@ -620,6 +621,7 @@ public:
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
     bool IsActive() const;
+    const VmiEcmpLoadBalance &ecmp_load_balance() const {return ecmp_load_balance_;}
     Agent *agent() const {
         return (static_cast<InterfaceTable *>(get_table()))->agent();
     }
@@ -667,7 +669,8 @@ private:
                            bool old_dhcp_enable);
     bool CopyConfig(const InterfaceTable *table,
                     const VmInterfaceConfigData *data, bool *sg_changed,
-                    bool *ecmp_changed, bool *local_pref_changed);
+                    bool *ecmp_changed, bool *local_pref_changed,
+                    bool *ecmp_load_balance_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
                      int old_ethernet_tag, bool old_need_linklocal_ip,
@@ -772,6 +775,7 @@ private:
     void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
     bool UpdateIsHealthCheckActive();
+    void CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance);
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -839,6 +843,7 @@ private:
     Ip4Address dhcp_addr_;
     MetaDataIpMap metadata_ip_map_;
     HealthCheckInstanceSet hc_instance_set_;
+    VmiEcmpLoadBalance ecmp_load_balance_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -995,6 +1000,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
     boost::uuids::uuid logical_interface_;
+    VmiEcmpLoadBalance ecmp_load_balance_;
 };
 
 // Definition for structures when request queued from Nova
