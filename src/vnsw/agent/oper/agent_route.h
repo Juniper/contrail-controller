@@ -234,7 +234,7 @@ public:
     typedef DependencyList<NextHop, AgentRoute> TunnelNhDependencyList;
 
     AgentRoute(VrfEntry *vrf, bool is_multicast) :
-        Route(), vrf_(vrf, this), is_multicast_(is_multicast) { }
+        Route(), vrf_(vrf), is_multicast_(is_multicast) { }
     virtual ~AgentRoute() { }
 
     // Virtual functions from base DBEntry
@@ -264,7 +264,7 @@ public:
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
-    VrfEntry *vrf() const {return vrf_.get();}
+    VrfEntry *vrf() const {return vrf_;}
     uint32_t vrf_id() const;
 
     AgentPath *FindLocalVmPortPath() const;
@@ -288,7 +288,7 @@ public:
     bool WaitForTraffic() const;
     virtual uint8_t plen() const { return 0; }
 protected:
-    void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
+    void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
@@ -301,7 +301,7 @@ private:
                      AgentPath *path,
                      AgentRouteData *data);
 
-    VrfEntryRef vrf_;
+    VrfEntry *vrf_;
     // Unicast table can contain routes for few multicast address 
     // (ex. subnet multicast). Flag to specify if this is multicast route
     bool is_multicast_;

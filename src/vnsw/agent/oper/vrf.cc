@@ -63,7 +63,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
-        route_resync_walker_(new AgentRouteResync(agent)) {
+        route_resync_walker_(NULL) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -147,6 +147,7 @@ void VrfEntry::PostAdd() {
     // get_table() would return NULL in Add(), so move dependent functions and 
     // initialization to PostAdd
     deleter_.reset(new DeleteActor(this));
+    route_resync_walker_.reset(new AgentRouteResync(agent));
     // Create the route-tables and insert them into dbtree_
     CreateRouteTables();
 

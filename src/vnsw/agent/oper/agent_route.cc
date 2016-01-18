@@ -111,10 +111,9 @@ void AgentRouteTable::SetVrf(VrfEntry *vrf) {
 auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
-    VrfEntry *vrf = 
-        static_cast<VrfEntry *>(agent_->vrf_table()->Find(&vrf_key, true));
     AgentRoute *route = 
-        static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
+        static_cast<AgentRoute *>(key->AllocRouteEntry(vrf_entry_.get(),
+                                                       false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
 
