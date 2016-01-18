@@ -153,11 +153,12 @@ void AclEntry::set_mirror_entry(MirrorEntryRef me) {
         mirror_entry_ = me;
 }
 
-const AclEntry::ActionList &AclEntry::PacketMatch(const PacketHeader &packet_header) const
+const AclEntry::ActionList &AclEntry::PacketMatch(const PacketHeader &packet_header,
+                                                  FlowPolicyInfo *info) const
 {
     std::vector<AclEntryMatch *>::const_iterator it;
     for (it = matches_.begin(); it != matches_.end(); it++) {
-        if (!((*it)->Match(&packet_header))) {
+        if (!((*it)->Match(&packet_header, info))) {
             return AclEntry::kEmptyActionList;
         }
     }
@@ -345,7 +346,8 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
     return false;
 }
 
-bool AddressMatch::Match(const PacketHeader *pheader) const
+bool AddressMatch::Match(const PacketHeader *pheader,
+                         FlowPolicyInfo *info) const
 {
     if (policy_id_s_.compare("any") == 0) {
         return true;
@@ -354,11 +356,16 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
         if (addr_type_ == IP_ADDR) {
             return SubnetMatch(ip_list_, pheader->src_ip);
         } else if (addr_type_ == NETWORK_ID) {
-            if (pheader->src_policy_id && policy_id_s_.compare(*pheader->src_policy_id) == 0) {
-                return true;
-            } else {
+            if (!pheader->src_policy_id)
                 return false;
+            VnListType::iterator it =
+                pheader->src_policy_id->find(policy_id_s_);
+            if (it != pheader->src_policy_id->end()) {
+                info->src_match_vn = *it;
+                return true;
             }
+            info->src_match_vn.clear();
+            return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->src_sg_id_l, sg_id_);
         }
@@ -366,11 +373,16 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
         if (addr_type_ == IP_ADDR) {
             return SubnetMatch(ip_list_, pheader->dst_ip);
         } else if (addr_type_ == NETWORK_ID) {
-            if (pheader->dst_policy_id && policy_id_s_.compare(*pheader->dst_policy_id) == 0) {
-                return true;
-            } else {
+            if (!pheader->dst_policy_id)
                 return false;
+            VnListType::iterator it =
+                pheader->dst_policy_id->find(policy_id_s_);
+            if (it != pheader->dst_policy_id->end()) {
+                info->dst_match_vn = *it;
+                return true;
             }
+            info->dst_match_vn.clear();
+            return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->dst_sg_id_l, sg_id_);
         }
@@ -489,7 +501,8 @@ bool ProtocolMatch::Compare(const AclEntryMatch &rhs) const {
     return false;
 }
 
-bool ProtocolMatch::Match(const PacketHeader *packet_header) const
+bool ProtocolMatch::Match(const PacketHeader *packet_header,
+                          FlowPolicyInfo *info) const
 {
     for (RangeSList::const_iterator it = protocol_ranges_.begin(); 
          it != protocol_ranges_.end(); it++) {
@@ -541,7 +554,8 @@ bool PortMatch::Compare(const AclEntryMatch &rhs) const {
     return false;
 }
 
-bool SrcPortMatch::Match(const PacketHeader *packet_header) const
+bool SrcPortMatch::Match(const PacketHeader *packet_header,
+                         FlowPolicyInfo *info) const
 {
     if (packet_header->protocol != IPPROTO_TCP &&
             packet_header->protocol != IPPROTO_UDP) {
@@ -572,7 +586,8 @@ void SrcPortMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 }
 
 
-bool DstPortMatch::Match(const PacketHeader *packet_header) const
+bool DstPortMatch::Match(const PacketHeader *packet_header,
+                         FlowPolicyInfo *info) const
 {
     if (packet_header->protocol != IPPROTO_TCP &&
             packet_header->protocol != IPPROTO_UDP) {

@@ -41,6 +41,7 @@
 #include <cmn/agent_factory.h>
 
 const std::string Agent::null_string_ = "";
+const std::set<std::string> Agent::null_string_list_;
 const std::string Agent::fabric_vn_name_ =
     "default-domain:default-project:ip-fabric";
 std::string Agent::fabric_vrf_name_ =

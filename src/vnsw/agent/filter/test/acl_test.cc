@@ -300,8 +300,12 @@ TEST_F(AclTest, Config) {
     MatchAclParams m_acl;
     std::string vn11("vn11");
     std::string vn21("vn21");
-    packet1->src_policy_id = &vn11;
-    packet1->dst_policy_id = &vn21;
+    VnListType vn11_list;
+    VnListType vn21_list;
+    vn11_list.insert("vn11");
+    vn21_list.insert("vn21");
+    packet1->src_policy_id = &vn11_list;
+    packet1->dst_policy_id = &vn21_list;
     packet1->protocol = 10;
     packet1->dst_port = 100;
     packet1->src_port = 100;

@@ -27,6 +27,8 @@ struct FlowPolicyInfo {
     bool drop;
     bool terminal;
     bool other;
+    std::string src_match_vn;  // source VN that matched
+    std::string dst_match_vn;  // destination VN that matched
     FlowPolicyInfo(const std::string &u);
 };
 

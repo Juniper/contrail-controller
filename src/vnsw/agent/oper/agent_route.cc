@@ -564,7 +564,8 @@ uint32_t AgentRoute::GetActiveLabel() const {
 };
 
 const string &AgentRoute::dest_vn_name() const { 
-    return GetActivePath()->dest_vn_name();
+    assert(GetActivePath()->dest_vn_list().size() <= 1);
+    return *GetActivePath()->dest_vn_list().begin();
 };
 
 string AgentRoute::ToString() const {

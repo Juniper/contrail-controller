@@ -280,14 +280,14 @@ public:
     virtual ~VerifyVn() {};
 
     virtual void Verify(FlowEntry *fe) {
-        EXPECT_TRUE(fe->data().source_vn == src_vn_);
-        EXPECT_TRUE(fe->data().dest_vn == dest_vn_);
+        EXPECT_TRUE(VnMatch(fe->data().source_vn_list, src_vn_));
+        EXPECT_TRUE(VnMatch(fe->data().dest_vn_list, dest_vn_));
 
         if (true) {
             FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->data().source_vn == dest_vn_);
-            EXPECT_TRUE(rev->data().dest_vn == src_vn_);
+            EXPECT_TRUE(VnMatch(rev->data().source_vn_list, dest_vn_));
+            EXPECT_TRUE(VnMatch(rev->data().dest_vn_list, src_vn_));
         }
     };
 

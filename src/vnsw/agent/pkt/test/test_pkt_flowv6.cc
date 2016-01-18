@@ -59,9 +59,11 @@ public:
         Ip6Address addr = Ip6Address::from_string(ip);
         InetUnicastAgentRouteTable *rt_table =
             agent()->vrf_table()->GetInet6UnicastRouteTable(vrf);
+        VnListType vn_list;
+        vn_list.insert(intf->vn()->GetName());
         rt_table->AddLocalVmRouteReq(agent()->local_peer(), vrf, addr,
                                      128, intf->GetUuid(),
-                                     intf->vn()->GetName(), label,
+                                     vn_list, label,
                                      SecurityGroupList(), CommunityList(), false,
                                      PathPreference(),
                                      Ip6Address());

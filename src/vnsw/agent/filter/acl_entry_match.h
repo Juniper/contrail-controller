@@ -15,6 +15,7 @@
 #include <agent_types.h>
 
 class PacketHeader;
+struct FlowPolicyInfo;
 
 struct AclAddressInfo {
     IpAddress ip_addr;
@@ -41,7 +42,8 @@ public:
     };
     AclEntryMatch(Type type):type_(type) { }
     virtual ~AclEntryMatch() {}
-    virtual bool Match(const PacketHeader *packet_header) const = 0;
+    virtual bool Match(const PacketHeader *packet_header,
+                       FlowPolicyInfo *info) const = 0;
     virtual void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
     virtual bool Compare(const AclEntryMatch &rhs) const = 0;
     bool operator ==(const AclEntryMatch &rhs) const {
@@ -89,7 +91,8 @@ public:
     ~PortMatch() {port_ranges_.clear_and_dispose(delete_disposer());}
     void SetPortRange(const uint16_t min_port, const uint16_t max_port);
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
-    virtual bool Match(const PacketHeader *packet_header) const = 0;
+    virtual bool Match(const PacketHeader *packet_header,
+                       FlowPolicyInfo *info) const = 0;
     virtual bool Compare(const AclEntryMatch &rhs) const;
 protected:
     RangeSList port_ranges_;
@@ -98,13 +101,15 @@ protected:
 class SrcPortMatch : public PortMatch {
 public:
     SrcPortMatch(): PortMatch(SOURCE_PORT_MATCH) {}
-    bool Match(const PacketHeader *packet_header) const;
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
 };
 class DstPortMatch : public PortMatch {
 public:
     DstPortMatch(): PortMatch(DESTINATION_PORT_MATCH) {}
-    bool Match(const PacketHeader *packet_header) const;
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
 };
 
@@ -113,7 +118,8 @@ public:
     ProtocolMatch(): AclEntryMatch(PROTOCOL_MATCH) {}
     ~ProtocolMatch() {protocol_ranges_.clear_and_dispose(delete_disposer());}
     void SetProtocolRange(const uint16_t min, const uint16_t max);
-    bool Match(const PacketHeader *packet_header) const;
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
     virtual bool Compare(const AclEntryMatch &rhs) const;
 
@@ -146,7 +152,8 @@ public:
     // Set IP Address and mask
     void SetIPAddress(const std::vector<AclAddressInfo> &list);
     // Match packet header for address
-    bool Match(const PacketHeader *packet_header) const;
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
     virtual bool Compare(const AclEntryMatch &rhs) const;
     static std::string BuildIpMaskList(const std::vector<AclAddressInfo> &list);
