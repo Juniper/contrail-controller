@@ -361,10 +361,12 @@ bool AddressMatch::Match(const PacketHeader *pheader,
             VnListType::iterator it =
                 pheader->src_policy_id->find(policy_id_s_);
             if (it != pheader->src_policy_id->end()) {
-                info->src_match_vn = *it;
+                if (info)
+                    info->src_match_vn = *it;
                 return true;
             }
-            info->src_match_vn.clear();
+            if (info)
+                info->src_match_vn.clear();
             return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->src_sg_id_l, sg_id_);
@@ -378,10 +380,12 @@ bool AddressMatch::Match(const PacketHeader *pheader,
             VnListType::iterator it =
                 pheader->dst_policy_id->find(policy_id_s_);
             if (it != pheader->dst_policy_id->end()) {
-                info->dst_match_vn = *it;
+                if (info)
+                    info->dst_match_vn = *it;
                 return true;
             }
-            info->dst_match_vn.clear();
+            if (info)
+                info->dst_match_vn.clear();
             return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->dst_sg_id_l, sg_id_);
