@@ -670,7 +670,8 @@ private:
     bool CopyConfig(const InterfaceTable *table,
                     const VmInterfaceConfigData *data, bool *sg_changed,
                     bool *ecmp_changed, bool *local_pref_changed,
-                    bool *ecmp_load_balance_changed);
+                    bool *ecmp_load_balance_changed,
+                    bool *static_route_config_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
                      int old_ethernet_tag, bool old_need_linklocal_ip,

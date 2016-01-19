@@ -1193,6 +1193,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     }
 
     pdata.set_sg_list(sg_list());
+    pdata.set_communities(communities());
     pdata.set_vxlan_id(vxlan_id());
     pdata.set_label(label());
     pdata.set_active_tunnel_type(
