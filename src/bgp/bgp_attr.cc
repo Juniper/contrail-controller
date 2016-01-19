@@ -939,6 +939,14 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
+Address::Family BgpAttr::nexthop_family() const {
+    if (nexthop_.is_v6()) {
+        return Address::INET6;
+    } else {
+        return Address::INET;
+    }
+}
+
 as_t BgpAttr::neighbor_as() const {
     return (as_path_.get() ? as_path_->neighbor_as() : 0);
 }

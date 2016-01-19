@@ -325,6 +325,14 @@ path_resolver_test = env.UnitTest('path_resolver_test',
                                   ['path_resolver_test.cc'])
 env.Alias('src/bgp:path_resolver_test', path_resolver_test)
 
+path_resolver_test1 = env.UnitTest('path_resolver_test1',
+                                   ['path_resolver_test1.cc'])
+env.Alias('src/bgp:path_resolver_test1', path_resolver_test1)
+
+path_resolver_test2 = env.UnitTest('path_resolver_test2',
+                                   ['path_resolver_test2.cc'])
+env.Alias('src/bgp:path_resolver_test2', path_resolver_test2)
+
 ribout_attributes_test = env.UnitTest('ribout_attributes_test',
                               ['ribout_attributes_test.cc'])
 env.Alias('src/bgp:ribout_attributes_test', ribout_attributes_test)
@@ -555,6 +563,8 @@ test_suite = [
     bgp_xmpp_rtarget_test,
     bgp_xmpp_test,
     bgp_xmpp_wready_test,
+    path_resolver_test1,
+    path_resolver_test2,
     ribout_attributes_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
