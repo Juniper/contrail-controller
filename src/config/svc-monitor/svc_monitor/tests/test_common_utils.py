@@ -130,6 +130,16 @@ def create_test_virtual_machine(fq_name_str):
     vm.proj_fq_name = ['fake-domain', 'fake-project']
     return vm
 
+def create_test_virtual_router(fq_name_str):
+    vr_obj = {}
+    vr_obj['fq_name'] = fq_name_str.split(':')
+    vr_obj['name'] = fq_name_str.split(':')[0]
+    vr_obj['uuid'] = fq_name_str
+    vr_obj['display_name'] = fq_name_str
+    vr = VirtualRouterSM.locate(vr_obj['uuid'], vr_obj)
+    vr.agent_state = True
+    return vr
+
 def create_test_security_group(fq_name_str):
     sg_obj = {}
     sg_obj['fq_name'] = fq_name_str.split(':')
