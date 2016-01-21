@@ -102,7 +102,7 @@ protected:
     }
 
     const BgpRoutingPolicyConfig *
-        FindRoutingPolicyBgpConfig(const string policy_name) {
+        FindRoutingPolicyConfig(const string policy_name) {
         return config_manager_->FindRoutingPolicy(policy_name);
     }
 
@@ -142,6 +142,15 @@ class BgpIfmapConfigManagerShowTest : public ::testing::Test {
         return config_manager_->config()->FindPeering(peering_name);
     }
 
+    const BgpInstanceConfig *FindInstanceConfig(const string instance_name) {
+        return config_manager_->FindInstance(instance_name);
+    }
+
+    const BgpRoutingPolicyConfig *
+        FindRoutingPolicyConfig(const string policy_name) {
+        return config_manager_->FindRoutingPolicy(policy_name);
+    }
+
     EventManager evm_;
     BgpServer server_;
     DB db_;
@@ -176,6 +185,35 @@ static void VerifyBgpSessions(const BgpIfmapPeeringConfig *peering,
     }
 }
 
+static void ValidateShowRoutingPolicyResponse(
+    Sandesh *sandesh, bool *done,
+    const vector<ShowBgpRoutingPolicyConfig> &policy_list) {
+    ShowBgpRoutingPolicyConfigResp *resp =
+        dynamic_cast<ShowBgpRoutingPolicyConfigResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(policy_list.size(), resp->get_routing_policies().size());
+
+    BOOST_FOREACH(const ShowBgpRoutingPolicyConfig &policy, policy_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowBgpRoutingPolicyConfig &resp_policy,
+            resp->get_routing_policies()) {
+            if (policy.get_name() == resp_policy.get_name()) {
+                found = true;
+                EXPECT_EQ(policy.get_terms().size(),
+                          resp_policy.get_terms().size());
+                ASSERT_TRUE(std::equal(policy.get_terms().begin(),
+                               policy.get_terms().end(),
+                               resp_policy.get_terms().begin()));
+                break;
+            }
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified " << policy.get_name());
+    }
+
+    *done = true;
+}
+
 static void ValidateShowInstanceResponse(
     Sandesh *sandesh, bool *done,
     const vector<ShowBgpInstanceConfig> &instance_list) {
@@ -207,6 +245,16 @@ static void ValidateShowInstanceResponse(
                     resp_instance.get_virtual_network());
                 EXPECT_EQ(instance.get_virtual_network_index(),
                     resp_instance.get_virtual_network_index());
+                EXPECT_EQ(instance.get_aggregate_routes().size(),
+                          resp_instance.get_aggregate_routes().size());
+                ASSERT_TRUE(std::equal(instance.get_aggregate_routes().begin(),
+                               instance.get_aggregate_routes().end(),
+                               resp_instance.get_aggregate_routes().begin()));
+                EXPECT_EQ(instance.get_routing_policies().size(),
+                          resp_instance.get_routing_policies().size());
+                ASSERT_TRUE(std::equal(instance.get_routing_policies().begin(),
+                               instance.get_routing_policies().end(),
+                               resp_instance.get_routing_policies().begin()));
                 break;
             }
         }
@@ -1948,7 +1996,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_0) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
 
     // Update the routing instance with two route policy
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3d.xml");
@@ -2073,7 +2121,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_2) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
 
     // Remove the link between the routing-instance and the routing-policy.
     ifmap_test_util::IFMapMsgUnlink(&db_,
@@ -2115,7 +2163,7 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
     ASSERT_TRUE(test_ri != NULL);
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
     ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
-    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == 1.0);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
 
     string content_b = FileRead("controller/src/bgp/testdata/routing_policy_3c.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
@@ -2130,6 +2178,202 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_3) {
     test_ri = FindInstanceConfig("test");
     ASSERT_TRUE(test_ri == NULL);
     policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Create routing instance and routing policy
+// Validate the introspect for instance config and policy config
+//
+TEST_F(BgpIfmapConfigManagerShowTest, RoutingPolicy_Show_0) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic_0");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = {
+        "test", BgpConfigManager::kMasterInstance
+    };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        ASSERT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        vector<ShowBgpInstanceRoutingPolicyConfig> routing_policy_list;
+        BOOST_FOREACH(const RoutingPolicyAttachInfo &policy_config,
+                      config->routing_policy_list()) {
+            ShowBgpInstanceRoutingPolicyConfig sbirpc;
+            sbirpc.set_policy_name(policy_config.routing_policy_);
+            sbirpc.set_sequence(policy_config.sequence_);
+            routing_policy_list.push_back(sbirpc);
+        }
+        instance.set_routing_policies(routing_policy_list);
+        instance_list.push_back(instance);
+    }
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    vector<ShowBgpRoutingPolicyConfig> policy_list;
+    const char *policy_name_list[] = {
+        "basic_0"
+    };
+    BOOST_FOREACH(const char *policy_name, policy_name_list) {
+        const BgpRoutingPolicyConfig *config =
+            FindRoutingPolicyConfig(policy_name);
+        ASSERT_TRUE(config != NULL);
+        ShowBgpRoutingPolicyConfig policy;
+        policy.set_name(config->name());
+        std::vector<ShowBgpRoutingPolicyTermConfig> terms_list;
+        BOOST_FOREACH(const RoutingPolicyTerm &term, config->terms()) {
+            ShowBgpRoutingPolicyTermConfig sbrptc;
+            sbrptc.set_match(term.match.ToString());
+            sbrptc.set_action(term.action.ToString());
+            terms_list.push_back(sbrptc);
+        }
+        policy.set_terms(terms_list);
+        policy_list.push_back(policy);
+    }
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+    ShowBgpRoutingPolicyConfigReq *show_policy_req = new ShowBgpRoutingPolicyConfigReq;
+    show_policy_req->HandleRequest();
+    show_policy_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic_0");
+    ASSERT_TRUE(policy_cfg == NULL);
+}
+
+//
+// Create routing instance and routing policy
+// Validate the introspect for instance config and policy config
+// Test with more complex match and action
+//
+TEST_F(BgpIfmapConfigManagerShowTest, RoutingPolicy_Show_1) {
+    string content_a = FileRead("controller/src/bgp/testdata/routing_policy_6c.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpRoutingPolicyConfig *policy_cfg =
+            config_manager_->FindRoutingPolicy("basic");
+    ASSERT_TRUE(policy_cfg != NULL);
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+    ASSERT_TRUE(test_ri->routing_policy_list().size() == 1);
+    ASSERT_TRUE(test_ri->routing_policy_list().front().routing_policy_ == "basic");
+    ASSERT_TRUE(test_ri->routing_policy_list().front().sequence_ == "1.0");
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = {
+        "test", BgpConfigManager::kMasterInstance
+    };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        ASSERT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        vector<ShowBgpInstanceRoutingPolicyConfig> routing_policy_list;
+        BOOST_FOREACH(const RoutingPolicyAttachInfo &policy_config,
+                      config->routing_policy_list()) {
+            ShowBgpInstanceRoutingPolicyConfig sbirpc;
+            sbirpc.set_policy_name(policy_config.routing_policy_);
+            sbirpc.set_sequence(policy_config.sequence_);
+            routing_policy_list.push_back(sbirpc);
+        }
+        instance.set_routing_policies(routing_policy_list);
+
+        instance_list.push_back(instance);
+    }
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    vector<ShowBgpRoutingPolicyConfig> policy_list;
+    const char *policy_name_list[] = {
+        "basic"
+    };
+    BOOST_FOREACH(const char *policy_name, policy_name_list) {
+        const BgpRoutingPolicyConfig *config =
+            FindRoutingPolicyConfig(policy_name);
+        ASSERT_TRUE(config != NULL);
+        ShowBgpRoutingPolicyConfig policy;
+        policy.set_name(config->name());
+        std::vector<ShowBgpRoutingPolicyTermConfig> terms_list;
+        BOOST_FOREACH(const RoutingPolicyTerm &term, config->terms()) {
+            ShowBgpRoutingPolicyTermConfig sbrptc;
+            sbrptc.set_match(term.match.ToString());
+            sbrptc.set_action(term.action.ToString());
+            terms_list.push_back(sbrptc);
+        }
+        policy.set_terms(terms_list);
+        policy_list.push_back(policy);
+    }
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+    ShowBgpRoutingPolicyConfigReq *show_policy_req = new ShowBgpRoutingPolicyConfigReq;
+    show_policy_req->HandleRequest();
+    show_policy_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+    policy_cfg = config_manager_->FindRoutingPolicy("basic");
     ASSERT_TRUE(policy_cfg == NULL);
 }
 
@@ -2504,6 +2748,99 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet_Unlink) {
     test_ri = FindInstanceConfig("test");
     ASSERT_TRUE(test_ri == NULL);
 }
+
+//
+// Validate the introspect for route aggregate
+//
+TEST_F(BgpIfmapConfigManagerShowTest, RouteAggregate_Show) {
+    string content_a = FileRead("controller/src/bgp/testdata/route_aggregate_3.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpInstanceConfig *test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri != NULL);
+
+    ASSERT_TRUE(test_ri->aggregate_routes(Address::INET).size() == 3);
+    BgpInstanceConfig::AggregateRouteList list =
+        test_ri->aggregate_routes(Address::INET);
+
+    set<string_pair_t> expect_list = list_of<string_pair_t>
+        ("2.2.0.0/16", "1.1.1.1")
+        ("3.3.0.0/16", "1.1.1.1")
+        ("4.0.0.0/8", "1.1.1.1");
+    set<string_pair_t> current_list;
+    BOOST_FOREACH(AggregateRouteConfig info, list) {
+        ostringstream oss;
+        oss << info.aggregate.to_string() << "/" << info.prefix_length;
+        string first = oss.str();
+        oss.str("");
+        oss << info.nexthop.to_string();
+        string second = oss.str();
+        current_list.insert(make_pair(first, second));
+    }
+
+    ASSERT_TRUE(current_list.size() == expect_list.size());
+    ASSERT_TRUE(std::equal(expect_list.begin(), expect_list.end(),
+                           current_list.begin()));
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = {
+        "test", BgpConfigManager::kMasterInstance
+    };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        ASSERT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        if (config->name() == "test") {
+            vector<ShowBgpRouteAggregateConfig> aggregate_route_list;
+            vector<Address::Family> families =
+                list_of(Address::INET)(Address::INET6);
+            BOOST_FOREACH(Address::Family family, families) {
+                BOOST_FOREACH(const AggregateRouteConfig &aggregate_rt_config,
+                              config->aggregate_routes(family)) {
+                    ShowBgpRouteAggregateConfig sbarc;
+                    string prefix =
+                        aggregate_rt_config.aggregate.to_string() + "/";
+                    prefix +=
+                        integerToString(aggregate_rt_config.prefix_length);
+                    sbarc.set_prefix(prefix);
+                    sbarc.set_nexthop(aggregate_rt_config.nexthop.to_string());
+                    aggregate_route_list.push_back(sbarc);
+                }
+            }
+            instance.set_aggregate_routes(aggregate_route_list);
+        }
+
+        instance_list.push_back(instance);
+    }
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, &validate_done,
+                    instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    test_ri = FindInstanceConfig("test");
+    ASSERT_TRUE(test_ri == NULL);
+}
+
+
 
 class IFMapConfigTest : public ::testing::Test {
   protected:

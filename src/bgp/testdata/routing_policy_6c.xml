@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>1.1.1.1/32</prefix>
+                    <type>exact</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <local-pref>500</local-pref>
+                    <community>
+                        <remove><community>11:22</community></remove>
+                    </community>
+                </update>
+                <action>accept</action>
+            </then>
+        </term>
+        <term>
+            <from>
+                <community>11:13</community>
+            </from>
+            <then>
+                <update>
+                    <local-pref>400</local-pref>
+                    <community>
+                        <set><community>22:44</community></set>
+                    </community>
+                </update>
+            </then>
+        </term>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>1.1.0.0/16</prefix>
+                    <type>longer</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <local-pref>300</local-pref>
+                    <community>
+                        <remove><community>44:88</community></remove>
+                    </community>
+                </update>
+            </then>
+        </term>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>2001:db8:85a3::/64</prefix>
+                    <type>orlonger</type>
+                </prefix>
+            </from>
+            <then>
+                <action>reject</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

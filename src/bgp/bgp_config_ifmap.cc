@@ -722,9 +722,7 @@ static bool GetRoutingInstanceRoutingPolicy(DBGraph *graph, IFMapNode *node,
         static_cast<autogen::RoutingPolicyRoutingInstance *>(node->GetObject());
     const autogen::RoutingPolicyType &attach_info = policy->data();
 
-    if (!stringToInteger(attach_info.sequence, ri_rp_link->sequence_)) {
-        return false;
-    }
+    ri_rp_link->sequence_ = attach_info.sequence;
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {

@@ -101,3 +101,7 @@ request sandesh ShowBgpPeeringConfigReqIterate {
 request sandesh ShowBgpNeighborConfigReqIterate {
     1: string iterate_info;
 }
+
+request sandesh ShowBgpRoutingPolicyConfigReqIterate {
+    1: string iterate_info;
+}

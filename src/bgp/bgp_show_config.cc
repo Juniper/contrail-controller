@@ -68,6 +68,32 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     }
     if (!static_route_list.empty())
         sbic->set_static_routes(static_route_list);
+
+    vector<ShowBgpRouteAggregateConfig> aggregate_route_list;
+    BOOST_FOREACH(Address::Family family, families) {
+        BOOST_FOREACH(const AggregateRouteConfig &aggregate_rt_config,
+            instance->aggregate_routes(family)) {
+            ShowBgpRouteAggregateConfig sbarc;
+            string prefix = aggregate_rt_config.aggregate.to_string() + "/";
+            prefix += integerToString(aggregate_rt_config.prefix_length);
+            sbarc.set_prefix(prefix);
+            sbarc.set_nexthop(aggregate_rt_config.nexthop.to_string());
+            aggregate_route_list.push_back(sbarc);
+        }
+    }
+    if (!aggregate_route_list.empty())
+        sbic->set_aggregate_routes(aggregate_route_list);
+
+    vector<ShowBgpInstanceRoutingPolicyConfig> routing_policy_list;
+    BOOST_FOREACH(const RoutingPolicyAttachInfo &policy_config,
+                  instance->routing_policy_list()) {
+        ShowBgpInstanceRoutingPolicyConfig sbirpc;
+        sbirpc.set_policy_name(policy_config.routing_policy_);
+        sbirpc.set_sequence(policy_config.sequence_);
+        routing_policy_list.push_back(sbirpc);
+    }
+    if (!routing_policy_list.empty())
+        sbic->set_routing_policies(routing_policy_list);
 }
 
 //
@@ -171,6 +197,125 @@ void ShowBgpInstanceConfigReqIterate::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+//
+// Fill in information for an routing policy.
+//
+static void FillBgpRoutingPolicyInfo(ShowBgpRoutingPolicyConfig *sbrpc,
+    const BgpSandeshContext *bsc, const BgpRoutingPolicyConfig *policy) {
+    sbrpc->set_name(policy->name());
+    std::vector<ShowBgpRoutingPolicyTermConfig> terms_list;
+    BOOST_FOREACH(const RoutingPolicyTerm &term, policy->terms()) {
+        ShowBgpRoutingPolicyTermConfig sbrptc;
+        sbrptc.set_match(term.match.ToString());
+        sbrptc.set_action(term.action.ToString());
+        terms_list.push_back(sbrptc);
+    }
+    sbrpc->set_terms(terms_list);
+}
+
+//
+// Specialization of BgpShowHandler<>::CallbackCommon.
+//
+template <>
+bool BgpShowHandler<ShowBgpRoutingPolicyConfigReq,
+     ShowBgpRoutingPolicyConfigReqIterate, ShowBgpRoutingPolicyConfigResp,
+     ShowBgpRoutingPolicyConfig>::CallbackCommon(
+    const BgpSandeshContext *bsc, Data *data) {
+    uint32_t page_limit = bsc->page_limit() ? bsc->page_limit() : kPageLimit;
+    uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
+    const BgpConfigManager *bcm = bsc->bgp_server->config_manager();
+
+    BgpConfigManager::RoutingPolicyMapRange range =
+        bcm->RoutingPolicyMapItems(data->next_entry);
+    BgpConfigManager::RoutingPolicyMap::const_iterator it = range.first;
+    BgpConfigManager::RoutingPolicyMap::const_iterator it_end = range.second;
+    for (uint32_t iter_count = 0; it != it_end; ++it, ++iter_count) {
+        const BgpRoutingPolicyConfig *policy = it->second;
+        if (!data->search_string.empty() &&
+            (policy->name().find(data->search_string) == string::npos)) {
+            continue;
+        }
+
+        ShowBgpRoutingPolicyConfig sbrpc;
+        FillBgpRoutingPolicyInfo(&sbrpc, bsc, policy);
+        data->show_list.push_back(sbrpc);
+        if (data->show_list.size() >= page_limit)
+            break;
+        if (iter_count >= iter_limit)
+            break;
+    }
+
+    // All done if we've looked at all instances.
+    if (it == it_end || ++it == it_end)
+        return true;
+
+    // Return true if we've reached the page limit, false if we've reached the
+    // iteration limit.
+    bool done = data->show_list.size() >= page_limit;
+    SaveContextToData(it->second->name(), done, data);
+    return done;
+}
+
+//
+// Specialization of BgpShowHandler<>::FillShowList.
+//
+template <>
+void BgpShowHandler<ShowBgpRoutingPolicyConfigReq,
+     ShowBgpRoutingPolicyConfigReqIterate, ShowBgpRoutingPolicyConfigResp,
+     ShowBgpRoutingPolicyConfig>::FillShowList(
+        ShowBgpRoutingPolicyConfigResp *resp,
+        const vector<ShowBgpRoutingPolicyConfig> &show_list) {
+    resp->set_routing_policies(show_list);
+}
+
+
+//
+// Handler for ShowBgpRoutingPolicyConfigReq.
+//
+void ShowBgpRoutingPolicyConfigReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpRoutingPolicyConfigReq,
+        ShowBgpRoutingPolicyConfigReqIterate,
+        ShowBgpRoutingPolicyConfigResp,
+        ShowBgpRoutingPolicyConfig>::Callback, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpRoutingPolicyConfigReq,
+        ShowBgpRoutingPolicyConfigReqIterate,
+        ShowBgpRoutingPolicyConfigResp,
+        ShowBgpRoutingPolicyConfig>::CreateData;
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
+
+//
+// Handler for ShowBgpRoutingPolicyConfigReqIterate.
+//
+void ShowBgpRoutingPolicyConfigReqIterate::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = boost::bind(&BgpShowHandler<
+        ShowBgpRoutingPolicyConfigReq,
+        ShowBgpRoutingPolicyConfigReqIterate,
+        ShowBgpRoutingPolicyConfigResp,
+        ShowBgpRoutingPolicyConfig>::CallbackIterate, _1, _2, _3, _4, _5);
+    s1.allocFn_ = BgpShowHandler<
+        ShowBgpRoutingPolicyConfigReq,
+        ShowBgpRoutingPolicyConfigReqIterate,
+        ShowBgpRoutingPolicyConfigResp,
+        ShowBgpRoutingPolicyConfig>::CreateData;
+    s1.instances_.push_back(0);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
 
 //
 // Fill in information for a neighbor.

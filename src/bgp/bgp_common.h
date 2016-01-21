@@ -18,7 +18,7 @@ typedef boost::intrusive_ptr<RoutingPolicy> RoutingPolicyPtr;
 // ordering info
 //
 struct RoutingPolicyAttachInfo {
-    double sequence_;
+    std::string sequence_;
     std::string routing_policy_;
 };
 

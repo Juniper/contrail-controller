@@ -5,9 +5,16 @@
 
 #include <boost/foreach.hpp>
 
+#include <sstream>
+
 #include "base/string_util.h"
 #include "base/time_util.h"
 #include "base/util.h"
+
+using std::copy;
+using std::string;
+using std::ostringstream;
+using std::ostream_iterator;
 
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
@@ -318,6 +325,58 @@ BgpRoutingPolicyConfig::~BgpRoutingPolicyConfig() {
 
 void BgpRoutingPolicyConfig::Clear() {
     terms_.clear();
+}
+
+std::string RoutingPolicyMatchConfig::ToString() const {
+    ostringstream oss;
+    oss << "from {" << std::endl;
+    if (!community_match.empty()) {
+        oss << "    " << community_match << std::endl;
+    }
+    if (!prefix_match.prefix_to_match.empty()) {
+        oss << "    " << prefix_match.prefix_to_match << " "
+            << prefix_match.prefix_match_type << std::endl;
+    }
+    oss << "}" << std::endl;
+    return oss.str();
+}
+
+static void PutCommunityMatch(ostringstream &oss, const CommunityList &list) {
+    copy(list.begin(), list.end(), ostream_iterator<string>(oss,","));
+    oss.seekp(-1, oss.cur);
+}
+
+string RoutingPolicyActionConfig::ToString() const {
+    ostringstream oss;
+    oss << "then {" << std::endl;
+    if (!update.community_set.empty()) {
+        oss << "    community set [ ";
+        PutCommunityMatch(oss, update.community_set);
+        oss << " ]" << std::endl;
+    }
+    if (!update.community_add.empty()) {
+        oss << "    community add [ ";
+        PutCommunityMatch(oss, update.community_add);
+        oss << " ]" << std::endl;
+    }
+    if (!update.community_remove.empty()) {
+        oss << "    community remove [ ";
+        PutCommunityMatch(oss, update.community_remove);
+        oss << " ]" << std::endl;
+    }
+    if (update.local_pref) {
+        oss << "    local-preference " << update.local_pref << std::endl;
+    }
+
+    if (action == ACCEPT) {
+        oss << "    accept" << std::endl;
+    } else if (action == REJECT) {
+        oss << "    reject" << std::endl;
+    } else if (action == NEXT_TERM) {
+        oss << "    next-term" << std::endl;
+    }
+    oss << "}" << std::endl;
+    return oss.str();
 }
 
 BgpConfigManager::BgpConfigManager(BgpServer *server)

@@ -405,6 +405,16 @@ struct ShowBgpStaticRouteConfig {
     3: string nexthop;
 }
 
+struct ShowBgpInstanceRoutingPolicyConfig {
+    1: string policy_name;
+    2: string sequence;
+}
+
+struct ShowBgpRouteAggregateConfig {
+    1: string prefix;
+    2: string nexthop;
+}
+
 struct ShowBgpInstanceConfig {
     1: string name;
     2: string virtual_network;
@@ -416,6 +426,8 @@ struct ShowBgpInstanceConfig {
     9: string last_change_at;
     5: list<ShowBgpServiceChainConfig> service_chain_infos;
     6: list<ShowBgpStaticRouteConfig> static_routes;
+    11: list<ShowBgpRouteAggregateConfig> aggregate_routes;
+    12: list<ShowBgpInstanceRoutingPolicyConfig> routing_policies;
 }
 
 response sandesh ShowBgpInstanceConfigResp {
@@ -490,6 +502,26 @@ response sandesh ShowBgpNeighborConfigResp {
 }
 
 request sandesh ShowBgpNeighborConfigReq {
+    1: string search_string;
+}
+
+struct ShowBgpRoutingPolicyTermConfig {
+    1: optional string match;
+    2: optional string action;
+}
+
+struct ShowBgpRoutingPolicyConfig {
+    1: string name;
+    2: list<ShowBgpRoutingPolicyTermConfig> terms;
+}
+
+response sandesh ShowBgpRoutingPolicyConfigResp {
+    1: list<ShowBgpRoutingPolicyConfig> routing_policies;
+    2: optional string next_batch (link="ShowBgpRoutingPolicyConfigReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowBgpRoutingPolicyConfigReq {
     1: string search_string;
 }
 

@@ -307,6 +307,7 @@ struct PrefixMatch {
 struct RoutingPolicyMatchConfig {
     std::string community_match;
     PrefixMatch prefix_match;
+    std::string ToString() const;
 };
 
 struct ActionUpdate {
@@ -324,6 +325,7 @@ struct RoutingPolicyActionConfig {
     };
     ActionUpdate update;
     ActionType action;
+    std::string ToString() const;
 };
 
 struct RoutingPolicyTerm {
