@@ -41,13 +41,9 @@ public:
     void set_underlay_source_port(uint16_t port) {
         underlay_source_port_ = port;
     }
-    bool underlay_sport_exported() const { return underlay_sport_exported_; }
-    void set_underlay_sport_exported(bool value) {
-        underlay_sport_exported_ = value;
-    }
-    bool exported() const { return exported_; }
-    void set_exported(bool value) {
-        exported_ = value;
+    bool changed() const { return changed_; }
+    void set_changed(bool value) {
+        changed_ = value;
     }
     uint32_t fip() const { return fip_; }
     VmInterfaceKey fip_vmi() const { return fip_vmi_; }
@@ -63,6 +59,8 @@ public:
     void set_tcp_flags(uint16_t tflags) {
         tcp_flags_ = tflags;
     }
+    bool IsEqual(const FlowExportInfo &rhs) const;
+    void Copy(const FlowExportInfo &rhs);
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -87,8 +85,7 @@ private:
     TunnelType tunnel_type_;
     //Underlay source port. 0 for local flows. Used during flow-export
     uint16_t underlay_source_port_;
-    bool underlay_sport_exported_;
-    bool exported_;
+    bool changed_;
     uint32_t fip_;
     VmInterfaceKey fip_vmi_;
     boost::uuids::uuid interface_uuid_;

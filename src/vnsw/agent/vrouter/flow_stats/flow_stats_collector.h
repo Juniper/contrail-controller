@@ -150,7 +150,6 @@ private:
     void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowLogData &s_flow);
-    bool SetUnderlayPort(FlowExportInfo *info, FlowLogData &s_flow);
     void UpdateThreshold(uint32_t new_value);
 
     void UpdateInterVnStats(FlowExportInfo *info,
