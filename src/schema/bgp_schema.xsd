@@ -26,18 +26,17 @@
 
 <xsd:element name="route-aggregate" type="ifmap:IdentityType"/>
 
-<xsd:complexType name='AggregateRouteType'>
-    <xsd:element name='prefix' type='xsd:string'/>
-    <xsd:element name='nexthop' type='xsd:string'/>
+<xsd:complexType name="RouteListType">
+    <xsd:element name="route" type="xsd:string" maxOccurs="unbounded"/>
 </xsd:complexType>
 
-<xsd:complexType name="AggregateRoutesType">
-    <xsd:element name="aggregate-route" type="AggregateRouteType" maxOccurs="unbounded"/>
-</xsd:complexType>
-
-<xsd:element name='aggregate-route-entries' type='AggregateRoutesType'/>
+<xsd:element name='aggregate-route-entries' type='RouteListType'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('aggregate-route-entries', 'route-aggregate') -->
+
+<xsd:element name='aggregate-route-nexthop' type='xsd:string'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('aggregate-route-nexthop', 'route-aggregate') -->
 
 <xsd:element name="route-aggregate-routing-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
