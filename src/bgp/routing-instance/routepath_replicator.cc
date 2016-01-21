@@ -480,7 +480,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
     //
     if (!rt->IsUsable() || (table->IsRouteAggregationSupported() &&
                             !rtinstance->deleted() &&
-                            rtinstance->IsContributingRoute(table, rt))) {
+                            table->IsContributingRoute(rt))) {
         if (!dbstate) {
             return true;
         }

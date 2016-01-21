@@ -34,7 +34,7 @@ public:
         ResolvedRoute = 2,
         ServiceChain = 3,
         StaticRoute = 4,
-        Aggregation = 5,
+        Aggregate = 5,
         Local = 6,
     };
 
@@ -61,7 +61,8 @@ public:
     bool IsVrfOriginated() const {
         if (IsReplicated())
             return false;
-        if (source_ != ResolvedRoute && source_ != BGP_XMPP && source_ != Local)
+        if (source_ != ResolvedRoute && source_ != Aggregate &&
+            source_ != BGP_XMPP && source_ != Local)
             return false;
         return true;
     }

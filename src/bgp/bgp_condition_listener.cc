@@ -350,7 +350,8 @@ bool BgpConditionListener::BgpRouteNotify(BgpServer *server,
                                           DBEntryBase *entry) {
     BgpTable *bgptable = static_cast<BgpTable *>(root->parent());
     BgpRoute *rt = static_cast<BgpRoute *> (entry);
-    bool del_rt = rt->IsDeleted();
+    // Either the route is deleted or no valid path exists
+    bool del_rt = !rt->IsUsable();
 
     TableMap::iterator loc = map_.find(bgptable);
     assert(loc != map_.end());

@@ -299,6 +299,10 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_protocol("ServiceChain");
         } else if (path->GetSource() == BgpPath::StaticRoute) {
             srp.set_protocol("StaticRoute");
+        } else if (path->GetSource() == BgpPath::Aggregate) {
+            srp.set_protocol("Aggregate");
+        } else if (path->GetSource() == BgpPath::ResolvedRoute) {
+            srp.set_protocol("ResolvedRoute");
         }
 
         const BgpAttr *attr = path->GetAttr();

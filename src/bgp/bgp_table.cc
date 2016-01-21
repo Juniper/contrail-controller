@@ -134,12 +134,10 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     if (!path->IsFeasible())
         return NULL;
 
-    if (IsRouteAggregationSupported()) {
-        // Check whether the route is contributing route
-        if (routing_instance()->IsContributingRoute(this, route)) {
-            return NULL;
-        }
-    }
+    // Check whether the route is contributing route
+    if (IsRouteAggregationSupported() && IsContributingRoute(route))
+        return NULL;
+
     // Needs to be outside the if block so it's not destroyed prematurely.
     BgpAttrPtr attr_ptr;
     const BgpAttr *attr = path->GetAttr();
@@ -543,4 +541,14 @@ void BgpTable::UpdatePathCount(const BgpPath *path, int count) {
     if (!path->IsFeasible()) {
         infeasible_path_count_ += count;
     }
+}
+
+// Check whether the route is aggregate route
+bool BgpTable::IsAggregateRoute(const BgpRoute *route) const {
+    return routing_instance()->IsAggregateRoute(this, route);
+}
+
+// Check whether the route is contributing route to aggregate route
+bool BgpTable::IsContributingRoute(const BgpRoute *route) const {
+    return routing_instance()->IsContributingRoute(this, route);
 }

@@ -132,6 +132,12 @@ public:
         return infeasible_path_count_;
     }
 
+    // Check whether the route is aggregate route
+    bool IsAggregateRoute(const BgpRoute *route) const;
+
+    // Check whether the route is contributing route to aggregate route
+    bool IsContributingRoute(const BgpRoute *route) const;
+
 private:
     class DeleteActor;
     friend class BgpTableTest;

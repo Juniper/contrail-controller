@@ -1580,6 +1580,8 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
+    TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
+
     EnableRouteAggregateUpdate("test", Address::INET);
     TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
 
