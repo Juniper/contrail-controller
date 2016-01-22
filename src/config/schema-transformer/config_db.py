@@ -1772,6 +1772,8 @@ class RoutingInstanceST(DBBaseST):
         self.route_target = None
         self.routing_policys = {}
         self.route_aggregates = set()
+        self.service_chain_info = self.obj.get_service_chain_information()
+        self.v6_service_chain_info = self.obj.get_ipv6_service_chain_information()
         if self.obj.get_parent_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
                                              common.LINK_LOCAL_VN_FQ_NAME]:
             return
@@ -1987,11 +1989,13 @@ class RoutingInstanceST(DBBaseST):
         v4_info = self.fill_service_info(v4_info, 4, remote_vn,
                                          service_instance, v4_address,
                                          source_ri)
+        self.service_chain_info = v4_info
         self.obj.set_service_chain_information(v4_info)
         v6_info = self.obj.get_ipv6_service_chain_information()
         v6_info = self.fill_service_info(v6_info, 6, remote_vn,
                                          service_instance, v6_address,
                                          source_ri)
+        self.v6_service_chain_info = v6_info
         self.obj.set_ipv6_service_chain_information(v6_info)
     # end add_service_info
 
@@ -3640,6 +3644,7 @@ class RouteAggregateST(DBBaseST):
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.route_entries = self.obj.get_aggregate_route_entries()
         new_refs = dict((':'.join(ref['to']), ref['attr'].interface_type)
                         for ref in self.obj.get_service_instance_refs() or [])
         for ref in set(self.service_instances.keys()) - set(new_refs.keys()):
@@ -3657,18 +3662,37 @@ class RouteAggregateST(DBBaseST):
     def add_routing_instance(self, ri):
         if ri.name in self.routing_instances:
             return
-        self._vnc_lib.ref_update('route_aggregate', self.obj.uuid,
-                                 'routing_instance', ri.obj.uuid,
-                                 None, 'ADD')
+        if not self.route_entries or not self.route_entries.route:
+            return
+        ip_version = IPNetwork(self.route_entries.route[0]).version
+        if ip_version == 4:
+            if ri.service_chain_info is None:
+                self._logger.error("No ipv4 service chain info found for %s"
+                                   % ri.name)
+                return
+            next_hop = ri.service_chain_info.get_service_chain_address()
+        elif ip_version == 6:
+            if ri.v6service_chain_info is None:
+                self._logger.error("No ipv6 service chain info found for %s"
+                                   % ri.name)
+                return
+            next_hop = ri.v6_service_chain_info.get_service_chain_address()
+        else:
+            self._logger.error("route aggregate %s: unknonwn ip version: %s"
+                               % (self.name, ip_version))
+            return
+        self.obj.set_aggregate_route_nexthop(next_hop)
+        self.obj.set_routing_instance(ri.obj)
+        self._vnc_lib.route_aggregate_update(self.obj)
         self.routing_instances.add(ri.name)
     # end add_routing_instance
 
     def delete_routing_instance(self, ri):
         if ri.name not in self.routing_instances:
             return
-        self._vnc_lib.ref_update('route_aggregate', self.obj.uuid,
-                                 'routing_instance', ri.obj.uuid,
-                                 None, 'DELETE')
+        self.obj.set_aggregate_route_nexthop(None)
+        self.obj.set_routing_instance_list([])
+        self._vnc_lib.route_aggregate_update(self.obj)
         self.routing_instances.discard(ri.name)
     # end delete_routing_instance
 # end RouteAggregateST

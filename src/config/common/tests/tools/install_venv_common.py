@@ -124,7 +124,7 @@ class InstallVenv(object):
 
         # First things first, make sure our venv has the latest pip and
         # setuptools and pbr
-        self.pip_install(find_links, 'pip>=1.4')
+        self.pip_install(find_links, 'pip<=7.1')
         self.pip_install(find_links, 'setuptools')
         self.pip_install(find_links, 'pbr')
 

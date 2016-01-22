@@ -1575,3 +1575,32 @@ class VirtualIpServer(Resource, VirtualIp):
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class VirtualIpServer
+
+
+class RouteAggregateServer(Resource, RouteAggregate):
+    @classmethod
+    def _check(cls, obj_dict, db_conn):
+        si_refs = obj_dict.get('service_instance_refs') or []
+        if len(si_refs) > 1:
+            return (False, (400, 'RouteAggregate objects can refer to only '
+                                 'one service instance'))
+        family = None
+        entries = obj_dict.get('aggregate_route_entries', {})
+        for route in entries.get('route', []):
+            route_family = IPNetwork(route).version
+            if family and route_family != family:
+                return (False, (400, 'All prefixes in a route aggregate '
+                                'object must be of same ip family'))
+            family = route_family
+    # end _check
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return _check(cls, obj_dict, db_conn)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return _check(cls, obj_dict, db_conn)
+
+# end class RouteAggregateServer
+
