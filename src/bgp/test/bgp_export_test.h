@@ -65,7 +65,11 @@ private:
 
 class InetTableMock : public InetTable {
 public:
-    InetTableMock(DB *db, const std::string &name) : InetTable(db, name) { }
+    InetTableMock(DB *db, const std::string &name)
+        : InetTable(db, name),
+          executed_(false),
+          reach_(false) {
+    }
     virtual ~InetTableMock() { return; }
 
     virtual bool Export(RibOut *ribout, Route *route,
@@ -156,6 +160,7 @@ class BgpExportTest : public ::testing::Test {
 protected:
 
     typedef std::vector<BgpAttrPtr> BgpAttrVec;
+    typedef std::vector<uint32_t> LabelVec;
     typedef std::vector<const RibPeerSet *> RibPeerSetVec;
 
     BgpExportTest()
@@ -281,6 +286,14 @@ protected:
         peerset_vec.push_back(peerset);
     }
 
+    void BuildVectors(BgpAttrVec &attr_vec, LabelVec &label_vec,
+        RibPeerSetVec &peerset_vec, BgpAttrPtr attrX, uint32_t label,
+        RibPeerSet *peerset) {
+        attr_vec.push_back(attrX);
+        label_vec.push_back(label);
+        peerset_vec.push_back(peerset);
+    }
+
     void BuildVectors(BgpAttrVec &attr_vec, RibPeerSetVec &peerset_vec,
             BgpAttrPtr attr_blk[], int start_idx, int end_idx) {
         for (int idx = start_idx; idx <= end_idx; idx++) {
@@ -301,6 +314,20 @@ protected:
         }
     }
 
+    void BuildUpdateInfo(BgpAttrVec *attr_vec, LabelVec *label_vec,
+        RibPeerSetVec *peerset_vec, UpdateInfoSList &uu_slist) {
+        ASSERT_EQ(attr_vec->size(), peerset_vec->size());
+        for (size_t idx = 0; idx < attr_vec->size(); idx++) {
+            UpdateInfo *uinfo = new UpdateInfo;
+            if (attr_vec->at(idx)) {
+                uinfo->roattr.set_attr(&table_, attr_vec->at(idx).get(),
+                    label_vec->at(idx));
+            }
+            uinfo->target = *peerset_vec->at(idx);
+            uu_slist->push_front(*uinfo);
+        }
+    }
+
     void InitUpdateInfoCommon(BgpAttrPtr attrX,
             int start_idx, int end_idx, UpdateInfoSList &uinfo_slist) {
         RibPeerSet uu_peerset;
@@ -309,6 +336,19 @@ protected:
         BuildPeerSet(uu_peerset, start_idx, end_idx);
         BuildVectors(uu_attr_vec, uu_peerset_vec, attrX, &uu_peerset);
         BuildUpdateInfo(&uu_attr_vec, &uu_peerset_vec, uinfo_slist);
+    }
+
+    void InitUpdateInfoCommon(BgpAttrPtr attrX, uint32_t label,
+            int start_idx, int end_idx, UpdateInfoSList &uinfo_slist) {
+        RibPeerSet uu_peerset;
+        BgpAttrVec uu_attr_vec;
+        LabelVec uu_label_vec;
+        RibPeerSetVec uu_peerset_vec;
+        BuildPeerSet(uu_peerset, start_idx, end_idx);
+        BuildVectors(uu_attr_vec, uu_label_vec, uu_peerset_vec, attrX, label,
+            &uu_peerset);
+        BuildUpdateInfo(&uu_attr_vec, &uu_label_vec, &uu_peerset_vec,
+            uinfo_slist);
     }
 
     void InitUpdateInfoCommon(BgpAttrPtr attr_blk[],
@@ -390,14 +430,23 @@ protected:
         return uplist;
     }
 
-    void BuildExportResult(BgpAttrPtr attrX, int start_idx, int end_idx) {
+    void BuildExportResult(BgpAttrPtr attrX, int start_idx, int end_idx,
+        uint32_t label = 0) {
         UpdateInfoSList res_slist;
         RibPeerSet res_peerset;
         BuildPeerSet(res_peerset, start_idx, end_idx);
         BgpAttrVec res_attr_vec;
         RibPeerSetVec res_peerset_vec;
-        BuildVectors(res_attr_vec, res_peerset_vec, attrX, &res_peerset);
-        BuildUpdateInfo(&res_attr_vec, &res_peerset_vec, res_slist);
+        if (label) {
+            LabelVec res_label_vec;
+            BuildVectors(res_attr_vec, res_label_vec, res_peerset_vec,
+                attrX, label, &res_peerset);
+            BuildUpdateInfo(&res_attr_vec, &res_label_vec, &res_peerset_vec,
+                res_slist);
+        } else {
+            BuildVectors(res_attr_vec, res_peerset_vec, attrX, &res_peerset);
+            BuildUpdateInfo(&res_attr_vec, &res_peerset_vec, res_slist);
+        }
         table_.SetExportResult(res_slist);
     }
 
@@ -464,6 +513,19 @@ protected:
         EXPECT_TRUE(rt_update != NULL);
         EXPECT_EQ(count, rt_update->Updates()->size());
         const UpdateInfo *uinfo = rt_update->FindUpdateInfo(roattrX);
+        EXPECT_TRUE(uinfo != NULL);
+        EXPECT_TRUE(uinfo->target == uinfo_peerset);
+    }
+
+    void VerifyUpdates(RouteUpdate *rt_update, BgpAttrPtr attr, uint32_t label,
+            int start_idx, int end_idx, int count = 1) {
+        RibPeerSet uinfo_peerset;
+        BuildPeerSet(uinfo_peerset, start_idx, end_idx);
+        EXPECT_TRUE(rt_update != NULL);
+        EXPECT_EQ(count, rt_update->Updates()->size());
+        RibOutAttr roattr;
+        roattr.set_attr(&table_, attr, label);
+        const UpdateInfo *uinfo = rt_update->FindUpdateInfo(roattr);
         EXPECT_TRUE(uinfo != NULL);
         EXPECT_TRUE(uinfo->target == uinfo_peerset);
     }
