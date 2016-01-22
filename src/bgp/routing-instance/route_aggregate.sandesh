@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+include "bgp/bgp_peer.sandesh"
+include "bgp/routing-instance/route_aggregate_internal.sandesh"
+
+struct AggregateRouteInfo {
+    1: string prefix;
+    2: bgp_peer.ShowRouteBrief aggregate_rt;
+    3: string nexthop;
+    4: list<string> contributors;
+    5: bool deleted;
+}
+
+struct AggregateRouteEntriesInfo {
+    1: string ri_name;
+    2: list<AggregateRouteInfo> aggregate_route_list;
+}
+
+response sandesh ShowRouteAggregateResp {
+    1: list<AggregateRouteEntriesInfo> aggregate_route_entries;
+    2: optional string next_batch (link="ShowRouteAggregateReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRouteAggregateReq {
+    1: string search_string;
+}

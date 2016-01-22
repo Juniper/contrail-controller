@@ -12,11 +12,13 @@
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/routing-instance/route_aggregate_types.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
@@ -118,7 +120,8 @@ static const char *bgp_server_config = "\
 class RouteAggregationTest : public ::testing::Test {
 protected:
     RouteAggregationTest() : bgp_server_(new BgpServer(&evm_)),
-        parser_(&config_db_) {
+        parser_(&config_db_),
+        validate_done_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
@@ -362,12 +365,48 @@ protected:
         return list;
     }
 
+    static void ValidateShowRouteAggregationResponse(Sandesh *sandesh,
+                    string &result, RouteAggregationTest *self, bool empty) {
+        ShowRouteAggregateResp *resp =
+            dynamic_cast<ShowRouteAggregateResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowRouteAggregateResp *)NULL, resp);
+        self->validate_done_ = true;
+
+        if (empty)
+            TASK_UTIL_EXPECT_EQ(0, resp->get_aggregate_route_entries().size());
+        else
+            TASK_UTIL_EXPECT_EQ(1, resp->get_aggregate_route_entries().size());
+        int i = 0;
+        BOOST_FOREACH(const AggregateRouteEntriesInfo &info,
+                      resp->get_aggregate_route_entries()) {
+            TASK_UTIL_EXPECT_EQ(info.get_ri_name(), result);
+            i++;
+        }
+    }
+
+    void VerifyRouteAggregateSandesh(std::string ri_name, bool empty=false) {
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = bgp_server_.get();
+        sandesh_context.xmpp_peer_manager = NULL;
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(
+                boost::bind(ValidateShowRouteAggregationResponse, _1, ri_name,
+                    this, empty));
+        ShowRouteAggregateReq *req = new ShowRouteAggregateReq;
+        req->set_search_string(ri_name);
+        validate_done_ = false;
+        req->HandleRequest();
+        req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;
     vector<BgpPeerMock *> peers_;
     BgpConfigParser parser_;
+    bool validate_done_;
 };
 
 //
@@ -404,6 +443,9 @@ TEST_F(RouteAggregationTest, Basic) {
                                             "test.inet.0", "2.2.1.1/32"));
     TASK_UTIL_EXPECT_FALSE(IsContributingRoute<InetDefinition>("test",
                                             "test.inet.0", "1.1.1.1/32"));
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
@@ -441,6 +483,9 @@ TEST_F(RouteAggregationTest, Basic_0) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     TASK_UTIL_EXPECT_TRUE(IsAggregateRoute<InetDefinition>("test",
                                            "test.inet.0", "2.2.0.0/16"));
@@ -604,6 +649,9 @@ TEST_F(RouteAggregationTest, Basic_MultipleAggregatePrefix) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 1);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "3.3.0.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.0.1/32");
     task_util::WaitForIdle();
@@ -638,6 +686,9 @@ TEST_F(RouteAggregationTest, Basic_ErrConfig_DiffFamily) {
     ASSERT_TRUE(rt != NULL);
     TASK_UTIL_EXPECT_EQ(rt->count(), 1);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     // Verify that inet6 route aggregation is not done
     VERIFY_EQ(1, RouteCount("test.inet6.0"));
@@ -728,10 +779,14 @@ TEST_F(RouteAggregationTest, Basic_DeleteNexthop) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible() == false);
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
 
     VERIFY_EQ(0, RouteCount("test.inet.0"));
+
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
     ASSERT_TRUE(rt == NULL);
 }
@@ -763,6 +818,9 @@ TEST_F(RouteAggregationTest, Basic_MoreSpecificDelete) {
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));
     rt = RouteLookup<InetDefinition>("test.inet.0", "2.2.0.0/16");
@@ -809,13 +867,22 @@ TEST_F(RouteAggregationTest, Basic_LastMoreSpecificDelete) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
     task_util::WaitForIdle();
     VERIFY_EQ(3, RouteCount("test.inet.0"));
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.3.1/32");
     task_util::WaitForIdle();
     VERIFY_EQ(1, RouteCount("test.inet.0"));
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
     task_util::WaitForIdle();
@@ -845,6 +912,9 @@ TEST_F(RouteAggregationTest, ConfigDelete) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
@@ -885,6 +955,9 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     content = FileRead("controller/src/bgp/testdata/route_aggregate_0b.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -901,6 +974,9 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
@@ -989,10 +1065,15 @@ TEST_F(RouteAggregationTest, ConfigDelete_Add) {
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     // Link the route aggregate config from vrf
     ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     EnableUnregResolveTask("test", Address::INET);
     TASK_UTIL_EXPECT_EQ(GetUnregResolveListSize("test", Address::INET), 0);
@@ -1004,6 +1085,8 @@ TEST_F(RouteAggregationTest, ConfigDelete_Add) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.254/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
@@ -1205,6 +1288,9 @@ TEST_F(RouteAggregationTest, OverlappingPrefixes) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
     task_util::WaitForIdle();
@@ -1233,6 +1319,9 @@ TEST_F(RouteAggregationTest, ConfigUpdate_OverlappingPrefixes) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     content = FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -1255,6 +1344,8 @@ TEST_F(RouteAggregationTest, ConfigUpdate_OverlappingPrefixes) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
@@ -1297,6 +1388,8 @@ TEST_F(RouteAggregationTest, ConfigUpdate_RemoveOverlappingPrefixes) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
@@ -1318,6 +1411,9 @@ TEST_F(RouteAggregationTest, ConfigUpdate_RemoveOverlappingPrefixes) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.2/32");
@@ -1348,6 +1444,9 @@ TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting_1) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
     content = FileRead("controller/src/bgp/testdata/route_aggregate_3a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -1375,6 +1474,8 @@ TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting_1) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "4.3.2.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "3.3.0.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
@@ -1475,6 +1576,9 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test_0");
+    VerifyRouteAggregateSandesh("test_1");
     content = FileRead("controller/src/bgp/testdata/route_aggregate_2a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -1502,6 +1606,9 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    VerifyRouteAggregateSandesh("test_0");
+    VerifyRouteAggregateSandesh("test_1");
 
     DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "1.1.1.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test_0.inet.0", "2.2.1.1/32");
@@ -1543,6 +1650,8 @@ TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    VerifyRouteAggregateSandesh("test");
+
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
     for (int i = 0; i < 255; i++) {
         ostringstream oss;
@@ -1575,10 +1684,14 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
     AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
     task_util::WaitForIdle();
 
+    VerifyRouteAggregateSandesh("test");
+
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
+
+    VerifyRouteAggregateSandesh("test", true);
 
     EnableRouteAggregateUpdate("test", Address::INET);
     TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
@@ -1618,11 +1731,15 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_1) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    VerifyRouteAggregateSandesh("test");
+
     DisableRouteAggregateUpdate("test", Address::INET);
     // Unlink the route aggregate config from vrf
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
         "route-aggregate", "vn_subnet", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
+
+    VerifyRouteAggregateSandesh("test", true);
 
     EnableRouteAggregateUpdate("test", Address::INET);
     TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
@@ -1665,6 +1782,8 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_2) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
+    VerifyRouteAggregateSandesh("test");
+
     DisableRouteAggregateUpdate("test", Address::INET);
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
@@ -1679,12 +1798,17 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_2) {
     TASK_UTIL_EXPECT_TRUE(rti->route_aggregator(Address::INET6) == NULL);
     TASK_UTIL_EXPECT_TRUE(rti->route_aggregator(Address::INET) != NULL);
 
+    VerifyRouteAggregateSandesh("test", true);
+
     EnableRouteAggregateUpdate("test", Address::INET);
 
     TASK_UTIL_EXPECT_TRUE(bgp_server_->database()->FindTable("test.inet.0")
                           == NULL);
+
     TASK_UTIL_EXPECT_TRUE(
       bgp_server_->routing_instance_mgr()->GetRoutingInstance("test") == NULL);
+
+    VerifyRouteAggregateSandesh("test", true);
 }
 
 //
@@ -1715,6 +1839,8 @@ TEST_F(RouteAggregationTest, BasicInet6) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2001:db8:85a3::8a2e:370:7334/128");

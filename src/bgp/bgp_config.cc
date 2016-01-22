@@ -341,7 +341,7 @@ std::string RoutingPolicyMatchConfig::ToString() const {
     return oss.str();
 }
 
-static void PutCommunityMatch(ostringstream &oss, const CommunityList &list) {
+static void PutCommunityList(ostringstream &oss, const CommunityList &list) {
     copy(list.begin(), list.end(), ostream_iterator<string>(oss,","));
     oss.seekp(-1, oss.cur);
 }
@@ -351,17 +351,17 @@ string RoutingPolicyActionConfig::ToString() const {
     oss << "then {" << std::endl;
     if (!update.community_set.empty()) {
         oss << "    community set [ ";
-        PutCommunityMatch(oss, update.community_set);
+        PutCommunityList(oss, update.community_set);
         oss << " ]" << std::endl;
     }
     if (!update.community_add.empty()) {
         oss << "    community add [ ";
-        PutCommunityMatch(oss, update.community_add);
+        PutCommunityList(oss, update.community_add);
         oss << " ]" << std::endl;
     }
     if (!update.community_remove.empty()) {
         oss << "    community remove [ ";
-        PutCommunityMatch(oss, update.community_remove);
+        PutCommunityList(oss, update.community_remove);
         oss << " ]" << std::endl;
     }
     if (update.local_pref) {

@@ -245,7 +245,7 @@ bool BgpShowHandler<ShowBgpRoutingPolicyConfigReq,
             break;
     }
 
-    // All done if we've looked at all instances.
+    // All done if we've looked at all policies.
     if (it == it_end || ++it == it_end)
         return true;
 
