@@ -246,6 +246,7 @@ public:
     int SendBulkMessage(KSyncBulkSandeshContext *bulk_context, uint32_t seqno);
     bool TryAddToBulk(KSyncBulkSandeshContext *bulk_context, IoContext *ioc);
     void OnEmptyQueue(bool done);
+    int tx_count() const { return tx_count_; }
 
     // Start Ksync Asio operations
     static void Start(bool read_inline);

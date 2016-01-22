@@ -612,7 +612,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
         Address::INET6;
     IpAddress sip, dip;
     VectorToIp(req->get_fr_flow_ip(), family, &sip, &dip);
-    f->fe_flags |= VR_FLOW_FLAG_ACTIVE;
+    f->fe_flags = VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
     if (sip.is_v4()) {
@@ -636,6 +636,20 @@ void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
     if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
         f->fe_stats.flow_bytes += bytes;
         f->fe_stats.flow_packets += pkts;
+    }
+}
+
+void KSyncSockTypeMap::SetEvictedFlag(int idx) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_flags |= VR_FLOW_FLAG_EVICTED;
+    }
+}
+
+void KSyncSockTypeMap::ResetEvictedFlag(int idx) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_flags &= ~VR_FLOW_FLAG_EVICTED;
     }
 }
 

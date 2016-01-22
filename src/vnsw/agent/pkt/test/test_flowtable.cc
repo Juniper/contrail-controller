@@ -270,7 +270,7 @@ public:
         flow->InitFlowKey(&key);
         FlowTable *table =
             Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
-        table->Delete(key, true);
+        table->Delete(key, true, false);
         client->WaitForIdle();
     }
 
