@@ -423,7 +423,7 @@ bool FlowStatsCollector::Run() {
                                         k_flow->fe_stats.flow_packets,
                                         k_flow->fe_stats.flow_packets_oflow,
                                         curr_time, false);
-            } else if (!info->exported()) {
+            } else if (info->changed()) {
                 /* export flow (reverse) for which traffic is not seen yet. */
                 ExportFlow(key, info, 0, 0);
             }
@@ -529,32 +529,6 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowKey &key, uint32_t bytes,
     request_queue_.Enqueue(req);
 }
 
-bool FlowStatsCollector::SetUnderlayPort(FlowExportInfo *info,
-                                         FlowLogData &s_flow) {
-    uint16_t underlay_src_port = 0;
-    bool exported = false;
-    if (info->is_flags_set(FlowEntry::LocalFlow)) {
-        /* Set source_port as 0 for local flows. Source port is calculated by
-         * vrouter irrespective of whether flow is local or not. So for local
-         * flows we need to ignore port given by vrouter
-         */
-        s_flow.set_underlay_source_port(0);
-        exported = true;
-    } else {
-        if (info->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
-            underlay_src_port = info->underlay_source_port();
-            if (underlay_src_port) {
-                exported = true;
-            }
-        } else {
-            exported = true;
-        }
-        s_flow.set_underlay_source_port(underlay_src_port);
-    }
-    info->set_underlay_sport_exported(exported);
-    return exported;
-}
-
 void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
                                          FlowLogData &s_flow) {
     string rid = agent_uve_->agent()->router_id().to_string();
@@ -567,17 +541,11 @@ void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
          * flows we need to ignore port given by vrouter
          */
         s_flow.set_underlay_source_port(0);
-        info->set_underlay_sport_exported(true);
     } else {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(info->peer_vrouter());
         if (info->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
             underlay_src_port = info->underlay_source_port();
-            if (underlay_src_port) {
-                info->set_underlay_sport_exported(true);
-            }
-        } else {
-            info->set_underlay_sport_exported(true);
         }
         s_flow.set_underlay_source_port(underlay_src_port);
     }
@@ -731,28 +699,9 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     std::string action_str;
     GetFlowSandeshActionParams(info->action_info(), action_str);
     s_flow.set_action(action_str);
-    if (!info->exported()) {
-        s_flow.set_setup_time(info->setup_time());
-        info->set_exported(true);
-        SetUnderlayInfo(info, s_flow);
-    } else {
-        /* When the flow is being exported for first time, underlay port
-         * info is set as part of SetUnderlayInfo. At this point it is possible
-         * that port is not yet populated to flow-entry because of either
-         * (i) flow-entry has not got chance to be evaluated by
-         *     flow-stats-collector
-         * (ii) there is no flow entry in vrouter yet
-         * (iii) the flow entry in vrouter does not have underlay source port
-         *       populated yet
-         */
-        if (!info->underlay_sport_exported()) {
-            SetUnderlayPort(info, s_flow);
-        }
-    }
-
-    if (info->teardown_time()) {
-        s_flow.set_teardown_time(info->teardown_time());
-    }
+    s_flow.set_setup_time(info->setup_time());
+    SetUnderlayInfo(info, s_flow);
+    info->set_changed(false);
 
     if (info->is_flags_set(FlowEntry::LocalFlow)) {
         /* For local flows we need to send two flow log messages.
@@ -953,7 +902,12 @@ void FlowStatsCollector::NewFlow(const FlowKey &key,
 void FlowStatsCollector::AddFlow(const FlowKey &key, FlowExportInfo info) {
     FlowEntryTree::iterator it = flow_tree_.find(key);
     if (it != flow_tree_.end()) {
-        it->second = info;
+        /* If entry is already present, copy only those fields which are
+         * inherited from FlowEntry to existing entry. Copy this only if there
+         * are changes in fields inherited from FlowEntry */
+        if (!it->second.IsEqual(info)) {
+            it->second.Copy(info);
+        }
         return;
     }
 
