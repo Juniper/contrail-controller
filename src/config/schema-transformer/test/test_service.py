@@ -639,12 +639,17 @@ class TestPolicy(test_case.STTestCase):
         self.wait_to_remove_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
         self._vnc_lib.routing_policy_delete(id=rp.uuid)
 
-        ra = RouteAggregate('ra1')
+        rlist = RouteListType(route=['100.0.0.0/24'])
+        ra = RouteAggregate('ra1', aggregate_route_entries=rlist)
+
         sit = ServiceInterfaceTag(interface_type='left')
         ra.add_service_instance(si_obj, sit)
         self._vnc_lib.route_aggregate_create(ra)
         self.wait_to_get_object(config_db.RouteAggregateST,
                                 ra.get_fq_name_str())
+        ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
+        self.assertEqual(ra.get_aggregate_route_nexthop(), '10.0.0.252')
+
         ident_name = self.get_obj_imid(ra)
         self.wait_to_get_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
         ra.del_service_instance(si_obj)
