@@ -11,36 +11,62 @@ class AddressMismatchCompute(AlarmBase):
 
     def __call__(self, uve_key, uve_data):
         or_list = []
-        try:
-            uattr = uve_data["ContrailConfig"]["elements"]
-            if isinstance(uattr,list):
-                uattr = uattr[0][0]
-            lval = json.loads(uattr["virtual_router_ip_address"])
-        except KeyError:
-            lval = None
+        and_list = []
+        trigger = True
 
-        try:
-            rval1 = uve_data["VrouterAgent"]["self_ip_list"]
-        except KeyError:
-            rval1 = None
+        if trigger:
+            if "ContrailConfig" not in uve_data:
+                trigger = False
+            else:
+                and_list.append(AlarmElement(\
+                    rule=AlarmTemplate(oper="!=",
+                        operand1=Operand1(keys=["ContrailConfig"]),
+                        operand2=Operand2(json_value="null")),
+                    json_operand1_value=json.dumps({})))
 
-        try:
-            rval2 = uve_data["VrouterAgent"]["control_ip"]
-        except KeyError:
-            rval2 = None
+                try:
+                    uattr = uve_data["ContrailConfig"]["elements"]
+                    if isinstance(uattr,list):
+                        uattr = uattr[0][0]
+                    lval = json.loads(uattr["virtual_router_ip_address"])
+                except KeyError:
+                    lval = None
 
-        if not isinstance(rval1,list) or lval not in rval1:
-            and_list = []
-            and_list.append(AlarmElement(\
-                rule=AlarmTemplate(oper="not in",
-                    operand1=Operand1(keys=\
-                        ["ContrailConfig","elements","virtual_router_ip_address"],
-                        json=2),
-                    operand2=Operand2(keys=["VrouterAgent","self_ip_list"])),
-                json_operand1_value=json.dumps(lval),
-                json_operand2_value=json.dumps(rval1)))
+        if trigger:
+            if "VrouterAgent" not in uve_data:
+                trigger = False
+            else:
+                and_list.append(AlarmElement(\
+                    rule=AlarmTemplate(oper="!=",
+                        operand1=Operand1(keys=["VrouterAgent"]),
+                        operand2=Operand2(json_value="null")),
+                    json_operand1_value=json.dumps({})))
 
-            if len(and_list) > 0 and lval != rval2:
+        if trigger:
+            try:
+                rval1 = uve_data["VrouterAgent"]["self_ip_list"]
+            except KeyError:
+                rval1 = None
+
+            if not isinstance(rval1,list) or lval not in rval1:
+                and_list.append(AlarmElement(\
+                    rule=AlarmTemplate(oper="not in",
+                        operand1=Operand1(keys=\
+                            ["ContrailConfig","elements","virtual_router_ip_address"],
+                            json=2),
+                        operand2=Operand2(keys=["VrouterAgent","self_ip_list"])),
+                    json_operand1_value=json.dumps(lval),
+                    json_operand2_value=json.dumps(rval1)))
+            else:
+                trigger = False
+
+        if trigger:
+            try:
+                rval2 = uve_data["VrouterAgent"]["control_ip"]
+            except KeyError:
+                rval2 = None
+
+            if lval != rval2:
                 and_list.append(AlarmElement(\
                     rule=AlarmTemplate(oper="!=",
                         operand1=Operand1(keys=\
@@ -50,9 +76,11 @@ class AddressMismatchCompute(AlarmBase):
                         operand2=Operand2(keys=["VrouterAgent","control_ip"])),
                     json_operand1_value=json.dumps(lval),
                     json_operand2_value=json.dumps(rval2)))
-                or_list.append(AllOf(all_of=and_list))
+            else:
+                trigger = False
 
-        if len(or_list):
+        if trigger:    
+            or_list.append(AllOf(all_of=and_list))
             return or_list
         else:
             return None
@@ -66,6 +94,9 @@ class AddressMismatchControl(AlarmBase):
 
     def __call__(self, uve_key, uve_data):
 
+        if "ContrailConfig" not in uve_data:
+            return None
+
         try:
             uattr = uve_data["ContrailConfig"]["elements"]
             if isinstance(uattr,list):
@@ -73,6 +104,9 @@ class AddressMismatchControl(AlarmBase):
             lval = json.loads(uattr["bgp_router_parameters"])["address"]
         except KeyError:
             lval = None
+
+        if "BgpRouterState" not in uve_data:
+            return None
 
         try:
             rval = uve_data["BgpRouterState"]["bgp_router_ip_list"]

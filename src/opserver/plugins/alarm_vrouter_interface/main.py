@@ -11,7 +11,7 @@ class VrouterInterface(AlarmBase):
 
     def __call__(self, uve_key, uve_data):
         or_list = []
-        if not "VrouterAgent" in uve_data:
+        if "VrouterAgent" in uve_data:
             and_list = []
             and_list.append(AlarmElement(\
                 rule=AlarmTemplate(oper="!=",
@@ -21,7 +21,7 @@ class VrouterInterface(AlarmBase):
         
             ust = uve_data["VrouterAgent"]
 
-	    if not "error_intf_list" in ust:
+	    if "error_intf_list" in ust:
 		and_list.append(AlarmElement(\
 		    rule=AlarmTemplate(oper="!=",
 			operand1=Operand1(keys=["VrouterAgent","error_intf_list"]),
