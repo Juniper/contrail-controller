@@ -417,7 +417,7 @@ TEST_F(FlowEvictionTest, Delete_Evicted_Flow_1) {
     EXPECT_TRUE(FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 2, 0, 0,
                         vif0->flow_key_nh()->id()) == false);
 
-    flow_proto_->DeleteFlowRequest(key, true);
+    flow_proto_->DeleteFlowRequest(key, true, false);
     client->WaitForIdle();
 
     // New flow should be present
@@ -441,7 +441,7 @@ TEST_F(FlowEvictionTest, Delete_Evicted_Flow_2) {
     EXPECT_TRUE(flow != NULL);
 
     // Generate delete request followed by flow-evict
-    flow_proto_->DeleteFlowRequest(flow->key(), true);
+    flow_proto_->DeleteFlowRequest(flow->key(), true, false);
     // Generate a flow that evicts flow created above
     TxIpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
                    remote_vm1_ip, vm1_ip, 1, 1);
@@ -474,7 +474,7 @@ TEST_F(FlowEvictionTest, Delete_Index_Unassigned_Flow_1) {
     EXPECT_TRUE(flow != NULL);
 
     FlowKey key = flow->key();
-    flow_proto_->DeleteFlowRequest(key, true);
+    flow_proto_->DeleteFlowRequest(key, true, false);
     client->WaitForIdle();
 
     ksync_sock_->DisableReceiveQueue(false);
