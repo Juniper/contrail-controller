@@ -14,6 +14,7 @@
 #include "base/task_annotations.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/route_aggregate_types.h"
 
 using std::make_pair;
 using std::string;
@@ -227,6 +228,8 @@ public:
         }
         return contributors_[part_id].empty();
     }
+
+    void FillShowInfo(AggregateRouteInfo *info) const;
 
 private:
     RoutingInstance *routing_instance_;
@@ -461,6 +464,28 @@ void AggregateRoute<T>::set_aggregate_route(BgpRoute *aggregate) {
 }
 
 template <typename T>
+void AggregateRoute<T>::FillShowInfo(AggregateRouteInfo *info) const {
+    BgpTable *table = bgp_table();
+    info->set_deleted(deleted());
+    info->set_prefix(aggregate_route_prefix_.ToString());
+    if (aggregate_route_) {
+        ShowRouteBrief show_route;
+        aggregate_route_->FillRouteInfo(table, &show_route);
+        info->set_aggregate_rt(show_route);
+    }
+
+    info->set_nexthop(nexthop_.to_string());
+
+    std::vector<string> contributor_list;
+    BOOST_FOREACH(const RouteList &list, contribute_route_list()) {
+        BOOST_FOREACH(BgpRoute *rt, list) {
+            contributor_list.push_back(rt->ToString());
+        }
+    }
+    info->set_contributors(contributor_list);
+}
+
+template <typename T>
 class RouteAggregator<T>::DeleteActor : public LifetimeActor {
 public:
     explicit DeleteActor(RouteAggregator *aggregator) :
@@ -670,6 +695,24 @@ bool RouteAggregator<T>::IsContributingRoute(const BgpRoute *route) const {
         return state->contributor();
     }
     return false;
+}
+
+template <typename T>
+bool RouteAggregator<T>::FillAggregateRouteInfo(RoutingInstance *ri,
+                                      AggregateRouteEntriesInfo *info) const {
+    if (aggregate_route_map().empty()) return false;
+
+    info->set_ri_name(ri->name());
+
+    for (typename AggregateRouteMap::const_iterator it = aggregate_route_map_.begin();
+         it != aggregate_route_map_.end(); it++) {
+        AggregateRouteT *aggregate =
+            static_cast<AggregateRouteT *>(it->second.get());
+        AggregateRouteInfo aggregate_info;
+        aggregate->FillShowInfo(&aggregate_info);
+        info->aggregate_route_list.push_back(aggregate_info);
+    }
+    return true;
 }
 
 template <typename T>
