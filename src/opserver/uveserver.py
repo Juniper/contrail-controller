@@ -46,10 +46,11 @@ class UVEServer(object):
 
     def update_redis_uve_list(self, redis_uve_list):
         newlist = set(redis_uve_list)
-
+        chg = False
         # if some redis instances are gone, remove them from our map
         for test_elem in self._redis_uve_map.keys():
             if test_elem not in newlist:
+                chg = True
                 r_ip = test_elem[0]
                 r_port = test_elem[1]
                 del self._redis_uve_map[test_elem]
@@ -59,11 +60,15 @@ class UVEServer(object):
         # new redis instances need to be inserted into the map
         for test_elem in newlist:
             if test_elem not in self._redis_uve_map:
+                chg = True
                 r_ip = test_elem[0]
                 r_port = test_elem[1]
                 self._redis_uve_map[test_elem] = None
                 ConnectionState.update(ConnectionType.REDIS_UVE,\
                     r_ip+":"+str(r_port), ConnectionStatus.INIT)
+        if chg:
+            self._logger.error("updated redis_uve_list %s" % str(self._redis_uve_map)) 
+
         # Exercise redis connections to update health
         if len(newlist):
             self.get_uve("ObjectCollectorInfo:__NONE__", False, None)

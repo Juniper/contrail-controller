@@ -1678,7 +1678,7 @@ class VncDbClient(object):
         else:
             oo['name'] = self.uuid_to_fq_name(uuid)
         oo['value'] = obj_dict
-        oo['type'] = typ
+        oo['type'] = typ.replace('-', '_')
 
         req_id = get_trace_id()
         db_trace = DBRequestTrace(request_id=req_id)
