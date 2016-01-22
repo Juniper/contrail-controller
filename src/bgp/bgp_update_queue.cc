@@ -114,6 +114,12 @@ void UpdateQueue::AttrDequeue(UpdateInfo *current_uinfo) {
 //
 // Returns NULL if there are no more updates with the same BgpAttr.
 //
+// Also return NULL if the next UpdateInfo is for the same RouteUpdate. This
+// can happen in corner cases where the label (or the set for ecmp nexthops
+// in case of an XMPP ribout) for a route changes between Join operations for
+// 2 different sets of IPeerUpdates. Returning such an UpdateInfo breaks the
+// locking design in RibOutUpdates and results in a deadlock.
+//
 UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
     tbb::mutex::scoped_lock lock(mutex_);
     UpdatesByAttr::iterator iter = attr_set_.iterator_to(*current_uinfo);
@@ -122,6 +128,9 @@ UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
         return NULL;
     }
     UpdateInfo *next_uinfo = iter.operator->();
+    if (next_uinfo->update == current_uinfo->update) {
+        return NULL;
+    }
     if (next_uinfo->roattr.attr() == current_uinfo->roattr.attr()) {
         return next_uinfo;
     }
