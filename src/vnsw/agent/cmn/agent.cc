@@ -468,7 +468,10 @@ Agent::Agent() :
     tor_agent_enabled_(false),
     flow_table_size_(0), flow_thread_count_(0),
     ovsdb_client_(NULL), vrouter_server_ip_(0),
-    vrouter_server_port_(0), flow_stats_req_handler_(NULL) {
+    vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
+    vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
+    vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
+    vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
