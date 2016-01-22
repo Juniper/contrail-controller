@@ -57,6 +57,7 @@ void ServicesModule::Init(bool run_with_vrouter) {
     agent_->set_icmpv6_proto(icmpv6_proto_.get());
 
     icmp_error_proto_.reset(new IcmpErrorProto(agent_, io));
+    icmpv6_error_proto_.reset(new Icmpv6ErrorProto(agent_, io));
 
     metadata_proxy_.reset(new MetadataProxy(this, metadata_secret_key_));
 }

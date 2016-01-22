@@ -8,6 +8,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <pkt/proto.h>
 #include <services/icmp_error_proto.h>
+#include <services/icmpv6_error_proto.h>
 #include <services/arp_proto.h>
 
 class MetadataProxy;
@@ -33,6 +34,7 @@ public:
     IcmpErrorProto *icmp_error_proto() const {
         return icmp_error_proto_.get();
     }
+
     ArpProto *arp_proto() const {
         return arp_proto_.get();
     }
@@ -47,6 +49,7 @@ private:
     boost::scoped_ptr<IcmpProto> icmp_proto_;
     boost::scoped_ptr<Icmpv6Proto> icmpv6_proto_;
     boost::scoped_ptr<IcmpErrorProto> icmp_error_proto_;
+    boost::scoped_ptr<Icmpv6ErrorProto> icmpv6_error_proto_;
     boost::scoped_ptr<MetadataProxy> metadata_proxy_;
 };
 
