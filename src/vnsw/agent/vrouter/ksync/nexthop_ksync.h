@@ -76,8 +76,8 @@ private:
     uint32_t vrf_id_;
     uint32_t label_;
     KSyncEntryPtr interface_;
-    struct in_addr sip_;
-    struct in_addr dip_;
+    IpAddress sip_;
+    IpAddress dip_;
     uint16_t sport_;
     uint16_t dport_;
     MacAddress smac_;

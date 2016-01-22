@@ -289,6 +289,7 @@ public:
     const std::string &log_file() const {return log_file_;}
 
     // DB Table accessor methods
+    IpAddress GetMirrorSourceIp(const IpAddress &dest);
     InterfaceTable *interface_table() const {return intf_table_;}
     void set_interface_table(InterfaceTable *table) {
          intf_table_ = table;

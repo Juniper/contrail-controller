@@ -76,13 +76,20 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     nh_req.data.reset(NULL);
     agent()->nexthop_table()->Process(nh_req);
 
-    VrfKey key(data->vrf_name_);
-    VrfEntry *vrf =
-        static_cast<VrfEntry *>(agent()->vrf_table()->FindActiveEntry(&key));
+    /* For service-chain based mirroring, vrf will always be empty. In this
+     * case we should create MirrorNH even when VRF is NULL */
+    bool check_for_vrf = false;
+    VrfEntry *vrf = NULL;
+    if (!data->vrf_name_.empty()) {
+        VrfKey key(data->vrf_name_);
+        vrf = static_cast<VrfEntry *>(agent()->vrf_table()->
+                                      FindActiveEntry(&key));
+        check_for_vrf = true;
+    }
 
     NextHop *nh = static_cast<NextHop *>
                   (agent()->nexthop_table()->FindActiveEntry(nh_key));
-    if (nh == NULL || vrf == NULL) {
+    if (nh == NULL || (check_for_vrf && vrf == NULL)) {
         //Make the mirror NH point to discard
         //and change the nexthop once the VRF is
         //available
@@ -197,10 +204,16 @@ void MirrorTable::ResyncUnresolvedMirrorEntry(const VrfEntry *vrf) {
 
 void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
                                  const std::string &vrf_name,
-                                 const Ip4Address &sip, uint16_t sport, 
-                                 const Ip4Address &dip, uint16_t dport) {
+                                 const IpAddress &sip, uint16_t sport,
+                                 const IpAddress &dip, uint16_t dport) {
 
     DBRequest req;
+
+    if (dip.is_v6() && vrf_name == mirror_table_->agent()->fabric_vrf_name()) {
+        LOG(ERROR, "Ipv6 as destination not supported on Fabric VRF: " <<
+            dip.to_string());
+        return;
+    }
     // First enqueue request to add Mirror NH
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 

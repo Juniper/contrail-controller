@@ -556,8 +556,9 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
             dport = ContrailPorts::AnalyzerUdpPort();
         }
         agent->mirror_table()->AddMirrorEntry
-            (mirror_to.analyzer_name, std::string(), agent->router_id(),
-             agent->mirror_port(), dip.to_v4(), dport);
+            (mirror_to.analyzer_name, std::string(),
+             agent->GetMirrorSourceIp(dip),
+             agent->mirror_port(), dip, dport);
         data.analyzer_name_ =  mirror_to.analyzer_name;
         string traffic_direction =
             cfg->properties().interface_mirror.traffic_direction;

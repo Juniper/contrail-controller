@@ -55,12 +55,11 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false) {
 
-    sip_.s_addr = 0;
     switch (type_) {
     case NextHop::ARP: {
         const ArpNH *arp = static_cast<const ArpNH *>(nh);
         vrf_id_ = arp->vrf_id();
-        sip_.s_addr = arp->GetIp()->to_ulong();
+        sip_ = *(arp->GetIp());
         break;
     }
 
@@ -97,8 +96,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::TUNNEL: {
         const TunnelNH *tunnel = static_cast<const TunnelNH *>(nh);
         vrf_id_ = tunnel->vrf_id();
-        sip_.s_addr = tunnel->GetSip()->to_ulong();
-        dip_.s_addr = tunnel->GetDip()->to_ulong();
+        sip_ = *(tunnel->GetSip());
+        dip_ = *(tunnel->GetDip());
         tunnel_type_ = tunnel->GetTunnelType();
         break;
     }
@@ -142,9 +141,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::MIRROR: {
         const MirrorNH *mirror_nh = static_cast<const MirrorNH *>(nh);
         vrf_id_ = mirror_nh->vrf_id();
-        sip_.s_addr = mirror_nh->GetSip()->to_ulong();
+        sip_ = *(mirror_nh->GetSip());
         sport_ = mirror_nh->GetSPort();
-        dip_.s_addr = mirror_nh->GetDip()->to_ulong();
+        dip_ = *(mirror_nh->GetDip());
         dport_ = mirror_nh->GetDPort();
         break;
     }
@@ -211,7 +210,7 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         if (vrf_id_ != entry.vrf_id_) {
             return vrf_id_ < entry.vrf_id_;
         }
-        return sip_.s_addr < entry.sip_.s_addr;
+        return sip_ < entry.sip_;
     }
 
     if (policy_ != entry.policy_) {
@@ -245,12 +244,12 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
             return vrf_id_ < entry.vrf_id_;
         }
 
-        if (sip_.s_addr != entry.sip_.s_addr) {
-            return sip_.s_addr < entry.sip_.s_addr;
+        if (sip_ != entry.sip_) {
+            return sip_ < entry.sip_;
         }
 
-        if (dip_.s_addr != entry.dip_.s_addr) {
-            return dip_.s_addr < entry.dip_.s_addr;
+        if (dip_ != entry.dip_) {
+            return dip_ < entry.dip_;
         }
 
         return tunnel_type_.IsLess(entry.tunnel_type_);
@@ -261,8 +260,8 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
             return vrf_id_ < entry.vrf_id_;
         }
 
-        if (dip_.s_addr != entry.dip_.s_addr) {
-            return dip_.s_addr < entry.dip_.s_addr;
+        if (dip_ != entry.dip_) {
+            return dip_ < entry.dip_;
         }
 
         return dport_ < entry.dport_;
@@ -383,12 +382,12 @@ std::string NHKSyncEntry::ToString() const {
     }
     case NextHop::TUNNEL: {
         s << "Tunnel to ";
-        s << inet_ntoa(dip_);
+        s << dip_.to_string();
         break;
     }
     case NextHop::MIRROR: {
         s << "Mirror to ";
-        s << inet_ntoa(dip_) << ": " << dport_;
+        s << dip_.to_string() << ": " << dport_;
         break;
     }
     case NextHop::VLAN: {
@@ -702,8 +701,8 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         case NextHop::TUNNEL :
             encoder.set_nhr_type(NH_TUNNEL);
-            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
+            encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
             encoder.set_nhr_encap_family(ETHERTYPE_ARP);
 
             if (if_ksync) {
@@ -724,8 +723,18 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         case NextHop::MIRROR :
             encoder.set_nhr_type(NH_TUNNEL);
-            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            if (sip_.is_v4() && dip_.is_v4()) {
+                encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
+                encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
+            } else if (sip_.is_v6() && dip_.is_v6()) {
+                encoder.set_nhr_family(AF_INET6);
+                boost::array<unsigned char, 16> bytes = sip_.to_v6().to_bytes();
+                std::vector<int8_t> sip_vector(bytes.begin(), bytes.end());
+                bytes = dip_.to_v6().to_bytes();
+                std::vector<int8_t> dip_vector(bytes.begin(), bytes.end());
+                encoder.set_nhr_tun_sip6(sip_vector);
+                encoder.set_nhr_tun_dip6(dip_vector);
+            }
             encoder.set_nhr_tun_sport(htons(sport_));
             encoder.set_nhr_tun_dport(htons(dport_));
             encoder.set_nhr_encap_family(ETHERTYPE_ARP);
@@ -774,9 +783,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             std::vector<int> sub_nh_id;
             std::vector<int> sub_label_list;
             encoder.set_nhr_type(NH_COMPOSITE);
+            assert(sip_.is_v4());
+            assert(dip_.is_v4());
             /* TODO encoding */
-            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
+            encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
             encoder.set_nhr_encap_family(ETHERTYPE_ARP);
             /* Proto encode in Network byte order */
             switch (comp_type_) {
@@ -896,16 +907,16 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
 
     case NextHop::TUNNEL: {
         info.set_type("TUNNEL");
-        info.set_sip(inet_ntoa(sip_));
-        info.set_dip(inet_ntoa(dip_));
+        info.set_sip(sip_.to_string());
+        info.set_dip(dip_.to_string());
         break;
     }
 
     case NextHop::MIRROR: {
         info.set_type("MIRROR");
         info.set_vrf(vrf_id_);
-        info.set_sip(inet_ntoa(sip_));
-        info.set_dip(inet_ntoa(dip_));
+        info.set_sip(sip_.to_string());
+        info.set_dip(dip_.to_string());
         info.set_sport(sport_);
         info.set_dport(dport_);
         break;
@@ -919,7 +930,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
     case NextHop::COMPOSITE: {
         info.set_type("Composite");
         info.set_sub_type(comp_type_);
-        info.set_dip(inet_ntoa(dip_));
+        info.set_dip(dip_.to_string());
         info.set_vrf(vrf_id_);
         std::vector<KSyncComponentNHLog> sub_nh_list;
         for (KSyncComponentNHList::const_iterator it = 

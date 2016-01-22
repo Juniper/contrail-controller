@@ -808,7 +808,7 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
     return true;
 }
 
-void AclEntrySpec::AddMirrorEntry() const {
+void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
     std::vector<ActionSpec>::const_iterator it;
     for (it = action_l.begin(); it != action_l.end(); ++it) {
         ActionSpec action = *it;
@@ -816,16 +816,10 @@ void AclEntrySpec::AddMirrorEntry() const {
             continue;
         }
 
-        Ip4Address sip;
-        if (Agent::GetInstance()->router_id() == action.ma.ip) {
-            sip = Ip4Address(METADATA_IP_ADDR);
-        } else {
-            sip = Agent::GetInstance()->router_id();
-        }
-        Agent::GetInstance()->mirror_table()->AddMirrorEntry(
-                action.ma.analyzer_name, action.ma.vrf_name, sip,
-                Agent::GetInstance()->mirror_port(),
-                action.ma.ip.to_v4(), action.ma.port);
+        IpAddress sip = agent->GetMirrorSourceIp(action.ma.ip);
+        agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
+            action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
+            action.ma.port);
     }
 }
 
@@ -866,7 +860,7 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
                 maction.ma.port = ContrailPorts::AnalyzerUdpPort();
             }
             action_l.push_back(maction);
-            AddMirrorEntry();
+            AddMirrorEntry(acl_table->agent());
         } else {
             ACL_TRACE(Err, "Invalid analyzer ip address " +
                       action_list.mirror_to.analyzer_ip_address);
