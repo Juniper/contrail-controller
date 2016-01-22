@@ -557,8 +557,12 @@ class PartitionHandler(gevent.Greenlet):
 
     def _run(self):
 	pcount = 0
+        pause = False
         while True:
             try:
+                if pause:
+                    gevent.sleep(2)
+                    pause = False
                 self._logger.error("New KafkaClient %s" % self._topic)
                 self._kfk = KafkaClient(self._brokers , "kc-" + self._topic)
                 try:
@@ -618,7 +622,7 @@ class PartitionHandler(gevent.Greenlet):
                 self._logger.error("%s : traceback %s" % \
                                   (messag, traceback.format_exc()))
                 self.stop_partition()
-                gevent.sleep(2)
+                pause = True
 
         self._logger.error("Stopping %s pcount %d" % (self._topic, pcount))
         partdb = self.stop_partition()
