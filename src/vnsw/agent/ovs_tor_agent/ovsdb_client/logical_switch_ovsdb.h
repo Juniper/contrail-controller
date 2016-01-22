@@ -67,6 +67,7 @@ public:
         DEL_REQ,
         ADD_ACK,
         DEL_ACK,
+        DUP_TUNNEL_KEY_ADD,
     };
     LogicalSwitchEntry(OvsdbDBObject *table, const std::string &name);
     LogicalSwitchEntry(OvsdbDBObject *table, const LogicalSwitchEntry *key);

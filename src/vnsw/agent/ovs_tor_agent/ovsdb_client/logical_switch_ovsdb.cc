@@ -202,8 +202,17 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
         // while creating stale entry we should not wait for physical
         // switch object since it will not be available till config
         // comes up
+
         // for stale entry we should always be able to acquire vxlan id
-        assert(res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_));
+        // However in certain cases, where OVSDB database is already
+        // in a state where two Logical switch entries exists with
+        // same VxLAN ID, we need to recover by deleting the entry
+        // from OVSDB database
+        bool ret = res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_);
+        if (!ret) {
+            SendTrace(DUP_TUNNEL_KEY_ADD);
+        }
+
         return NULL;
     }
 
@@ -362,6 +371,9 @@ void LogicalSwitchEntry::SendTrace(Trace event) const {
         break;
     case DEL_ACK:
         info.set_op("Delete Received");
+        break;
+    case DUP_TUNNEL_KEY_ADD:
+        info.set_op("Add Request with Duplicate tunnel key");
         break;
     default:
         info.set_op("unknown");
