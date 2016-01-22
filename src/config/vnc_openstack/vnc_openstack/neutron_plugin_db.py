@@ -2279,6 +2279,16 @@ class DBInterface(object):
                 except (NoIdError, RefsExistError) as e:
                     pass
 
+    def _virtual_router_to_neutron(self, virtual_router):
+        # TODO(md): Only dpdk enabled flag supported currently. Add more.
+        dpdk_enabled = virtual_router.get_virtual_router_dpdk_enabled()
+
+        # The .get_<resource>() method of VirtualRouter object seems to return
+        # None in case a boolean is not set. Therefore the 'or False'
+        # expression below to assure True or False values
+        vr = {'dpdk_enabled': dpdk_enabled or False}
+        return vr
+
     def wait_for_api_server_connection(func):
         def wrapper(self, *args, **kwargs):
             self._connected_to_api_server.wait()
@@ -4158,5 +4168,17 @@ class DBInterface(object):
 
         return ret_list
     #end svc_instance_list
+
+    @wait_for_api_server_connection
+    def virtual_router_read(self, vrouter_id):
+        try:
+            vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_id)
+        except NoIdError:
+            # TODO add VirtualRouter specific exception
+            self._raise_contrail_exception('VirtualRouterNotFound',
+                                           vrouter_id=vrouter_id)
+
+        return self._virtual_router_to_neutron(vrouter_obj)
+    #end virtual_router_read
 
 #end class DBInterface
