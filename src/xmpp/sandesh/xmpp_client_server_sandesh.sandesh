@@ -2,16 +2,34 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * @description: XMPP Client connection socket opening failure
+ * @severity: WARNING
+ * @cause: System possibly has run out of free sockets for communication
+ * @action: Contact your technical support representative. Process restart can be used as a temporary workaround over socket descriptor leaks
+ */
 systemlog sandesh ClientOpenFail {
     1: "Xmpp Client : open failed"
     2: string f1
 }
 
+/**
+ * @description: XMPP socket option setting failure
+ * @severity: ERROR
+ * @cause: Socket error. Refer to the actual error message for more details
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh SetSockOptFail {
     1: "Xmpp Client: set_option: "
     2: string f1
 }
 
+/**
+ * @description: XMPP Client socket bind operation failure
+ * @severity: ERROR
+ * @cause: Possibly the port already bound to and used by another process
+ * @action: Contact your technical support representative. Another/duplicate process using the same port can be found using netstat and lsof command tools
+ */
 systemlog sandesh BindFailure {
     1: "Xmpp Client: Bind failure: "
     2: string f1
@@ -19,28 +37,43 @@ systemlog sandesh BindFailure {
     4: i32 f2
 }
 
+/**
+ * @description: XMPP Server connection socket opening failure
+ * @severity: WARNING
+ * @cause: System possibly has run out of free sockets for communication
+ * @action: Contact your technical support representative. Process restart can be used as a temporary workaround over socket descriptor leaks
+ */
 systemlog sandesh ServerOpenFail {
     1: "Xmpp Server : open failed"
     2: string f1
 }
 
+/**
+ * @description: XMPP Server socket bind operation failure
+ * @severity: ERROR
+ * @cause: Possibly the port already bound to and used by another process
+ * @action: Contact your technical support representative. Another/duplicate process using the same port can be found using netstat and lsof command tools
+ */
 systemlog sandesh ServerBindFailure {
     1: "Bind failure: ";
     2: string f1;
 }
 
+/**
+ * @description: XMPP Server socket TCP KeepAlive option setting failure
+ * @severity: ERROR
+ * @cause: Possibly due to TCP KeepAlives not supported in the kernel
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh ServerKeepAliveFailure {
     1: "Tcp KeepAlive failure: ";
     2: string f1;
 }
 
-systemlog sandesh XmppAcceptAndCreate {
-    1: "Xmpp Accept And Create ";
-    2: string f1;
-    3: ": ";
-    4: i32 f2;
-}
-
+/**
+ * @description: XMPP Connection created
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppCreateConnection {
     1: "Xmpp creating dynamic channel"
     2: string f1;

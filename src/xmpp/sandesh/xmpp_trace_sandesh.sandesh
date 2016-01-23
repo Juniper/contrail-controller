@@ -2,13 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-trace sandesh XmppPayloadRead {
-    1: "Read ";
-    2: i32 f1;
-    3: " bytes on: ";
-    4: string f2;
-}
-
+/**
+ * @description: XMPP Message transmission event
+ * @severity: DEBUG
+ */
 trace sandesh XmppTxStream {
     1: "Sent xmpp message to: ";
     2: string IPaddress;
@@ -21,6 +18,10 @@ trace sandesh XmppTxStream {
     9: "$";
 }
 
+/**
+ * @description: XMPP Message reception event
+ * @severity: DEBUG
+ */
 trace sandesh XmppRxStream {
     1: "Received xmpp message from: ";
     2: string IPaddress; 
@@ -33,6 +34,12 @@ trace sandesh XmppRxStream {
     9: "$";
 }
 
+/**
+ * @description: Invalid/Malformed XMPP Message reception event
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving sender
+ * @action: Contact your technical support representative
+ */
 trace sandesh XmppRxStreamInvalid {
     1: "Received Invalid xmpp message from: ";
     2: string IPaddress; 
@@ -45,6 +52,10 @@ trace sandesh XmppRxStreamInvalid {
     9: "$";
 }
 
+/**
+ * @description: XMPP Chat message send event
+ * @severity: DEBUG
+ */
 trace sandesh XmppSendChatMessage {
     1: "Chat message create to: "; 
     2: string f1;
@@ -52,6 +63,10 @@ trace sandesh XmppSendChatMessage {
     4: string f2;
 }
 
+/**
+ * @description: XMPP Chat receive send event at the client
+ * @severity: DEBUG
+ */
 trace sandesh XmppRxChatMessageClient {
     1: "Processing Xmpp chat on Client received from ";
     2: string f1;
@@ -59,6 +74,10 @@ trace sandesh XmppRxChatMessageClient {
     4: string f2;
 }
 
+/**
+ * @description: XMPP Chat receive send event at the server
+ * @severity: DEBUG
+ */
 trace sandesh XmppRxChatMessageServer {
     1: "Processing Xmpp chat on Server received from ";
     2: string f1;

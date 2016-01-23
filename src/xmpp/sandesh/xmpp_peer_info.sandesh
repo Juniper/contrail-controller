@@ -18,6 +18,11 @@ struct XmppPeerInfoData {
 
 }
 
+/**
+ * @description: XMPP Peer specific information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 uve sandesh XMPPPeerInfo {
     1: XmppPeerInfoData data;
 }

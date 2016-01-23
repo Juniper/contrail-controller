@@ -2,6 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * @description: XMPP State Machine Hold timer error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software or heavily loaded system
+ * @action: Contact your technical support representative
+ */
+/**
+ * @description: XMPP Chat message send event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppChatMessage {
     1: "Received chat message ";
     2: "From: ";
@@ -10,6 +20,10 @@ systemlog sandesh XmppChatMessage {
     5: string f2;
 }
 
+/**
+ * @description: XMPP Connection creation event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppConnectionCreate {
     1: "Created Xmpp ";
     2: string f1;
@@ -19,6 +33,10 @@ systemlog sandesh XmppConnectionCreate {
     6: string f3;
 }
 
+/**
+ * @description: XMPP Session deletion event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppSessionDelete {
     1: "Delete Xmpp Session";
     2: string f1;
@@ -28,18 +46,42 @@ systemlog sandesh XmppSessionDelete {
     6: string f3;
 }
 
+/**
+ * @description: XMPP Invalid Message
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppIqMessageInvalid {
     1: "Error: Mismatch in associated previous message"
 }
 
+/**
+ * @description: XMPP IQ message parsing failure
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppIqMessageParseFail {
     1: "Iq message parse failed" 
 }
 
+/**
+ * @description: XMPP Chat message parsing failure
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppChatMessageParseFail {
     1: "Chat message parse failed" 
 }
 
+/**
+ * @description: XMPP Bad message received
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppBadMessage {
     1: string f1;
     2: "Begin Message(";
@@ -47,15 +89,29 @@ systemlog sandesh XmppBadMessage {
     4: ")End Message";
 }
 
+/**
+ * @description: XMPP HandShake message received
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppSslHandShakeMessage {
     1: string f1;
     2: string f2;
 }
 
+/**
+ * @description: XMPP IQ Collection error
+ * @severity: ERROR
+ * @cause: Possibly due to mis-behaving software
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh XmppIqCollectionError {
     1: "Error: no associated previous IQ message for this collection"
 }
 
+/**
+ * @description: XMPP IQ message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppIqMessageProcess {
     1: "Received IQ message for node:";
     2: string f1;
@@ -71,6 +127,10 @@ systemlog sandesh XmppIqMessageProcess {
     12: string f6;
 }
 
+/**
+ * @description: XMPP Chat message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppChatMessageProcess {
     1: "Received Chat message of type: "
     2: i32 f1;
@@ -80,6 +140,10 @@ systemlog sandesh XmppChatMessageProcess {
     6: string f3;
 }
 
+/**
+ * @description: XMPP Open message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppRxOpenMessage {
     1: "Received open message From: ";
     2: string f1;
@@ -87,14 +151,26 @@ systemlog sandesh XmppRxOpenMessage {
     4: string f2;
 }
 
+/**
+ * @description: XMPP TLS Required message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppRxStreamTlsRequired {
     1: "Received Tls Feature Required ";
 }
 
+/**
+ * @description: XMPP TLS Start message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppRxStreamStartTls {
     1: "Received Start Tls ";
 }
 
+/**
+ * @description: XMPP TLS Proceed message reception event
+ * @severity: DEBUG
+ */
 systemlog sandesh XmppRxStreamProceed {
     1: "Received Proceed Tls ";
 }
