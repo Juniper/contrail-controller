@@ -839,6 +839,22 @@ class VncApi(object):
         return json.loads(content)['uuid']
     #end ref_update
 
+    @check_homepage
+    def ref_relax_for_delete(self, obj_uuid, ref_uuid):
+        # don't account for reference of <obj_uuid> in delete of <ref_uuid> in future
+        json_body =  json.dumps({'uuid': obj_uuid, 'ref-uuid': ref_uuid})
+        uri = self._action_uri['ref-relax-for-delete']
+
+        try:
+            content = self._request_server(rest.OP_POST, uri, data=json_body)
+        except HttpError as he:
+            if he.status_code == 404:
+                return None
+            raise he
+
+        return json.loads(content)['uuid']
+    # end ref_relax_for_delete
+
     def obj_to_id(self, obj):
         return self.fq_name_to_id(obj.get_type(), obj.get_fq_name())
     #end obj_to_id
