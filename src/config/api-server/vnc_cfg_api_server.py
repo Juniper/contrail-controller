@@ -111,6 +111,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'prop_list_update_http_post'},
     {'uri': '/ref-update', 'link_name': 'ref-update',
      'method': 'POST', 'method_name': 'ref_update_http_post'},
+    {'uri': '/ref-relax-for-delete', 'link_name': 'ref-relax-for-delete',
+     'method': 'POST', 'method_name': 'ref_relax_for_delete_http_post'},
     {'uri': '/fqname-to-id', 'link_name': 'name-to-id',
      'method': 'POST', 'method_name': 'fq_name_to_id_http_post'},
     {'uri': '/id-to-fqname', 'link_name': 'id-to-name',
@@ -800,12 +802,14 @@ class VncApiServer(object):
                     id, None, obj_type, 'http_delete', err_msg)
                 raise cfgm_common.exceptions.HttpError(409, err_msg)
 
+        relaxed_refs = set(db_conn.dbe_get_relaxed_refs(id))
         for backref_field in r_class.backref_fields:
             _, _, is_derived = r_class.backref_field_types[backref_field]
             if is_derived:
                 continue
             exist_hrefs = [backref['href']
-                           for backref in read_result.get(backref_field, [])]
+                           for backref in read_result.get(backref_field, [])
+                               if backref['uuid'] not in relaxed_refs]
             if exist_hrefs:
                 err_msg = 'Delete when resource still referred: %s' %(
                     exist_hrefs)
@@ -2015,7 +2019,45 @@ class VncApiServer(object):
         log.send(sandesh=self._sandesh)
 
         return {'uuid': id}
-    # end ref_update_id_http_post
+    # end ref_update_http_post
+
+    def ref_relax_for_delete_http_post(self):
+        self._post_common(get_request(), None, None)
+        # grab fields
+        obj_uuid = get_request().json.get('uuid')
+        ref_uuid = get_request().json.get('ref-uuid')
+
+        # validate fields
+        if None in (obj_uuid, ref_uuid):
+            err_msg = 'Bad Request: Both uuid and ref-uuid should be specified: '
+            err_msg += '%s, %s.' %(obj_uuid, ref_uuid)
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+            self._db_conn.ref_relax_for_delete(obj_uuid, ref_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'uuid ' + obj_uuid + ' not found')
+
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type.replace('-', '_')
+        fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_uuid = obj_uuid
+        apiConfig.operation = 'ref-relax-for-delete'
+        try:
+            body = json.dumps(get_request().json)
+        except:
+            body = str(get_request().json)
+        apiConfig.body = body
+
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+
+        return {'uuid': obj_uuid}
+    # end ref_relax_for_delete_http_post
 
     def fq_name_to_id_http_post(self):
         self._post_common(get_request(), None, None)

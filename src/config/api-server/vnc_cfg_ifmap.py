@@ -764,6 +764,12 @@ class VncServerCassandraClient(VncCassandraClient):
         bch.send()
     # end ref_update
 
+    def ref_relax_for_delete(self, obj_uuid, ref_uuid):
+        bch = self._obj_uuid_cf.batch()
+        self._relax_ref_for_delete(bch, obj_uuid, ref_uuid)
+        bch.send()
+    # end ref_relax_for_delete
+
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
         bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
     # end _create_prop
@@ -866,7 +872,7 @@ class VncServerCassandraClient(VncCassandraClient):
         send = False
         if bch is None:
             send = True
-            bch = self._cassandra_db._obj_uuid_cf.batch()
+            bch = self._obj_uuid_cf.batch()
         bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
         if obj_type == ref_type:
             bch.remove(ref_uuid, columns=['ref:%s:%s' % (obj_type, obj_uuid)])
@@ -876,6 +882,28 @@ class VncServerCassandraClient(VncCassandraClient):
         if send:
             bch.send()
     # end _delete_ref
+
+    def _relax_ref_for_delete(self, bch, obj_uuid, ref_uuid):
+        send = False
+        if bch is None:
+            send = True
+            bch = self._obj_uuid_cf.batch()
+        bch.insert(ref_uuid, {'relaxbackref:%s' % (obj_uuid):
+                               json.dumps(None)})
+        if send:
+            bch.send()
+    # end _relax_ref_for_delete
+
+    def get_relaxed_refs(self, obj_uuid):
+        try:
+            relaxed_cols = self._obj_uuid_cf.get(obj_uuid,
+                column_start='relaxbackref:',
+                column_finish='relaxbackref;')
+        except pycassa.NotFoundException:
+            return []
+
+        return [col.split(':')[1] for col in relaxed_cols]
+    # end get_relaxed_refs
 
     def is_latest(self, id, tstamp):
         id_perms_json = self._obj_uuid_cf.get(
@@ -1852,6 +1880,9 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_read_multi
 
+    def dbe_get_relaxed_refs(self, obj_id):
+        return self._cassandra_db.get_relaxed_refs(obj_id)
+    # end dbe_get_relaxed_refs
 
     def dbe_is_latest(self, obj_ids, tstamp):
         try:
@@ -2012,6 +2043,10 @@ class VncDbClient(object):
         self._msgbus.dbe_update_publish(obj_type.replace('_', '-'),
                                         {'uuid':obj_uuid})
     # ref_update
+
+    def ref_relax_for_delete(self, obj_uuid, ref_uuid):
+        self._cassandra_db.ref_relax_for_delete(obj_uuid, ref_uuid)
+    # end ref_relax_for_delete
 
     def uuid_to_obj_perms2(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_perms2(obj_uuid)
