@@ -43,6 +43,7 @@ struct DSSubscribeResponse {
     /* Subscribe Request cached */
     std::string serviceName_;
     uint8_t numbOfInstances_;
+    uint32_t subscribe_chksum_;
 
     /* Subscribe Response cached */
     uint32_t chksum_;

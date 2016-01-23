@@ -36,7 +36,7 @@ DSSubscribeResponse::DSSubscribeResponse(std::string serviceName,
                                          EventManager *evm,
                                          DiscoveryServiceClient *ds_client)
     : serviceName_(serviceName), numbOfInstances_(numbOfInstances),
-      chksum_(0),
+      subscribe_chksum_(0), chksum_(0),
       subscribe_timer_(TimerManager::CreateTimer(*evm->io_service(), "Subscribe Timer",
                        TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), subscribe_msg_(""), attempts_(0),
@@ -688,6 +688,11 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
         resp->subscribe_msg_ = ss.str();
         resp->sub_sent_++;
         service_response_map_.insert(make_pair(serviceName, resp));
+
+        // generate hash of subscribe message
+        boost::hash<std::string> string_hash;
+        uint32_t gen_chksum = string_hash(ss.str());
+        resp->subscribe_chksum_ = gen_chksum;
     }
 
     SendHttpPostMessage("subscribe", serviceName, ss.str()); 
@@ -736,8 +741,13 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
             impl->PrintDoc(ss);
             SendHttpPostMessage("subscribe", serviceName, ss.str());
 
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
-                                   serviceName, ss.str());
+            // generate hash of the message
+            boost::hash<std::string> string_hash;
+            uint32_t gen_chksum = string_hash(ss.str());
+            if (resp->subscribe_chksum_ != gen_chksum) {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
+                                       serviceName, ss.str());
+            }
         } else {
             SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
         }
@@ -891,7 +901,8 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
         hdr->sub_rcvd_++;
         hdr->attempts_ = 0;
         if (ds_response.size() == 0) {
-            //Restart Subscribe Timer
+            //Restart Subscribe Timer with shorter ttl
+            ttl = DiscoveryServiceClient::kHeartBeatInterval;
             hdr->StartSubscribeTimer(ttl);
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
                                    serviceName, xmls);
