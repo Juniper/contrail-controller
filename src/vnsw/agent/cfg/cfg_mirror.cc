@@ -87,7 +87,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
 
     // Send create request to Mirror Index table
     boost::system::error_code ec;
-    Ip4Address dest_ip = Ip4Address::from_string(entry->data.ip, ec);
+    IpAddress dest_ip = IpAddress::from_string(entry->data.ip, ec);
     if (ec.value() != 0) {
         delete entry;
         return "Invalid mirror destination address ";
@@ -98,15 +98,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
         return "Invalid mirror destination port ";
     }
 
-    Ip4Address sip;
-    if (agent_cfg_->agent()->router_id() == dest_ip) {
-        // If source IP and dest IP are same,
-        // linux kernel will drop the packet. 
-        // Hence we will use link local IP address as sip.
-        sip = Ip4Address(METADATA_IP_ADDR);
-    } else {
-        sip = agent_cfg_->agent()->router_id();
-    }
+    IpAddress sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
     
     MirrorTable::AddMirrorEntry(entry->key.handle,
                                 entry->data.mirror_vrf, sip, 
@@ -423,7 +415,8 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     entry->data.intf_name = intf_mirror.get_intf_name();
     entry->data.mirror_dest.handle = intf_mirror.get_handle();
     boost::system::error_code ec;
-    entry->data.mirror_dest.dip = Ip4Address::from_string(intf_mirror.get_ip(), ec);
+    entry->data.mirror_dest.dip = IpAddress::from_string(intf_mirror.get_ip(),
+                                                         ec);
     if (ec.value() != 0) {
         delete entry;
         return "Invalid mirror destination address ";
@@ -433,20 +426,17 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
         return "Invald mirror destination port ";
     }
     entry->data.mirror_dest.dport = intf_mirror.get_udp_port();
-    if (agent_cfg_->agent()->router_id() == entry->data.mirror_dest.dip) {
-        entry->data.mirror_dest.sip = Ip4Address(METADATA_IP_ADDR);
-    } else {
-        entry->data.mirror_dest.sip = agent_cfg_->agent()->router_id();
-    }
+    entry->data.mirror_dest.sip = agent_cfg_->agent()->
+        GetMirrorSourceIp(entry->data.mirror_dest.dip);
     entry->data.mirror_dest.sport = agent_cfg_->agent()->mirror_port();
     entry->data.mirror_dest.time_period = intf_mirror.get_time_period();
     entry->data.mirror_dest.mirror_vrf = intf_mirror.get_mirror_vrf();
 
     MirrorTable::AddMirrorEntry(entry->key.handle,
                                 entry->data.mirror_dest.mirror_vrf,
-                                entry->data.mirror_dest.sip.to_v4(),
+                                entry->data.mirror_dest.sip,
                                 entry->data.mirror_dest.sport,
-                                entry->data.mirror_dest.dip.to_v4(),
+                                entry->data.mirror_dest.dip,
                                 entry->data.mirror_dest.dport);
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 

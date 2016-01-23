@@ -17,14 +17,14 @@ struct MirrorEntryKey : public AgentKey {
 };
 
 struct MirrorEntryData : public AgentData {
-    MirrorEntryData(const std::string vrf_name, const Ip4Address &sip, 
-                    const uint16_t sport, const Ip4Address &dip, 
-                    const uint16_t dport): vrf_name_(vrf_name), 
+    MirrorEntryData(const std::string vrf_name, const IpAddress &sip,
+                    const uint16_t sport, const IpAddress &dip,
+                    const uint16_t dport): vrf_name_(vrf_name),
             sip_(sip), sport_(sport), dip_(dip), dport_(dport) { };
     std::string vrf_name_;
-    Ip4Address sip_;
+    IpAddress sip_;
     uint16_t sport_;
-    Ip4Address dip_;
+    IpAddress dip_;
     uint16_t dport_;
 };
 
@@ -51,9 +51,9 @@ public:
     uint32_t vrf_id() const;
     const VrfEntry *GetVrf() const;
     const std::string GetAnalyzerName() const {return analyzer_name_;}
-    const Ip4Address *GetSip() const {return &sip_;}
+    const IpAddress *GetSip() const {return &sip_;}
     uint16_t GetSPort() const {return sport_;}
-    const Ip4Address *GetDip() const {return &dip_;}
+    const IpAddress *GetDip() const {return &dip_;}
     uint16_t GetDPort() const {return dport_;}
     const NextHop *GetNH() const {return nh_.get();}
     const std::string vrf_name() const {return vrf_name_;}
@@ -61,9 +61,9 @@ public:
 private:
     std::string analyzer_name_;
     VrfEntryRef vrf_;
-    Ip4Address sip_;
+    IpAddress sip_;
     uint16_t sport_;
-    Ip4Address dip_;
+    IpAddress dip_;
     uint16_t dport_;
     NextHopRef nh_;
     std::string vrf_name_;
@@ -96,8 +96,8 @@ public:
     VrfEntry *FindVrfEntry(const std::string &vrf_name) const;
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,
-                               const Ip4Address &sip, uint16_t sport, 
-                               const Ip4Address &dip, uint16_t dport);
+                               const IpAddress &sip, uint16_t sport,
+                               const IpAddress &dip, uint16_t dport);
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);

@@ -60,6 +60,23 @@ const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-no
 SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
 Agent *Agent::singleton_;
 
+IpAddress Agent::GetMirrorSourceIp(const IpAddress &dest) {
+    IpAddress sip;
+    if (dest.is_v4()) {
+        if (router_id() == dest) {
+            // If source IP and dest IP are same,
+            // linux kernel will drop the packet.
+            // Hence we will use link local IP address as sip.
+            sip = Ip4Address(METADATA_IP_ADDR);
+        } else {
+            sip = router_id();
+        }
+    } else if (dest.is_v6()) {
+        sip = Ip6Address::v4_mapped(router_id());
+    }
+    return sip;
+}
+
 const string &Agent::GetHostInterfaceName() const {
     // There is single host interface.  Its addressed by type and not name
     return Agent::null_string_;

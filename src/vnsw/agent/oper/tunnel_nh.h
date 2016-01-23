@@ -54,8 +54,8 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class MirrorNHKey : public NextHopKey {
 public:
-    MirrorNHKey(const string &vrf_name, const Ip4Address &sip,
-                const uint16_t sport, const Ip4Address &dip,
+    MirrorNHKey(const string &vrf_name, const IpAddress &sip,
+                const uint16_t sport, const IpAddress &dip,
                 const uint16_t dport) :
         NextHopKey(NextHop::MIRROR, false), vrf_key_(vrf_name), sip_(sip),
         dip_(dip), sport_(sport), dport_(dport){
@@ -66,8 +66,8 @@ public:
 private:
     friend class MirrorNH;
     VrfKey vrf_key_;
-    Ip4Address sip_;
-    Ip4Address dip_;
+    IpAddress sip_;
+    IpAddress dip_;
     uint16_t sport_;
     uint16_t dport_;
     DISALLOW_COPY_AND_ASSIGN(MirrorNHKey);
@@ -84,12 +84,9 @@ private:
 
 class MirrorNH : public NextHop {
 public:
-    MirrorNH(VrfEntry *vrf, const Ip4Address &sip, uint16_t sport,
-             const Ip4Address &dip, uint16_t dport):
-        NextHop(NextHop::MIRROR, false, false), vrf_(vrf, this), sip_(sip),
-        sport_(sport), dip_(dip), dport_(dport), arp_rt_(this),
-        interface_(NULL), dmac_(){ };
-    virtual ~MirrorNH() { };
+    MirrorNH(const VrfKey &vkey, const IpAddress &sip, uint16_t sport,
+             const IpAddress &dip, uint16_t dport);
+    virtual ~MirrorNH() { }
 
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
@@ -99,23 +96,27 @@ public:
     virtual bool CanAdd() const;
 
     const uint32_t vrf_id() const;
-    const VrfEntry *GetVrf() const {return vrf_.get();};
-    const Ip4Address *GetSip() const {return &sip_;};
-    const uint16_t GetSPort() const {return sport_;}; 
-    const Ip4Address *GetDip() const {return &dip_;};
-    const uint16_t GetDPort() const {return dport_;};
-    const AgentRoute *GetRt() const {return arp_rt_.get();};
-    virtual std::string ToString() const { return "Mirror to " + dip_.to_string(); };
+    const VrfEntry *GetVrf() const {return vrf_.get();}
+    const IpAddress *GetSip() const {return &sip_;}
+    const uint16_t GetSPort() const {return sport_;}
+    const IpAddress *GetDip() const {return &dip_;}
+    const uint16_t GetDPort() const {return dport_;}
+    const AgentRoute *GetRt() const {return arp_rt_.get();}
+    virtual std::string ToString() const {
+        return "Mirror to " + dip_.to_string();
+    }
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
 private:
+    InetUnicastAgentRouteTable *GetRouteTable();
+    std::string vrf_name_;
     VrfEntryRef vrf_;
-    Ip4Address sip_;
+    IpAddress sip_;
     uint16_t sport_;
-    Ip4Address dip_;
+    IpAddress dip_;
     uint16_t dport_;
     DependencyRef<NextHop, AgentRoute> arp_rt_;
     InterfaceConstRef interface_;

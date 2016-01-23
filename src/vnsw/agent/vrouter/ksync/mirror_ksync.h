@@ -22,7 +22,7 @@ public:
     MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorKSyncEntry *entry, 
                      uint32_t index);
     MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t vrf_id, 
-                     uint32_t dip, uint16_t dport);
+                     IpAddress dip, uint16_t dport);
     MirrorKSyncEntry(MirrorKSyncObject *obj, std::string &analyzer_name);
     virtual ~MirrorKSyncEntry();
 
@@ -41,9 +41,9 @@ private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     MirrorKSyncObject *ksync_obj_;
     uint32_t vrf_id_;
-    Ip4Address sip_;
+    IpAddress sip_;
     uint16_t   sport_;
-    Ip4Address dip_;
+    IpAddress dip_;
     uint16_t   dport_;
     KSyncEntryPtr nh_;
     std::string analyzer_name_;

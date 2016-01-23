@@ -17,7 +17,7 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
-                                   const uint32_t vrf_id, uint32_t dip,
+                                   const uint32_t vrf_id, IpAddress dip,
                                    uint16_t dport) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id), 
     dip_(dip), dport_(dport) {

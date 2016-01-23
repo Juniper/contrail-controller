@@ -107,7 +107,7 @@ public:
     bool Populate(const autogen::MatchConditionType *match_condition);
     void PopulateAction(const AclTable *acl_table,
                         const autogen::ActionListType &action_list);
-    void AddMirrorEntry() const;
+    void AddMirrorEntry(Agent *agent) const;
     void BuildAddressInfo(const std::string &prefix, int plen,
                           std::vector<AclAddressInfo> *list);
 };
