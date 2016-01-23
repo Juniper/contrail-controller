@@ -6,8 +6,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 0);
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 1);
-    Agent::GetInstance()->SetAgentMcastLabelRange(0);
-    Agent::GetInstance()->SetAgentMcastLabelRange(1);
+    Agent::GetInstance()->controller()->SetAgentMcastLabelRange(0);
+    Agent::GetInstance()->controller()->SetAgentMcastLabelRange(1);
     Agent::GetInstance()->set_headless_agent_mode(false);
 
     int ret = RUN_ALL_TESTS();

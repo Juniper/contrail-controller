@@ -137,8 +137,8 @@ protected:
         xc_s = new XmppClient(&evm_);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
-        Agent::GetInstance()->SetAgentMcastLabelRange(0);
-        Agent::GetInstance()->SetAgentMcastLabelRange(1);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(0);
+        Agent::GetInstance()->controller()->SetAgentMcastLabelRange(1);
 
         xs_p->Initialize(0, false);
         xs_s->Initialize(0, false);
