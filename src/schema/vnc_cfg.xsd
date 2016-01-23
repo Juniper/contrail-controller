@@ -1605,9 +1605,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-machine-service-instance', 'virtual-machine',
           'service-instance', ['ref', 'derived']) -->
 
-<xsd:element name='service-instance-instance-ip' type="ServiceInterfaceTag"/>
+<xsd:element name='service-instance-shared-ip' type="ServiceInterfaceTag"/>
 <!-- #IFMAP-SEMANTICS-IDL
-     Link('service-instance-instance-ip', 'service-instance',
+     Link('service-instance-shared-ip', 'service-instance',
           'instance-ip', ['ref']) -->
 
 <xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
