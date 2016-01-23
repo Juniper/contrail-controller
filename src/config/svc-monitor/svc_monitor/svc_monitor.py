@@ -471,7 +471,11 @@ class SvcMonitor(object):
         # Read and Sync all DBase
         for cls in DBBaseSM.get_obj_type_map().values():
             for obj in cls.list_obj():
-                cls.locate(obj['uuid'], obj)
+                try:
+                    cls.locate(obj['uuid'], obj)
+                except NoIdError:
+                    self.logger.log_error("db entry missing for %s" % (obj['uuid']))
+                    continue
 
         # Link SI and VM
         for vm in VirtualMachineSM.values():
