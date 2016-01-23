@@ -46,6 +46,7 @@ struct StaticRouteSandesh {
    2: string ip_addr;
    3: i32    prefix;
    4: optional string mac_addr;
+   5: optional list<string> communities;
 }
 
 struct VmIntfSgUuid {
@@ -270,6 +271,7 @@ struct PathSandeshData {
    18: optional string vm_name;
    19: optional bool ecmp_suppressed;
    20: optional string ecmp_hashing_fields;
+   21: optional list<string> communities;
 }
 
 struct RouteUcSandeshData {

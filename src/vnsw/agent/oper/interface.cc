@@ -908,6 +908,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             entry.set_vrf_name(rt.vrf_);
             entry.set_ip_addr(rt.addr_.to_string());
             entry.set_prefix(rt.plen_);
+            entry.set_communities(rt.communities_);
             static_rt_it++;
             static_route_list.push_back(entry);
         }

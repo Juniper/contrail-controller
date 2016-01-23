@@ -1631,12 +1631,14 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
     bool ecmp_changed = false;
     bool local_pref_changed = false;
     bool ecmp_load_balance_changed = false;
+    bool static_route_config_changed = false;
     bool ret = false;
 
     ret = vmi->CopyConfig(table, this, &sg_changed, &ecmp_changed,
-                          &local_pref_changed, &ecmp_load_balance_changed);
+                          &local_pref_changed, &ecmp_load_balance_changed,
+                          &static_route_config_changed);
     if (sg_changed || ecmp_changed || local_pref_changed ||
-        ecmp_load_balance_changed)
+        ecmp_load_balance_changed || static_route_config_changed)
         *force_update = true;
 
     return ret;
@@ -1649,7 +1651,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
                              bool *sg_changed,
                              bool *ecmp_changed,
                              bool *local_pref_changed,
-                             bool *ecmp_load_balance_changed) {
+                             bool *ecmp_load_balance_changed,
+                             bool *static_route_config_changed) {
     bool ret = false;
     if (table) {
         VmEntry *vm = table->FindVmRef(data->vm_uuid_);
@@ -1805,6 +1808,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (AuditList<StaticRouteList, StaticRouteSet::iterator>
         (static_route_list_, old_route_list.begin(), old_route_list.end(),
          new_route_list.begin(), new_route_list.end())) {
+        *static_route_config_changed = true;
         ret = true;
     }
 
@@ -3724,7 +3728,7 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
     if (addr_ != rhs->addr_)
         return addr_ < rhs->addr_;
 
-    if (plen_ < rhs->plen_) {
+    if (plen_ != rhs->plen_) {
         return plen_ < rhs->plen_;
     }
 
@@ -3787,6 +3791,9 @@ void VmInterface::StaticRouteList::Insert(const StaticRoute *rhs) {
 
 void VmInterface::StaticRouteList::Update(const StaticRoute *lhs,
                                           const StaticRoute *rhs) {
+    if (lhs->communities_ != rhs->communities_) {
+        (const_cast<StaticRoute *>(lhs))->communities_ = rhs->communities_;
+    }
     lhs->set_del_pending(false);
 }
 

@@ -2102,6 +2102,163 @@ TEST_F(IntfTest, IntfStaticRouteWithCommunityWithNexthop) {
    client->WaitForIdle();
    EXPECT_FALSE(VmPortFind(1));
 }
+
+// Update the communities on static route config
+// No community to valid list of communities
+TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_0) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+   EXPECT_TRUE(rt != NULL);
+   const AgentPath *path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_EQ(path->communities().size(), 0);
+
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+
+   // Update the communities
+   std::vector<std::string> update_communities =
+       list_of("no-reoriginate")("64512:8888");
+   AddInterfaceRouteTable("static_route", 1, static_route, 2,
+                          NULL, update_communities);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   rt = RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+   EXPECT_TRUE(rt != NULL);
+   path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities(), update_communities);
+
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
+                          static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                          static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+// Update the communities on static route config
+TEST_F(IntfTest, UpdateIntfStaticRouteCommunity_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   std::vector<std::string> communities = list_of("no-advertise")("64512:9999");
+   AddInterfaceRouteTable("static_route", 1, static_route, 2, NULL, communities);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+   EXPECT_TRUE(rt != NULL);
+   const AgentPath *path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities(), communities);
+
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+   // Update the communities
+   std::vector<std::string> update_communities =
+       list_of("no-reoriginate")("64512:8888");
+   AddInterfaceRouteTable("static_route", 1, static_route, 2,
+                          NULL, update_communities);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   rt = RouteGet("vrf1", static_route[0].addr_, static_route[0].plen_);
+   EXPECT_TRUE(rt != NULL);
+   path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_EQ(path->communities().size(), 2);
+   EXPECT_EQ(path->communities(), update_communities);
+
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
+                          static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                          static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
 //Add static route, deactivate interface and make static routes are deleted
 TEST_F(IntfTest, IntfStaticRoute_1) {
     struct PortInfo input[] = {
