@@ -293,6 +293,19 @@ class VirtualNetworkST(DBBaseST):
             self.multi_policy_service_chains_status_changed = True
     # end update
 
+    def _update_primary_ri_to_service_ri_connection(self, sc, si_name,
+                                                    multi_policy_enabled):
+            primary_ri = self.get_primary_routing_instance()
+            service_ri_name = self.get_service_name(sc.name, si_name)
+            service_ri = RoutingInstanceST.get(service_ri_name)
+            if (multi_policy_enabled and
+                    service_ri_name in primary_ri.connections):
+                primary_ri.delete_connection(service_ri)
+            elif (not multi_policy_enabled and
+                    service_ri_name not in primary_ri.connections):
+                primary_ri.add_connection(service_ri)
+    # end _update_primary_ri_to_service_ri_connection
+
     def check_multi_policy_service_chain_status(self):
         if not self.multi_policy_service_chains_status_changed:
             return
@@ -303,19 +316,24 @@ class VirtualNetworkST(DBBaseST):
                     continue
                 if sc.left_vn == self.name:
                     si_name = sc.service_list[0]
+                    other_vn_name = sc.right_vn
+                    other_si_name = sc.service_list[-1]
                 elif sc.right_vn == self.name:
-                    sc_name = sc.service_list[-1]
+                    si_name = sc.service_list[-1]
+                    other_vn_name = sc.left_vn
+                    other_si_name = sc.service_list[0]
                 else:
                     continue
-                primary_ri = self.get_primary_routing_instance()
-                service_ri_name = self.get_service_name(sc.name, si_name)
-                service_ri = RoutingInstanceST.get(service_ri_name)
-                if (self.multi_policy_service_chains_enabled and
-                    service_ri_name in primary_ri.connections):
-                    primary_ri.delete_connection(service_ri)
-                elif (not self.multi_policy_service_chains_enabled and
-                    service_ri_name not in primary_ri.connections):
-                    primary_ri.add_connection(service_ri)
+                other_vn = VirtualNetworkST.get(other_vn_name)
+                if not other_vn:
+                    continue
+                multi_policy_enabled = (
+                    self.multi_policy_service_chains_enabled and
+                    other_vn.multi_policy_service_chains_enabled)
+                self._update_primary_ri_to_service_ri_connection(
+                    sc, si_name, multi_policy_enabled)
+                other_vn._update_primary_ri_to_service_ri_connection(
+                    sc, other_si_name, multi_policy_enabled)
     # end check_multi_policy_service_chain_status
 
     def delete_obj(self):
@@ -1115,6 +1133,12 @@ class VirtualNetworkST(DBBaseST):
                         # between the routing instances
                         action.simple_action = "pass"
                         action.apply_service = []
+                        if self.multi_policy_service_chains_enabled:
+                            other_vn = VirtualNetworkST.get(connected_network)
+                            if not other_vn:
+                                continue
+                            if other_vn.multi_policy_service_chains_enabled:
+                                self.add_connection(connected_network)
                         continue
 
                     if connected_network and action.simple_action:
@@ -2380,7 +2404,10 @@ class ServiceChain(DBBaseST):
             self.log_error("vn1_obj or vn2_obj is None")
             return
 
-        if not vn1_obj.multi_policy_service_chains_enabled:
+        multi_policy_enabled = (vn1_obj.multi_policy_service_chains_enabled and
+                                vn2_obj.multi_policy_service_chains_enabled)
+        service_ri2 = None
+        if not multi_policy_enabled:
             service_ri2 = vn1_obj.get_primary_routing_instance()
             if service_ri2 is None:
                 self.log_error("primary ri is None for " + self.left_vn)
@@ -2393,7 +2420,7 @@ class ServiceChain(DBBaseST):
             ri_obj = RoutingInstanceST.create(service_name1, vn1_obj, has_pnf)
             service_ri1 = RoutingInstanceST.locate(service_name1, ri_obj)
             if service_ri1 is None:
-                self.log_error("service_ri1 or service_ri2 is None")
+                self.log_error("service_ri1 is None")
                 return
             if service_ri2 is not None:
                 service_ri2.add_connection(service_ri1)
@@ -2448,7 +2475,7 @@ class ServiceChain(DBBaseST):
             rt_list.add(vn2_obj.get_route_target())
         service_ri2.update_route_target_list(rt_add_export=rt_list)
 
-        if not vn2_obj.multi_policy_service_chains_enabled:
+        if not multi_policy_enabled:
             service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
 
         if not transparent and len(self.service_list) == 1:
