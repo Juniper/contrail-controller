@@ -33,9 +33,8 @@ struct VmData : public AgentOperDBData {
 class VmEntry : AgentRefCount<VmEntry>, public AgentOperDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
-    VmEntry(uuid id) : 
-        uuid_(id), name_("") { }
-    virtual ~VmEntry() { }
+    VmEntry(const uuid &id);
+    virtual ~VmEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
@@ -52,10 +51,26 @@ public:
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
+
+    uint32_t flow_count() const { return flow_count_; }
+    void update_flow_count(int val) const {
+        int tmp = flow_count_.fetch_and_add(val);
+        if (val < 0)
+            assert(tmp >= val);
+    }
+
+    uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
+    void update_linklocal_flow_count(int val) const {
+        int tmp = linklocal_flow_count_.fetch_and_add(val);
+        if (val < 0)
+            assert(tmp >= val);
+    }
 private:
     friend class VmTable;
     uuid uuid_;
     std::string name_;
+    mutable tbb::atomic<int> flow_count_;
+    mutable tbb::atomic<int> linklocal_flow_count_;
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 

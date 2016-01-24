@@ -98,6 +98,122 @@ InetUnicastRouteEntry FlowEntry::inet6_route_key_(NULL, Ip6Address(), 128,
 SecurityGroupList FlowEntry::default_sg_list_;
 
 /////////////////////////////////////////////////////////////////////////////
+// VmFlowRef
+/////////////////////////////////////////////////////////////////////////////
+const int VmFlowRef::kInvalidFd;
+VmFlowRef::VmFlowRef() : vm_(NULL), fd_(kInvalidFd), port_(0) {
+}
+
+VmFlowRef::VmFlowRef(const VmFlowRef &rhs) {
+    // UPDATE on linklocal flows is not supported. So, fd_ should be invalid
+    assert(fd_ == VmFlowRef::kInvalidFd);
+    assert(rhs.fd_ == VmFlowRef::kInvalidFd);
+    SetVm(rhs.vm_.get());
+}
+
+VmFlowRef:: ~VmFlowRef() {
+    Reset();
+}
+
+void VmFlowRef::operator=(const VmFlowRef &rhs) {
+    // UPDATE on linklocal flows is not supported. So, fd_ should be invalid
+    assert(fd_ == VmFlowRef::kInvalidFd);
+    assert(rhs.fd_ == VmFlowRef::kInvalidFd);
+    SetVm(rhs.vm_.get());
+}
+
+void VmFlowRef::Reset() {
+    FreeRef();
+    FreeFd();
+    vm_.reset(NULL);
+}
+
+void VmFlowRef::FreeRef() {
+    if (vm_.get() == NULL)
+        return;
+
+    vm_->update_flow_count(-1);
+    if (fd_ != kInvalidFd) {
+        vm_->update_linklocal_flow_count(-1);
+        Agent *agent = static_cast<VmTable *>(vm_->get_table())->agent();
+        agent->pkt()->get_flow_proto()->update_linklocal_flow_count(-1);
+    }
+}
+
+void VmFlowRef::FreeFd() {
+    if (fd_ == kInvalidFd) {
+        assert(port_ == 0);
+        return;
+    }
+
+    close(fd_);
+    fd_ = kInvalidFd;
+    port_ = 0;
+}
+
+void VmFlowRef::SetVm(const VmEntry *vm) {
+    if (vm == vm_.get())
+        return;
+    FreeRef();
+
+    vm_.reset(vm);
+    if (vm == NULL)
+        return;
+
+    // Add flow-ref-count for both forward and reverse flow
+    vm->update_flow_count(1);
+    if (fd_ != kInvalidFd) {
+        vm_->update_linklocal_flow_count(1);
+        Agent *agent = static_cast<VmTable *>(vm->get_table())->agent();
+        agent->pkt()->get_flow_proto()->update_linklocal_flow_count(1);
+    }
+
+    return;
+}
+
+bool VmFlowRef::AllocateFd(Agent *agent, FlowEntry *flow, uint8_t l3_proto) {
+    if (fd_ != kInvalidFd)
+        return true;
+
+    port_ = 0;
+    // Short flows are always dropped. Dont allocate FD for short flow
+    if (flow->IsShortFlow())
+        return false;
+
+    if (l3_proto == IPPROTO_TCP) {
+        fd_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    } else if (l3_proto == IPPROTO_UDP) {
+        fd_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+
+    if (fd_ == kInvalidFd) {
+        return false;
+    }
+
+    // allow the socket to be reused upon close
+    int optval = 1;
+    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    if (bind(fd_, (struct sockaddr*) &address, sizeof(address)) < 0) {
+        FreeFd();
+        return false;
+    }
+
+    struct sockaddr_in bound_to;
+    socklen_t len = sizeof(bound_to);
+    if (getsockname(fd_, (struct sockaddr*) &bound_to, &len) < 0) {
+        FreeFd();
+        return false;
+    }
+
+    port_ = ntohs(bound_to.sin_port);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // FlowData constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
 FlowData::FlowData() {
@@ -121,8 +237,8 @@ void FlowData::Reset() {
     match_p.Reset();
     vn_entry.reset(NULL);
     intf_entry.reset(NULL);
-    in_vm_entry.reset(NULL);
-    out_vm_entry.reset(NULL);
+    in_vm_entry.Reset();
+    out_vm_entry.Reset();
     nh.reset(NULL);
     vrf = VrfEntry::kInvalidIndex;
     mirror_vrf = VrfEntry::kInvalidIndex;
@@ -202,7 +318,6 @@ void MatchPolicy::Reset() {
 /////////////////////////////////////////////////////////////////////////////
 FlowEntry::FlowEntry(FlowTable *flow_table) :
     flow_table_(flow_table), flags_(0),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
     tunnel_type_(TunnelType::INVALID),
     fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), fsc_(NULL) {
     Reset();
@@ -216,28 +331,12 @@ FlowEntry::~FlowEntry() {
 }
 
 void FlowEntry::Reset() {
-    if (is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) &&
-        (linklocal_src_port_fd_ == PktFlowInfo::kLinkLocalInvalidFd ||
-         !linklocal_src_port_)) {
-        LOG(DEBUG, "Linklocal Flow Inconsistency fd = " <<
-            linklocal_src_port_fd_ << " port = " << linklocal_src_port_ <<
-            " flow index = " << flow_handle_ << " source = " <<
-            key_.src_addr.to_string() << " dest = " <<
-            key_.dst_addr.to_string() << " protocol = " << key_.protocol <<
-            " sport = " << key_.src_port << " dport = " << key_.dst_port);
-    }
-    if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
-        close(linklocal_src_port_fd_);
-        flow_table_->DelLinkLocalFlowInfo(linklocal_src_port_fd_);
-    }
     data_.Reset();
     l3_flow_ = true;
     flow_handle_ = kInvalidFlowHandle;
     deleted_ = false;
     flags_ = 0;
     short_flow_reason_ = SHORT_UNKNOWN;
-    linklocal_src_port_ = 0;
-    linklocal_src_port_fd_ = PktFlowInfo::kLinkLocalInvalidFd;
     peer_vrouter_ = "";
     tunnel_type_ = TunnelType::INVALID;
     on_tree_ = false;
@@ -351,8 +450,8 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
 
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
-    data_.in_vm_entry = ctrl->vm_ ? ctrl->vm_ : NULL;
-    data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
+    data_.in_vm_entry.SetVm(ctrl->vm_);
+    data_.out_vm_entry.SetVm(rev_ctrl->vm_);
     l3_flow_ = info->l3_flow;
     return true;
 }
@@ -366,9 +465,8 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         return;
     }
     if (info->linklocal_bind_local_port) {
-        linklocal_src_port_ = info->nat_sport;
-        linklocal_src_port_fd_ = info->linklocal_src_port_fd;
-        flow_table_->AddLinkLocalFlowInfo(linklocal_src_port_fd_, flow_handle_,
+        flow_table_->AddLinkLocalFlowInfo(data_.in_vm_entry.fd(),
+                                          flow_handle_,
                                           key_, UTCTimestampUsec());
         set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {

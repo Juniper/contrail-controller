@@ -66,10 +66,19 @@ bool FlowHandler::Run() {
         ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
-        //assert(fe->set_pending_recompute(false));
         if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
             return true;
         }
+
+        if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+            return true;
+        }
+
+        // We dont support revaluation of linklocal flows
+        if (fe->is_flags_set(FlowEntry::LinkLocalFlow)) {
+            return true;
+        }
+
         info.flow_entry = fe;
         pkt_info_->agent_hdr.cmd = AGENT_TRAP_FLOW_MISS;
         pkt_info_->agent_hdr.cmd_param = fe->flow_handle();

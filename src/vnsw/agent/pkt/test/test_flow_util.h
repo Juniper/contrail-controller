@@ -3,6 +3,7 @@
  */
 #ifndef __testflow__
 #define __testflow__
+#include "pkt/flow_entry.h"
 #include "test_pkt_util.h"
 static uint32_t running_hash = 1;
 class TestFlowPkt {
@@ -397,8 +398,12 @@ public:
         EXPECT_TRUE(rev->key().src_addr == Ip4Address::from_string(nat_sip_));
         EXPECT_TRUE(rev->key().dst_addr == Ip4Address::from_string(nat_dip_));
         EXPECT_TRUE(rev->key().src_port == nat_sport_);
+        uint32_t dport = fe->linklocal_src_port();
+        if (dport == 0) {
+            dport = fe->key().src_port;
+        }
         EXPECT_TRUE(rev->key().dst_port == nat_dport_ ||
-                    rev->key().dst_port == fe->linklocal_src_port());
+                    rev->key().dst_port == dport);
     };
 
 private:

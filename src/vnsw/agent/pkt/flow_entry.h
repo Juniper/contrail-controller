@@ -39,6 +39,39 @@ struct FlowExportInfo;
 class KSyncFlowIndexEntry;
 class FlowStatsCollector;
 
+////////////////////////////////////////////////////////////////////////////
+// Helper class to manage following,
+// 1. VM referred by the flow
+// 2. Per VM flow counters to apply per-vm flow limits
+//    - Number of flows for a VM
+//    - Number of linklocal flows for a VM
+// 3. socket opened for linklocal flows
+////////////////////////////////////////////////////////////////////////////
+class VmFlowRef {
+public:
+    static const int kInvalidFd=-1;
+    VmFlowRef();
+    VmFlowRef(const VmFlowRef &rhs);
+    ~VmFlowRef();
+
+    void operator=(const VmFlowRef &rhs);
+    void Reset();
+    void FreeRef();
+    void FreeFd();
+    void SetVm(const VmEntry *vm);
+    bool AllocateFd(Agent *agent, FlowEntry *flow, uint8_t l3_proto);
+
+    int fd() const { return fd_; }
+    uint16_t port() const { return port_; }
+    const VmEntry *vm() const { return vm_.get(); }
+private:
+    // IMPORTANT: Keep this structure assignable. Assignment operator is used in
+    // FlowEntry::Copy() on this structure
+    VmEntryConstRef vm_;
+    int fd_;
+    uint16_t port_;
+};
+
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
 struct FlowKey {
@@ -204,8 +237,8 @@ struct FlowData {
     MatchPolicy match_p;
     VnEntryConstRef vn_entry;
     InterfaceConstRef intf_entry;
-    VmEntryConstRef in_vm_entry;
-    VmEntryConstRef out_vm_entry;
+    VmFlowRef  in_vm_entry;
+    VmFlowRef  out_vm_entry;
     NextHopConstRef nh;
     uint32_t vrf;
     uint32_t mirror_vrf;
@@ -365,8 +398,8 @@ class FlowEntry {
     void set_dest_sg_id_l(const SecurityGroupList &sg_l) {
         data_.dest_sg_id_l = sg_l;
     }
-    int linklocal_src_port() const { return linklocal_src_port_; }
-    int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
+    int linklocal_src_port() const { return data_.in_vm_entry.port(); }
+    int linklocal_src_port_fd() const { return data_.in_vm_entry.fd(); }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
     uint32_t fip() const { return fip_; }
@@ -389,8 +422,9 @@ class FlowEntry {
 
     const Interface *intf_entry() const { return data_.intf_entry.get(); }
     const VnEntry *vn_entry() const { return data_.vn_entry.get(); }
-    const VmEntry *in_vm_entry() const { return data_.in_vm_entry.get(); }
-    const VmEntry *out_vm_entry() const { return data_.out_vm_entry.get(); }
+    VmFlowRef *in_vm_flow_ref() { return &(data_.in_vm_entry); }
+    const VmEntry *in_vm_entry() const { return data_.in_vm_entry.vm(); }
+    const VmEntry *out_vm_entry() const { return data_.out_vm_entry.vm(); }
     const NextHop *nh() const { return data_.nh.get(); }
     const uint32_t bgp_as_a_service_port() const {
         if (is_flags_set(FlowEntry::BgpRouterService))
@@ -475,10 +509,6 @@ private:
     bool deleted_;
     uint32_t flags_;
     uint16_t short_flow_reason_;
-    // linklocal port - used as nat src port, agent locally binds to this port
-    uint16_t linklocal_src_port_;
-    // fd of the socket used to locally bind in case of linklocal
-    int linklocal_src_port_fd_;
     std::string sg_rule_uuid_;
     std::string nw_ace_uuid_;
     //IP address of the src vrouter for egress flows and dst vrouter for

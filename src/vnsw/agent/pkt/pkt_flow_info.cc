@@ -639,61 +639,6 @@ void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
     }
 }
 
-// For link local services, we bind to a local port & use it as NAT source port.
-// The socket is closed when the flow entry is deleted.
-uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
-    if (vm == NULL)
-        return 0;
-    // Do not allow more than max link local flows
-    if (flow_table->linklocal_flow_count() >=
-        agent->params()->linklocal_system_flows())
-        return 0;
-    if (flow_table->VmLinkLocalFlowCount(vm) >=
-        agent->params()->linklocal_vm_flows())
-        return 0;
-
-    if (proto == IPPROTO_TCP) {
-        linklocal_src_port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    } else if (proto == IPPROTO_UDP) {
-        linklocal_src_port_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    }
-
-    if (linklocal_src_port_fd == -1) {
-        return 0;
-    }
-
-    // allow the socket to be reused upon close
-    int optval = 1;
-    setsockopt(linklocal_src_port_fd, SOL_SOCKET, SO_REUSEADDR,
-               &optval, sizeof(optval));
-
-    struct sockaddr_in address;
-    memset(&address, '0', sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = 0;
-    address.sin_port = 0;
-    struct sockaddr_in bound_to;
-    socklen_t len = sizeof(bound_to);
-    if (bind(linklocal_src_port_fd, (struct sockaddr*) &address,
-             sizeof(address)) == -1) {
-        goto error;
-    }
-
-    if (getsockname(linklocal_src_port_fd, (struct sockaddr*) &bound_to,
-                    &len) == -1) {
-        goto error;
-    }
-
-    return ntohs(bound_to.sin_port);
-
-error:
-    if (linklocal_src_port_fd != kLinkLocalInvalidFd) {
-        close(linklocal_src_port_fd);
-        linklocal_src_port_fd = kLinkLocalInvalidFd;
-    }
-    return 0;
-}
-
 void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                          PktControlInfo *out) {
 
@@ -1606,18 +1551,17 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
 // Apply flow limits for in and out VMs
 void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
                                   const PktControlInfo *out) {
-    // Ignore flow limit checks for MESSAGE processing
-    if (pkt->type == PktType::MESSAGE) {
+    // Ignore flow limit checks for flow-update and short-flows
+    if (short_flow || pkt->type == PktType::MESSAGE) {
         return;
     }
 
-    uint32_t limit = flow_table->agent()->max_vm_flows();
     bool limit_exceeded = false;
-    if (in->vm_ && ((flow_table->VmFlowCount(in->vm_) + 2) > limit)) {
+    if (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows())) {
         limit_exceeded = true;
     }
 
-    if (out->vm_ && ((flow_table->VmFlowCount(out->vm_) + 2) > limit)) {
+    if (out->vm_ && ((out->vm_->flow_count() + 2) > agent->max_vm_flows())) {
         limit_exceeded = true;
     }
 
@@ -1625,30 +1569,56 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
         agent->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
+        return;
     }
-}
-
-void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
-                                    const PktControlInfo *in,
-                                    const FlowEntry *flow) {
-    // copy the linklocal fd from the flow, required for recompute cases
-    linklocal_src_port_fd = flow->linklocal_src_port_fd();
 
     if (linklocal_bind_local_port == false)
         return;
 
-    nat_sport = flow->linklocal_src_port();
-    if (short_flow)
-        return;
-
-    if (flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
-        nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
+    // Apply limits for link-local flows
+    if (agent->pkt()->get_flow_proto()->linklocal_flow_count() >=
+        agent->params()->linklocal_system_flows()) {
+        limit_exceeded = true;
     }
-    if (!nat_sport) {
+
+    if (in->vm_ && in->vm_->linklocal_flow_count() >=
+        agent->params()->linklocal_vm_flows()) {
+        limit_exceeded = true;
+    }
+
+    if (limit_exceeded) {
         agent->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
+        return;
     }
+
+    return;
+}
+
+void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
+                                    const PktControlInfo *in,
+                                    FlowEntry *flow) {
+    assert(flow->in_vm_flow_ref()->fd() == VmFlowRef::kInvalidFd);
+    if (linklocal_bind_local_port == false)
+        return;
+
+    // link-local service flow. Initialize nat-sport to original src-port.
+    // It will be over-ridden if socket could be allocated later
+    nat_sport = pkt->sport;
+
+    // Dont allocate FD for short flows
+    if (short_flow)
+        return;
+
+    if (flow->in_vm_flow_ref()->AllocateFd(agent, flow, pkt->ip_proto) == false) {
+        // Could not allocate FD. Make it short flow
+        agent->stats()->incr_flow_drop_due_to_max_limit();
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
+        return;
+    }
+    nat_sport = flow->in_vm_flow_ref()->port();
 
     return;
 }
