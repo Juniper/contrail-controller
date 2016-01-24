@@ -201,12 +201,11 @@ bool VnEntry::GetPrefix(const Ip6Address &ip, Ip6Address *prefix,
 std::string VnEntry::GetProject() const {
     // TODO: update to get the project name from project-vn link.
     // Currently, this info doesnt come to the agent
-    std::size_t start_pos = name_.find(":") + 1;
-    std::size_t end_pos = name_.find(":", start_pos);
-    if (end_pos == std::string::npos)
+    char *saveptr;
+    if (strtok_r(const_cast<char *>(name_.c_str()), ":", &saveptr) == NULL)
         return "";
-
-    return name_.substr(start_pos, end_pos - start_pos);
+    char *project = strtok_r(NULL, ":", &saveptr);
+    return (project == NULL) ? "" : std::string(project);
 }
 
 int VnEntry::GetVxLanId() const {
