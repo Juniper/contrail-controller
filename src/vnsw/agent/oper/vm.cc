@@ -18,6 +18,16 @@ using namespace autogen;
 
 VmTable *VmTable::vm_table_;
 
+VmEntry::VmEntry(const uuid &id) : uuid_(id), name_("") {
+    flow_count_ = 0;
+    linklocal_flow_count_ = 0;
+}
+
+VmEntry::~VmEntry() {
+    assert(flow_count_ == 0);
+    assert(linklocal_flow_count_ == 0);
+}
+
 bool VmEntry::IsLess(const DBEntry &rhs) const {
     const VmEntry &a = static_cast<const VmEntry &>(rhs);
     return (uuid_ < a.uuid_);
