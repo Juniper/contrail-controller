@@ -171,7 +171,9 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     header_options.push_back(std::string("X-Instance-ID-Signature: " +
                                          signature));
 
-    std::string uri = request->UrlPath().substr(1); // ignore the first "/"
+    std::string uri = request->UrlPath();
+    if (uri.size())
+        uri = uri.substr(1); // ignore the first "/"
     const std::string &body = request->Body();
     {
         HttpConnection *conn = GetProxyConnection(session, conn_close);
