@@ -239,6 +239,7 @@ void Agent::CopyConfig(AgentParam *params) {
     debug_ = params_->debug();
     test_mode_ = params_->test_mode();
     flood_arp_ = params_->flood_arp();
+    tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -291,6 +292,30 @@ void Agent::InitCollector() {
                 NULL);
     }
 
+}
+
+bool Agent::TbbKeepAwake() {
+    tbb_awake_count_++;
+    return true;
+}
+
+void Agent::InitDone() {
+    // Its observed that sometimes TBB doesnt scheduler misses spawn events
+    // and doesnt schedule a task till its triggered again. As a work around
+    // start a dummy timer that fires and awake TBB periodically
+    if (tbb_keepawake_timeout_) {
+        uint32_t task_id = task_scheduler_->GetTaskId("Agent::TbbKeepAwake");
+        tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr_->io_service(),
+                                                     "TBB Keep Awake",
+                                                     task_id, 0);
+        tbb_awake_timer_->Start(tbb_keepawake_timeout_,
+                                boost::bind(&Agent::TbbKeepAwake, this));
+    }
+}
+
+void Agent::Shutdown() {
+    if (tbb_awake_timer_)
+        TimerManager::DeleteTimer(tbb_awake_timer_);
 }
 
 static bool interface_exist(string &name) {
@@ -374,7 +399,9 @@ Agent::Agent() :
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     connection_state_(NULL), debug_(false), test_mode_(false),
-    init_done_(false), simulate_evpn_tor_(false), flood_arp_(false) {
+    init_done_(false), simulate_evpn_tor_(false), flood_arp_(false),
+    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout), tbb_awake_timer_(NULL),
+    tbb_awake_count_(0) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
