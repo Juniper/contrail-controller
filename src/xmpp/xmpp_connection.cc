@@ -619,7 +619,7 @@ public:
 
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
             server_->NotifyConnectionEvent(parent_->ChannelMux(),
-                xmps::NOT_READY);
+                    xmps::NOT_READY);
         }
 
         if (parent_->logUVE()) {
@@ -665,23 +665,6 @@ XmppServerConnection::~XmppServerConnection() {
 
     XMPP_INFO(XmppConnectionDelete, "Server", FromString(), ToString());
     server()->RemoveDeletedConnection(this);
-}
-
-bool XmppServerConnection::EndpointNameIsUnique() {
-    // Bail if we've been deleted.
-    if (IsDeleted())
-        return false;
-
-    // Nothing to check if we already have a XmppConnectionEndpoint.
-    if (conn_endpoint_)
-        return true;
-
-    // Associate with a XmppConnectionEndpoint and handle the case where we
-    // already have another XmppConnection from the same Endpoint. Note that
-    // the XmppConnection is not marked duplicate since it's already on the
-    // ConnectionMap.
-    conn_endpoint_ = server()->LocateConnectionEndpoint(this);
-    return (conn_endpoint_ ? true : false);
 }
 
 void XmppServerConnection::ManagedDelete() {
@@ -734,9 +717,12 @@ uint32_t XmppServerConnection::flap_count() const {
 }
 
 void XmppServerConnection::increment_flap_count() {
-    if (!conn_endpoint_)
+    XmppConnectionEndpoint *conn_endpoint = conn_endpoint_;
+    if (!conn_endpoint)
+        conn_endpoint = server()->FindConnectionEndpoint(this);
+    if (!conn_endpoint)
         return;
-    conn_endpoint_->increment_flap_count();
+    conn_endpoint->increment_flap_count();
 
     if (!logUVE())
         return;
@@ -744,8 +730,8 @@ void XmppServerConnection::increment_flap_count() {
     XmppPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     PeerFlapInfo flap_info;
-    flap_info.set_flap_count(conn_endpoint_->flap_count());
-    flap_info.set_flap_time(conn_endpoint_->last_flap());
+    flap_info.set_flap_count(conn_endpoint->flap_count());
+    flap_info.set_flap_time(conn_endpoint->last_flap());
     peer_info.set_flap_info(flap_info);
     XMPPPeerInfo::Send(peer_info);
 }
@@ -914,6 +900,10 @@ const std::string XmppConnectionEndpoint::last_flap_at() const {
 }
 
 XmppConnection *XmppConnectionEndpoint::connection() {
+    return connection_;
+}
+
+const XmppConnection *XmppConnectionEndpoint::connection() const {
     return connection_;
 }
 

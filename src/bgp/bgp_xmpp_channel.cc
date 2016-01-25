@@ -140,7 +140,8 @@ public:
     }
 
     virtual bool IsCloseGraceful() {
-        if (!parent_ || !parent_->channel_) return false;
+        if (!parent_ || !parent_->channel_)
+            return false;
 
         XmppConnection *connection =
             const_cast<XmppConnection *>(parent_->channel_->connection());
@@ -153,7 +154,8 @@ public:
     }
 
     virtual void CustomClose() {
-        if (parent_->rtarget_routes_.empty()) return;
+        if (!parent_ || parent_->rtarget_routes_.empty())
+            return;
         BgpServer *server = parent_->bgp_server_;
         RoutingInstanceMgr *instance_mgr = server->routing_instance_mgr();
         RoutingInstance *master =
@@ -173,36 +175,31 @@ public:
         parent_->rtarget_routes_.clear();
     }
 
-    virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
-        if (!parent_) return true;
+    virtual void CloseComplete() {
+        if (!parent_)
+            return;
 
-        if (!from_timer) {
-            // If graceful restart is enabled, do not delete this peer yet
-            // However, if a gr is already aborted, do not trigger another gr
-            if (!gr_cancelled && IsCloseGraceful()) {
-                return false;
-            }
-        } else {
-            // Close is complete off graceful restart timer. Delete this peer
-            // if the session has not come back up
-            if (parent_->Peer()->IsReady()) return false;
-        }
-
+        parent_->set_peer_deleted(false);
         XmppConnection *connection =
             const_cast<XmppConnection *>(parent_->channel_->connection());
 
-        // TODO(ananth): This needs to be cleaned up properly by clearly
-        // separating GR entry and exit steps. Avoid duplicate channel
-        // deletions.
-        if (connection && !connection->IsActiveChannel()) {
-            parent_->manager_->Enqueue(parent_);
-            parent_ = NULL;
-        }
-        return true;
+        // Restart state machine.
+        if (connection && connection->state_machine())
+            connection->state_machine()->Initialize();
+    }
+
+    virtual void Delete() {
+        if (!parent_)
+            return;
+        parent_->manager_->Enqueue(parent_);
+        parent_ = NULL;
     }
 
     void Close() {
-        manager_->Close();
+        if (parent_) {
+            assert(parent_->peer_deleted());
+            manager_->Close();
+        }
     }
 
 private:
@@ -340,7 +337,7 @@ public:
     }
 
     virtual ~XmppPeer() {
-        assert(GetRefCount() == 0);
+        // assert(GetRefCount() == 0);
     }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
@@ -510,7 +507,7 @@ BgpXmppChannel::~BgpXmppChannel() {
     if (manager_ && close_in_progress_)
         manager_->decrement_closing_count();
     STLDeleteElements(&defer_q_);
-    assert(peer_->IsDeleted());
+    // assert(!peer_deleted());
     BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Deleted");
     channel_->UnRegisterReceive(peer_id_);
@@ -1856,6 +1853,10 @@ void BgpXmppChannel::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     membership_response_worker_.Enqueue(table->name());
 }
 
+void BgpXmppChannel::FillCloseInfo(BgpNeighborResp *resp) const {
+    peer_close_->close_manager()->FillCloseInfo(resp);
+}
+
 void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) const {
     vector<BgpNeighborRoutingInstance> instance_list;
     BOOST_FOREACH(const SubscribedRoutingInstanceList::value_type &entry,
@@ -2109,12 +2110,14 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         if (add_change) {
             if (routing_instances_.find(rt_instance) !=
                 routing_instances_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                             "Duplicate subscribe for routing instance " <<
-                             vrf_name << ", triggering close");
-                channel_->Close();
-                return;
+                if (!peer_close_->close_manager()->IsCloseInProgress()) {
+                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Duplicate subscribe for routing instance " <<
+                                 vrf_name << ", triggering close");
+                    channel_->Close();
+                    return;
+                }
             }
             channel_stats_.instance_subscribe++;
         } else {
@@ -2204,8 +2207,14 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                 XmlBase *impl = msg->dom.get();
                 stats_[RX].rt_updates++;
                 XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
-                for (xml_node item = pugi->FindNode("item"); item;
-                    item = item.next_sibling()) {
+                xml_node item = pugi->FindNode("item");
+
+                // Empty items-list can be considered as EOR Marker for all afis
+                if (item == 0) {
+                    peer_close_->close_manager()->StartRestartTimer(0);
+                    return;
+                }
+                for (; item; item = item.next_sibling()) {
                     if (strcmp(item.name(), "item") != 0) continue;
 
                         string id(iq->as_node.c_str());
@@ -2234,12 +2243,10 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 }
 
 bool BgpXmppChannelManager::DeleteExecutor(BgpXmppChannel *channel) {
-    if (channel->deleted()) return true;
-    channel->set_deleted(true);
-
-    // TODO(ananth): Enqueue an event to the deleter() and deleted this peer
-    // and the channel from a different thread to solve concurrency issues
-    delete channel;
+    if (!channel->deleted()) {
+        channel->set_deleted(true);
+        delete channel;
+    }
     return true;
 }
 
@@ -2281,7 +2288,7 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
 BgpXmppChannelManager::~BgpXmppChannelManager() {
     assert(channel_map_.empty());
     assert(channel_name_map_.empty());
-    assert(closing_count_ == 0);
+    // assert(closing_count_ == 0); // TODO FIX this Ananth
     if (xmpp_server_) {
         xmpp_server_->UnRegisterConnectionEvent(xmps::BGP);
     }
@@ -2396,7 +2403,8 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             }
         } else {
             bgp_xmpp_channel = (*it).second;
-            bgp_xmpp_channel->peer_->SetDeleted(false);
+            if (bgp_xmpp_channel->peer_deleted())
+                return;
         }
     } else if (state == xmps::NOT_READY) {
         if (it != channel_map_.end()) {
@@ -2471,10 +2479,9 @@ string BgpXmppChannel::transport_address_string() const {
 
 //
 // Mark the XmppPeer as deleted.
-// For unit testing only.
 //
-void BgpXmppChannel::set_peer_deleted() {
-    peer_->SetDeleted(true);
+void BgpXmppChannel::set_peer_deleted(bool flag) {
+    peer_->SetDeleted(flag);
 }
 
 //

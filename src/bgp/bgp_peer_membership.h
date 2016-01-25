@@ -118,10 +118,6 @@ public:
     IPeer *ipeer() { return ipeer_; }
     BgpTable *table() { return table_; }
 
-    void SetStale() { stale_ = true; }
-    void ResetStale() { stale_ = false; }
-    bool IsStale() { return stale_; }
-
     void RegisterRibIn();
     void UnregisterRibIn();
     bool IsRibInRegistered();
@@ -156,7 +152,6 @@ private:
     LifetimeRef<IPeerRib> table_delete_ref_;
     bool ribin_registered_;
     bool ribout_registered_;
-    bool stale_;
     int instance_id_;       // xmpp peer instance-id
     DISALLOW_COPY_AND_ASSIGN(IPeerRib);
 };

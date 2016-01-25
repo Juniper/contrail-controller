@@ -69,10 +69,11 @@ public:
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionCount() const;
 
-    const XmppConnectionEndpoint *FindConnectionEndpoint(
-        const std::string &endpoint_name) const;
+    XmppConnectionEndpoint *FindConnectionEndpoint(
+            const std::string &endpoint_name);
+    XmppConnectionEndpoint *FindConnectionEndpoint(XmppServerConnection *conn);
     XmppConnectionEndpoint *LocateConnectionEndpoint(
-        XmppServerConnection *connection);
+        XmppServerConnection *connection, bool &created);
     void ReleaseConnectionEndpoint(XmppServerConnection *connection);
 
     void FillShowConnections(
