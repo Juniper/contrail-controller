@@ -14,7 +14,11 @@ using namespace std;
 class BgpExportRouteUpdateCommonTest : public BgpExportTest {
 protected:
 
-    BgpExportRouteUpdateCommonTest() : rt_update_(NULL), count_(0) {
+    BgpExportRouteUpdateCommonTest()
+        : qid_(RibOutUpdates::QUPDATE),
+          rt_update_(NULL),
+          tstamp_(0),
+          count_(0) {
     }
 
     void InitAdvertiseInfo(BgpAttrPtr attrX, int start_idx, int end_idx) {
@@ -31,6 +35,12 @@ protected:
             int qid = RibOutUpdates::QUPDATE) {
         qid_ = qid;
         InitUpdateInfoCommon(attrX, start_idx, end_idx, uinfo_slist_);
+    }
+
+    void InitUpdateInfo(BgpAttrPtr attrX, uint32_t label,
+        int start_idx, int end_idx, int qid = RibOutUpdates::QUPDATE) {
+        qid_ = qid;
+        InitUpdateInfoCommon(attrX, label, start_idx, end_idx, uinfo_slist_);
     }
 
     void InitUpdateInfo(BgpAttrPtr attr_blk[], int start_idx, int end_idx,
@@ -743,6 +753,159 @@ TEST_F(BgpExportRouteUpdateTest1, JoinMerge4) {
         VerifyRouteUpdateDequeueEnqueue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, alt_attr_, 0, vJoinPeerCount-1);
+        VerifyHistory(rt_update);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Join processing for route that already has join pending updates
+//              for some peers. Export policy accepts the route for other join
+//              peers with same attribute, but different label.
+//              Common attribute for initial join peers and new join peers.
+//              Different labels for initial join peers and new join peers.
+//
+// Old DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[vJoinPeerCount,kPeerCount-1],
+//              attr A + label 100.
+// Join Peers:  Peers x=[0,vJoinPeerCount-1].
+// Export Rslt: Accept peer x=[0,vJoinPeerCount-1], attr A + label 200.
+// New DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[vJoinPeerCount,kPeerCount-1],
+//              attr A + label 100.
+//              UpdateInfo peer x=[0,vJoinPeerCount-1], attr A + label 200.
+//
+TEST_F(BgpExportRouteUpdateTest1, JoinMerge5a) {
+    int qid = RibOutUpdates::QBULK;
+    for (int vJoinPeerCount = 1; vJoinPeerCount < kPeerCount;
+            vJoinPeerCount++) {
+        InitUpdateInfo(attrA_, 100, vJoinPeerCount, kPeerCount-1, qid);
+        Initialize();
+
+        RibPeerSet join_peerset;
+        BuildPeerSet(join_peerset, 0, vJoinPeerCount-1);
+        BuildExportResult(attrA_, 0, vJoinPeerCount-1, 200);
+        RunJoin(join_peerset);
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        EXPECT_EQ(rt_update_, rt_update);
+        VerifyUpdates(rt_update, attrA_, 100, vJoinPeerCount, kPeerCount-1, 2);
+        VerifyUpdates(rt_update, attrA_, 200, 0, vJoinPeerCount-1, 2);
+        VerifyHistory(rt_update);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Join processing for route that already has join pending updates
+//              for some peers. Export policy accepts the route for other join
+//              peers with same attribute, but different label.
+//              Common attribute for initial join peers and new join peers.
+//              Different labels for initial join peers and new join peers.
+//              After this the route is exported to all peers with the same
+//              attribute and the label. The attribute and label are same as
+//              that for the new join peers.
+//
+// Old DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[vJoinPeerCount,kPeerCount-1],
+//              attr A + label 100.
+// Join Peers:  Peers x=[0,vJoinPeerCount-1].
+// Export Rslt1:Accept peer x=[0,vJoinPeerCount-1], attr A + label 200.
+// Export Rslt2:Accept peer x=[0,kPeerCount-1], attr A + label 200.
+// New DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[0,kPeerCount-1], attr A + label 200.
+//
+TEST_F(BgpExportRouteUpdateTest1, JoinMerge5b) {
+    int qid = RibOutUpdates::QBULK;
+    for (int vJoinPeerCount = 1; vJoinPeerCount < kPeerCount;
+            vJoinPeerCount++) {
+        InitUpdateInfo(attrA_, 100, vJoinPeerCount, kPeerCount-1, qid);
+        Initialize();
+
+        RibPeerSet join_peerset;
+        BuildPeerSet(join_peerset, 0, vJoinPeerCount-1);
+        BuildExportResult(attrA_, 0, vJoinPeerCount-1, 200);
+        RunJoin(join_peerset);
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        EXPECT_EQ(rt_update_, rt_update);
+        VerifyUpdates(rt_update, attrA_, 100, vJoinPeerCount, kPeerCount-1, 2);
+        VerifyUpdates(rt_update, attrA_, 200, 0, vJoinPeerCount-1, 2);
+        VerifyHistory(rt_update);
+
+        BuildExportResult(attrA_, 0, kPeerCount-1, 200);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        rt_update = ExpectRouteUpdate(&rt_, RibOutUpdates::QUPDATE);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        EXPECT_EQ(rt_update_, rt_update);
+        VerifyUpdates(rt_update, attrA_, 200, 0, kPeerCount-1);
+        VerifyHistory(rt_update);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Join processing for route that already has join pending updates
+//              for some peers. Export policy accepts the route for other join
+//              peers with same attribute, but different label.
+//              Common attribute for initial join peers and new join peers.
+//              Different labels for initial join peers and new join peers.
+//              After this the route is exported to all peers with the same
+//              attribute and the label. The attribute and label are different
+//              than those for both the initial and new join peers.
+//
+// Old DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[vJoinPeerCount,kPeerCount-1],
+//              attr A + label 100.
+// Join Peers:  Peers x=[0,vJoinPeerCount-1].
+// Export Rslt1:Accept peer x=[0,vJoinPeerCount-1], attr A + label 200.
+// Export Rslt2:Accept peer x=[0,kPeerCount-1], attr B + label 300.
+// New DBState: RouteUpdate in QBULK.
+//              No AdvertiseInfo.
+//              UpdateInfo peer x=[0,kPeerCount-1], attr B + label 300.
+//
+TEST_F(BgpExportRouteUpdateTest1, JoinMerge5c) {
+    int qid = RibOutUpdates::QBULK;
+    for (int vJoinPeerCount = 1; vJoinPeerCount < kPeerCount;
+            vJoinPeerCount++) {
+        InitUpdateInfo(attrA_, 100, vJoinPeerCount, kPeerCount-1, qid);
+        Initialize();
+
+        RibPeerSet join_peerset;
+        BuildPeerSet(join_peerset, 0, vJoinPeerCount-1);
+        BuildExportResult(attrA_, 0, vJoinPeerCount-1, 200);
+        RunJoin(join_peerset);
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        EXPECT_EQ(rt_update_, rt_update);
+        VerifyUpdates(rt_update, attrA_, 100, vJoinPeerCount, kPeerCount-1, 2);
+        VerifyUpdates(rt_update, attrA_, 200, 0, vJoinPeerCount-1, 2);
+        VerifyHistory(rt_update);
+
+        BuildExportResult(attrB_, 0, kPeerCount-1, 300);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        rt_update = ExpectRouteUpdate(&rt_, RibOutUpdates::QUPDATE);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        EXPECT_EQ(rt_update_, rt_update);
+        VerifyUpdates(rt_update, attrB_, 300, 0, kPeerCount-1);
         VerifyHistory(rt_update);
 
         DrainAndDeleteRouteState(&rt_);
