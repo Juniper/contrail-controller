@@ -271,7 +271,8 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
 void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                           uint32_t path_id, uint32_t flags, uint32_t label) {
+                           uint32_t path_id, uint32_t flags, uint32_t label,
+                           bool notify) {
     bool is_stale = false;
 
     switch (oper) {
@@ -293,6 +294,8 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                 rt->DeletePath(path);
             } else {
                 // Ignore duplicate update.
+                if (notify)
+                    root->Notify(rt);
                 break;
             }
         }
@@ -416,10 +419,12 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
                 break;
             }
 
+            bool notify = false;
             path = rt->FindPath(BgpPath::BGP_XMPP, peer, path_id);
             if (path && req->oper != DBRequest::DB_ENTRY_DELETE) {
                 if (path->IsStale()) {
                     path->ResetStale();
+                    notify = true;
                 }
                 deleted_paths.erase(path);
             }
@@ -436,7 +441,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
             }
 
             InputCommon(root, rt, path, peer, req, req->oper, attr, path_id,
-                nexthop.flags_, nexthop.label_);
+                nexthop.flags_, nexthop.label_, notify);
         }
     }
 

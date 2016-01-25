@@ -90,7 +90,7 @@ public:
     TcpSession::Endpoint local_endpoint() const;
     std::string transport_address_string() const;
 
-    void set_peer_deleted(); // For unit testing only.
+    void set_peer_deleted(bool flag = true); // For unit testing only.
     bool peer_deleted() const;
     uint64_t peer_deleted_at() const;
 
@@ -106,6 +106,7 @@ public:
     void IdentifierUpdateCallback(Ip4Address old_identifier);
     void FillInstanceMembershipInfo(BgpNeighborResp *resp) const;
     void FillTableMembershipInfo(BgpNeighborResp *resp) const;
+    void FillCloseInfo(BgpNeighborResp *resp) const;
 
     const XmppChannel *channel() const { return channel_; }
 

@@ -485,42 +485,50 @@ void XmppServer::RemoveDeletedConnection(XmppServerConnection *connection) {
     ConnectionSet::iterator it = deleted_connection_set_.find(connection);
     assert(it != deleted_connection_set_.end());
     deleted_connection_set_.erase(it);
+    ReleaseConnectionEndpoint(connection);
 }
 
-const XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
-    const string &endpoint_name) const {
+XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
+    const string &endpoint_name) {
+    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
     ConnectionEndpointMap::const_iterator loc =
         connection_endpoint_map_.find(endpoint_name);
     return (loc != connection_endpoint_map_.end() ? loc->second : NULL);
 }
 
-//
-// Find or create an XmppConnectionEndpoint for the Endpoint of the given
-// XmppConnnection. If XmppConnectionEndpoint is already associated with a
-// XmppConnection, return NULL to indicate that the XmppConnection should
-// be terminated. Otherwise, associate it with the given XmppConnection.
-//
-XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
+XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
     XmppServerConnection *connection) {
+    if (!connection)
+        return NULL;
     tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
 
-    const string &endpoint_name = connection->ToString();
-    XmppConnectionEndpoint *conn_endpoint;
-    ConnectionEndpointMap::iterator loc =
-        connection_endpoint_map_.find(endpoint_name);
-    if (loc == connection_endpoint_map_.end()) {
-        conn_endpoint = new XmppConnectionEndpoint(endpoint_name);
-        bool result;
-        tie(loc, result) = connection_endpoint_map_.insert(
-            make_pair(endpoint_name, conn_endpoint));
-        assert(result);
-    } else {
-        conn_endpoint = loc->second;
-    }
+    ConnectionEndpointMap::const_iterator loc =
+        connection_endpoint_map_.find(connection->ToString());
+    return (loc != connection_endpoint_map_.end() ? loc->second : NULL);
+}
 
-    if (conn_endpoint->connection())
+XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
+        XmppServerConnection *connection, bool &created) {
+    created = false;
+    if (!connection)
         return NULL;
+
+    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
+
+    ConnectionEndpointMap::const_iterator loc =
+        connection_endpoint_map_.find(connection->ToString());
+    if (loc != connection_endpoint_map_.end())
+            return loc->second;
+
+    created = true;
+    XmppConnectionEndpoint *conn_endpoint =
+        new XmppConnectionEndpoint(connection->ToString());
+    bool result;
+    tie(loc, result) = connection_endpoint_map_.insert(
+            make_pair(connection->ToString(), conn_endpoint));
+    assert(result);
     conn_endpoint->set_connection(connection);
+    connection->set_conn_endpoint(conn_endpoint);
     return conn_endpoint;
 }
 
@@ -530,12 +538,15 @@ XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
 // simply have called XmppConnectionEndpoint::reset_connection directly.
 //
 void XmppServer::ReleaseConnectionEndpoint(XmppServerConnection *connection) {
-    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
-
-    if (!connection->conn_endpoint())
+    XmppConnectionEndpoint *conn_endpoint = connection->conn_endpoint();
+    if (!conn_endpoint)
+        conn_endpoint = FindConnectionEndpoint(connection);
+    if (!conn_endpoint)
         return;
-    assert(connection->conn_endpoint()->connection() == connection);
-    connection->conn_endpoint()->reset_connection();
+
+    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
+    if (conn_endpoint->connection() == connection)
+        conn_endpoint->reset_connection();
 }
 
 void XmppServer::FillShowConnections(

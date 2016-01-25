@@ -55,6 +55,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     mgr->FillPeerMembershipInfo(bx_channel->Peer(), bnr);
     bx_channel->FillTableMembershipInfo(bnr);
     bx_channel->FillInstanceMembershipInfo(bnr);
+    bx_channel->FillCloseInfo(bnr);
 
     BgpPeer::FillBgpNeighborDebugState(bnr, bx_channel->Peer()->peer_stats());
 }
