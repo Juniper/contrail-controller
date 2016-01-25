@@ -136,10 +136,20 @@ void Inet6Route::BuildProtoPrefix(BgpProtoPrefix *prefix,
          back_inserter(prefix->prefix));
 }
 
+//
+// Fill in the vector based on the supplied nexthop.
+//
 void Inet6Route::BuildBgpProtoNextHop(vector<uint8_t> &nh,
                                       IpAddress nexthop) const {
     nh.resize(Address::kMaxV6Bytes);
-    const Ip6Address::bytes_type &addr_bytes = nexthop.to_v6().to_bytes();
+    Ip6Address address;
+    if (nexthop.is_v4()) {
+        address = Ip6Address::v4_mapped(nexthop.to_v4());
+    } else {
+        address = nexthop.to_v6();
+    }
+
+    const Ip6Address::bytes_type &addr_bytes = address.to_bytes();
     copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
 

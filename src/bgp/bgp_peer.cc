@@ -1552,11 +1552,30 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
         }
     } else if (nlri->afi == BgpAf::IPv6) {
         if (nlri->safi == BgpAf::Unicast) {
-            Ip6Address::bytes_type bt = { { 0 } };
-            copy(nlri->nexthop.begin(),
-                nlri->nexthop.begin() + sizeof(bt), bt.begin());
-            addr = Ip6Address(bt);
-            update_nh = true;
+            // There could be either 1 or 2 v6 addresses in the nexthop field.
+            // The first one is supposed to be global and the optional second
+            // one, if present, is link local. We will be liberal and find the
+            // global address, whether it's first or second. Further, if the
+            // address is a v4-mapped v6 address, we use the corresponding v4
+            // address as the nexthop.
+            for (int idx = 0; idx < 2; ++idx) {
+                Ip6Address::bytes_type bt = { { 0 } };
+                if ((idx + 1) * sizeof(bt) > nlri->nexthop.size())
+                    break;
+                copy(nlri->nexthop.begin() + idx * sizeof(bt),
+                    nlri->nexthop.begin() + (idx + 1) * sizeof(bt), bt.begin());
+                Ip6Address v6_addr(bt);
+                if (v6_addr.is_v4_mapped()) {
+                    addr = Address::V4FromV4MappedV6(v6_addr);
+                    update_nh = true;
+                    break;
+                }
+                if (!v6_addr.is_link_local()) {
+                    addr = v6_addr;
+                    update_nh = true;
+                    break;
+                }
+            }
         } else if (nlri->safi == BgpAf::Vpn) {
             Ip6Address::bytes_type bt = { { 0 } };
             size_t rdsize = RouteDistinguisher::kSize;
