@@ -2110,8 +2110,6 @@ void FlowTable::DeleteByIndex(FlowEntry *fe) {
     if (fe->flow_handle() != FlowEntry::kInvalidFlowHandle) {
         if (flow_index_tree_[fe->flow_handle()].get() == fe) {
             flow_index_tree_[fe->flow_handle()] = NULL;
-        } else {
-            assert(0);
         }
     }
 }
