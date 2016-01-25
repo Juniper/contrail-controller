@@ -220,23 +220,38 @@ main(int argc, char *argv[]) {
     // 2. Redis
     // 3. Cassandra
     // 4. Discovery (if collector list not configured)
+    int num_expected_connections = 4;
+    bool use_collector_list = false;
+    if (options.collectors_configured() || !csf) {
+        num_expected_connections = 3;
+        use_collector_list = true;
+    }
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*evm.io_service(),
             options.hostname(), module_name,
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            options.collector_server_list().size() ? 3 : 4));
+            num_expected_connections));
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
-    bool success(Sandesh::InitGenerator(
-            module_name,
-            options.hostname(),
-            g_vns_constants.NodeTypeNames.find(node_type)->second,
-            instance_id,
-            &evm,
-            options.http_server_port(),
-            csf,
-            options.collector_server_list(),
-            NULL));
+    bool success;
+    // subscribe to the collector service with discovery only if the
+    // collector list is not configured.
+    if (use_collector_list) {
+        std::vector<std::string> collectors(options.collector_server_list());
+        if (!collectors.size()) {
+            collectors = options.default_collector_server_list();
+        }
+        success = Sandesh::InitGenerator(module_name, options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    instance_id, &evm, options.http_server_port(), 0,
+                    collectors, NULL);
+    } else {
+        const std::vector<std::string> collectors;
+        success = Sandesh::InitGenerator(module_name, options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    instance_id, &evm, options.http_server_port(), csf,
+                    collectors, NULL);
+    }
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
         ShutdownQe(ds_client, NULL);

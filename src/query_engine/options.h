@@ -19,6 +19,12 @@ public:
     const std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
+    const std::vector<std::string> default_collector_server_list() const {
+        return default_collector_server_list_;
+    }
+    const bool collectors_configured() const {
+        return collector_server_list_.size() > 0;
+    }
     const std::vector<std::string> config_file() const {
         return config_file_;
     }
@@ -94,6 +100,7 @@ private:
     uint32_t send_ratelimit_;
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> collector_server_list_;
+    std::vector<std::string> default_collector_server_list_;
 
     boost::program_options::options_description config_file_options_;
     std::string cassandra_user_;
