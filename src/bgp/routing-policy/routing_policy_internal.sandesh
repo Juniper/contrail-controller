@@ -1,0 +1,6 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+request sandesh ShowRoutingPolicyReqIterate {
+    1: string iterate_info;
+}

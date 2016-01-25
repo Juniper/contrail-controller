@@ -7,16 +7,20 @@
 #include <boost/foreach.hpp>
 
 #include <algorithm>
+#include <sstream>
 
 #include <bgp/bgp_attr.h>
 #include <bgp/bgp_server.h>
 #include <bgp/community.h>
 #include <net/community_type.h>
 
+using std::copy;
+using std::ostringstream;
+using std::string;
 
-UpdateCommunity::UpdateCommunity(const std::vector<std::string> communities,
-                                 std::string op) {
-    BOOST_FOREACH(const std::string &community, communities) {
+UpdateCommunity::UpdateCommunity(const std::vector<string> communities,
+                                 string op) {
+    BOOST_FOREACH(const string &community, communities) {
         uint32_t value = CommunityType::CommunityFromString(community);
         if (value) communities_.push_back(value);
     }
@@ -53,8 +57,19 @@ void UpdateCommunity::operator()(BgpAttr *attr) const {
     }
 }
 
-std::string UpdateCommunity::ToString() const {
-    return "Update Community";
+string UpdateCommunity::ToString() const {
+    ostringstream oss;
+    if (op_ == SET) oss << "community set [ ";
+    else if  (op_ == ADD) oss << "community add [ ";
+    else if (op_ == REMOVE) oss << "community remove [ ";
+
+    BOOST_FOREACH(uint32_t community, communities()) {
+        string name = CommunityType::CommunityToString(community);
+        oss << name << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
+    return oss.str();
 }
 
 bool UpdateCommunity::IsEqual(const RoutingPolicyAction &community) const {
@@ -73,8 +88,10 @@ void UpdateLocalPref::operator()(BgpAttr *attr) const {
     attr->set_local_pref(local_pref_);
 }
 
-std::string UpdateLocalPref::ToString() const {
-    return "Update LocalPref";
+string UpdateLocalPref::ToString() const {
+    ostringstream oss;
+    oss << "local-pref " << local_pref_;
+    return oss.str();
 }
 
 bool UpdateLocalPref::IsEqual(const RoutingPolicyAction &local_pref) const {

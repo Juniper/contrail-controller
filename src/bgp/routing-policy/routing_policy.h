@@ -255,6 +255,7 @@ public:
 
     PolicyResult operator()(const BgpRoute *route, BgpAttr *attr) const;
     uint32_t generation() const { return generation_; }
+    uint32_t refcount() const { return refcount_; }
 
 private:
     friend class RoutingPolicyMgr;
