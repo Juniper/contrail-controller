@@ -80,7 +80,6 @@ IPeerRib::IPeerRib(
       table_delete_ref_(this, NULL),
       ribin_registered_(false),
       ribout_registered_(false),
-      stale_(false),
       instance_id_(-1) {
     if (membership_mgr != NULL) {
         LifetimeActor *deleter = table ? table->deleter() : NULL;
@@ -980,13 +979,6 @@ void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
             if (request->instance_id > 0) {
                 peer_rib->set_instance_id(request->instance_id);
             }
-        }
-
-        //
-        // Peer has registered to this table. Reset the stale flag
-        //
-        if (peer_rib->IsStale()) {
-            peer_rib->ResetStale();
         }
 
         BGP_LOG_PEER_TABLE(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
