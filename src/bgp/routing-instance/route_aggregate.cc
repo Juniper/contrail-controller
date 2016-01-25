@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/lifetime.h"
+#include "base/map_util.h"
 #include "base/task_annotations.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -552,43 +553,16 @@ bool CompareAggregateRouteConfig(const AggregateRouteConfig &lhs,
 template <typename T>
 void RouteAggregator<T>::UpdateAggregateRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    typedef BgpInstanceConfig::AggregateRouteList AggregateRouteList;
-    AggregateRouteList aggregate_route_list =
+    AggregateRouteConfigList config_list =
         routing_instance()->config()->aggregate_routes(GetFamily());
+    sort(config_list.begin(), config_list.end(), CompareAggregateRouteConfig);
 
-    sort(aggregate_route_list.begin(), aggregate_route_list.end(),
-              CompareAggregateRouteConfig);
-
-    // TODO(prakashmb): templatize the sync operation
-    AggregateRouteList::const_iterator aggregate_route_cfg_it =
-            aggregate_route_list.begin();
-    typename AggregateRouteMap::iterator oper_it = aggregate_route_map_.begin();
-
-    while ((aggregate_route_cfg_it != aggregate_route_list.end()) &&
-           (oper_it != aggregate_route_map_.end())) {
-        AddressT address = this->GetAddress(aggregate_route_cfg_it->aggregate);
-        PrefixT aggregate_route_prefix(address,
-                                       aggregate_route_cfg_it->prefix_length);
-        if (aggregate_route_prefix < oper_it->first) {
-            LocateAggregateRoutePrefix(*aggregate_route_cfg_it);
-            aggregate_route_cfg_it++;
-        } else if (aggregate_route_prefix > oper_it->first) {
-            RemoveAggregateRoutePrefix(oper_it->first);
-            oper_it++;
-        } else {
-            LocateAggregateRoutePrefix(*aggregate_route_cfg_it);
-            aggregate_route_cfg_it++;
-            oper_it++;
-        }
-    }
-
-    for (; oper_it != aggregate_route_map_.end(); oper_it++) {
-        RemoveAggregateRoutePrefix(oper_it->first);
-    }
-    for (; aggregate_route_cfg_it != aggregate_route_list.end();
-         aggregate_route_cfg_it++) {
-        LocateAggregateRoutePrefix(*aggregate_route_cfg_it);
-    }
+    map_difference(&aggregate_route_map_,
+        config_list.begin(), config_list.end(),
+        boost::bind(&RouteAggregator<T>::CompareAggregateRoute, this, _1, _2),
+        boost::bind(&RouteAggregator<T>::AddAggregateRoute, this, _1),
+        boost::bind(&RouteAggregator<T>::DelAggregateRoute, this, _1),
+        boost::bind(&RouteAggregator<T>::UpdateAggregateRoute, this, _1, _2));
 }
 
 template <typename T>
@@ -713,6 +687,35 @@ bool RouteAggregator<T>::FillAggregateRouteInfo(RoutingInstance *ri,
         info->aggregate_route_list.push_back(aggregate_info);
     }
     return true;
+}
+
+template <typename T>
+int RouteAggregator<T>::CompareAggregateRoute(
+    typename AggregateRouteMap::iterator loc,
+    BgpInstanceConfig::AggregateRouteList::iterator it) {
+    AddressT address = this->GetAddress(it->aggregate);
+    PrefixT prefix(address, it->prefix_length);
+    KEY_COMPARE(loc->first, prefix);
+    return 0;
+}
+
+template <typename T>
+void RouteAggregator<T>::AddAggregateRoute(
+    BgpInstanceConfig::AggregateRouteList::iterator it) {
+    LocateAggregateRoutePrefix(*it);
+}
+
+template <typename T>
+void RouteAggregator<T>::DelAggregateRoute(
+    typename AggregateRouteMap::iterator loc) {
+    RemoveAggregateRoutePrefix(loc->first);
+}
+
+template <typename T>
+void RouteAggregator<T>::UpdateAggregateRoute(
+    typename AggregateRouteMap::iterator loc,
+    BgpInstanceConfig::AggregateRouteList::iterator it) {
+    LocateAggregateRoutePrefix(*it);
 }
 
 template <typename T>
