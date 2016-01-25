@@ -18,6 +18,12 @@
 // Looks at the BgpAttr, Timestamp and the associated RouteUpdate but not
 // the Label, in order to achieve optimal packing of BGP updates.
 //
+// Compare the UpdateInfo pointers themselves as the final tie-breaker to
+// handle the case where there are 2 UpdateInfos with the same BgpAttr in
+// the same RouteUpdate. This can happen if the label (or the set for ecmp
+// nexthops in case of an XMPP ribout) for a route changes between the Join
+// operations for 2 different sets of IPeerUpdates.
+//
 struct UpdateByAttrCmp {
     bool operator()(const UpdateInfo &lhs, const UpdateInfo &rhs) const {
         if (lhs.roattr.attr() < rhs.roattr.attr()) {
@@ -32,7 +38,13 @@ struct UpdateByAttrCmp {
         if (lhs.update->tstamp() > rhs.update->tstamp()) {
             return false;
         }
-        return (lhs.update < rhs.update);
+        if (lhs.update < rhs.update)  {
+            return true;
+        }
+        if (lhs.update > rhs.update) {
+            return false;
+        }
+        return (&lhs < &rhs);
     }
 };
 
