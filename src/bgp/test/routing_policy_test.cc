@@ -12,11 +12,15 @@
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/routing-policy/routing_policy_action.h"
+#include "bgp/routing-policy/routing_policy_match.h"
+#include "bgp/routing-policy/routing_policy_types.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
@@ -263,7 +267,6 @@ protected:
         return rt;
     }
 
-
     vector<string> GetOriginalCommunityListFromRoute(const BgpPath *path) {
         const Community *comm = path->GetOriginalAttr()->community();
         if (comm == NULL) return vector<string>();
@@ -275,7 +278,6 @@ protected:
         return list;
     }
 
-
     vector<string> GetCommunityListFromRoute(const BgpPath *path) {
         const Community *comm = path->GetAttr()->community();
         if (comm == NULL) return vector<string>();
@@ -285,6 +287,14 @@ protected:
         }
         sort(list.begin(), list.end());
         return list;
+    }
+
+    const RoutingPolicy *FindRoutingPolicy(const string &policy_name) {
+        return bgp_server_->routing_policy_mgr()->GetRoutingPolicy(policy_name);
+    }
+
+    const RoutingInstance *FindRoutingInstance(const string &inst) {
+        return bgp_server_->routing_instance_mgr()->GetRoutingInstance(inst);
     }
 
     EventManager evm_;
@@ -1857,7 +1867,7 @@ TEST_F(RoutingPolicyTest, PolicyUpdate_ToReject) {
 
 //
 // 1. Routing instance is attached two network policies
-// 2. Add route that matches both policies. 
+// 2. Add route that matches both policies.
 //    Route matches the first policy and rejected
 // 3. Update of the order of network policy on the routing instance
 // 4. Route matches first policy and accepted
@@ -1909,7 +1919,7 @@ TEST_F(RoutingPolicyTest, MultiplePolicies_UpdateOrder) {
 
 //
 // 1. Routing instance is attached two network policies
-// 2. Add route that matches both policies. 
+// 2. Add route that matches both policies.
 //    Route matches the first policy and accepted
 // 3. Update of the order of network policy on the routing instance
 // 4. Route matches the second policy and rejected
@@ -1961,6 +1971,320 @@ TEST_F(RoutingPolicyTest, MultiplePolicies_UpdateOrder_1) {
 
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2001:db8:85a3::8a2e:370:7334/128");
+}
+
+static void ValidateShowRoutingPolicyResponse(
+    Sandesh *sandesh, bool *done,
+    const vector<ShowRoutingPolicyInfo> &policy_list) {
+    ShowRoutingPolicyResp *resp =
+        dynamic_cast<ShowRoutingPolicyResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(policy_list.size(), resp->get_routing_policies().size());
+
+    BOOST_FOREACH(const ShowRoutingPolicyInfo &policy, policy_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowRoutingPolicyInfo &resp_policy,
+            resp->get_routing_policies()) {
+            if (policy.get_name() == resp_policy.get_name()) {
+                found = true;
+                EXPECT_EQ(policy.get_terms().size(),
+                          resp_policy.get_terms().size());
+                ASSERT_TRUE(std::equal(policy.get_terms().begin(),
+                               policy.get_terms().end(),
+                               resp_policy.get_terms().begin()));
+                break;
+            }
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified " << policy.get_name());
+    }
+
+    *done = true;
+}
+
+static void ValidateShowRoutingInstanceRoutingPolicyResponse(
+    Sandesh *sandesh, bool *done,
+    const vector<ShowInstanceRoutingPolicyInfo> &policy_list) {
+    ShowRoutingInstanceResp *resp =
+        dynamic_cast<ShowRoutingInstanceResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(1, resp->get_instances().size());
+    EXPECT_EQ(policy_list.size(),
+              resp->get_instances()[0].get_routing_policies().size());
+    BOOST_FOREACH(const ShowInstanceRoutingPolicyInfo &info, policy_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowInstanceRoutingPolicyInfo &resp_info,
+                      resp->get_instances()[0].get_routing_policies()) {
+            if (info.get_policy_name() == resp_info.get_policy_name()) {
+                found = true;
+                EXPECT_EQ(info.get_generation(), resp_info.get_generation());
+                break;
+            }
+        }
+        EXPECT_TRUE(found);
+    }
+    *done = true;
+}
+
+TEST_F(RoutingPolicyTest, ShowPolicy_0) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_6c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bgp_server_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    vector<ShowRoutingPolicyInfo> policy_list;
+
+    vector<string> policy_name_list = list_of("basic");
+    BOOST_FOREACH(string policy_name, policy_name_list) {
+        const RoutingPolicy *policy = FindRoutingPolicy(policy_name);
+        ASSERT_TRUE(policy != NULL);
+        ShowRoutingPolicyInfo show_policy;
+        show_policy.set_name(policy->name());
+        show_policy.set_deleted(policy->deleted());
+        show_policy.set_generation(policy->generation());
+        show_policy.set_ref_count(policy->refcount());
+        std::vector<PolicyTermInfo> terms_list;
+        BOOST_FOREACH(RoutingPolicy::PolicyTermPtr term, policy->terms()) {
+            PolicyTermInfo show_term;
+            show_term.set_terminal(term->terminal());
+            vector<string> match_list;
+            BOOST_FOREACH(RoutingPolicyMatch *match, term->matches()) {
+                match_list.push_back(match->ToString());
+            }
+            show_term.set_matches(match_list);
+            vector<string> action_list;
+            BOOST_FOREACH(RoutingPolicyAction *action, term->actions()) {
+                action_list.push_back(action->ToString());
+            }
+            show_term.set_actions(action_list);
+            terms_list.push_back(show_term);
+        }
+        show_policy.set_terms(terms_list);
+        policy_list.push_back(show_policy);
+    }
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+
+    ShowRoutingPolicyReq *show_req = new ShowRoutingPolicyReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    vector<ShowInstanceRoutingPolicyInfo> instance_policy_list;
+    const RoutingInstance *rtinstance = FindRoutingInstance("test");
+    BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
+        ShowInstanceRoutingPolicyInfo sirpi;
+        sirpi.set_generation(info.second);
+        sirpi.set_policy_name(info.first->name());
+        instance_policy_list.push_back(sirpi);
+    }
+
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingInstanceRoutingPolicyResponse,
+                    _1, &validate_done, instance_policy_list));
+
+    ShowRoutingInstanceReq *show_instance_req = new ShowRoutingInstanceReq;
+    show_instance_req->set_search_string("test");
+    show_instance_req->HandleRequest();
+    show_instance_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+}
+
+// show policy test with multiple policies
+TEST_F(RoutingPolicyTest, ShowPolicy_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_1a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bgp_server_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    vector<ShowRoutingPolicyInfo> policy_list;
+
+    vector<string> policy_name_list = list_of("basic_0")("basic_1");
+    BOOST_FOREACH(string policy_name, policy_name_list) {
+        const RoutingPolicy *policy = FindRoutingPolicy(policy_name);
+        ASSERT_TRUE(policy != NULL);
+        ShowRoutingPolicyInfo show_policy;
+        show_policy.set_name(policy->name());
+        show_policy.set_deleted(policy->deleted());
+        show_policy.set_generation(policy->generation());
+        show_policy.set_ref_count(policy->refcount());
+        std::vector<PolicyTermInfo> terms_list;
+        BOOST_FOREACH(RoutingPolicy::PolicyTermPtr term, policy->terms()) {
+            PolicyTermInfo show_term;
+            show_term.set_terminal(term->terminal());
+            vector<string> match_list;
+            BOOST_FOREACH(RoutingPolicyMatch *match, term->matches()) {
+                match_list.push_back(match->ToString());
+            }
+            show_term.set_matches(match_list);
+            vector<string> action_list;
+            BOOST_FOREACH(RoutingPolicyAction *action, term->actions()) {
+                action_list.push_back(action->ToString());
+            }
+            show_term.set_actions(action_list);
+            terms_list.push_back(show_term);
+        }
+        show_policy.set_terms(terms_list);
+        policy_list.push_back(show_policy);
+    }
+
+    // Introspect with no search string
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+    ShowRoutingPolicyReq *show_req = new ShowRoutingPolicyReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    // Introspect with empty search string
+    validate_done = false;
+    show_req = new ShowRoutingPolicyReq;
+    show_req->set_search_string("");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    // Introspect with "a" search string
+    validate_done = false;
+    show_req = new ShowRoutingPolicyReq;
+    show_req->set_search_string("a");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    // Introspect with "basic_1" search string
+    validate_done = false;
+    policy_list[0] = policy_list[1];
+    policy_list.resize(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+    show_req = new ShowRoutingPolicyReq;
+    show_req->set_search_string("basic_1");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    vector<ShowInstanceRoutingPolicyInfo> instance_policy_list;
+    const RoutingInstance *rtinstance = FindRoutingInstance("test");
+    BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
+        ShowInstanceRoutingPolicyInfo sirpi;
+        sirpi.set_generation(info.second);
+        sirpi.set_policy_name(info.first->name());
+        instance_policy_list.push_back(sirpi);
+    }
+
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingInstanceRoutingPolicyResponse,
+                    _1, &validate_done, instance_policy_list));
+
+    ShowRoutingInstanceReq *show_instance_req = new ShowRoutingInstanceReq;
+    show_instance_req->set_search_string("test");
+    show_instance_req->HandleRequest();
+    show_instance_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+}
+
+// Show policy after policy update
+TEST_F(RoutingPolicyTest, ShowPolicy_2) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_6c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Now update the policy
+    content = FileRead("controller/src/bgp/testdata/routing_policy_2.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bgp_server_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    vector<ShowRoutingPolicyInfo> policy_list;
+
+    vector<string> policy_name_list = list_of("basic");
+    BOOST_FOREACH(string policy_name, policy_name_list) {
+        const RoutingPolicy *policy = FindRoutingPolicy(policy_name);
+        ASSERT_TRUE(policy != NULL);
+        ShowRoutingPolicyInfo show_policy;
+        show_policy.set_name(policy->name());
+        show_policy.set_deleted(policy->deleted());
+        show_policy.set_generation(policy->generation());
+        show_policy.set_ref_count(policy->refcount());
+        std::vector<PolicyTermInfo> terms_list;
+        BOOST_FOREACH(RoutingPolicy::PolicyTermPtr term, policy->terms()) {
+            PolicyTermInfo show_term;
+            show_term.set_terminal(term->terminal());
+            vector<string> match_list;
+            BOOST_FOREACH(RoutingPolicyMatch *match, term->matches()) {
+                match_list.push_back(match->ToString());
+            }
+            show_term.set_matches(match_list);
+            vector<string> action_list;
+            BOOST_FOREACH(RoutingPolicyAction *action, term->actions()) {
+                action_list.push_back(action->ToString());
+            }
+            show_term.set_actions(action_list);
+            terms_list.push_back(show_term);
+        }
+        show_policy.set_terms(terms_list);
+        policy_list.push_back(show_policy);
+    }
+
+    bool validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingPolicyResponse, _1, &validate_done,
+                    policy_list));
+
+    ShowRoutingPolicyReq *show_req = new ShowRoutingPolicyReq;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
+
+    vector<ShowInstanceRoutingPolicyInfo> instance_policy_list;
+    const RoutingInstance *rtinstance = FindRoutingInstance("test");
+    BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
+        ShowInstanceRoutingPolicyInfo sirpi;
+        sirpi.set_generation(info.second);
+        sirpi.set_policy_name(info.first->name());
+        instance_policy_list.push_back(sirpi);
+    }
+
+    validate_done = false;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRoutingInstanceRoutingPolicyResponse,
+                    _1, &validate_done, instance_policy_list));
+
+    ShowRoutingInstanceReq *show_instance_req = new ShowRoutingInstanceReq;
+    show_instance_req->set_search_string("test");
+    show_instance_req->HandleRequest();
+    show_instance_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done);
 }
 
 class TestEnvironment : public ::testing::Environment {

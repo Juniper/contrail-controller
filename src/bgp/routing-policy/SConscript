@@ -12,8 +12,14 @@ env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/db'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
 
-librouting_policy = env.Library('routing_policy',
+# Generate the source files
+SandeshGenFiles = env.SandeshGenCpp('routing_policy.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('routing_policy_internal.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+librouting_policy = env.Library('routing_policy', SandeshGenSrcs +
                                 ['routing_policy.cc',
                                 'routing_policy_action.cc',
-                                'routing_policy_match.cc'])
+                                'routing_policy_match.cc',
+                                'show_routing_policy.cc'])
 
