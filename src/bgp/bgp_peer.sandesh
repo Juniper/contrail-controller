@@ -41,6 +41,21 @@ struct ShowBgpNeighborFamily {
     3: u32 prefix_limit;
 }
 
+struct PeerCloseInfo {
+    1: string state;
+    2: bool close_again;
+    3: u64 init;
+    4: u64 close;
+    5: u64 nested;
+    6: u64 deletes;
+    7: u64 stale;
+    8: u64 sweep;
+    9: u64 gr_timer;
+    10: u64 deleted_state_paths;
+    11: u64 deleted_paths;
+    12: u64 marked_state_paths;
+}
+
 struct BgpNeighborResp {
     53: string instance_name;
     1: string peer (link="BgpNeighborReq"); // Peer name
@@ -60,6 +75,7 @@ struct BgpNeighborResp {
     4: string local_address;    // local ip address and port
     26: string local_id;
     5: u32 local_asn;
+    54: optional PeerCloseInfo peer_close_info;
     9: optional string send_state;       // in sync/not in sync
     10: optional string last_event;
     11: optional string last_state;

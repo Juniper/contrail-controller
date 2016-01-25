@@ -56,7 +56,6 @@ public:
     // Invoked from XmppServer when a session is accepted.
     virtual bool AcceptSession(XmppSession *session);
     virtual void ReceiveMsg(XmppSession *session, const std::string &); 
-    virtual bool EndpointNameIsUnique() { return true; }
 
     virtual boost::asio::ip::tcp::endpoint endpoint() const;
     virtual boost::asio::ip::tcp::endpoint local_endpoint() const;
@@ -204,6 +203,15 @@ public:
     bool disable_read() const { return disable_read_; }
     void set_disable_read(bool disable_read) { disable_read_ = disable_read; }
     XmppStateMachine *state_machine();
+    const XmppStateMachine *state_machine() const;
+
+    void set_state_machine(XmppStateMachine *state_machine) {
+        state_machine_.reset(state_machine);
+    }
+
+    void SwapXmppStateMachine(XmppConnection *other) {
+        state_machine_.swap(other->state_machine_);
+    }
 
     void inc_connect_error();
     void inc_session_close();
@@ -225,7 +233,6 @@ public:
 protected:
     TcpServer *server_;
     XmppSession *session_;
-    const XmppStateMachine *state_machine() const;
     const XmppChannelMux *channel_mux() const;
 
 private:
@@ -267,7 +274,6 @@ public:
     virtual ~XmppServerConnection();
 
     virtual bool IsClient() const;
-    virtual bool EndpointNameIsUnique();
     virtual void ManagedDelete();
     virtual void RetryDelete();
     virtual LifetimeActor *deleter();
@@ -288,6 +294,9 @@ public:
     void clear_on_work_queue() { on_work_queue_ = false; }
 
     XmppConnectionEndpoint *conn_endpoint() { return conn_endpoint_; }
+    void set_conn_endpoint(XmppConnectionEndpoint *conn_endpoint) {
+        conn_endpoint = conn_endpoint;
+    }
     void FillShowInfo(ShowXmppConnection *show_connection) const;
 
 private:
@@ -337,6 +346,7 @@ public:
     uint64_t last_flap() const;
     const std::string last_flap_at() const;
     XmppConnection *connection();
+    const XmppConnection *connection() const;
     void set_connection(XmppConnection *connection);
     void reset_connection();
 

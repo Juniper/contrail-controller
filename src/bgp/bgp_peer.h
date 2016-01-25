@@ -337,6 +337,7 @@ private:
     void CustomClose();
 
     void FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const;
+    void FillCloseInfo(BgpNeighborResp *resp) const;
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
