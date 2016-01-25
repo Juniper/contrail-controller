@@ -13,6 +13,7 @@
 #include "bgp/routing-instance/iroute_aggregator.h"
 
 #include "bgp/bgp_condition_listener.h"
+#include "bgp/bgp_config.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_route.h"
@@ -205,6 +206,14 @@ private:
     friend class RouteAggregationTest;
     class DeleteActor;
     typedef std::set<AggregateRoutePtr> AggregateRouteProcessList;
+    typedef BgpInstanceConfig::AggregateRouteList AggregateRouteConfigList;
+
+    int CompareAggregateRoute(typename AggregateRouteMap::iterator loc,
+        AggregateRouteConfigList::iterator it);
+    void AddAggregateRoute(AggregateRouteConfigList::iterator it);
+    void DelAggregateRoute(typename AggregateRouteMap::iterator loc);
+    void UpdateAggregateRoute(typename AggregateRouteMap::iterator loc,
+        AggregateRouteConfigList::iterator it);
 
     void LocateAggregateRoutePrefix(const AggregateRouteConfig &cfg);
     void RemoveAggregateRoutePrefix(const PrefixT &static_route);
