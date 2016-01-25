@@ -81,6 +81,9 @@ void Dns::SetTaskSchedulingPolicy() {
                          exclude_io);
 
     const char *garbage_exclude_list[] = {
+        "dns::Config",
+        "dns::BindStatus",
+        "db::DBTable",
         "bgp::Config",
         "xmpp::StateMachine",
     };
