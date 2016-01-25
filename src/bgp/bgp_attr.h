@@ -65,6 +65,14 @@ struct BgpAttrNextHop : public BgpAttribute {
         : BgpAttribute(NextHop, kFlags), nexthop(v4_nexthop.to_ulong()) {}
     explicit BgpAttrNextHop(Ip6Address v6_nexthop)
         : BgpAttribute(NextHop, kFlags), nexthop(0), v6_nexthop(v6_nexthop) {}
+    explicit BgpAttrNextHop(IpAddress ip_nexthop)
+        : BgpAttribute(NextHop, kFlags), nexthop(0) {
+        if (ip_nexthop.is_v4()) {
+            nexthop = ip_nexthop.to_v4().to_ulong();
+        } else if (ip_nexthop.is_v6()) {
+            v6_nexthop = ip_nexthop.to_v6();
+        }
+    }
     uint32_t nexthop;
     Ip6Address v6_nexthop;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -796,6 +804,7 @@ public:
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
     const IpAddress &nexthop() const { return nexthop_; }
+    Address::Family nexthop_family() const;
     uint32_t med() const { return med_; }
     uint32_t local_pref() const { return local_pref_; }
     bool atomic_aggregate() const { return atomic_aggregate_; }

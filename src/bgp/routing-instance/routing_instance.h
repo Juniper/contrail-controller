@@ -49,14 +49,15 @@ class RoutingInstance {
 public:
     typedef std::set<RouteTarget> RouteTargetList;
     typedef std::map<std::string, BgpTable *> RouteTableList;
+    typedef std::map<Address::Family, BgpTable *> RouteTableFamilyList;
 
     RoutingInstance(std::string name, BgpServer *server,
                     RoutingInstanceMgr *mgr,
                     const BgpInstanceConfig *config);
     virtual ~RoutingInstance();
 
-    RouteTableList &GetTables() { return vrf_tables_; }
-    const RouteTableList &GetTables() const { return vrf_tables_; }
+    RouteTableList &GetTables() { return vrf_tables_by_name_; }
+    const RouteTableList &GetTables() const { return vrf_tables_by_name_; }
 
     void ProcessRoutingPolicyConfig();
     void UpdateRoutingPolicyConfig();
@@ -194,7 +195,8 @@ private:
     std::string name_;
     int index_;
     std::auto_ptr<RouteDistinguisher> rd_;
-    RouteTableList vrf_tables_;
+    RouteTableList vrf_tables_by_name_;
+    RouteTableFamilyList vrf_tables_by_family_;
     RouteTargetList import_;
     RouteTargetList export_;
     BgpServer *server_;

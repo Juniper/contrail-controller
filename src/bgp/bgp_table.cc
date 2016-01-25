@@ -307,8 +307,12 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             new_path->SetStale();
         }
 
-        if (new_path->NeedsResolution())
-            path_resolver_->StartPathResolution(root->index(), new_path, rt);
+        if (new_path->NeedsResolution()) {
+            Address::Family family = new_path->GetAttr()->nexthop_family();
+            BgpTable *table = rtinstance_->GetTable(family);
+            path_resolver_->StartPathResolution(root->index(), new_path, rt,
+                table);
+        }
         rt->InsertPath(new_path);
         root->Notify(rt);
         break;

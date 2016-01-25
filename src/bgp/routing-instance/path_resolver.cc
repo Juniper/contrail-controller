@@ -52,7 +52,6 @@ private:
 //
 PathResolver::PathResolver(BgpTable *table)
     : table_(table),
-      condition_listener_(table->server()->condition_listener(table->family())),
       listener_id_(table->Register(
           boost::bind(&PathResolver::RouteListener, this, _1, _2),
           "PathResolver")),
@@ -84,6 +83,8 @@ PathResolver::~PathResolver() {
     assert(listener_id_ != DBTableBase::kInvalidId);
     table_->Unregister(listener_id_);
     STLDeleteValues(&partitions_);
+    nexthop_reg_unreg_trigger_->Reset();
+    nexthop_update_trigger_->Reset();
 }
 
 //
@@ -100,10 +101,14 @@ Address::Family PathResolver::family() const {
 // the BgpPath changes nexthop.
 //
 void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
-    BgpRoute *route) {
+    BgpRoute *route, BgpTable *nh_table) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
-    partitions_[part_id]->StartPathResolution(path, route);
+    if (!nh_table)
+        nh_table = table_;
+    assert(nh_table->family() == Address::INET ||
+        nh_table->family() == Address::INET6);
+    partitions_[part_id]->StartPathResolution(path, route, nh_table);
 }
 
 //
@@ -112,10 +117,15 @@ void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
 // gets updated with new attributes. Note that nexthop change could require
 // the caller to call StartPathResolution instead.
 //
-void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path) {
+void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path,
+    BgpTable *nh_table) {
     CHECK_CONCURRENCY("db::DBTable");
 
-    partitions_[part_id]->UpdatePathResolution(path);
+    if (!nh_table)
+        nh_table = table_;
+    assert(nh_table->family() == Address::INET ||
+        nh_table->family() == Address::INET6);
+    partitions_[part_id]->UpdatePathResolution(path, nh_table);
 }
 
 //
@@ -168,16 +178,18 @@ PathResolverPartition *PathResolver::GetPartition(int part_id) {
 //
 // A newly created ResolverNexthop is added to the map.
 //
-ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address) {
+ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address,
+    BgpTable *table) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     tbb::mutex::scoped_lock lock(mutex_);
-    ResolverNexthopMap::iterator loc = nexthop_map_.find(address);
+    ResolverNexthopKey key(address, table);
+    ResolverNexthopMap::iterator loc = nexthop_map_.find(key);
     if (loc != nexthop_map_.end()) {
         return loc->second;
     } else {
-        ResolverNexthop *rnexthop = new ResolverNexthop(this, address);
-        nexthop_map_.insert(make_pair(address, rnexthop));
+        ResolverNexthop *rnexthop = new ResolverNexthop(this, address, table);
+        nexthop_map_.insert(make_pair(key, rnexthop));
         return rnexthop;
     }
 }
@@ -198,7 +210,8 @@ ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address) {
 void PathResolver::RemoveResolverNexthop(ResolverNexthop *rnexthop) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    ResolverNexthopMap::iterator loc = nexthop_map_.find(rnexthop->address());
+    ResolverNexthopKey key(rnexthop->address(), rnexthop->table());
+    ResolverNexthopMap::iterator loc = nexthop_map_.find(key);
     assert(loc != nexthop_map_.end());
     nexthop_map_.erase(loc);
     nexthop_update_list_.erase(rnexthop);
@@ -232,6 +245,10 @@ void PathResolver::UnregisterResolverNexthopDone(BgpTable *table,
 bool PathResolver::ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop) {
     CHECK_CONCURRENCY("bgp::Config");
 
+    BgpTable *table = rnexthop->table();
+    Address::Family family = table->family();
+    BgpConditionListener *condition_listener = get_condition_listener(family);
+
     if (rnexthop->registered()) {
         if (rnexthop->deleted()) {
             // Unregister the ResolverNexthop from BgpConditionListener since
@@ -239,7 +256,7 @@ bool PathResolver::ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop) {
             // the lifetime of ResolverNexthop - the ResolverNexthop will get
             // deleted when unregister is called.
             nexthop_delete_list_.erase(rnexthop);
-            condition_listener_->UnregisterMatchCondition(table_, rnexthop);
+            condition_listener->UnregisterMatchCondition(table, rnexthop);
         } else if (rnexthop->empty()) {
             // Remove the ResolverNexthop from BgpConditionListener as there
             // are no more ResolverPaths using it. Insert it into the delete
@@ -251,19 +268,29 @@ bool PathResolver::ProcessResolverNexthopRegUnreg(ResolverNexthop *rnexthop) {
             nexthop_delete_list_.insert(rnexthop);
             BgpConditionListener::RequestDoneCb cb = boost::bind(
                 &PathResolver::UnregisterResolverNexthopDone, this, _1, _2);
-            condition_listener_->RemoveMatchCondition(table_, rnexthop, cb);
+            condition_listener->RemoveMatchCondition(table, rnexthop, cb);
         }
     } else {
         if (!rnexthop->empty()) {
             // Register ResolverNexthop to BgpConditionListener since there's
-            // one or more ResolverPaths using it.
-            condition_listener_->AddMatchCondition(
-                table_, rnexthop, BgpConditionListener::RequestDoneCb());
-            rnexthop->set_registered();
+            // one or more ResolverPaths using it. Skip if the BgpTable is in
+            // the process of being deleted - the BgpConditionListener does
+            // not, and should not need to, handle this scenario.
+            if (!table->IsDeleted()) {
+                condition_listener->AddMatchCondition(
+                    table, rnexthop, BgpConditionListener::RequestDoneCb());
+                rnexthop->set_registered();
+            }
         } else {
             // The ResolverNexthop can be deleted right away since there are
-            // no ResolverPaths using it. This happens in corner cases where
-            // ResolverPaths are added and deleted rapidly.
+            // no ResolverPaths using it. This can happen in couple of corner
+            // cases:
+            // 1. ResolverPaths are added and deleted rapidly i.e. before the
+            // ResolverNexthop has been registered with BgpConditionListener.
+            // 2. The ResolverNexthop's BgpTable was in the process of being
+            // deleted when we attempted to register the ResolverNexthop. In
+            // that case, we come here after the last ResolverPath using the
+            // ResolverNexthop has been deleted.
             RemoveResolverNexthop(rnexthop);
             return true;
         }
@@ -464,9 +491,10 @@ PathResolverPartition::~PathResolverPartition() {
 // ResolverPath constructor.
 //
 void PathResolverPartition::StartPathResolution(const BgpPath *path,
-    BgpRoute *route) {
+    BgpRoute *route, BgpTable *nh_table) {
     IpAddress address = path->GetAttr()->nexthop();
-    ResolverNexthop *rnexthop = resolver_->LocateResolverNexthop(address);
+    ResolverNexthop *rnexthop =
+        resolver_->LocateResolverNexthop(address, nh_table);
     assert(!FindResolverPath(path));
     ResolverPath *rpath = CreateResolverPath(path, route, rnexthop);
     TriggerPathResolution(rpath);
@@ -477,13 +505,15 @@ void PathResolverPartition::StartPathResolution(const BgpPath *path,
 // A change in the ResolverNexthop is handled by triggering deletion of the
 // old ResolverPath and creating a new one.
 //
-void PathResolverPartition::UpdatePathResolution(const BgpPath *path) {
+void PathResolverPartition::UpdatePathResolution(const BgpPath *path,
+    BgpTable *nh_table) {
     ResolverPath *rpath = FindResolverPath(path);
     assert(rpath);
     const ResolverNexthop *rnexthop = rpath->rnexthop();
-    if (rnexthop->address() != path->GetAttr()->nexthop()) {
+    if (rnexthop->address() != path->GetAttr()->nexthop() ||
+        rnexthop->table() != nh_table) {
         StopPathResolution(path);
-        StartPathResolution(path, rpath->route());
+        StartPathResolution(path, rpath->route(), nh_table);
     } else {
         TriggerPathResolution(rpath);
     }
@@ -839,12 +869,15 @@ bool ResolverPath::UpdateResolvedPaths() {
 // Constructor for ResolverNexthop.
 // Initialize the vector of paths_lists to the number of DB partitions.
 //
-ResolverNexthop::ResolverNexthop(PathResolver *resolver, IpAddress address)
+ResolverNexthop::ResolverNexthop(PathResolver *resolver, IpAddress address,
+    BgpTable *table)
     : resolver_(resolver),
       address_(address),
+      table_(table),
       registered_(false),
       route_(NULL),
-      rpath_lists_(DB::PartitionCount()) {
+      rpath_lists_(DB::PartitionCount()),
+      table_delete_ref_(this, table->deleter()) {
 }
 
 //
@@ -886,7 +919,8 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
     }
 
     // Set or remove MatchState as appropriate.
-    BgpConditionListener *condition_listener = resolver_->condition_listener();
+    BgpConditionListener *condition_listener =
+        resolver_->get_condition_listener(family);
     bool state_added = condition_listener->CheckMatchState(table, route, this);
     if (deleted) {
         if (state_added) {

@@ -690,7 +690,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     // Trigger notification of all routes in each table.
     if (notify_routes) {
-        BOOST_FOREACH(RouteTableList::value_type &entry, vrf_tables_) {
+        BOOST_FOREACH(RouteTableList::value_type &entry, vrf_tables_by_name_) {
             BgpTable *table = entry.second;
             table->NotifyAllEntries();
         }
@@ -1034,7 +1034,8 @@ BgpTable *RoutingInstance::VrfTableCreate(Address::Family vrf_family,
 }
 
 void RoutingInstance::AddTable(BgpTable *tbl) {
-    vrf_tables_.insert(make_pair(tbl->name(), tbl));
+    vrf_tables_by_name_.insert(make_pair(tbl->name(), tbl));
+    vrf_tables_by_family_.insert(make_pair(tbl->family(), tbl));
     tbl->set_routing_instance(this);
     RoutingInstanceInfo info = GetDataCollection("Add");
     info.set_family(Address::FamilyToString(tbl->family()));
@@ -1044,7 +1045,8 @@ void RoutingInstance::AddTable(BgpTable *tbl) {
 void RoutingInstance::RemoveTable(BgpTable *tbl) {
     RoutingInstanceInfo info = GetDataCollection("Remove");
     info.set_family(Address::FamilyToString(tbl->family()));
-    vrf_tables_.erase(tbl->name());
+    vrf_tables_by_name_.erase(tbl->name());
+    vrf_tables_by_family_.erase(tbl->family());
     ROUTING_INSTANCE_COLLECTOR_INFO(info);
 }
 
@@ -1088,15 +1090,13 @@ string RoutingInstance::GetTableName(string instance_name,
 }
 
 BgpTable *RoutingInstance::GetTable(Address::Family fmly) {
-    string table_name = RoutingInstance::GetTableName(name_, fmly);
-    RouteTableList::const_iterator loc = GetTables().find(table_name);
-    return (loc != GetTables().end() ? loc->second : NULL);
+    RouteTableFamilyList::const_iterator loc = vrf_tables_by_family_.find(fmly);
+    return (loc != vrf_tables_by_family_.end() ? loc->second : NULL);
 }
 
 const BgpTable *RoutingInstance::GetTable(Address::Family fmly) const {
-    string table_name = RoutingInstance::GetTableName(name_, fmly);
-    RouteTableList::const_iterator loc = GetTables().find(table_name);
-    return (loc != GetTables().end() ? loc->second : NULL);
+    RouteTableFamilyList::const_iterator loc = vrf_tables_by_family_.find(fmly);
+    return (loc != vrf_tables_by_family_.end() ? loc->second : NULL);
 }
 
 string RoutingInstance::GetVrfFromTableName(const string table) {
