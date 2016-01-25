@@ -4,10 +4,11 @@
 
 #include "bgp/routing-instance/route_aggregate.h"
 
+#include <boost/foreach.hpp>
+
 #include <algorithm>
 #include <string>
-
-#include <boost/foreach.hpp>
+#include <vector>
 
 #include "base/lifetime.h"
 #include "base/task_annotations.h"
@@ -17,27 +18,31 @@
 using std::make_pair;
 using std::string;
 
-class AggregateRouteState : public DBState {
+class RouteAggregatorState : public DBState {
 public:
-    AggregateRouteState() : contributor_(false), aggregator_(false) {
+    RouteAggregatorState() : contributor_(false), aggregator_(false) {
     }
 
     void set_aggregating_info(AggregateRoutePtr aggregator) {
+        assert(!aggregating_info_);
         aggregating_info_ = aggregator;
         aggregator_ = true;
     }
 
     void reset_aggregating_info() {
+        assert(aggregating_info_);
         aggregating_info_ = NULL;
         aggregator_ = false;
     }
 
     void set_contributing_info(AggregateRoutePtr aggregator) {
+        assert(!contributing_info_);
         contributing_info_ = aggregator;
         contributor_ = true;
     }
 
     void reset_contributing_info() {
+        assert(contributing_info_);
         contributing_info_ = NULL;
         contributor_ = false;
     }
@@ -57,12 +62,13 @@ public:
     bool aggregator() const {
         return aggregator_;
     }
+
 private:
     AggregateRoutePtr contributing_info_;
     bool contributor_;
     AggregateRoutePtr aggregating_info_;
     bool aggregator_;
-    DISALLOW_COPY_AND_ASSIGN(AggregateRouteState);
+    DISALLOW_COPY_AND_ASSIGN(RouteAggregatorState);
 };
 
 template <typename T>
@@ -79,8 +85,7 @@ public:
 
     enum CompareResult {
         NoChange = 0,
-        PrefixChange = 1,
-        NexthopChange = 2,
+        NexthopChange = 1,
     };
 
     AggregateRoute(RoutingInstance *rtinstance, AggregateRouteMgrT *manager,
@@ -96,7 +101,7 @@ public:
     }
 
     // Compare config and return whether cfg has updated
-    CompareResult CompareAggregateRouteCfg(const AggregateRouteConfig &cfg);
+    CompareResult CompareConfig(const AggregateRouteConfig &cfg);
 
     const PrefixT &aggregate_route_prefix() const {
         return aggregate_route_prefix_;
@@ -167,6 +172,12 @@ public:
         return false;
     }
 
+    bool IsContributingRoute(BgpRoute *route) const {
+        uint32_t part_id = route->get_table_partition()->index();
+        return (contributors_[part_id].find(route) !=
+                contributors_[part_id].end());
+    }
+
     void NotifyContributingRoute(BgpRoute *route) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_NOTIFY;
@@ -176,34 +187,36 @@ public:
         bgp_table()->Enqueue(&req);
     }
 
-    AggregateRouteState *LocateRouteState(BgpRoute *route) {
-        AggregateRouteState *state = static_cast<AggregateRouteState *>
+    RouteAggregatorState *LocateRouteState(BgpRoute *route) {
+        RouteAggregatorState *state = static_cast<RouteAggregatorState *>
             (route->GetState(bgp_table(), manager_->listener_id()));
         if (state == NULL) {
-            state = new AggregateRouteState();
+            state = new RouteAggregatorState();
             route->SetState(bgp_table(), manager_->listener_id(), state);
         }
         return state;
     }
 
-    void AddContributingRoute(BgpRoute *route) {
-        contributors_[route->get_table_partition()->index()].insert(route);
-        AggregateRouteState *state = LocateRouteState(route);
+    bool AddContributingRoute(BgpRoute *route) {
+        uint32_t part_id = route->get_table_partition()->index();
+        contributors_[part_id].insert(route);
+        RouteAggregatorState *state = LocateRouteState(route);
         state->set_contributing_info(AggregateRoutePtr(this));
         NotifyContributingRoute(route);
+        return (contributors_[part_id].size() == 1);
     }
 
-    void ClearRouteState(BgpRoute *route, AggregateRouteState *state) {
+    void ClearRouteState(BgpRoute *route, RouteAggregatorState *state) {
         if (!state->aggregator() && !state->contributor()) {
             route->ClearState(bgp_table(), manager_->listener_id());
             delete state;
         }
     }
 
-    void RemoveContributingRoute(BgpRoute *route) {
-        int num_deleted =
-            contributors_[route->get_table_partition()->index()].erase(route);
-        AggregateRouteState *state = static_cast<AggregateRouteState *>
+    bool RemoveContributingRoute(BgpRoute *route) {
+        uint32_t part_id = route->get_table_partition()->index();
+        int num_deleted = contributors_[part_id].erase(route);
+        RouteAggregatorState *state = static_cast<RouteAggregatorState *>
             (route->GetState(bgp_table(), manager_->listener_id()));
         if (state) {
             state->reset_contributing_info();
@@ -212,6 +225,7 @@ public:
         } else {
             assert(num_deleted != 1);
         }
+        return contributors_[part_id].empty();
     }
 
 private:
@@ -239,13 +253,11 @@ AggregateRoute<T>::AggregateRoute(RoutingInstance *rtinstance,
 
 // Compare config and return whether cfg has updated
 template <typename T>
-typename AggregateRoute<T>::CompareResult AggregateRoute<T>::CompareAggregateRouteCfg(
+typename AggregateRoute<T>::CompareResult AggregateRoute<T>::CompareConfig(
     const AggregateRouteConfig &cfg) {
     AddressT address = this->GetAddress(cfg.aggregate);
     PrefixT prefix(address, cfg.prefix_length);
-    if (aggregate_route_prefix_ != prefix) {
-        return PrefixChange;
-    }
+    assert(aggregate_route_prefix_ == prefix);
     if (nexthop_ != cfg.nexthop) {
         return NexthopChange;
     }
@@ -300,42 +312,43 @@ bool AggregateRoute<T>::Match(BgpServer *server, BgpTable *table,
         // route. As part of the notification, route will become contributing to
         // most specific aggregate route prefix.
         //
-        if (contributors_[route->get_table_partition()->index()].find(route) !=
-            contributors_[route->get_table_partition()->index()].end()) {
+        if (IsContributingRoute(route)) {
             if (!IsBestMatch(route)) deleted = true;
-        //
-        // If the route is already contributing route of other aggregate prefix
-        // of this bgp-table, ignore it
-        //
-        } else if (table->routing_instance()->IsContributingRoute(table, route))
+        } else if (table->IsContributingRoute(route)) {
+            //
+            // If the route is already contributing route of other aggregate
+            // prefix of this bgp-table, ignore it
+            //
             return false;
+        }
     }
 
     //
     // Consider route only if it matches most specific aggregate prefix
-    // configured on the routing instance. e.g. if routing instance has following
-    // prefixes configured, 1/8, 1.1/16 and 1.1.1/24, 1.1.1.1/32 should match to
-    // 1.1.1/24 as most specific route.
+    // configured on the routing instance. e.g. if routing instance has
+    // following prefixes configured, 1/8, 1.1/16 and 1.1.1/24,
+    // 1.1.1.1/32 should match to 1.1.1/24 as most specific route.
     //
     if (!deleted && !IsBestMatch(route)) return false;
 
     BgpConditionListener *listener = server->condition_listener(GetFamily());
     bool state_added = listener->CheckMatchState(table, route, this);
+    bool trigger_eval = false;
     if (!deleted) {
         if (!state_added) {
             listener->SetMatchState(table, route, this);
-            AddContributingRoute(route);
+            trigger_eval = AddContributingRoute(route);
         }
     } else {
         if (!state_added) {
             // Not seen ADD ignore DELETE
             return false;
         }
-        RemoveContributingRoute(route);
+        trigger_eval = RemoveContributingRoute(route);
         listener->RemoveMatchState(table, route, this);
     }
 
-    manager_->EvaluateRouteAggregate(this);
+    if (trigger_eval) manager_->EvaluateAggregateRoute(this);
     return true;
 }
 
@@ -357,14 +370,14 @@ void AggregateRoute<T>::AddAggregateRoute() {
         aggregate_route->ClearDelete();
     }
 
-    BgpPath *existing_path = aggregate_route->FindPath(BgpPath::Aggregation, 0);
+    BgpPath *existing_path = aggregate_route->FindPath(BgpPath::Aggregate, 0);
     assert(existing_path == NULL);
 
     BgpAttrSpec attrs;
     BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
     attrs.push_back(&attr_nexthop);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
-    BgpPath *new_path = new BgpPath(BgpPath::Aggregation,
+    BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
     bgp_table()->path_resolver()->StartPathResolution(partition->index(),
                                                      new_path, aggregate_route);
@@ -385,17 +398,17 @@ void AggregateRoute<T>::UpdateAggregateRoute() {
 
     aggregate_route_->ClearDelete();
 
-    BgpPath *existing_path = aggregate_route_->FindPath(BgpPath::Aggregation, 0);
+    BgpPath *existing_path = aggregate_route_->FindPath(BgpPath::Aggregate, 0);
     if (existing_path)
         bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                          existing_path);
-    aggregate_route_->RemovePath(BgpPath::Aggregation);
+    aggregate_route_->RemovePath(BgpPath::Aggregate);
 
     BgpAttrSpec attrs;
     BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
     attrs.push_back(&attr_nexthop);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
-    BgpPath *new_path = new BgpPath(BgpPath::Aggregation,
+    BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
     bgp_table()->path_resolver()->StartPathResolution(partition->index(),
                                                     new_path, aggregate_route_);
@@ -415,12 +428,12 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
         (bgp_table()->GetTablePartition(aggregate_route_));
 
     BgpPath *existing_path =
-        aggregate_route->FindPath(BgpPath::Aggregation, 0);
+        aggregate_route->FindPath(BgpPath::Aggregate, 0);
     assert(existing_path != NULL);
 
     bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                      existing_path);
-    aggregate_route->RemovePath(BgpPath::Aggregation);
+    aggregate_route->RemovePath(BgpPath::Aggregate);
 
     if (!aggregate_route->BestPath()) {
         partition->Delete(aggregate_route);
@@ -434,11 +447,11 @@ template <typename T>
 void AggregateRoute<T>::set_aggregate_route(BgpRoute *aggregate) {
     if (aggregate) {
         assert(aggregate_route_ == NULL);
-        AggregateRouteState *state = LocateRouteState(aggregate);
+        RouteAggregatorState *state = LocateRouteState(aggregate);
         state->set_aggregating_info(AggregateRoutePtr(this));
     } else {
         assert(aggregate_route_ != NULL);
-        AggregateRouteState *state = static_cast<AggregateRouteState *>
+        RouteAggregatorState *state = static_cast<RouteAggregatorState *>
             (aggregate_route_->GetState(bgp_table(), manager_->listener_id()));
         assert(state);
         state->reset_aggregating_info();
@@ -475,12 +488,12 @@ RouteAggregator<T>::RouteAggregator(RoutingInstance *rtinstance)
   : rtinstance_(rtinstance),
     condition_listener_(rtinstance_->server()->condition_listener(GetFamily())),
     listener_id_(DBTableBase::kInvalidId),
-    add_remove_contributing_route_trigger_(new TaskTrigger(
-        boost::bind(&RouteAggregator::ProcessRouteAggregateUpdate, this),
+    update_list_trigger_(new TaskTrigger(
+        boost::bind(&RouteAggregator::ProcessUpdateList, this),
         TaskScheduler::GetInstance()->GetTaskId("bgp::RouteAggregation"),
         0)),
-    resolve_trigger_(new TaskTrigger(
-        boost::bind(&RouteAggregator::ProcessUnregisterResolveConfig, this),
+    unregister_list_trigger_(new TaskTrigger(
+        boost::bind(&RouteAggregator::ProcessUnregisterList, this),
         TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
     deleter_(new DeleteActor(this)),
     instance_delete_ref_(this, rtinstance->deleter()) {
@@ -521,7 +534,7 @@ void RouteAggregator<T>::UpdateAggregateRouteConfig() {
     sort(aggregate_route_list.begin(), aggregate_route_list.end(),
               CompareAggregateRouteConfig);
 
-    // TODO templatize the sync operation
+    // TODO(prakashmb): templatize the sync operation
     AggregateRouteList::const_iterator aggregate_route_cfg_it =
             aggregate_route_list.begin();
     typename AggregateRouteMap::iterator oper_it = aggregate_route_map_.begin();
@@ -625,10 +638,10 @@ void RouteAggregator<T>::RetryDelete() {
 }
 
 template <typename T>
-void RouteAggregator<T>::EvaluateRouteAggregate(AggregateRoutePtr entry) {
+void RouteAggregator<T>::EvaluateAggregateRoute(AggregateRoutePtr entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     update_aggregate_list_.insert(entry);
-    add_remove_contributing_route_trigger_->Set();
+    update_list_trigger_->Set();
 }
 
 template <typename T>
@@ -636,22 +649,22 @@ void RouteAggregator<T>::UnregisterAndResolveRouteAggregate(
                                                     AggregateRoutePtr entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     unregister_aggregate_list_.insert(entry);
-    resolve_trigger_->Set();
+    unregister_list_trigger_->Set();
 }
 
 template <typename T>
 bool RouteAggregator<T>::IsAggregateRoute(const BgpRoute *route) const {
-    AggregateRouteState *state = static_cast<AggregateRouteState *>
+    RouteAggregatorState *state = static_cast<RouteAggregatorState *>
         (route->GetState(bgp_table(), listener_id()));
     if (state) {
-        return (state->contributor() == false);
+        return (state->aggregator());
     }
     return false;
 }
 
 template <typename T>
 bool RouteAggregator<T>::IsContributingRoute(const BgpRoute *route) const {
-    AggregateRouteState *state = static_cast<AggregateRouteState *>
+    RouteAggregatorState *state = static_cast<RouteAggregatorState *>
         (route->GetState(bgp_table(), listener_id()));
     if (state) {
         return state->contributor();
@@ -676,7 +689,7 @@ void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig
             static_cast<AggregateRouteT *>(it->second.get());
         // Check whether the config has got updated
         typename AggregateRouteT::CompareResult change =
-            match->CompareAggregateRouteCfg(cfg);
+            match->CompareConfig(cfg);
         // No change..
         if (change == AggregateRouteT::NoChange) return;
 
@@ -720,16 +733,16 @@ void RouteAggregator<T>::StopAggregateRouteDone(BgpTable *table,
 }
 
 template <typename T>
-bool RouteAggregator<T>::ProcessUnregisterResolveConfig() {
+bool RouteAggregator<T>::ProcessUnregisterList() {
     CHECK_CONCURRENCY("bgp::Config");
 
     for (AggregateRouteProcessList::iterator
          it = unregister_aggregate_list_.begin();
          it != unregister_aggregate_list_.end(); ++it) {
-        AggregateRoutePtr aggregate = *it;
-        AggregateRouteT *info = static_cast<AggregateRouteT *>(aggregate.get());
-        aggregate_route_map_.erase(info->aggregate_route_prefix());
-        condition_listener_->UnregisterMatchCondition(info->bgp_table(), info);
+        AggregateRouteT *aggregate = static_cast<AggregateRouteT *>(it->get());
+        aggregate_route_map_.erase(aggregate->aggregate_route_prefix());
+        condition_listener_->UnregisterMatchCondition(aggregate->bgp_table(),
+                                                      aggregate);
     }
 
     unregister_aggregate_list_.clear();
@@ -742,7 +755,7 @@ bool RouteAggregator<T>::ProcessUnregisterResolveConfig() {
 }
 
 template <typename T>
-bool RouteAggregator<T>::ProcessRouteAggregateUpdate() {
+bool RouteAggregator<T>::ProcessUpdateList() {
     CHECK_CONCURRENCY("bgp::RouteAggregation");
 
     for (AggregateRouteProcessList::iterator
@@ -774,31 +787,31 @@ bool RouteAggregator<T>::RouteListener(DBTablePartBase *root,
 // Enable/Disable task triggers
 template <typename T>
 void RouteAggregator<T>::DisableRouteAggregateUpdate() {
-    add_remove_contributing_route_trigger_->set_disable();
+    update_list_trigger_->set_disable();
 }
 
 template <typename T>
 void RouteAggregator<T>::EnableRouteAggregateUpdate() {
-    add_remove_contributing_route_trigger_->set_enable();
+    update_list_trigger_->set_enable();
 }
 
 template <typename T>
-size_t RouteAggregator<T>::GetUpdateAggregateListSize() const{
+size_t RouteAggregator<T>::GetUpdateAggregateListSize() const {
     return update_aggregate_list_.size();
 }
 
 template <typename T>
-void RouteAggregator<T>::DisableUnregResolveTask(){
-    resolve_trigger_->set_disable();
+void RouteAggregator<T>::DisableUnregResolveTask() {
+    unregister_list_trigger_->set_disable();
 }
 
 template <typename T>
-void RouteAggregator<T>::EnableUnregResolveTask(){
-    resolve_trigger_->set_enable();
+void RouteAggregator<T>::EnableUnregResolveTask() {
+    unregister_list_trigger_->set_enable();
 }
 
 template <typename T>
-size_t RouteAggregator<T>::GetUnregResolveListSize() const{
+size_t RouteAggregator<T>::GetUnregResolveListSize() const {
     return unregister_aggregate_list_.size();
 }
 
