@@ -9,6 +9,11 @@ struct DependencyTrackerResource {
     2: list<string> obj_keys;
 }
 
+/**
+ * @description: Message bus trace for Schema Transformer
+ * @severity: DEBUG
+ * @action: No action needed
+ */
 trace sandesh MessageBusNotifyTrace {
     1: string request_id;
     2: string operation;

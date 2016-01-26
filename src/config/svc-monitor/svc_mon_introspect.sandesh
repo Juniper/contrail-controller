@@ -29,6 +29,12 @@ response sandesh ServiceInstanceListResp {
     1: list<ServiceInstance> si_names;
 }
 
+/**
+ * @description: System log for service monitor module
+ * @severity: Varies
+ * @cause: Various
+ * @action: Contact your technical support representative
+ */
 systemlog sandesh SvcMonitorLog {
     1: string log_msg;
 }
