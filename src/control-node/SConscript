@@ -162,7 +162,7 @@ if sys.platform != 'darwin':
                       '-lbgp_l3vpn', '-lbgp_inet',
                       '-lbgp_inet6', '-lbgp_inet6vpn',
                       '-lbgp_evpn', '-lbgp_ermvpn', '-lextended_community', '-lrtarget',
-                      '-lifmap_server', '-lcpuinfo', '-lrouting_instance',
+                      '-lifmap_server', '-lcpuinfo', '-lrouting_instance', '-lrouting_policy',
                       '-Wl,--no-whole-archive'])
 else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn.path])

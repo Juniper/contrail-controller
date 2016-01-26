@@ -243,6 +243,11 @@ struct ShowRoutingInstanceTable {
     15: u64 walkers;
 }
 
+struct ShowInstanceRoutingPolicyInfo {
+    1: string policy_name (link="ShowRoutingPolicyReq");
+    2: u32 generation;
+}
+
 struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
@@ -254,6 +259,7 @@ struct ShowRoutingInstance {
     7: bool deleted;                                // Deletion in progress
     9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
+    11: optional list<ShowInstanceRoutingPolicyInfo> routing_policies;
 }
 
 response sandesh ShowRoutingInstanceResp {
@@ -406,7 +412,7 @@ struct ShowBgpStaticRouteConfig {
 }
 
 struct ShowBgpInstanceRoutingPolicyConfig {
-    1: string policy_name;
+    1: string policy_name (link="ShowBgpRoutingPolicyConfigReq");
     2: string sequence;
 }
 

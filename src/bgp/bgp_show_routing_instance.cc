@@ -9,6 +9,7 @@
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-policy/routing_policy.h"
 
 using std::string;
 using std::vector;
@@ -72,6 +73,15 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
             srit_list.push_back(srit);
         }
         sri->set_tables(srit_list);
+        vector<ShowInstanceRoutingPolicyInfo> policy_list;
+        BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
+            ShowInstanceRoutingPolicyInfo show_policy_info;
+            RoutingPolicyPtr policy = info.first;
+            show_policy_info.set_policy_name(policy->name());
+            show_policy_info.set_generation(info.second);
+            policy_list.push_back(show_policy_info);
+        }
+        sri->set_routing_policies(policy_list);
     }
 }
 
