@@ -19,7 +19,7 @@ class InstanceTask {
  public:
     typedef boost::function<void(InstanceTask *task, const std::string errors)>
         OnErrorCallback;
-    typedef boost::function<void(InstanceTask *task, const std::string msg)>
+    typedef boost::function<void(InstanceTask *task, const std::string &msg)>
         OnDataCallback;
     typedef boost::function<void(InstanceTask *task,
             const boost::system::error_code &ec)>OnExitCallback;
