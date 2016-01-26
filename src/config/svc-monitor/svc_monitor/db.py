@@ -21,7 +21,7 @@ class ServiceMonitorDB(VncCassandraClient):
     def __init__(self, args, logger):
         self._db_logger = logger
 
-        self._keyspaces = {
+        keyspaces = {
             self._KEYSPACE: [
                 (self._SVC_SI_CF, None),
                 (self._LB_CF, None)
@@ -35,8 +35,8 @@ class ServiceMonitorDB(VncCassandraClient):
                   'password':args.cassandra_password}
 
         super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
-                                               None,
-                                               self._keyspaces,
+                                               args.cluster_id,
+                                               keyspaces,
                                                None,
                                                self._db_logger.log,
                                                reset_config=args.reset_config,
