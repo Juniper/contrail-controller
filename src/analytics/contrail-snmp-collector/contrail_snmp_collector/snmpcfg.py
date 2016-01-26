@@ -91,6 +91,7 @@ Mibs = LldpTable, ArpTable
             'http_server_port'    : HttpPortSnmpCollector,
             'zookeeper'           : '127.0.0.1:2181',
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+            'cluster_id'          :'',
         }
         ksopts = {
             'auth_host': '127.0.0.1',
@@ -168,6 +169,8 @@ Mibs = LldpTable, ArpTable
                             help="Tenant name for keystone admin user")
         parser.add_argument("--zookeeper",
             help="ip:port of zookeeper server")
+        parser.add_argument("--cluster_id",
+            help="Used for database keyspace separation")
         parser.add_argument("--disc_server_ip",
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port", type=int,
@@ -234,6 +237,9 @@ Mibs = LldpTable, ArpTable
     def zookeeper_server(self):
         return self._args.zookeeper
 
+    def cluster_id(self):
+        return self._args.cluster_id
+ 
     def log_local(self):
         return self._args.log_local
 
