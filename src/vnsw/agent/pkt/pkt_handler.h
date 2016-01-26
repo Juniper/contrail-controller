@@ -205,6 +205,7 @@ public:
         ICMPV6,
         DIAG,
         ICMP_ERROR,
+        ICMPV6_ERROR,
         RX_PACKET,
         MAX_MODULES
     };

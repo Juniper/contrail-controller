@@ -178,6 +178,8 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     if (pkt_type == PktType::ICMPV6) {
+        if(hdr.cmd == AgentHdr::TRAP_HANDLE_DF)
+           return ICMPV6_ERROR;
         return ICMPV6;
     }
 

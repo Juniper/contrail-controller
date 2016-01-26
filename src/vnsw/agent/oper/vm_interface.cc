@@ -2270,12 +2270,14 @@ bool VmInterface::IsMetaDataIPActive() const {
         return false;
     }
 
-    if (subnet_.is_unspecified() && primary_ip_addr_.to_ulong() == 0) {
-        return false;
-    }
+    if (primary_ip6_addr_.is_unspecified()) {
+        if (subnet_.is_unspecified() && primary_ip_addr_.to_ulong() == 0) {
+            return false;
+        }
 
-    if (subnet_.is_unspecified() == false && parent_ == NULL) {
-        return false;
+        if (subnet_.is_unspecified() == false && parent_ == NULL) {
+            return false;
+        }
     }
 
     return IsActive();
