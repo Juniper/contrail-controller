@@ -62,12 +62,13 @@ class PortTupleAgent(Agent):
             tag = ServiceInterfaceTag(interface_type=port['type'])
             self._vnc_lib.ref_update('service-instance', si.uuid,
                 'instance-ip', iip_id, None, 'ADD', tag)
-            InstanceIpSM.locate()
+            InstanceIpSM.locate(iip_id)
             si.update()
 
         if create_iip or update_vmi:
             self._vnc_lib.ref_update('instance-ip', iip_id,
                 'virtual-machine-interface', vmi.uuid, None, 'ADD')
+            self._vnc_lib.ref_relax_for_delete(iip_id, vmi.uuid)
             vmi.update()
 
         return

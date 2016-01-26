@@ -810,6 +810,15 @@ class VncCassandraClient(object):
             (_, ref_type, ref_uuid) = col_name.split(':')
             self._delete_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid)
 
+        # remove link from relaxed back refs
+        col_start = 'relaxbackref:'
+        col_fin = 'relaxbackref;'
+        col_name_iter = obj_uuid_cf.xget(
+            obj_uuid, column_start=col_start, column_finish=col_fin)
+        for (col_name, col_val) in col_name_iter:
+            (_, backref_uuid) = col_name.split(':')
+            self._delete_ref(bch, None, backref_uuid, obj_type, obj_uuid)
+
         bch.remove(obj_uuid)
         bch.send()
 
