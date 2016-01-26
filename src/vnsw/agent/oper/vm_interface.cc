@@ -204,7 +204,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     IpAddress fixed_ip_addr =
                         IpAddress::from_string(fip->fixed_ip_address(), ec);
                     if (ec.value() != 0) {
-                        fixed_ip_addr = Ip4Address(0);
+                        fixed_ip_addr = IpAddress();
                     }
                     data->floating_ip_list_.list_.insert
                         (VmInterface::FloatingIp(addr, vrf_node->name(),
@@ -3657,7 +3657,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface, bool l2) const{
 
 const IpAddress
 VmInterface::FloatingIp::GetFixedIp(const VmInterface *interface) const {
-    if (fixed_ip_.to_v4() == Ip4Address(0)) {
+    if (fixed_ip_.is_unspecified()) {
         if (floating_ip_.is_v4() == true) {
             return interface->primary_ip_addr();
         } else {

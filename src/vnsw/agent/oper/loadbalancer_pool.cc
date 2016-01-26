@@ -201,6 +201,10 @@ bool LoadbalancerPoolTable::OnChange(DBEntry *entry, const DBRequest *request) {
     LoadbalancerPoolData *data = static_cast<LoadbalancerPoolData *>(
         request->data.get());
 
+    /* Ignore change notifications if the entry is marked for delete */
+    if (data->node()->IsDeleted()) {
+        return false;
+    }
     assert(graph_);
     LoadBalancerPoolInfo properties;
     CalculateProperties(graph_, data->node(), &properties, &type);
