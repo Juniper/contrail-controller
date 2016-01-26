@@ -176,6 +176,7 @@ struct FlowInfo {
    36: optional u64 sip_lower;
    37: optional u64 dip_upper;
    38: optional u64 dip_lower;
+   43: string drop_reason;
 }
 
 traceobject sandesh FlowTrace {
