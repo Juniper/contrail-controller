@@ -237,3 +237,13 @@ uve sandesh SandeshMessageTrace {
     1: SandeshMessageStat data
 }
 
+request sandesh DisableFlowCollectionRequest {
+    1: optional bool disable
+}
+
+request sandesh FlowCollectionStatusRequest {
+}
+
+response sandesh FlowCollectionStatusResponse {
+    1: bool disable
+}
