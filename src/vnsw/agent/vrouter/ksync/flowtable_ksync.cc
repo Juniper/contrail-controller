@@ -183,6 +183,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         return 0;
     }
 
+    if (flow_entry_->vrouter_evicted()) {
+        return 0;
+    }
+
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
@@ -522,17 +526,20 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
                     seq_no);
         return;
     }
-    if (err == EINVAL && IgnoreVrouterError()) {
-        return;
+    if (err == EINVAL) {
+        if (flow_entry_->deleted()) {
+            return;
+        }
+        const FlowKey &key = flow_entry_->key();
+        if (key.protocol == IPPROTO_TCP) {
+            // TCP flows may be evicted in vrouter, ignore the error
+            // and enqueue the flow for delete
+            ksync_obj_->ksync()->agent()->pkt()->
+                get_flow_proto()->DeleteFlowRequest(key, true, true);
+            return;
+        }
     }
     KSyncEntry::ErrorHandler(err, seq_no);
-}
-
-bool FlowTableKSyncEntry::IgnoreVrouterError() const {
-    if (flow_entry_->deleted())
-        return true;
-
-    return false;
 }
 
 std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {

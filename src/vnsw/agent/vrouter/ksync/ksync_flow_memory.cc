@@ -207,10 +207,14 @@ const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
         if (table->IsEvictedFlow(key) && !IsEvictionMarked(kflow)) {
             return NULL;
         }
-        FlowKey rhs;
-        KFlow2FlowKey(kflow, &rhs);
-        if (!key.IsEqual(rhs)) {
-            return NULL;
+        /* Don't compare keys, if the flow is marked for eviction as keys
+         * would be reset by vrouter for evicted flows */
+        if (!IsEvictionMarked(kflow)) {
+            FlowKey rhs;
+            KFlow2FlowKey(kflow, &rhs);
+            if (!key.IsEqual(rhs)) {
+                return NULL;
+            }
         }
         /* TODO: If a flow is evicted from vrouter and later flow with same
          * key is assigned with same index, then we may end up reading

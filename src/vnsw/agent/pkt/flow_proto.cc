@@ -256,7 +256,8 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
 
     case FlowEvent::DELETE_FLOW: {
         FlowTable *table = GetFlowTable(req.get_flow_key());
-        table->Delete(req.get_flow_key(), req.get_del_rev_flow());
+        table->Delete(req.get_flow_key(), req.get_del_rev_flow(),
+                      req.get_vrouter_evicted());
         break;
     }
 
@@ -342,8 +343,10 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     return true;
 }
 
-void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow));
+void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
+                                  bool evicted) {
+    EnqueueFlowEvent(FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow,
+                               evicted));
     return;
 }
 
@@ -365,7 +368,7 @@ void FlowProto::CreateAuditEntry(FlowEntry *flow) {
 
 
 void FlowProto::GrowFreeListRequest(const FlowKey &key) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
+    EnqueueFlowEvent(FlowEvent(FlowEvent::GROW_FREE_LIST, key, false, false));
     return;
 }
 

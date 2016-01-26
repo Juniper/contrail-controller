@@ -245,7 +245,7 @@ private:
         virtual bool Run() {
             FlowTable *table =
                 Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key_);
-            table->Delete(key_, true);
+            table->Delete(key_, true, false);
             return true;
         }
     private:

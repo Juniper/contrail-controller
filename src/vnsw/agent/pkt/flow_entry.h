@@ -449,6 +449,8 @@ class FlowEntry {
     void set_fsc(FlowStatsCollector *fsc) {
         fsc_ = fsc;
     }
+    void set_vrouter_evicted(bool value) { vrouter_evicted_ = value; }
+    bool vrouter_evicted() const { return vrouter_evicted_; }
     static std::string DropReasonStr(uint16_t reason);
 private:
     friend class FlowTable;
@@ -498,6 +500,7 @@ private:
     tbb::mutex mutex_;
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
+    bool vrouter_evicted_;
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 
     static InetUnicastRouteEntry inet4_route_key_;

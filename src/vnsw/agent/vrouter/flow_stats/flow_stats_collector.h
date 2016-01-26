@@ -144,7 +144,7 @@ private:
                                  bool teardown_time,
                                  uint64_t *diff_bytes,
                                  uint64_t *diff_pkts);
-    void FlowDeleteEnqueue(const FlowKey &key, bool rev);
+    void FlowDeleteEnqueue(const FlowKey &key, bool rev, bool evicted);
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,
