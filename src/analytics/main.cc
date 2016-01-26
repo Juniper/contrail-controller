@@ -364,6 +364,7 @@ int main(int argc, char *argv[])
             a_evm, "127.0.0.1", coll_port,
             options.http_server_port(), &vsc);
 
+    Sandesh::DisableFlowCollection(options.disable_flow_collection());
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
