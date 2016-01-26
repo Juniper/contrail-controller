@@ -68,6 +68,27 @@ struct HealthCheckServiceData : public AgentOperDBData {
     std::set<boost::uuids::uuid> intf_uuid_list_;
 };
 
+class HealthCheckInstanceEvent : public Task {
+public:
+    enum EventType {
+        MESSAGE_READ = 0,
+        TASK_EXIT,
+        EVENT_MAX
+    };
+
+    HealthCheckInstanceEvent(HealthCheckInstance *inst, EventType type,
+                             const std::string message);
+    virtual ~HealthCheckInstanceEvent();
+
+    bool Run();
+
+private:
+    HealthCheckInstance *instance_;
+    EventType type_;
+    std::string message_;
+    DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceEvent);
+};
+
 struct HealthCheckInstance {
     typedef InstanceTaskExecvp HeathCheckProcessInstance;
     static const std::string kHealthCheckCmd;
@@ -80,6 +101,7 @@ struct HealthCheckInstance {
 
     bool CreateInstanceTask();
     void DestroyInstanceTask();
+    void ServiceReference();
 
     std::string to_string();
 
@@ -98,9 +120,14 @@ struct HealthCheckInstance {
     // current status of HealthCheckInstance
     bool active_;
     // task managing external running script for status
-    HeathCheckProcessInstance *task_;
+    boost::scoped_ptr<HeathCheckProcessInstance> task_;
     // last update time
     std::string last_update_time_;
+    // instance is delete marked
+    bool deleted_;
+    // Take reference to HealthCheckService entry
+    HealthCheckServiceRef service_ref_;
+
 private:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstance);
 };
@@ -124,12 +151,17 @@ public:
 
     bool DBEntrySandesh(Sandesh *resp, std::string &name) const;
 
+    void PostAdd();
     bool Copy(HealthCheckTable *table, const HealthCheckServiceData *data);
+
+    void UpdateInstanceServiceReference();
+    void DeleteInstances();
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
 
 private:
     friend class HealthCheckInstance;
+    friend class HealthCheckInstanceEvent;
 
     const HealthCheckTable *table_;
     boost::uuids::uuid uuid_;

@@ -135,6 +135,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Uve",
         "Agent::KSync",
         "Agent::PktFlowResponder",
+        "Agent::HealthCheck",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
