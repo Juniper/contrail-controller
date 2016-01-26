@@ -65,11 +65,13 @@ class SchemaTransformer(object):
             'self': ['virtual_network'],
         },
         'virtual_machine_interface': {
-            'self': ['virtual_machine', 'virtual_network', 'bgp_as_a_service'],
-            'virtual_network': ['virtual_machine', 'bgp_as_a_service'],
+            'self': ['virtual_machine', 'port_tuple', 'virtual_network',
+                     'bgp_as_a_service'],
+            'virtual_network': ['virtual_machine', 'port_tuple',
+                                'bgp_as_a_service'],
             'logical_router': ['virtual_network'],
-            'instance_ip': ['virtual_machine'],
-            'floating_ip': ['virtual_machine'],
+            'instance_ip': ['virtual_machine', 'port_tuple'],
+            'floating_ip': ['virtual_machine', 'port_tuple'],
             'virtual_machine': [],
             'port_tuple': [],
             'bgp_as_a_service': [],
@@ -97,7 +99,7 @@ class SchemaTransformer(object):
             'route_aggregate': ['network_policy'],
             'virtual_machine': ['network_policy'],
             'port_tuple': ['network_policy'],
-            'network_policy': ['virtual_machine']
+            'network_policy': ['virtual_machine', 'port_tuple']
         },
         'network_policy': {
             'self': ['virtual_network', 'network_policy', 'service_instance'],
@@ -187,6 +189,9 @@ class SchemaTransformer(object):
         ConnectionState.init(self._sandesh, hostname, module_name, instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
+
+        self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
+                                          size=1000)
 
         rabbit_servers = self._args.rabbit_server
         rabbit_port = self._args.rabbit_port
@@ -331,7 +336,8 @@ class SchemaTransformer(object):
                 self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
         finally:
             try:
-                trace_msg(notify_trace, 'MessageBusNotifyTraceBuf', self._sandesh)
+                notify_trace.trace_msg(name='MessageBusNotifyTraceBuf',
+                                       sandesh=self._sandesh)
             except Exception:
                 pass
 
@@ -543,7 +549,7 @@ class SchemaTransformer(object):
     # end sandesh_sc_handle_request
 
     def sandesh_st_object_handle_request(self, req):
-        st_resp = sandesh.StObjectListResp()
+        st_resp = sandesh.StObjectListResp(objects=[])
         obj_type_map = DBBaseST.get_obj_type_map()
         if req.object_type is not None:
             if req.object_type not in obj_type_map:
@@ -561,7 +567,7 @@ class SchemaTransformer(object):
             else:
                 for obj in obj_cls.values():
                     st_resp.objects.append(obj.handle_st_object_req())
-        return st_resp
+        st_resp.response(req.context())
     # end sandesh_st_object_handle_request
 
     def reset(self):
