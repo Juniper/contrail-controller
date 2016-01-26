@@ -14,6 +14,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route_types.h"
 #include "net/community_type.h"
@@ -245,10 +246,11 @@ template <typename T>
 void StaticRoute<T>::FillShowInfo(StaticRouteInfo *info) const {
     BgpTable *table = bgp_table();
     RouteT rt_key(static_route_prefix_);
-    BgpRoute *route = static_cast<BgpRoute *>(table->Find(&rt_key));
+    const BgpRoute *route = static_cast<const BgpRoute *>(table->Find(&rt_key));
+    const BgpPath *path = route ? route->FindPath(BgpPath::StaticRoute) : NULL;
 
     info->set_prefix(static_route_prefix_.ToString());
-    info->set_static_rt(route ? true : false);
+    info->set_static_rt(path ? true : false);
     info->set_nexthop(nexthop_.to_string());
     if (nexthop_route_) {
         ShowRouteBrief show_route;
@@ -262,6 +264,13 @@ void StaticRoute<T>::FillShowInfo(StaticRouteInfo *info) const {
         route_target_list.push_back(it->ToString());
     }
     info->set_route_target_list(route_target_list);
+
+    if (path) {
+        const RoutePathReplicator *replicator = table->server()->replicator(
+            Address::VpnFamilyFromFamily(GetFamily()));
+        info->set_secondary_tables(
+            replicator->GetReplicatedTableNameList(table, route, path));
+    }
 }
 
 // Match function called from BgpConditionListener

@@ -106,6 +106,24 @@ std::string Address::FamilyToTableString(Address::Family family) {
     return toTableName.find(family)->second;
 }
 
+Address::Family Address::VpnFamilyFromFamily(Address::Family family) {
+    switch (family) {
+    case Address::INET:
+    case Address::INETVPN:
+        return Address::INETVPN;
+    case Address::INET6:
+    case Address::INET6VPN:
+        return Address::INET6VPN;
+    case Address::EVPN:
+        return Address::EVPN;
+    case Address::ERMVPN:
+        return Address::ERMVPN;
+    default:
+        return Address::UNSPEC;
+    }
+    return Address::UNSPEC;
+}
+
 static int CountDots(const string &str) {
     int count = 0;
     size_t pos = 0;

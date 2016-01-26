@@ -119,8 +119,17 @@ public:
             return ermvpn_replicator_.get();
         if (family == Address::INET6VPN)
             return inet6vpn_replicator_.get();
-
-        assert(false);
+        return NULL;
+    }
+    const RoutePathReplicator *replicator(Address::Family family) const {
+        if (family == Address::INETVPN)
+            return inetvpn_replicator_.get();
+        if (family == Address::EVPN)
+            return evpn_replicator_.get();
+        if (family == Address::ERMVPN)
+            return ermvpn_replicator_.get();
+        if (family == Address::INET6VPN)
+            return inet6vpn_replicator_.get();
         return NULL;
     }
 

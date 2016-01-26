@@ -145,6 +145,7 @@ struct ShowRoutePath {
     12: u32 label;
     13: bool replicated;
     14: string primary_table (link="ShowRouteReq");
+    24: list<string> secondary_tables;
     15: list<string> communities;
     16: string origin_vn;
     17: u32 flags;
