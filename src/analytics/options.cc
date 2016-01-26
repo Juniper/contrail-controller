@@ -170,6 +170,9 @@ void Options::Initialize(EventManager &evm,
               opt::value<uint32_t>()->default_value(
               Sandesh::get_send_rate_limit()),
               "Sandesh send rate limit in messages/sec")
+        ("DEFAULT.disable_flow_collection",
+            opt::bool_switch(&disable_flow_collection_),
+            "Disable flow message collection")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),

@@ -763,3 +763,23 @@ void DiscoveryClientPublisherStatsReq::HandleRequest() const {
     resp->set_more(false);
     resp->Response();
 }
+
+static void SendFlowCollectionStatusResponse(std::string context) {
+    FlowCollectionStatusResponse *fcsr(new FlowCollectionStatusResponse);
+    fcsr->set_disable(Sandesh::IsFlowCollectionDisabled());
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DisableFlowCollectionRequest::HandleRequest() const {
+    if (__isset.disable) {
+        Sandesh::DisableFlowCollection(get_disable());
+    }
+    // Send response
+    SendFlowCollectionStatusResponse(context());
+}
+
+void FlowCollectionStatusRequest::HandleRequest() const {
+    // Send response
+    SendFlowCollectionStatusResponse(context());
+}
