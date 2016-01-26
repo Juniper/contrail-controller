@@ -24,7 +24,8 @@ class ConsistentScheduler(object):
 
     def __init__(self, service_name=None, zookeeper='127.0.0.1:2181',
                  delete_hndlr=None, add_hndlr=None, bucketsize=47,
-                 item2part_func=None, partitioner=None, logger=None):
+                 item2part_func=None, partitioner=None, logger=None, 
+                 cluster_id=''):
         if logger:
             self._logger = logger
         else:
@@ -41,7 +42,12 @@ class ConsistentScheduler(object):
         self._last_log = ''
         self._last_log_cnt = 0
         self._partition_set = map(str, range(self._bucketsize))
-        self._zk_path = '/'.join(['/contrail_cs', self._service_name])
+
+        self._cluster_id = cluster_id
+        if self._cluster_id:
+            self._zk_path = '/'+self._cluster_id + '/contrail_cs' + '/'+self._service_name
+        else:
+            self._zk_path = '/'.join(['/contrail_cs', self._service_name])
         self._zk = KazooClient(self._zookeeper_srvr)
         self._zk.add_listener(self._zk_lstnr)
         self._conn_state = None
