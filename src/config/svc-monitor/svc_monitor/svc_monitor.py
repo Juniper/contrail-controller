@@ -433,6 +433,26 @@ class SvcMonitor(object):
 
         self._db_resync_done.set()
 
+    def _upgrade_instance_ip(self, vm):
+        for vmi_id in vm.virtual_machine_interfaces:
+            vmi = VirtualMachineInterfaceSM.get(vmi_id)
+            if not vmi:
+                continue
+
+            for iip_id in vmi.instance_ips:
+                iip = InstanceIpSM.get(iip_id)
+                if not iip or iip.service_instance_ip:
+                    continue
+                iip_obj = InstanceIp()
+                iip_obj.name = iip.name
+                iip_obj.uuid = iip.uuid
+                iip_obj.set_service_instance_ip(True)
+                try:
+                    self._vnc_lib.instance_ip_update(iip_obj)
+                except NoIdError:
+                    self.logger.log_error("upgrade instance ip to service ip failed %s" % (iip.name))
+                    continue
+
     def upgrade(self):
         for si in ServiceInstanceSM.values():
             st = ServiceTemplateSM.get(si.service_template)
@@ -442,6 +462,7 @@ class SvcMonitor(object):
             vm_id_list = list(si.virtual_machines)
             for vm_id in vm_id_list:
                 vm = VirtualMachineSM.get(vm_id)
+                self._upgrade_instance_ip(vm)
                 if vm.virtualization_type:
                     continue
 
