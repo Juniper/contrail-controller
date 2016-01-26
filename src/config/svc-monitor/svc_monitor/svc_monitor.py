@@ -710,6 +710,19 @@ def skip_check_service(si):
 
 
 def timer_callback(monitor):
+    # delete orphan shared iips
+    iip_delete_list = []
+    for iip in InstanceIpSM.values():
+        if not iip.instance_ip_secondary or not iip.service_instance_ip:
+            continue
+        if iip.service_instance:
+            continue
+        if len(iip.virtual_machine_interfaces):
+            continue
+        iip_delete_list.append(iip)
+    for iip in iip_delete_list:
+        monitor.delete_shared_iip(iip.uuid)
+
     # delete vms without si
     vm_delete_list = []
     for vm in VirtualMachineSM.values():
