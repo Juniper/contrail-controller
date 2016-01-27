@@ -10,7 +10,8 @@ from gevent import monkey
 monkey.patch_all()
 from gevent import hub
 
-# from neutron plugin to api server, the request URL could be large. fix the const
+# from neutron plugin to api server, the request URL could be large.
+# fix the const
 import gevent.pywsgi
 gevent.pywsgi.MAX_REQUEST_LINE = 65535
 
@@ -18,7 +19,6 @@ import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import functools
-import re
 import logging
 import logging.config
 import signal
@@ -27,13 +27,10 @@ import socket
 from cfgm_common import jsonutils as json
 import uuid
 import copy
-import argparse
-import ConfigParser
 from pprint import pformat
-import cgitb
 from cStringIO import StringIO
 from lxml import etree
-#import GreenletProfiler
+# import GreenletProfiler
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +65,7 @@ from cfgm_common import ignore_exceptions, imid
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiError
 from cfgm_common import illegal_xml_chars_RE
-from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
     NodeTypeNames, INSTANCE_ID_DEFAULT, API_SERVER_DISCOVERY_SERVICE_NAME,\
     IFMAP_SERVER_DISCOVERY_SERVICE_NAME
@@ -80,9 +77,10 @@ from gen.resource_common import *
 from gen.resource_server import *
 import gen.vnc_api_server_gen
 import cfgm_common
+from cfgm_common.utils import cgitb_hook
 from cfgm_common.rest import LinkObject, hdr_server_tenant
 from cfgm_common.exceptions import *
-from cfgm_common.vnc_extensions import ExtensionManager, ApiHookManager
+from cfgm_common.vnc_extensions import ExtensionManager
 import gen.resource_xsd
 import vnc_addr_mgmt
 import vnc_auth
@@ -95,7 +93,7 @@ from cfgm_common.vnc_api_stats import log_api_stats
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import discoveryclient.client as client
-#from gen_py.vnc_api.ttypes import *
+# from gen_py.vnc_api.ttypes import *
 import netifaces
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
@@ -173,51 +171,6 @@ def error_503(err):
     return err.body
 # end error_503
 
-
-# Masking of password from openstack/common/log.py
-_SANITIZE_KEYS = ['adminPass', 'admin_pass', 'password', 'admin_password']
-
-# NOTE(ldbragst): Let's build a list of regex objects using the list of
-# _SANITIZE_KEYS we already have. This way, we only have to add the new key
-# to the list of _SANITIZE_KEYS and we can generate regular expressions
-# for XML and JSON automatically.
-_SANITIZE_PATTERNS = []
-_FORMAT_PATTERNS = [r'(%(key)s\s*[=]\s*[\"\']).*?([\"\'])',
-                    r'(<%(key)s>).*?(</%(key)s>)',
-                    r'([\"\']%(key)s[\"\']\s*:\s*[\"\']).*?([\"\'])',
-                    r'([\'"].*?%(key)s[\'"]\s*:\s*u?[\'"]).*?([\'"])']
-
-for key in _SANITIZE_KEYS:
-    for pattern in _FORMAT_PATTERNS:
-        reg_ex = re.compile(pattern % {'key': key}, re.DOTALL)
-        _SANITIZE_PATTERNS.append(reg_ex)
-
-def mask_password(message, secret="***"):
-    """Replace password with 'secret' in message.
-    :param message: The string which includes security information.
-    :param secret: value with which to replace passwords.
-    :returns: The unicode value of message with the password fields masked.
-
-    For example:
-
-    >>> mask_password("'adminPass' : 'aaaaa'")
-    "'adminPass' : '***'"
-    >>> mask_password("'admin_pass' : 'aaaaa'")
-    "'admin_pass' : '***'"
-    >>> mask_password('"password" : "aaaaa"')
-    '"password" : "***"'
-    >>> mask_password("'original_password' : 'aaaaa'")
-    "'original_password' : '***'"
-    >>> mask_password("u'original_password' :   u'aaaaa'")
-    "u'original_password' :   u'***'"
-    """
-    if not any(key in message for key in _SANITIZE_KEYS):
-        return message
-
-    secret = r'\g<1>' + secret + r'\g<2>'
-    for pattern in _SANITIZE_PATTERNS:
-        message = re.sub(pattern, secret, message)
-    return message
 
 class VncApiServer(object):
     """
@@ -1608,11 +1561,8 @@ class VncApiServer(object):
                     bottle.abort(e.status_code, e.content)
                 else:
                     string_buf = StringIO()
-                    cgitb.Hook(
-                        file=string_buf,
-                        format="text",
-                        ).handle(sys.exc_info())
-                    err_msg = mask_password(string_buf.getvalue())
+                    cgitb_hook(file=string_buf, format="text")
+                    err_msg = string_buf.getvalue()
                     self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
                     raise
 

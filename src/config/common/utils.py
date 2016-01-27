@@ -21,6 +21,7 @@
 # @author: Numan Siddique, eNovance.
 
 
+import re
 import urllib
 from collections import OrderedDict
 import sys
@@ -28,13 +29,79 @@ import cgitb
 import cStringIO
 import logging
 
+
+# Masking of password from openstack/common/log.py
+_SANITIZE_KEYS = ['adminPass', 'admin_pass', 'password', 'admin_password']
+
+# NOTE(ldbragst): Let's build a list of regex objects using the list of
+# _SANITIZE_KEYS we already have. This way, we only have to add the new key
+# to the list of _SANITIZE_KEYS and we can generate regular expressions
+# for XML and JSON automatically.
+_SANITIZE_PATTERNS = []
+_FORMAT_PATTERNS = [r'(%(key)s\s*[=]\s*[\"\']).*?([\"\'])',
+                    r'(<%(key)s>).*?(</%(key)s>)',
+                    r'([\"\']%(key)s[\"\']\s*:\s*[\"\']).*?([\"\'])',
+                    r'([\'"].*?%(key)s[\'"]\s*:\s*u?[\'"]).*?([\'"])']
+
+for key in _SANITIZE_KEYS:
+    for pattern in _FORMAT_PATTERNS:
+        reg_ex = re.compile(pattern % {'key': key}, re.DOTALL)
+        _SANITIZE_PATTERNS.append(reg_ex)
+
+
+def mask_password(message, secret="***"):
+    """Replace password with 'secret' in message.
+    :param message: The string which includes security information.
+    :param secret: value with which to replace passwords.
+    :returns: The unicode value of message with the password fields masked.
+
+    For example:
+
+    >>> mask_password("'adminPass' : 'aaaaa'")
+    "'adminPass' : '***'"
+    >>> mask_password("'admin_pass' : 'aaaaa'")
+    "'admin_pass' : '***'"
+    >>> mask_password('"password" : "aaaaa"')
+    '"password" : "***"'
+    >>> mask_password("'original_password' : 'aaaaa'")
+    "'original_password' : '***'"
+    >>> mask_password("u'original_password' :   u'aaaaa'")
+    "u'original_password' :   u'***'"
+    """
+    if not any(key in message for key in _SANITIZE_KEYS):
+        return message
+
+    secret = r'\g<1>' + secret + r'\g<2>'
+    for pattern in _SANITIZE_PATTERNS:
+        message = re.sub(pattern, secret, message)
+    return message
+# end mask_password
+
+
+def cgitb_hook(info=sys.exc_info(), **kwargs):
+    buf = sys.stdout
+    if 'file' in kwargs:
+        buf = kwargs['file']
+
+    local_buf = cStringIO.StringIO()
+    kwargs['file'] = local_buf
+    cgitb.Hook(**kwargs).handle(info)
+
+    doc = local_buf.getvalue()
+    local_buf.close()
+    buf.write(mask_password(doc))
+    buf.flush()
+# end cgitb_hook
+
+
 def detailed_traceback():
     buf = cStringIO.StringIO()
-    cgitb.Hook(format="text", file=buf).handle(sys.exc_info())
+    cgitb_hook(format="text", file=buf)
     tb_txt = buf.getvalue()
     buf.close()
     return tb_txt
 # end detailed_traceback
+
 
 def encode_string(enc_str, encoding='utf-8'):
     """Encode the string using urllib.quote_plus
@@ -110,6 +177,7 @@ def CamelCase(input):
     return name
 # end CamelCase
 
+
 def str_to_class(class_name, module_name):
     try:
         return reduce(getattr, class_name.split("."), sys.modules[module_name])
@@ -119,15 +187,17 @@ def str_to_class(class_name, module_name):
         return None
 # end str_to_class
 
+
 def obj_type_to_vnc_class(obj_type, module_name):
     return str_to_class(CamelCase(obj_type), module_name)
 # end obj_type_to_vnc_class
 
+
 def getCertKeyCaBundle(bundle, certs):
     with open(bundle, 'w') as ofile:
-         for cert in certs:
-             with open(cert) as ifile:
-                  for line in ifile:
-                      ofile.write(line)
+        for cert in certs:
+            with open(cert) as ifile:
+                for line in ifile:
+                    ofile.write(line)
     return bundle
-#end CreateCertKeyCaBundle
+# end CreateCertKeyCaBundle

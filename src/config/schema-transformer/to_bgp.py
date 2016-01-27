@@ -20,23 +20,19 @@ import requests
 import ConfigParser
 import cgitb
 
-import copy
 import argparse
 import socket
-import uuid
 
-import cfgm_common as common
 from cfgm_common import vnc_cpu_info
 
 from cfgm_common.exceptions import *
-from cfgm_common import svc_info
 from config_db import *
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
@@ -47,10 +43,10 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
-from cStringIO import StringIO
 from db import SchemaTransformerDB
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.utils import cgitb_hook
 
 # connection to api-server
 _vnc_lib = None
@@ -327,7 +323,7 @@ class SchemaTransformer(object):
             # end for vn_id
         except Exception as e:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             notify_trace.error = string_buf.getvalue()
             try:
                 with open(self._args.trace_file, 'a') as err_file:
