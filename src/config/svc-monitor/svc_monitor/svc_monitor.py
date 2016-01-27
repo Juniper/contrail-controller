@@ -30,6 +30,7 @@ from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
 from cfgm_common import utils
+from cfgm_common.utils import cgitb_hook
 
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.vnc_db import DBBase
@@ -918,7 +919,7 @@ def launch_timer(monitor):
 
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
-    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+    cgitb_hook(file=string_buf, format="text")
     monitor.logger.log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
 def parse_args(args_str):

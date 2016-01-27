@@ -40,7 +40,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT, SCHEMA_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
@@ -57,8 +57,8 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
-from cStringIO import StringIO
 from db import SchemaTransformerDB
+from cfgm_common.utils import cgitb_hook
 
 _PROTO_STR_TO_NUM = {
     'icmp': '1',
