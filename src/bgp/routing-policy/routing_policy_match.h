@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 
+#include "bgp/bgp_config.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
 
@@ -72,15 +73,15 @@ public:
         LONGER,
         ORLONGER,
     };
-    explicit MatchPrefix(const std::string &prefix,
-                         const std::string &match_type="exact");
+    typedef std::pair<PrefixT, MatchType> PrefixMatch;
+    typedef std::vector<PrefixMatch> PrefixMatchList;
+    explicit MatchPrefix(const PrefixMatchConfigList &list);
     virtual ~MatchPrefix();
     virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &prefix) const;
 private:
-    PrefixT match_prefix_;
-    MatchType match_type_;
+    PrefixMatchList match_list_;
 };
 
 typedef MatchPrefix<InetPrefixMatch> PrefixMatchInet;
