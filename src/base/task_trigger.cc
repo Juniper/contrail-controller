@@ -22,6 +22,9 @@ public:
         }
         return done;
     }
+    std::string Description() const {
+        return "TaskTrigger::WorkerTask";
+    }
 private:
     TaskTrigger *parent_;
 };

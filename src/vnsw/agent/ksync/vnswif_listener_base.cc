@@ -50,6 +50,7 @@ void VnswInterfaceListenerBase::Init() {
                     (TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                      boost::bind(&VnswInterfaceListenerBase::ProcessEvent,
                      this, _1));
+    revent_queue_->set_name("Netlink interface listener");
 
     if (agent_->test_mode())
         return;

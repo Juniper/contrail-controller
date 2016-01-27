@@ -14,6 +14,10 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <base/sandesh/task_types.h>
+
 #include <init/agent_param.h>
 #include <cmn/agent_signal.h>
 #include <cfg/cfg_init.h>
@@ -49,6 +53,8 @@ const std::string Agent::xmpp_dns_server_connection_name_prefix_ = "dns-server:"
 const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-node:";
 
 Agent *Agent::singleton_;
+
+SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
 
 const string &Agent::GetHostInterfaceName() const {
     // There is single host interface.  Its addressed by type and not name
@@ -161,6 +167,10 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne("http client", metadata_exclude_list,
                      sizeof(metadata_exclude_list) / sizeof(char *));
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->RegisterLog(boost::bind(&Agent::TaskTrace, this,
+                                       _1, _2, _3, _4, _5));
 }
 
 void Agent::CreateLifetimeManager() {
@@ -492,4 +502,12 @@ bool Agent::isVmwareVcenterMode() const {
         return false;
 
     return params_->isVmwareVcenterMode();
+}
+
+void Agent::TaskTrace(const char *file_name, uint32_t line_no,
+                      const Task *task, const char *description,
+                      uint32_t delay) {
+    TaskTrace::TraceMsg(TaskTraceBuf, file_name, line_no,
+                        task->GetTaskId(), task->GetTaskInstance(),
+                        description, delay, task->Description());
 }

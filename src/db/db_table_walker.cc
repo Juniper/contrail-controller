@@ -68,6 +68,7 @@ public:
 
     virtual bool Run();
 
+    std::string Description() const { return "DBTable Walker"; }
 private:
     DBTableWalker::Walker *walker_;
 

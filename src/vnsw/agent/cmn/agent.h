@@ -759,6 +759,8 @@ public:
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
 
+    void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
+                   const char *description, uint32_t delay);
 private:
 
     AgentParam *params_;

@@ -34,6 +34,7 @@ public:
         return true;
     }
 
+    std::string Description() const { return "UdpServer::Reader"; }
 private:
     UdpServerPtr server_;
     udp::endpoint remote_endpoint_;

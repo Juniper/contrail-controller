@@ -420,8 +420,20 @@ void AgentParam::ParseDefaultSection() {
     }
 }
 
-void AgentParam::ParseMetadataProxy() { 
-    GetValueFromTree<string>(metadata_shared_secret_, 
+void AgentParam::ParseTaskSection() {
+    if (!GetValueFromTree<uint32_t>(tbb_exec_delay_,
+                                    "TASK.log_exec_threshold")) {
+        tbb_exec_delay_ = 0;
+    }
+
+    if (!GetValueFromTree<uint32_t>(tbb_schedule_delay_,
+                                    "TASK.log_schedule_threshold")) {
+        tbb_schedule_delay_ = 0;
+    }
+}
+
+void AgentParam::ParseMetadataProxy() {
+    GetValueFromTree<string>(metadata_shared_secret_,
                              "METADATA.metadata_proxy_secret");
 }
 
@@ -579,6 +591,14 @@ void AgentParam::ParseDefaultSectionArguments
     }
 }
 
+void AgentParam::ParseTaskSectionArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint32_t>(var_map, tbb_exec_delay_,
+                          "TASK.log_exec_threshold");
+    GetOptValue<uint32_t>(var_map, tbb_schedule_delay_,
+                          "TASK.log_schedule_threshold");
+}
+
 void AgentParam::ParseMetadataProxyArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, metadata_shared_secret_,
@@ -651,6 +671,7 @@ void AgentParam::InitFromConfig() {
     ParseNetworks();
     ParseHypervisor();
     ParseDefaultSection();
+    ParseTaskSection();
     ParseMetadataProxy();
     ParseFlows();
     ParseHeadlessMode();
@@ -672,6 +693,7 @@ void AgentParam::InitFromArguments() {
     ParseNetworksArguments(var_map_);
     ParseHypervisorArguments(var_map_);
     ParseDefaultSectionArguments(var_map_);
+    ParseTaskSectionArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
@@ -908,8 +930,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         headless_mode_(false), simulate_evpn_tor_(false),
         si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
-        vmware_mode_(ESXI_NEUTRON), flood_arp_(false) {
-
+        vmware_mode_(ESXI_NEUTRON), flood_arp_(false),
+        tbb_exec_delay_(0),
+        tbb_schedule_delay_(0) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1034,6 +1057,16 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
             ;
         options_.add(service);
     }
+
+
+    opt::options_description tbb("TBB specific options");
+    tbb.add_options()
+        ("TASK.log_exec_threshold", opt::value<uint32_t>(),
+         "Log message if task takes more than threshold (msec) to execute")
+        ("TASK.log_schedule_threshold", opt::value<uint32_t>(),
+         "Log message if task takes more than threshold (msec) to schedule")
+        ;
+    options_.add(tbb);
 }
 
 AgentParam::~AgentParam() {

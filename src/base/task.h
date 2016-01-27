@@ -88,16 +88,19 @@ public:
     virtual void OnTaskCancel() { };
 
     // Accessor methods
-    State GetState() { return state_; };
-    int GetTaskId() { return task_id_; };
-    int GetTaskInstance() { return task_instance_; };
-    int GetSeqno() { return seqno_; };
+    State GetState() const { return state_; };
+    int GetTaskId() const { return task_id_; };
+    int GetTaskInstance() const { return task_instance_; };
+    int GetSeqno() const { return seqno_; };
     friend std::ostream& operator<<(std::ostream& out, const Task &task);
 
     // return a pointer to the current task the code is executing under.
     static Task *Running();
 
     bool task_cancelled() const { return task_cancel_; };
+    virtual std::string Description() const { return "<NULL>"; }
+    uint64_t enqueue_time() const { return enqueue_time_; }
+    uint64_t schedule_time() const { return schedule_time_; }
 
 private:
     friend class TaskEntry;
@@ -116,6 +119,8 @@ private:
     uint32_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
+    uint64_t            enqueue_time_;
+    uint64_t            schedule_time_;
 
     DISALLOW_COPY_AND_ASSIGN(Task);
 };
@@ -130,6 +135,10 @@ private:
 // task id or task instance to have a 0 count.
 class TaskScheduler {
 public:
+    typedef boost::function<void(const char *file_name, uint32_t line_no,
+                                 const Task *task, const char *description,
+                                 uint32_t delay)> LogFn;
+
     TaskScheduler();
     ~TaskScheduler();
 
@@ -180,6 +189,18 @@ public:
     // Get number of tbb worker threads.
     static int GetThreadCount();
 
+    uint64_t enqueue_count() const { return enqueue_count_; }
+    uint64_t done_count() const { return done_count_; }
+    uint64_t cancel_count() const { return cancel_count_; }
+    void Log(const char *file_name, uint32_t line_no, const Task *task,
+             const char *description, uint32_t delay);
+    void RegisterLog(LogFn fn);
+    // Enable logging of tasks exceeding configured latency
+    void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
+    bool measure_delay() const { return measure_delay_; }
+    uint32_t schedule_delay() const { return schedule_delay_; }
+    uint32_t execute_delay() const { return execute_delay_; }
+
 private:
     friend class SandeshTaskSchedulerReq;
     friend class SandeshTaskGroupReq;
@@ -220,8 +241,18 @@ private:
     TaskIdMap               id_map_;
     int                     id_max_;
 
+    LogFn                   log_fn_;
     int                     hw_thread_count_;
 
+    bool                    measure_delay_;
+    // Log if time between enqueue and task-execute exceeds the delay
+    uint32_t                schedule_delay_;
+    // Log if time taken to execute exceeds the delay
+    uint32_t                execute_delay_;
+
+    uint64_t                enqueue_count_;
+    uint64_t                done_count_;
+    uint64_t                cancel_count_;
     DISALLOW_COPY_AND_ASSIGN(TaskScheduler);
 };
 

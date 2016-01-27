@@ -12,6 +12,9 @@
 #ifndef __QUEUE_TASK_H__
 #define __QUEUE_TASK_H__
 
+#include <iostream>
+#include <sstream>
+#include <algorithm>
 #include <vector>
 
 #include <tbb/atomic.h>
@@ -37,6 +40,10 @@ public:
         // No more client callbacks after updating
         // queue running_ and current_runner_ in RunQueue to 
         // avoid client callbacks running concurrently
+    }
+
+    virtual std::string Description() const {
+        return queue_->Description();
     }
 
 private:
@@ -113,6 +120,7 @@ public:
         running_(false),
         taskId_(taskId),
         taskInstance_(taskInstance),
+        name_(""),
         callback_(callback),
         on_entry_cb_(0),
         on_exit_cb_(0),
@@ -279,7 +287,18 @@ public:
         on_exit_cb_ = on_exit;
     }
 
-    // For testing only.
+    void set_name(const std::string &name) {
+        name_ = name;
+    }
+    std::string Description() const {
+        if (name_.empty() == false)
+            return name_;
+
+        std::ostringstream str;
+        str << "Function " << callback_;
+        return str.str();
+    }
+
     void set_disable(bool disabled) {
         disabled_ = disabled;
         MayBeStartRunner();
@@ -428,6 +447,7 @@ private:
     bool running_;
     int taskId_;
     int taskInstance_;
+    std::string name_;
     Callback callback_;
     TaskEntryCallback on_entry_cb_;
     TaskExitCallback on_exit_cb_;
