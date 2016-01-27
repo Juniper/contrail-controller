@@ -26,6 +26,7 @@ import discoveryclient.client as disc_client
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import (VncApiConfigLog, VncApiError)
 from cfgm_common import imid
+from cfgm_common.utils import cgitb_hook
 
 from test_utils import *
 import bottle
@@ -393,7 +394,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         from cStringIO  import StringIO
 
         tmp_file = StringIO()
-        cgitb.Hook(format="text", file=tmp_file).handle(exc_info)
+        cgitb_hook(format="text", file=tmp_file, info=exc_info)
         tb_str = tmp_file.getvalue()
         tmp_file.close()
         self.addDetail('detailed-traceback', content.text_content(tb_str))
