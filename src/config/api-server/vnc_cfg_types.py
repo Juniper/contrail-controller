@@ -461,7 +461,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps = bindings['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
 
-            if kvp_dict.get('vnic_type') == cls.portbinding('VNIC_TYPE_DIRECT'):
+            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT']:
                 if not 'provider_properties' in  vn_dict:
                     msg = 'No provider details in direct port'
                     return (False, (400, msg))
