@@ -313,8 +313,7 @@ bool PathResolver::ProcessResolverNexthopRegUnregList() {
     }
     nexthop_reg_unreg_list_.clear();
 
-    if (MayDelete())
-        RetryDelete();
+    RetryDelete();
     return true;
 }
 
@@ -327,6 +326,7 @@ bool PathResolver::ProcessResolverNexthopUpdateList() {
     for (ResolverNexthopList::iterator it = nexthop_update_list_.begin();
          it != nexthop_update_list_.end(); ++it) {
         ResolverNexthop *rnexthop = *it;
+        assert(!rnexthop->deleted());
         rnexthop->TriggerAllResolverPaths();
     }
     nexthop_update_list_.clear();
@@ -370,10 +370,30 @@ void PathResolver::RetryDelete() {
     deleter_->RetryDelete();
 }
 
-// nsheth: need to find a way to register a listener without a callback and
-// remove this method.
+//
+// Dummy callback - required in order to get a listener_id for use with
+// BgpConditionListener.
+//
 bool PathResolver::RouteListener(DBTablePartBase *root, DBEntryBase *entry) {
     return true;
+}
+
+//
+// Get size of the map.
+// For testing only.
+//
+size_t PathResolver::GetResolverNexthopMapSize() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return nexthop_map_.size();
+}
+
+//
+// Get size of the delete list.
+// For testing only.
+//
+size_t PathResolver::GetResolverNexthopDeleteListSize() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return nexthop_delete_list_.size();
 }
 
 //
@@ -397,6 +417,7 @@ void PathResolver::EnableResolverNexthopRegUnregProcessing() {
 // For testing only.
 //
 size_t PathResolver::GetResolverNexthopRegUnregListSize() const {
+    tbb::mutex::scoped_lock lock(mutex_);
     return nexthop_reg_unreg_list_.size();
 }
 
@@ -421,6 +442,7 @@ void PathResolver::EnableResolverNexthopUpdateProcessing() {
 // For testing only.
 //
 size_t PathResolver::GetResolverNexthopUpdateListSize() const {
+    tbb::mutex::scoped_lock lock(mutex_);
     return nexthop_update_list_.size();
 }
 
@@ -935,6 +957,10 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
             condition_listener->SetMatchState(table, route, this);
         }
     }
+
+    // Nothing more to do if the ConditionMatch has been removed.
+    if (ConditionMatch::deleted())
+        return false;
 
     // Trigger re-evaluation of all dependent ResolverPaths.
     resolver_->UpdateResolverNexthop(this);
