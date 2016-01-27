@@ -552,6 +552,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        return True, ''
+    # end pre_dbe_delete
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):

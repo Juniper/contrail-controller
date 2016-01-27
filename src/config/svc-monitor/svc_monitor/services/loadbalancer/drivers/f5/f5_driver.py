@@ -2,15 +2,14 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
-import cgitb
-from cStringIO import StringIO
 import uuid
 import netaddr
 
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
-from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
+from cfgm_common.zkclient import IndexAllocator
 from cfgm_common import exceptions as vnc_exc
+from cfgm_common.utils import cgitb_hook
 from vnc_api.vnc_api import *
 from f5.bigip import bigip as f5_bigip
 from f5.bigip import bigip_interfaces
@@ -209,12 +208,7 @@ class OpencontrailF5LoadbalancerDriver(
             try:
                 self.create_service_on_device(set_bigip, pool_info)
             except Exception as e:
-                string_buf = StringIO()
-                cgitb.Hook(
-                        file=string_buf,
-                        format="text",
-                        ).handle(sys.exc_info())
-                print(string_buf.getvalue())
+                cgitb_hook(format="text",)
 
     # end create_service
 
@@ -405,12 +399,7 @@ class OpencontrailF5LoadbalancerDriver(
             try:
                 update_pool_info = self.update_service_on_device(set_bigip, old_pool_info, pool_info)
             except Exception as e:
-                string_buf = StringIO()
-                cgitb.Hook(
-                        file=string_buf,
-                        format="text",
-                        ).handle(sys.exc_info())
-                print(string_buf.getvalue())
+                cgitb_hook(format="text",)
 
         for key in update_pool_info.keys():
             if key == "remove_vip":
@@ -422,12 +411,7 @@ class OpencontrailF5LoadbalancerDriver(
             try:
                 self.delete_service_on_device(set_bigip, pool_info)
             except Exception as e:
-                string_buf = StringIO()
-                cgitb.Hook(
-                        file=string_buf,
-                        format="text",
-                        ).handle(sys.exc_info())
-                print(string_buf.getvalue())
+                cgitb_hook(format="text",)
         self.release_resource(pool_info)
     # end delete_service
  
@@ -1278,12 +1262,7 @@ class OpencontrailF5LoadbalancerDriver(
                 return
             self.db.pool_driver_info_insert(pool['id'], {'f5': new_pool_svc})
         except Exception as e:
-            string_buf = StringIO()
-            cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
-            print(string_buf.getvalue())
+            cgitb_hook(format="text",)
     # end  create_pool
 
     def update_pool(self, old_pool, pool):
@@ -1306,12 +1285,7 @@ class OpencontrailF5LoadbalancerDriver(
                 return
             self.db.pool_driver_info_insert(pool['id'], {'f5': new_pool_svc})
         except Exception as e:
-            string_buf = StringIO()
-            cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
-            print(string_buf.getvalue())
+            cgitb_hook(format="text",)
     # end  update_pool
 
     def delete_pool(self, pool):
