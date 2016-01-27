@@ -99,3 +99,23 @@ bool UpdateLocalPref::IsEqual(const RoutingPolicyAction &local_pref) const {
         static_cast<const UpdateLocalPref&>(local_pref);
     return (local_pref_ == in_lp.local_pref_);
 }
+
+UpdateMed::UpdateMed(uint32_t med)
+    : med_(med) {
+}
+
+void UpdateMed::operator()(BgpAttr *attr) const {
+    attr->set_med(med_);
+}
+
+string UpdateMed::ToString() const {
+    ostringstream oss;
+    oss << "med " << med_;
+    return oss.str();
+}
+
+bool UpdateMed::IsEqual(const RoutingPolicyAction &med) const {
+    const UpdateMed in_lp =
+        static_cast<const UpdateMed&>(med);
+    return (med_ == in_lp.med_);
+}

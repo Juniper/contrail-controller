@@ -367,6 +367,9 @@ string RoutingPolicyActionConfig::ToString() const {
     if (update.local_pref) {
         oss << "    local-preference " << update.local_pref << std::endl;
     }
+    if (update.med) {
+        oss << "    med " << update.med << std::endl;
+    }
 
     if (action == ACCEPT) {
         oss << "    accept" << std::endl;

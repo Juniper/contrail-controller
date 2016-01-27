@@ -105,4 +105,16 @@ public:
 private:
     uint32_t local_pref_;
 };
+
+class UpdateMed : public RoutingPolicyUpdateAction {
+public:
+    UpdateMed(uint32_t med);
+    virtual ~UpdateMed() {}
+    virtual void operator()(BgpAttr *out_attr) const;
+    std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyAction &med) const;
+private:
+    uint32_t med_;
+};
+
 #endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_ACTION_H_

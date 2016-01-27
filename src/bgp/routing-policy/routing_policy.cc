@@ -418,6 +418,12 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
         actions.push_back(local_pref);
     }
 
+    if (cfg_term.action.update.med) {
+        UpdateMed *med =
+            new UpdateMed(cfg_term.action.update.med);
+        actions.push_back(med);
+    }
+
     PolicyTermPtr ret_term;
     if (!actions.empty() || !matches.empty()) {
         ret_term = PolicyTermPtr(new PolicyTerm());
