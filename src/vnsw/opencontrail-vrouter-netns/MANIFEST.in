@@ -1,0 +1,2 @@
+include *.txt
+prune opencontrail_vrouter_netns/tests
