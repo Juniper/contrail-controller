@@ -3,21 +3,15 @@
 #
 
 import bottle
-import cgitb
-import gevent
 from cfgm_common import jsonutils as json
-import logging
 from pprint import pformat
-import requests
-import sys
 import string
 import ConfigParser
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
-from vnc_api import vnc_api
 from neutron_plugin_db import DBInterface
-from cfgm_common.utils import CacheContainer
+from cfgm_common.utils import CacheContainer, cgitb_hook
 
 @bottle.error(400)
 def error_400(err):
@@ -149,7 +143,7 @@ class NeutronPluginInterface(object):
             net_info = cfgdb.network_read(network['id'], fields)
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_network(self, context, network):
@@ -162,7 +156,7 @@ class NeutronPluginInterface(object):
             net_info = cfgdb.network_create(network['resource'])
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_network(self, context, network):
@@ -176,7 +170,7 @@ class NeutronPluginInterface(object):
                                             network['resource'])
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_network(self, context, network):
@@ -189,7 +183,7 @@ class NeutronPluginInterface(object):
             cfgdb.network_delete(network['id'])
             LOG.debug("plugin_delete_network(): " + pformat(network['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_networks(self, context, network):
@@ -204,7 +198,7 @@ class NeutronPluginInterface(object):
             nets_info = cfgdb.network_list(context, filters)
             return json.dumps(nets_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_networks_count(self, context, network):
@@ -221,7 +215,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(nets_count))
             return {'count': nets_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_network(self):
@@ -277,7 +271,7 @@ class NeutronPluginInterface(object):
             subnet_info = cfgdb.subnet_read(subnet['id'])
             return self._make_subnet_dict(subnet_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_subnet(self, context, subnet):
@@ -290,7 +284,7 @@ class NeutronPluginInterface(object):
             subnet_info = cfgdb.subnet_create(subnet['resource'])
             return self._make_subnet_dict(subnet_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_subnet(self, context, subnet):
@@ -304,7 +298,7 @@ class NeutronPluginInterface(object):
                                               subnet['resource'])
             return self._make_subnet_dict(subnet_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_subnet(self, context, subnet):
@@ -317,7 +311,7 @@ class NeutronPluginInterface(object):
             cfgdb.subnet_delete(subnet['id'])
             LOG.debug("plugin_delete_subnet(): " + pformat(subnet['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_subnets(self, context, subnet):
@@ -332,7 +326,7 @@ class NeutronPluginInterface(object):
             subnets_info = cfgdb.subnets_list(context, filters)
             return json.dumps([self._make_subnet_dict(i) for i in subnets_info])
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_subnets_count(self, context, subnet):
@@ -349,7 +343,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(subnets_count))
             return {'count': subnets_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_subnet(self):
@@ -382,7 +376,7 @@ class NeutronPluginInterface(object):
             port_info = cfgdb.port_read(port['id'])
             return port_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_port(self, context, port):
@@ -395,7 +389,7 @@ class NeutronPluginInterface(object):
             net_info = cfgdb.port_create(context, port['resource'])
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_port(self, context, port):
@@ -409,7 +403,7 @@ class NeutronPluginInterface(object):
                                          port['resource'])
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_port(self, context, port):
@@ -422,7 +416,7 @@ class NeutronPluginInterface(object):
             cfgdb.port_delete(port['id'])
             LOG.debug("plugin_delete_port(): " + pformat(port['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_ports(self, context, port):
@@ -437,7 +431,7 @@ class NeutronPluginInterface(object):
             ports_info = cfgdb.port_list(context, filters)
             return json.dumps(ports_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_ports_count(self, context, port):
@@ -454,7 +448,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(ports_count))
             return {'count': ports_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_port(self):
@@ -487,7 +481,7 @@ class NeutronPluginInterface(object):
             fip_info = cfgdb.floatingip_read(floatingip['id'])
             return fip_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_floatingip(self, context, floatingip):
@@ -500,7 +494,7 @@ class NeutronPluginInterface(object):
             net_info = cfgdb.floatingip_create(context, floatingip['resource'])
             return net_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_floatingip(self, context, floatingip):
@@ -514,7 +508,7 @@ class NeutronPluginInterface(object):
                                                       floatingip['resource'])
             return floatingip_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_floatingip(self, context, floatingip):
@@ -528,7 +522,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_floatingip(): " + 
                 pformat(floatingip['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_floatingips(self, context, floatingip):
@@ -543,7 +537,7 @@ class NeutronPluginInterface(object):
             floatingips_info = cfgdb.floatingip_list(context, filters)
             return json.dumps(floatingips_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_floatingips_count(self, context, floatingip):
@@ -560,7 +554,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(floatingips_count))
             return {'count': floatingips_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_floatingip(self):
@@ -593,7 +587,7 @@ class NeutronPluginInterface(object):
             sg_info = cfgdb.security_group_read(sg['id'])
             return sg_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_sec_group(self, context, sg):
@@ -606,7 +600,7 @@ class NeutronPluginInterface(object):
             sg_info = cfgdb.security_group_create(sg['resource'])
             return sg_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_sec_group(self, context, sg):
@@ -620,7 +614,7 @@ class NeutronPluginInterface(object):
                                                   sg['resource'])
             return sg_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_sec_group(self, context, sg):
@@ -633,7 +627,7 @@ class NeutronPluginInterface(object):
             cfgdb.security_group_delete(context, sg['id'])
             LOG.debug("plugin_delete_sec_group(): " + pformat(sg['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_sec_groups(self, context, sg):
@@ -648,7 +642,7 @@ class NeutronPluginInterface(object):
             sgs_info = cfgdb.security_group_list(context, filters)
             return json.dumps(sgs_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_securitygroup(self):
@@ -679,7 +673,7 @@ class NeutronPluginInterface(object):
                                                           sg_rule['id'])
             return sg_rule_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_sec_group_rule(self, context, sg_rule):
@@ -692,7 +686,7 @@ class NeutronPluginInterface(object):
             sg_rule_info = cfgdb.security_group_rule_create(sg_rule['resource'])
             return sg_rule_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_sec_group_rule(self, context, sg_rule):
@@ -706,7 +700,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_sec_group_rule(): " + 
                 pformat(sg_rule['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_sec_group_rules(self, context, sg_rule):
@@ -721,7 +715,7 @@ class NeutronPluginInterface(object):
             sg_rules_info = cfgdb.security_group_rule_list(context, filters)
             return json.dumps(sg_rules_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_securitygrouprule(self):
@@ -754,7 +748,7 @@ class NeutronPluginInterface(object):
             router_info = cfgdb.router_read(router['id'])
             return router_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_router(self, context, router):
@@ -767,7 +761,7 @@ class NeutronPluginInterface(object):
             router_info = cfgdb.router_create(router['resource'])
             return router_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_router(self, context, router):
@@ -781,7 +775,7 @@ class NeutronPluginInterface(object):
                                               router['resource'])
             return router_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_router(self, context, router):
@@ -795,7 +789,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_router(): " + 
                 pformat(router['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_routers(self, context, router):
@@ -810,7 +804,7 @@ class NeutronPluginInterface(object):
             routers_info = cfgdb.router_list(context, filters)
             return json.dumps(routers_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_routers_count(self, context, router):
@@ -827,7 +821,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(routers_count))
             return {'count': routers_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_add_router_interface(self, context, interface_info):
@@ -845,7 +839,7 @@ class NeutronPluginInterface(object):
                 return cfgdb.add_router_interface(context, router_id,
                                                   subnet_id=subnet_id)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_del_router_interface(self, context, interface_info):
@@ -864,7 +858,7 @@ class NeutronPluginInterface(object):
                 return cfgdb.remove_router_interface(router_id,
                                                      subnet_id=subnet_id)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_router(self):
@@ -902,7 +896,7 @@ class NeutronPluginInterface(object):
             ipam_info = cfgdb.ipam_read(ipam['id'])
             return ipam_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_ipam(self, context, ipam):
@@ -915,7 +909,7 @@ class NeutronPluginInterface(object):
             ipam_info = cfgdb.ipam_create(ipam['resource'])
             return ipam_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_ipam(self, context, ipam):
@@ -929,7 +923,7 @@ class NeutronPluginInterface(object):
                                           ipam['resource'])
             return ipam_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_ipam(self, context, ipam):
@@ -943,7 +937,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_ipam(): " + 
                 pformat(ipam['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_ipams(self, context, ipam):
@@ -958,7 +952,7 @@ class NeutronPluginInterface(object):
             ipams_info = cfgdb.ipam_list(context, filters)
             return json.dumps(ipams_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_ipams_count(self, context, ipam):
@@ -975,7 +969,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(ipams_count))
             return {'count': ipams_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_ipam(self):
@@ -1008,7 +1002,7 @@ class NeutronPluginInterface(object):
             pol_info = cfgdb.policy_read(policy['id'])
             return pol_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_policy(self, context, policy):
@@ -1021,7 +1015,7 @@ class NeutronPluginInterface(object):
             pol_info = cfgdb.policy_create(policy['resource'])
             return pol_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_policy(self, context, policy):
@@ -1035,7 +1029,7 @@ class NeutronPluginInterface(object):
                                               policy['resource'])
             return policy_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_policy(self, context, policy):
@@ -1049,7 +1043,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_policy(): " + 
                 pformat(policy['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_policys(self, context, policy):
@@ -1064,7 +1058,7 @@ class NeutronPluginInterface(object):
             policys_info = cfgdb.policy_list(context, filters)
             return json.dumps(policys_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_policys_count(self, context, policy):
@@ -1081,7 +1075,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(policys_count))
             return {'count': policys_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_policy(self):
@@ -1113,7 +1107,7 @@ class NeutronPluginInterface(object):
             rt_info = cfgdb.route_table_read(route_table['id'])
             return rt_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_route_table(self, context, route_table):
@@ -1126,7 +1120,7 @@ class NeutronPluginInterface(object):
             rt_info = cfgdb.route_table_create(route_table['resource'])
             return rt_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_update_route_table(self, context, route_table):
@@ -1140,7 +1134,7 @@ class NeutronPluginInterface(object):
                                                route_table['resource'])
             return rt_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_route_table(self, context, route_table):
@@ -1154,7 +1148,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_route_table(): " +
                 pformat(route_table['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_route_tables(self, context, route_table):
@@ -1169,7 +1163,7 @@ class NeutronPluginInterface(object):
             rts_info = cfgdb.route_table_list(context, filters)
             return json.dumps(rts_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_route_tables_count(self, context, route_table):
@@ -1186,7 +1180,7 @@ class NeutronPluginInterface(object):
                       + pformat(filters) + " data: " + str(rts_count))
             return {'count': rts_count}
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_route_table(self):
@@ -1218,7 +1212,7 @@ class NeutronPluginInterface(object):
             si_info = cfgdb.svc_instance_read(svc_instance['id'])
             return si_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_create_svc_instance(self, context, svc_instance):
@@ -1231,7 +1225,7 @@ class NeutronPluginInterface(object):
             si_info = cfgdb.svc_instance_create(svc_instance['resource'])
             return si_info
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_delete_svc_instance(self, context, svc_instance):
@@ -1245,7 +1239,7 @@ class NeutronPluginInterface(object):
             LOG.debug("plugin_delete_svc_instance(): " +
                 pformat(svc_instance['id']))
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_get_svc_instances(self, context, svc_instance):
@@ -1260,7 +1254,7 @@ class NeutronPluginInterface(object):
             sis_info = cfgdb.svc_instance_list(context, filters)
             return json.dumps(sis_info)
         except Exception as e:
-            cgitb.Hook(format="text").handle(sys.exc_info())
+            cgitb_hook(format="text")
             raise
 
     def plugin_http_post_svc_instance(self):
@@ -1277,4 +1271,3 @@ class NeutronPluginInterface(object):
             return self.plugin_delete_svc_instance(context, svc_instance)
         elif context['operation'] == 'READALL':
             return self.plugin_get_svc_instances(context, svc_instance)
-

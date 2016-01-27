@@ -40,7 +40,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT, SCHEMA_KEYSPACE_NAME, \
     CASSANDRA_DEFAULT_GC_GRACE_SECONDS
@@ -59,6 +59,20 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from cStringIO import StringIO
 from db import SchemaTransformerDB
+from cfgm_common.utils import cgitb_hook
+
+_BGP_RTGT_MAX_ID = 1 << 24
+_BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
+
+_VN_MAX_ID = 1 << 24
+_VN_ID_ALLOC_PATH = "/id/virtual-networks/"
+
+_SECURITY_GROUP_MAX_ID = 1 << 32
+_SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
+
+_SERVICE_CHAIN_MAX_VLAN = 4093
+_SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
+>>>>>>> fa93ff2... Mask the passwords displayed in log files and stdout during exception.
 
 _PROTO_STR_TO_NUM = {
     'icmp': '1',
@@ -3492,8 +3506,10 @@ def launch_arc(transformer, ssrc_mapc):
                 time.sleep(3)
             else:
                 string_buf = StringIO()
-                cgitb.Hook(file=string_buf,
-                           format="text").handle(sys.exc_info())
+                cgitb_hook(
+                    file=string_buf,
+                    format="text",
+                    )
                 try:
                     with open(transformer._args.trace_file, 'a') as err_file:
                         err_file.write(string_buf.getvalue())
