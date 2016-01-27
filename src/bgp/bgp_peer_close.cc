@@ -134,12 +134,14 @@ void PeerCloseManager::ProcessClosure() {
             } else {
                 MOVE_TO_STATE(STALE);
                 stats_.stale++;
+                peer_->peer_close()->GracefulRestartStale();
             }
             break;
         case GR_TIMER:
             if (peer_->IsReady() && !close_again_) {
                 MOVE_TO_STATE(SWEEP);
                 stats_.sweep++;
+                peer_->peer_close()->GracefulRestartSweep();
             } else {
                 MOVE_TO_STATE(DELETE);
                 stats_.deletes++;
@@ -267,6 +269,8 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
     if (action == MembershipRequest::INVALID)
         return;
 
+    bool delete_rt = false;
+
     // Process all paths sourced from this peer_. Multiple paths could exist
     // in ecmp cases.
     for (Route::PathList::iterator it = rt->GetPathList().begin(), next = it;
@@ -318,11 +322,15 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                 return;
         }
 
-        // Feed the route modify/delete request to the table input process
-        table->InputCommon(root, rt, path, peer_, NULL, oper, attrs,
-                           path->GetPathId(), path->GetFlags(),
-                           path->GetLabel());
+        // Feed the route modify/delete request to the table input process.
+        delete_rt = table->InputCommon(root, rt, path, peer_, NULL, oper,
+                                       attrs, path->GetPathId(),
+                                       path->GetFlags(), path->GetLabel());
     }
+
+    // rt can be now deleted safely.
+    if (delete_rt)
+        root->Delete(rt);
 
     return;
 }
