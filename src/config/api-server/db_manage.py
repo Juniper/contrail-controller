@@ -13,6 +13,7 @@ import cgitb
 import kazoo.client
 import kazoo.exceptions
 import cfgm_common
+from cfgm_common.utils import cgitb_hook
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest
 from cfgm_common.ifmap.response import Response, newSessionResult
@@ -383,10 +384,7 @@ class DatabaseChecker(DatabaseManager):
                 return errors
             except Exception as e:
                 string_buf = StringIO()
-                cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
+                cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self._logger.exception('Checker %s: Exception, %s' %(func.__name__, err_msg))
                 raise
@@ -1108,10 +1106,7 @@ class DatabaseCleaner(DatabaseManager):
                 return errors
             except Exception as e:
                 string_buf = StringIO()
-                cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
+                cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self._logger.exception('Cleaner %s: Exception, %s' %(func.__name__, err_msg))
                 raise
@@ -1326,10 +1321,7 @@ class DatabaseHealer(DatabaseManager):
                 return errors
             except Exception as e:
                 string_buf = StringIO()
-                cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
+                cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self._logger.exception('Healer %s: Exception, %s' %(func.__name__, err_msg))
                 raise
