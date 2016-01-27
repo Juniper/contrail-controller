@@ -129,12 +129,22 @@ bool KSyncFlowIndexManager::Delete(FlowEntry *flow) {
         return false;
     }
 
-    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED)
-        return false;
+    bool force_delete = false;
+    //Flow index allocation had failed from kernel, so dont wait for
+    //index allocation and delete flow. Note: Because of failed index allocation
+    //flow was marked as short flow with reason SHORT_FAILED_VROUTER_INSTALL
+    force_delete |= (flow->is_flags_set(FlowEntry::ShortFlow) &&
+                     (flow->short_flow_reason() ==
+                      ((uint16_t) FlowEntry::SHORT_FAILED_VROUTER_INSTALL)));
 
-    if (index_entry->ksync_entry_ == NULL) {
-        assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
-        return false;
+    if (!force_delete) {
+        if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED)
+            return false;
+
+        if (index_entry->ksync_entry_ == NULL) {
+            assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
+            return false;
+        }
     }
 
     index_entry->delete_in_progress_ = true;
