@@ -141,6 +141,20 @@ public:
         return manager_.get();
     }
 
+    // Mark all current subscription as 'stale'
+    // Concurrency: Protected with a mutex from peer close manager
+    virtual void GracefulRestartStale() {
+        if (parent_)
+            parent_->StaleCurrentSubscriptions();
+    }
+
+    // Delete all current sbscriptions which are still stale.
+    // Concurrency: Protected with a mutex from peer close manager
+    virtual void GracefulRestartSweep() {
+        if (parent_)
+            parent_->SweepCurrentSubscriptions();
+    }
+
     virtual bool IsCloseGraceful() {
         if (!parent_ || !parent_->channel_)
             return false;
@@ -1865,7 +1879,8 @@ void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) const {
         routing_instances_) {
         BgpNeighborRoutingInstance instance;
         instance.set_name(entry.first->name());
-        instance.set_state("subscribed");
+        instance.set_state(entry.second.IsStale() ? "subscribed-stale" :
+                                                    "subscribed");
         instance.set_index(entry.second.index);
         vector<string> import_targets;
         BOOST_FOREACH(RouteTarget rt, entry.second.targets) {
@@ -1950,6 +1965,36 @@ void BgpXmppChannel::FlushDeferQ(string vrf_name) {
     }
 }
 
+// Mark all current subscriptions as 'stale'.
+void BgpXmppChannel::StaleCurrentSubscriptions() {
+    BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
+                  routing_instances_) {
+        entry.second.SetStale();
+    }
+}
+
+// Sweep all current subscriptions which are still marked as 'stale'.
+void BgpXmppChannel::SweepCurrentSubscriptions() {
+    for (SubscribedRoutingInstanceList::iterator i = routing_instances_.begin();
+            i != routing_instances_.end();) {
+        if (i->second.IsStale()) {
+            string name = i->first->name();
+
+            // Incrementor the iterator first as we expect the entry to be
+            // soon removed.
+            i++;
+            ProcessSubscriptionRequest(name, NULL, false);
+        } else {
+            i++;
+        }
+    }
+}
+
+// Clear staled subscription state as new subscription has been received.
+void BgpXmppChannel::ClearStaledSubscription(SubscriptionState &sub_state) {
+    sub_state.ClearStale();
+}
+
 void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
     bool add_change, int index) {
     // Add rtarget route for import route target of the routing instance.
@@ -1975,8 +2020,14 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
             routing_instances_.insert(
                   pair<RoutingInstance *, SubscriptionState>
                   (rt_instance, state));
-        if (!ret.second) return;
         it = ret.first;
+
+        // During GR, we expect duplicate subscriptionr requests. Clear the
+        // stale state, as agent did re-subscribe after restart.
+        if (!ret.second) {
+            ClearStaledSubscription((*(ret.first)).second);
+            return;
+        }
     } else {
         it = routing_instances_.find(rt_instance);
         if (it == routing_instances_.end()) return;

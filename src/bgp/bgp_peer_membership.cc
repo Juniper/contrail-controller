@@ -219,6 +219,8 @@ void IPeerRib::RegisterRibOut(RibExportPolicy policy) {
 // of the RibOut itself.
 //
 void IPeerRib::UnregisterRibOut() {
+    if (!ribout_)
+        return;
     int index = ribout_->GetPeerIndex(ipeer_);
     RibOutUpdates *updates = ribout_->updates();
     updates->QueueLeave(RibOutUpdates::QUPDATE, index);

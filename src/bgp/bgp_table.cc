@@ -268,12 +268,13 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
     return res;
 }
 
-void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
+bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
                            uint32_t path_id, uint32_t flags, uint32_t label,
                            bool notify) {
     bool is_stale = false;
+    bool delete_rt = false;
 
     switch (oper) {
     case DBRequest::DB_ENTRY_ADD_CHANGE: {
@@ -333,7 +334,7 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
             // Delete the route only if all paths are gone.
             if (rt->front() == NULL) {
-                root->Delete(rt);
+                delete_rt = true;
             } else {
                 root->Notify(rt);
             }
@@ -346,6 +347,7 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         break;
     }
     }
+    return delete_rt;
 }
 
 void BgpTable::Input(DBTablePartition *root, DBClient *client,
@@ -402,6 +404,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     int count = 0;
     ExtCommunityDB *extcomm_db = rtinstance_->server()->extcomm_db();
     BgpAttrPtr attr = data ? data->attrs() : NULL;
+    bool delete_rt = false;
 
     // Process each of the paths sourced and create/update paths accordingly.
     if (data) {
@@ -440,8 +443,9 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
                 attr = data->attrs()->attr_db()->Locate(clone);
             }
 
-            InputCommon(root, rt, path, peer, req, req->oper, attr, path_id,
-                nexthop.flags_, nexthop.label_, notify);
+            delete_rt = InputCommon(root, rt, path, peer, req, req->oper,
+                                     attr, path_id, nexthop.flags_,
+                                     nexthop.label_, notify);
         }
     }
 
@@ -449,9 +453,14 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     for (map<BgpPath *, bool>::iterator it = deleted_paths.begin();
          it != deleted_paths.end(); it++) {
         BgpPath *path = it->first;
-        InputCommon(root, rt, path, peer, req, DBRequest::DB_ENTRY_DELETE,
-                    NULL, path->GetPathId(), 0, 0);
+        delete_rt = InputCommon(root, rt, path, peer, req,
+                                DBRequest::DB_ENTRY_DELETE, NULL,
+                                path->GetPathId(), 0, 0);
     }
+
+    // rt can be now deleted safely.
+    if (delete_rt)
+        root->Delete(rt);
 }
 
 bool BgpTable::MayDelete() const {

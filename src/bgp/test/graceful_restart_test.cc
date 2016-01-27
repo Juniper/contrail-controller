@@ -38,10 +38,10 @@ using ::testing::Bool;
 using ::testing::ValuesIn;
 using ::testing::Combine;
 
-static vector<int>  n_instances = boost::assign::list_of(5);
-static vector<int>  n_routes    = boost::assign::list_of(5);
-static vector<int>  n_agents    = boost::assign::list_of(5);
-static vector<int>  n_targets   = boost::assign::list_of(1);
+static vector<int>  n_instances = boost::assign::list_of(1)(5);
+static vector<int>  n_routes    = boost::assign::list_of(1)(5);
+static vector<int>  n_agents    = boost::assign::list_of(1)(5);
+static vector<int>  n_targets   = boost::assign::list_of(1)(1);
 static vector<bool> xmpp_close_from_control_node =
                                   boost::assign::list_of(false);
 static char **gargv;
@@ -215,8 +215,11 @@ protected:
     void AddOrDeleteXmppRoutes(bool add, int nroutes = -1,
                                int down_agents = -1);
     void VerifyReceivedXmppRoutes(int routes);
-    void DeleteRoutingInstances(int count);
-    void DeleteRoutingInstances(vector<int> instances);
+    void DeleteRoutingInstances(int count,
+            vector<test::NetworkAgentMock *> &dont_unsubscribe);
+    void DeleteRoutingInstances(vector<int> instances,
+            vector<test::NetworkAgentMock *> &dont_unsubscribe);
+    void VerifyDeletedRoutingInstnaces(vector<int> instances);
     void VerifyRoutingInstances();
     void XmppPeerClose(int nagents = -1);
     void CallStaleTimer();
@@ -552,16 +555,18 @@ void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
     WaitForIdle();
 }
 
-void GracefulRestartTest::DeleteRoutingInstances(int count) {
+void GracefulRestartTest::DeleteRoutingInstances(int count,
+        vector<test::NetworkAgentMock *> &dont_unsubscribe) {
     if (!count)
         return;
     vector<int> instances = vector<int>();
     for (int i = 1; i <= count; i++)
         instances.push_back(i);
-    DeleteRoutingInstances(instances);
+    DeleteRoutingInstances(instances, dont_unsubscribe);
 }
 
-void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances) {
+void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
+         vector<test::NetworkAgentMock *> &dont_unsubscribe) {
     if (instances.empty())
         return;
 
@@ -583,12 +588,17 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances) {
     BOOST_FOREACH(int i, instances) {
         string instance_name = "instance" + boost::lexical_cast<string>(i);
         BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-            if (agent->IsEstablished() && agent->HasSubscribed(instance_name))
+            if (!agent->IsEstablished() || !agent->HasSubscribed(instance_name))
+                continue;
+            if (std::find(dont_unsubscribe.begin(), dont_unsubscribe.end(),
+                          agent) == dont_unsubscribe.end())
                 agent->Unsubscribe(instance_name);
         }
     }
     WaitForIdle();
+}
 
+void GracefulRestartTest::VerifyDeletedRoutingInstnaces(vector<int> instances) {
     BOOST_FOREACH(int i, instances) {
         string instance_name = "instance" + boost::lexical_cast<string>(i);
         TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
@@ -696,13 +706,17 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     // BOOST_FOREACH(test::NetworkAgentMock *agent, n_gr_supported_agents)
         SetPeerCloseGraceful(true);
 
-    DeleteRoutingInstances(instances_to_delete_before_gr_);
+
+    vector<test::NetworkAgentMock *> dont_unsubscribe =
+        vector<test::NetworkAgentMock *>();
+
+    DeleteRoutingInstances(instances_to_delete_before_gr_, dont_unsubscribe);
     int remaining_instances = n_instances_;
     remaining_instances -= instances_to_delete_before_gr_.size();
     total_routes -= n_routes_ * n_agents_ *
                     instances_to_delete_before_gr_.size();
 
-    //  Subset of agents go down permanently (Triggered from agents)
+    // Subset of agents go down permanently (Triggered from agents)
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
         WaitForAgentToBeEstablished(agent);
         agent->SessionDown();
@@ -710,18 +724,29 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         total_routes -= remaining_instances * n_routes_;
     }
 
-    //  Subset of agents flip (Triggered from agents)
+    // Subset of agents flip (Triggered from agents)
     BOOST_FOREACH(AgentTestParams agent_test_param, n_flip_from_agents_) {
         test::NetworkAgentMock *agent = agent_test_param.agent;
         WaitForAgentToBeEstablished(agent);
         XmppStateMachineTest::set_skip_tcp_event(
                 agent_test_param.skip_tcp_event);
         agent->SessionDown();
+        dont_unsubscribe.push_back(agent);
         TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
         TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                             XmppStateMachineTest::get_skip_tcp_event());
         total_routes -= remaining_instances * n_routes_;
     }
+
+    // Delete some of the routing-instances when the agent is still down.
+    // It is expected that agents upon restart only subscribe to those that
+    // were not deleted.
+    DeleteRoutingInstances(instances_to_delete_during_gr_, dont_unsubscribe);
+
+    // Account for agents (which do not flip) who usubscribe explicitly
+    total_routes -= n_routes_ *
+        (n_agents_ - n_flip_from_agents_.size() - n_down_from_agents_.size()) *
+                    instances_to_delete_during_gr_.size();
 
     XmppStateMachineTest::set_skip_tcp_event(TcpSession::EVENT_NONE);
     BOOST_FOREACH(AgentTestParams agent_test_param, n_flip_from_agents_) {
@@ -730,10 +755,6 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         agent->SessionUp();
         WaitForAgentToBeEstablished(agent);
     }
-    DeleteRoutingInstances(instances_to_delete_during_gr_);
-    remaining_instances -= instances_to_delete_during_gr_.size();
-    total_routes -= n_routes_ * n_flip_from_agents_.size() *
-                    instances_to_delete_during_gr_.size();
 
     BOOST_FOREACH(AgentTestParams agent_test_param, n_flip_from_agents_) {
         test::NetworkAgentMock *agent = agent_test_param.agent;
@@ -776,6 +797,8 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     // Directly invoke stale timer callbacks
     CallStaleTimer();
     VerifyReceivedXmppRoutes(total_routes);
+    VerifyDeletedRoutingInstnaces(instances_to_delete_before_gr_);
+    VerifyDeletedRoutingInstnaces(instances_to_delete_during_gr_);
 }
 
 // None of the agents goes down or flip
@@ -1008,6 +1031,9 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4) {
     SCOPED_TRACE(__FUNCTION__);
     GracefulRestartTestStart();
 
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
     for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
         test::NetworkAgentMock *agent = xmpp_agents_[i];
         vector<int> instance_ids = vector<int>();
@@ -1022,14 +1048,173 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4) {
     GracefulRestartTestRun();
 }
 
-// Some agents come back up and subscribe to all instances and sends some routes
-// But some instances are deleted before start of GR
-TEST_P(GracefulRestartTest, DISABLED_GracefulRestart_Flap_Some_5) {
+// Some routing instances are first deleted. Subscribed agents remain up and
+// running.. This is the common case which happens most of the time during
+// normal functioning of the software.
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_1) {
     SCOPED_TRACE(__FUNCTION__);
     GracefulRestartTestStart();
 
-    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
-        test::NetworkAgentMock *agent = xmpp_agents_[i];
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires)
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_2) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+    }
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires). During this GR, additional instances are deleted
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_3) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+    }
+    for (int i = n_instances_/4 + 1; i <= n_instances_/2; i++)
+        instances_to_delete_during_gr_.push_back(i);
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires). Some of the other agents go down and then come
+// back up advertising "all" the routes again.
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_4) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+
+        // agents from 2nd quarter flip with gr
+        test::NetworkAgentMock *agent = xmpp_agents_[i-1];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+    }
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires). Some of the other agents go down and then come
+// back up advertising "all" the routes again. During this GR, additional
+// instances are deleted
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_5) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+
+        // agents from 2nd quarter flip with gr
+        test::NetworkAgentMock *agent = xmpp_agents_[i-1];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+    }
+    for (int i = n_instances_/4 + 1; i <= n_instances_/2; i++)
+        instances_to_delete_during_gr_.push_back(i);
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires). Some of the other agents go down and then come
+// back up advertising some of the routes again (not all). During this GR,
+// additional instances are deleted
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_6) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (int i = 1; i <= n_instances_/4; i++)
+        instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+
+        // agents from 2nd quarter flip with gr
+        test::NetworkAgentMock *agent = xmpp_agents_[i-1];
         vector<int> instance_ids = vector<int>();
         vector<int> nroutes = vector<int>();
         for (int j = 1; j <= n_instances_; j++) {
@@ -1039,9 +1224,44 @@ TEST_P(GracefulRestartTest, DISABLED_GracefulRestart_Flap_Some_5) {
         n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
                                                       nroutes));
     }
+    GracefulRestartTestRun();
+}
+
+// Some routing instances are deleted. Then some of the agents permanently go
+// down and they do not come back up (GR is triggered and should get cleaned up
+// when the GR timer fires). Some of the other agents go down and then come
+// back up advertising some of the routes again (not all). During this GR,
+// additional instances are deleted
+TEST_P(GracefulRestartTest, GracefulRestart_Delete_RoutingInstances_7) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
 
     for (int i = 1; i <= n_instances_/4; i++)
         instances_to_delete_before_gr_.push_back(i);
+
+    for (size_t i = 1; i <= xmpp_agents_.size(); i++) {
+
+        // agents from 2nd half remain up through out this test
+        if (i > xmpp_agents_.size()/2)
+            continue;
+
+        // agents from 1st quarter go down permantently
+        if (i <= xmpp_agents_.size()/4) {
+            n_down_from_agents_.push_back(xmpp_agents_[i-1]);
+            continue;
+        }
+
+        // agents from 2nd quarter flip with gr
+        test::NetworkAgentMock *agent = xmpp_agents_[i-1];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_/2);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+    }
     for (int i = n_instances_/4 + 1; i <= n_instances_/2; i++)
         instances_to_delete_during_gr_.push_back(i);
     GracefulRestartTestRun();

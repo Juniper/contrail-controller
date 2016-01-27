@@ -107,6 +107,8 @@ public:
     void FillInstanceMembershipInfo(BgpNeighborResp *resp) const;
     void FillTableMembershipInfo(BgpNeighborResp *resp) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
+    void StaleCurrentSubscriptions();
+    void SweepCurrentSubscriptions();
 
     const XmppChannel *channel() const { return channel_; }
 
@@ -150,11 +152,17 @@ private:
 
     // Map of routing instances to which this BgpXmppChannel is subscribed.
     struct SubscriptionState {
+        enum State { NONE, STALE };
         SubscriptionState(const RoutingInstance::RouteTargetList &targets,
-            int index) : targets(targets), index(index) {
-        }
+                          int index)
+                : targets(targets), index(index), state(NONE) { }
+        const bool IsStale() const { return(state == STALE); }
+        void SetStale() { state = STALE; }
+        void ClearStale() { state = NONE; }
+
         RoutingInstance::RouteTargetList targets;
         int index;
+        State state;
     };
     typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
@@ -218,6 +226,8 @@ private:
     void FlushDeferQ(std::string vrf_name, std::string table_name);
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance,
                                          int instance_id);
+    void ClearStaledSubscription(SubscriptionState &sub_state);
+
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;
     boost::scoped_ptr<XmppPeer> peer_;
