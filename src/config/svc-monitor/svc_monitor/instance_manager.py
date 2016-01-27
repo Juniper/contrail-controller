@@ -153,9 +153,12 @@ class InstanceManager(object):
 
     def _link_fip_to_vmi(self, vmi_obj, fip_id):
         fip = FloatingIpSM.get(fip_id)
-        if fip:
+        if not fip:
+            return
+
+        if vmi_obj.uuid not in fip.virtual_machine_interfaces:
             self._vnc_lib.ref_update('floating-ip', fip_id,
-                                     'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
+                'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
 
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']

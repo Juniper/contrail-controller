@@ -326,6 +326,8 @@ class SvcMonitor(object):
                     vmi = VirtualMachineInterfaceSM.get(vmi_id)
                     if vmi and vmi.virtual_ip:
                         self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
+                    elif vmi and vmi.loadbalancer:
+                        self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
 
         for lr_id in dependency_tracker.resources.get('logical_router', []):
             lr = LogicalRouterSM.get(lr_id)
