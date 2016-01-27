@@ -117,10 +117,14 @@ public:
         bool IsLess(const FloatingIp *rhs) const;
         void L3Activate(VmInterface *interface, bool force_update) const;
         void L3DeActivate(VmInterface *interface) const;
-        void L2Activate(VmInterface *interface, bool force_update) const;
-        void L2DeActivate(VmInterface *interface) const;
-        void DeActivate(VmInterface *interface, bool l2) const;
-        void Activate(VmInterface *interface, bool force_update, bool l2) const;
+        void L2Activate(VmInterface *interface, bool force_update,
+                        uint32_t old_ethernet_tag) const;
+        void L2DeActivate(VmInterface *interface,
+                          uint32_t ethernet_tag) const;
+        void DeActivate(VmInterface *interface, bool l2,
+                        uint32_t old_ethernet_tag) const;
+        void Activate(VmInterface *interface, bool force_update,
+                      bool l2, uint32_t old_ethernet_tag) const;
         const IpAddress GetFixedIp(const VmInterface *) const;
 
         IpAddress floating_ip_;
@@ -129,7 +133,6 @@ public:
         std::string vrf_name_;
         boost::uuids::uuid vn_uuid_;
         mutable bool l2_installed_;
-        mutable int ethernet_tag_;
         mutable IpAddress fixed_ip_;
         mutable bool force_l3_update_;
         mutable bool force_l2_update_;
@@ -736,7 +739,8 @@ private:
     void DeleteMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf,
                              bool old_need_linklocal_ip);
     void CleanupFloatingIpList();
-    void UpdateFloatingIp(bool force_update, bool policy_change, bool l2);
+    void UpdateFloatingIp(bool force_update, bool policy_change, bool l2,
+                          uint32_t old_ethernet_tag);
     void DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag);
     void UpdateServiceVlan(bool force_update, bool policy_change,
                            bool old_ipv4_active, bool old_ipv6_active);
