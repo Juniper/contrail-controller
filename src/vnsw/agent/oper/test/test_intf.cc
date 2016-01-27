@@ -1223,6 +1223,65 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, VmPortFloatingIpEvpn_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    //Add floating IP for vnet1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100", "1.1.1.10");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+    Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+
+    //Change Encap
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+
+    //Delete config for vnet1, forcing interface to deactivate
+    //verify that route and floating ip map gets cleaned up
+    DelNode("virtual-machine-interface", input[0].name);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    // Interface not deleted till config is deleted
+    EXPECT_TRUE(VmPortFind(1));
+
+    //Clean up
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVrf("default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("default-project:vn2:vn2", true));
+}
+
 TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},

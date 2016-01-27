@@ -1284,7 +1284,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         }
         UpdateIpv4InstanceIp(force_update, policy_change, false,
                              old_ethernet_tag);
-        UpdateFloatingIp(force_update, policy_change, false);
+        UpdateFloatingIp(force_update, policy_change, false, old_ethernet_tag);
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
     }
@@ -1317,7 +1317,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
         DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf);
         DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf);
     }
-    DeleteFloatingIp(false, 0);
+    DeleteFloatingIp(false, old_ethernet_tag);
     DeleteServiceVlan();
     DeleteStaticRoute();
     DeleteAllowedAddressPair(false);
@@ -1369,7 +1369,7 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            Ip4Address(0));
     UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag);
     UpdateIpv6InstanceIp(force_update, policy_change, true, old_ethernet_tag);
-    UpdateFloatingIp(force_update, policy_change, true);
+    UpdateFloatingIp(force_update, policy_change, true, old_ethernet_tag);
     UpdateAllowedAddressPair(force_update, policy_change, true, old_l2_active,
                              old_layer3_forwarding);
     //If the interface is Gateway we need to add a receive route,
@@ -2771,14 +2771,15 @@ void VmInterface::CleanupFloatingIpList() {
 }
 
 void VmInterface::UpdateFloatingIp(bool force_update, bool policy_change,
-                                   bool l2) {
+                                   bool l2, uint32_t old_ethernet_tag) {
     FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
     while (it != floating_ip_list_.list_.end()) {
         FloatingIpSet::iterator prev = it++;
         if (prev->del_pending_) {
-            prev->DeActivate(this, l2);
+            prev->DeActivate(this, l2, old_ethernet_tag);
         } else {
-            prev->Activate(this, force_update||policy_change, l2);
+            prev->Activate(this, force_update||policy_change, l2,
+                           old_ethernet_tag);
         }
     }
 }
@@ -2787,7 +2788,7 @@ void VmInterface::DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag) {
     FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
     while (it != floating_ip_list_.list_.end()) {
         FloatingIpSet::iterator prev = it++;
-        prev->DeActivate(this, l2);
+        prev->DeActivate(this, l2, old_ethernet_tag);
     }
 }
 
@@ -3492,16 +3493,15 @@ void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
 VmInterface::FloatingIp::FloatingIp() : 
     ListEntry(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
-    ethernet_tag_(0), fixed_ip_(), force_l3_update_(false),
-    force_l2_update_(false) {
+    fixed_ip_(), force_l3_update_(false), force_l2_update_(false) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
     floating_ip_(rhs.floating_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
     vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
-    l2_installed_(rhs.l2_installed_), ethernet_tag_(rhs.ethernet_tag_),
-    fixed_ip_(rhs.fixed_ip_), force_l3_update_(rhs.force_l3_update_),
+    l2_installed_(rhs.l2_installed_), fixed_ip_(rhs.fixed_ip_),
+    force_l3_update_(rhs.force_l3_update_),
     force_l2_update_(rhs.force_l2_update_) {
 }
 
@@ -3510,8 +3510,8 @@ VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     const boost::uuids::uuid &vn_uuid,
                                     const IpAddress &fixed_ip) :
     ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
-    vn_uuid_(vn_uuid), l2_installed_(false), ethernet_tag_(0),
-    fixed_ip_(fixed_ip), force_l3_update_(false), force_l2_update_(false){
+    vn_uuid_(vn_uuid), l2_installed_(false), fixed_ip_(fixed_ip),
+    force_l3_update_(false), force_l2_update_(false){
 }
 
 VmInterface::FloatingIp::~FloatingIp() {
@@ -3585,7 +3585,8 @@ void VmInterface::FloatingIp::L3DeActivate(VmInterface *interface) const {
 }
 
 void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
-                                         bool force_update) const {
+                                         bool force_update,
+                                         uint32_t old_ethernet_tag) const {
     // Add route if not installed or if force requested
     if (l2_installed_ && force_update == false &&
             force_l2_update_ == false) {
@@ -3601,17 +3602,20 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
     //Agent *agent = evpn_table->agent();
-    ethernet_tag_ = vn_->ComputeEthernetTag();
+    if (old_ethernet_tag != interface->ethernet_tag()) {
+        L2DeActivate(interface, old_ethernet_tag);
+    }
     evpn_table->AddReceiveRoute(interface->peer_.get(), vrf_->GetName(),
                                 interface->l2_label(),
                                 MacAddress::FromString(interface->vm_mac()),
-                                floating_ip_, ethernet_tag_, vn_->GetName(),
-                                path_preference);
+                                floating_ip_, interface->ethernet_tag(),
+                                vn_->GetName(), path_preference);
     l2_installed_ = true;
     force_l2_update_ = false;
 }
 
-void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
+void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface,
+                                           uint32_t ethernet_tag) const {
     if (l2_installed_ == false)
         return;
 
@@ -3619,13 +3623,14 @@ void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
         (vrf_->GetEvpnRouteTable());
     evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
                                 MacAddress::FromString(interface->vm_mac()),
-                                interface, floating_ip_, ethernet_tag_);
-    ethernet_tag_ = 0;
+                                interface, floating_ip_, ethernet_tag);
+    //Reset the interface ethernet_tag
     l2_installed_ = false;
 }
 
 void VmInterface::FloatingIp::Activate(VmInterface *interface,
-                                       bool force_update, bool l2) const {
+                                       bool force_update, bool l2,
+                                       uint32_t old_ethernet_tag) const {
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
 
@@ -3640,14 +3645,15 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
     }
 
     if (l2)
-        L2Activate(interface, force_update);
+        L2Activate(interface, force_update, old_ethernet_tag);
     else
         L3Activate(interface, force_update);
 }
 
-void VmInterface::FloatingIp::DeActivate(VmInterface *interface, bool l2) const{
+void VmInterface::FloatingIp::DeActivate(VmInterface *interface, bool l2,
+                                         uint32_t old_ethernet_tag) const{
     if (l2)
-        L2DeActivate(interface);
+        L2DeActivate(interface, old_ethernet_tag);
     else
         L3DeActivate(interface);
 
