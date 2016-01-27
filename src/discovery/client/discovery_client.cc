@@ -77,7 +77,7 @@ DSPublishResponse::DSPublishResponse(std::string serviceName,
                           TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), publish_msg_(""), attempts_(0),
       pub_sent_(0), pub_rcvd_(0), pub_fail_(0), pub_fallback_(0),
-      pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0),
+      pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0), pub_hb_timeout_(0),
       publish_cb_called_(false), heartbeat_cb_called_(false) {
 }
 
@@ -929,15 +929,27 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
         if (ec.value() != 0) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "HeartBeatResponseHandler Error", serviceName, ec.value());
+
             resp->pub_hb_fail_++;
-            resp->StopHeartBeatTimer();
             // Resend original publish request after exponential back-off
             resp->attempts_++;
+            // CURLE_OPERATION_TIMEDOUT, timeout triggered when no
+            // response from Discovery Server for 4secs.
+            if (curl_error_category.message(ec.value()).find("Timeout")) {
+                resp->pub_hb_timeout_++;
+                if (resp->attempts_ < 3) {
+                    // Make client resilient to heart beat misses.
+                    // Continue sending heartbeat 
+                    return;
+                }
+            }
+
             // Update connection info
             ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::DOWN, ds_endpoint_,
                 ec.message());
-             resp->StartPublishConnectTimer(resp->GetConnectTime());
+            resp->StopHeartBeatTimer();
+            resp->StartPublishConnectTimer(resp->GetConnectTime());
         } else if (resp->heartbeat_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "HeartBeatResponseHandler, Only header received",
@@ -973,6 +985,7 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
             return;
     }
     resp->pub_hb_rcvd_++;
+    resp->attempts_ = 0;
 }
 
 void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type, 
@@ -1074,6 +1087,7 @@ void DiscoveryServiceClient::FillDiscoveryServicePublisherStats(
          stats.set_heartbeat_sent(pub_resp->pub_hb_sent_);
          stats.set_heartbeat_fail(pub_resp->pub_hb_fail_);   
          stats.set_heartbeat_rcvd(pub_resp->pub_hb_rcvd_);
+         stats.set_heartbeat_timeout(pub_resp->pub_hb_timeout_);
          stats.set_publish_sent(pub_resp->pub_sent_);
          stats.set_publish_rcvd(pub_resp->pub_rcvd_); 
          stats.set_publish_fail(pub_resp->pub_fail_); 
