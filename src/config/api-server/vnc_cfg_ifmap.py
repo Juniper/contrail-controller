@@ -36,6 +36,7 @@ from cfgm_common.imid import escape
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
+from cfgm_common.utils import cgitb_hook
 
 
 import copy
@@ -1119,7 +1120,7 @@ class VncServerKombuClient(VncKombuClient):
             trace_msg(trace, 'MessageBusNotifyTraceBuf', self._sandesh)
         except Exception as e:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             errmsg = string_buf.getvalue()
             self.config_log(string_buf.getvalue(),
                 level=SandeshLevel.SYS_ERR)

@@ -816,7 +816,7 @@ def launch_timer(monitor):
 
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
-    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+    cgitb_hook(file=string_buf, format="text")
     monitor.logger.log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
 

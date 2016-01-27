@@ -51,6 +51,7 @@ from cStringIO import StringIO
 from db import SchemaTransformerDB
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.utils import cgitb_hook
 
 # connection to api-server
 _vnc_lib = None
@@ -327,7 +328,7 @@ class SchemaTransformer(object):
             # end for vn_id
         except Exception as e:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             notify_trace.error = string_buf.getvalue()
             try:
                 with open(self._args.trace_file, 'a') as err_file:
