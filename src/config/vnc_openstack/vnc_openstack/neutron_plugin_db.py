@@ -1814,11 +1814,18 @@ class DBInterface(object):
 
         # pick binding keys from neutron repr and persist as kvp elements.
         # it is assumed allowing/denying oper*key is done at neutron-server.
-        vmi_binding_kvps = dict((k.replace('binding:',''), v)
-            for k,v in port_q.items() if k.startswith('binding:'))
-        for k,v in vmi_binding_kvps.items():
-            port_obj.add_virtual_machine_interface_bindings(
-                KeyValuePair(key=k, value=v), elem_position=k)
+        if oper == CREATE:
+            vmi_binding_kvps = dict((k.replace('binding:',''), v)
+                for k,v in port_q.items() if k.startswith('binding:'))
+            port_obj.set_virtual_machine_interface_bindings(
+                KeyValuePairs([KeyValuePair(k,v)
+                              for k,v in vmi_binding_kvps.items()]))
+        elif oper == UPDATE:
+            vmi_binding_kvps = dict((k.replace('binding:',''), v)
+                for k,v in port_q.items() if k.startswith('binding:'))
+            for k,v in vmi_binding_kvps.items():
+                port_obj.add_virtual_machine_interface_bindings(
+                    KeyValuePair(key=k, value=v))
 
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])
