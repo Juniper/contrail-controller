@@ -42,6 +42,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.utils import cgitb_hook
 from sandesh.dm_introspect import ttypes as sandesh
 
 
@@ -351,7 +352,7 @@ class DeviceManager(object):
 
         except Exception:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
         if not dependency_tracker:
