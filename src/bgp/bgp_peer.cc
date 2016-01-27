@@ -56,6 +56,8 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     virtual void CustomClose() { return peer_->CustomClose(); }
+    virtual void GracefulRestartStale() { }
+    virtual void GracefulRestartSweep() { }
 
     // CloseComplete
     //

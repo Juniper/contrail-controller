@@ -125,6 +125,8 @@ public:
     virtual void CustomClose() = 0;
     virtual void CloseComplete() = 0;
     virtual void Delete() = 0;
+    virtual void GracefulRestartStale() = 0;
+    virtual void GracefulRestartSweep() = 0;
 };
 
 class IPeer : public IPeerUpdate {
