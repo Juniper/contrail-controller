@@ -106,11 +106,9 @@ class InstallVenv(object):
             pass
 
     def pip_install(self, find_links, *args):
-        tdir = '/tmp/cache/%s/config_test' %(os.environ.get('USER', 'pip'))
         find_links_str = ' '.join('--find-links file://'+x for x in find_links)
         cmd_array = ['%stools/with_venv.sh' %(os.environ.get('tools_path', '')),
                          'python', '.venv/bin/pip', 'install', 
-                         '--download-cache=%s' %(tdir),
                          '--upgrade']
         for link in find_links:
             cmd_array.extend(['--find-links', 'file://'+link])
@@ -122,7 +120,7 @@ class InstallVenv(object):
 
         # First things first, make sure our venv has the latest pip and
         # setuptools and pbr
-        self.pip_install(find_links, 'pip>=1.4')
+        self.pip_install(find_links, 'pip>=6.0')
         self.pip_install(find_links, 'setuptools')
         self.pip_install(find_links, 'pbr')
 
