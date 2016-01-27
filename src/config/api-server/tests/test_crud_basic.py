@@ -2287,17 +2287,17 @@ class TestExtensionApi(test_case.ApiServerTestCase):
 
 
 class TestPropertyWithList(test_case.ApiServerTestCase):
-    def assert_kvpos(self, rd_bindings, idx, k, v, pos):
-        self.assertEqual(rd_bindings[idx][0]['key'], k)
-        self.assertEqual(rd_bindings[idx][0]['value'], v)
-        self.assertEqual(rd_bindings[idx][1], pos)
+    def assert_kvpos(self, rd_ff_proto, idx, k, v, pos):
+        self.assertEqual(rd_ff_proto[idx][0]['protocol'], k)
+        self.assertEqual(rd_ff_proto[idx][0]['port'], v)
+        self.assertEqual(rd_ff_proto[idx][1], pos)
 
     def test_set_in_object(self):
         vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
             parent_obj=Project())
-        vmi_obj.set_virtual_machine_interface_bindings(
-            KeyValuePairs([KeyValuePair(key='k1', value='v1'),
-                           KeyValuePair(key='k2', value='v2')]))
+        vmi_obj.set_virtual_machine_interface_fat_flow_protocols(
+            FatFlowProtocols([ProtocolType(protocol='p1', port=1),
+                              ProtocolType(protocol='p2', port=2)]))
         # needed for backend type-specific handling
         vmi_obj.add_virtual_network(VirtualNetwork())
         self._vnc_lib.virtual_machine_interface_create(vmi_obj)
@@ -2305,35 +2305,36 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         # ensure stored as list order
         rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
             id=vmi_obj.uuid)
-        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
+        rd_ff_proto = rd_vmi_obj.virtual_machine_interface_fat_flow_protocols
         self.assertThat(
-            rd_bindings.key_value_pair[0].key, Equals('k1'))
+            rd_ff_proto.fat_flow_protocol[0].protocol, Equals('p1'))
         self.assertThat(
-            rd_bindings.key_value_pair[1].key, Equals('k2'))
+            rd_ff_proto.fat_flow_protocol[1].protocol, Equals('p2'))
 
         # verify db storage format (wrapper/container type stripped in storage)
         uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
         cols = uuid_cf.get(vmi_obj.uuid,
-            column_start='propl:virtual_machine_interface_bindings:',
-            column_finish='propl:virtual_machine_interface_bindings;')
+            column_start='propl:virtual_machine_interface_fat_flow_protocols:',
+            column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
         col_name_0, col_val_0 = cols.popitem(last=False)
         col_name_1, col_val_1 = cols.popitem(last=False)
         self.assertThat(col_name_0.split(':')[-1], Equals('0'))
-        self.assertThat(json.loads(col_val_0)['key'], Equals('k1'))
+        self.assertThat(json.loads(col_val_0)['protocol'], Equals('p1'))
         self.assertThat(col_name_1.split(':')[-1], Equals('1'))
-        self.assertThat(json.loads(col_val_1)['key'], Equals('k2'))
+        self.assertThat(json.loads(col_val_1)['protocol'], Equals('p2'))
 
         # update and clobber old entries
         #vmi_obj.set_virtual_machine_interface_bindings([])
-        vmi_obj.set_virtual_machine_interface_bindings(KeyValuePairs())
+        vmi_obj.set_virtual_machine_interface_fat_flow_protocols(
+            FatFlowProtocols())
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
         rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
             id=vmi_obj.uuid)
-        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
-        self.assertIsNone(rd_bindings)
+        rd_ff_proto = rd_vmi_obj.virtual_machine_interface_fat_flow_protocols
+        self.assertIsNone(rd_ff_proto)
         cols = uuid_cf.get(vmi_obj.uuid,
-            column_start='propl:virtual_machine_interface_bindings:',
-            column_finish='propl:virtual_machine_interface_bindings;')
+            column_start='propl:virtual_machine_interface_fat_flow_protocols:',
+            column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
         self.assertEqual(len(cols), 0)
     # end test_set_in_object
 
@@ -2341,41 +2342,41 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
             parent_obj=Project())
 
-        for key,val,pos in [('k2','v2','p1'), ('k1','v1','p2'),
-                            ('k3','v3','p3'), ('k4', 'v4', None)]:
-            vmi_obj.add_virtual_machine_interface_bindings(
-                KeyValuePair(key=key, value=val), pos)
+        for proto,port,pos in [('proto2', 2, 'pos1'), ('proto1', 1, 'pos2'),
+                            ('proto3', 3, 'pos3'), ('proto4', 4, None)]:
+            vmi_obj.add_virtual_machine_interface_fat_flow_protocols(
+                ProtocolType(protocol=proto, port=port), pos)
 
         # needed for backend type-specific handling
         vmi_obj.add_virtual_network(VirtualNetwork())
         self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
-            id=vmi_obj.uuid).virtual_machine_interface_bindings
+        rd_ff_proto = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_fat_flow_protocols
 
-        self.assertEqual(len(rd_bindings.key_value_pair), 4)
+        self.assertEqual(len(rd_ff_proto.fat_flow_protocol), 4)
 
-        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k4')
-        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v4')
-        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k2')
-        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v2')
-        self.assertEqual(rd_bindings.key_value_pair[2].key, 'k1')
-        self.assertEqual(rd_bindings.key_value_pair[2].value, 'v1')
-        self.assertEqual(rd_bindings.key_value_pair[3].key, 'k3')
-        self.assertEqual(rd_bindings.key_value_pair[3].value, 'v3')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[0].protocol, 'proto4')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[0].port, 4)
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[1].protocol, 'proto2')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[1].port, 2)
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[2].protocol, 'proto1')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[2].port, 1)
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[3].protocol, 'proto3')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[3].port, 3)
 
-        for pos in ['p1', 'p3']:
-            vmi_obj.del_virtual_machine_interface_bindings(
+        for pos in ['pos1', 'pos3']:
+            vmi_obj.del_virtual_machine_interface_fat_flow_protocols(
                 elem_position=pos)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
-            id=vmi_obj.uuid).virtual_machine_interface_bindings
+        rd_ff_proto = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_fat_flow_protocols
 
-        self.assertEqual(len(rd_bindings.key_value_pair), 2)
+        self.assertEqual(len(rd_ff_proto.fat_flow_protocol), 2)
 
-        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k4')
-        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v4')
-        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k1')
-        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v1')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[0].protocol, 'proto4')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[0].port, 4)
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[1].protocol, 'proto1')
+        self.assertEqual(rd_ff_proto.fat_flow_protocol[1].port, 1)
     # end test_add_del_in_object
 
     def test_prop_list_add_delete_get_element(self):
@@ -2387,103 +2388,68 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         # 1. Add tests
         # add with element as type
         self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', KeyValuePair('k1','v1'))
+            'virtual_machine_interface_fat_flow_protocols',
+            ProtocolType('proto1', 1))
 
         # add with element as dict
         self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', {'key':'k2','value':'v2'})
+            'virtual_machine_interface_fat_flow_protocols',
+            {'protocol':'proto2', 'port':2})
 
         # verify above add without position specified generated uuid'd order
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings')
+        rd_ff_proto = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_fat_flow_protocols')
+        self.assertEqual(len(rd_ff_proto), 2)
 
         # add with position specified
         self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            {'key':'k3','value':'v3'}, '0.1')
+            'virtual_machine_interface_fat_flow_protocols',
+            {'protocol':'proto3', 'port':3}, '0.1')
         self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            {'key':'k4','value':'v4'}, '0.0')
+            'virtual_machine_interface_fat_flow_protocols',
+            {'protocol':'proto4', 'port':4}, '0.0')
         self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            {'key':'k5','value':'v5'}, '.00')
+            'virtual_machine_interface_fat_flow_protocols',
+            {'protocol':'proto5', 'port':5}, '.00')
 
         # 2. Get tests (specific and all elements)
         # get specific element
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', '0.0')
-        self.assertEqual(len(rd_bindings), 1)
-        self.assert_kvpos(rd_bindings, 0, 'k4', 'v4', '0.0')
+        rd_ff_proto = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_fat_flow_protocols', '0.0')
+        self.assertEqual(len(rd_ff_proto), 1)
+        self.assert_kvpos(rd_ff_proto, 0, 'proto4', 4, '0.0')
 
         # get all elements
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings')
+        rd_ff_proto = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_fat_flow_protocols')
 
-        self.assertEqual(len(rd_bindings), 5)
+        self.assertEqual(len(rd_ff_proto), 5)
 
-        self.assert_kvpos(rd_bindings, 0, 'k5', 'v5', '.00')
-        self.assert_kvpos(rd_bindings, 1, 'k4', 'v4', '0.0')
-        self.assert_kvpos(rd_bindings, 2, 'k3', 'v3', '0.1')
+        self.assert_kvpos(rd_ff_proto, 0, 'proto5', 5, '.00')
+        self.assert_kvpos(rd_ff_proto, 1, 'proto4', 4, '0.0')
+        self.assert_kvpos(rd_ff_proto, 2, 'proto3', 3, '0.1')
 
         self.assertTrue(
-            isinstance(uuid.UUID(rd_bindings[-1][1]), uuid.UUID),
+            isinstance(uuid.UUID(rd_ff_proto[-1][1]), uuid.UUID),
             'Auto-generated position not of uuid form')
 
         # 3. Delete tests - middle and edges
         self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', '0.1')
+            'virtual_machine_interface_fat_flow_protocols', '0.1')
         self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', '.00')
+            'virtual_machine_interface_fat_flow_protocols', '.00')
         self._vnc_lib.prop_list_delete_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', rd_bindings[-1][1])
+            'virtual_machine_interface_fat_flow_protocols', rd_ff_proto[-1][1])
 
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings')
+        rd_ff_proto = self._vnc_lib.prop_list_get(vmi_obj.uuid,
+            'virtual_machine_interface_fat_flow_protocols')
 
-        self.assertEqual(len(rd_bindings), 2)
-        self.assert_kvpos(rd_bindings, 0, 'k4', 'v4', '0.0')
+        self.assertEqual(len(rd_ff_proto), 2)
+        self.assert_kvpos(rd_ff_proto, 0, 'proto4', 4, '0.0')
         self.assertTrue(
-            isinstance(uuid.UUID(rd_bindings[-1][1]), uuid.UUID),
+            isinstance(uuid.UUID(rd_ff_proto[-1][1]), uuid.UUID),
             'Deleted incorrect element')
     # end test_prop_list_add_delete_get_element
-
-    def test_prop_list_use_as_dict(self):
-        # by using key to be also position we can emulate a dictionary
-        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
-            parent_obj=Project())
-        vmi_obj.add_virtual_network(VirtualNetwork())
-        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-
-        # 1. Add tests
-        # add with element as type
-        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            KeyValuePair('k1','v1'), 'k1')
-
-        # add with element as dict
-        self._vnc_lib.prop_list_add_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            {'key':'k2','value':'v2'}, position='k2')
-
-        # verify we can access by key as position
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings', position='k1')
-        self.assertEqual(len(rd_bindings), 1)
-        self.assertEqual(rd_bindings[0][0]['key'], 'k1')
-        self.assertEqual(rd_bindings[0][0]['value'], 'v1')
-        self.assertEqual(rd_bindings[0][1], 'k1')
-
-        # modify specifying position
-        self._vnc_lib.prop_list_modify_element(vmi_obj.uuid,
-            'virtual_machine_interface_bindings',
-            {'key':'k2','value':'v2mod'}, position='k2')
-        rd_bindings = self._vnc_lib.prop_list_get(vmi_obj.uuid,
-            'virtual_machine_interface_bindings')
-        self.assertEqual(len(rd_bindings), 2)
-        self.assertEqual(rd_bindings[1][0]['key'], 'k2')
-        self.assertEqual(rd_bindings[1][0]['value'], 'v2mod')
-        self.assertEqual(rd_bindings[1][1], 'k2')
-    # end test_prop_list_use_as_dict
 
     def test_set_in_resource_body_rest_api(self):
         listen_ip = self._api_server_ip
@@ -2496,12 +2462,12 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
                             'default-project',
                             'vmi-%s' %(self.id())],
                 'parent_type': 'project',
-                'virtual_machine_interface_bindings': {
-                    'key_value_pair': [
-                        {'key': 'vif_type', 'value': 'vrouter'},
-                        {'key': 'vnic_type', 'value': 'normal'},
-                        {'key': 'k1', 'value': 'v1'},
-                        {'key': 'k2', 'value': 'v2'},
+                'virtual_machine_interface_fat_flow_protocols': {
+                    'fat_flow_protocol': [
+                        {'protocol': 'proto1', 'port': 1},
+                        {'protocol': 'proto1', 'port': 2},
+                        {'protocol': 'proto2', 'port': 1},
+                        {'protocol': 'proto2', 'port': 2},
                     ]
                 },
                 'virtual_network_refs': [
@@ -2522,18 +2488,18 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
 
         vmi_read = json.loads(
             requests.get(vmi_url).content)['virtual-machine-interface']
-        rd_bindings = vmi_read['virtual_machine_interface_bindings']
-        self.assertEqual(len(rd_bindings['key_value_pair']), 4)
-        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'vif_type')
-        self.assertEqual(rd_bindings['key_value_pair'][1]['key'], 'vnic_type')
-        self.assertEqual(rd_bindings['key_value_pair'][2]['key'], 'k1')
-        self.assertEqual(rd_bindings['key_value_pair'][3]['key'], 'k2')
+        rd_ff_proto = vmi_read['virtual_machine_interface_fat_flow_protocols']
+        self.assertEqual(len(rd_ff_proto['fat_flow_protocol']), 4)
+        self.assertEqual(rd_ff_proto['fat_flow_protocol'][0]['protocol'], 'proto1')
+        self.assertEqual(rd_ff_proto['fat_flow_protocol'][1]['protocol'], 'proto1')
+        self.assertEqual(rd_ff_proto['fat_flow_protocol'][2]['protocol'], 'proto2')
+        self.assertEqual(rd_ff_proto['fat_flow_protocol'][3]['protocol'], 'proto2')
 
         vmi_body = {
             'virtual-machine-interface': {
-                'virtual_machine_interface_bindings': {
-                    'key_value_pair': [
-                        {'key': 'k3', 'value': 'v3'}
+                'virtual_machine_interface_fat_flow_protocols': {
+                    'fat_flow_protocol': [
+                        {'protocol': 'proto3', 'port': 3}
                     ]
                 }
             }
@@ -2544,9 +2510,9 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
 
         vmi_read = json.loads(
             requests.get(vmi_url).content)['virtual-machine-interface']
-        rd_bindings = vmi_read['virtual_machine_interface_bindings']
-        self.assertEqual(len(rd_bindings['key_value_pair']), 1)
-        self.assertEqual(rd_bindings['key_value_pair'][0]['key'], 'k3')
+        rd_ff_proto = vmi_read['virtual_machine_interface_fat_flow_protocols']
+        self.assertEqual(len(rd_ff_proto['fat_flow_protocol']), 1)
+        self.assertEqual(rd_ff_proto['fat_flow_protocol'][0]['protocol'], 'proto3')
     # end test_set_in_resource_body_rest_api
 
     def _rest_vmi_create(self):
@@ -2583,119 +2549,118 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
 
         vmi_uuid = self._rest_vmi_create()
 
-        prop_list_update_url = 'http://%s:%s/prop-list-update' %(
+        prop_coll_update_url = 'http://%s:%s/prop-collection-update' %(
             listen_ip, listen_port)
-        prop_list_get_url = 'http://%s:%s/prop-list-get' %(
+        prop_coll_get_url = 'http://%s:%s/prop-collection-get' %(
             listen_ip, listen_port)
 
         # 1. Add elements
-        requests.post(prop_list_update_url,
+        requests.post(prop_coll_update_url,
             headers={'Content-type': 'application/json; charset="UTF-8"'},
             data=json.dumps(
                 {'uuid': vmi_uuid,
                  'updates': [
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'add',
-                      'value': {'key': 'k1', 'value': 'v1'} },
-                     {'field': 'virtual_machine_interface_bindings',
+                      'value': {'protocol': 'proto1', 'port': 1} },
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'add',
-                      'value': {'key': 'k2', 'value': 'v2'},
+                      'value': {'protocol': 'proto2', 'port': 2},
                       'position': '0.0'},
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'add',
-                      'value': {'key': 'k3', 'value': 'v3'},
+                      'value': {'protocol': 'proto3', 'port': 3},
                       'position': '.01'} ] }))
 
         # 2. Get elements (all and specific)
         # get all elements
         query_params = {'uuid': vmi_uuid,
                         'fields': ','.join(
-                                  ['virtual_machine_interface_bindings'])}
-        rd_bindings = json.loads(requests.get(prop_list_get_url,
-            params=query_params).content)['virtual_machine_interface_bindings']
+                                  ['virtual_machine_interface_fat_flow_protocols'])}
+        rd_ff_proto = json.loads(requests.get(prop_coll_get_url,
+            params=query_params).content)['virtual_machine_interface_fat_flow_protocols']
 
-        self.assertEqual(len(rd_bindings), 3)
-        self.assertEqual(rd_bindings[0][0]['key'], 'k3')
-        self.assertEqual(rd_bindings[0][0]['value'], 'v3')
-        self.assertEqual(rd_bindings[0][1], '.01')
+        self.assertEqual(len(rd_ff_proto), 3)
+        self.assertEqual(rd_ff_proto[0][0]['protocol'], 'proto3')
+        self.assertEqual(rd_ff_proto[0][0]['port'], 3)
+        self.assertEqual(rd_ff_proto[0][1], '.01')
 
-        self.assertEqual(rd_bindings[2][0]['key'], 'k1')
-        self.assertEqual(rd_bindings[2][0]['value'], 'v1')
+        self.assertEqual(rd_ff_proto[2][0]['protocol'], 'proto1')
+        self.assertEqual(rd_ff_proto[2][0]['port'], 1)
         self.assertTrue(
-            isinstance(uuid.UUID(rd_bindings[2][1]), uuid.UUID),
+            isinstance(uuid.UUID(rd_ff_proto[2][1]), uuid.UUID),
             'Autogenerated position not of uuid form')
 
         # get specific element
         query_params = {'uuid': vmi_uuid,
                         'fields': ','.join(
-                                  ['virtual_machine_interface_bindings']),
+                                  ['virtual_machine_interface_fat_flow_protocols']),
                         'position': '.01'}
-        rd_bindings = json.loads(requests.get(prop_list_get_url,
-            params=query_params).content)['virtual_machine_interface_bindings']
-        self.assertEqual(len(rd_bindings), 1)
-        self.assertEqual(rd_bindings[0][0]['key'], 'k3')
-        self.assertEqual(rd_bindings[0][0]['value'], 'v3')
-        self.assertEqual(rd_bindings[0][1], '.01')
+        rd_ff_proto = json.loads(requests.get(prop_coll_get_url,
+            params=query_params).content)['virtual_machine_interface_fat_flow_protocols']
+        self.assertEqual(len(rd_ff_proto), 1)
+        self.assertEqual(rd_ff_proto[0][0]['protocol'], 'proto3')
+        self.assertEqual(rd_ff_proto[0][0]['port'], 3)
+        self.assertEqual(rd_ff_proto[0][1], '.01')
 
         # 3. Modify specific elements
-        requests.post(prop_list_update_url,
+        requests.post(prop_coll_update_url,
             headers={'Content-type': 'application/json; charset="UTF-8"'},
             data=json.dumps(
                 {'uuid': vmi_uuid,
                  'updates': [
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'modify',
-                      'value': {'key': 'k2', 'value': 'v2mod'},
+                      'value': {'protocol': 'proto2', 'port': 21},
                       'position': '0.0'},
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'modify',
-                      'value': {'key': 'k3', 'value': 'v3mod'},
+                      'value': {'protocol': 'proto3', 'port': 31},
                       'position': '.01'} ] }))
 
         query_params = {'uuid': vmi_uuid,
                         'fields': ','.join(
-                                  ['virtual_machine_interface_bindings'])}
-        rd_bindings = json.loads(requests.get(prop_list_get_url,
-            params=query_params).content)['virtual_machine_interface_bindings']
+                                  ['virtual_machine_interface_fat_flow_protocols'])}
+        rd_ff_proto = json.loads(requests.get(prop_coll_get_url,
+            params=query_params).content)['virtual_machine_interface_fat_flow_protocols']
 
-        self.assertEqual(len(rd_bindings), 3)
-        self.assertEqual(rd_bindings[0][0]['key'], 'k3')
-        self.assertEqual(rd_bindings[0][0]['value'], 'v3mod')
-        self.assertEqual(rd_bindings[0][1], '.01')
+        self.assertEqual(len(rd_ff_proto), 3)
+        self.assertEqual(rd_ff_proto[0][0]['protocol'], 'proto3')
+        self.assertEqual(rd_ff_proto[0][0]['port'], 31)
+        self.assertEqual(rd_ff_proto[0][1], '.01')
 
-        self.assertEqual(rd_bindings[1][0]['key'], 'k2')
-        self.assertEqual(rd_bindings[1][0]['value'], 'v2mod')
+        self.assertEqual(rd_ff_proto[1][0]['protocol'], 'proto2')
+        self.assertEqual(rd_ff_proto[1][0]['port'], 21)
 
         # 4. Delete (and add) elements
-        requests.post(prop_list_update_url,
+        requests.post(prop_coll_update_url,
             headers={'Content-type': 'application/json; charset="UTF-8"'},
             data=json.dumps(
                 {'uuid': vmi_uuid,
                  'updates': [
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'delete',
                       'position': '.01'},
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'delete',
                       'position': '0.0'},
-                     {'field': 'virtual_machine_interface_bindings',
+                     {'field': 'virtual_machine_interface_fat_flow_protocols',
                       'operation': 'add',
-                      'value': {'key': 'k4', 'value': 'v4'},
+                      'value': {'protocol': 'proto4', 'port': 4},
                       'position': '.01'} ] }))
 
         query_params = {'uuid': vmi_uuid,
                         'fields': ','.join(
-                                  ['virtual_machine_interface_bindings'])}
-        rd_bindings = json.loads(requests.get(prop_list_get_url,
-            params=query_params).content)['virtual_machine_interface_bindings']
+                                  ['virtual_machine_interface_fat_flow_protocols'])}
+        rd_ff_proto = json.loads(requests.get(prop_coll_get_url,
+            params=query_params).content)['virtual_machine_interface_fat_flow_protocols']
 
-        self.assertEqual(len(rd_bindings), 2)
-        self.assertEqual(rd_bindings[0][0]['key'], 'k4')
-        self.assertEqual(rd_bindings[0][0]['value'], 'v4')
-        self.assertEqual(rd_bindings[0][1], '.01')
-        self.assertEqual(rd_bindings[1][0]['key'], 'k1')
-        self.assertEqual(rd_bindings[1][0]['value'], 'v1')
-
+        self.assertEqual(len(rd_ff_proto), 2)
+        self.assertEqual(rd_ff_proto[0][0]['protocol'], 'proto4')
+        self.assertEqual(rd_ff_proto[0][0]['port'], 4)
+        self.assertEqual(rd_ff_proto[0][1], '.01')
+        self.assertEqual(rd_ff_proto[1][0]['protocol'], 'proto1')
+        self.assertEqual(rd_ff_proto[1][0]['port'], 1)
     # end test_prop_list_add_delete_get_rest_api
 
     def test_prop_list_wrong_type_should_fail(self):
@@ -2704,13 +2669,13 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
 
         vmi_uuid = self._rest_vmi_create()
 
-        prop_list_update_url = 'http://%s:%s/prop-list-update' %(
+        prop_coll_update_url = 'http://%s:%s/prop-collection-update' %(
             listen_ip, listen_port)
-        prop_list_get_url = 'http://%s:%s/prop-list-get' %(
+        prop_coll_get_url = 'http://%s:%s/prop-collection-get' %(
             listen_ip, listen_port)
 
         # 1. Try adding elements to non-prop-list field
-        response = requests.post(prop_list_update_url,
+        response = requests.post(prop_coll_update_url,
             headers={'Content-type': 'application/json; charset="UTF-8"'},
             data=json.dumps(
                 {'uuid': vmi_uuid,
@@ -2725,12 +2690,106 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         query_params = {'uuid': vmi_uuid,
                         'fields': ','.join(
                                   ['display_name'])}
-        response = requests.get(prop_list_get_url,
+        response = requests.get(prop_coll_get_url,
             params=query_params)
         self.assertEqual(response.status_code, 400)
     # end test_prop_list_wrong_type_should_fail
 
 # end class TestPropertyWithlist
+
+
+class TestPropertyWithMap(test_case.ApiServerTestCase):
+    def assert_kvpos(self, rd_bindings, idx, k, v, pos):
+        self.assertEqual(rd_bindings[idx][0]['key'], k)
+        self.assertEqual(rd_bindings[idx][0]['value'], v)
+        self.assertEqual(rd_bindings[idx][1], pos)
+
+    def test_set_in_object(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
+            parent_obj=Project())
+        vmi_obj.set_virtual_machine_interface_bindings(
+            KeyValuePairs([KeyValuePair(key='k1', value='v1'),
+                           KeyValuePair(key='k2', value='v2')]))
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        # ensure stored as list order
+        rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
+        self.assertThat(
+            rd_bindings.key_value_pair[0].key, Equals('k1'))
+        self.assertThat(
+            rd_bindings.key_value_pair[1].key, Equals('k2'))
+
+        # verify db storage format (wrapper/container type stripped in storage)
+        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        cols = uuid_cf.get(vmi_obj.uuid,
+            column_start='propm:virtual_machine_interface_bindings:',
+            column_finish='propm:virtual_machine_interface_bindings;')
+        col_name_0, col_val_0 = cols.popitem(last=False)
+        col_name_1, col_val_1 = cols.popitem(last=False)
+        self.assertThat(col_name_0.split(':')[-1], Equals('k1'))
+        self.assertThat(json.loads(col_val_0)['key'], Equals('k1'))
+        self.assertThat(col_name_1.split(':')[-1], Equals('k2'))
+        self.assertThat(json.loads(col_val_1)['key'], Equals('k2'))
+
+        # update and clobber old entries
+        #vmi_obj.set_virtual_machine_interface_bindings([])
+        vmi_obj.set_virtual_machine_interface_bindings(KeyValuePairs())
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid)
+        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
+        self.assertIsNone(rd_bindings)
+        cols = uuid_cf.get(vmi_obj.uuid,
+            column_start='propm:virtual_machine_interface_bindings:',
+            column_finish='propm:virtual_machine_interface_bindings;')
+        self.assertEqual(len(cols), 0)
+    # end test_set_in_object
+
+    def test_element_add_del_in_object(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
+            parent_obj=Project())
+
+        for key,val in [('k2','v2'), ('k1','v1'),
+                            ('k3','v3'), ('k4', 'v4')]:
+            vmi_obj.add_virtual_machine_interface_bindings(
+                KeyValuePair(key=key, value=val))
+
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_bindings
+
+        self.assertEqual(len(rd_bindings.key_value_pair), 4)
+
+        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k1')
+        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v1')
+        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k2')
+        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v2')
+        self.assertEqual(rd_bindings.key_value_pair[2].key, 'k3')
+        self.assertEqual(rd_bindings.key_value_pair[2].value, 'v3')
+        self.assertEqual(rd_bindings.key_value_pair[3].key, 'k4')
+        self.assertEqual(rd_bindings.key_value_pair[3].value, 'v4')
+
+        for pos in ['k1', 'k4']:
+            vmi_obj.del_virtual_machine_interface_bindings(
+                elem_position=pos)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_bindings
+
+        self.assertEqual(len(rd_bindings.key_value_pair), 2)
+
+        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k2')
+        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v2')
+        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k3')
+        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v3')
+    # end test_element_set_del_in_object
+# end class TestPropertyWithMap
 
 
 class TestDBAudit(test_case.ApiServerTestCase):

@@ -44,12 +44,12 @@ class ResourceDbMixin(object):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-            prop_list_updates=None, ref_update=None):
+            prop_collection_updates=None, ref_update=None):
         return True, ''
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-            prop_list_updates=None, ref_update=None):
+            prop_collection_updates=None, ref_update=None):
         return True, ''
 
     @classmethod
