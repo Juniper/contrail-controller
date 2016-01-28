@@ -105,7 +105,7 @@ std::string DSSubscribeResponse::GetPublisherId(string ip_address) {
             return (resp.publisher_id);
         }
     }
-    return (NULL);
+    return "";
 }
 
 
