@@ -2,6 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Definitions of structures used to send CPU and Memory information of the
+ *  processes and the system
+ */
+
 request sandesh CpuLoadInfoReq {
 }
 
@@ -24,6 +29,11 @@ struct SysMemInfo {
     4: u32 buffers;
 }
 
+/**
+ * This structure carries
+ * - process's information - in meminfo and cpu_share
+ * - system's information in sys_mem_info and cpuload
+ */
 struct CpuLoadInfo {
     1: u32 num_cpu;
     5: optional SysMemInfo sys_mem_info;
@@ -36,6 +46,10 @@ response sandesh CpuLoadInfoResp {
     1: CpuLoadInfo cpu_info;
 }
 
+/**
+ * This structure carries process's memory and cpu information,
+ * this is used to store cpu and memory statistics on a per process basis
+ */
 struct ProcessCpuInfo {
     1: string                              module_id
     2: string                              inst_id

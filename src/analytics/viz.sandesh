@@ -2,11 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  viz.sandesh
-//
-//  Collector definitions
-//
+/**
+ *  Definitions of structures used internally by contrail daemons
+ */
 
 const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"

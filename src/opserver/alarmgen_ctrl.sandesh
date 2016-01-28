@@ -2,23 +2,31 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
  
-/*
- *  alarmgen_ctrl.sandesh
- *
- *  Sandesh messages for Alarm Generator
+/**
+ *  Definitions of structures used by contrail-alarm-gen to send information to
+ *  the collector
  */
 
 include "sandesh/library/common/sandesh_alarm_base.sandesh"
 
+/**
+ * @description: sandesh request to get partition ownership info
+ */
 request sandesh PartitionOwnershipReq {
     1: u32                      partition
     2: bool                     ownership
 }
 
+/**
+ * @description: sandesh response to send partition ownership status
+ */
 response sandesh PartitionOwnershipResp {
     1: bool                     status
 }
 
+/**
+ * @description: sandesh request to get partition ownership status
+ */
 request sandesh PartitionStatusReq {
     1: i32 partition
 }
@@ -44,6 +52,9 @@ struct UVECollInfo {
     2: list<UVEGenInfo>         uves
 }
 
+/**
+ * @description: sandesh response to return partition ownership info
+ */
 response sandesh PartitionStatusResp {
     1: bool                     enabled
     2: u32                      partition
@@ -51,6 +62,9 @@ response sandesh PartitionStatusResp {
     4: list<UVECollInfo>        uves
 }
 
+/**
+ * @description: sandesh request to uve table info for a given partition
+ */
 request sandesh UVETableInfoReq {
     1: u32                     partition
 }
@@ -71,15 +85,24 @@ struct UVETableInfo {
 }
 
 
+/**
+ * @description: sandesh response to return uve table info for a given partition
+ */
 response sandesh UVETableInfoResp {
     2: u32 partition
     7: list<UVETableInfo> tables
 }
 
+/**
+ * @description: sandesh request to get UVE operation info for a given UVE table
+ */
 request sandesh UVETablePerfReq {
     1: string                      table
 }
 
+/**
+ * @description: sandesh response to return uve op data for a given table
+ */
 response sandesh UVETablePerfResp {
     1: string table
     3: u64 updates
@@ -88,10 +111,16 @@ response sandesh UVETablePerfResp {
     6: u64 call_time
 }
 
+/**
+ * @description: sandesh request to get alarms for a given UVE table
+ */
 request sandesh UVETableAlarmReq {
     1: string                      table
 }
 
+/**
+ * @description: sandesh response to return alarms for a given table
+ */
 response sandesh UVETableAlarmResp {
     1: string table
     2: list<sandesh_alarm_base.UVEAlarms> uves
@@ -109,6 +138,10 @@ struct UVEKeyCount {
     2: u32                      count
 }
 
+/**
+ * @description: objectlog structure to send UVE update statistics
+ * @object: generator
+ */
 objectlog sandesh AlarmgenUpdate {
     1: string             name (key="ObjectGeneratorInfo")
     3: u32                partition
@@ -124,6 +157,9 @@ struct AlarmgenStats {
     4: u64                         updates
 }
 
+/**
+ * structure to carry alarmgen status data
+ */
 struct AlarmgenStatus {
     1: string                      name (key="ObjectCollectorInfo")
     2: list<AlarmgenStats>         counters (tags="name:.instance",aggtype="union")
@@ -136,16 +172,27 @@ struct AlarmgenPartionInfo {
     2: list<u16>                   partitions
 }
 
+/**
+ * structure to carry alarmgen partition data
+ */
 struct AlarmgenPartition {
     1: string                      name (key="ObjectCollectorInfo")
     2: list<AlarmgenPartionInfo>   inst_parts (aggtype="union")
     3: optional bool               deleted
 }
 
+/**
+ * @description: uve to send alarmgen partition data
+ * @object: analytics-node
+ */
 uve sandesh AlarmgenPartitionTrace {
     1: AlarmgenPartition data
 }
 
+/**
+ * @description: uve to send alarmgen status data
+ * @object: analytics-node
+ */
 uve sandesh AlarmgenStatusTrace {
     1: AlarmgenStatus data
 }

@@ -2,9 +2,9 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  analytics_database.sandesh
-//
+/**
+ *  Definitions of structures used to send database purge statistics information
+ */
 
 enum PurgeStatus {
     SUCCESS,
@@ -16,6 +16,9 @@ const map<PurgeStatus, string> PurgeStatusString = {
      PurgeStatus.FAILURE : "failure",
 }
 
+/**
+ *  structure to carry database purge statistics information
+ */
 struct DatabasePurgeStats {
     1: string                              purge_id
     2: optional u64                        request_time
@@ -25,6 +28,10 @@ struct DatabasePurgeStats {
     6: string                              purge_status_details
 }
 
+/**
+ *  @description: objectlog structure to send database purge statistics information
+ *  @object: database-node
+ */
 objectlog sandesh DatabasePurgeInfo {
     1: string name (key="ObjectDatabaseInfo")
     2: DatabasePurgeStats stats (tags=".purge_id, .purge_status, .request_time, .rows_deleted, .duration")

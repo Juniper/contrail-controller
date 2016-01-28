@@ -2,14 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  collector_uve.sandesh
-//
+/**
+ *  Definitions of structures added by collector related to data received from
+ *  the sandesh generators
+ */
 
 include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
 include "database/gendb.sandesh"
 
+/**
+ * structure to store sandesh stats on a per message type
+ */
 struct SandeshStats {
     1: string                              message_type
     2: i64                                 messages
@@ -17,6 +21,9 @@ struct SandeshStats {
     4: u64                                 last_msg_timestamp
 }
 
+/**
+ * structure to store sandesh stats on a per level
+ */
 struct SandeshLogLevelStats {
     1: string     level 
     2: u64        messages
@@ -24,12 +31,18 @@ struct SandeshLogLevelStats {
     4: u64        last_msg_timestamp
 }
 
+/**
+ * structure to store list of sandesh stats
+ */
 struct SandeshStatsInfo {
     1: string                          hostname
     2: list<SandeshStats>              msgtype_stats
     3: list<SandeshLogLevelStats>      log_level_stats 
 }
 
+/**
+ * structure to store generator's connection info
+ */
 struct GeneratorInfoAttr {
     1: u32                                 connects
     5: u64                                 connect_time
@@ -43,6 +56,11 @@ struct GeneratorInfo {
     3: GeneratorInfoAttr                   gen_attr
 }
 
+/**
+ * @description: This structure send statistics data related to adds to the Database
+ * on a per generator basis
+ * @object: generator
+ */
 objectlog sandesh GeneratorDbStats {
     1: string                             name (key="ObjectGeneratorInfo")
     2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
@@ -50,12 +68,10 @@ objectlog sandesh GeneratorDbStats {
     4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
-// This struct is part of the Generator UVE (key is <source>:<module>)
-//
-// - Vizd will update the msg_stats attribute periodically
-// - The GeneratorInfo attribute will be updated when a Generator is registered
-//   or deregistered with Vizd
-//
+/**
+ * This structure send statistics data related to Database
+ * additions on a per generator basis
+ */
 struct ModuleServerState {
     1: string                              name (key="ObjectGeneratorInfo")
     2: optional bool                       deleted
@@ -74,10 +90,17 @@ struct ModuleServerState {
     15: optional string                    sm_drop_level
 }
 
+/**
+ * @description: UVE to send generator statistics
+ * @object: generator
+ */
 uve sandesh SandeshModuleServerTrace {
     1: ModuleServerState                   data
 }
 
+/**
+ * structure to store generator summary
+ */
 struct GeneratorSummaryInfo {
     1: string                              source
     2: string                              module_id    
@@ -90,6 +113,9 @@ struct GeneratorSummaryInfo {
     9: string                              db_drop_level
 }
 
+/**
+ * structure to store collector errors
+ */
 struct CollectorStats {
     1: u64                                 no_session_error
     2: u64                                 no_generator_error
@@ -98,6 +124,11 @@ struct CollectorStats {
     5: u64                                 sandesh_type_mismatch_error
 }
 
+/**
+ * @description: This structure used to send statistics data related to Protobuf
+ * Receiver in the contrail-collector
+ * @object: analytics-node
+ */
 objectlog sandesh ProtobufCollectorStats {
     1: string                                       name (key="ObjectCollectorInfo")
     2: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
@@ -110,9 +141,15 @@ objectlog sandesh ProtobufCollectorStats {
     9: optional u64				    db_enqueues
 }
 
+/**
+ * @description: sandesh request to get collector info through introspect
+ */
 request sandesh ShowCollectorServerReq {
 }
 
+/**
+ * @description: sandesh response to provide collector info through introspect
+ */
 response sandesh ShowCollectorServerResp {
     1: io.SocketIOStats                    rx_socket_stats
     2: io.SocketIOStats                    tx_socket_stats
@@ -128,6 +165,9 @@ response sandesh ShowCollectorServerResp {
 //
 // - Vizd will update the generator_infos attribute periodically
 //
+/**
+ * structure to carry generator info and other info that collector sends
+ */
 struct CollectorState {
     1: string                              name (key="ObjectCollectorInfo")
     2: optional bool                       deleted
@@ -139,6 +179,10 @@ struct CollectorState {
     9: optional io.SocketIOStats           tx_socket_stats
 }
 
+/**
+ * @description: UVE to send generator info and other info from collector
+ * @object: analytics-node
+ */
 uve sandesh CollectorInfo {
     1: CollectorState                      data
 }
@@ -177,27 +221,45 @@ trace sandesh generator_deluves {
     3: bool success    
 }
 
+/**
+ * @description: sandesh request to set Database Queue params
+ */
 request sandesh DbQueueParamsSet {
     1: optional bool high;
     2: optional u32 queue_count;
     3: optional string drop_level;
 }    
 
+/**
+ * @description: sandesh request to reset Database Queue params
+ */
 request sandesh DbQueueParamsReset {
 }
 
+/**
+ * @description: sandesh request to get Database Queue params
+ */
 request sandesh DbQueueParamsStatus {
 }
 
+/**
+ * @description: sandesh request to set State Machine Queue params
+ */
 request sandesh SmQueueParamsSet {
     1: optional bool high;
     2: optional u32 queue_count;
     3: optional string drop_level;
 }    
 
+/**
+ * @description: sandesh request to reset State Machine Queue params
+ */
 request sandesh SmQueueParamsReset {
 }
 
+/**
+ * @description: sandesh request to get State Machine Queue params
+ */
 request sandesh SmQueueParamsStatus {
 }
 
@@ -211,10 +273,17 @@ response sandesh QueueParamsError {
     1: string error;
 }
 
+/**
+ * @description: sandesh response to return State Machine Queue params
+ */
 response sandesh QueueParamsResponse {
     1: list<QueueParams> info;
 }
 
+/**
+ * structure to carry statistics data for sandesh messages on a
+ * per generator basis
+ */
 struct SandeshMessageInfo {
      1: string type
      2: string level
@@ -222,6 +291,11 @@ struct SandeshMessageInfo {
      4: u64    bytes
 }
 
+/**
+ * @description: objectlog structure to send statistics data for sandesh
+ * messages on a per generator basis
+ * @object: generator
+ */
 objectlog sandesh SandeshMessageStat {
     1: string                            name (key="ObjectGeneratorInfo")
     2: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")

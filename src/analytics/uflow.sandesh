@@ -2,9 +2,10 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-// uflow.sandesh 
-//
+/**
+ *  Definitions of structures added by underlay flow [sflow/ipfix] receiver in
+ *  contrail-collector that go into Physical Router UVE.
+ */
 
 enum FlowType {
     SFLOW = 1,
@@ -16,6 +17,9 @@ const map<FlowType, string> FlowTypeName = {
     FlowType.IPFIX : "IPFIX"
 }
 
+/**
+ * Normalized data to identify an underlay flow
+ */
 struct UFlowSample {
     1: u64 pifindex
     2: string sip
@@ -28,6 +32,10 @@ struct UFlowSample {
     9: string otherinfo
 }
 
+/**
+ * Physical Router UVE data provided by underlay flow receiver in
+ * contrail-collector
+ */
 struct UFlowData {
     1: string name (key="ObjectPRouterIP")
     2: optional bool deleted
