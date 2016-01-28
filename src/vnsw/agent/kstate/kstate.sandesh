@@ -2,11 +2,25 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for kstate module
+ *
+ * This module is responsible for querying the config present in kernel 
+ * This config can be accessed in agent introspect at kstate.xml 
+ *
+ */
+
+/**
+ * Statistics for component next hop in kernel
+ */
 struct KComponentNH {
     1: i32 nh_id (link = "KNHReq");
     2: i32 label (link = "KMplsInfo");
 }
 
+/**
+ * Statistics for next hop in kernel
+ */
 struct KNHInfo {
     1: i32             id;
     2: string          type;
@@ -26,6 +40,9 @@ struct KNHInfo {
    16: optional list<KComponentNH> component_nh;
 }
 
+/**
+ * Statistics for interface in kernel
+ */
 struct KInterfaceInfo {
     1: i32          idx;
     2: string       type;
@@ -49,6 +66,9 @@ struct KInterfaceInfo {
    20: i32          duplexity;
 }
 
+/**
+ * Statistics for route in kernel
+ */
 struct KRouteInfo {
     1:  i32         vrf_id;
     2:  string      family;
@@ -60,12 +80,18 @@ struct KRouteInfo {
     8:  i32         nh_id (link = "KNHReq");
 }
 
+/**
+ * Statistics for mpls in kernel
+ */
 struct KMplsInfo {
     1: i16          label;
     2: i16          rid;
     3: i32          nhid (link = "KNHReq");
 }
 
+/**
+ * Statistics for mirror in kernel
+ */
 struct KMirrorInfo {
     1: i32  mirr_index;
     2: i16  mirr_rid;
@@ -74,6 +100,9 @@ struct KMirrorInfo {
     5: i32  mirr_nhid (link = "KNHReq");
 }
 
+/**
+ * Statistics for flow in kernel
+ */
 struct KFlowInfo {
     1: i32           index;
     2: i32           rflow;
@@ -98,94 +127,162 @@ struct KFlowInfo {
    21: optional string drop_reason;
 }
 
+/**
+ * Statistics for vxlan in kernel
+ */
 struct KVxLanInfo {
     1: i16          vxlanid;
     2: i16          rid;
     3: i32          nhid (link = "KNHReq");
 }
 
+/**
+ * Request message to get interface list from kernel in agent introspect
+ */
 request sandesh KInterfaceReq {
     1: i32 if_id = -1             // send data for given if-id, send all if -1
 }
 
+/**
+ * Response message for interface list from kernel in agent introspect
+ */
 response sandesh KInterfaceResp {
     1: list<KInterfaceInfo> if_list;
 }
 
+/**
+ * Request message to get route list from kernel in agent introspect
+ */
 request sandesh KRouteReq {
     1: i32 vrf_id = 0            // Send routes of vrf 0 if not specified
 }
 
+/**
+ * Response message for route list from kernel in agent introspect
+ */
 response sandesh KRouteResp {
     1: list<KRouteInfo> rt_list;
 }
 
+/**
+ * Request message to get nexthop list from kernel in agent introspect
+ */
 request sandesh KNHReq {
     1: i32 nh_id = -1;           // send data for given nh, send all if -1
 }
 
+/**
+ * Request message for nexthop list from kernel in agent introspect
+ */
 response sandesh KNHResp {
     1: list<KNHInfo> nh_list;
 }
 
+/**
+ * Request message to get mpls list from kernel in agent introspect
+ */
 request sandesh KMplsReq {
     1: i16 mpls_label = -1;      // send data for given mpls label, send all if -1
 }
 
+/**
+ * Response message for mpls list from kernel in agent introspect
+ */
 response sandesh KMplsResp {
     1: list<KMplsInfo> mpls_list;
 }
 
+/**
+ * Request message to get mirror list from kernel in agent introspect
+ */
 request sandesh KMirrorReq {
         1: i32 mirror_id = -1;
 }
 
+/**
+ * Response message for mirror list from kernel in agent introspect
+ */
 response sandesh KMirrorResp { 1: list<KMirrorInfo> mirror_list;
 }
 
+/**
+ * Request message to get next flow from kernel in agent introspect
+ */
 request sandesh NextKFlowReq {
     1: string flow_handle;
 }
 
+/**
+ * Request message to get flow from kernel in agent introspect
+ */
 request sandesh KFlowReq {
     1: i32 flow_idx = -1;        // send data for given flow index, send all if -1
 }
 
+/**
+ * Reaponse for  flow from kernel in agent introspect
+ */
 response sandesh KFlowResp {
     1: list<KFlowInfo> flow_list;
     2: string flow_handle (link="NextKFlowReq");
 }
 
+/**
+ * Request message to get vxlan list from kernel in agent introspect
+ */
 request sandesh KVxLanReq {
     1: i16 vxlan_label = 0;      // send data for given vxlan label, send all if -1
 }
 
+/**
+ * Response message for vxlan list from kernel in agent introspect
+ */
 response sandesh KVxLanResp {
     1: list<KVxLanInfo> vxlan_list;
 }
 
+/**
+ * @description: Error message for invalid input
+ * @severity: DEBUG
+ */
 response sandesh ErrResp {
     1: string resp = "   Invalid Input !!!   ";
 }
 
+/**
+ * @description: Error message returned by kernel
+ * @severity: DEBUG
+ */
 response sandesh InternalErrResp {
     1: string resp = "   Internal Error !!!   ";
 }
 
+/**
+ * Statistics for vrf assignmet
+ */
 struct KVrfAssignInfo {
     1: i16          vif_index;
     2: i16          vlan_id;
     3: i16          vif_vrf;
 }
 
+/**
+ * Request message to get vrf assign list from kernel in agent introspect
+ */
 request sandesh KVrfAssignReq {
     1: i32 vif_index = -1;      // send vrf assign rules for an index. Send all if -1
 }
 
+/**
+ * Response message for vrf assign list from kernel in agent introspect
+ */
 response sandesh KVrfAssignResp {
     1: list<KVrfAssignInfo> vrf_assign_list;
 }
 
+/**
+ * Statistics for vrf in kernel
+ */
 struct KVrfStatsInfo {
     1: i16      vrf_id;
     2: string   vrf_family;
@@ -204,17 +301,29 @@ struct KVrfStatsInfo {
    15: i64      vrf_vxlan_tunnels;
 }
 
+/**
+ * Request message to get vrf stats list from kernel in agent introspect
+ *
 request sandesh KVrfStatsReq {
     1: i32 vrf_index = -1;      // send vrf stats for an index. Send all if -1
 }
 
+/**
+ * Response message for vrf stats list from kernel
+ */
 response sandesh KVrfStatsResp {
     1: list<KVrfStatsInfo> vrf_stats_list;
 }
 
+/**
+ * Request drop stats from kernel
+ */
 request sandesh KDropStatsReq {
 }
 
+/**
+ * Response message for drop stats from kernel
+ */
 response sandesh KDropStatsResp {
     1:  u16             ds_rid;  
     2:  u64             ds_discard;
