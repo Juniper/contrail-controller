@@ -607,6 +607,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
 
 static void GetEcmpHashFieldsToUse(ItemType *item,
                                    EcmpLoadBalance &ecmp_load_balance) {
+    ecmp_load_balance.ResetAll();
     if (item->entry.load_balance.load_balance_decision.empty() ||
         item->entry.load_balance.load_balance_decision !=
             LoadBalanceDecision)
