@@ -2,8 +2,19 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for pkt module.
+ *
+ * The packet module is responsible for handling exception packets sent from vrouter
+ * on pkt0 interface parsed and sent to appropriate module
+ *
+ */
+
 include "vnsw/agent/oper/agent.sandesh"
 
+/**
+ * Statistics for mirror info
+ */
 struct MirrorInfo {
     1: optional string mirror_destination;
     2: optional u16 mirror_port; 
@@ -12,16 +23,25 @@ struct MirrorInfo {
     5: optional string analyzer;
 }
 
+/**
+ * Statistics for flow acl uuid
+ */
 struct FlowAclUuid {
     1: string uuid (link="AclReq");
 }
 
+/**
+ * Statistics for flow acl
+ */
 struct FlowAclInfo {
     1: i32 action;
     2: list<FlowAclUuid> acl;
     3: list<agent.ActionStr> action_str;
 }
 
+/**
+ * Statistics for flow
+ */
 struct SandeshFlowData {
     1: i32 vrf;
     2: string sip;
@@ -77,6 +97,9 @@ struct SandeshFlowData {
     52: i32 aging_port;
 }
 
+/**
+ * Statistics for link local flow
+ */
 struct LinkLocalFlowInfo {
     1: u32 fd;
     2: u32 flow_index;
@@ -88,6 +111,9 @@ struct LinkLocalFlowInfo {
     8: string timestamp;
 }
 
+/**
+ * Request message getting flow record
+ */
 request sandesh FetchFlowRecord {
     1: i32 nh;
     2: string sip;
@@ -97,44 +123,79 @@ request sandesh FetchFlowRecord {
     6: byte protocol;
 }
 
+/**
+ * Response message for flow record
+ */
 response sandesh FlowRecordResp {
     1: SandeshFlowData record;
 }
 
+/**
+ * Response message for flow error, part of flow statistics
+ */
 response sandesh FlowErrorResp {
     1: string resp = "No Flow Record for specified key ";
 }
 
+/**
+ * Request message for next flow record
+ */
 request sandesh NextFlowRecordsSet {
     1: string flow_key;
 }
 
+/**
+ * Request message to get all flow records
+ */
 request sandesh FetchAllFlowRecords {
 }
 
+/**
+ * Request message to delete all flow records
+ */
 request sandesh DeleteAllFlowRecords {
 }
 
+/**
+ * Request message for getting link local flow
+ */
 request sandesh FetchLinkLocalFlowInfo {
 }
 
+/**
+ * Flow record list message
+ */
 response sandesh FlowRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowRecordsSet");
 }
 
+/**
+ * Link local flow list message
+ */
 response sandesh LinkLocalFlowInfoResp {
     1: list<LinkLocalFlowInfo> linklocal_flow_list;
 }
 
+/**
+ * @description: Trace message tap interface
+ * @severity: DEBUG
+ */
 trace sandesh TapErr {
     1: string err;
 }
 
+/**
+ * @description: Trace message pkt0 interface
+ * @severity: DEBUG
+ */
 trace sandesh PktErr {
     1: string err;
 }
 
+/**
+ * Statistics for flow
+ */
 struct FlowInfo {
     1: u32 flow_index;
     2: ipv4 source_ip;
@@ -179,11 +240,19 @@ struct FlowInfo {
    43: string drop_reason;
 }
 
+/**
+ * @description: Trace message for flow
+ * @severity: DEBUG
+ */
 traceobject sandesh FlowTrace {
     1: string operation;
     2: FlowInfo info;
 }
 
+/**
+ * @description: Trace message containing detailed error for flow entry
+ * @severity: DEBUG
+ */
 trace sandesh FlowDetailErr {
     1: u32 flow_index;
     2: u16 ifindex;
@@ -198,15 +267,26 @@ trace sandesh FlowDetailErr {
    11: u64 dip_lower;
 }
 
+/**
+ * @description: Trace message for flow entry
+ * @severity: DEBUG
+ */
 trace sandesh FlowErr {
     1: u32 flow_index;
     2: string error;
 }
 
+/**
+ * @description: Trace message for flow module
+ * @severity: DEBUG
+ */
 trace sandesh FlowModuleInfo {
     1: string info;
 }
 
+/**
+ * Statistics for flow handler
+ */
 struct FlowHandlerFlow {
     1: optional u32 vrf;
     2: optional string src_ip;
@@ -227,15 +307,27 @@ struct FlowHandlerFlow {
     17: optional bool short_flow;
 }
 
+/**
+ * @description: Trace message for pkt flow
+ * @severity: DEBUG
+ */
 traceobject sandesh PktFlowTrace {
     1: string operation;
     2: FlowHandlerFlow finfo;
 }
 
+/**
+ * @description: Trace message for pkt flow error
+ * @severity: DEBUG
+ */
 trace sandesh PktFlowErr {
     1: string error;
 }
 
+/**
+ * @description: Trace message for flow route update
+ * @severity: DEBUG
+ */
 traceobject sandesh FlowRouteUpdate {
    1: string vrf;
    2: string ip;
@@ -247,24 +339,40 @@ traceobject sandesh FlowRouteUpdate {
    8: list <i32> sg_list;
 }
 
+/**
+ * Statistics for flow ageing
+ */
 response sandesh FlowAgeTimeResp {
    1: u32 old_age_time;
    2: u32 new_age_time;
 }
 
+/**
+ * Request message to get flow ageing stats
+ */
 request sandesh FlowAgeTimeReq {
    1: u32 new_age_time;
 }
 
+/**
+ * Request message to get flow records based on protocol and port filters
+ */
 request sandesh ShowFlowStatsCollector {
    1: u32 protocol;
    2: u32 port;
 }
 
+/**
+ * Request message to get next flow record
+ */
 request sandesh NextFlowStatsRecordsSet {
     1: string flow_key;
 }
 
+/**
+ * Response message for flow records based on protocol and port filters
+ * also having link for next flow
+ */
 response sandesh FlowStatsCollectorRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowStatsRecordsSet");
