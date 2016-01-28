@@ -25,6 +25,7 @@ public:
     static std::string GetFlowKey(const FlowKey &key);
     
     virtual bool Run();
+    std::string Description() const { return "PktSandeshFlow"; }
     void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe,
                             const FlowExportInfo *info);
     void set_delete_op(bool delete_op) {delete_op_ = delete_op;}

@@ -804,6 +804,7 @@ public:
         if_impl_->cleanup_task_ = NULL;
         return true;
     }
+    std::string Description() const { return "ThriftImpls::CleanupTask"; }
 
 private:
     ThriftIfImpl *if_impl_;
@@ -842,6 +843,7 @@ public:
         if_impl_->init_task_ = NULL;
         return true;
     }
+    std::string Description() const { return "ThriftImpl::InitTask"; }
 
 private:
     std::string task_id_;

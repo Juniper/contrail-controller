@@ -120,6 +120,7 @@ public:
         SendResponse();
         return true;
     }
+    std::string Description() const { return "OvsdbClientSandesTask"; }
 
 private:
     void SendResponse() {

@@ -55,6 +55,7 @@ public:
         Agent::GetInstance()->uve()->vrouter_uve_entry()->TimerExpiry();
         return true;
     }
+    std::string Description() const { return "VrouterUveSendTask"; }
 };
 
 int hash_id;

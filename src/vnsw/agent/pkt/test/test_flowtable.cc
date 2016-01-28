@@ -437,6 +437,7 @@ class SetupTask : public Task {
             FlowAdd(test_->flow2, test_->flow2_r);
             return true;
         }
+        std::string Description() const { return "SetupTask"; }
     private:
         FlowTableTest *test_;
 };

@@ -120,6 +120,9 @@ public:
 
         return true;
     }
+    std::string Description() const {
+        return "IFMapServer::IFMapStaleEntriesCleaner";
+    }
 
 private:
     DB *db_;
@@ -171,6 +174,7 @@ public:
 
         return true;
     }
+    std::string Description() const { return "IFMapServer::IFMapVmSubscribe"; }
 
 private:
     DB *db_;

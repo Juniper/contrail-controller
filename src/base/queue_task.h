@@ -69,7 +69,7 @@ public:
         // avoid client callbacks running concurrently
     }
 
-    virtual std::string Description() {
+    virtual std::string Description() const {
         return queue_->Description();
     }
 
@@ -352,7 +352,7 @@ public:
     void set_name(const std::string &name) {
         name_ = name;
     }
-    std::string Description() {
+    std::string Description() const {
         if (name_.empty() == false)
             return name_;
 

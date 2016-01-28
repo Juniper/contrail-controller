@@ -43,6 +43,7 @@ class Executer : public Task {
         (func_)();
         return true;
     }
+    std::string Description() const { return "Executer"; }
     static void Execute(const string &task_id, Function func) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         Executer *executer = new Executer(scheduler->GetTaskId(task_id), func);

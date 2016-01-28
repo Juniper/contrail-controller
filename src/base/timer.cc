@@ -68,7 +68,7 @@ public:
         timer_->SetState(Timer::Init);
     }
 
-    virtual std::string Description() {
+    virtual std::string Description() const {
         return timer_->Description();
     }
 

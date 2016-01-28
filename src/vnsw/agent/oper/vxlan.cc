@@ -277,6 +277,7 @@ class VxLanConfigSandeshTask : public Task {
         context_(context) { }
     ~VxLanConfigSandeshTask() { }
     virtual bool Run();
+    std::string Description() const { return "VxLanConfigSandeshTask"; }
 
  private:
     Agent *agent_;

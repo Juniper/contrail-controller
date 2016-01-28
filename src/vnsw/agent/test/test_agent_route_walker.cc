@@ -257,6 +257,7 @@ class SetupTask : public Task {
             }
             return true;
         }
+    std::string Description() const { return "SetupTask"; }
     private:
         AgentRouteWalkerTest *test_;
         std::string test_name_;
