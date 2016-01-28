@@ -2,6 +2,21 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for port_ipc module
+ *
+ *  port_ipc module is responsible for handling port add/delete messages
+ *
+ *  port_ipc module communicates between instance service and config module
+ *  in agent
+ *
+ */
+
+/**
+ * @description: Trace message for config add port
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh ConfigAddPortEnqueue {
     1: string op;
     2: string port_uuid;
@@ -18,11 +33,21 @@ traceobject sandesh ConfigAddPortEnqueue {
     13: string ip6_address;
 }
 
+/**
+ * @description: Trace message for config delete port
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh ConfigDeletePortEnqueue {
     1: string op;
     2: string port_uuid;
 }
 
+/**
+ * @description: Trace message for config port info
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh ConfigPortInfo {
     1: string info;
 }
