@@ -3142,7 +3142,11 @@ class VirtualMachineInterfaceST(DBBaseST):
             if ip and ip.address:
                 ip_list.append(ip.address)
         for ip in ip_list:
-            address = AddressType(subnet=SubnetType(ip, 32))
+            if IPAddress(ip).version == 6:
+                address = AddressType(subnet=SubnetType(ip, 128))
+            else:
+                address = AddressType(subnet=SubnetType(ip, 32))
+
             mc = MatchConditionType(src_address=address,
                                     protocol='any',
                                     src_port=PortType(),
