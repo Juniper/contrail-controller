@@ -76,23 +76,11 @@ bool HealthCheckInstance::CreateInstanceTask() {
     deleted_ = false;
 
     HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
-    std::stringstream cmd_str;
-    cmd_str << kHealthCheckCmd << " -m " << service_->monitor_type_;
-    cmd_str << " -d " << ip_->GetLinkLocalIp().to_string();
-    cmd_str << " -t " << service_->timeout_;
-    cmd_str << " -r " << service_->max_retries_;
-    cmd_str << " -i " << service_->delay_;
 
-    if (service_->monitor_type_.find("HTTP") != std::string::npos &&
-        !service_->url_path_.empty()) {
-        // append non empty url string to script for HTTP
-        cmd_str << " -u " << service_->url_path_;
-    }
-
-    task_.reset(new HeathCheckProcessInstance("HealthCheckInstance",
-                                   cmd_str.str(), 0,
+    task_.reset(new HeathCheckProcessInstance("HealthCheckInstance", "", 0,
                                    service_->table_->agent()->event_manager()));
     if (task_.get() != NULL) {
+        UpdateInstanceTaskCommand();
         task_->set_pipe_stdout(true);
         task_->set_on_data_cb(
                 boost::bind(&HealthCheckInstance::OnRead, this, _1, _2));
@@ -116,6 +104,23 @@ bool HealthCheckInstance::DestroyInstanceTask() {
     deleted_ = true;
     task_->Stop();
     return true;
+}
+
+void HealthCheckInstance::UpdateInstanceTaskCommand() {
+    std::stringstream cmd_str;
+    cmd_str << kHealthCheckCmd << " -m " << service_->monitor_type_;
+    cmd_str << " -d " << ip_->GetLinkLocalIp().to_string();
+    cmd_str << " -t " << service_->timeout_;
+    cmd_str << " -r " << service_->max_retries_;
+    cmd_str << " -i " << service_->delay_;
+
+    if (service_->monitor_type_.find("HTTP") != std::string::npos &&
+        !service_->url_path_.empty()) {
+        // append non empty url string to script for HTTP
+        cmd_str << " -u " << service_->url_path_;
+    }
+
+    task_->set_cmd(cmd_str.str());
 }
 
 void HealthCheckInstance::set_service(HealthCheckService *service) {
@@ -539,6 +544,7 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
     case HealthCheckInstanceEvent::TASK_EXIT:
         if (!inst->deleted_) {
             HEALTH_CHECK_TRACE(Trace, "Restarting " + inst->to_string());
+            inst->UpdateInstanceTaskCommand();
             inst->task_->Run();
         } else {
             HEALTH_CHECK_TRACE(Trace, "Stopped " + inst->to_string());
