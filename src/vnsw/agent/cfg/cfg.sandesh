@@ -2,6 +2,25 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for vrouter config modules.
+ *
+ * Config module implements the north-bound interface for agent.
+ * It receives port add delete messages and downloads config from controller.
+ * 
+ * Config for vmi is in form of ifmap messages.
+ * 
+ * Any add/delete/update of configuration will result in a callback to the Config module
+ * which in turn does basic validation on config nodes and triggers operational module.
+ *
+ */
+
+/**
+ * @description: Trace message for interface received by agent
+ * @type: Trace
+ * @severity: DEBUG
+ */
+
 traceobject sandesh CfgIntfTrace {
     1: string intf;
     2: string vm_name;
@@ -17,7 +36,11 @@ traceobject sandesh CfgIntfTrace {
     12: string ip6;
 }
 
-// Similar to thrift request for adding and delete ports
+/**
+ * @description: Similar to thrift request for adding and delete ports
+ * @type: Trace
+ * @severity: DEBUG
+ */
 request sandesh AddPortReq {
     1: string port_uuid;
     2: string instance_uuid;
@@ -41,6 +64,11 @@ request sandesh DeletePortReq {
     1: string port_uuid;
 }
 
+/**
+ * @description: Trace message for port addition invoked by openstack
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh CfgOpenstackAddPort {
     1: string op;
     2: string port_uuid;
@@ -60,26 +88,51 @@ traceobject sandesh CfgOpenstackAddPort {
     16: string ip6_address;
 }
 
+/**
+ * @description: Trace message for port delete invoked by openstack
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh CfgOpenstackDeletePort {
     1: string op;
     2: string port_uuid;
     3: i32 version;
 }
 
+/**
+ * @description: Trace message for Openstack connection
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh CfgOpenstackConnect {
     1: string op;
     2: i32 version;
 }
 
+/**
+ * @description: Trace message for Ifmap graph traversal for port add/del completion
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh CfgIntfWalkDone {
     1: i32 version;
 }
 
+/**
+ * @description: Trace message for Ifmap graph traversal for port add/del to start
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh CfgIntfWalkStart {
     1: i32 timer_sec;
     2: i32 version;
 }
 
+/**
+ * @description: Trace message for port information received by agent
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh CfgIntfInfo {
     1: string info;
 }
