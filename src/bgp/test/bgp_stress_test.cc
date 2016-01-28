@@ -3177,7 +3177,7 @@ static void process_command_line_args(int argc, const char **argv) {
                 vm["log-file-size"].as<unsigned long>() : log_file_size,
             vm.count("log-file-index") ?
                 vm["log-file-index"].as<unsigned int>() : log_file_index,
-                !d_log_disable_, d_log_level_, module_name);
+                !d_log_disable_, d_log_level_, module_name, d_log_level_);
     }
 
     //
