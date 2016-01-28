@@ -320,7 +320,8 @@ static void Setup() {
                                       vn_list,
                                       vnet[3]->label(),
                                       SecurityGroupList(), CommunityList(), 0,
-                                      PathPreference(), Ip4Address(0));
+                                      PathPreference(), Ip4Address(0),
+                                      EcmpLoadBalance());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 32));
 
@@ -364,13 +365,13 @@ void Teardown() {
     Ip4Address addr;
 
     // Delete routes
-    DeleteRoute("vrf1", "2.1.1.11", 32);
+    DeleteRoute("vrf1", "2.1.1.11", 32, bgp_peer_);
 
-    DeleteRoute("default-project:vn2:vn2", "20.1.1.0", 24);
+    DeleteRoute("default-project:vn2:vn2", "20.1.1.0", 24, bgp_peer_);
 
     DeleteRoute("default-project:vn2:vn2", "2.1.1.10", 32, agent_->local_peer());
 
-    DeleteRoute("vrf1", "1.1.1.10", 32);
+    DeleteRoute("vrf1", "1.1.1.10", 32, bgp_peer_);
     client->WaitForIdle();
 
     DelLink("virtual-machine-interface", "vnet1", "instance-ip",
@@ -1301,7 +1302,8 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                       vn_list,
                                       vnet[5]->label(), SecurityGroupList(),
                                       CommunityList(), 0,
-                                      PathPreference(), Ip4Address(0));
+                                      PathPreference(), Ip4Address(0),
+                                      EcmpLoadBalance());
     client->WaitForIdle();
 
   // HTTP packet from VM to Server
@@ -1673,7 +1675,8 @@ TEST_F(FlowTest, fixed_ip_fip_dnat) {
 }
 
 TEST_F(FlowTest, fip_fixed_ip_change_1) {
-    agent_->flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+    agent_->flow_stats_manager()->\
+        default_flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
     TxIpPacket(vnet[1]->id(), "1.1.1.10", vnet_addr[3], 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
@@ -1693,12 +1696,14 @@ TEST_F(FlowTest, fip_fixed_ip_change_1) {
     DelInstanceIp("instance_fixed_ip2");
     AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
     client->WaitForIdle();
-    agent_->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+    agent_->flow_stats_manager()->\
+        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
 }
 
 TEST_F(FlowTest, fip_fixed_ip_change_2) {
 
-    agent_->flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+    agent_->flow_stats_manager()->\
+        default_flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
     TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
@@ -1719,7 +1724,26 @@ TEST_F(FlowTest, fip_fixed_ip_change_2) {
     DelInstanceIp("instance_fixed_ip2");
     AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
     client->WaitForIdle();
-    agent_->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+    agent_->flow_stats_manager()->\
+        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+}
+
+// negative test scenario where VM tries to ping its own floating IP
+TEST_F(FlowTest, vm_packet_to_own_floating_ip) {
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.100", 1);
+    client->WaitForIdle();
+
+    // verify flow created as short flow
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1], "2.1.1.100",
+                            1, 0, 0, vnet[1]->flow_key_nh()->id());
+
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_IPV4_FWD_DIS);
+
+    //cleanup
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(2);
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
 int main(int argc, char *argv[]) {

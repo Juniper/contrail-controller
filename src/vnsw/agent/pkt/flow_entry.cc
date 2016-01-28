@@ -233,6 +233,7 @@ void FlowEntry::Reset() {
     data_.Reset();
     l3_flow_ = true;
     flow_handle_ = kInvalidFlowHandle;
+    reverse_flow_entry_ = NULL;
     deleted_ = false;
     flags_ = 0;
     short_flow_reason_ = SHORT_UNKNOWN;
