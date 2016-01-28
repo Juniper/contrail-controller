@@ -38,10 +38,8 @@
 </xsd:complexType>
 
 <xsd:complexType name='PolicyAction'>
-    <xsd:all>
-        <xsd:element name='update'  type='ActionUpdate'/>
-        <xsd:element name='action'  type='ActionType'/>
-    </xsd:all>
+    <xsd:element name='update'  type='ActionUpdate'/>
+    <xsd:element name='action'  type='ActionType'/>
 </xsd:complexType>
 
 <xsd:simpleType name='PrefixMatchType'>
@@ -52,12 +50,23 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name='PathSourceType'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="bgp"/>
+        <xsd:enumeration value="xmpp"/>
+        <xsd:enumeration value="static-route"/>
+        <xsd:enumeration value="service-chain-route"/>
+        <xsd:enumeration value="aggregate-route"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="PrefixMatch">
     <xsd:element name="prefix"   type="xsd:string"/>
     <xsd:element name="type"     type="PrefixMatchType"/>
 </xsd:complexType>
 
 <xsd:complexType name="PolicyMatch">
+    <xsd:element name="protocol"    type="PathSourceType" maxOccurs="unbounded"/>
     <xsd:element name="community"   type="xsd:string"/>
     <xsd:element name="prefix"      type="PrefixMatch"/>
 </xsd:complexType>
