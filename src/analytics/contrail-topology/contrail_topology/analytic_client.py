@@ -48,8 +48,8 @@ class AnalyticApiClient(object):
         else:
             self.base = None
 
-    def get_uves(self, ob=None, defult=None):
-        if not self._uves:
+    def get_uves(self, ob=None, defult=None, refresh=False):
+        if not self._uves or refresh:
             self._uves = self._get_list_2_dict(self._get_url_json(
                     self.get_uve_url()))
         if ob is None:
@@ -61,7 +61,7 @@ class AnalyticApiClient(object):
     def get_vrouters(self, refresh=False):
         if self._vrouters is None or refresh:
             self._vrouters = self._get_list_2_dict(self._get_url_json(
-                    self.get_uves('vrouters')))
+                    self.get_uves('vrouters', refresh=refresh)))
         return self._vrouters
 
     def list_vrouters(self):
