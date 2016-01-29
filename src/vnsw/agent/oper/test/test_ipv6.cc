@@ -359,6 +359,186 @@ TEST_F(Ipv6Test, VnNotifyRoutes_1) {
     EXPECT_FALSE(RouteFindV6("vrf1", addr2, 128));
 }
 
+
+/* Verify that when interface is only IPv4 active, both V4 and V6 service VLAN
+ * routes are added */
+TEST_F(Ipv6Test, VlanNHRoute_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    string service_vlan_ip("2.2.2.1");
+    string service_vlan_ip6("fd12::1");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Verify that interface is IPv4 active.
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind("vrf1", input[0].addr, 32));
+
+    // Add service interface-1
+    AddVrf("vrf2");
+    AddVmPortVrf("ser1", service_vlan_ip, 1, service_vlan_ip6);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+
+    // Validate service vlan route
+    InetUnicastRouteEntry *rt = RouteGet("vrf2",
+        Ip4Address::from_string(service_vlan_ip), 32);
+    EXPECT_TRUE(rt != NULL);
+
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf2",
+        Ip6Address::from_string(service_vlan_ip6), 128);
+    EXPECT_TRUE(rt6 != NULL);
+
+    //cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000,
+        (RouteGet("vrf2",
+                  Ip4Address::from_string(service_vlan_ip), 32)) == NULL);
+    WAIT_FOR(100, 1000,
+        (RouteGetV6("vrf2",
+                    Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    DelVrf("vrf2");
+    client->WaitForIdle();
+}
+
+/* Verify that when interface is only IPv6 active, both V4 and V6 service VLAN
+ * routes are added */
+TEST_F(Ipv6Test, VlanNHRoute_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    client->Reset();
+    CreateV6VmportEnv(input, 1, 0, NULL, NULL, false);
+    client->WaitForIdle();
+
+    //Verify that interface is only IPv6 active.
+    WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == false);
+    WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+
+    string service_vlan_ip("2.2.2.1");
+    string service_vlan_ip6("fd12::1");
+
+    // Add service interface-1
+    AddVrf("vrf2");
+    AddVmPortVrf("ser1", service_vlan_ip, 1, service_vlan_ip6);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+
+    // Validate service vlan route
+    InetUnicastRouteEntry *rt = RouteGet("vrf2",
+        Ip4Address::from_string(service_vlan_ip), 32);
+    EXPECT_TRUE(rt != NULL);
+
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf2",
+        Ip6Address::from_string(service_vlan_ip6), 128);
+    EXPECT_TRUE(rt6 != NULL);
+
+    //cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000,
+        (RouteGet("vrf2",
+                  Ip4Address::from_string(service_vlan_ip), 32)) == NULL);
+    WAIT_FOR(100, 1000,
+        (RouteGetV6("vrf2",
+                    Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, false, true);
+    client->WaitForIdle();
+
+    DelVrf("vrf2");
+    client->WaitForIdle();
+}
+
+/* Verify that when interface is both IPv4 and IPv6 active, both V4 and V6
+ * service VLAN routes are added */
+TEST_F(Ipv6Test, VlanNHRoute_3) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
+    WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+
+    string service_vlan_ip("2.2.2.1");
+    string service_vlan_ip6("fd12::1");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Verify that interface is IPv4 active.
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind("vrf1", input[0].addr, 32));
+
+    // Add service interface-1
+    AddVrf("vrf2");
+    AddVmPortVrf("ser1", service_vlan_ip, 1, service_vlan_ip6);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+
+    // Validate service vlan route
+    InetUnicastRouteEntry *rt = RouteGet("vrf2",
+        Ip4Address::from_string(service_vlan_ip), 32);
+    EXPECT_TRUE(rt != NULL);
+
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf2",
+        Ip6Address::from_string(service_vlan_ip6), 128);
+    EXPECT_TRUE(rt6 != NULL);
+
+    //cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000,
+        (RouteGet("vrf2",
+                  Ip4Address::from_string(service_vlan_ip), 32)) == NULL);
+    WAIT_FOR(100, 1000,
+        (RouteGetV6("vrf2",
+                    Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+
+    DelVrf("vrf2");
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

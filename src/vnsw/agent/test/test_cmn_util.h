@@ -347,7 +347,8 @@ bool VrfStatsMatchPrev(int vrf_id, const vr_vrf_stats_req &req);
 bool RouterIdMatch(Ip4Address rid2);
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
-void AddVmPortVrf(const char *name, const string &ip, uint16_t tag);
+void AddVmPortVrf(const char *name, const string &ip, uint16_t tag,
+                  const string &v6_ip = "");
 void DelVmPortVrf(const char *name);
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen);
 bool VlanNhFind(int id, uint16_t tag);
