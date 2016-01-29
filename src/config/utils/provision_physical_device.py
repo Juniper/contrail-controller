@@ -147,8 +147,7 @@ class VrouterProvisioner(object):
 
     def add_physical_device(self):
         pr = PhysicalRouter(self._args.device_name)
-        if pr.physical_router_dataplane_ip is not None:
-            pr.physical_router_dataplane_ip = self._args.device_tunnel_ip
+        pr.physical_router_dataplane_ip = self._args.device_tunnel_ip
         pr.physical_router_management_ip = self._args.device_mgmt_ip
         pr.physical_router_vendor_name = self._args.vendor_name
         pr.physical_router_product_name = self._args.product_name
