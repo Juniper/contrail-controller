@@ -118,6 +118,8 @@ public:
         INDEX_EVICT,
         // Index not yet assigned for the flow
         INDEX_UNASSIGNED,
+        // failed to get index from vrouter will happen for reverse flow only
+        INDEX_FAILED,
         INVALID
     };
 
@@ -173,6 +175,8 @@ public:
     void Change(FlowEntry *flow);
     bool Delete(FlowEntry *flow);
     void UpdateFlowHandle(FlowEntry *flow);
+    void UpdateKSyncError(FlowEntry *flow);
+
 private:
     // Get FlowTableKSyncObject for a flow entry
     FlowTableKSyncObject *GetKSyncObject(FlowEntry *flow);

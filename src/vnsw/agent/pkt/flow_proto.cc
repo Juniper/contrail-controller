@@ -6,6 +6,9 @@
 #include <cmn/agent_stats.h>
 #include <oper/agent_profile.h>
 #include <vrouter/ksync/flowtable_ksync.h>
+#include <vrouter/ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_flow_index_manager.h>
+#include "vrouter/flow_stats/flow_stats_collector.h"
 #include "flow_proto.h"
 #include "flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
@@ -330,8 +333,17 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     case FlowEvent::KSYNC_VROUTER_ERROR: {
         FlowTableKSyncEntry *ksync_entry =
             (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+        // Mark the flow entry as short flow and update ksync error event
+        // to ksync index manager
         FlowEntry *flow = ksync_entry->flow_entry().get();
         flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+        KSyncFlowIndexManager *mgr =
+            agent()->ksync()->ksync_flow_index_manager();
+        mgr->UpdateKSyncError(flow);
+        // Enqueue Add request to flow-stats-collector
+        // to update flow flags in stats collector
+        FlowEntryPtr flow_ptr(flow);
+        agent()->flow_stats_manager()->AddEvent(flow_ptr);
         break;
     }
 
