@@ -2,10 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * @description: Software version information
+ * @severity: DEBUG
+ */
 systemlog sandesh VersionInfoLog {
         1: string message;
 }
 
+/**
+ * @description: Software version information
+ * @severity: DEBUG
+ */
 trace sandesh VersionInfoTrace {
         1: string str;
 }

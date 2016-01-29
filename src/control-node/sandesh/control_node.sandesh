@@ -2,6 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Message definitions for contrail-control main module
+ *
+ * Main module glues various contrail-component classes together. It is
+ * responsible for reporting overall health periodically.
+ */
+
 include "base/sandesh/process_info.sandesh"
 include "base/sandesh/cpuinfo.sandesh"
 include "ifmap/ifmap_server_show.sandesh"
@@ -35,6 +42,10 @@ struct BgpRouterState {
    18: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
 }
 
+/**
+ * @description: BGP Router state information
+ * @severity: DEBUG
+ */
 uve sandesh BGPRouterInfo {
     1: BgpRouterState data;
 }
@@ -53,6 +64,10 @@ struct ControlCpuState {
     3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share,.mem_res", aggtype="union")
 }
 
+/**
+ * @description: Contrail-Control daemon's CPU consumption information
+ * @severity: DEBUG
+ */
 uve sandesh ControlCpuStateTrace {
     1: ControlCpuState data
 }
@@ -61,15 +76,19 @@ struct NodeStatus {
     1: string name (key="ObjectBgpRouter")
     2: optional bool deleted
     3: optional string status
-    // Sent by process
+    /** Sent by process */
     4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
-    // Sent by node manager
+    /** Sent by node manager */
     5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
     6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info (tags="")
     7: optional string description
     8: optional list<string> all_core_file_list
 }
 
+/**
+ * @description: Contrail-Control daemon node's status information
+ * @severity: DEBUG
+ */
 uve sandesh NodeStatusUVE {
     1: NodeStatus data
 }

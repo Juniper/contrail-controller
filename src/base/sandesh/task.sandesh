@@ -2,6 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Message definitions for TaskManager module.
+ *
+ * TaskManager module is responsible for scheduling various running tasks
+ * in a timely and fair manner, adhering to task scheduling policies.
+ */
+
 struct SandeshTaskPolicyEntry {
     1: string task_name;
     2: u32 tasks_running;
@@ -33,6 +40,11 @@ response sandesh SandeshTaskScheduler {
 request sandesh SandeshTaskRequest {
 }
 
+/**
+ * @description: Running tasks information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 trace sandesh TaskTrace {
     1: i16 task_id;
     2: i16 instance_id;
