@@ -20,6 +20,7 @@
 #include <sandesh/sandesh_trace.h>
 
 class BgpAttr;
+class BgpPath;
 class BgpRoute;
 class BgpServer;
 class BgpTable;
@@ -200,7 +201,8 @@ public:
     PolicyTerm();
     ~PolicyTerm();
     bool terminal() const;
-    bool ApplyTerm(const BgpRoute *route, BgpAttr *attr) const;
+    bool ApplyTerm(const BgpRoute *route,
+                   const BgpPath *path, BgpAttr *attr) const;
     void set_actions(const ActionList &actions) {
         actions_ = actions;
     }
@@ -253,7 +255,8 @@ public:
         terms_.push_back(term);
     }
 
-    PolicyResult operator()(const BgpRoute *route, BgpAttr *attr) const;
+    PolicyResult operator()(const BgpRoute *route,
+                            const BgpPath *path, BgpAttr *attr) const;
     uint32_t generation() const { return generation_; }
     uint32_t refcount() const { return refcount_; }
 
@@ -373,7 +376,7 @@ public:
     LifetimeActor *deleter();
 
     RoutingPolicy::PolicyResult ExecuteRoutingPolicy(const RoutingPolicy *policy,
-                                    const BgpRoute *route, BgpAttr *attr) const;
+               const BgpRoute *route, const BgpPath *path, BgpAttr *attr) const;
 
 
     // Update the routing policy list on attach point

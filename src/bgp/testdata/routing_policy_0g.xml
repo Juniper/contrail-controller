@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <protocol>service-chain</protocol>
+                <protocol>bgp</protocol>
+                <protocol>xmpp</protocol>
+            </from>
+            <then>
+                <update>
+                    <local-pref>999</local-pref>
+                </update>
+                <action>accept</action>
+            </then>
+        </term>
+    </routing-policy>
+</config>

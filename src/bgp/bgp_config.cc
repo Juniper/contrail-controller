@@ -330,6 +330,14 @@ void BgpRoutingPolicyConfig::Clear() {
 std::string RoutingPolicyMatchConfig::ToString() const {
     ostringstream oss;
     oss << "from {" << std::endl;
+    if (!protocols_match.empty()) {
+        oss << "    protocol [ ";
+        BOOST_FOREACH(const string &protocol, protocols_match) {
+            oss << protocol << ",";
+        }
+        oss.seekp(-1, oss.cur);
+        oss << " ]";
+    }
     if (!community_match.empty()) {
         oss << "    community " << community_match << std::endl;
     }

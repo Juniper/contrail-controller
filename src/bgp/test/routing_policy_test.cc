@@ -389,6 +389,34 @@ TEST_F(RoutingPolicyTest, PolicyMultiplePrefixMatchUpdateLocalPref) {
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "30.1.1.1/32");
 }
 
+TEST_F(RoutingPolicyTest, PolicyProtocolMatchUpdateLocalPref) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                                   "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+}
 
 TEST_F(RoutingPolicyTest, PolicyCommunityMatchReject) {
     string content =
@@ -2027,6 +2055,138 @@ TEST_F(RoutingPolicyTest, MultiplePolicies_UpdateOrder_1) {
 
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2001:db8:85a3::8a2e:370:7334/128");
+}
+
+TEST_F(RoutingPolicyTest, ProtocolMatchServiceChain) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0f.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "red.inet.0",
+                                   "1.1.2.3/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "blue.inet.0",
+                                   "192.168.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(2, RouteCount("red.inet.0"));
+    VERIFY_EQ(1, RouteCount("blue.inet.0"));
+
+    // Policy applied on Service Chain routes
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("red.inet.0", "192.168.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+    // Bgp routes are not altered
+    rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.2.3/32");
+    ASSERT_TRUE(rt != NULL);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 100);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "blue.inet.0", "192.168.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.2.3/32");
+}
+
+TEST_F(RoutingPolicyTest, ProtocolMatchServiceChain_PolicyUpdate) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0f.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "red.inet.0",
+                                   "1.1.2.3/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "blue.inet.0",
+                                   "192.168.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(2, RouteCount("red.inet.0"));
+    VERIFY_EQ(1, RouteCount("blue.inet.0"));
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0g.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Policy applied on both Service Chain routes and bgp routes
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("red.inet.0", "192.168.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 999);
+    ASSERT_TRUE(original_local_pref == 100);
+    rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.2.3/32");
+    ASSERT_TRUE(rt != NULL);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 999);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "blue.inet.0", "192.168.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.2.3/32");
+}
+
+TEST_F(RoutingPolicyTest, ProtocolMatchStaticRoute) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0h.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "nat.inet.0",
+                                   "192.168.1.254/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "nat.inet.0",
+                                   "192.168.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(3, RouteCount("nat.inet.0"));
+    VERIFY_EQ(1, RouteCount("blue.inet.0"));
+
+    // Policy applied on Static routes
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("nat.inet.0", "192.168.1.0/24");
+    ASSERT_TRUE(rt != NULL);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+    // Bgp routes are not altered
+    rt = RouteLookup<InetDefinition>("nat.inet.0", "192.168.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 100);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "nat.inet.0", "192.168.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "nat.inet.0", "192.168.1.254/32");
 }
 
 static void ValidateShowRoutingPolicyResponse(

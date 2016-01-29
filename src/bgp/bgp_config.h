@@ -298,6 +298,7 @@ struct StaticRouteConfig {
 };
 
 typedef std::vector<std::string> CommunityList;
+typedef std::vector<std::string> ProtocolList;
 
 struct PrefixMatchConfig {
     std::string prefix_to_match;
@@ -307,6 +308,7 @@ struct PrefixMatchConfig {
 typedef std::vector<PrefixMatchConfig> PrefixMatchConfigList;
 
 struct RoutingPolicyMatchConfig {
+    ProtocolList protocols_match;
     std::string community_match;
     PrefixMatchConfigList prefixes_to_match;
     std::string ToString() const;
