@@ -299,14 +299,16 @@ struct StaticRouteConfig {
 
 typedef std::vector<std::string> CommunityList;
 
-struct PrefixMatch {
+struct PrefixMatchConfig {
     std::string prefix_to_match;
     std::string prefix_match_type;
 };
 
+typedef std::vector<PrefixMatchConfig> PrefixMatchConfigList;
+
 struct RoutingPolicyMatchConfig {
     std::string community_match;
-    PrefixMatch prefix_match;
+    PrefixMatchConfigList prefixes_to_match;
     std::string ToString() const;
 };
 

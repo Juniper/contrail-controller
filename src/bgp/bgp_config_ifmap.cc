@@ -1570,8 +1570,15 @@ void BgpIfmapRoutingPolicyConfig::RemoveInstance(BgpIfmapInstanceConfig *rti) {
 static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
                             RoutingPolicyTerm *term) {
     term->match.community_match = cfg_term.fromxx.community;
-    term->match.prefix_match.prefix_to_match = cfg_term.fromxx.prefix.prefix;
-    term->match.prefix_match.prefix_match_type = cfg_term.fromxx.prefix.type_;
+    BOOST_FOREACH(const autogen::PrefixMatch &prefix_match,
+                  cfg_term.fromxx.prefix) {
+        PrefixMatchConfig match;
+        match.prefix_to_match = prefix_match.prefix;
+        match.prefix_match_type =
+            prefix_match.type_.empty() ? "exact" : prefix_match.type_;
+        term->match.prefixes_to_match.push_back(match);
+    }
+
     BOOST_FOREACH(const std::string community,
                   cfg_term.then.update.community.add.community) {
         term->action.update.community_add.push_back(community);

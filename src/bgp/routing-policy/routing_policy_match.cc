@@ -14,6 +14,8 @@
 
 using std::ostringstream;
 using std::string;
+using std::make_pair;
+
 MatchCommunity::MatchCommunity(const std::vector<string> &communities) {
     BOOST_FOREACH(const string &community, communities) {
         uint32_t value = CommunityType::CommunityFromString(community);
@@ -65,15 +67,19 @@ bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
 }
 
 template <typename T>
-MatchPrefix<T>::MatchPrefix(const string &prefix, const string &match_type) {
-    boost::system::error_code ec;
-    match_prefix_ = PrefixT::FromString(prefix, &ec);
-    if (strcmp(match_type.c_str(), "exact") == 0) {
-        match_type_ = EXACT;
-    } else if (strcmp(match_type.c_str(), "longer") == 0) {
-        match_type_ = LONGER;
-    } else if (strcmp(match_type.c_str(), "orlonger") == 0) {
-        match_type_ = ORLONGER;
+MatchPrefix<T>::MatchPrefix(const PrefixMatchConfigList &match_list) {
+    BOOST_FOREACH(const PrefixMatchConfig &match, match_list) {
+        boost::system::error_code ec;
+        PrefixT match_prefix = PrefixT::FromString(match.prefix_to_match, &ec);
+        MatchType match_type = EXACT;
+        if (strcmp(match.prefix_match_type.c_str(), "exact") == 0) {
+            match_type = EXACT;
+        } else if (strcmp(match.prefix_match_type.c_str(), "longer") == 0) {
+            match_type = LONGER;
+        } else if (strcmp(match.prefix_match_type.c_str(), "orlonger") == 0) {
+            match_type = ORLONGER;
+        }
+        match_list_.push_back(make_pair(match_prefix, match_type));
     }
 }
 
@@ -87,13 +93,15 @@ bool MatchPrefix<T>::Match(const BgpRoute *route,
     const RouteT *in_route = dynamic_cast<const RouteT *>(route);
     if (in_route == NULL) return false;
     const PrefixT &prefix = in_route->GetPrefix();
-    if (match_type_ == EXACT) {
-        if (prefix == match_prefix_) return true;
-    } else if (match_type_ == LONGER) {
-        if (prefix == match_prefix_) return false;
-        if (prefix.IsMoreSpecific(match_prefix_)) return true;
-    } else if (match_type_ == ORLONGER) {
-        if (prefix.IsMoreSpecific(match_prefix_)) return true;
+    BOOST_FOREACH(const PrefixMatch &match, match_list_) {
+        if (match.second == EXACT) {
+            if (prefix == match.first) return true;
+        } else if (match.second == LONGER) {
+            if (prefix == match.first) continue;
+            if (prefix.IsMoreSpecific(match.first)) return true;
+        } else if (match.second == ORLONGER) {
+            if (prefix.IsMoreSpecific(match.first)) return true;
+        }
     }
     return false;
 }
@@ -102,17 +110,23 @@ template <typename T>
 bool MatchPrefix<T>::IsEqual(const RoutingPolicyMatch &prefix) const {
     const MatchPrefix in_prefix =
         static_cast<const MatchPrefix&>(prefix);
-    if (match_type_ == in_prefix.match_type_)
-        return (match_prefix_ == in_prefix.match_prefix_);
+    std::equal(in_prefix.match_list_.begin(), in_prefix.match_list_.end(),
+               match_list_.begin());
     return true;
 }
 
 template <typename T>
 string MatchPrefix<T>::ToString() const {
     ostringstream oss;
-    oss << "prefix  " << match_prefix_.ToString();
-    if  (match_type_ == LONGER) oss << " longer";
-    else if  (match_type_ == ORLONGER) oss << " orlonger";
+    oss << "prefix  [";
+    BOOST_FOREACH(const PrefixMatch &match, match_list_) {
+        oss << " " << match.first.ToString();
+        if  (match.second == LONGER) oss << " longer";
+        else if  (match.second == ORLONGER) oss << " orlonger";
+        oss << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
     return oss.str();
 }
 

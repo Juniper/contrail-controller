@@ -59,7 +59,7 @@
 
 <xsd:complexType name="PolicyMatch">
     <xsd:element name="community"   type="xsd:string"/>
-    <xsd:element name="prefix"      type="PrefixMatch"/>
+    <xsd:element name="prefix"      type="PrefixMatch" maxOccurs="unbounded"/>
 </xsd:complexType>
 
 <xsd:complexType name='PolicyTerm'>

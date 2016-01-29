@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <from>
+                <prefix>
+                    <prefix>10.0.1.1/32</prefix>
+                </prefix>
+                <prefix>
+                    <prefix>20.1.1.0/24</prefix>
+                    <type>longer</type>
+                </prefix>
+            </from>
+            <then>
+                <update>
+                    <local-pref>102</local-pref>
+                </update>
+                <action>accept</action>
+            </then>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

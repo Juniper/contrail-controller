@@ -7,6 +7,13 @@
                     <prefix>1.1.1.1/32</prefix>
                     <type>exact</type>
                 </prefix>
+                <prefix>
+                    <prefix>4.4.4.4/32</prefix>
+                </prefix>
+                <prefix>
+                    <prefix>5.5.5.5/32</prefix>
+                    <type>exact</type>
+                </prefix>
             </from>
             <then>
                 <update>

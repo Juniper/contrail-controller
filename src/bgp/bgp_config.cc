@@ -331,11 +331,13 @@ std::string RoutingPolicyMatchConfig::ToString() const {
     ostringstream oss;
     oss << "from {" << std::endl;
     if (!community_match.empty()) {
-        oss << "    " << community_match << std::endl;
+        oss << "    community " << community_match << std::endl;
     }
-    if (!prefix_match.prefix_to_match.empty()) {
-        oss << "    " << prefix_match.prefix_to_match << " "
-            << prefix_match.prefix_match_type << std::endl;
+    if (!prefixes_to_match.empty()) {
+        BOOST_FOREACH(const PrefixMatchConfig &match, prefixes_to_match) {
+            oss << "    prefix " << match.prefix_to_match << " "
+                << match.prefix_match_type << std::endl;
+        }
     }
     oss << "}" << std::endl;
     return oss.str();

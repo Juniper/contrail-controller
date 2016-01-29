@@ -334,6 +334,62 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchUpdateLocalPref) {
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
 }
 
+TEST_F(RoutingPolicyTest, PolicyMultiplePrefixMatchUpdateLocalPref) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                                   "10.0.1.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                                   "20.1.1.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                                   "30.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "20.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "30.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 100);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "20.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "30.1.1.1/32");
+}
+
+
 TEST_F(RoutingPolicyTest, PolicyCommunityMatchReject) {
     string content =
         FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
