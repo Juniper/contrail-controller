@@ -53,6 +53,7 @@ class PortTupleAgent(Agent):
             iip_obj.set_instance_ip_mode(si.ha_mode)
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
+                self._vnc_lib.ref_relax_for_delete(iip_id, vn_obj.uuid)
             except RefsExistError:
                 self._vnc_lib.instance_ip_update(iip_obj)
             except Exception as e:
@@ -100,7 +101,7 @@ class PortTupleAgent(Agent):
             iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
             iip_obj.set_secondary_ip_tracking_ip(vmi.aaps[0]['ip'])
             self._vnc_lib.instance_ip_update(iip_obj)
-            iip.update(iip_obj)
+            iip.update(iip_obj.serialize_to_json())
 
     def set_port_allowed_address_pairs(self, port, vmi, vmi_obj):
         if not port['allowed-address-pairs']:

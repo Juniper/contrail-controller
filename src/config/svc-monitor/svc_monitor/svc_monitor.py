@@ -290,7 +290,7 @@ class SvcMonitor(object):
                 self.logger.log_info("SI %s deletion succeed" % si_id)
 
                 for iip_id in dependency_tracker.resources.get('instance_ip', []):
-                    self.delete_shared_iip(iip_id)
+                    self.port_tuple_agent.delete_shared_iip(iip_id)
 
         for vn_id in dependency_tracker.resources.get('virtual_network', []):
             vn = VirtualNetworkSM.get(vn_id)
@@ -505,7 +505,10 @@ class SvcMonitor(object):
                 self.port_delete_or_si_link(vm, vmi)
 
         # invoke port tuple handling
-        self.port_tuple_agent.update_port_tuples()
+        try:
+            self.port_tuple_agent.update_port_tuples()
+        except Exception:
+            cgitb_error_log(self)
 
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
@@ -742,7 +745,7 @@ def timer_callback(monitor):
             continue
         iip_delete_list.append(iip)
     for iip in iip_delete_list:
-        monitor.delete_shared_iip(iip.uuid)
+        monitor.port_tuple_agent.delete_shared_iip(iip.uuid)
 
     # delete vms without si
     vm_delete_list = []
