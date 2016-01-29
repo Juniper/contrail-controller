@@ -86,7 +86,8 @@ static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 }
 
 static bool FlowStatsTimerStartStopTrigger (bool stop) {
-    Agent::GetInstance()->flow_stats_collector()->TestStartStopTimer(stop);
+    Agent::GetInstance()->flow_stats_manager()->\
+        default_flow_stats_collector()->TestStartStopTimer(stop);
     return true;
 }
 
@@ -137,7 +138,8 @@ public:
             AddLocalVmRouteReq(agent()->local_peer(), vrf, addr, 32,
                                intf->GetUuid(), vn_list, label,
                                SecurityGroupList(), CommunityList(), false,
-                               PathPreference(), Ip4Address(0));
+                               PathPreference(), Ip4Address(0),
+                               EcmpLoadBalance());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -2270,6 +2272,7 @@ TEST_F(FlowTest, Flow_return_error) {
     }
     FlowStatsTimerStartStop(false);
 
+    client->WaitForIdle();
     client->EnqueueFlowAge();
     client->WaitForIdle();
 

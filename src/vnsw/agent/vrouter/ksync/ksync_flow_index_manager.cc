@@ -109,7 +109,8 @@ void KSyncFlowIndexManager::Add(FlowEntry *flow) {
 void KSyncFlowIndexManager::Change(FlowEntry *flow) {
     KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
     if (flow->deleted() ||
-        (index_entry->state_ != KSyncFlowIndexEntry::INDEX_SET)) {
+        (index_entry->state_ != KSyncFlowIndexEntry::INDEX_SET &&
+         index_entry->state_ != KSyncFlowIndexEntry::INDEX_FAILED)) {
         return;
     }
 
@@ -129,22 +130,12 @@ bool KSyncFlowIndexManager::Delete(FlowEntry *flow) {
         return false;
     }
 
-    bool force_delete = false;
-    //Flow index allocation had failed from kernel, so dont wait for
-    //index allocation and delete flow. Note: Because of failed index allocation
-    //flow was marked as short flow with reason SHORT_FAILED_VROUTER_INSTALL
-    force_delete |= (flow->is_flags_set(FlowEntry::ShortFlow) &&
-                     (flow->short_flow_reason() ==
-                      ((uint16_t) FlowEntry::SHORT_FAILED_VROUTER_INSTALL)));
+    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED)
+        return false;
 
-    if (!force_delete) {
-        if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED)
-            return false;
-
-        if (index_entry->ksync_entry_ == NULL) {
-            assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
-            return false;
-        }
+    if (index_entry->ksync_entry_ == NULL) {
+        assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
+        return false;
     }
 
     index_entry->delete_in_progress_ = true;
@@ -187,6 +178,17 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowEntry *flow) {
     }
 }
 
+void KSyncFlowIndexManager::UpdateKSyncError(FlowEntry *flow) {
+    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
+    if (index_entry->state_ != KSyncFlowIndexEntry::INDEX_UNASSIGNED) {
+        // currently we only deal with index allocation failures
+        // from vrouter
+        return;
+    }
+
+    index_entry->state_ = KSyncFlowIndexEntry::INDEX_FAILED;
+}
+
 void KSyncFlowIndexManager::Release(FlowEntry *flow) {
     FlowEntryPtr wait_flow = ReleaseIndex(flow);
 
@@ -224,6 +226,10 @@ void KSyncFlowIndexManager::Release(FlowEntry *flow) {
         RetryIndexAcquireRequest(wait_flow.get(), evict_index);
         break;
     }
+
+    // Entry has index failure and no further transitions necessary
+    case KSyncFlowIndexEntry::INDEX_FAILED:
+        break;
 
     default:
         assert(0);
