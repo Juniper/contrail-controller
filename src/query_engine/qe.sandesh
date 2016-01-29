@@ -2,9 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-// qe.sandesh
-// Sandesh definitions for Query Engine
+/**
+ *  Definitions of structures used by contrail-query-engine that go into
+ *  Database Node UVE.
+ */
 
+/**
+ * @description: trace message for a database query
+ * @type: Trace
+ */
 trace sandesh query_trace {
     1: string query_id;
     2: string trace_message;
@@ -18,6 +24,11 @@ struct final_result_col
     4: string value;
 }
 
+/**
+ * @description: response for trace dump request of the tracebuffer that stores
+ * traces for a database query
+ * @type: Trace
+ */
 trace sandesh final_result_row
 {
     1: string query_id;
@@ -27,26 +38,44 @@ trace sandesh final_result_row
     5: "}";
 }
 
+/**
+ * @description: message that prints query information during query processing
+ * traces for a database query
+ * @severity: DEBUG
+ */
 systemlog sandesh QEQueryLog {
     1: string query_id (key = "ObjectQueryQid")
     3: string table (key = "ObjectQueryTable")
     2: string Message;
 }
 
+/**
+ * @description: systemlog message that prints generic information during query processing
+ * @severity: DEBUG
+ */
 systemlog sandesh QELog {
     1: string message;
 }
 
+/**
+ * @description: sandesh request to enable a particular trace
+ */
 request sandesh TraceEnable {
     1: bool enable;
     2: string TraceType;
 }
 
+/**
+ * @description: sandesh response for a request to enable a particular trace
+ */
 response sandesh TraceEnableRes {
     1: string enable_disable_status;
     2: string TraceType;
 }
 
+/**
+ * @description: sandesh request to dump trace status info per trace buffer
+ */
 request sandesh TraceStatusReq {
 }
 
@@ -55,6 +84,9 @@ struct TraceStatusInfo {
     2: string enable_disable;
 }
 
+/**
+ * @description: sandesh response for a request for trace status info per trace buffer
+ */
 response sandesh TraceStatusRes {
     1: list<TraceStatusInfo>  trace_status_list;
 }

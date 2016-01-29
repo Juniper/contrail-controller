@@ -2,14 +2,25 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Definitions of structures added by contrail-snmp-collector that go into
+ *  Physical Router UVE.
+ */
+
 namespace cpp prouter
 
+/**
+ * stores ARP information collected from physical router
+ */
 struct ArpTable {
     1: i32 localIfIndex
     2: string mac
     3: string ip
 }
 
+/**
+ * stores interface statistics information
+ */
 struct IfStats {
   1: u64 ifInPkts
   2: u64 ifOutPkts
@@ -23,6 +34,9 @@ struct IfStats {
   10: string ifName
 }
 
+/**
+ * stores interface statistics information collected from physical router
+ */
 struct IfXTable {
      1: string ifAlias
      2: i32 ifConnectorPresent
@@ -46,6 +60,9 @@ struct IfXTable {
     20: i32 ifIndex
 }
 
+/**
+ * stores interface statistics information collected from physical router
+ */
 struct IfTable {
     1:  i32 ifAdminStatus
     2:  string ifDescr
@@ -162,6 +179,9 @@ struct LldpRemoteSystemsData {
     14: optional LldpRemManAddrEntry lldpRemManAddrEntry
 }
 
+/**
+ * stores LLDP information collected from physical router
+ */
 struct LldpTable {
     1: LldpLocalSystemData lldpLocalSystemData
     2: optional list<LldpRemoteSystemsData> lldpRemoteSystemsData
@@ -177,11 +197,18 @@ struct dot1dBasePortIfIndexTable {
     2: i32 snmpIfIndex
 }
 
+/**
+ * stores interface status information collected from physical router
+ */
 struct IfIndexOperStatusTable {
     1: u32 ifIndex
     2: u32 ifOperStatus
 }
 
+/**
+ * Physical Router UVE data provided by contrail-snmp-collector.
+ * This includes the raw SNMP tables polled from the physical router.
+ */
 struct PRouterEntry {
     1: string name (key="ObjectPRouter")
     2: optional bool deleted
@@ -196,6 +223,11 @@ struct PRouterEntry {
     11: optional list<IfIndexOperStatusTable> ifIndexOperStatusTable
 }
 
+/**
+ * @description: stores information collected from physical router by
+ * contrail-snmp-collector which is later used by contrail-topology
+ * @object: prouter
+ */
 uve sandesh PRouterUVE {
     1: PRouterEntry data
 }
@@ -206,6 +238,11 @@ struct PRouterFlowEntry {
     3: optional string flow_export_source_ip
 }
 
+/**
+ * @description: stores flow export ip info collected from physical router by
+ * contrail-snmp-collector
+ * @object: prouter
+ */
 uve sandesh PRouterFlowUVE {
     1: PRouterFlowEntry data
 }

@@ -2,45 +2,69 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  analytics.sandesh
-//
+/**
+ *  Definitions of structures used to send memory and cpu information of the
+ *  Analytics Node processes.
+ */
 
 include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
 
+/**
+ * This structure carries process's memory and cpu information on
+ * a per module per instance basis
+ */
 struct  ModuleCpuInfo {
     1: string                              module_id
     2: string                              instance_id
     4: cpuinfo.CpuLoadInfo                 cpu_info
 }
 
-// This struct is part of the Collector UVE. (key is hostname of the Analytics Node)
-// This part of the UVE externally refers to cpu-stats of all modules that belong to
-// this Analytics node.
-//
-// - Vizd, QE and OpServer will update this periodically.
-//
+/**
+ * This structure carries memory and cpu information for a list
+ * of processes
+ */
 struct  ModuleCpuState {
     1: string                              name (key="ObjectCollectorInfo")
     2: optional bool                       deleted
     4: optional list<ModuleCpuInfo>        module_cpu_info (aggtype="union")
 }
 
+/**
+ * @description: UVE to carry process's memory and cpu information,
+ * @object: analytics-node
+ */
 uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState                   data
 }
 
+/**
+ * This structure carries process's memory and cpu information,
+ * these are used as stats fields in the Analytics Node UVE. As with any other
+ * stats, these can be used for any slice/dice queries
+ */
 struct  AnalyticsCpuState {
     1: string                                 name (key="ObjectCollectorInfo")
     2: optional bool                          deleted
     3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share,.mem_res", aggtype="union")
 }
 
+/**
+ * @description: UVE to carry statistics data for a process's memory and cpu
+ * info
+ * @object: analytics-node
+ */
 uve sandesh AnalyticsCpuStateTrace {
     1: AnalyticsCpuState data
 }
 
+/**
+ * This structure used to send NodeStatus data for Analytics Node
+ * - process_status carries process's status [functional/non-functional]
+ * - process_info carries process's state [up/down]
+ * Each of the processes on Analytics Node will send this information and aggregation
+ * will happen on UVE queries.
+ */
 struct NodeStatus {
     1: string name (key="ObjectCollectorInfo")
     2: optional bool deleted
@@ -54,10 +78,17 @@ struct NodeStatus {
     8: optional list<string> all_core_file_list
 }
 
+/**
+ * @description: UVE to send NodeStatus data for Analytics Node
+ * @object: analytics-node
+ */
 uve sandesh NodeStatusUVE {
     1: NodeStatus data
 }
 
+/**
+ * structure to carry contrail-query-engine query statistics
+ */
 struct QueryStats {
     2: string                      qid
     20: string                     where
@@ -76,12 +107,19 @@ struct QueryStats {
     11: u32                        enq_delay 
 }
 
+/**
+ * @description: objectlog structure to send query statistics
+ * @object: analytics-node
+ */
 objectlog sandesh QueryPerfInfo {
     1: string                      name (key="ObjectCollectorInfo")
     3: string                      table
     10: QueryStats                 query_stats (tags="table,name:.qid,.rows,.time")
 }
 
+/**
+ * structure to carry contrail-analytics-api query statistics
+ */
 struct AnalyticsApiSample {
     1: string operation_type // (GET, POST)
     3: string remote_ip
@@ -92,6 +130,10 @@ struct AnalyticsApiSample {
     10: string node (key="ObjectCollectorInfo")
 }
 
+/**
+ * @description: objectlog structure to send contrail-analytics-api query statistics
+ * @object: analytics-node
+ */
 objectlog sandesh AnalyticsApiStats {
     1: AnalyticsApiSample api_stats (tags=".operation_type,.remote_ip,.object_type")
 }

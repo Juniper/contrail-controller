@@ -2,29 +2,45 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  database.sandesh
-//
+/**
+ *  Definitions of structures added by contrail-database-nodemgr that go into
+ *  Database Node UVE.
+ */
 
 include "base/sandesh/process_info.sandesh"
 
+/**
+ * Database disk usage stats struct
+ */
 struct DatabaseUsageStats {
     1: u64                                 disk_space_used_1k
     2: u64                                 disk_space_available_1k
     3: u64                                 analytics_db_size_1k
 }
 
+/**
+ * Database Usage info added into the Database Node UVE by
+ * contrail-database-nodemgr
+ */
 struct DatabaseUsageInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
     3: optional list<DatabaseUsageStats>   database_usage (tags="")
 }
 
-//DatabaseUsageStat uve will be sent by Database-nodemgr
+/**
+ * @description: Database Usage info added into the Database Node UVE by
+ * contrail-database-nodemgr
+ * @object: database-node
+ */
 uve sandesh DatabaseUsage {
     1: DatabaseUsageInfo                   data
 }
 
+/**
+ * NodeStatus info added into the Database Node UVE by
+ * contrail-database-nodemgr
+ */
 struct NodeStatus {
     1: string name (key="ObjectDatabaseInfo")
     2: optional bool deleted
@@ -38,6 +54,11 @@ struct NodeStatus {
     8: optional list<string> all_core_file_list
 }
 
+/**
+ * @description: NodeStatus data added to Database Node UVE sent by
+ * contrail-database-nodemgr
+ * @object: database-node
+ */
 uve sandesh NodeStatusUVE {
     1: NodeStatus data
 }

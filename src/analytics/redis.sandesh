@@ -2,10 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//
-//  redis.sandesh
-//
+/**
+ *  Definitions of structures used to get Sandesh Response data through Sandesh
+ *  Request for Redis information of the collector
+ */
 
+/**
+ *  Redis information that can be queried through Instrospect
+ */
 struct RedisUveInfo {
     1:  string             ip
     2:  u16                port
@@ -24,9 +28,15 @@ struct RedisUveInfo {
     17: optional u64       conn_cb_succeeded;
 }
 
+/**
+ *  @description: Sandesh Request message for Redis data
+ */
 request sandesh RedisUVERequest {
 }
 
+/**
+ *  @description: Sandesh Response message for returning Redis data
+ */
 response sandesh RedisUVEResponse {
     1: RedisUveInfo     redis_uve_info;
 }
