@@ -117,17 +117,23 @@ def _set_defaults(config):
     return _construct_config_block(config, conf, "default", default_custom_attributes)
 
 def _set_frontend_v2(config, conf_dir, keystone_auth_conf_file):
-    port = config['listeners'][0]['port']
-    conf = [
-        'frontend %s' % config['loadbalancer']['id'],
-        'option tcplog',
-        'bind %s:%d' % (config['loadbalancer']['vip-address'], port),
-        'mode %s' % PROTO_MAP[config['listeners'][0]['protocol']],
-        'default_backend %s' % config['listeners'][0]['pools'][0]['pool']['id']
-    ]
-
-    res = "\n\t".join(conf)
-    return res
+    conf = []
+    for listener in config['listeners']:
+        if not listener['admin-state']:
+            continue
+        lconf = [
+            'frontend %s' % listener['id'],
+            'option tcplog',
+            'bind %s:%d' % (config['loadbalancer']['vip-address'],
+                            listener['port']),
+            'mode %s' % PROTO_MAP[listener['protocol']]
+        ]
+        if listener['pools'] and listener['pools'][0]['pool']['admin-state']:
+            lconf.append('default_backend %s'
+                         % listener['pools'][0]['pool']['id'])
+        res = "\n\t".join(lconf)
+        conf.append(res)
+    return "\n".join(conf)
 
 def _set_frontend(config, conf_dir, keystone_auth_conf_file):
     if 'loadbalancer' in config:
@@ -161,23 +167,30 @@ def _set_frontend(config, conf_dir, keystone_auth_conf_file):
     return _construct_config_block(config, conf, "vip", vip_custom_attributes)
 
 def _set_backend_v2(config):
-    conf = [
-        'backend %s' % config['listeners'][0]['pools'][0]['pool']['id'],
-        'mode %s' % PROTO_MAP[config['listeners'][0]['protocol']],
-        'balance %s' % 'roundrobin'
-    ]
-    if config['listeners'][0]['protocol'] == PROTO_HTTP:
-        conf.append('option forwardfor')
-
-    for member in config['listeners'][0]['pools'][0]['members']:
-        if not member['admin-state']:
+    conf = []
+    for listener in config['listeners']:
+        if not listener['pools'] or not listener['admin-state']:
             continue
-        server = (('server %(id)s %(address)s:%(port)s '
-                  'weight %(weight)s') % member) + ''
-        conf.append(server)
+        pool = listener['pools'][0]['pool']
+        if not pool['admin-state']:
+            continue
+        lconf = [
+            'backend %s' % pool['id'],
+            'mode %s' % PROTO_MAP[pool['protocol']],
+            'balance %s' % LB_METHOD_MAP[pool['method']]
+        ]
+        if pool['protocol'] == PROTO_HTTP:
+            lconf.append('option forwardfor')
 
-    res = "\n\t".join(conf)
-    return res
+        for member in listener['pools'][0]['members']:
+            if not member['admin-state']:
+                continue
+            server = (('server %(id)s %(address)s:%(port)s '
+                      'weight %(weight)s') % member) + ''
+            lconf.append(server)
+        res = "\n\t".join(lconf)
+        conf.append(res)
+    return "\n".join(conf)
 
 def _set_backend(config):
     if 'loadbalancer' in config:
