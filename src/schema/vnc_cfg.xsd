@@ -657,10 +657,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-system-config-global-vrouter-config', 
              'global-system-config', 'global-vrouter-config', ['has']) -->
 
-<xsd:element name="ecmp-hashing-include-fields"
-             type="EcmpHashingIncludeFields"/>
+<xsd:element name="ecmp-hashing" type="ifmap:IdentityType"/>
+<xsd:element name="ecmp-hashing-properties" type="EcmpHashingIncludeFields"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'global-vrouter-config') -->
+     Property('ecmp-hashing-properties', 'ecmp-hashing-include-fields') -->
+
+<xsd:element name="project-ecmp-hashing"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-ecmp-hashing',
+          'project', 'ecmp-hashing', ['has']) -->
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ecmp-hashing-properties', 'global-vrouter-config') -->
 
 <xsd:element name="linklocal-services" type="LinklocalServicesTypes"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -831,8 +839,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-network-properties', 'virtual-network') -->
 
 <!-- Ecmp nexthop load balance criterias -->
+<xsd:element name="virtual-network-ecmp-hashing" type="EcmpHashingIncludeFields"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'virtual-network') -->
+     Link('virtual-network-ecmp-hashing',
+          'virtual-network', 'ecmp-hashing', ['ref']) -->
 
 <xsd:element name="provider-properties" type="ProviderDetails"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1076,8 +1086,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <!-- Ecmp nexthop load balance criterias -->
+<xsd:element name="virtual-machine-interface-ecmp-hashing" type="EcmpHashingIncludeFields"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'virtual-machine-interface') -->
+     Link('virtual-machine-interface-ecmp-hashing',
+          'virtual-machine-interface', 'ecmp-hashing', ['ref']) -->
 
 <xsd:element name="virtual-machine-interface-properties" 
              type="VirtualMachineInterfacePropertiesType"/>
