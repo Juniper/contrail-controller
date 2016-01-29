@@ -1184,17 +1184,20 @@ def get_free_port(allocated_sockets=None):
 # end get_free_port
 
 
-def block_till_port_listened(server_ip, server_port):
-    svr_running = False
-    while not svr_running:
+def block_till_port_listened(server_ip, server_port, retries=30):
+    tries = 0
+    while tries < retries:
         try:
             s = socket.create_connection((server_ip, server_port))
             s.close()
-            svr_running = True
+            return
         except Exception as err:
             if err.errno == errno.ECONNREFUSED:
-                print "port %s not up, retrying in 2 secs" % (server_port)
+                tries += 1
+                print("port %s not up, retrying in 2 secs, %d tries remaining"
+                      % (server_port, retries-tries))
                 gevent.sleep(2)
+    raise Exception("port %s not up after %d retries" % (server_port, retries))
 # end block_till_port_listened
 
 def Fake_uuid_to_time(time_uuid_in_db):
