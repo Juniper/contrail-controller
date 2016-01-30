@@ -3668,7 +3668,7 @@ class RoutingPolicyST(DBBaseST):
     # end delete_routing_instance
 
     def handle_st_object_req(self):
-        resp = super(PortTupleST, self).handle_st_object_req()
+        resp = super(RoutingPolicyST, self).handle_st_object_req()
         resp.obj_refs = [
             self._get_sandesh_ref_list('service_instance'),
             self._get_sandesh_ref_list('routing_instance'),
@@ -3743,7 +3743,7 @@ class RouteAggregateST(DBBaseST):
     # end delete_routing_instance
 
     def handle_st_object_req(self):
-        resp = super(PortTupleST, self).handle_st_object_req()
+        resp = super(RouteAggregateST, self).handle_st_object_req()
         resp.obj_refs = [
             self._get_sandesh_ref_list('service_instance'),
             self._get_sandesh_ref_list('routing_instance'),
