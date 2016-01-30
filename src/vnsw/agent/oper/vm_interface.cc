@@ -4131,16 +4131,14 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
         installed_ = false;
     }
 
-    if (old_ipv4_active && !interface->ipv4_active()) {
+    if (!interface->ipv4_active() && !interface->ipv6_active() &&
+        (old_ipv4_active || old_ipv6_active)) {
         V4RouteDelete(interface->peer());
-    }
-    if (old_ipv6_active && !interface->ipv6_active()) {
         V6RouteDelete(interface->peer());
     }
 
-    /* If there is change in interface active status, we need to re-install */
-    if ((interface->ipv4_active() && !old_ipv4_active) ||
-        (interface->ipv6_active() && !old_ipv6_active)) {
+    if (!old_ipv4_active && !old_ipv6_active &&
+        (interface->ipv4_active() || interface->ipv6_active())) {
         installed_ = false;
     }
 
@@ -4232,6 +4230,10 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
         return;
     }
 
+    if (!ipv4_active_ && !ipv6_active_) {
+        return;
+    }
+
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
@@ -4245,8 +4247,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
                                  0, entry.smac_, vn()->GetName());
     VnListType vn_list;
     vn_list.insert(vn()->GetName());
-    if (ipv4_active_ && !entry.v4_rt_installed_ &&
-        !entry.addr_.is_unspecified()) {
+    if (!entry.v4_rt_installed_ && !entry.addr_.is_unspecified()) {
         PathPreference path_preference;
         SetPathPreference(&path_preference, ecmp(), primary_ip_addr());
 
@@ -4256,8 +4257,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
              path_preference);
         entry.v4_rt_installed_ = true;
     }
-    if (ipv6_active_ && !entry.v6_rt_installed_ &&
-        !entry.addr6_.is_unspecified()) {
+    if (!entry.v6_rt_installed_ && !entry.addr6_.is_unspecified()) {
         PathPreference path_preference;
         SetPathPreference(&path_preference, ecmp6(), primary_ip6_addr());
 
