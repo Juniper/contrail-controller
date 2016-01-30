@@ -89,7 +89,8 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.physical_devices.0",
                         &PhysicalDeviceTable::CreateTable);
     DB::RegisterFactory("db.healthcheck.0",
-                        &HealthCheckTable::CreateTable);
+                        boost::bind(&HealthCheckTable::CreateTable,
+                                    agent_, _1, _2));
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -106,7 +107,6 @@ void OperDB::CreateDBTables(DB *db) {
         static_cast<HealthCheckTable *>(db->CreateTable("db.healthcheck.0"));
     assert(hc_table);
     agent_->set_health_check_table(hc_table);
-    hc_table->set_agent(agent_);
 
     NextHopTable *nh_table;
     nh_table = static_cast<NextHopTable *>(db->CreateTable("db.nexthop.0"));

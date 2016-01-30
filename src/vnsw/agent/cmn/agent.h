@@ -217,6 +217,8 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowEvent "Agent::FlowEvent"
 #define kTaskFlowAudit "KSync::FlowAudit"
 
+#define kTaskHealthCheck "Agent::HealthCheck"
+
 #define kInterfaceDbTablePrefix "db.interface"
 #define kVnDbTablePrefix  "db.vn"
 #define kVmDbTablePrefix  "db.vm"
