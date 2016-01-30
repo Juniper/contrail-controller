@@ -1087,8 +1087,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     ListProperty('virtual-machine-interface-bindings',
-                  'virtual-machine-interface') -->
+     MapProperty('virtual-machine-interface-bindings',
+                  'virtual-machine-interface', 'key') -->
 
 <xsd:complexType name="ProtocolType">
     <xsd:all>
@@ -1110,7 +1110,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine-interface-fat-flow-protocols"
              type="FatFlowProtocols"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-machine-interface-fat-flow-protocols',
+     ListProperty('virtual-machine-interface-fat-flow-protocols',
              'virtual-machine-interface') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>

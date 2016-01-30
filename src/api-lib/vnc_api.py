@@ -355,29 +355,35 @@ class VncApi(object):
 
         obj.set_server_conn(self)
 
-        # encode any prop-list operations and POST on /prop-list-update
-        prop_list_body = {'uuid': obj.uuid,
+        # encode any prop-<list|map> operations and
+        # POST on /prop-collection-update
+        prop_coll_body = {'uuid': obj.uuid,
                           'updates': []}
-        for prop_name in obj._pending_field_list_updates:
-            operations = obj._pending_field_list_updates[prop_name]
-            for oper, elem_val, elem_pos in operations:
-                if isinstance(elem_val, GeneratedsSuper):
-                    serialized_elem_value = elem_val.exportDict('')
-                else:
-                    serialized_elem_value = elem_val
 
-                prop_list_body['updates'].append(
-                    {'field': prop_name, 'operation': oper,
-                     'value': serialized_elem_value, 'position': elem_pos})
+        operations = []
+        for prop_name in obj._pending_field_list_updates:
+            operations.extend(obj._pending_field_list_updates[prop_name])
+        for prop_name in obj._pending_field_map_updates:
+            operations.extend(obj._pending_field_map_updates[prop_name])
+
+        for oper, elem_val, elem_pos in operations:
+            if isinstance(elem_val, GeneratedsSuper):
+                serialized_elem_value = elem_val.exportDict('')
+            else:
+                serialized_elem_value = elem_val
+
+            prop_coll_body['updates'].append(
+                {'field': prop_name, 'operation': oper,
+                 'value': serialized_elem_value, 'position': elem_pos})
 
         # all pending fields picked up
         obj.clear_pending_updates()
 
-        if prop_list_body['updates']:
-            prop_list_json = json.dumps(prop_list_body)
+        if prop_coll_body['updates']:
+            prop_coll_json = json.dumps(prop_coll_body)
             self._request_server(rest.OP_POST,
-                self._action_uri['prop-list-update'],
-                data=prop_list_json)
+                self._action_uri['prop-collection-update'],
+                data=prop_coll_json)
 
         return obj.uuid
     # end _object_create
@@ -431,26 +437,31 @@ class VncApi(object):
                 uri = obj_cls.resource_uri_base[res_type] + '/' + obj.uuid
                 content = self._request_server(rest.OP_PUT, uri, data=json_body)
 
-        # Generate POST on /prop-list-update if needed/pending
-        prop_list_body = {'uuid': obj.uuid,
+        # Generate POST on /prop-collection-update if needed/pending
+        prop_coll_body = {'uuid': obj.uuid,
                           'updates': []}
+
+        operations = []
         for prop_name in obj._pending_field_list_updates:
-            operations = obj._pending_field_list_updates[prop_name]
-            for oper, elem_val, elem_pos in operations:
-                if isinstance(elem_val, GeneratedsSuper):
-                    serialized_elem_value = elem_val.exportDict('')
-                else:
-                    serialized_elem_value = elem_val
+            operations.extend(obj._pending_field_list_updates[prop_name])
+        for prop_name in obj._pending_field_map_updates:
+            operations.extend(obj._pending_field_map_updates[prop_name])
 
-                prop_list_body['updates'].append(
-                    {'field': prop_name, 'operation': oper,
-                     'value': serialized_elem_value, 'position': elem_pos})
+        for oper, elem_val, elem_pos in operations:
+            if isinstance(elem_val, GeneratedsSuper):
+                serialized_elem_value = elem_val.exportDict('')
+            else:
+                serialized_elem_value = elem_val
 
-        if prop_list_body['updates']:
-            prop_list_json = json.dumps(prop_list_body)
+            prop_coll_body['updates'].append(
+                {'field': prop_name, 'operation': oper,
+                 'value': serialized_elem_value, 'position': elem_pos})
+
+        if prop_coll_body['updates']:
+            prop_coll_json = json.dumps(prop_coll_body)
             self._request_server(rest.OP_POST,
-                self._action_uri['prop-list-update'],
-                data=prop_list_json)
+                self._action_uri['prop-collection-update'],
+                data=prop_coll_json)
 
         # Generate POST on /ref-update if needed/pending
         for ref_name in obj._pending_ref_updates:
@@ -760,55 +771,26 @@ class VncApi(object):
 
     #end _request_server
 
-    @check_homepage
-    def prop_list_add_element(self, obj_uuid, obj_field, value, position=None):
-        uri = self._action_uri['prop-list-update']
+    def _prop_collection_post(
+        self, obj_uuid, obj_field, oper, value, position):
+        uri = self._action_uri['prop-collection-update']
         if isinstance(value, GeneratedsSuper):
             serialized_value = value.exportDict('')
         else:
             serialized_value = value
 
         oper_param = {'field': obj_field,
-                      'operation': 'add',
+                      'operation': oper,
                       'value': serialized_value}
         if position:
             oper_param['position'] = position
         dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
         return self._request_server(
             rest.OP_POST, uri, data=json.dumps(dict_body))
-    # end prop_list_add_element
+    # end _prop_collection_post
 
-    @check_homepage
-    def prop_list_modify_element(self, obj_uuid, obj_field, value, position):
-        uri = self._action_uri['prop-list-update']
-        if isinstance(value, GeneratedsSuper):
-            serialized_value = value.exportDict('')
-        else:
-            serialized_value = value
-
-        oper_param = {'field': obj_field,
-                      'operation': 'modify',
-                      'value': serialized_value,
-                      'position': position}
-        dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
-        return self._request_server(
-            rest.OP_POST, uri, data=json.dumps(dict_body))
-    # end prop_list_modify_element
-
-    @check_homepage
-    def prop_list_delete_element(self, obj_uuid, obj_field, position):
-        uri = self._action_uri['prop-list-update']
-        oper_param = {'field': obj_field,
-                      'operation': 'delete',
-                      'position': position}
-        dict_body = {'uuid': obj_uuid, 'updates': [oper_param]}
-        return self._request_server(
-            rest.OP_POST, uri, data=json.dumps(dict_body))
-    # end prop_list_delete_element
-
-    @check_homepage
-    def prop_list_get(self, obj_uuid, obj_field, position=None):
-        uri = self._action_uri['prop-list-get']
+    def _prop_collection_get(self, obj_uuid, obj_field, position):
+        uri = self._action_uri['prop-collection-get']
         query_params = {'uuid': obj_uuid, 'fields': obj_field}
         if position:
             query_params['position'] = position
@@ -817,6 +799,58 @@ class VncApi(object):
             rest.OP_GET, uri, data=query_params)
 
         return json.loads(content)[obj_field]
+    # end _prop_collection_get
+
+    def _prop_map_get_elem_key(self, obj_uuid, obj_field, elem):
+        _, obj_type = self.id_to_fq_name_type(obj_uuid)
+        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
+
+        key_name = obj_class.prop_map_field_key_names[obj_field]
+        if isinstance(value, GeneratedsSuper):
+            return getattr(value, key_name)
+
+        return value[key_name]
+    # end _prop_map_get_elem_key
+
+    @check_homepage
+    def prop_list_add_element(self, obj_uuid, obj_field, value, position=None):
+        return self._prop_collection_post(
+            obj_uuid, obj_field, 'add', value, position)
+    # end prop_list_add_element
+
+    @check_homepage
+    def prop_list_modify_element(self, obj_uuid, obj_field, value, position):
+        return self._prop_collection_post(
+            obj_uuid, obj_field, 'modify', value, position)
+    # end prop_list_modify_element
+
+    @check_homepage
+    def prop_list_delete_element(self, obj_uuid, obj_field, position):
+        return self._prop_collection_post(
+            obj_uuid, obj_field, 'delete', None, position)
+    # end prop_list_delete_element
+
+    @check_homepage
+    def prop_list_get(self, obj_uuid, obj_field, position=None):
+        return self._prop_collection_get(obj_uuid, obj_field, position)
+    # end prop_list_get
+
+    @check_homepage
+    def prop_map_set_element(self, obj_uuid, obj_field, value):
+        position = self._prop_map_get_elem_key(obj_uuid, obj_field, value)
+        return self._prop_collection_post(
+            obj_uuid, obj_field, 'set', value, position)
+    # end prop_map_set_element
+
+    @check_homepage
+    def prop_map_delete_element(self, obj_uuid, obj_field, position):
+        return self._prop_collection_post(
+            obj_uuid, obj_field, 'delete', None, position)
+    # end prop_map_delete_element
+
+    @check_homepage
+    def prop_map_get(self, obj_uuid, obj_field, position=None):
+        return self._prop_collection_get(obj_uuid, obj_field, position)
     # end prop_list_get
 
     @check_homepage

@@ -58,6 +58,7 @@ class VncCassandraClient(object):
         self._re_match_parent = re.compile('parent:')
         self._re_match_prop = re.compile('prop:')
         self._re_match_prop_list = re.compile('propl:')
+        self._re_match_prop_map = re.compile('propm:')
         self._re_match_ref = re.compile('ref:')
         self._re_match_backref = re.compile('backref:')
         self._re_match_children = re.compile('children:')
@@ -313,6 +314,19 @@ class VncCassandraClient(object):
                 for i in range(len(list_coll)):
                     self._add_to_prop_list(
                         bch, obj_id, prop_field, list_coll[i], str(i))
+            elif prop_field in obj_class.prop_map_fields:
+                # iterate on wrapped element or directly or prop field
+                if obj_class.prop_map_field_has_wrappers[prop_field]:
+                    wrapper_field = field.keys()[0]
+                    map_coll = field[wrapper_field]
+                else:
+                    map_coll = field
+
+                map_key_name = obj_class.prop_map_field_key_names[prop_field]
+                for map_elem in map_coll:
+                    map_key = map_elem[map_key_name]
+                    self._set_in_prop_map(
+                        bch, obj_id, prop_field, map_elem, map_key)
             else:
                 self._create_prop(bch, obj_id, prop_field, field)
 
@@ -394,10 +408,16 @@ class VncCassandraClient(object):
                     (_, prop_name) = col_name.split(':')
                     result[prop_name] = json.loads(obj_cols[col_name][0])
 
-                if self._re_match_prop_list.match(col_name):
-                    # already read in order since lexically ordered
+                if (self._re_match_prop_list.match(col_name) or
+                    self._re_match_prop_map.match(col_name)):
                     (_, prop_name, prop_elem_position) = col_name.split(':')
-                    if obj_class.prop_list_field_has_wrappers[prop_name]:
+                    if self._re_match_prop_list.match(col_name):
+                        has_wrapper = \
+                            obj_class.prop_list_field_has_wrappers[prop_name]
+                    else:
+                        has_wrapper = \
+                            obj_class.prop_map_field_has_wrappers[prop_name]
+                    if has_wrapper:
                         _, wrapper_type = obj_class.prop_field_types[prop_name]
                         wrapper_cls = self._get_xsd_class(wrapper_type)
                         wrapper_field = wrapper_cls.attr_fields[0]
@@ -539,6 +559,13 @@ class VncCassandraClient(object):
                     self._delete_from_prop_list(
                         bch, obj_uuid, prop_name, prop_elem_position)
 
+            if self._re_match_prop_map.match(col_name):
+                (_, prop_name, prop_elem_position) = col_name.split(':')
+                if prop_name in new_props:
+                    # delete all old values of prop list
+                    self._delete_from_prop_map(
+                        bch, obj_uuid, prop_name, prop_elem_position)
+
             if self._re_match_ref.match(col_name):
                 (_, ref_type, ref_uuid) = col_name.split(':')
                 self._update_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid,
@@ -568,6 +595,22 @@ class VncCassandraClient(object):
                 for i in range(len(list_coll)):
                     self._add_to_prop_list(bch, obj_uuid,
                         prop_name, list_coll[i], str(i))
+            elif prop_name in obj_class.prop_map_fields:
+                # store map elements in key order
+                # iterate on wrapped element or directly on prop field
+                # for wrapped lists, store without the wrapper. regenerate
+                # wrapper on read
+                if obj_class.prop_map_field_has_wrappers[prop_name]:
+                    wrapper_field = new_props[prop_name].keys()[0]
+                    map_coll = new_props[prop_name][wrapper_field]
+                else:
+                    map_coll = new_props[prop_name]
+
+                map_key_name = obj_class.prop_map_field_key_names[prop_name]
+                for map_elem in map_coll:
+                    map_key = map_elem[map_key_name]
+                    self._add_to_prop_list(bch, obj_uuid,
+                        prop_name, map_elem, map_key)
             else:
                 self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
 
@@ -830,7 +873,9 @@ class VncCassandraClient(object):
         return (True, '')
     # end object_delete
 
-    def prop_list_read(self, obj_uuid, obj_fields, position):
+    def prop_collection_read(self, obj_type, obj_uuid, obj_fields, position):
+        obj_class = self._get_resource_class(obj_type)
+
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
         try:
@@ -842,14 +887,18 @@ class VncCassandraClient(object):
         except pycassa.NotFoundException:
             raise NoIdError(obj_uuid)
 
-        # read in prop-list fields
+        # read in prop-list or prop-map fields
         for field in obj_fields:
+            if field in obj_class.prop_list_fields:
+                prop_pfx = 'propl'
+            elif field in obj_class.prop_map_fields:
+                prop_pfx = 'propm'
             if position:
-                col_start = 'propl:%s:%s' %(field, position)
-                col_end = 'propl:%s:%s' %(field, position)
+                col_start = '%s:%s:%s' %(prop_pfx, field, position)
+                col_end = '%s:%s:%s' %(prop_pfx, field, position)
             else:
-                col_start = 'propl:%s:' %(field)
-                col_end = 'propl:%s;' %(field)
+                col_start = '%s:%s:' %(prop_pfx, field)
+                col_end = '%s:%s;' %(prop_pfx, field)
 
             obj_cols = self._obj_uuid_cf.get(obj_uuid,
                 column_start=col_start,
@@ -866,7 +915,7 @@ class VncCassandraClient(object):
                      col_name.split(':')[-1]) )
 
         return (True, result)
-    # end prop_list_read
+    # end prop_collection_read
 
     def cache_uuid_to_fq_name_add(self, id, fq_name, obj_type):
         self._cache_uuid_to_fq_name[id] = (fq_name, obj_type)

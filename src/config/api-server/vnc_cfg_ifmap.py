@@ -727,30 +727,44 @@ class VncServerCassandraClient(VncCassandraClient):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
 
-    def prop_list_update(self, obj_uuid, updates):
+    def prop_collection_update(self, obj_type, obj_uuid, updates):
+        obj_class = self._get_resource_class(obj_type)
         bch = self._obj_uuid_cf.batch()
         for oper_param in updates:
             oper = oper_param['operation']
             prop_name = oper_param['field']
-            if oper == 'add':
-                prop_elem_val = oper_param['value']
-                prop_elem_pos = oper_param.get('position') or str(uuid.uuid4())
-                self._add_to_prop_list(bch, obj_uuid,
-                    prop_name, prop_elem_val, prop_elem_pos)
-            elif oper == 'modify':
-                prop_elem_val = oper_param['value']
-                prop_elem_pos = oper_param['position']
-                # modify is practically an insert so use add
-                self._add_to_prop_list(bch, obj_uuid,
-                    prop_name, prop_elem_val, prop_elem_pos)
-            elif oper == 'delete':
-                prop_elem_pos = oper_param['position']
-                self._delete_from_prop_list(bch, obj_uuid,
-                    prop_name, prop_elem_pos)
+            if prop_name in obj_class.prop_list_fields:
+                if oper == 'add':
+                    prop_elem_val = oper_param['value']
+                    prop_elem_pos = oper_param.get('position') or str(uuid.uuid4())
+                    self._add_to_prop_list(bch, obj_uuid,
+                        prop_name, prop_elem_val, prop_elem_pos)
+                elif oper == 'modify':
+                    prop_elem_val = oper_param['value']
+                    prop_elem_pos = oper_param['position']
+                    # modify is practically an insert so use add
+                    self._add_to_prop_list(bch, obj_uuid,
+                        prop_name, prop_elem_val, prop_elem_pos)
+                elif oper == 'delete':
+                    prop_elem_pos = oper_param['position']
+                    self._delete_from_prop_list(bch, obj_uuid,
+                        prop_name, prop_elem_pos)
+            elif prop_name in obj_class.prop_map_fields:
+                key_name = obj_class.prop_map_field_key_names[prop_name]
+                if oper == 'set':
+                    prop_elem_val = oper_param['value']
+                    position = prop_elem_val[key_name]
+                    self._set_in_prop_map(bch, obj_uuid,
+                        prop_name, prop_elem_val, position)
+                elif oper == 'delete':
+                    position = oper_param['position']
+                    self._delete_from_prop_map(bch, obj_uuid,
+                        prop_name, position)
+        # end for all updates
 
         self.update_last_modified(bch, obj_uuid)
         bch.send()
-    # end prop_list_update
+    # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
         bch = self._obj_uuid_cf.batch()
@@ -794,10 +808,23 @@ class VncServerCassandraClient(VncCassandraClient):
     # end _add_to_prop_list
 
     def _delete_from_prop_list(self, bch, obj_uuid, prop_name,
-                               prop_elem_position=None):
+                               prop_elem_position):
         bch.remove(obj_uuid,
             columns=['propl:%s:%s' %(prop_name, prop_elem_position)])
     # end _delete_from_prop_list
+
+    def _set_in_prop_map(self, bch, obj_uuid, prop_name,
+                          prop_elem_value, prop_elem_position):
+        bch.insert(obj_uuid,
+            {'propm:%s:%s' %(prop_name, prop_elem_position):
+             json.dumps(prop_elem_value)})
+    # end _set_in_prop_map
+
+    def _delete_from_prop_map(self, bch, obj_uuid, prop_name,
+                               prop_elem_position):
+        bch.remove(obj_uuid,
+            columns=['propm:%s:%s' %(prop_name, prop_elem_position)])
+    # end _delete_from_prop_map
 
     def _create_child(self, bch, parent_type, parent_uuid,
                       child_type, child_uuid):
@@ -2020,21 +2047,21 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
-    def prop_list_get(self, obj_uuid, obj_fields, position):
-        (ok, cassandra_result) = self._cassandra_db.prop_list_read(
-            obj_uuid, obj_fields, position)
+    def prop_collection_get(self, obj_type, obj_uuid, obj_fields, position):
+        (ok, cassandra_result) = self._cassandra_db.prop_collection_read(
+            obj_type, obj_uuid, obj_fields, position)
         return ok, cassandra_result
-    # end prop_list_get
+    # end prop_collection_get
 
-    def prop_list_update(self, obj_type, obj_uuid, updates):
+    def prop_collection_update(self, obj_type, obj_uuid, updates):
         if not updates:
             return
 
-        self._cassandra_db.prop_list_update(obj_uuid, updates)
+        self._cassandra_db.prop_collection_update(obj_type, obj_uuid, updates)
         self._msgbus.dbe_update_publish(obj_type.replace('_', '-'),
                                         {'uuid':obj_uuid})
         return True, ''
-    # end prop_list_update
+    # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
                    operation):
