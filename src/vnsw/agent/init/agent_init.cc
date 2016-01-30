@@ -318,6 +318,7 @@ void AgentInit::InitDoneBase() {
     agent_->task_scheduler()->EnableLatencyThresholds
         (agent_param_->tbb_exec_delay() * 1000,
          agent_param_->tbb_schedule_delay() * 1000);
+    agent_->InitDone();
     InitDone();
 }
 
@@ -466,6 +467,7 @@ void AgentInit::ModulesShutdownBase() {
     if (agent_->cfg()) {
         agent_->cfg()->Shutdown();
     }
+    agent_->Shutdown();
     return;
 }
 

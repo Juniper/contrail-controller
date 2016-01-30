@@ -485,6 +485,10 @@ void AgentParam::ParseTaskSection() {
     GetValueFromTree<uint32_t>(tbb_exec_delay_, "TASK.log_exec_threshold");
     GetValueFromTree<uint32_t>(tbb_schedule_delay_,
                                "TASK.log_schedule_threshold");
+    if (!GetValueFromTree<uint32_t>(tbb_keepawake_timeout_,
+                                    "TASK.tbb_keepawake_timeout")) {
+        tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -714,6 +718,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_exec_threshold");
     GetOptValue<uint32_t>(var_map, tbb_schedule_delay_,
                           "TASK.log_schedule_threshold");
+    GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
+                          "TASK.tbb_keepawake_timeout");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1207,7 +1213,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         subnet_hosts_resolvable_(true),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
-        tbb_schedule_delay_(0) {
+        tbb_schedule_delay_(0),
+        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
@@ -1381,6 +1388,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Log message if task takes more than threshold (msec) to execute")
         ("TASK.log_schedule_threshold", opt::value<uint32_t>(),
          "Log message if task takes more than threshold (msec) to schedule")
+        ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>(),
+         "Timeout for the TBB keepawake timer")
         ;
     options_.add(tbb);
 }

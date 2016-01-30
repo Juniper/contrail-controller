@@ -327,6 +327,7 @@ void Agent::CopyConfig(AgentParam *params) {
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
     flow_thread_count_ = params_->flow_thread_count();
+    tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -376,6 +377,30 @@ void Agent::InitCollector() {
                 NULL);
     }
 
+}
+
+bool Agent::TbbKeepAwake() {
+    tbb_awake_count_++;
+    return true;
+}
+
+void Agent::InitDone() {
+    // Its observed that sometimes TBB doesnt scheduler misses spawn events
+    // and doesnt schedule a task till its triggered again. As a work around
+    // start a dummy timer that fires and awake TBB periodically
+    if (tbb_keepawake_timeout_) {
+        uint32_t task_id = task_scheduler_->GetTaskId("Agent::TbbKeepAwake");
+        tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr_->io_service(),
+                                                     "TBB Keep Awake",
+                                                     task_id, 0);
+        tbb_awake_timer_->Start(tbb_keepawake_timeout_,
+                                boost::bind(&Agent::TbbKeepAwake, this));
+    }
+}
+
+void Agent::Shutdown() {
+    if (tbb_awake_timer_)
+        TimerManager::DeleteTimer(tbb_awake_timer_);
 }
 
 static bool interface_exist(string &name) {
@@ -493,7 +518,9 @@ Agent::Agent() :
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
-    vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL) {
+    vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL),
+    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout), tbb_awake_timer_(NULL),
+    tbb_awake_count_(0) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
