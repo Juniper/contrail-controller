@@ -1691,10 +1691,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     // In case the packet is for a reverse flow of a linklocal flow,
     // link to that flow (avoid creating a new reverse flow entry for the case)
     FlowEntryPtr rflow = flow->reverse_flow_entry();
-    if (rflow && (rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
-                  rflow->is_flags_set(FlowEntry::BgpRouterService))) {
-        return;
-    }
+    // rflow for newly allocated entry should always be NULL
+    assert(rflow == NULL);
 
     uint16_t r_sport;
     uint16_t r_dport;
@@ -1711,7 +1709,12 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Allocate reverse flow
-    if (nat_done) {
+    if (in->intf_ == out->intf_) {
+        // we are trying to loopback to the same interface,
+        // this is not supported, mark the flow as short flow
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
+    } else if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
@@ -1725,18 +1728,27 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     // If this is message processing, then retain forward and reverse flows
     if (pkt->type == PktType::MESSAGE &&
         flow_entry->is_flags_set(FlowEntry::ReverseFlow)) {
+        // for cases where we need to swap flows rflow should always
+        // be Non-NULL
+        assert(rflow != NULL);
         swap_flows = true;
     }
 
     tcp_ack = pkt->tcp_ack;
     flow->InitFwdFlow(this, pkt, in, out, rflow.get(), agent);
-    rflow->InitRevFlow(this, pkt, out, in, flow.get(), agent);
+    if (rflow != NULL) {
+        rflow->InitRevFlow(this, pkt, out, in, flow.get(), agent);
+    }
 
     flow->GetPolicyInfo();
-    rflow->GetPolicyInfo();
+    if (rflow != NULL) {
+        rflow->GetPolicyInfo();
+    }
 
     flow->ResyncFlow();
-    rflow->ResyncFlow();
+    if (rflow != NULL) {
+        rflow->ResyncFlow();
+    }
 
     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
      * both forward and reverse flows are not not linked to each other yet.
@@ -1765,7 +1777,7 @@ void PktFlowInfo::UpdateFipStatsInfo
     r_intf_id = Interface::kInvalidIndex;
     fip = 0;
     r_fip = 0;
-    if (fip_snat && fip_dnat) {
+    if (fip_snat && fip_dnat && rflow != NULL) {
         /* This is the case where Source and Destination VMs (part of
          * same compute node) have floating-IP assigned to each of them from
          * a common VN and then each of these VMs send traffic to other VM by
@@ -1803,7 +1815,9 @@ void PktFlowInfo::UpdateFipStatsInfo
 
     if (fip_snat || fip_dnat) {
         flow->UpdateFipStatsInfo(fip, intf_id, agent);
-        rflow->UpdateFipStatsInfo(r_fip, r_intf_id, agent);
+        if (rflow != NULL) {
+            rflow->UpdateFipStatsInfo(r_fip, r_intf_id, agent);
+        }
     }
 }
 
