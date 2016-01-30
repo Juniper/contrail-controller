@@ -11,6 +11,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
+#include <base/timer.h>
 #include "net/mac_address.h"
 
 class Agent;
@@ -206,6 +207,7 @@ public:
     static const uint32_t kDefaultFlowCacheTimeout = 0;
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
+    static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
 
     enum ForwardingMode {
         NONE,
@@ -231,7 +233,7 @@ public:
 
     Agent();
     virtual ~Agent();
-    void Shutdown() { }
+    void Shutdown();
 
     static Agent *GetInstance() {return singleton_;}
     static const std::string &NullString() {return null_string_;};
@@ -925,6 +927,7 @@ public:
 
     void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
                    const char *description, uint32_t delay);
+    bool TbbKeepAwake();
 
 private:
 
@@ -1096,6 +1099,9 @@ private:
     uint32_t vrouter_max_oflow_bridge_entries_;
     std::string vrouter_build_info_;
 
+    uint32_t tbb_keepawake_timeout_;
+    Timer *tbb_awake_timer_;
+    uint64_t tbb_awake_count_;
     // Constants
     static const std::string config_file_;
     static const std::string log_file_;
