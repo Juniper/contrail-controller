@@ -466,6 +466,11 @@ void AgentParam::ParseTaskSection() {
                                     "TASK.log_schedule_threshold")) {
         tbb_schedule_delay_ = 0;
     }
+
+    if (!GetValueFromTree<uint32_t>(tbb_keepawake_timeout_,
+                                    "TASK.tbb_keepawake_timeout")) {
+        tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -676,6 +681,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_exec_threshold");
     GetOptValue<uint32_t>(var_map, tbb_schedule_delay_,
                           "TASK.log_schedule_threshold");
+    GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
+                          "TASK.tbb_keepawake_timeout");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1150,7 +1157,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         agent_base_dir_(),
         subnet_hosts_resolvable_(true),
         tbb_exec_delay_(0),
-        tbb_schedule_delay_(0) {
+        tbb_schedule_delay_(0),
+        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1309,6 +1317,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Log message if task takes more than threshold (msec) to execute")
         ("TASK.log_schedule_threshold", opt::value<uint32_t>(),
          "Log message if task takes more than threshold (msec) to schedule")
+        ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>(),
+         "Timeout for the TBB keepawake timer")
         ;
     options_.add(tbb);
 }
