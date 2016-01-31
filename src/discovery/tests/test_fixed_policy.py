@@ -5,18 +5,18 @@ from test_utils import *
 import fixtures
 import testtools
 import test_common
-import test_discovery
+import test_case
 
 import discoveryclient.client as client
 
 server_list = {}
 
-class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures):
+class DiscoveryServerTestCase(test_case.DsTestCase):
     def setUp(self):
         extra_config_knobs = [
             ('foobar', 'policy', 'fixed'),
         ]
-        super(DiscoveryServerTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
+        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
 
     def info_callback(self, info, client_id):
         global server_list

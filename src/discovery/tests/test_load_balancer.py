@@ -5,7 +5,7 @@ from test_utils import *
 import fixtures
 import testtools
 import test_common
-import test_discovery
+import test_case
 
 import discoveryclient.client as client
 
@@ -34,12 +34,12 @@ def validate_assignment_count(response, context):
     # return failure status
     return True in [e['in_use'] > int(1.1*avg) for e in pubs_active]
 
-class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures):
+class DiscoveryServerTestCase(test_case.DsTestCase):
     def setUp(self):
         extra_config_knobs = [
             ('SvcActiveLoadBalance', 'load-balance', 'True'),
         ]
-        super(DiscoveryServerTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
+        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
 
     def test_load_balance(self):
         # publish 3 instances

@@ -125,12 +125,10 @@ class TestDsa(test_case.DsTestCase):
         self.assertEqual(code, 200)
 
         # Verify all services are published.
-        # Total service count is 4+2 because API server publishes
-        # IfmapServer and ApiServer
         (code, msg) = self._http_get('/services.json')
         self.assertEqual(code, 200)
         response = json.loads(msg)
-        self.assertEqual(len(response['services']), 6)
+        self.assertEqual(len(response['services']), 4)
 
         # json subscribe request
         suburl = "/subscribe"
@@ -175,6 +173,15 @@ class TestDsa(test_case.DsTestCase):
         all DC should be able to subscribe to singtleton IfmapServer
         """
         service_type = 'IfmapServer'
+        payload = {
+            service_type: { "ip-addr" : "4.4.4.4", "port" : "4444" },
+            'service-type' : service_type,
+            'service-id' : 'Controller',
+            'remote-addr': '4.4.4.4',
+        }
+        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+
         payload = {
             'service'     : '%s' % service_type,
             'client'      : 'DC1-VA1',
