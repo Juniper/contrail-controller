@@ -492,6 +492,8 @@ PathResolverPartition::~PathResolverPartition() {
 //
 void PathResolverPartition::StartPathResolution(const BgpPath *path,
     BgpRoute *route, BgpTable *nh_table) {
+    if (table()->IsDeleted() || nh_table->IsDeleted())
+        return;
     IpAddress address = path->GetAttr()->nexthop();
     ResolverNexthop *rnexthop =
         resolver_->LocateResolverNexthop(address, nh_table);
@@ -508,7 +510,8 @@ void PathResolverPartition::StartPathResolution(const BgpPath *path,
 void PathResolverPartition::UpdatePathResolution(const BgpPath *path,
     BgpTable *nh_table) {
     ResolverPath *rpath = FindResolverPath(path);
-    assert(rpath);
+    if (!rpath)
+        return;
     const ResolverNexthop *rnexthop = rpath->rnexthop();
     if (rnexthop->address() != path->GetAttr()->nexthop() ||
         rnexthop->table() != nh_table) {
@@ -526,7 +529,8 @@ void PathResolverPartition::UpdatePathResolution(const BgpPath *path,
 //
 void PathResolverPartition::StopPathResolution(const BgpPath *path) {
     ResolverPath *rpath = RemoveResolverPath(path);
-    assert(rpath);
+    if (!rpath)
+        return;
     TriggerPathResolution(rpath);
 }
 
