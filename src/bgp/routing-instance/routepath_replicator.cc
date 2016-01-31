@@ -20,6 +20,7 @@ using std::ostringstream;
 using std::make_pair;
 using std::pair;
 using std::string;
+using std::vector;
 
 //
 // RoutePathReplication trace macro. Optionally logs the server name as well for
@@ -134,6 +135,25 @@ void RtReplicated::DeleteRouteInfo(BgpTable *table, BgpRoute *rt,
     replicate_list_.erase(it);
 }
 
+//
+// Return the list of secondary table names for the given primary path.
+// We go through all SecondaryRouteInfos and skip the ones that don't
+// match the primary path.
+//
+vector<string> RtReplicated::GetTableNameList(const BgpPath *path) const {
+    vector<string> table_list;
+    BOOST_FOREACH(const SecondaryRouteInfo &rinfo, replicate_list_) {
+        if (rinfo.peer_ != path->GetPeer())
+            continue;
+        if (rinfo.path_id_ != path->GetPathId())
+            continue;
+        if (rinfo.src_ != path->GetSource())
+            continue;
+        table_list.push_back(rinfo.table_->name());
+    }
+    return table_list;
+}
+
 RoutePathReplicator::RoutePathReplicator(BgpServer *server,
     Address::Family family)
     : server_(server),
@@ -206,8 +226,10 @@ TableState *RoutePathReplicator::FindTableState(BgpTable *table) {
     return (loc != table_state_list_.end() ? loc->second : NULL);
 }
 
-const TableState *RoutePathReplicator::FindTableState(BgpTable *table) const {
-    TableStateList::const_iterator loc = table_state_list_.find(table);
+const TableState *RoutePathReplicator::FindTableState(
+    const BgpTable *table) const {
+    TableStateList::const_iterator loc =
+        table_state_list_.find(const_cast<BgpTable *>(table));
     return (loc != table_state_list_.end() ? loc->second : NULL);
 }
 
@@ -626,6 +648,21 @@ const RtReplicated *RoutePathReplicator::GetReplicationState(
     RtReplicated *dbstate =
         static_cast<RtReplicated *>(rt->GetState(table, ts->listener_id()));
     return dbstate;
+}
+
+//
+// Return the list of secondary table names for the given primary path.
+//
+vector<string> RoutePathReplicator::GetReplicatedTableNameList(
+    const BgpTable *table, const BgpRoute *rt, const BgpPath *path) const {
+    const TableState *ts = FindTableState(table);
+    if (!ts)
+        return vector<string>();
+    const RtReplicated *dbstate = static_cast<const RtReplicated *>(
+        rt->GetState(table, ts->listener_id()));
+    if (!dbstate)
+        return vector<string>();
+    return dbstate->GetTableNameList(path);
 }
 
 void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
