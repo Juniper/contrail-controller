@@ -43,6 +43,51 @@ void map_difference(ForwardIterator __first1, ForwardIterator __last1,
 }
 
 //
+// map_difference
+//
+// Given a map and the begin/end iterators for a sorted std container and a
+// compare functor, invoke add, delete or equal functors for values that are:
+//  add - present in the container but not in the map;
+//  delete - present in the map but not in the container;
+//  equal - present in both the container and the map;
+//
+template <typename MapType,
+    typename ForwardIterator,
+    typename CompFunctor,
+    typename AddFunctor,
+    typename DelFunctor,
+    typename EqFunctor>
+void map_difference(MapType *map, ForwardIterator first, ForwardIterator last,
+                    CompFunctor comp_fn, AddFunctor add_fn,
+                    DelFunctor del_fn, EqFunctor eq_fn) {
+    typename MapType::iterator it1 = map->begin(), next1 = map->begin();
+    ForwardIterator it2 = first;
+    while (it1 != map->end() && it2 != last) {
+        int result = comp_fn(it1, it2);
+        if (result < 0) {
+            ++next1;
+            del_fn(it1);
+            it1 = next1;
+        } else if (result > 0) {
+            add_fn(it2);
+            ++it2;
+        } else {
+            eq_fn(it1, it2);
+            ++it1;
+            ++it2;
+        }
+        next1 = it1;
+    }
+    for (next1 = it1; it1 != map->end(); it1 = next1) {
+        ++next1;
+        del_fn(it1);
+    }
+    for (; it2 != last; ++it2) {
+        add_fn(it2);
+    }
+}
+
+//
 // map_synchronize
 //
 // Given two maps synchronize the 1st (current) map with the 2nd (future)
