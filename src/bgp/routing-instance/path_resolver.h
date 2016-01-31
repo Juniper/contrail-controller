@@ -125,6 +125,9 @@ private:
 
     bool RouteListener(DBTablePartBase *root, DBEntryBase *entry);
 
+    size_t GetResolverNexthopMapSize() const;
+    size_t GetResolverNexthopDeleteListSize() const;
+
     void DisableResolverNexthopRegUnregProcessing();
     void EnableResolverNexthopRegUnregProcessing();
     size_t GetResolverNexthopRegUnregListSize() const;
@@ -139,7 +142,7 @@ private:
 
     BgpTable *table_;
     DBTableBase::ListenerId listener_id_;
-    tbb::mutex mutex_;
+    mutable tbb::mutex mutex_;
     ResolverNexthopMap nexthop_map_;
     ResolverNexthopList nexthop_reg_unreg_list_;
     boost::scoped_ptr<TaskTrigger> nexthop_reg_unreg_trigger_;

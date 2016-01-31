@@ -192,6 +192,8 @@ public:
     }
 
 private:
+    template <typename U> friend class PathResolverTest;
+
     BgpServer *server_;
 
     TableMap map_;
@@ -208,6 +210,10 @@ private:
 
     // WalkComplete function
     void WalkDone(DBTableBase *table);
+
+    // For testing only.
+    void DisableTableWalkProcessing() { walk_trigger_->set_disable(); }
+    void EnableTableWalkProcessing() { walk_trigger_->set_enable(); }
 
     boost::scoped_ptr<TaskTrigger> walk_trigger_;
 
