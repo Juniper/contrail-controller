@@ -65,13 +65,12 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
         boost::system::error_code ec;
-        IpAddress ip = IpAddress::from_string(port.ip_address, ec);
+        Ip4Address ip = Ip4Address::from_string(port.ip_address, ec);
         bool v4_valid = (ec.value() == 0);
-        if (v4_valid == false || ip.is_v4() == false) {
+        if (v4_valid == false) {
             CFG_TRACE(IntfInfo,
                       "IPv4 address is not correct, " + port.ip_address);
             v4_valid = false;
-            ip = IpAddress();
         }
 
         bool v6_valid = false;
@@ -559,9 +558,10 @@ void AddPortReq::HandleRequest() const {
     CfgIntEntry::CfgIntType intf_type;
 
     boost::system::error_code ec, ec6;
-    IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
+    Ip4Address ip(Ip4Address::from_string(get_ip_address(), ec));
     Ip6Address ip6 = Ip6Address::from_string(get_ip6_address(), ec6);
-    if ((ec != 0) && (ec6 != 0)) {
+    if (((ec != 0) && (ec6 != 0)) ||
+        (ip.is_unspecified() && ip6.is_unspecified())) {
         resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
         err = true;
     }

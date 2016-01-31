@@ -539,7 +539,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     if (create) {
         CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
-        IpAddress ip = Ip4Address::from_string(ipaddr, ec);
+        Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
         data->Init(vm_id, vn_id, project_id, tap_intf, ip, Ip6Address(), mac, "",
                    VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
                    CfgIntEntry::CfgIntVMPort, 0);

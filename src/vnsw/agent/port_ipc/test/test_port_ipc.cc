@@ -20,10 +20,10 @@ class PortIpcTest : public ::testing::Test {
      PortIpcTest() : agent_(Agent::GetInstance()) {
      }
      Agent *agent() { return agent_; }
-     void AddPort(const PortIpcHandler &pih,
-             const PortIpcHandler::AddPortParams &req) {
+     bool AddPort(const PortIpcHandler &pih,
+         const PortIpcHandler::AddPortParams &req) {
          string err_msg;
-         pih.AddPort(req, false, err_msg);
+         return pih.AddPort(req, false, err_msg);
      }
      bool IsUUID(const PortIpcHandler &pih, const string &file) {
          return pih.IsUUID(file);
@@ -78,6 +78,23 @@ TEST_F(PortIpcTest, Port_Add_Del) {
     pih.DeletePort(req.port_id, err_str);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+}
+
+/* Verify that AddPort fails when IPv6 Ip is sent in IPv4 address field */
+TEST_F(PortIpcTest, Port_Add_Invalid_Ip) {
+
+    const string dir = "/tmp/";
+    CfgIntTable *ctable = agent()->interface_config_table();
+    assert(ctable);
+
+    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
+        "ea73b285-01a7-4d3e-8322-50976e8913db",
+        "fa73b285-01a7-4d3e-8322-50976e8913de",
+        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+        "fd11::3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
+    PortIpcHandler pih(agent(), dir, false);
+    bool ret = AddPort(pih, req);
+    EXPECT_FALSE(ret);
 }
 
 /* Reads files in a directory and adds port info into agent */
