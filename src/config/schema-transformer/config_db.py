@@ -3447,7 +3447,7 @@ class LogicalRouterST(DBBaseST):
         resp.obj_refs = [
             self._get_sandesh_ref_list('virtual_machine_interface'),
             self._get_sandesh_ref_list('virtual_network'),
-            sandesh.RefList('route_target', selt.rt_list)
+            sandesh.RefList('route_target', self.rt_list)
         ]
         resp.properties = [
             sandesh.PropList('route_target', self.route_target),
