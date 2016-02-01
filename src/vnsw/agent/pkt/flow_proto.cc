@@ -418,14 +418,23 @@ void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
     case FlowEvent::REVALUATE_FLOW:
         stats->revaluate_count_++;
         break;
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+        stats->handle_update_++;
+        break;
+    case FlowEvent::KSYNC_VROUTER_ERROR:
+        stats->vrouter_error_++;
+        break;
     default:
         break;
     }
 }
 
 void FlowProto::SetProfileData(ProfileData *data) {
+    data->flow_.flow_count_ = FlowCount();
     data->flow_.add_count_ = stats_.add_count_;
     data->flow_.del_count_ = stats_.delete_count_;
     data->flow_.audit_count_ = stats_.audit_count_;
     data->flow_.reval_count_ = stats_.revaluate_count_;
+    data->flow_.handle_update_ = stats_.handle_update_;
+    data->flow_.vrouter_error_ = stats_.vrouter_error_;
 }

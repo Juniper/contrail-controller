@@ -501,6 +501,7 @@ private:
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
     bool vrouter_evicted_;
+    // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 
     static InetUnicastRouteEntry inet4_route_key_;

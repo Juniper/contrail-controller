@@ -38,6 +38,8 @@ public:
         uint64_t del_count_;
         uint64_t audit_count_;
         uint64_t reval_count_;
+        uint64_t handle_update_;
+        uint64_t vrouter_error_;
         WorkQueueStats pkt_flow_queue_count_;
         void Get();
         void Reset();

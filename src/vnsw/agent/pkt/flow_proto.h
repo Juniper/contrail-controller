@@ -21,9 +21,12 @@ struct FlowStats {
     uint64_t delete_count_;
     uint64_t revaluate_count_;
     uint64_t audit_count_;
+    uint64_t handle_update_;
+    uint64_t vrouter_error_;
 
     FlowStats() :
-        add_count_(0), delete_count_(0), revaluate_count_(0), audit_count_(0) {
+        add_count_(0), delete_count_(0), revaluate_count_(0), audit_count_(0),
+        handle_update_(0), vrouter_error_(0) {
     }
 };
 

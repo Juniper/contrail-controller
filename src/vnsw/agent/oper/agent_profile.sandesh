@@ -32,6 +32,9 @@ struct SandeshFlowStats {
     5:  u64 add_count;
     7:  u64 del_count;
     8:  u64 reval_count;
+    9:  u64 handle_update;
+   10:  u64 vrouter_error;
+   11:  u64 audit_count;
 }
 
 response sandesh SandeshFlowStatsList {

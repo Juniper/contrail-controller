@@ -289,6 +289,9 @@ static void GetFlowStats(SandeshFlowStats *stats, int index,
     stats->set_add_count(data->flow_.add_count_);
     stats->set_del_count(data->flow_.del_count_);
     stats->set_reval_count(data->flow_.reval_count_);
+    stats->set_audit_count(data->flow_.audit_count_);
+    stats->set_handle_update(data->flow_.handle_update_);
+    stats->set_vrouter_error(data->flow_.vrouter_error_);
 }
 
 void SandeshFlowStatsRequest::HandleRequest() const {
