@@ -153,8 +153,8 @@ void RoutingPolicyMgr::ApplyRoutingPolicy(RoutingInstance *instance) {
 // On a given path of the route, apply the policy
 RoutingPolicy::PolicyResult RoutingPolicyMgr::ExecuteRoutingPolicy(
                              const RoutingPolicy *policy, const BgpRoute *route,
-                             BgpAttr *attr) const {
-    return (*policy)(route, attr);
+                             const BgpPath *path, BgpAttr *attr) const {
+    return (*policy)(route, path, attr);
 }
 
 //
@@ -359,6 +359,12 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
         matches.push_back(community);
     }
 
+    if (!cfg_term.match.protocols_match.empty()) {
+        MatchProtocol *protocol =
+         new MatchProtocol(cfg_term.match.protocols_match);
+        matches.push_back(protocol);
+    }
+
     if (!cfg_term.match.prefixes_to_match.empty()) {
         PrefixMatchConfigList inet_prefix_list;
         PrefixMatchConfigList inet6_prefix_list;
@@ -529,10 +535,10 @@ void RoutingPolicy::RetryDelete() {
 }
 
 RoutingPolicy::PolicyResult RoutingPolicy::operator()(const BgpRoute *route,
-                                                      BgpAttr *attr) const {
+                                  const BgpPath *path, BgpAttr *attr) const {
     BOOST_FOREACH(PolicyTermPtr term, terms()) {
         bool terminal = term->terminal();
-        bool matched = term->ApplyTerm(route, attr);
+        bool matched = term->ApplyTerm(route, path, attr);
         if (matched && terminal) {
             return std::make_pair(terminal,
                                   (*term->actions().begin())->accept());
@@ -555,10 +561,11 @@ bool PolicyTerm::terminal() const {
     return false;
 }
 
-bool PolicyTerm::ApplyTerm(const BgpRoute *route, BgpAttr *attr) const {
+bool PolicyTerm::ApplyTerm(const BgpRoute *route, const BgpPath *path,
+                           BgpAttr *attr) const {
     bool matched = true;
     BOOST_FOREACH(RoutingPolicyMatch *match, matches()) {
-        if (!(*match)(route, attr)) {
+        if (!(*match)(route, path, attr)) {
             matched = false;
             break;
         }

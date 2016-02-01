@@ -1569,6 +1569,7 @@ void BgpIfmapRoutingPolicyConfig::RemoveInstance(BgpIfmapInstanceConfig *rti) {
 
 static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
                             RoutingPolicyTerm *term) {
+    term->match.protocols_match = cfg_term.fromxx.protocol;
     term->match.community_match = cfg_term.fromxx.community;
     BOOST_FOREACH(const autogen::PrefixMatch &prefix_match,
                   cfg_term.fromxx.prefix) {

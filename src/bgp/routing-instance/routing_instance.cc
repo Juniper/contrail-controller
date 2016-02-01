@@ -1175,7 +1175,8 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
         // Update of the attribute based on routing policy action is done
         // on the snapshot of original attribute passed to this function
         RoutingPolicy::PolicyResult result =
-            policy_mgr->ExecuteRoutingPolicy(policy.get(), route, out_attr);
+            policy_mgr->ExecuteRoutingPolicy(policy.get(), route,
+                                             path, out_attr);
         if (result.first) {
             // Hit a terminal policy
             if (!result.second) {

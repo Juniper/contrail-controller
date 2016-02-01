@@ -5,18 +5,24 @@
 #include "bgp/routing-policy/routing_policy_match.h"
 
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include <algorithm>
+#include <map>
 #include <sstream>
+#include <vector>
 
 #include <bgp/bgp_attr.h>
+#include <bgp/bgp_path.h>
 #include <net/community_type.h>
 
 using std::ostringstream;
 using std::string;
 using std::make_pair;
+using std::vector;
+using std::map;
 
-MatchCommunity::MatchCommunity(const std::vector<string> &communities) {
+MatchCommunity::MatchCommunity(const vector<string> &communities) {
     BOOST_FOREACH(const string &community, communities) {
         uint32_t value = CommunityType::CommunityFromString(community);
         // Invalid community from config is ignored
@@ -26,7 +32,7 @@ MatchCommunity::MatchCommunity(const std::vector<string> &communities) {
     }
 
     std::sort(to_match_.begin(), to_match_.end());
-    std::vector<uint32_t>::iterator it =
+    vector<uint32_t>::iterator it =
         std::unique(to_match_.begin(), to_match_.end());
     to_match_.erase(it, to_match_.end());
 }
@@ -34,11 +40,11 @@ MatchCommunity::MatchCommunity(const std::vector<string> &communities) {
 MatchCommunity::~MatchCommunity() {
 }
 
-bool MatchCommunity::Match(const BgpRoute *route,
-                                   const BgpAttr *attr) const {
+bool MatchCommunity::Match(const BgpRoute *route, const BgpPath *path,
+                           const BgpAttr *attr) const {
     const Community *comm = attr->community();
     if (comm) {
-        std::vector<uint32_t> list = comm->communities();
+        vector<uint32_t> list = comm->communities();
         if (list.size() < to_match_.size()) return false;
         std::sort(list.begin(), list.end());
         if (std::includes(list.begin(), list.end(),
@@ -88,8 +94,8 @@ MatchPrefix<T>::~MatchPrefix() {
 }
 
 template <typename T>
-bool MatchPrefix<T>::Match(const BgpRoute *route,
-                                const BgpAttr *attr) const {
+bool MatchPrefix<T>::Match(const BgpRoute *route, const BgpPath *path,
+                           const BgpAttr *attr) const {
     const RouteT *in_route = dynamic_cast<const RouteT *>(route);
     if (in_route == NULL) return false;
     const PrefixT &prefix = in_route->GetPrefix();
@@ -132,3 +138,105 @@ string MatchPrefix<T>::ToString() const {
 
 template class MatchPrefix<InetPrefixMatch>;
 template class MatchPrefix<Inet6PrefixMatch>;
+
+static const map<string, MatchProtocol::MatchProtocolType> fromString
+  = boost::assign::map_list_of
+    ("bgp", MatchProtocol::BGP)
+    ("xmpp", MatchProtocol::XMPP)
+    ("static", MatchProtocol::StaticRoute)
+    ("service-chain", MatchProtocol::ServiceChainRoute)
+    ("aggregate", MatchProtocol::AggregateRoute);
+
+static const map<MatchProtocol::MatchProtocolType, string> toString
+  = boost::assign::map_list_of
+    (MatchProtocol::BGP, "bgp")
+    (MatchProtocol::XMPP, "xmpp")
+    (MatchProtocol::StaticRoute, "static")
+    (MatchProtocol::ServiceChainRoute, "service-chain")
+    (MatchProtocol::AggregateRoute, "aggregate");
+
+static const map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>
+    pathSourceMap = boost::assign::map_list_of
+    (MatchProtocol::BGP, BgpPath::BGP_XMPP)
+    (MatchProtocol::XMPP, BgpPath::BGP_XMPP)
+    (MatchProtocol::StaticRoute, BgpPath::StaticRoute)
+    (MatchProtocol::ServiceChainRoute, BgpPath::ServiceChain)
+    (MatchProtocol::AggregateRoute, BgpPath::Aggregate);
+
+static const string MatchProtocolToString(
+                              MatchProtocol::MatchProtocolType protocol) {
+    map<MatchProtocol::MatchProtocolType, string>::const_iterator it =
+        toString.find(protocol);
+    if (it != toString.end()) {
+        return it->second;
+    }
+    return "unspecified";
+}
+
+static MatchProtocol::MatchProtocolType MatchProtocolFromString(
+                                                const string &protocol) {
+    map<string, MatchProtocol::MatchProtocolType>::const_iterator it =
+        fromString.find(protocol);
+    if (it != fromString.end()) {
+        return it->second;
+    }
+    return MatchProtocol::Unspecified;
+}
+
+static BgpPath::PathSource PathSourceFromMatchProtocol(
+                                   MatchProtocol::MatchProtocolType src) {
+    map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>::const_iterator
+        it = pathSourceMap.find(src);
+    if (it != pathSourceMap.end()) {
+        return it->second;
+    }
+    return BgpPath::None;
+}
+
+MatchProtocol::MatchProtocol(const vector<string> &protocols) {
+    BOOST_FOREACH(const string &protocol, protocols) {
+        MatchProtocolType value = MatchProtocolFromString(protocol);
+        // Invalid community from config is ignored
+        if (value != Unspecified) {
+            to_match_.push_back(value);
+        }
+    }
+}
+
+MatchProtocol::~MatchProtocol() {
+}
+
+bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
+                           const BgpAttr *attr) const {
+    BgpPath::PathSource path_src = path->GetSource();
+    bool is_xmpp = path->GetPeer() ? path->GetPeer()->IsXmppPeer() : false;
+    BOOST_FOREACH(MatchProtocolType protocol, protocols()) {
+        BgpPath::PathSource mapped_src = PathSourceFromMatchProtocol(protocol);
+        if (mapped_src != BgpPath::None) {
+            if (mapped_src == path_src) {
+                if (protocol == XMPP && !is_xmpp) continue;
+                if (protocol == BGP && is_xmpp) continue;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+string MatchProtocol::ToString() const {
+    ostringstream oss;
+    oss << "protocol [ ";
+    BOOST_FOREACH(MatchProtocolType protocol, protocols()) {
+        string name = MatchProtocolToString(protocol);
+        oss << name << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
+    return oss.str();
+}
+
+bool MatchProtocol::IsEqual(const RoutingPolicyMatch &protocol) const {
+    const MatchProtocol in_protocol =
+        static_cast<const MatchProtocol&>(protocol);
+    return (protocols() == in_protocol.protocols());
+}

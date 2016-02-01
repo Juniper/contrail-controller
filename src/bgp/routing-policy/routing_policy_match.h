@@ -16,6 +16,7 @@
 #include "bgp/inet6/inet6_route.h"
 
 class BgpAttr;
+class BgpPath;
 class BgpRoute;
 class Community;
 
@@ -24,10 +25,12 @@ public:
     virtual std::string ToString() const = 0;
     virtual ~RoutingPolicyMatch() {
     }
-    bool operator()(const BgpRoute *route, const BgpAttr *attr) const {
-        return Match(route, attr);
+    bool operator()(const BgpRoute *route,
+                    const BgpPath *path, const BgpAttr *attr) const {
+        return Match(route, path, attr);
     }
-    virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const = 0;
+    virtual bool Match(const BgpRoute *route,
+                       const BgpPath *path, const BgpAttr *attr) const = 0;
     virtual bool operator==(const RoutingPolicyMatch &match) const {
         if (typeid(match) == typeid(*this))
             return(IsEqual(match));
@@ -41,7 +44,8 @@ public:
     typedef std::vector<uint32_t> CommunityList;
     explicit MatchCommunity(const std::vector<std::string> &communities);
     virtual ~MatchCommunity();
-    virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const;
+    virtual bool Match(const BgpRoute *route,
+                       const BgpPath *path, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &community) const;
     const CommunityList &communities() const {
@@ -49,6 +53,30 @@ public:
     }
 private:
     CommunityList to_match_;
+};
+
+class MatchProtocol: public RoutingPolicyMatch {
+public:
+    enum MatchProtocolType {
+        Unspecified = 0,
+        BGP,
+        XMPP,
+        StaticRoute,
+        ServiceChainRoute,
+        AggregateRoute,
+    };
+    typedef std::vector<MatchProtocolType> PathSourceList;
+    explicit MatchProtocol(const std::vector<std::string> &protocols);
+    virtual ~MatchProtocol();
+    virtual bool Match(const BgpRoute *route,
+                       const BgpPath *path, const BgpAttr *attr) const;
+    virtual std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyMatch &community) const;
+    const PathSourceList &protocols() const {
+        return to_match_;
+    }
+private:
+    PathSourceList to_match_;
 };
 
 template <typename T1, typename T2>
@@ -77,7 +105,8 @@ public:
     typedef std::vector<PrefixMatch> PrefixMatchList;
     explicit MatchPrefix(const PrefixMatchConfigList &list);
     virtual ~MatchPrefix();
-    virtual bool Match(const BgpRoute *route, const BgpAttr *attr) const;
+    virtual bool Match(const BgpRoute *route,
+                       const BgpPath *path, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &prefix) const;
 private:
