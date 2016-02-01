@@ -2745,8 +2745,11 @@ class BgpRouterST(DBBaseST):
                         self._vnc_lib.bgp_as_a_service_update(bgpaas.obj)
                     except NoIdError:
                         pass
-                self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
-                self.delete(self.name)
+                try:
+                    self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
+                    self.delete(self.name)
+                except RefsExistError:
+                    pass
             elif ret:
                 self._vnc_lib.bgp_router_update(self.obj)
         elif self.router_type != 'bgpaas-server':
@@ -2795,6 +2798,8 @@ class BgpRouterST(DBBaseST):
 
     def update_peering(self):
         if not GlobalSystemConfigST.get_ibgp_auto_mesh():
+            return
+        if self.router_type == 'bgpaas-server':
             return
         global_asn = int(GlobalSystemConfigST.get_autonomous_system())
         if self.asn != global_asn:
@@ -2906,10 +2911,11 @@ class BgpAsAServiceST(DBBaseST):
         else:
             server_router = server_router.obj
         bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
+        ip = self.ip_address or vmi.get_primary_instance_ip_address()
         params = BgpRouterParams(
             autonomous_system=int(self.asn) if self.asn else None,
-            address=self.ip_address,
-            identifier=self.ip_address,
+            address=ip,
+            identifier=ip,
             source_port=self._cassandra.alloc_bgpaas_port(router_fq_name),
             router_type='bgpaas-client')
         bgp_router.set_bgp_router_parameters(params)
@@ -3005,6 +3011,16 @@ class VirtualMachineInterfaceST(DBBaseST):
                 return ip.address
         return None
     # end get_any_instance_ip_address
+
+    def get_primary_instance_ip_address(self):
+        for ip_name in self.instance_ips:
+            ip = InstanceIpST.get(ip_name)
+            if ip.address is None:
+                continue
+            if ip.is_primary():
+                return ip.address 
+        return None
+    # end get_primary_instance_ip_address
 
     def set_properties(self):
         props = self.obj.get_virtual_machine_interface_properties()
@@ -3223,6 +3239,7 @@ class InstanceIpST(DBBaseST):
 
     def __init__(self, name, obj=None):
         self.name = name
+        self.is_secondary = False
         self.virtual_machine_interfaces = set()
         self.update(obj)
     # end __init
@@ -3231,8 +3248,13 @@ class InstanceIpST(DBBaseST):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         self.address = self.obj.get_instance_ip_address()
         self.service_instance_ip = self.obj.get_service_instance_ip()
+        self.is_secondary = self.obj.get_instance_ip_secondary() or False
         self.update_multiple_refs('virtual_machine_interface', self.obj)
     # end update
+
+    def is_primary(self):
+        return not self.is_secondary
+    #end
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
