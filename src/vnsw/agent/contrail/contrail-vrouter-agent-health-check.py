@@ -67,7 +67,7 @@ class HealthCheckPing(HealthCheckBase):
 
 class HealthCheckHttp(HealthCheckBase):
     def execute_util(self, ip, timeout, uri, out_fd):
-        return call(["curl", "-m" + str(timeout), "http://" + ip + "/" + uri],
+        return call(["curl", "-m" + str(timeout), "http://" + ip + uri],
                     stdout=out_fd, stderr=out_fd)
 
 def HealthCheckService(x):
