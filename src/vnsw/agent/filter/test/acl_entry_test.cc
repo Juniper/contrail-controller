@@ -98,6 +98,59 @@ TEST_F(AclEntryTest, Basic) {
     delete entry1;
 }
 
+TEST_F(AclEntryTest, Ipv6_address_match) {
+    boost::system::error_code ec;
+    AclEntrySpec ae_spec1;
+    ae_spec1.id = 1;
+    ae_spec1.BuildAddressInfo("fd11::3", 128, &ae_spec1.src_ip_list);
+    ae_spec1.src_addr_type = AddressMatch::IP_ADDR;
+    RangeSpec protocol;
+    protocol.min = 10;
+    protocol.max = 10;
+    ae_spec1.protocol.push_back(protocol);
+    RangeSpec port;
+    port.min = 10;
+    port.max = 100;
+    ae_spec1.dst_port.push_back(port);
+    ActionSpec action;
+    action.ta_type = TrafficAction::SIMPLE_ACTION;
+    action.simple_action = TrafficAction::PASS;
+    ae_spec1.action_l.push_back(action);
+
+    AclEntry *entry1 = new AclEntry();
+    entry1->PopulateAclEntry(ae_spec1);
+
+    PacketHeader *packet1 = new PacketHeader();
+    packet1->src_ip = Ip6Address::from_string("fd11::4", ec);
+    packet1->dst_ip = Ip6Address::from_string("fd11::10", ec);
+    packet1->protocol = 10;
+    packet1->dst_port = 99;
+
+    AclEntry::ActionList al;
+    FlowPolicyInfo info("");
+    al = entry1->PacketMatch(*packet1, &info);
+    //Verify that source address match fails when src address in the packet is
+    //different
+    EXPECT_EQ(0U, al.size());
+
+    packet1->src_ip = Ip6Address::from_string("fd11::3", ec);
+    packet1->protocol = 10;
+    packet1->dst_port = 99;
+    al = entry1->PacketMatch(*packet1, &info);
+
+    //Verify that source address match fails when src address in the packet is
+    //same
+    EXPECT_EQ(1U, al.size());
+    AclEntry::ActionList::iterator ial;
+    ial = al.begin();
+    EXPECT_EQ(SimpleAction::PASS,
+              static_cast<SimpleAction *>(*ial.operator->())->action());
+
+    //cleanup
+    delete packet1;
+    delete entry1;
+}
+
 TEST_F(AclEntryTest, SubnetAddress) {
     AclEntrySpec ae_spec1;
     ae_spec1.id = 1;

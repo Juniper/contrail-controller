@@ -326,9 +326,13 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
             const Ip6Address &ip6 = ip.to_v6();
             const Ip6Address &data6 = data.to_v6();
             const Ip6Address &mask6 = mask.to_v6();
-            const uint32_t *ip6_words = (uint32_t *)ip6.to_bytes().c_array();
-            const uint32_t *data6_words = (uint32_t *)data6.to_bytes().c_array();
-            const uint32_t *mask6_words = (uint32_t *)mask6.to_bytes().c_array();
+            uint32_t ip6_words[4], data6_words[4], mask6_words[4];
+            const uint32_t *ptr = (uint32_t *)ip6.to_bytes().c_array();
+            memcpy(ip6_words, ptr, sizeof(ip6_words));
+            ptr = (uint32_t *)data6.to_bytes().c_array();
+            memcpy(data6_words, ptr, sizeof(data6_words));
+            ptr = (uint32_t *)mask6.to_bytes().c_array();
+            memcpy(mask6_words, ptr, sizeof(mask6_words));
             bool matched = true;
             for (int i = 0; i < 4; i++) {
                 if ((data6_words[i] & mask6_words[i]) != ip6_words[i]) {
