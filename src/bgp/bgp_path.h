@@ -112,6 +112,7 @@ public:
     uint32_t GetFlags() const {
         return flags_;
     }
+    std::vector<std::string> GetFlagsStringList() const;
 
     PathSource GetSource() const {
         return source_;
