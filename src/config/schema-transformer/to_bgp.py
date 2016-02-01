@@ -1609,6 +1609,8 @@ class ServiceChain(DictST):
                 # destroy them
                 chain.present_stale = True
                 chain.created_stale = chain.created
+                if not hasattr(chain, 'partially_created'):
+                    chain.partially_created = False
                 cls._dict[name] = chain
         except pycassa.NotFoundException:
             pass
