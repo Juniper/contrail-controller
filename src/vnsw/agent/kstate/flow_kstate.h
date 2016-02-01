@@ -15,6 +15,7 @@ class FlowKState : public Task {
     virtual bool Run();
     void SetFlowData(std::vector<KFlowInfo> &list, const vr_flow_entry *k_flow,
                      int index) const;
+    std::string Description() const { return "FlowKState"; }
 protected:
     std::string response_context_;
     int flow_idx_;

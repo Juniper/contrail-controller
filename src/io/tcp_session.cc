@@ -39,6 +39,7 @@ public:
         }
         return true;
     }
+    std::string Description() const { return "TcpSession::Reader"; }
 private:
     TcpSessionPtr session_;
     ReadHandler read_fn_;

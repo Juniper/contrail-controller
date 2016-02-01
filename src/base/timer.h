@@ -112,6 +112,9 @@ public:
         }
     }
 
+    virtual std::string Description() const {
+        return name_;
+    }
 private:
     friend class TimerManager;
     friend class TimerTest;

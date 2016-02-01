@@ -88,6 +88,7 @@ DiagTable::DiagTable(Agent *agent):agent_(agent) {
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
                     (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));
+    entry_op_queue_->set_name("Diagnostics Table");
     index_ = 1;
     Ping::PingInit();
 }
