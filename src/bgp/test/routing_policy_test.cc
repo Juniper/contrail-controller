@@ -390,6 +390,36 @@ TEST_F(RoutingPolicyTest, PolicyMultiplePrefixMatchUpdateLocalPref) {
 }
 
 
+TEST_F(RoutingPolicyTest, PolicyNoMatchUpdateMed) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_1b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0",
+                                   "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_med = orig_attr->med();
+    uint32_t policy_med = attr->med();
+    ASSERT_TRUE(policy_med == 1234);
+    ASSERT_TRUE(original_med == 0);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+}
+
+
 TEST_F(RoutingPolicyTest, PolicyCommunityMatchReject) {
     string content =
         FileRead("controller/src/bgp/testdata/routing_policy_0.xml");

@@ -35,6 +35,7 @@
 <xsd:complexType name="ActionUpdate">
     <xsd:element name="community"   type="ActionCommunity"/>
     <xsd:element name="local-pref"  type="xsd:integer"/>
+    <xsd:element name="med"         type="xsd:integer"/>
 </xsd:complexType>
 
 <xsd:complexType name='PolicyAction'>
