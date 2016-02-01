@@ -499,9 +499,17 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
     if (minfo) {
         session->IncStats((unsigned int)minfo->type, msg.size());
         if (minfo->type != XmppStanza::WHITESPACE_MESSAGE_STANZA) {
-            XMPP_MESSAGE_TRACE(XmppRxStream, 
-                  session->remote_endpoint().address().to_string(),
-                  session->remote_endpoint().port(), msg.size(), msg);
+            if (!(mux_ &&
+                  (mux_->RxMessageTrace(session->
+                                        remote_endpoint().address().to_string(),
+                                        session->remote_endpoint().port(),
+                                        msg.size(), msg, minfo)))) {
+                XMPP_MESSAGE_TRACE(XmppRxStream,
+                                   session->
+                                   remote_endpoint().address().to_string(),
+                                   session->
+                                   remote_endpoint().port(), msg.size(), msg);
+            }
         }
         IncProtoStats((unsigned int)minfo->type);
         state_machine_->OnMessage(session, minfo);

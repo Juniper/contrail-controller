@@ -31,10 +31,22 @@ SandeshTraceBufferPtr ControllerDiscoveryTraceBuf(SandeshTraceBufferCreate(
     "ControllerDiscovery", 5000));
 SandeshTraceBufferPtr ControllerInfoTraceBuf(SandeshTraceBufferCreate(
     "ControllerInfo", 5000));
+SandeshTraceBufferPtr ControllerTxConfigTraceBuf1(SandeshTraceBufferCreate(
+    "ControllerTxConfig_1", 5000));
+SandeshTraceBufferPtr ControllerTxConfigTraceBuf2(SandeshTraceBufferCreate(
+    "ControllerTxConfig_2", 5000));
 SandeshTraceBufferPtr ControllerRouteWalkerTraceBuf(SandeshTraceBufferCreate(
     "ControllerRouteWalker", 5000));
 SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
     "Controller", 5000));
+SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf1(SandeshTraceBufferCreate(
+    "ControllerRxRouteXmppMessage1", 5000));
+SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf1(SandeshTraceBufferCreate(
+    "ControllerRxConfigXmppMessage1", 5000));
+SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf2(SandeshTraceBufferCreate(
+    "ControllerRxRouteXmppMessage2", 5000));
+SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf2(SandeshTraceBufferCreate(
+    "ControllerRxConfigXmppMessage2", 5000));
 
 ControllerDiscoveryData::ControllerDiscoveryData(std::vector<DSResponse> resp) :
     ControllerWorkQueueData(), discovery_response_(resp) {
@@ -163,6 +175,10 @@ void VNController::XmppServerConnect() {
             XmppChannel *channel = client->
                 FindChannel(XmppInit::kControlNodeJID);
             assert(channel);
+            channel->RegisterRxMessageTraceCallback(
+                             boost::bind(&VNController::XmppMessageTrace,
+                                         this, bgp_peer->GetXmppServerIdx(),
+                                         _1, _2, _3, _4, _5));
             bgp_peer->RegisterXmppChannel(channel);
 
             bgp_peer->UpdateConnectionInfo(channel->GetPeerState());
@@ -806,4 +822,22 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
 
 void VNController::Enqueue(ControllerWorkQueueDataType data) {
     work_queue_.Enqueue(data);
+}
+
+bool VNController::XmppMessageTrace(uint8_t peer_index,
+                                    const std::string &to_address,
+                                    int port, int size,
+                                    const std::string &msg,
+                                    const XmppStanza::XmppMessage *xmppmsg) {
+    const std::string &to = xmppmsg->to;
+    if (to.find(XmppInit::kBgpPeer) != string::npos) {
+        CONTROLLER_RX_ROUTE_MESSAGE_TRACE(Message, peer_index, to_address,
+                                           port, size, msg);
+        return true;
+    } else if (to.find(XmppInit::kConfigPeer) != string::npos) {
+        CONTROLLER_RX_CONFIG_MESSAGE_TRACE(Message, peer_index, to_address,
+                                           port, size, msg);
+        return true;
+    }
+    return false;
 }

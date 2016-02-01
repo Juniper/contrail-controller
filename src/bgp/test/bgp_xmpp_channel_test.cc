@@ -86,6 +86,9 @@ public:
     virtual std::string PeerAddress() const {
         return "";
     }
+    virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
+        return;
+    }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

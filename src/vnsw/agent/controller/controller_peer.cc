@@ -1673,7 +1673,8 @@ bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
 
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-    CONTROLLER_INFO_TRACE(Trace, peer->GetBgpPeerName(), "",
+    CONTROLLER_TX_CONFIG_TRACE(Trace, peer->GetXmppServerIdx(),
+                               peer->GetBgpPeerName(), "",
               std::string(reinterpret_cast<const char *>(data_), datalen_));
     // send data
     if (peer->SendUpdate(data_,datalen_) == false) {
@@ -1713,7 +1714,8 @@ bool AgentXmppChannel::ControllerSendCfgSubscribe(AgentXmppChannel *peer) {
     pugi->AddAttribute("node", node);
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-    CONTROLLER_INFO_TRACE(Trace, peer->GetBgpPeerName(), "",
+    CONTROLLER_TX_CONFIG_TRACE(Trace, peer->GetXmppServerIdx(),
+                               peer->GetBgpPeerName(), "",
             std::string(reinterpret_cast<const char *>(data_), datalen_));
     // send data
     if (peer->SendUpdate(data_,datalen_) == false) {
