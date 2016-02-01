@@ -348,10 +348,16 @@ pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(
     return xdoc_.get();
 }
 
+/*
+ * Empty publish and collection nodes constitute eor marker.
+ */
 pugi::xml_document *XmppDocumentMock::AddEorMarker() {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     pubsub.append_child("publish");
+
+    pubsub = PubSubHeader(kNetworkServiceJID);
+    pubsub.append_child("collection");
     return xdoc_.get();
 }
 
