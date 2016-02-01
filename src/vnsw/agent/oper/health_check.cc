@@ -2,6 +2,8 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "http_parser/http_parser.h"
+
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
@@ -419,17 +421,19 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         dest_ip = Ip4Address::from_string(p.url_path, ec);
         url_path = p.url_path;
     } else {
-        std::string url = p.url_path;
-        boost::algorithm::to_lower(url);
-        std::size_t found = url.find("http://");
-        assert(found == 0);
-        std::string url_path = p.url_path.substr(7);
-        found = url_path.find("/");
-        assert(found != 0);
-        std::string dest_ip_str = p.url_path.substr(7, found);
-        url_path = p.url_path.substr(7 + found + 1);
-        boost::system::error_code ec;
-        dest_ip = Ip4Address::from_string(dest_ip_str, ec);
+        struct http_parser_url urldata;
+        int ret = http_parser_parse_url(p.url_path.c_str(), p.url_path.size(),
+                                        false, &urldata);
+        if (ret == 0) {
+            std::string dest_ip_str =
+                p.url_path.substr(urldata.field_data[UF_HOST].off,
+                                  urldata.field_data[UF_HOST].len);
+            // Parse dest-ip from the url to translate to metadata IP
+            dest_ip = Ip4Address::from_string(dest_ip_str, ec);
+            // keep rest of the url string as is
+            url_path = p.url_path.substr(urldata.field_data[UF_HOST].off +\
+                                         urldata.field_data[UF_HOST].len);
+        }
     }
     HealthCheckServiceData *data =
         new HealthCheckServiceData(agent, dest_ip, node->name(),
