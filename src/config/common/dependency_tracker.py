@@ -7,6 +7,7 @@ This file contains implementation of dependency tracker
 for contrail config daemons
 """
 
+from collections import OrderedDict
 
 # This class tracks dependencies among different objects based on a reaction map.
 # Objects could be derived from DBBase. Each object has an object_type and the
@@ -16,7 +17,7 @@ class DependencyTracker(object):
     def __init__(self, object_class_map, reaction_map):
         self._reaction_map = reaction_map
         self._object_class_map = object_class_map
-        self.resources = {}
+        self.resources = OrderedDict()
     # end __init__
 
     def _add_resource(self, obj_type, obj_key):
