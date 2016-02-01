@@ -7,7 +7,7 @@
 
 #include "bgp/bgp_show_handler.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/route_aggregate.h"
+#include "bgp/routing-instance/route_aggregator.h"
 #include "bgp/routing-instance/route_aggregate_types.h"
 
 using std::string;

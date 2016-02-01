@@ -27,7 +27,7 @@ public:
                                      AggregateRouteEntriesInfo *info) const = 0;
 
 private:
-    friend class RouteAggregationTest;
+    friend class RouteAggregatorTest;
 
     // Enable/Disable task triggers
     virtual void DisableRouteAggregateUpdate() = 0;

@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/route_aggregate.h"
+#include "bgp/routing-instance/route_aggregator.h"
 
 #include <boost/foreach.hpp>
 

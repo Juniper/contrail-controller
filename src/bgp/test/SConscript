@@ -365,9 +365,9 @@ routing_policy_test = env.UnitTest('routing_policy_test',
                               ['routing_policy_test.cc'])
 env.Alias('src/bgp:routing_policy_test', routing_policy_test)
 
-route_aggregation_test = env.UnitTest('route_aggregation_test',
-                              ['route_aggregation_test.cc'])
-env.Alias('src/bgp:route_aggregation_test', route_aggregation_test)
+route_aggregator_test = env.UnitTest('route_aggregator_test',
+                                     ['route_aggregator_test.cc'])
+env.Alias('src/bgp:route_aggregator_test', route_aggregator_test)
 
 rt_network_attr_test = env.UnitTest('rt_network_attr_test',
                                     ['rt_network_attr_test.cc'])
@@ -575,7 +575,7 @@ test_suite = [
     path_resolver_test1,
     path_resolver_test2,
     ribout_attributes_test,
-    route_aggregation_test,
+    route_aggregator_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
     routing_instance_mgr_test,

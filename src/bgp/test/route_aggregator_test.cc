@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/route_aggregate.h"
+#include "bgp/routing-instance/route_aggregator.h"
 
 #include <fstream>
 
@@ -117,16 +117,16 @@ static const char *bgp_server_config = "\
 </config>\
 ";
 
-class RouteAggregationTest : public ::testing::Test {
+class RouteAggregatorTest : public ::testing::Test {
 protected:
-    RouteAggregationTest() : bgp_server_(new BgpServer(&evm_)),
+    RouteAggregatorTest() : bgp_server_(new BgpServer(&evm_)),
         parser_(&config_db_),
         validate_done_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
-    ~RouteAggregationTest() {
+    ~RouteAggregatorTest() {
         STLDeleteValues(&peers_);
     }
 
@@ -366,7 +366,7 @@ protected:
     }
 
     static void ValidateShowRouteAggregationResponse(Sandesh *sandesh,
-                    string &result, RouteAggregationTest *self, bool empty) {
+                    string &result, RouteAggregatorTest *self, bool empty) {
         ShowRouteAggregateResp *resp =
             dynamic_cast<ShowRouteAggregateResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowRouteAggregateResp *)NULL, resp);
@@ -414,7 +414,7 @@ protected:
 // Add nexthop route and more specific route for aggregate prefix
 // Verify that aggregate route is published
 //
-TEST_F(RouteAggregationTest, Basic) {
+TEST_F(RouteAggregatorTest, Basic) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -458,7 +458,7 @@ TEST_F(RouteAggregationTest, Basic) {
 // Also verify the aggregate route is published when other more specific routes
 // are published
 //
-TEST_F(RouteAggregationTest, Basic_0) {
+TEST_F(RouteAggregatorTest, Basic_0) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0d.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -506,7 +506,7 @@ TEST_F(RouteAggregationTest, Basic_0) {
 // Also verify the aggregate route is published when more specific routes
 // are added to bgp table
 //
-TEST_F(RouteAggregationTest, Basic_1) {
+TEST_F(RouteAggregatorTest, Basic_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0d.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -562,7 +562,7 @@ TEST_F(RouteAggregationTest, Basic_1) {
     task_util::WaitForIdle();
 }
 
-TEST_F(RouteAggregationTest, Basic_NoReplication) {
+TEST_F(RouteAggregatorTest, Basic_NoReplication) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0e.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -621,7 +621,7 @@ TEST_F(RouteAggregationTest, Basic_NoReplication) {
 // Validate the route aggregation config handling
 // Verify that aggregate route config with multiple aggregate prefix is handled
 //
-TEST_F(RouteAggregationTest, Basic_MultipleAggregatePrefix) {
+TEST_F(RouteAggregatorTest, Basic_MultipleAggregatePrefix) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0f.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -664,7 +664,7 @@ TEST_F(RouteAggregationTest, Basic_MultipleAggregatePrefix) {
 // Nexthop is Inet & Prefixes are both Inet and Inet6
 // Aggregate route should be generated only for Inet
 //
-TEST_F(RouteAggregationTest, Basic_ErrConfig_DiffFamily) {
+TEST_F(RouteAggregatorTest, Basic_ErrConfig_DiffFamily) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0h.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -706,7 +706,7 @@ TEST_F(RouteAggregationTest, Basic_ErrConfig_DiffFamily) {
 // Nexthop is Inet6 & Prefixes are both Inet and Inet6
 // Aggregate route should be generated only for Inet6
 //
-TEST_F(RouteAggregationTest, Basic_ErrConfig_DiffFamily_1) {
+TEST_F(RouteAggregatorTest, Basic_ErrConfig_DiffFamily_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0g.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -748,7 +748,7 @@ TEST_F(RouteAggregationTest, Basic_ErrConfig_DiffFamily_1) {
 // not feasible. Now delete the more specific route and validate that aggregate
 // route is removed
 //
-TEST_F(RouteAggregationTest, Basic_DeleteNexthop) {
+TEST_F(RouteAggregatorTest, Basic_DeleteNexthop) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -795,7 +795,7 @@ TEST_F(RouteAggregationTest, Basic_DeleteNexthop) {
 // Delete the more specific route and validate that aggregate route is deleted
 //
 
-TEST_F(RouteAggregationTest, Basic_MoreSpecificDelete) {
+TEST_F(RouteAggregatorTest, Basic_MoreSpecificDelete) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -835,7 +835,7 @@ TEST_F(RouteAggregationTest, Basic_MoreSpecificDelete) {
 // Verify that aggregate route is deleted only after last aggregate prefix
 // delete
 //
-TEST_F(RouteAggregationTest, Basic_LastMoreSpecificDelete) {
+TEST_F(RouteAggregatorTest, Basic_LastMoreSpecificDelete) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -892,7 +892,7 @@ TEST_F(RouteAggregationTest, Basic_LastMoreSpecificDelete) {
 // Remove the route-aggregate object from routing instance and ensure that
 // aggregated route is deleted
 //
-TEST_F(RouteAggregationTest, ConfigDelete) {
+TEST_F(RouteAggregatorTest, ConfigDelete) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -935,7 +935,7 @@ TEST_F(RouteAggregationTest, ConfigDelete) {
 // Validate that new aggregate route is published and route for previous prefix
 // is deleted
 //
-TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
+TEST_F(RouteAggregatorTest, ConfigUpdatePrefix) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -988,7 +988,7 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix) {
 // Update the route-aggregate config to modify the nexthop
 // Validate that aggregate route is updated with new nexthop
 //
-TEST_F(RouteAggregationTest, ConfigUpdateNexthop) {
+TEST_F(RouteAggregatorTest, ConfigUpdateNexthop) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1038,7 +1038,7 @@ TEST_F(RouteAggregationTest, ConfigUpdateNexthop) {
 // is unregistered. To simulate the delay in unregister processing disable to
 // task trigger that process the resolve and unregister process.
 //
-TEST_F(RouteAggregationTest, ConfigDelete_Add) {
+TEST_F(RouteAggregatorTest, ConfigDelete_Add) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1096,7 +1096,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_Add) {
 // Update the route-aggregate config to modify the prefix length of the
 // aggregate prefix. Verify the new aggregate route
 //
-TEST_F(RouteAggregationTest, ConfigUpdatePrefixLen) {
+TEST_F(RouteAggregatorTest, ConfigUpdatePrefixLen) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1142,7 +1142,7 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefixLen) {
 //
 // Update the config to add new route-aggregate config to routing instance
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_AddNew) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_AddNew) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1199,7 +1199,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_AddNew) {
 //
 // Update the config to update the prefix len of route-aggregate
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1256,7 +1256,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting) {
 //
 // Config with multiple overlapping prefixes
 //
-TEST_F(RouteAggregationTest, OverlappingPrefixes) {
+TEST_F(RouteAggregatorTest, OverlappingPrefixes) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1299,7 +1299,7 @@ TEST_F(RouteAggregationTest, OverlappingPrefixes) {
 //
 // Config update to add multiple overlapping prefixes
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_OverlappingPrefixes) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0d.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1355,7 +1355,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_OverlappingPrefixes) {
 //
 // Config update to remove multiple overlapping prefixes
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_RemoveOverlappingPrefixes) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3c.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1424,7 +1424,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_RemoveOverlappingPrefixes) {
 // Update the config to update the prefix len of route-aggregate
 // Higher prefix len to lower
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting_1) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_UpdateExisting_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3b.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1487,7 +1487,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_UpdateExisting_1) {
 // Update the config to delete existing route-aggregate config from
 // routing instance
 //
-TEST_F(RouteAggregationTest, ConfigUpdate_DeleteExisting) {
+TEST_F(RouteAggregatorTest, ConfigUpdate_DeleteExisting) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_3.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1546,7 +1546,7 @@ TEST_F(RouteAggregationTest, ConfigUpdate_DeleteExisting) {
 // route aggregate config to modify the prefix. Validate the new aggregate route
 // in both routing instances
 //
-TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
+TEST_F(RouteAggregatorTest, ConfigUpdatePrefix_MultipleInstanceRef) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1624,7 +1624,7 @@ TEST_F(RouteAggregationTest, ConfigUpdatePrefix_MultipleInstanceRef) {
 // Add routes with different hashes such that route belongs to different DBTable
 // partition. Validate the aggregate route
 //
-TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
+TEST_F(RouteAggregatorTest, MultipleRoutes_DifferentPartition) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1669,7 +1669,7 @@ TEST_F(RouteAggregationTest, MultipleRoutes_DifferentPartition) {
 // Ensure that aggregate route is not created after enabling the aggregate route
 // processing
 //
-TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
+TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1711,7 +1711,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing) {
 // disabled. Ensure that aggregate route is deleted after enabling the route
 // processing
 //
-TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_1) {
+TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1762,7 +1762,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_1) {
 // After enabling the route processing, ensure that routing instance and route
 // table is deleted
 //
-TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_2) {
+TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_2) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_0a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1817,7 +1817,7 @@ TEST_F(RouteAggregationTest, ConfigDelete_DelayedRouteProcessing_2) {
 // Add nexthop route and more specific route for aggregate prefix
 // Verify that aggregate route is published
 //
-TEST_F(RouteAggregationTest, BasicInet6) {
+TEST_F(RouteAggregatorTest, BasicInet6) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_1a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1855,7 +1855,7 @@ TEST_F(RouteAggregationTest, BasicInet6) {
 // Add nexthop route which is also a more specific route
 // Verify that aggregate route is not published with only nexthop route
 //
-TEST_F(RouteAggregationTest, BasicInet6_0) {
+TEST_F(RouteAggregatorTest, BasicInet6_0) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_1b.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1896,7 +1896,7 @@ TEST_F(RouteAggregationTest, BasicInet6_0) {
 // Add a route with aggregate prefix and verify that route aggregation is not
 // triggerred
 //
-TEST_F(RouteAggregationTest, BasicInet6_1) {
+TEST_F(RouteAggregatorTest, BasicInet6_1) {
     string content =
         FileRead("controller/src/bgp/testdata/route_aggregate_1b.xml");
     EXPECT_TRUE(parser_.Parse(content));
