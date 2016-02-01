@@ -243,7 +243,9 @@ void AgentInit::InitDoneBase() {
     if (cfg_.get()) {
         cfg_->InitDone();
     }
+    agent_->InitDone();
     InitDone();
+
     // Enable task latency measurements once init is done
     agent_->task_scheduler()->EnableLatencyThresholds
         (agent_param_->tbb_exec_delay() * 1000,
@@ -395,6 +397,8 @@ void AgentInit::ModulesShutdownBase() {
     if (agent_->cfg()) {
         agent_->cfg()->Shutdown();
     }
+
+    agent_->Shutdown();
     return;
 }
 
