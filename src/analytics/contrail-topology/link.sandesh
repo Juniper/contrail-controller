@@ -12,11 +12,13 @@ namespace cpp prouter
 enum RemoteType {
     VRouter = 0
     PRouter = 1
+    BMS     = 2
 }
 
 const map<RemoteType, string> RemoteTypeMapNames = {
     RemoteType.VRouter      : "VRouter",
     RemoteType.PRouter      : "PRouter"
+    RemoteType.BMS          : "BMS"
 }
 
 /**

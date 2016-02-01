@@ -4,9 +4,11 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import ModuleNames, HttpPortTopology
+from sandesh_common.vns.constants import ModuleNames, HttpPortTopology, API_SERVER_DISCOVERY_SERVICE_NAME
 from sandesh_common.vns.ttypes import Module
 import discoveryclient.client as discovery_client
+import traceback
+from vnc_api.vnc_api import VncApi
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-topology.conf'
@@ -27,6 +29,8 @@ contrail-topology [-h] [-c FILE]
                          [--use_syslog] [--syslog_facility SYSLOG_FACILITY]
                          [--scan_frequency SCAN_FREQUENCY]
                          [--http_server_port HTTP_SERVER_PORT]
+                         [--disc_server_ip 127.0.0.1]
+                         [--disc_server_port 5998]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -81,6 +85,14 @@ optional arguments:
             'disc_server_ip'     : '127.0.0.1',
             'disc_server_port'   : 5998,
         }
+        ksopts = {
+            'auth_host': '127.0.0.1',
+            'auth_protocol': 'http',
+            'auth_port': 35357,
+            'admin_user': 'user1',
+            'admin_password': 'password1',
+            'admin_tenant_name': 'default-domain'
+        }
 
         config = None
         if args.conf_file:
@@ -91,6 +103,8 @@ optional arguments:
                 defaults.update(dict(config.items("DEFAULTS")))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+            if 'KEYSTONE' in config.sections():
+                ksopts.update(dict(config.items("KEYSTONE")))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -102,6 +116,7 @@ optional arguments:
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         defaults.update(disc_opts)
+        defaults.update(ksopts)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics_api",
             help="List of analytics-api IP addresses in ip:port format",
@@ -137,6 +152,18 @@ optional arguments:
             help="Discovery Server port")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
+        parser.add_argument("--auth_host",
+                            help="ip of keystone server")
+        parser.add_argument("--auth_protocol",
+                            help="keystone authentication protocol")
+        parser.add_argument("--auth_port", type=int,
+                            help="ip of keystone server")
+        parser.add_argument("--admin_user",
+                            help="Name of keystone admin user")
+        parser.add_argument("--admin_password",
+                            help="Password of keystone admin user")
+        parser.add_argument("--admin_tenant_name",
+                            help="Tenant name for keystone admin user")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -192,3 +219,35 @@ optional arguments:
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit
+
+    def api_svrs(self):
+        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
+        x = a.read()
+        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
+
+    def vnc_api(self, notifycb=None):
+        e = SystemError('Cant connect to API server')
+        for rt in (5, 2, 7, 9, 16, 25):
+            for api_server in self.api_svrs():
+                srv = api_server.split(':')
+                if len(srv) == 2:
+                    ip, port = srv[0], int(srv[1])
+                else:
+                    ip, port = '127.0.0.1', int(srv[0])
+                try:
+                    vnc = VncApi(self._args.admin_user,
+                                 self._args.admin_password,
+                                 self._args.admin_tenant_name,
+                                 auth_host=self._args.auth_host,
+                                 auth_port=self._args.auth_port,
+                                 auth_protocol=self._args.auth_protocol)
+                    if callable(notifycb):
+                        notifycb('api', 'Connected', servers=api_server)
+                    return vnc
+                except Exception as e:
+                    traceback.print_exc()
+                    if callable(notifycb):
+                        notifycb('api', 'Not connected', servers=api_server,
+                                up=False)
+                    time.sleep(rt)
+        raise e
