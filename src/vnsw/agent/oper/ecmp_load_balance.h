@@ -102,6 +102,14 @@ public:
         }
     }
 
+    void ResetAll() {
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+             field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
+             field_type++) {
+            hash_fields_to_use_[field_type] = false;
+        }
+    }
+
     bool AllSet() const {
         for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
