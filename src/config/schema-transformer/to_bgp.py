@@ -70,7 +70,7 @@ class SchemaTransformer(object):
             'virtual_network': ['virtual_machine', 'port_tuple',
                                 'bgp_as_a_service'],
             'logical_router': ['virtual_network'],
-            'instance_ip': ['virtual_machine', 'port_tuple'],
+            'instance_ip': ['virtual_machine', 'port_tuple', 'bgp_as_a_service'],
             'floating_ip': ['virtual_machine', 'port_tuple'],
             'virtual_machine': [],
             'port_tuple': [],
@@ -465,6 +465,8 @@ class SchemaTransformer(object):
         gevent.sleep(0.001)
         for pt in PortTupleST.list_vnc_obj():
             PortTupleST.locate(pt.get_fq_name_str(), pt)
+        for bgpass in BgpAsAServiceST.list_vnc_obj():
+            BgpAsAServiceST.locate(bgpass.get_fq_name_str(), bgpass)
         for cls in DBBaseST.get_obj_type_map().values():
             for obj in cls.values():
                 obj.evaluate()
