@@ -201,7 +201,7 @@ void LoadbalancerConfig::GenerateLoadbalancer(ostream *out,
 void LoadbalancerConfig::GenerateListeners(ostream *out,
                                            Loadbalancer *lb) const {
     ostringstream ostr;
-    ostr << "   \"listeners\":[" << endl;
+    *out << "   \"listeners\":[" << endl;
     int count = 0;
     for (Loadbalancer::ListenerMap::const_iterator iter =
          lb->listeners().begin();
