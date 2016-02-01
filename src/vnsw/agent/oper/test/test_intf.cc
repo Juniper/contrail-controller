@@ -1640,7 +1640,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
 //   layer3 nexthop are absent
 //2> Add instance IP and make sure layer3 nexthop are added
 //3> Delete instance ip and layer3 nexthop are deleted
-TEST_F(IntfTest, IntfActivateDeactivate_5) {
+TEST_F(IntfTest, DISABLED_IntfActivateDeactivate_5) {
     struct PortInfo input[] = {
         {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1},
     };

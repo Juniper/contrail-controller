@@ -23,7 +23,7 @@ CfgIntEntry::~CfgIntEntry() {
 // CfgIntData methods
 void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
                        const uuid& vm_project_id,
-                       const std::string& tname, const IpAddress& ip,
+                       const std::string& tname, const Ip4Address& ip,
                        const Ip6Address& ip6, const std::string& mac,
                        const std::string& vm_name,
                        uint16_t tx_vlan_id, uint16_t rx_vlan_id,

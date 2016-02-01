@@ -379,7 +379,7 @@ bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
 
     if (add_nova_) {
         boost::system::error_code ec;
-        IpAddress ip = Ip4Address::from_string(ip_, ec);
+        Ip4Address ip = Ip4Address::from_string(ip_, ec);
         NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vm_uuid_, name(), mac_,
                     vm_name_);
     }
@@ -855,7 +855,7 @@ string AgentUtXmlNova::NodeType() {
 
 bool AgentUtXmlNova::Run() {
     boost::system::error_code ec;
-    IpAddress ip = Ip4Address::from_string(ip_, ec);
+    Ip4Address ip = Ip4Address::from_string(ip_, ec);
     NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vn_uuid_, name(), mac_,
                 vm_name_);
     return true;

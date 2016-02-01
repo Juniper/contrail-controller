@@ -524,7 +524,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
-    IpAddress ip = Ip4Address::from_string(ipaddr, ec);
+    Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
     char vm_name[MAX_TESTNAME_LEN];
     sprintf(vm_name, "vm%d", vm_id);
     Ip6Address ip6 = Ip6Address();

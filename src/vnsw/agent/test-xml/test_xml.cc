@@ -95,7 +95,7 @@ bool GetBoolAttribute(const xml_node &node, const string &name,
     return true;
 }
 
-void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
+void NovaIntfAdd(bool op_delete, const uuid &id, const Ip4Address &ip,
                  const uuid &vm_uuid, const uuid vn_uuid, const string &name,
                  const string &mac, const string vm_name) {
     CfgIntKey *key = new CfgIntKey(id);
@@ -113,7 +113,7 @@ void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
     CfgIntData *data = new CfgIntData();
     req.data.reset(data);
     data->Init(vm_uuid, vn_uuid, MakeUuid(0), name, ip,
-               Ip6Address::v4_compatible(ip.to_v4()), mac, vm_name,
+               Ip6Address::v4_compatible(ip), mac, vm_name,
                VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
                CfgIntEntry::CfgIntVMPort, 0);
 
