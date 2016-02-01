@@ -4,9 +4,12 @@
 
 #include "base/label_block.h"
 
-#include <cassert>
+#include <stdio.h>
 
-using namespace std;
+#include <cassert>
+#include <string>
+
+using std::string;
 
 LabelBlockManager::LabelBlockManager() {
     refcount_ = 0;
@@ -98,4 +101,10 @@ void LabelBlock::ReleaseLabel(uint32_t value) {
     assert(value >= first_ && value <= last_);
     size_t pos = value - first_;
     used_bitset_.reset(pos);
+}
+
+string LabelBlock::ToString() const {
+    char repr[32];
+    snprintf(repr, sizeof(repr), "%u-%u", first_, last_);
+    return repr;
 }
