@@ -102,6 +102,10 @@ struct HealthCheckInstance {
     // when API returns false caller need to assure delete of
     // Health Check Instance
     bool DestroyInstanceTask();
+
+    // should be called only after creating task
+    void UpdateInstanceTaskCommand();
+
     void set_service(HealthCheckService *service);
 
     std::string to_string();
