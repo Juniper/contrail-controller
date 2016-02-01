@@ -104,6 +104,7 @@ class InstanceManager {
     InstanceState *GetState(InstanceTask* task) const;
     void SetState(ServiceInstance *svc_instance, InstanceState *state);
     void ClearState(ServiceInstance *svc_instance);
+    bool DeleteState(ServiceInstance *svc_instance);
     void UpdateStateStatusType(InstanceTask* task, int status);
 
     void SetLastCmdType(ServiceInstance *svc_instance, int last_cmd_type);
@@ -138,7 +139,8 @@ class InstanceManager {
     WorkQueue<InstanceManagerChildEvent> work_queue_;
 
     std::vector<InstanceTaskQueue *> task_queues_;
-    std::map<InstanceTask *, ServiceInstance *> task_svc_instances_;
+    typedef std::map<InstanceTask *, ServiceInstance *> TaskSvcMap;
+    TaskSvcMap task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
     std::string loadbalancer_config_path_;
     std::string namespace_store_path_;
@@ -207,6 +209,21 @@ class InstanceState : public DBState {
         return status_type_;
     }
 
+    int tasks_running() const {
+        return tasks_running_;
+    }
+
+    int incr_tasks_running() {
+        return ++tasks_running_;
+    }
+
+    int decr_tasks_running() {
+        tasks_running_--;
+        assert(!(tasks_running_ < 0));
+        return tasks_running_;
+    }
+
+
     void Clear();
 
  private:
@@ -215,6 +232,7 @@ class InstanceState : public DBState {
     std::string errors_;
     std::string cmd_;
     int status_type_;
+    int tasks_running_;
 
     ServiceInstance::Properties properties_;
 

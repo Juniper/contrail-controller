@@ -213,13 +213,16 @@ void InstanceManager::SigChldEventHandler(InstanceManagerChildEvent event) {
          if (!task_queue->Empty()) {
              InstanceTask *task = task_queue->Front();
              if (task->pid() == event.pid) {
+
+                 //Get the sevice instance first, to delete the state later
+                 ServiceInstance* svc_instance = GetSvcInstance(task);
                  UpdateStateStatusType(task, event.status);
 
                  task_queue->Pop();
                  delete task;
 
                  task_queue->StopTimer();
-
+                 DeleteState(svc_instance);
                  ScheduleNextTask(task_queue);
                  return;
              }
@@ -314,6 +317,23 @@ void InstanceManager::ClearState(ServiceInstance *svc_instance) {
     svc_instance->ClearState(agent_->service_instance_table(), si_listener_);
 }
 
+bool InstanceManager::DeleteState(ServiceInstance *svc_instance) {
+
+    if (!svc_instance || !svc_instance->IsDeleted()) {
+        return false;
+    }
+
+    InstanceState *state = GetState(svc_instance);
+    if (state && !state->tasks_running()) {
+        ClearState(svc_instance);
+        delete state;
+        ClearLastCmdType(svc_instance);
+        return true;
+    }
+
+    return false;
+}
+
 void InstanceManager::InitSigHandler(AgentSignal *signal) {
     signal->RegisterChildHandler(
         boost::bind(&InstanceManager::HandleSigChild, this, _1, _2, _3, _4));
@@ -330,6 +350,7 @@ void InstanceManager::StateClear() {
         if (state != NULL) {
             entry->ClearState(agent_->service_instance_table(), si_listener_);
             delete state;
+            ClearLastCmdType(static_cast<ServiceInstance *>(entry));
         }
         next = partition->GetNext(entry);
     }
@@ -418,6 +439,11 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
                task_queue->StopTimer();
                task_queue->Pop();
+               ServiceInstance* svc_instance = GetSvcInstance(task);
+               if (state && svc_instance)
+                   state->decr_tasks_running();
+               task_svc_instances_.erase(task);
+               DeleteState(svc_instance);
 
                delete task;
             } else {
@@ -429,7 +455,7 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 }
 
 ServiceInstance *InstanceManager::GetSvcInstance(InstanceTask *task) const {
-    std::map<InstanceTask *, ServiceInstance*>::const_iterator iter =
+    TaskSvcMap::const_iterator iter =
                     task_svc_instances_.find(task);
     if (iter != task_svc_instances_.end()) {
         return iter->second;
@@ -439,15 +465,23 @@ ServiceInstance *InstanceManager::GetSvcInstance(InstanceTask *task) const {
 
 void InstanceManager::RegisterSvcInstance(InstanceTask *task,
                                           ServiceInstance *svc_instance) {
-    task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    pair<TaskSvcMap::iterator, bool> result =
+        task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    assert(result.second);
+
+    InstanceState *state = GetState(svc_instance);
+    assert(state);
+    state->incr_tasks_running();
 }
 
 ServiceInstance *InstanceManager::UnregisterSvcInstance(InstanceTask *task) {
-    for (std::map<InstanceTask *, ServiceInstance*>::iterator iter =
-                    task_svc_instances_.begin();
+    for (TaskSvcMap::iterator iter = task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
         if (task == iter->first) {
             ServiceInstance *svc_instance = iter->second;
+            InstanceState *state = GetState(svc_instance);
+            assert(state);
+            state->decr_tasks_running();
             task_svc_instances_.erase(iter);
             return svc_instance;
         }
@@ -457,11 +491,16 @@ ServiceInstance *InstanceManager::UnregisterSvcInstance(InstanceTask *task) {
 }
 
 void InstanceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
-    std::map<InstanceTask *, ServiceInstance*>::iterator iter =
+
+    InstanceState *state = GetState(svc_instance);
+    assert(state);
+
+    TaskSvcMap::iterator iter =
         task_svc_instances_.begin();
     while(iter != task_svc_instances_.end()) {
         if (svc_instance == iter->second) {
             task_svc_instances_.erase(iter++);
+            state->decr_tasks_running();
         } else {
             ++iter;
         }
@@ -634,14 +673,14 @@ void InstanceManager::EventObserver(
 
     InstanceState *state = GetState(svc_instance);
     if (svc_instance->IsDeleted()) {
-        UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
                 StopNetNS(svc_instance, state);
+                SetLastCmdType(svc_instance, Stop);
             }
 
-            ClearState(svc_instance);
-            delete state;
+            if (DeleteState(svc_instance))
+                return;
         }
         ClearLastCmdType(svc_instance);
     } else {
@@ -720,7 +759,7 @@ void InstanceManager::SetNamespaceStorePath(std::string path) {
  * InstanceState class
  */
 InstanceState::InstanceState() : DBState(),
-        pid_(0), status_(0), status_type_(0) {
+        pid_(0), status_(0), status_type_(0), tasks_running_(0) {
 }
 
 void InstanceState::Clear() {
