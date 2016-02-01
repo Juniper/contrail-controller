@@ -104,8 +104,12 @@ void PeerCloseManager::Close() {
 // Process RibIn staling related activities during peer closure
 // Return true if at least ome time is started, false otherwise
 void PeerCloseManager::StartRestartTimer(int time) {
-    stale_timer_->Cancel();
+    tbb::recursive_mutex::scoped_lock lock(mutex_);
 
+    if (state_ != GR_TIMER)
+        return;
+
+    stale_timer_->Cancel();
     PEER_CLOSE_MANAGER_LOG("GR Timer started to fire after " << time <<
                            " seconds");
     stale_timer_->Start(time,
@@ -207,8 +211,8 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
     // If any stale timer has to be launched, then to wait for some time hoping
     // for the peer (and the paths) to come back up.
     peer_->peer_close()->CloseComplete();
-    StartRestartTimer(PeerCloseManager::kDefaultGracefulRestartTimeMsecs);
     MOVE_TO_STATE(GR_TIMER);
+    StartRestartTimer(PeerCloseManager::kDefaultGracefulRestartTimeMsecs);
     stats_.gr_timer++;
 }
 

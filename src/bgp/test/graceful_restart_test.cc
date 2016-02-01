@@ -222,7 +222,7 @@ protected:
     void VerifyDeletedRoutingInstnaces(vector<int> instances);
     void VerifyRoutingInstances();
     void XmppPeerClose(int nagents = -1);
-    void CallStaleTimer();
+    void CallStaleTimer(BgpXmppChannel *channel);
     void InitParams();
     void VerifyRoutes(int count);
     bool IsReady(bool ready);
@@ -268,12 +268,14 @@ protected:
             this->instance_ids = instance_ids;
             this->nroutes = nroutes;
             this->skip_tcp_event = skip_tcp_event;
+            this->send_eor = true;
         }
 
         test::NetworkAgentMock *agent;
         vector<int> instance_ids;
         vector<int> nroutes;
         TcpSession::Event skip_tcp_event;
+        bool send_eor;
     };
     std::vector<AgentTestParams> n_flip_from_agents_;
     std::vector<test::NetworkAgentMock *> n_down_from_agents_;
@@ -631,11 +633,9 @@ void GracefulRestartTest::AddAgentsWithRoutes(
     AddXmppPeersWithRoutes();
 }
 
-// Invoke stale timer callbacks as evm is not running in this unit test
-void GracefulRestartTest::CallStaleTimer() {
-    BOOST_FOREACH(BgpXmppChannel *peer, xmpp_peers_) {
-        peer->Peer()->peer_close()->close_manager()->RestartTimerCallback();
-    }
+// Invoke stale timer callbacks directly as evm is not running in this unit test
+void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
+    channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
     WaitForIdle();
 }
 
@@ -786,16 +786,26 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                 agent->AddRoute(instance_name, prefix.ToString(),
                                     GetNextHops(agent, instance_id));
             }
-
-            // Send EoR marker
-            // agent->SendEorMarker();
             total_routes += nroutes;
         }
     }
+
+    // Send EoR marker or trigger GR timer for agents which came back up and
+    // sent desired routes.
+    BOOST_FOREACH(AgentTestParams agent_test_param, n_flip_from_agents_) {
+        test::NetworkAgentMock *agent = agent_test_param.agent;
+        if (agent_test_param.send_eor)
+            agent->SendEorMarker();
+        else
+            CallStaleTimer(xmpp_peers_[agent->id()]);
+    }
+
     WaitForIdle();
 
-    // Directly invoke stale timer callbacks
-    CallStaleTimer();
+    // Trigger GR timer for agents which went down permanently.
+    BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
+        CallStaleTimer(xmpp_peers_[agent->id()]);
+    }
     VerifyReceivedXmppRoutes(total_routes);
     VerifyDeletedRoutingInstnaces(instances_to_delete_before_gr_);
     VerifyDeletedRoutingInstnaces(instances_to_delete_during_gr_);
@@ -1003,6 +1013,50 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_2) {
         }
         n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
                                                       nroutes));
+        // All flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = true;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances and sends all routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_2_2) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+        // None of the flipped agents sends EoR.
+        n_flip_from_agents_[i].send_eor = false;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances and sends all routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_2_3) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+        // Only even flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = ((i%2) == 0);
     }
     GracefulRestartTestRun();
 }
@@ -1022,6 +1076,50 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_3) {
         }
         n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
                                                       nroutes));
+        // All flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = true;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances but sends no routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_3_2) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(0);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+        // None of the flipped agents sends EoR.
+        n_flip_from_agents_[i].send_eor = false;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances but sends no routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_3_3) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(0);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+        // Only even flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = ((i%2) == 0);
     }
     GracefulRestartTestRun();
 }
@@ -1030,9 +1128,6 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_3) {
 TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4) {
     SCOPED_TRACE(__FUNCTION__);
     GracefulRestartTestStart();
-
-    for (int i = 1; i <= n_instances_/4; i++)
-        instances_to_delete_before_gr_.push_back(i);
 
     for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
         test::NetworkAgentMock *agent = xmpp_agents_[i];
@@ -1044,6 +1139,53 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4) {
         }
         n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
                                                       nroutes));
+
+        // All flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = true;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances and sends some routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4_2) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_/2);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+
+        // None of the flipped agents sends EoR.
+        n_flip_from_agents_[i].send_eor = false;
+    }
+    GracefulRestartTestRun();
+}
+
+// Some agents come back up and subscribe to all instances and sends some routes
+TEST_P(GracefulRestartTest, GracefulRestart_Flap_Some_4_3) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++) {
+        test::NetworkAgentMock *agent = xmpp_agents_[i];
+        vector<int> instance_ids = vector<int>();
+        vector<int> nroutes = vector<int>();
+        for (int j = 1; j <= n_instances_; j++) {
+            instance_ids.push_back(j);
+            nroutes.push_back(n_routes_/2);
+        }
+        n_flip_from_agents_.push_back(AgentTestParams(agent, instance_ids,
+                                                      nroutes));
+
+        // Only even flipped agents send EoR.
+        n_flip_from_agents_[i].send_eor = ((i%2) == 0);
     }
     GracefulRestartTestRun();
 }
