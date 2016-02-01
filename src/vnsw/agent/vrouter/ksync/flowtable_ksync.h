@@ -58,7 +58,6 @@ private:
 
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
-    uint32_t old_hash_id_;
     uint32_t old_reverse_flow_id_;
     uint32_t old_action_;
     uint32_t old_component_nh_idx_;

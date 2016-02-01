@@ -249,6 +249,7 @@ void FlowEntry::Reset() {
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     ksync_index_entry_ = std::auto_ptr<KSyncFlowIndexEntry>
         (new KSyncFlowIndexEntry());
+    vrouter_evicted_ = false;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
