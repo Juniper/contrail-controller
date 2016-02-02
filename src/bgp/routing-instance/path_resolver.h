@@ -25,6 +25,7 @@ class DeleteActor;
 class PathResolverPartition;
 class ResolverNexthop;
 class ResolverPath;
+class ShowPathResolver;
 class TaskTrigger;
 
 //
@@ -100,6 +101,8 @@ public:
     void ManagedDelete();
     bool MayDelete() const;
     void RetryDelete();
+
+    void FillShowInfo(ShowPathResolver *spr, bool summary) const;
 
 private:
     friend class PathResolverPartition;
@@ -295,6 +298,7 @@ public:
     BgpRoute *route() const { return route_; }
     const ResolverNexthop *rnexthop() const { return rnexthop_; }
     void clear_path() { path_ = NULL; }
+    size_t resolved_path_count() const { return resolved_path_list_.size(); }
 
 private:
     typedef std::set<BgpPath *> ResolvedPathList;
@@ -374,7 +378,7 @@ public:
 
     IpAddress address() const { return address_; }
     BgpTable *table() const { return table_; }
-    const BgpRoute *route() { return route_; }
+    const BgpRoute *route() const { return route_; }
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }

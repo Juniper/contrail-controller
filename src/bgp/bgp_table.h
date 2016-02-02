@@ -111,6 +111,7 @@ public:
     BgpServer *server();
     const BgpServer *server() const;
     PathResolver *path_resolver() { return path_resolver_; }
+    const PathResolver *path_resolver() const { return path_resolver_; }
 
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
