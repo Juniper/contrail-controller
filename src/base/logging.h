@@ -43,9 +43,11 @@ void LoggingInit(const std::string &filename,
                  int maxBackupIndex,
                  bool useSyslog,
                  const std::string &syslogFacility,
-                 const std::string &ident);
+                 const std::string &ident,
+                 log4cplus::LogLevel logLevel);
 
 void LoggingInit(const std::string &propertyFile);
+void SetLoggingLevel(log4cplus::LogLevel logLevel);
 
 //
 // Disable logging - For testing purposes only

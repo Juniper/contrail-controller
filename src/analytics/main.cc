@@ -238,11 +238,12 @@ int main(int argc, char *argv[])
     std::string log_property_file = options.log_property_file();
     if (log_property_file.size()) {
         LoggingInit(log_property_file);
-    }
-    else {
+    } else {
         LoggingInit(options.log_file(), options.log_file_size(),
                     options.log_files_count(), options.use_syslog(),
-                    options.syslog_facility(), module_id);
+                    options.syslog_facility(), module_id,
+                    SandeshLevelTolog4Level(
+                        Sandesh::StringToLevel(options.log_level())));
     }
     vector<string> cassandra_servers(options.cassandra_server_list());
     vector<string> cassandra_ips;

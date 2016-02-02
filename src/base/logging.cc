@@ -34,6 +34,11 @@ void CheckEnvironmentAndUpdate() {
     }
 }
 
+void SetLoggingLevel(LogLevel logLevel) {
+    Logger logger = Logger::getRoot();
+    logger.setLogLevel(logLevel);
+}
+
 void LoggingInit() {
     BasicConfigurator config;
     config.configure();
@@ -45,13 +50,9 @@ void LoggingInit() {
 
 void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupIndex,
                  bool useSyslog, const std::string &syslogFacility,
-                 const std::string &ident) {
-    helpers::Properties props;
-    props.setProperty(LOG4CPLUS_TEXT("rootLogger"),
-            LOG4CPLUS_TEXT("DEBUG"));
-    PropertyConfigurator config(props);
+                 const std::string &ident, LogLevel logLevel) {
     Logger logger = Logger::getRoot();
-
+    logger.setLogLevel(logLevel);
     if (filename == "<stdout>" || filename.length() == 0) {
         BasicConfigurator config;
         config.configure();
@@ -65,6 +66,7 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
 
     if (useSyslog) {
+        helpers::Properties props;
         std::string syslogident = boost::str(
             boost::format("%1%[%2%]") % ident % getpid());
         props.setProperty(LOG4CPLUS_TEXT("facility"),
