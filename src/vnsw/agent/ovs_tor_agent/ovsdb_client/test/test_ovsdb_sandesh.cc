@@ -91,6 +91,7 @@ public:
         SendResponse();
         return true;
     }
+    std::string Description() const { return "TestOvsdbRouteExportTask"; }
 private:
     void SendResponse() {
         resp_->set_context(resp_data_);

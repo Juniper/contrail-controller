@@ -213,6 +213,7 @@ public:
         HttpSession::task_count_--;
         return true;
     }
+    std::string Description() const { return "HttpSession::RequestHandler"; }
 private:
     HttpSessionPtr session_;
 };

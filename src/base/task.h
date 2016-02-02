@@ -97,7 +97,7 @@ public:
     static Task *Running();
 
     bool task_cancelled() const { return task_cancel_; };
-    virtual std::string Description() const { return ""; }
+    virtual std::string Description() const  = 0;
     uint64_t enqueue_time() const { return enqueue_time_; }
     uint64_t schedule_time() const { return schedule_time_; }
 

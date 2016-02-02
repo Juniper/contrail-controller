@@ -248,6 +248,7 @@ private:
             table->Delete(key_, true, false);
             return true;
         }
+        std::string Description() const { return "FlowDeleteTask"; }
     private:
         FlowKey key_;
     };

@@ -208,7 +208,7 @@ public:
         return queue_->RunnerDone();
     }
 
-    std::string Description() {
+    std::string Description() const {
         return "DBPartition QueueRunner";
     }
 private:

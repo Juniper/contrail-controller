@@ -26,6 +26,7 @@ public:
         queue_->Run();
         return true;
     }
+    std::string Description() const { return "KSyncTxQueue"; }
 
 private:
     KSyncTxQueue *queue_;

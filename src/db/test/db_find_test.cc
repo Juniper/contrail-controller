@@ -211,6 +211,7 @@ public:
             " Time is " << delay << " usec" << std::endl;
         return true;
     }
+    std::string Description() const { return "ScaleTask"; }
 private:
     VlanTable *table_;
     bool do_lock_;

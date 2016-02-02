@@ -38,6 +38,7 @@ public:
         fec->ExportFlow(fe_->key(), info, bytes_, pkts_);
         return true;
     }
+    std::string Description() const { return "FlowExportTask"; }
 private:
     FlowEntry *fe_;
     uint64_t bytes_;

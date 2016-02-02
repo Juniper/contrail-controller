@@ -48,6 +48,9 @@ private:
         virtual ~ProcessDeleteTableReqTask();
 
         bool Run();
+        std::string Description() const {
+            return "LogicalSwitchTable::ProcessDeleteTableReqTask";
+        }
 
     private:
         LogicalSwitchTable *table_;
@@ -135,6 +138,9 @@ private:
         virtual ~ProcessDeleteOvsReqTask();
 
         bool Run();
+        std::string Description() const {
+            return "LogicalSwitchEntry::ProcessDeleteOvsReqTask";
+        }
 
     private:
         KSyncEntry::KSyncEntryPtr entry_;

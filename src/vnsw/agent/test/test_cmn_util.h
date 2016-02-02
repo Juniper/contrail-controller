@@ -29,6 +29,7 @@ private:
     public:
         HoldTask(TestTaskHold *hold_entry);
         bool Run();
+        std::string Description() const { return "TestHoldTask"; }
     private:
         TestTaskHold *hold_entry_;
     };
