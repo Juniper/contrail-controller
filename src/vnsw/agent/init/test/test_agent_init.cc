@@ -82,6 +82,39 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dhcp_relay_mode(), false);
 }
 
+TEST_F(FlowTest, Agent_Tbb_Option_1) {
+    int argc = 1;
+    char *argv[] = {
+        (char *) "",
+    };
+
+    AgentParam param(Agent::GetInstance());
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
+
+    EXPECT_EQ(param.tbb_keepawake_timeout(), 50);
+    EXPECT_EQ(param.tbb_exec_delay(), 10);
+    EXPECT_EQ(param.tbb_schedule_delay(), 25);
+}
+
+TEST_F(FlowTest, Agent_Tbb_Option_Arguments) {
+    int argc = 7;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--TASK.log_exec_threshold",           (char *)"100",
+        (char *) "--TASK.log_schedule_threshold",      (char *)"200",
+        (char *) "--TASK.tbb_keepawake_timeout",      (char *)"300",
+    };
+
+    AgentParam param(Agent::GetInstance());
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/tbb.ini", "test-param");
+
+    EXPECT_EQ(param.tbb_exec_delay(), 100);
+    EXPECT_EQ(param.tbb_schedule_delay(), 200);
+    EXPECT_EQ(param.tbb_keepawake_timeout(), 300);
+}
+
 // Check that linklocal flows are updated when the system limits are lowered
 TEST_F(FlowTest, Agent_Conf_file_3) {
     struct rlimit rl;

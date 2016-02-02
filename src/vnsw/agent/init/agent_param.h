@@ -218,6 +218,7 @@ public:
 
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
+    uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -412,6 +413,7 @@ private:
     // TBB related
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
+    uint32_t tbb_keepawake_timeout_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
