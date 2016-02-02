@@ -262,6 +262,7 @@ class OpServerUtils(object):
                     yield i
             except Exception as e:
                 print "Error parsing %s results: %s" % (ln, str(e))
+                done = True
         return
     # end parse_query_result
 
