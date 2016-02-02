@@ -1064,14 +1064,14 @@ class VirtualNetworkST(DBBaseST):
                     acl = self.add_acl_rule(
                         sa, sp, da, dp, arule_proto, rule_uuid,
                         prule.action_list, prule.direction,
-                        service_ris.get(da, [None])[0])
+                        service_ris.get(da.virtual_network, [None])[0])
                     result_acl_rule_list.append(acl)
                     if ((prule.direction == "<>") and
                         (sa != da or sp != dp)):
                         acl = self.add_acl_rule(
                             da, dp, sa, sp, arule_proto, rule_uuid,
                             prule.action_list, prule.direction,
-                            service_ris.get(sa, [None, None])[1])
+                            service_ris.get(sa.virtual_network, [None, None])[1])
 
                         result_acl_rule_list.append(acl)
                 # end for sp, dp
@@ -2338,7 +2338,7 @@ class ServiceChain(DBBaseST):
         for service in self.service_list:
             si = ServiceInstanceST.get(service)
             if si is None:
-                self.log_error("Service instance %s not found " + service)
+                self.log_error("Service instance %s not found " % service)
                 return None
             vm_list = si.virtual_machines
             pt_list = si.port_tuples
