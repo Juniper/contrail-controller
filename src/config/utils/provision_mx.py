@@ -25,7 +25,8 @@ class MxProvisioner(object):
 
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('mx', self._args.router_name,
-                                  self._args.router_ip, self._args.router_asn)
+                                  self._args.router_ip, self._args.router_asn,
+                                  self._args.address_families)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.router_name)
         else:
@@ -82,6 +83,10 @@ class MxProvisioner(object):
         parser.add_argument("--router_name", help="System name of MX")
         parser.add_argument("--router_ip", help="IP address of MX")
         parser.add_argument("--router_asn", help="AS Number the MX is in")
+        parser.add_argument(
+            "--address_families", help="Address family list",
+            choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
+            nargs="*", default=[])
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
