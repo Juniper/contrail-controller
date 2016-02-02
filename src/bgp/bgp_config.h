@@ -319,6 +319,7 @@ struct ActionUpdate {
     CommunityList community_add;
     CommunityList community_remove;
     uint32_t local_pref;
+    uint32_t med;
 };
 
 struct RoutingPolicyActionConfig {

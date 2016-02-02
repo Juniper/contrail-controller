@@ -1593,6 +1593,7 @@ static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
         term->action.update.community_set.push_back(community);
     }
     term->action.update.local_pref = cfg_term.then.update.local_pref;
+    term->action.update.med = cfg_term.then.update.med;
     term->action.action = RoutingPolicyActionConfig::NEXT_TERM;
     if (strcmp(cfg_term.then.action.c_str(), "reject") == 0) {
         term->action.action = RoutingPolicyActionConfig::REJECT;
