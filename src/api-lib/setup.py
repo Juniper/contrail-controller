@@ -35,8 +35,10 @@ setup(
               'vnc_api.gen.heat',
               'vnc_api.gen.heat.resources',
               'vnc_api.gen.heat.template',
+              'vnc_api.gen.heat.env',
              ],
     long_description="VNC API Library Package",
+    package_data={'': ['*.yaml', '*.env']},
     install_requires=[
         'requests>=1.1.0'
     ],
