@@ -2,6 +2,17 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for agent profile .
+ *
+ * This module is responsible for generating debug information for agent
+ *
+ */
+
+/**
+ * Statistics for db table
+ */
+
 struct SandeshDBTableStats {
     1: string table;
     2: u64 db_entry_count;
@@ -11,20 +22,33 @@ struct SandeshDBTableStats {
     6: u64 notify_count;
 }
 
+/**
+ * Statistics for db table entry
+ */
+
 struct SandeshDBTableStatsInfo {
     1: u16 index;
     2: string time_str;
     3: list<SandeshDBTableStats> stats;
 }
 
+/**
+ * Response message for db table entry list
+ */
 response sandesh SandeshDBTableStatsList {
     1: list<SandeshDBTableStatsInfo> stats;
 }
 
+/**
+ * Request messae to get db table entry list from agent introspect
+ */
 request sandesh SandeshDBTableStatsRequest {
     1: u16 count; // send data for last 'count' entries
 }
 
+/**
+ * Statistics for flow
+ */
 struct SandeshFlowStats {
     1:  u16 index;
     2:  string time_str;
@@ -37,14 +61,23 @@ struct SandeshFlowStats {
    11:  u64 audit_count;
 }
 
+/**
+ * Response message for flow stats list
+ */
 response sandesh SandeshFlowStatsList {
     1: list<SandeshFlowStats> stats;
 }
 
+/**
+ * Request message getting for flow stats
+ */
 request sandesh SandeshFlowStatsRequest {
     1: u16 count; // send data for last 'count' entries
 }
 
+/**
+ * Statistics for agent profile task
+ */
 struct TaskProfileStats {
     1:  u16 index;
     2:  i32 flow_run;
@@ -73,10 +106,16 @@ struct TaskProfileStats {
    25:  i32 ksync_defer;
 }
 
+/**
+ * Response message for profile task
+ */
 response sandesh SandeshTaskStatsList {
     1: list<TaskProfileStats> stats;
 }
 
+/**
+ * Request message to get profile task stats from agent introspect
+ */
 request sandesh SandeshTaskStatsRequest {
     1: u16 count; // send data for last 'count' entries
 }
