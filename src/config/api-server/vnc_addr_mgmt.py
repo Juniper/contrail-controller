@@ -24,6 +24,25 @@ class AddrMgmtError(Exception):
 # end class AddrMgmtError
 
 
+def subnets_overlap(subnets):
+    """ Given a list of subnets, returns the overlapping
+    list of subnets.
+    """
+
+    overlap = []
+    half = len(subnets)/2
+    if not half:
+        return overlap
+    l_subnets, r_subnets = subnets[:half], subnets[half:]
+    overlap= IPSet(l_subnets) & IPSet(r_subnets)
+    if overlap:
+        return overlap
+    overlap = subnets_overlap(l_subnets)
+    if overlap:
+        return overlap
+    return subnets_overlap(r_subnets)
+
+
 class AddrMgmtSubnetUndefined(AddrMgmtError):
 
     def __init__(self, vn_fq_name):
@@ -639,11 +658,17 @@ class AddrMgmt(object):
 
     # check subnets associated with a virtual network, return error if
     # any two subnets have overlap ip addresses
-    def net_check_subnet_overlap(self, db_vn_dict, req_vn_dict):
+    def net_check_subnet_overlap(self, req_vn_dict, db_vn_dict={}):
         # get all subnets existing + requested and check any non-exact overlaps
         requested_subnets = self._vn_to_subnets(req_vn_dict)
         if not requested_subnets:
             return True, ""
+
+        # Find any overlapping subnets in the request
+        overlap = subnets_overlap(requested_subnets)
+        if overlaps:
+            err_msg = "Overlapping addresses between requested: "
+            return False, err_msg + str(overlaps)
 
         existing_subnets = self._vn_to_subnets(db_vn_dict)
         if not existing_subnets:
@@ -656,6 +681,10 @@ class AddrMgmt(object):
         existing_set = set([sn for sn in existing_subnets])
         requested_set = set([sn for sn in requested_subnets])
         new_set = requested_set - existing_set
+        # Find if all subnets in the request overlaps with the existing
+        if not new_set:
+            err_msg = "Overlapping addresses between requested and existing: "
+            return False, err_msg + str(requested_set)
 
         # IPSet to find any overlapping subnets
         overlap_set = IPSet(existing_set) & IPSet(new_set)
