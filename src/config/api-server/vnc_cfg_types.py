@@ -654,6 +654,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         db_conn.update_subnet_uuid(obj_dict)
 
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
+        if not ok:
+            return (ok, (409, result))
+
         (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
         if not ok:
             return (ok, (409, result))
@@ -731,8 +735,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                             obj_dict, db_conn)
         if not ok:
             return (ok, (403, result))
-        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
-                                                              obj_dict)
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict,
+                                                              read_result)
         if not ok:
             return (ok, (409, result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_delete(read_result,
