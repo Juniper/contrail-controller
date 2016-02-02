@@ -148,7 +148,7 @@ struct ShowRoutePath {
     24: list<string> secondary_tables;
     15: list<string> communities;
     16: string origin_vn;
-    17: u32 flags;
+    17: list<string> flags;
     18: list<string> tunnel_encap;
     19: string sequence_no;
     20: list<string> origin_vn_path;

@@ -6,12 +6,15 @@
 
 #include "bgp/bgp_route.h"
 
-std::string BgpPath::PathIdString(uint32_t path_id) {
+using std::string;
+using std::vector;
+
+string BgpPath::PathIdString(uint32_t path_id) {
     Ip4Address addr(path_id);
     return addr.to_string();
 }
 
-std::string BgpPath::PathSourceString(PathSource source) {
+string BgpPath::PathSourceString(PathSource source) {
     switch (source) {
         case None:
             return "None";
@@ -138,6 +141,29 @@ RouteDistinguisher BgpPath::GetSourceRouteDistinguisher() const {
 
     const BgpSecondaryPath *path = static_cast<const BgpSecondaryPath *>(this);
     return path->GetPrimaryRouteDistinguisher();
+}
+
+vector<string> BgpPath::GetFlagsStringList() const {
+    vector<string> flag_names;
+    if (flags_ == 0) {
+        flag_names.push_back("None");
+    } else {
+        if (flags_ & AsPathLooped)
+            flag_names.push_back("AsPathLooped");
+        if (flags_ & NoNeighborAs)
+            flag_names.push_back("NoNeighborAs");
+        if (flags_ & Stale)
+            flag_names.push_back("Stale");
+        if (flags_ & NoTunnelEncap)
+            flag_names.push_back("NoTunnelEncap");
+        if (flags_ & OriginatorIdLooped)
+            flag_names.push_back("OriginatorIdLooped");
+        if (flags_ & ResolveNexthop)
+            flag_names.push_back("ResolveNexthop");
+        if (flags_ & RoutingPolicyReject)
+            flag_names.push_back("RoutingPolicyReject");
+    }
+    return flag_names;
 }
 
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,

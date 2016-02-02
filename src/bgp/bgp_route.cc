@@ -453,7 +453,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         srp.set_local_preference(attr->local_pref());
         srp.set_next_hop(attr->nexthop().to_string());
         srp.set_label(path->GetLabel());
-        srp.set_flags(path->GetFlags());
+        srp.set_flags(path->GetFlagsStringList());
         srp.set_last_modified(
             integerToString(UTCUsecToPTime(path->time_stamp_usecs())));
         if (path->IsReplicated()) {
