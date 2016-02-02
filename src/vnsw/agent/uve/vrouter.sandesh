@@ -2,19 +2,36 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * This UVE provides information associated with a vRouter such as
+ *
+ * virtual networks present on this vRouter,
+ * virtual machines spawned on the server of this vRouter,
+ * statistics of the traffic flowing through this vRouter
+ *
+ */
 include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
 
+/**
+ * statistics for agent's xen server config
+ */
 struct AgentXenConfig {
     1: string            xen_ll_port;
     2: string            xen_ll_ip;
     3: i32               xen_ll_prefix_len;
 }
 
+/**
+ * statistics for agent's vmware server config
+ */
 struct AgentVmwareConfig {
     1: string            vmware_port;
 }
 
+/**
+ * statistics for agent's vgw config
+ */
 struct AgentVgwConfig {
     1: string            interface_name;
     2: string            vrf_name;
@@ -22,6 +39,9 @@ struct AgentVgwConfig {
     4: optional list<string> route_list; 
 }
 
+/**
+ * statistics for agent's vhost config
+ */
 struct AgentVhostConfig {
     1: string    name;
     2: string    ip;
@@ -29,6 +49,9 @@ struct AgentVhostConfig {
     4: string    gateway;
 }
 
+/**
+ * statistics for agent's vmware xmpp peer
+ */
 struct AgentXmppPeer {
     1: string        ip (aggtype="listkey")
     2: bool          status;
@@ -36,11 +59,17 @@ struct AgentXmppPeer {
     4: bool          primary;
 }
 
+/**
+ * statistics for agent interface
+ */
 struct AgentInterface {
     1: string name (aggtype="listkey")
     2: string mac_address;
 }
 
+/**
+ * Statistics for agent config
+ */
 struct VrouterAgent {  // Agent info
     1: string name (key="ObjectVRouter")
     2: optional bool                deleted
@@ -95,10 +124,16 @@ struct VrouterAgent {  // Agent info
    51: optional string platform;
 }
 
+/**
+ * uve for agent config
+ */
 uve sandesh UveVrouterAgent {
     1: VrouterAgent data;
 }
 
+/**
+ * Statistics for agent drop stats
+ */
 struct AgentDropStats {
     1:  u64   ds_discard;
     2:  u64   ds_pull;
@@ -148,6 +183,9 @@ struct AgentDropStats {
     47: u64   ds_arp_reply_no_route;
 }
 
+/**
+ ** Statistics for agent xmpp connection
+ */
 struct AgentXmppStats {
     1: string   ip (aggtype="listkey")
     2: optional u16 reconnects; 
@@ -171,6 +209,9 @@ struct AgentIfBandwidth {
     3: u16 out_bandwidth_usage;
 }
 
+/**
+ * Statistics for vrouter flow rate
+ */
 struct VrouterFlowRate {
     1: u32 added_flows;
     2: u32 max_flow_adds_per_second;
@@ -180,6 +221,9 @@ struct VrouterFlowRate {
     6: u32 min_flow_deletes_per_second;
 }
 
+/**
+ * Statistics for vrouter
+ */
 struct VrouterStatsAgent {  // Agent stats
     1: string name (key="ObjectVRouter")
     2: optional bool                deleted
@@ -235,10 +279,16 @@ struct VrouterStatsAgent {  // Agent stats
     46: optional list<AgentIfBandwidth> phy_if_band (tags=".name")
 }
 
+/**
+ * Vrouter statistics uve
+ */
 uve sandesh VrouterStats {
     1: VrouterStatsAgent data;
 }
 
+/**
+ * Statistics for vrouter cpu usage
+ */
 struct VrouterCpuInfo {
     1: u32                            mem_virt
     2: double                         cpu_share
@@ -247,16 +297,26 @@ struct VrouterCpuInfo {
     5: u32                            mem_res
 }
 
+/**
+ * Compute node cpu stats
+ */
 struct ComputeCpuState {
     1: string                         name (key="ObjectVRouter")
     2: optional bool                  deleted
     3: optional list<VrouterCpuInfo>  cpu_info (tags=".mem_virt,.cpu_share,.mem_res", aggtype="union")
 }
 
+/**
+ * @description: Trace message for compute node cpu stats
+ * @severity: DEBUG
+ */
 uve sandesh ComputeCpuStateTrace {
     1: ComputeCpuState data
 }
 
+/**
+ * Statistics for compute node
+ */
 struct NodeStatus {
     1: string name (key="ObjectVRouter")
     2: optional bool deleted
@@ -270,6 +330,9 @@ struct NodeStatus {
     8: optional list<string> all_core_file_list
 }
 
+/**
+ * Compute node uve
+ */
 uve sandesh NodeStatusUVE {
     1: NodeStatus data
 }

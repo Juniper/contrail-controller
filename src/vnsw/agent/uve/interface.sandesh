@@ -4,11 +4,21 @@
 
 include "vnsw/agent/uve/port_bmap.sandesh"
 
+/**
+ * Uve definitions for interface
+ */
+
+/**
+ * Statistics for vm floatingip in agent
+ */
 struct VmFloatingIPAgent {                                                      
     1: string virtual_network;                                                  
     2: string ip_address;                                                       
 }    
 
+/**
+ * Statistics for vm floating ip
+ */
 struct VmFloatingIPStats {
     1: string virtual_network;
     2: string ip_address;
@@ -18,7 +28,7 @@ struct VmFloatingIPStats {
     6: u64 out_bytes;
 }
 
-/*
+/**
  * VM's interfaces' stats samples (diff stats)
  */
 struct VmInterfaceStats {
@@ -28,6 +38,9 @@ struct VmInterfaceStats {
     4: u64 out_bytes;
 }
 
+/**
+ * Statistics for vm interface in agent
+ */
 struct UveVMInterfaceAgent {
     1: string                name (key="ObjectVMITable")
     2: optional bool         deleted
@@ -54,6 +67,9 @@ struct UveVMInterfaceAgent {
    22: optional bool ip4_active;
 }
 
+/**
+ * uve for vm interface in agent
+ */
 uve sandesh UveVMInterfaceAgentTrace {
     1: UveVMInterfaceAgent data;
 }
