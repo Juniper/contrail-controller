@@ -1,22 +1,44 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
- 
+
+/**
+ *  The stats collector module defines the functionality to periodically poll
+ *   interface, vrf and drop statistics from vrouter and update
+ *   its data-structures with this information
+ */
+
+/**
+ * Request message to set interval for periodic poll for statistics
+ * by stats collector module
+ */
 request sandesh SetAgentStatsInterval_InSeconds {
     1: byte interval;
 }
 
+/**
+ * Response message for successful setting of agent stats interval
+ */
 response sandesh AgentStatsCfgResp {
     1: string resp = "  Success  ";
 }
 
+/**
+ * Response message for error while setting agent stats interval
+ */
 response sandesh AgentStatsCfgErrResp {
     1: string resp = "  Failure: Value should be greater than 0 ";
 }
 
+/**
+ * Request message to get agent stats interval
+ */
 request sandesh GetAgentStatsInterval {
 }
 
+/**
+ * Response message fetching agent stats interval
+ */
 response sandesh AgentStatsIntervalResp_InSeconds {
     1: byte agent_stats_interval;
 }

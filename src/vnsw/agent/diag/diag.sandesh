@@ -2,6 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for diagnostic module
+ * This module is responsible for generating network diagnostic for agent
+ */
+
+/**
+ * Request message to get ping statistics in agent introspect
+ * 
+ */ 
 request sandesh PingReq {
     1: string source_ip;
     2: i32    source_port;
@@ -14,6 +23,10 @@ request sandesh PingReq {
     9: optional i32 interval = 1;
 }
 
+/**
+ * Request message to get trace route in agent introspect
+ *
+ */
 request sandesh TraceRouteReq {
     1: string source_ip;
     2: i32    source_port;
@@ -26,12 +39,18 @@ request sandesh TraceRouteReq {
     9: optional i32 interval = 1;
 }
 
+/**
+ * Ping response statistics
+ */
 response sandesh PingResp {
     1: i16 seq_no;
     2: optional string rtt;
     3: string resp;
 }
 
+/**
+ * Ping summary
+ */
 response sandesh PingSummaryResp {
     1: i16 request_sent;
     2: i16 response_received;
@@ -39,18 +58,30 @@ response sandesh PingSummaryResp {
     4: optional string average_rtt;
 }
 
+/**
+ * Ping error message
+ */
 response sandesh PingErrResp {
     1: string error_response;
 }
 
+/**
+ * Trace route for the address
+ */ 
 struct TraceRouteHop {
     1: string address;
 }
 
+/**
+ * Response message for traceroute
+ */
 response sandesh TraceRouteResp {
     1: string hop;
 }
 
+/**
+ * Trace route error message
+ */
 response sandesh TraceRouteErrResp {
     1: string error_response;
 }

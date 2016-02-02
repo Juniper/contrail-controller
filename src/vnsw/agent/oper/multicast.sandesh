@@ -2,13 +2,26 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Message definitions for  multicast routes.
+ */
+
+/**
+ * Sandesh definition for physical device
+ */
 struct PDeviceData {
     1: string uuid;
 }
 
+/**
+ * Request message for physical device list from agent introspect
+ */
 request sandesh MasterPhysicalDevicesReq {
 }
 
+/**
+ * Response  message for physical device list
+ */
 response sandesh MasterPhysicalDevicesResp {
     1: list<PDeviceData> dev_list;
 }

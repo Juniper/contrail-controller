@@ -2,35 +2,74 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  The flow stats module is responsible for flow sampling
+ *  contrail-vrouter-agent exports flow records to contrail-collector
+ *  upon flow creation and deletion, updates flow statistics at regular intervals
+ *
+ *  Each flow is subjected to a sampling algorithm at regular interval to decide
+ *  Whether flow is exported or not
+ *
+ *  Parameters used for flow sampling algorithm are:
+ *   Configured flow export rate (can be configured as part of global-vrouter-config)
+ *   Actual flow export rate
+ *   Sampling threshold (dynamic value calculated internally, if flow stats in a flow sample are above this threshold, the flow record is exported).
+ */
+
 include "vnsw/agent/oper/agent.sandesh"
 
+/**
+ * Request message to set time interval for flow update to collector
+ */
 request sandesh SetFlowStatsInterval_InSeconds {
     1: byte interval;
 }
 
+/**
+ * Response message of success to set time interval for flow update to collector
+ */
 response sandesh FlowStatsCfgResp {
     1: string resp = "  Success  ";
 }
 
+/**
+ * Response message of error for setting time interval for flow update to collector
+ */
 response sandesh FlowStatsCfgErrResp {
     1: string resp = "  Failure: Value should be greater than 0 ";
 }
 
+/**
+ * Request message to get time interval for flow update to collector
+ */
 request sandesh GetFlowStatsInterval {
 }
 
+/**
+ * Response message for time interval for flow update to collector
+ */
 response sandesh FlowStatsIntervalResp_InSeconds {
     1: byte flow_stats_interval;
 }
 
+/**
+ * Request message to get flow stats collection parameters configured for flow sampling
+ */
 request sandesh FlowStatsCollectionParamsReq {
 }
 
+/**
+ * Response message for flow stats collection parameters configured for flow sampling
+ */
 response sandesh FlowStatsCollectionParamsResp {
     1: u32 flow_export_rate;
     2: u32 sampling_threshold;
 }
 
+/**
+ * Sandesh definition for flow key based on five tuple consisting of source and destination IP addresses,
+ *  ports and the ip protocol
+ */
 struct SandeshFlowKey {
     1: u32 nh;
     2: string sip;
@@ -40,6 +79,9 @@ struct SandeshFlowKey {
     6: byte protocol;
 }
 
+/**
+ * Flow entry as sandesh data type to be send to collector
+ */
 struct SandeshFlowExportInfo {
     1: string uuid;
     2: string egress_uuid;
@@ -64,18 +106,30 @@ struct SandeshFlowExportInfo {
    21: u16 underlay_source_port;
 }
 
+/**
+ * Statistics for flow record
+ */
 struct FlowStatsRecord {
     1: SandeshFlowKey key;
     2: SandeshFlowExportInfo info;
 }
 
+/**
+ * Request flow statistics
+ */
 request sandesh FlowStatsRecordsReq {
 }
 
+/**
+ * Response message for flow stats list
+ */
 response sandesh FlowStatsRecordsResp {
     1: list<FlowStatsRecord> records_list;
 }
 
+/**
+ * Request message to get flow stats based on flow key
+ */
 request sandesh FetchFlowStatsRecord {
     1: u32 nh;
     2: string sip;
@@ -85,12 +139,22 @@ request sandesh FetchFlowStatsRecord {
     6: byte protocol;
 }
 
+/**
+ * Response message for flow stats based on flow key
+ */
 response sandesh FlowStatsRecordResp {
     1: SandeshFlowExportInfo info;
 }
+
+/**
+ * Request message to get flow aging parameters
+ */
 request sandesh ShowAgingConfig {
 }
 
+/**
+ *  Parameters for flow ageing
+ */
 struct AgingConfig {
     1: u32 protocol;
     2: u32 port;
@@ -98,10 +162,16 @@ struct AgingConfig {
     4: u32 cache_timeout;
 }
 
+/**
+ * Response message for flow aging parameters
+ */
 response sandesh AgingConfigResponse {
     1: list<AgingConfig> aging_config_list;
 }
 
+/**
+ * Request message for configuring flow aging parameters
+ */
 request sandesh AddAgingConfig {
     1: u32 protocol;
     2: u32 port;
@@ -109,6 +179,9 @@ request sandesh AddAgingConfig {
     4: optional u32 cache_timeout;
 }
 
+/**
+ * Request message to delete flow aging parameters
+ */
 request sandesh DeleteAgingConfig {
     1: u32 protocol;
     2: u32 port;

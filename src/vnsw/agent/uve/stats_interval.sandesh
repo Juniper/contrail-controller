@@ -1,10 +1,18 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
- 
+
+/**
+ * Request message to get agent stats interval at this interval agent
+ * diff stats are sent to collector as uve
+ */
+
 request sandesh GetStatsInterval {
 }
 
+/**
+ * Response message for agent stats interval
+ */
 response sandesh StatsIntervalResp_InSeconds {
     1: byte agent_stats_interval;
     2: byte flow_stats_interval;

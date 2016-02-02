@@ -2,32 +2,64 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for uve for acl
+ *
+ * The UVE module is responsible to generate UVE message to collector. UVE module
+ * registers with Oper-DB and also polls the flows/vrouter to generate the UVE
+ * messages to collector.
+ *
+ * Below are uve definitions for acl to extract their operational state
+ */
+
+/**
+ * Sandesh definition for acl rule to flow count
+ */
 struct AclRuleToFlowCount {
     1: i32 acl_major;
     2: i32 acl_minor;
     5: i64 flows;
 }
 
+/**
+ * Sandesh definition for flow acl in agent
+ */
 struct UveAclAgent {  // Agent
     1: optional list<AclRuleToFlowCount> acl_rule_flow_hits; 
 }
 
+/**
+ * Sandesh definition of acls in virtual network in agent
+ */
 struct UveAclVirtualNetworkAgent {
     1: string name (key="ObjectVNTable")  
     2: optional bool deleted;
     3: optional UveAclAgent  agent;
 }
 
+/**
+ * Sandesh definition of acls for virtual machine in agent
+ */
 struct UveAclVirtualMachineAgent {
     1: string name (key="ObjectVMTable")
     2: optional bool deleted;
     3: optional UveAclAgent  agent;
 }
 
+/**
+ * @description: Trace message of acls for virtual network in agent
+ * @type: uve
+ * @object: VnEntry
+ */
 uve sandesh UveAclVirtualNetworkAgentTrace {
     1: UveAclVirtualNetworkAgent data;
 }
 
+/**
+ * @description: Trace message of acls for virtual machine in agent
+ * @type: uve
+ * @object: VmEntry
+ */
 uve sandesh UveAclVirtualMachineAgentTrace {
     1: UveAclVirtualMachineAgent data;
 }

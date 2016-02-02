@@ -2,6 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for agent controller module.
+ *
+ * This module manages the communication between Agent and Contrail-Controller
+ * Agent connects to two Contrail-Controllers for redundancy.
+ * 2 XMPP channels are opened with each of the Contrail-Controllers.
+ *
+ * A Configuration Channel to send IFMap configuration to agent.
+ * A Route Channel to exchange routes between agent and Contrail-Controller.
+ *
+ */
+
+/**
+ * Sandesh definition for transmit and receive xmpp sessions to controller.
+ */
 struct ControllerProtoStats {
     1: u32 open;
     2: u32 keepalive;
@@ -9,6 +24,9 @@ struct ControllerProtoStats {
     4: u32 close;
 }
 
+/**
+ * Sandesh definition for xmpp channel between agent and controller
+ */
 struct AgentXmppData {
     1: string controller_ip;
     2: string state;
@@ -26,6 +44,9 @@ struct AgentXmppData {
     14: string xmpp_auth_type;
 }
 
+/**
+ *  Sandesh definition for xmpp channel between agent and dns service
+ */
 struct AgentXmppDnsData {
     1: string dns_controller_ip;
     2: string state;
@@ -41,34 +62,61 @@ struct AgentXmppDnsData {
     12: string xmpp_auth_type;
 }
 
+/**
+ * Sandesh defenition for xmpp channel between agent and discovery service
+ */
 struct AgentDiscoveryXmppConnections {
     1: string discovery_controller_ip;
     2: u32 discovery_controller_port;
 }
 
+/**
+ * Sandesh Definition for xmpp connection in use by agent.
+ */
 struct AgentXmppInUseConnections {
     1: string controller_ip;
     2: u32 controller_port;
 }
 
+/**
+ * @description: Trace message for agent xmpp connection with controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppTrace {
     1: string peer;
     2: string vrf;
     3: string event;
 }
 
+/**
+ * @description: Trace message for vmi subscribe to controller for route export
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppIFMapVmExportTrace {
     1: string vm;
     2: string vmi;
     3: string event;
 }
 
+/**
+ * @description: Trace message for config seq number for controller subscription
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppIFMapSeqTrace {
     1: u32 xmpp_server_index,
     2: u64 new_seq_num;
     3: string event;
 }
 
+/**
+ * @description: Trace message for Routing instance for the route ,route-prefix
+ * and next hop information exported to controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppRouteExport {
     1: string peer;
     2: string vrf;
@@ -77,6 +125,12 @@ traceobject sandesh AgentXmppRouteExport {
     5: u32 label;
 }
 
+/**
+ * @description: Trace message for Routing instance for the route ,route-prefix
+ * next hop information , vxlan id , gateway etc imported from controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppRouteImport {
     1: string peer;
     2: string vrf;
@@ -87,6 +141,11 @@ traceobject sandesh AgentXmppRouteImport {
     7: string vn;
 }
 
+/**
+ * @description: Trace message for multicast subscription for vrf from agent to controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppMcastSubscribe {
     1: string peer;
     2: string vrf;
@@ -94,6 +153,11 @@ traceobject sandesh AgentXmppMcastSubscribe {
     4: string group;
 }
 
+/**
+ * @description: Trace message for agent xmpp session
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AgentXmppSession {
     1: string peer;
     2: string event;
@@ -101,6 +165,11 @@ traceobject sandesh AgentXmppSession {
     4: string message;
 }
 
+/**
+ * @description: Trace message for agent discovery connection
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentXmppDiscoveryConnection {
     1: string message;
     2: "index =";
@@ -110,18 +179,33 @@ trace sandesh AgentXmppDiscoveryConnection {
     6: string data;
 }
 
+/**
+ * @description: Trace message for agent for traversing multiple controller peers
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentXmppWalker {
     1: string message;
     2: string node_name;
     3: string peer;
 }
 
+/**
+ * @description: Trace message for agent xmpp connection timer
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentXmppTimer {
     1: string operation;
     2: string timer_name;
     3: string channel;
 }
 
+/**
+ * @description: Trace message for agent xmpp connection from particular controller
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentXmppMessage {
     1: "Received xmpp message from: ";
     2: string IPaddress;
@@ -134,31 +218,55 @@ trace sandesh AgentXmppMessage {
     9: "$";
 }
 
+/**
+ * Request message for agent xmpp connection status request with controller
+ */
 request sandesh AgentXmppConnectionStatusReq {
 }
 
+/**
+ * Response for agent xmpp connection status
+ */
 response sandesh AgentXmppConnectionStatus {
     1: list<AgentXmppData>peer;
 }
 
+/**
+ * Request message for agent dns subscription status
+ */
 request sandesh AgentDnsXmppConnectionStatusReq {
 }
 
+/**
+ * Response message for agent dns subscription status
+ */
 response sandesh AgentDnsXmppConnectionStatus {
     1: list<AgentXmppDnsData>peer;
 }
 
+/**
+ * Request message for agent discovery subscription status
+ */
 request sandesh AgentDiscoveryXmppConnectionsRequest {
 }
 
+/**
+ * Response for agent discovery subscription status
+ */
 response sandesh AgentDiscoveryXmppConnectionsResponse {
     1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
     2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
 }
 
+/**
+ * Request message for agent dns node info provided by discovery
+ */
 request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
 }
 
+/**
+ * Response message for agent dns node info provided by discovery
+ */
 response sandesh AgentDiscoveryDnsXmppConnectionsResponse {
     1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
     2: list<AgentXmppInUseConnections>xmpp_inuse_connections;

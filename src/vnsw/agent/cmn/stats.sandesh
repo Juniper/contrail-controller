@@ -2,14 +2,34 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for cmn module
+ *
+ * This module contains common definitions used by other agent modules
+ * It gets configuration defined for agent form agent params
+ * Statistics for ipc, packets trapped by agent, flow, xmpp and sandesh
+ * are collected from other modules
+ *
+ */
+
+/**
+ * Request message to get agent stats in agent introspect
+ */
 request sandesh AgentStatsReq {
 }
 
+/**
+ * Response message for ipc messages for port add/del between agent and instance
+ * service
+ */
 response sandesh IpcStatsResp {
     1:  i64 ipc_in_msgs;
     2:  i64 ipc_out_msgs;
 }
 
+/**
+ *  Agent stats for packets trapped by agent on pkt0 interface
+ */
 response sandesh PktTrapStatsResp {
     1:  i64 exceptions;
     2:  i64 invalid_agent_hdr;
@@ -19,6 +39,9 @@ response sandesh PktTrapStatsResp {
     6:  i64 pkt_fragments_dropped;
 }
 
+/**
+ *  Response for flows returned as a part of agent stats
+ */
 response sandesh FlowStatsResp {
     1: u64 flow_active;
     2: u64 flow_created;
@@ -30,6 +53,9 @@ response sandesh FlowStatsResp {
     8: u64 flow_export_msg_drops;
 }
 
+/**
+ *  Sandesh definition for xmpp peer of agent
+ */
 struct XmppStatsInfo {
     1: string ip
     2: u64 in_msgs;
@@ -37,10 +63,16 @@ struct XmppStatsInfo {
     4: u16 reconnect;
 }
 
+/**
+ *  Response message for xmpp connections for agent
+ */
 response sandesh XmppStatsResp {
     1: list <XmppStatsInfo> xmpp_list;
 }
 
+/**
+ *  Response message for sandesh connection stats between agent and collector
+ */
 response sandesh SandeshStatsResp {
     1: i64 sandesh_in_msgs;
     2: i64 sandesh_out_msgs;

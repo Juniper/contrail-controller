@@ -2,14 +2,39 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for oper module
+ *
+ * The Oper-DB module holds operational state of different objects in Agent.
+ * operational state processes the configuration and creates different tables
+ * appropriate for agent.
+ *
+ * Some of the important tables in Oper-DB are:
+ * Virtual-Network: Table of all virtual networks with uuid as key.
+ * Vrf: Vrf table entries represent routing instance for a vrf.
+ * Virtual-machine: Table stores all virtual-machines spawned on the compute node.
+ * Interface: Table containing all interfaces in agent.
+ * Other Tables for routes, nexthops, mpls label, multicast routes, vxlan
+ *
+ */
+
+/**
+ * Max no of sandesh connections allowed
+ */
 enum AgentConsts {
     MAX_SANDESH_COUNT = 256
 }
 
+/**
+ * Request for oper table
+ */
 request sandesh PageReq {
     1: string key;
 }
 
+/**
+ * Sandesh definition for oper table entries in agent introspect
+ */
 struct PageReqData {
     1: string prev_page (link="PageReq");
     2: string next_page (link="PageReq");
@@ -19,10 +44,16 @@ struct PageReqData {
     6: string entries;
 }
 
+/**
+ * Response message fetching oper table entries
+ */
 response sandesh Pagination {
     1: PageReqData req;
 }
 
+/**
+ * Sandesh definition for vlan entry in oper db
+ */
 struct ServiceVlanSandeshList {
    1: i16 tag;
    2: string vrf_name (link="VrfListReq"); // VRF name
@@ -34,6 +65,9 @@ struct ServiceVlanSandeshList {
    8: string v6_route_installed;
 }
 
+/**
+ * Sandesh definition for floatingip entry in oper db
+ */
 struct FloatingIpSandeshList {
    1: string ip_addr;
    2: string vrf_name (link="VrfListReq"); // VRF name
@@ -41,6 +75,9 @@ struct FloatingIpSandeshList {
    4: string fixed_ip;
 }
 
+/**
+ * Sandesh defenition for static route entry in oper db
+ */
 struct StaticRouteSandesh {
    1: string vrf_name (link="VrfListReq"); // VRF name
    2: string ip_addr;
@@ -49,10 +86,16 @@ struct StaticRouteSandesh {
    5: optional list<string> communities;
 }
 
+/**
+ * Sandesh definition for security group list on interface
+ */
 struct VmIntfSgUuid {
     1: string sg_uuid (link="SgListReq");
 }
 
+/**
+ * Sandesh defenition for interface in oper db
+ */
 struct ItfSandeshData {
     1: i32 index;
     2: string name;                  // interface name
@@ -109,6 +152,9 @@ struct ItfSandeshData {
    54: optional string metadata_ip_active;
 }
 
+/**
+ * Sandesh defenition for vn ipam in oper db
+ */
 struct VnIpamData {
     1: string ip_prefix;
     2: i32 prefix_len;
@@ -118,11 +164,17 @@ struct VnIpamData {
     6: string dns_server;
 }
 
+/**
+ * Sandesh defenition for vn ipam host routes
+ */
 struct VnIpamHostRoutes {
     1: string ipam_name;
     2: list<string> host_routes;
 }
 
+/**
+ * Sandesh defenition for virtual network in oper db
+ */
 struct VnSandeshData {
     1: string name;                   // vn name
     2: string uuid;                   // vn uuid
@@ -143,6 +195,9 @@ struct VnSandeshData {
     17: bool flood_unknown_unicast;
 }
 
+/**
+ * Sandesh defenition for security group
+ */
 struct SgSandeshData {
     1: i32 ref_count;
     2: i32 sg_id;
@@ -152,15 +207,24 @@ struct SgSandeshData {
     6: string ingress_acl_uuid (link="AclReq");
 }
 
+/**
+ * Sandesh defenition for security group list for vm
+ */
 struct VmSgUuid {
     1: string sg_uuid (link="SgListReq");
 }
 
+/**
+ * Sandesh defenition for virtual machine in oper db
+ */
 struct VmSandeshData {
     1: string uuid;                   // VM uuid
     2: optional list<VmSgUuid> sg_uuid_list;
 }
 
+/**
+ * Sandesh defenition for multicast route in oper db
+ */
 struct McastData {
     1: string type;
     2: optional string sip;
@@ -170,6 +234,9 @@ struct McastData {
     6: optional i16 vlan_tag
 }
 
+/**
+ * Sandesh definition for  FabricComposite next hop in oper db
+ */
 struct FabricCompositeData {
     1: string type;
     2: optional string sip;
@@ -177,6 +244,9 @@ struct FabricCompositeData {
     4: optional list <McastData> mc_list;  //Multicast sub nh list
 }
 
+/**
+ * Sandesh definition for L2Composite next hop in oper db
+ */
 struct L2CompositeData {
     1: string type;
     2: optional string sip;
@@ -185,6 +255,9 @@ struct L2CompositeData {
     5: optional list <McastData> mc_list; //Multicast sub nh list
 }
 
+/**
+ * Sandesh definition for L3Composite next hop in oper db
+ */
 struct L3CompositeData {
     1: string type;
     2: optional string sip;
@@ -193,6 +266,9 @@ struct L3CompositeData {
     5: optional list <McastData> mc_list; //Multicast sub nh list
 }
 
+/**
+ * Sandesh definition for MulticastComposite next hop in oper db
+ */
 struct MulticastCompositeData {
     1: string type;
     2: optional string sip;
@@ -200,6 +276,9 @@ struct MulticastCompositeData {
     4: optional list <McastData> mc_list;  //Multicast sub nh list
 }
 
+/**
+ * Sandesh definition for MulticastFamilyComposite next hop in oper db
+ */
 struct MulticastFamilyCompositeData {
     1: string type;
     2: optional string sip;
@@ -209,6 +288,9 @@ struct MulticastFamilyCompositeData {
     6: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
 }
 
+/**
+ * Sandesh definition for next hop in oper db
+ */
 struct NhSandeshData {
     1: string type;                   // type : tunnel / interface / ...
     2: i32 ref_count;                 // count of NH references
@@ -237,6 +319,9 @@ struct NhSandeshData {
    25: optional bool flood_unknown_unicast;
 }
 
+/**
+ * Sandesh definition for NamespaceState in oper db
+ */
 struct NamespaceStateSandeshData {
     1: i32 pid;
     2: i32 status;
@@ -245,6 +330,9 @@ struct NamespaceStateSandeshData {
     5: optional string errors;
 }
 
+/**
+ * Sandesh definition for PathPreference
+ */
 struct PathPreferenceSandeshData {
     1: i32 sequence;
     2: i32 preference;
@@ -252,6 +340,9 @@ struct PathPreferenceSandeshData {
     4: bool wait_for_traffic;
 }
 
+/**
+ * Sandesh definition for Path
+ */
 struct PathSandeshData {
     1: NhSandeshData nh;              // next hop info
     2: i32 label;                     // mpls label
@@ -275,6 +366,9 @@ struct PathSandeshData {
    21: optional list<string> communities;
 }
 
+/**
+ * Sandesh definition for unicast route in oper db
+ */
 struct RouteUcSandeshData {
     1: string src_ip;                   // IP addr
     2: i32 src_plen;                    // prefix length
@@ -285,18 +379,27 @@ struct RouteUcSandeshData {
     7: bool multicast;
 }
 
+/**
+ * Sandesh definition for multicast route in oper db
+ */
 struct RouteMcSandeshData {
     1: string src;                   // S
     2: string grp;                   // G
     3: NhSandeshData nh;                // The NH
 }
 
+/**
+ * Sandesh definition for L2 route in oper db
+ */
 struct RouteL2SandeshData {
     1: string mac;                   // MAC addr
     2: string src_vrf (link="VrfListReq"); // VRF
     4: list<PathSandeshData> path_list; // paths
 }
 
+/**
+ * Sandesh definition for evpn route in oper db
+ */
 struct RouteEvpnSandeshData {
     1: string mac;                   // MAC addr
     2: string src_vrf (link="VrfListReq"); // VRF
@@ -304,6 +407,9 @@ struct RouteEvpnSandeshData {
     4: list<PathSandeshData> path_list; // paths
 }
 
+/**
+ * Sandesh definition for Vrf in oper db
+ */
 struct VrfSandeshData {
     1: string name;                           // VRF name
     2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
@@ -318,12 +424,18 @@ struct VrfSandeshData {
    11: i32 brindex  (link="BridgeRouteReq"); // VRF Index L2 Table
 }
 
+/**
+ * Sandesh definition for mpls label in oper db
+ */
 struct MplsSandeshData {
     1: i32 label;                     // mpls label
     2: string type;                   // type - invalid or vport_nh or mcast_nh
     3: NhSandeshData nh;              // next hop info
 }
 
+/**
+ * Sandesh definition for mirror packet
+ */
 struct MirrorEntrySandeshData {
     1: i32 ref_count;                 // count of Flow's referring to Mirror entry
     2: string analyzer_name;          // Analyzer name
@@ -335,13 +447,22 @@ struct MirrorEntrySandeshData {
     8: NhSandeshData nh;              // next hop info
 }
 
+/**
+ * Request message for agent init state
+ */
 request sandesh AgentInitStateReq {
 }
 
+/**
+ * Response message for agent init state
+ */
 response sandesh AgentInitState {
     1: string state;                   // Agent's state
 }
 
+/**
+ * Sandessh definition for security group log
+ */
 struct SgObjectLogInfo {
     1: string event;
     2: string uuid;
@@ -352,18 +473,33 @@ struct SgObjectLogInfo {
     7: string ingress_acl_uuid;
 }
 
+/**
+ * @description: Trace message for security group object
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: SgEntry
+ */
 objectlog sandesh SgObjectLog {
     1: SgObjectLogInfo sg;
 }
 
+/**
+ * Request message for security group request
+ */
 request sandesh SgListReq {
     1: string name;
 }
 
+/**
+ * Response message for security group list from oper db
+ */
 response sandesh SgListResp {
     1: list<SgSandeshData> sg_list;
 }
 
+/**
+ * Request message for virtual network list from oper db
+ */
 request sandesh VnListReq {
     1: string name;                   // send data for given name substring
     2: string uuid;
@@ -371,36 +507,60 @@ request sandesh VnListReq {
     4: string ipam_name;
 }
 
+/**
+ * Response message for virtual network list
+ */
 response sandesh VnListResp {
     1: list<VnSandeshData> vn_list;
 }
 
+/**
+ * Request message for virtual machine list from oper db
+ */
 request sandesh VmListReq {
     1: string uuid;                   // send data for given name substring
 }
 
+/**
+ * Response message for virtual machine list
+ */
 response sandesh VmListResp {
     1: list<VmSandeshData> vm_list;
 }
 
+/**
+ * Request message for next hop list from oper db
+ */
 request sandesh NhListReq {
     1: string type;
     2: string nh_index;
     3: string policy_enabled;
 }
 
+/**
+ * Response message for virtual nh list
+ */
 response sandesh NhListResp {
     1: list<NhSandeshData> nh_list;
 }
 
+/**
+ * Request message for vrf list from oper db
+ */
 request sandesh VrfListReq {
     1: string name;                   // send data for given name substring
 }
 
+/**
+ * Response message for vrf list
+ */
 response sandesh VrfListResp {
     1: list<VrfSandeshData> vrf_list;
 }
 
+/**
+ * Request message for Inet4 Unicast routes from oper db
+ */
 request sandesh Inet4UcRouteReq {
     1: i32 vrf_index = 0;             // send route entries for the VRF index
     2: string src_ip;
@@ -408,10 +568,16 @@ request sandesh Inet4UcRouteReq {
     4: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for Inet4 Unicast routes
+ */
 response sandesh Inet4UcRouteResp {
     1: list<RouteUcSandeshData> route_list; // routes
 }
 
+/**
+ * Request message for Inet6 Unicast routes from oper db
+ */
 request sandesh Inet6UcRouteReq {
     1: i32 vrf_index = 0;             // send route entries for the VRF index
     2: string src_ip;
@@ -419,49 +585,79 @@ request sandesh Inet6UcRouteReq {
     4: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for Inet6 Unicast routes
+ */
 response sandesh Inet6UcRouteResp {
     1: list<RouteUcSandeshData> route_list; // routes
 }
 
+/**
+ * Request message for Inet4 multicast routes from oper db
+ */
 request sandesh Inet4McRouteReq {
     1: i32 vrf_index = 0;             // send route entries for the VRF index
     2: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for Inet4 multicast routes
+ */
 response sandesh Inet4McRouteResp {
     1: list<RouteMcSandeshData> route_list; // routes
 }
 
+/**
+ * Request message for L2 routes from oper db
+ */
 request sandesh Layer2RouteReq {
     1: i32 vrf_index = 0;
     2: string mac;
     3: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for L2 routes
+ */
 response sandesh Layer2RouteResp {
     1: list<RouteL2SandeshData> route_list; // routes
 }
 
+/**
+ * Request message for bridge routes from oper db
+ */
 request sandesh BridgeRouteReq {
     1: i32 vrf_index = 0;
     2: string mac;
     3: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for bridge routes
+ */
 response sandesh BridgeRouteResp {
     1: list<RouteL2SandeshData> route_list; // routes
 }
 
+/**
+ * Request message for evpn routes from oper db
+ */
 request sandesh EvpnRouteReq {
     1: i32 vrf_index = 0;
     2: string mac;
     3: bool stale = 0;                // Display stale entries only if set
 }
 
+/**
+ * Response message for evpn routes
+ */
 response sandesh EvpnRouteResp {
     1: list<RouteEvpnSandeshData> route_list; // routes
 }
 
+/**
+ * Request message for interface details from oper db
+ */
 request sandesh ItfReq {
     1: string name;
     2: string type;
@@ -476,19 +672,31 @@ request sandesh ItfReq {
     11: string l2_active;
 }
 
+/**
+ * Response message for interface details
+ */
 response sandesh ItfResp {
     1: list<ItfSandeshData> itf_list;
 }
 
+/**
+ * Request message for mpls label list from oper db
+ */
 request sandesh MplsReq {
     1: string type;
     2: string label;
 }
 
+/**
+ * Response message for mpls label
+ */
 response sandesh MplsResp {
     1: list<MplsSandeshData> mpls_list;
 }
 
+/**
+ * Sandesh definition for vrf assignment
+ */
 struct VrfAssignSandeshData {
     1: string type;
     2: u16 vlan_tag;
@@ -496,29 +704,50 @@ struct VrfAssignSandeshData {
     4: string vrf (link="VrfListReq");  // VRF
 }
 
+/**
+ * Request message for vrf assignment list
+ */
 request sandesh VrfAssignReq {
     1: string uuid;                   // send data for given interface
 }
 
+/**
+ * Response message for vrf assignment
+ */
 response sandesh VrfAssignResp {
     1: list<VrfAssignSandeshData> vrf_assign_list;
 }
 
+/**
+ * Request message for miror entry
+ */
 request sandesh MirrorEntryReq {
     1: string analyzer_name;
 }
 
+/**
+ * Response message for miror entry
+ */
 response sandesh MirrorEntryResp {
     1: list<MirrorEntrySandeshData> mirror_entry_list;
 }
 
+/**
+ * Response message for invalid input 
+ */
 response sandesh ErrorResp {
     1: string resp = "   Invalid Input !!!   ";
 }
 
+/**
+ * Request message for LinkLocalServiceInfo
+ */
 request sandesh LinkLocalServiceInfo {
 }
 
+/**
+ * Sandesh definition for Link Local Service
+ */
 struct LinkLocalServiceData {
     1: string linklocal_service_name;
     2: string linklocal_service_ip;
@@ -528,20 +757,31 @@ struct LinkLocalServiceData {
     6: i32    ipfabric_port;
 }
 
+/**
+ * Response message for LinkLocalServiceInfo
+ */
 response sandesh LinkLocalServiceResponse {
     1: list<LinkLocalServiceData> service_list;
 }
 
-// ACL Sandesh
+/**
+ *  Sandesh range for acl properties like protocol, port
+ */
 struct SandeshRange {
     1: i32 min;
     2: i32 max;   
 }
 
+/** 
+ *  Sandesh definition of acl action string
+ */
 struct ActionStr {
     1: string action;
 }
 
+/**
+ * Sandesh definition for acl action
+ */
 struct AclAction {
     1: string acl_id;
     // 2: bool sg;
@@ -549,10 +789,16 @@ struct AclAction {
     4: string acl_type;
 }
 
+/**
+ * Id for AclEntry
+ */
 struct AceId {
     1: i32 id;
 }
 
+/**
+ * Sandesh definition for AclEntry
+ */
 struct AclEntrySandeshData {
     1: string ace_id;
     2: string rule_type;
@@ -567,7 +813,9 @@ struct AclEntrySandeshData {
     11: string uuid;
 }
 
-// ACL to Flow mapping Sandesh
+/**
+ * Sandesh definition for flow
+ */
 struct FlowSandeshData {
     1: list <AceId> ace_l;
     // Flow Key
@@ -606,12 +854,18 @@ struct FlowSandeshData {
     32: list<string> dest_vn_list;
 }
 
+/**
+ * Sandesh definition for vxlan
+ */
 struct VxLanSandeshData {
     1: i32 vxlan_id;                  // vxlan label
     2: NhSandeshData nh;              // next hop info
     3: optional string vrf_name;      // vrf name from nh
 }
 
+/**
+ * Sandesh definition for ServiceInstance
+ */
 struct ServiceInstanceSandeshData {
     1: string uuid;
     2: string service_type;
@@ -622,6 +876,9 @@ struct ServiceInstanceSandeshData {
     7: NamespaceStateSandeshData ns_state;      // NamespaceState
 }
 
+/**
+ * Sandesh definition for LoadBalancer
+ */
 struct LoadBalancerSandeshData {
     1: string uuid;
     2: string vip_address;
@@ -637,14 +894,23 @@ struct LoadBalancerSandeshData {
    13: list<string> member_list;
 }
 
+/**
+ * Request message for load balancer list with given uuid
+ */
 request sandesh LoadBalancerReq {
     1: string uuid;
 }
 
+/**
+ * Response message for load balancer object
+ */
 response sandesh LoadBalancerResp {
     1: list<LoadBalancerSandeshData> load_balancer_list;
 }
 
+/**
+ * Sandesh definition for LoadBalancerListener
+ */
 struct SandeshLoadBalancerListener {
     1: string uuid;
     2: string protocol;
@@ -653,6 +919,9 @@ struct SandeshLoadBalancerListener {
     5: list<string> pool_list;
 }
 
+/**
+ * Sandesh definition for LoadBalancerV2
+ */
 struct LoadBalancerV2SandeshData {
     1: string uuid;
     2: string status;
@@ -664,19 +933,31 @@ struct LoadBalancerV2SandeshData {
     8: list<SandeshLoadBalancerListener> listener_list;
 }
 
+/**
+ * Request for LoadBalancerV2  statistics with given uuid
+ */
 request sandesh LoadBalancerV2Req {
     1: string uuid;
 }
 
+/**
+ * Response message for LoadBalancerV2  statistics with given uuid
+ */
 response sandesh LoadBalancerV2Resp {
     1: list<LoadBalancerV2SandeshData> load_balancer_list;
 }
 
+/**
+ * acl entry and associated flow count definition
+ */
 struct AceIdFlowCnt {
     1: i32 ace_id;
     2: i32 flow_cnt;
 }
 
+/**
+ * Sandesh definition for Acl
+ */
 struct AclSandeshData {
     1: string uuid (link="AclFlowReq");
     2: bool dynamic_acl;
@@ -684,22 +965,37 @@ struct AclSandeshData {
     4: string name;
 }
 
+/**
+ * Request Acl object with given uuid
+ */
 request sandesh AclReq {
     1: string uuid;
 }
 
+/**
+ * Response for Acl list
+ */
 response sandesh AclResp {
     1: list<AclSandeshData> acl_list;
 }
 
+/**
+ * Request message for flow_entries per acl 
+ */
 request sandesh AclFlowReq {
     1: string uuid;
 }
 
+/**
+ * Request message for next flow_entry with iteration_key 
+ */
 request sandesh NextAclFlowReq {
     1: string iteration_key;
 }
 
+/**
+ * Response message for flow_entry for an acl
+ */
 response sandesh AclFlowResp {
     1: i32 flow_count;
     2: i32 flow_miss;
@@ -707,14 +1003,23 @@ response sandesh AclFlowResp {
     4: string iteration_key (link="NextAclFlowReq");
 }
 
+/**
+ * Get flow count for an acl with given uuid
+ */
 request sandesh AclFlowCountReq {
     1: string uuid;
 }
 
+/**
+ * Get next flow entry for an acl with given iteration_key
+ */
 request sandesh NextAclFlowCountReq {
     1: string iteration_key;
 }
 
+/**
+ * Response message for flow count for an acl
+ */
 response sandesh AclFlowCountResp {
     1: i32 flow_count;
     2: i32 flow_miss;
@@ -723,24 +1028,50 @@ response sandesh AclFlowCountResp {
 }
 
 // ACL Traces
+
+/**
+ * @description: Trace message for acl error
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AclErr {
     1: string err;
 }
 
+/**
+ * @description: Trace message for acl info
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AclInfo {
     1: string str;
 }
 
+/**
+ * @description: Trace message for acl statistics 
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AclAclTrace {
     1: string info;
     2: string uuid;
     3: AclSandeshData acl;
 }
 
+/**
+ * @description: Trace message for acl entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh AclEntryTrace {
     1: AclEntrySandeshData acl_entry;
 }
 
+/**
+ * @description: Trace message for Path Preference
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh PathPreferenceTrace {
     1: string vrf;
     2: string ip;
@@ -750,6 +1081,9 @@ traceobject sandesh PathPreferenceTrace {
     6: i32 retry_timeout;
 }
 
+/**
+ * Request for mirror create from agent introspect
+ */ 
 request sandesh MirrorCreateReq {
     // Handle
     1: string handle;
@@ -788,25 +1122,39 @@ request sandesh MirrorCreateReq {
     17: string mirror_vrf;
 }
 
+/**
+ * Response for mirror create
+ */
 response sandesh MirrorCfgResp {
     1: string resp = "  Success  ";
 }
 
+/**
+ * Request mirror delete from agent introspect
+ */
 request sandesh MirrorDeleteReq {
     // Handle
     1: string handle;
 }
 
-// Mirror cfg display
+/**
+ * Mirror cfg display
+ */
 request sandesh MirrorCfgDisplayReq {
     // Handle
     1: string handle;
 }
 
+/**
+ * Request for VxLan info
+ */
 request sandesh VxLanReq {
     1: string vxlan_id;
 }
 
+/**
+ * Sandesh definition for VxLanConfigEntry
+ */
 struct VxLanConfigEntry {
     1: u32 vxlan_id;
     2: string vn_uuid;
@@ -815,28 +1163,46 @@ struct VxLanConfigEntry {
     5: bool active;
 }
 
+/**
+ * Response message for VxLan config list from oper db
+ */
 response sandesh VxLanConfigResp {
     1: list<VxLanConfigEntry> vxlan_config_entries;
 }
 
+/**
+ * Response for VxLan config 
+ */
 request sandesh VxLanConfigReq {
     1: u32 vxlan_id;
     2: string vn;
     3: string active;
 }
 
+/**
+ * Response for VxLan entry list from oper db
+ */
 response sandesh VxLanResp {
     1: list<VxLanSandeshData> vxlan_list;
 }
 
+/**
+ * Request for ServiceInstance list with given uuid
+ */
 request sandesh ServiceInstanceReq {
     1: string uuid;
 }
 
+/**
+ * Response for ServiceInstance list
+ */
 response sandesh ServiceInstanceResp {
     1: list<ServiceInstanceSandeshData> service_instance_list;
 }
 
+/**
+ * Sandesh definition for mirror config
+ */
 struct MirrorCfgSandesh {
     // Handle
     1: string handle;
@@ -875,14 +1241,23 @@ struct MirrorCfgSandesh {
     17: string mirror_vrf;
 }
 
+/**
+ * Response for mirror cfg display
+ */
 response sandesh MirrorCfgDisplayResp {
     1: list<MirrorCfgSandesh> mcfg_l;
 }
 
+/**
+ * Request for mirror cfg vn info
+ */
 request sandesh MirrorCfgVnInfoReq {
     1: string vn_name;
 }
 
+/**
+ * Sandesh definition for vn and attached acl
+ */ 
 struct VnAclInfo {
     1: string vn_name;
     2: string vn_uuid;
@@ -890,10 +1265,16 @@ struct VnAclInfo {
     4: i32 num_of_entries;
 }
 
+/**
+ * Response for mirror cfg vn info
+ */
 response sandesh MirrorCfgVnInfoResp {
     1: list <VnAclInfo> vn_acl_info_l;
 }
 
+/**
+ * Sandesh definition for interface mirror config
+ */
 struct IntfMirrorCfgSandesh {
     1: string handle;
     2: optional string intf_uuid;
@@ -904,6 +1285,9 @@ struct IntfMirrorCfgSandesh {
     7: optional string mirror_vrf;
 }
 
+/**
+ * Request for Interface Mirror Create
+ */
 request sandesh IntfMirrorCreateReq {
     1: string handle;
     2: optional string intf_uuid;
@@ -914,37 +1298,68 @@ request sandesh IntfMirrorCreateReq {
     7: optional string mirror_vrf;
 }
 
+/**
+ * Request for Interface Mirror Delete
+ */
 request sandesh IntfMirrorDeleteReq {
     1: string handle;
 }
 
+/**
+ * Request for Interface Mirror Config
+ */
 request sandesh IntfMirrorCfgDisplayReq {
     1: string handle;
 }
 
+/**
+ * Response for Interface Mirror list
+ */
 response sandesh IntfMirrorCfgDisplayResp {
     1: list <IntfMirrorCfgSandesh> imcfg_l;
 }
 
+/**
+ * @description: Trace message for interface mirror
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh IntfMirror {
     1: string operation;
     2: IntfMirrorCfgSandesh ms;
 }
 
+/**
+ * @description: Trace message for unresolved next hop
+ * @type: Trace
+ * @severity: DEBUG
+ */
 response sandesh UnresolvedNHResp {
     1: list<NhSandeshData> nh_list;
 }
 
+/**
+ * Response message for unresolved route list
+ */
 response sandesh UnresolvedRouteResp {
     1: list<RouteUcSandeshData> route_list;
 }
 
+/**
+ * Request message for unresolved nexthop list
+ */
 request sandesh UnresolvedNH {
 }
 
+/**
+ * Get unresolved routes
+ */
 request sandesh UnresolvedRoute {
 }
 
+/**
+ * Definition for agent log level
+ */
 enum AgentLogEvent {
     ADD,
     DELETE,
@@ -953,6 +1368,9 @@ enum AgentLogEvent {
     RESYNC
 }
 
+/**
+ * Sandesh definition for vm object log
+ */
 struct VmObjectLogInfo {
     1: string event;
     2: string uuid (key="ObjectVMTable")
@@ -960,10 +1378,19 @@ struct VmObjectLogInfo {
     4: i32 ref_count;
 }
 
+/**
+ * @description: log message for vm object
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: VmEntry
+ */
 objectlog sandesh VmObjectLog {
     1: VmObjectLogInfo vm;
 }
 
+/**
+ * Sandesh definition for vn ipam log
+ */
 struct VnObjectLogIpam {
     1: string ip_prefix;
     2: i32    prefix_len;
@@ -973,6 +1400,9 @@ struct VnObjectLogIpam {
     6: string dns_server;
 }
 
+/**
+ * Sandesh definition for vn object log
+ */
 struct VnObjectLogInfo {
     1: string event;
     2: string uuid;
@@ -987,25 +1417,46 @@ struct VnObjectLogInfo {
    11: optional bool admin_state;
 }
 
+/**
+ * @description: Statistics for vn object log
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: VnEntry
+ */
 objectlog sandesh VnObjectLog {
     1: VnObjectLogInfo vn;
 }
 
+/**
+ * Sandesh definition for vrf object log
+ */
 struct VrfObjectLogInfo {
     1: string event;
     2: string name (key="ObjectRoutingInstance")
     4: optional i32 index;
 }
 
+/**
+ * @description: log for vrf
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: VrfEntry
+ */
 objectlog sandesh VrfObjectLog {
     1: VrfObjectLogInfo vrf;
 }
 
+/**
+ * Sandesh definition for floating ip
+ */
 struct FloatingIPInfo {
     1:string vrf_name;
     2:string ip_address;
 }
 
+/**
+ * Sandesh definition for interface
+ */
 struct InterfaceInfo {
     1: string name;
     2: i32 index;
@@ -1020,6 +1471,9 @@ struct InterfaceInfo {
    11: string vm_project;
 }
 
+/**
+ * Sandesh definition for route
+ */
 struct RouteInfo {
     1: string ip;
     2: string vrf;
@@ -1033,24 +1487,45 @@ struct RouteInfo {
    10: bool ecmp;
 }
 
+/**
+ * @description: log for interface
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperInterface {
     1: InterfaceInfo intf_info;
 }
 
+/**
+ * Sandesh definition for oper config for an object
+ */
 struct OperConfigInfo {
     1: string name;
     2: string uuid;
     3: string message;
 }
 
+/**
+ * @description: log for oper config
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperConfig {
     1: OperConfigInfo info;
 }
 
+/**
+ * @description: log for oper route
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperRoute {
     1: RouteInfo route_info;
 }
 
+/**
+ * Sandesh definition for mpls log
+ */
 struct MplsObjectLogInfo {
     1: string event;
     2: string type;
@@ -1063,10 +1538,18 @@ struct MplsObjectLogInfo {
     9: optional i16 vlan_tag;
 }
 
+/**
+ * @description: log for mpls
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperMpls {
     1: MplsObjectLogInfo mpls;
 }
 
+/**
+ * Sandesh definition for ComponentNHLog
+ */
 struct ComponentNHLogInfo {
     1: string type;
     2: i32    label; 
@@ -1075,6 +1558,9 @@ struct ComponentNHLogInfo {
     5: i32 component_nh_id;
 }
 
+/**
+ * Sandesh definition for next hop log
+ */
 struct NextHopObjectLogInfo {
     1: string event;
     2: string type;
@@ -1096,6 +1582,9 @@ struct NextHopObjectLogInfo {
     18: i32 id;
 }
 
+/**
+ * Sandesh definition for vxlan object log
+ */
 struct VxLanObjectLogInfo {
     1: string event;
     2: i32 vxlan_id;
@@ -1103,14 +1592,30 @@ struct VxLanObjectLogInfo {
     4: optional string vrf_name;
 }
 
+/**
+ * @description: log for vxlan
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperVxLan {
     1: VxLanObjectLogInfo VxLan;
 }
 
+/**
+ * @description: log for next hop
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OperNextHop {
     1: NextHopObjectLogInfo nh;
 }
 
+/**
+ * @description: System log for agent route
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh AgentRouteLog {
     1: string message;
     2: string ip;
@@ -1119,11 +1624,21 @@ systemlog sandesh AgentRouteLog {
     5: string peer;
 }
 
+/**
+ * @description: log for multicast info 
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh MulticastInfo {
     1: string message;
     2: string info;
 }
 
+/**
+ * @description: log for multicast
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh MulticastLog {
     1: string message;
     2: string vrf_name;
@@ -1131,15 +1646,30 @@ trace sandesh MulticastLog {
     4: i32 label;   
 }
 
+/**
+ * @description: Trace meassage for oper module
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh OperTrace {
     1: string message;
 }
 
+/**
+ * @description: Trace meassage for vrf
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh OperVrf {
     1: string message;
     2: string vrf_name;
 }
 
+/**
+ * @description: Trace meassage for agent route walk
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentRouteWalkerTrace {
     1: string message;
     2: "Walk Type:";
@@ -1156,6 +1686,11 @@ trace sandesh AgentRouteWalkerTrace {
    13: i32 route_walk_id;
 }
 
+/**
+ * @description: Trace meassage for agent db walk
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh AgentDBWalkLog {
     1: string message;
     2: string table_name;
@@ -1168,6 +1703,12 @@ trace sandesh AgentDBWalkLog {
     9: i32 pending_walks;
 }
 
+/**
+ * @description: system log for interface configuration
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh InterfaceConfiguration {
     1: string f1;
     2: string interface_uuid;
@@ -1177,6 +1718,12 @@ systemlog sandesh InterfaceConfiguration {
     6: string compute_uuid;
 }
 
+/**
+ * @description: system log for logical interface configuration
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh LogicalInterfaceConfiguration {
     1: string msg1;
     2: string logical_interface_name;
@@ -1186,11 +1733,23 @@ systemlog sandesh LogicalInterfaceConfiguration {
     6: string prouter_name;
 }
 
+/**
+ * @description: system log for flow
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh FlowLog {
     1: u32 flow_id;
     2: string message;
 }
 
+/**
+ * @description: system log for agent route walk
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh AgentRouteWalkerLog {
     1: "walkid:";
     2: u32 walk_id;
@@ -1201,18 +1760,29 @@ systemlog sandesh AgentRouteWalkerLog {
     7: u32 route_table_type;
 }
 
+/**
+ * @description: system log for global vrouter config
+ * @type: systemlog
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
 systemlog sandesh GlobalVrouterLog {
     1: string message;
 }
 
+/**
+ * @description: Trace message for security group
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh OperSg {
     1: string message;
     2: string uuid;
 }
 
-/****************************************************************************
-  Sandesh definitions for PhysicalDevice
- ****************************************************************************/
+/**
+ * Sandesh definitions for PhysicalDevice
+ */
 struct SandeshDevice {
     1: string uuid;
     2: string fq_name;
@@ -1223,14 +1793,23 @@ struct SandeshDevice {
     7: bool master;
 }
 
+/**
+ * Response message for physical device list
+ */
 response sandesh SandeshDeviceListResp {
     1: list<SandeshDevice> device_list;
 }
 
+/**
+ * Request physical devie list
+ */
 request sandesh SandeshDeviceReq {
     1: string name;
 }
 
+/**
+ * Sandesh definition for physical device object log
+ */
 struct DeviceObjectLogInfo {
     1: string event;
     2: string uuid;
@@ -1242,14 +1821,20 @@ struct DeviceObjectLogInfo {
     8: string management_protocol;
 }
 
+/**
+ * @description: System log for physical device
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: PhysicalDevice
+ */
 objectlog sandesh DeviceObjectLog {
     1: DeviceObjectLogInfo device;
 }
 
-/****************************************************************************
-  Sandesh definitions for PhysicalDeviceVn
- ****************************************************************************/
-/* Oper table */
+/**
+ * Sandesh definitions for PhysicalDeviceVn
+ * Oper table
+ */
 struct SandeshPhysicalDeviceVn {
     1: string device_uuid;
     2: string vn_uuid;
@@ -1258,16 +1843,24 @@ struct SandeshPhysicalDeviceVn {
     5: i32 vxlan_id;
 }
 
+/**
+ * Response messdage for physical device vn list
+ */
 response sandesh SandeshPhysicalDeviceVnListResp {
     1: list<SandeshPhysicalDeviceVn> port_list;
 }
 
+/**
+ * Request physical device vn list
+ */
 request sandesh SandeshPhysicalDeviceVnReq {
     1: string device;
     2: string vn;
 }
 
-/* Config tree */
+/**
+ * Sandesh definition for physical device vn config tree
+ */
 struct SandeshConfigPhysicalDeviceVn {
     1: string device_uuid;
     2: string vn_uuid;
@@ -1276,15 +1869,23 @@ struct SandeshConfigPhysicalDeviceVn {
     5: i32 vn_id;
 }
 
+/**
+ * Response for physical device vn config list
+ */
 response sandesh SandeshConfigPhysicalDeviceVnListResp {
     1: list<SandeshConfigPhysicalDeviceVn> device_vn_list;
 }
 
+/**
+ * Request for physical device vn list config
+ */
 request sandesh SandeshConfigPhysicalDeviceVnReq {
     1: string device;
 }
 
-/* Sandesh log */
+/**
+ * Sandesh definition for physical device vn log
+ */
 struct PhysicalDeviceVnObjectLogInfo {
     1: string event;
     2: string device_uuid;
@@ -1294,10 +1895,19 @@ struct PhysicalDeviceVnObjectLogInfo {
     6: string vn;
 }
 
+/**
+ * @description: log message for physical device vn
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: PhysicalDeviceVn
+ */
 objectlog sandesh PhysicalDeviceVnObjectLog {
     1: PhysicalDeviceVnObjectLogInfo port;
 }
 
+/**
+ * Sandesh definition for vrouter limits
+ */
 struct VrouterObjectLimits {
     1: i32 max_labels;
     2: i32 max_nexthops;
@@ -1309,36 +1919,61 @@ struct VrouterObjectLimits {
     8: string vrouter_build_info;
 }
 
+/**
+ * Request vrouter limit parameters
+ */
 request sandesh VrouterObjectLimitsReq {
 }
 
+/**
+ * Response for vrouter limits
+ */
 response sandesh VrouterObjectLimitsResp {
     1: VrouterObjectLimits vrouter_object_limit;
 }
 
-/* IFMapDependency NodeEvent policies */
+/**
+ * Sandesh definition for IFMapDependency NodeEvent policies
+ */
 struct IFMapReactEvent {
     1: string event;
     2: list<string> reactors;
 }
 
+/**
+ * Sandesh definition for if map node policies
+ */
 struct IFMapNodePolicy {
     1: string node;
     2: list<IFMapReactEvent> events;
 }
 
+/**
+ * Response for if map node policy list
+ */
 response sandesh IFMapNodePolicyResp {
     1: list<IFMapNodePolicy> policies;
 }
 
+/**
+ * Request message for if map node policy list
+ */
 request sandesh IFMapNodePolicyReq {
     1: string node;
 }
 
+/**
+ * @description: Trace message for health check
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh HealthCheckTrace {
     1: string log;
 }
 
+/**
+ * Sandesh definition for health check instance
+ */
 struct HealthCheckInstanceSandeshData {
     1: string vm_interface (link="ItfReq");
     2: string metadata_ip;
@@ -1349,6 +1984,9 @@ struct HealthCheckInstanceSandeshData {
     7: string last_update_time;
 }
 
+/**
+ * Sandesh definition for health check service
+ */
 struct HealthCheckSandeshData {
     1: string uuid;
     2: string name;
@@ -1362,27 +2000,47 @@ struct HealthCheckSandeshData {
     10: list<HealthCheckInstanceSandeshData> inst_list;
 }
 
+/**
+ * Request health check instances list
+ */
 request sandesh HealthCheckSandeshReq {
     1: string uuid;
 }
 
+/**
+ * Health check list
+ */
 response sandesh HealthCheckSandeshResp {
     1: list<HealthCheckSandeshData> hc_list;
 }
 
+/**
+ * Sandesh definition for bgp as a service
+ */
 struct BgpAsAServiceSandeshList {
    1: string vm_bgp_peer_ip;
    2: i32 vm_nat_source_port;
    3: string vmi_uuid (link="ItfReq"); // intf uuid
 }
 
+/**
+ * Request bgp service list
+ */
 request sandesh BgpAsAServiceSandeshReq {
 }
 
+/**
+ * bgp servie list response message
+ */
 response sandesh BgpAsAServiceSandeshResp {
     1: list<BgpAsAServiceSandeshList> bgp_as_a_service_list;
 }
 
+/**
+ * @description: Trace message for bgp service
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh BgpAsAServiceTrace {
     1: string message;
 }

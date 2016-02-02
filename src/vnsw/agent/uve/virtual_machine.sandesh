@@ -2,8 +2,16 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * This UVE provides information associated with a virtual machine
+ * such as list of interfaces, floatingip and input output statistics
+ */
+
 include "vnsw/agent/uve/port_bmap.sandesh"
 
+/**
+ * Sandesh definition for vm cpu and memory usage on compute node
+ */
 struct VmCpuStats {
     1: double cpu_one_min_avg;
     2: u64 vm_memory_quota;
@@ -14,6 +22,9 @@ struct VmCpuStats {
     7: u64 disk_used_bytes;
 }
 
+/**
+ * Sandesh definition for virtual machine interface uve
+ */
 struct UveVirtualMachineAgent {
     1: string                name (key="ObjectVMTable")
     2: optional bool         deleted
@@ -29,16 +40,27 @@ struct UveVirtualMachineAgent {
     16: optional string vm_name;
 }
 
+/**
+ * @description: Trace message for virtual machine
+ * @object: VmEntry
+ */
 uve sandesh UveVirtualMachineAgentTrace {
     1: UveVirtualMachineAgent data;
 }
 
+/**
+ * Sandesh definition for virtual machine stats
+ */
 struct VirtualMachineStats {
     1: string         name (key="ObjectVMTable")
     2: optional bool  deleted
     5: optional list<VmCpuStats> cpu_stats (tags="")
 }
 
+/**
+ * @description: uve message for virtual machine stats
+ * @object: VmEntry
+ */
 uve sandesh VirtualMachineStatsTrace {
     1:  VirtualMachineStats data;
 }

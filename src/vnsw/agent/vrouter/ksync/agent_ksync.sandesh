@@ -2,11 +2,31 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Agent KSync module is resposible to do the translation between the data model
+ *   used by Agent and the datapath.
+ *  Functionality of Agent KSync includes:
+ *      Provide translation between data model of Agent and the Forwarding plane
+ *      KSync will be aware of data model used in dataplane
+ *      Oper-DB defines datamodule of Agent
+ *      Keep the operational state of agent in-sync with the forwarding plane
+ *      Keep Agent platform independent
+ *  We need to have different implementation of Agent KSync based on the platform.
+**/
+
+/**
+ *  Sandesh definition for ksync FAT flow entry
+ */
 struct KSyncIntfFatFlowInfo {
     1: u16 protocol;
     2: u16 port;
 }
 
+/**
+
+/**
+ * Sandesh definition for ksync interface entry
+ */
 struct KSyncIntfInfo {
     1: u32 idx;
     2: string name;
@@ -21,10 +41,18 @@ struct KSyncIntfInfo {
    11: optional list<KSyncIntfFatFlowInfo> fat_flows;
 }
 
+/**
+ * @description: Trace message for ksync interface entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh KSyncIntf {
     1: KSyncIntfInfo info;
 }
 
+/**
+ * Definition for ksync route entry
+ */
 struct KSyncRouteInfo {
     1: string addr;
     2: u32 plen;
@@ -36,25 +64,44 @@ struct KSyncRouteInfo {
     8: string type;
 }
 
+/**
+ * @description: Trace message for ksync route entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh KSyncRoute {
     1: KSyncRouteInfo info;
 }
 
+/**
+ * Definition for ksync mpls entry
+ */
 struct KSyncMplsInfo {
     1: u32 label;
     2: string operation;
     3: u32 nh;
 }
 
+/**
+ * @description: Trace message for ksync mpls entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh KSyncMpls {
     1: KSyncMplsInfo info;
 }
 
+/**
+ * Log definition for ksync component next hop entry
+ */
 struct KSyncComponentNHLog {
     1: u32 nh_idx;
     2: u32 label;
 }
 
+/**
+ * Definition for ksync next hop entry
+ */
 struct KSyncNhInfo {
     1: u32  index;
     2: string operation;
@@ -74,20 +121,38 @@ struct KSyncNhInfo {
    16: optional u32 out_if_index;
 }
 
+/**
+ * @description: Trace message for ksync next hop entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh KSyncNH {
     1:KSyncNhInfo info;
 }
 
+/**
+ * @description: Trace message for ksync module
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh KSyncTrace {
     1: string message;
 }
 
+/**
+ * Definition for ksync vxlan entry
+ */
 struct KSyncVxLanInfo {
     1: u32 label;
     2: string operation;
     3: u32 nh;
 }
 
+/**
+ * @description: Trace message for ksync vxlan entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh KSyncVxLan {
     1: KSyncVxLanInfo info;
 }

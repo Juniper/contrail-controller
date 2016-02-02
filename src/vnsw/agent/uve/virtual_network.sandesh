@@ -2,6 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * This UVE provides information associated with a virtual network
+ * such as list of networks connected, vms spawned , ACls associated
+ * and input and output statistics
+ */
+
+/**
+ * Sandesh definition for tunnel next hop uve
+ */
 struct UveTunnelNhStats {
     1:  i64                 udp_encaps; //used for mirroring
     2:  i64                 mpls_over_udp_encaps;
@@ -9,6 +18,9 @@ struct UveTunnelNhStats {
     4:  i64                 vxlan_encaps;
 }
 
+/**
+ * Sandesh definition for multicast nexthop uve
+ */
 struct UveMulticastNhStats {
     1:  i64                 source_replication_forwards; //evpn_composites
     2:  i64                 edge_replication_forwards; //fabric_composites
@@ -16,6 +28,9 @@ struct UveMulticastNhStats {
     4:  i64                 total_multicast_forwards; //l2_mcast_composites
 }
 
+/**
+ * Sandesh definition for next hop stats uve
+ */
 struct UveNhStats {
     1:  i64                    discards;
     2:  i64                    resolves;
@@ -29,29 +44,47 @@ struct UveNhStats {
     10: UveMulticastNhStats    comp_nh_stats;
 }
 
+/**
+ * Sandesh definition for offload stats uve
+ */
 struct UveOffloadStats {
     1: i64                 gro;
 }
 
+/**
+ * Sandesh definition for arp responses uve
+ */
 struct UveArpResponses {
     1: i64 proxies;
     2: i64 stitches;
     3: i64 floods;
 }
 
+/**
+ * Sandesh definition for vmi stats uve
+ */
 struct UveVmiStats {
     1: UveArpResponses stats;
 }
 
+/**
+ * Sandesh definition for physical interface stats uve
+ */
 struct UvePhyIntfStats {
     1: UveArpResponses stats;
 }
 
+/**
+ * Sandesh definition for arp stats uve
+ */
 struct UveArpStats {
     1: UveVmiStats             from_vm_interface;
     2: UvePhyIntfStats         from_physical_interface;
 }
 
+/**
+ * Sandesh definition for vrf stats uve
+ */
 struct UveVrfStats {
     1:  string                 name (aggtype="listkey")
     2:  i64                    diag_packet_count;
@@ -61,6 +94,9 @@ struct UveVrfStats {
     6:  UveNhStats             nh_packet_counts;
 }
 
+/**
+ * Sandesh definition for inter vn stats
+ */
 struct InterVnStats {
     1: string                               other_vn; 
     2: string                               vrouter;
@@ -70,16 +106,19 @@ struct InterVnStats {
     6: u64                                  out_bytes;    
 }
 
+/**
+ * Sandesh definition for inter vn stats uve
+ */
 struct UveInterVnStats {
     1: string                               other_vn (aggtype="listkey")
     2: i64                                  tpkts;
     3: i64                                  bytes;
 }
 
-
-// This is the structure sent by an application to the Collector to represent
-// all or part of the Data Plane state of the UVE on this app instance.
-//
+/**
+ *  This is the structure sent by an application to the Collector to represent
+ *  all or part of the Data Plane state of the UVE on this app instance.
+ */
 struct UveVirtualNetworkAgent {
     1: string                              name (key="ObjectVNTable")
     2: optional bool                       deleted
@@ -104,6 +143,10 @@ struct UveVirtualNetworkAgent {
     25: optional u32                       egress_flow_count (aggtype="sum")
 }
 
+/**
+ * @description: uve for virtual network trace in agent
+ * @object: VnEntry
+ */
 uve sandesh UveVirtualNetworkAgentTrace {
     1: UveVirtualNetworkAgent               data;
 }

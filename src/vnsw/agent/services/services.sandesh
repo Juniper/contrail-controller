@@ -2,40 +2,81 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  Message definitions for serviecs module.
+ *
+ * The services module is responsible to run following services in agent:
+ * ARP, DHCP, DNS, Ping, ICMP error generation
+ *
+ */
+
+/**
+ * Constant definitions for services module
+ */
 enum ServicesConsts {
     MAX_SANDESH_COUNT = 256,
     MAX_RETRIES = 64,
     MAX_RETRY_TIMEOUT = 60,
     MAX_AGING_TIMEOUT = 65535
 }       
-  
+
+/**
+ * Request message to get dhcp info from services introspect
+ */
 request sandesh DhcpInfo {
 }
 
+/**
+ * Request message to get dhcp info v6 from services introspect
+ */
 request sandesh Dhcpv6Info {
 }
 
+/**
+ * Request message to get arp info from agent
+ */
 request sandesh ArpInfo {
 }
 
+/**
+ * Request message to get dns info from agent
+ */
 request sandesh DnsInfo {
 }
 
+/**
+ * Request message to get icmp info from agent
+ */
 request sandesh IcmpInfo {
 }
 
+/**
+ * Request message to get icmp v6 info from agent
+ */
 request sandesh Icmpv6Info {
 }
 
+/**
+ * Request message to get meta data info from agent
+ */
 request sandesh MetadataInfo {
 }
 
+/**
+ * Request message to get all services info from agent along with packet stats
+ */
 request sandesh ShowAllInfo {
 }
 
+/**
+ * Request to reset all services info
+ */
 request sandesh ClearAllInfo {
 }
 
+/**
+ * Sandesh definition for Interface arp
+ */
 struct InterfaceArpStats {
     1: u32 interface_index;
     2: u32 arp_requests;
@@ -43,19 +84,31 @@ struct InterfaceArpStats {
     4: u32 arp_resolved;
 }
 
+/**
+ * Request message for interface arp stats
+ */
 request sandesh InterfaceArpStatsReq {
     1: i32 interface_index = -1;
 }
 
+/**
+ * Request info for pkt trace
+ */
 request sandesh PktTraceInfo {
     1: u32 num_buffers = 16;
     2: u32 flow_num_buffers = 16;
 }
 
+/**
+ * Response message for interface arp list
+ */
 response sandesh InterfaceArpStatsResponse {
     1: list<InterfaceArpStats> stats_list;
 }
 
+/**
+ * Response message for pkt stats
+ */
 response sandesh PktStats {
     1: i32 total_rcvd;
     2: i32 dhcp_rcvd;
@@ -76,6 +129,9 @@ response sandesh PktStats {
     17: i32 flow_q_threshold_exceeded;
 }
 
+/**
+ * Response message for dhcp statistics
+ */
 response sandesh DhcpStats {
     1: i32 dhcp_discover;
     2: i32 dhcp_request;
@@ -90,6 +146,9 @@ response sandesh DhcpStats {
     11: i32 relay_response;
 }
 
+/**
+ * Response message for dhcp v6 statistics
+ */
 response sandesh Dhcpv6Stats {
     1: i32 dhcp_solicit;
     2: i32 dhcp_advertise;
@@ -105,6 +164,9 @@ response sandesh Dhcpv6Stats {
     12: i32 dhcp_error;
 }
 
+/**
+ * Response message for arp stats
+ */
 response sandesh ArpStats {
     1: i32 arp_entries;
     2: i32 arp_requests;           // received
@@ -119,6 +181,9 @@ response sandesh ArpStats {
    12: i32 arp_invalid_address;
 }
 
+/**
+ * Response message for dns stats
+ */
 response sandesh DnsStats {
     7: list<string> dns_resolver;
     1: i32 dns_requests;
@@ -129,12 +194,18 @@ response sandesh DnsStats {
     6: i32 dns_drops;
 }
 
+/**
+ * Response message for icmp stats
+ */
 response sandesh IcmpStats {
     1: i32 icmp_gw_ping;
     2: i32 icmp_gw_ping_err;
     3: i32 icmp_drop;
 }
 
+/**
+ * Response message for icmp6 stats
+ */
 response sandesh Icmpv6Stats {
     1: i32 icmpv6_router_solicit;
     2: i32 icmpv6_router_advert;
@@ -145,6 +216,9 @@ response sandesh Icmpv6Stats {
     7: i32 icmpv6_neighbor_advert;
 }
 
+/**
+ * Response message for metadata service stats
+ */
 response sandesh MetadataResponse {
     1: i32 metadata_server_port;
     2: i32 metadata_requests;
@@ -153,16 +227,25 @@ response sandesh MetadataResponse {
     5: i32 metadata_internal_errors;
 }
 
+/**
+ * Response message for pkt trace info
+ */
 response sandesh PktTraceInfoResponse {
     1: string resp = "   Success !!!   ";
     2: u32 num_buffers;
     3: u32 flow_num_buffers;
 }
 
+/**
+ * Response message for pkt trace info
+ */
 response sandesh PktErrorResp {
     1: string resp = "   Success !!!   ";
 }
 
+/**
+ * Sandesh definition for icmp6
+ */
 struct InterfaceIcmpv6Stats {
     1: u32 interface_index;
     2: u32 icmpv6_router_solicit;
@@ -173,14 +256,23 @@ struct InterfaceIcmpv6Stats {
     7: u32 icmpv6_neighbor_advert;
 }
 
+/**
+ * Request message for icmp6 stats on interface
+ */
 request sandesh InterfaceIcmpv6StatsReq {
     1: i32 interface_index = -1;
 }
 
+/**
+ * Response message for icmpv6 stats on interface
+ */
 response sandesh InterfaceIcmpv6StatsResponse {
     1: list<InterfaceIcmpv6Stats> stats_list;
 }
 
+/**
+ * Sandesh definition for vrouter header
+ */
 struct VrouterHdr {
     1: i16 ifindex;             // interface index
     2: i16 vrf;                 // VRF
@@ -189,12 +281,18 @@ struct VrouterHdr {
     5: i32 nh;                  // Nexthop
 }
 
+/**
+ * Sandesh definition for mac header
+ */
 struct MacHdr {
     1: string dest_mac;
     2: string src_mac;
     3: string type;
 }
 
+/**
+ * Sandesh definition for arp header
+ */
 struct ArpHdr {
     1: string htype;
     2: string protocol;
@@ -207,6 +305,9 @@ struct ArpHdr {
     9: string target_ip;
 }
 
+/**
+ * Sandesh definition for ipv4 header
+ */
 struct Ipv4Hdr {
     1: i16 vers;
     2: i16 hdrlen;
@@ -221,6 +322,9 @@ struct Ipv4Hdr {
     11: string dest_ip;
 }
 
+/**
+ * Sandesh definition for ipv6 header
+ */
 struct Ipv6Hdr {
     1: i32 flow;
     2: i16 plen;
@@ -230,12 +334,18 @@ struct Ipv6Hdr {
     6: string dest_ip;
 }
 
+/**
+ * Sandesh definition for icmpv4 header
+ */
 struct Icmpv4Hdr {
     1: string type;
     2: i16 code;
     3: string csum;
 }
 
+/**
+ * Sandesh definition for icmpv6 header
+ */
 struct Icmpv6Hdr {
     1: string type;
     2: i16 code;
@@ -243,6 +353,9 @@ struct Icmpv6Hdr {
     4: string rest;
 }
 
+/**
+ * Sandesh definition for udp header
+ */
 struct UdpHdr {
     1: i32 src_port;
     2: i32 dest_port;
@@ -250,12 +363,18 @@ struct UdpHdr {
     4: string csum;
 }
 
+/**
+ * Sandesh definition for dhcp options
+ */
 struct DhcpOption {
     1: string type;
     2: i16 len;
     3: string value;
 }
 
+/**
+ * Sandesh definition for dhcpv4 header
+ */
 struct Dhcpv4Hdr {
     1: string op;
     2: string htype;
@@ -276,12 +395,18 @@ struct Dhcpv4Hdr {
     17: string other_options;
 }
 
+/**
+ * Sandesh definition for dhcpv6 header
+ */
 struct Dhcpv6Header {
     1: string type;
     2: string xid;
     3: string options;
 }
 
+/**
+ * Sandesh definition for dns header
+ */
 struct DnsHdr {
     1: i32 xid;
     2: string flags;
@@ -292,11 +417,17 @@ struct DnsHdr {
     7: string rest;
 }
 
+/**
+ * Sandesh definition for pkt data
+ */
 struct PktData {
     1: string direction;        // In or Out
     2: i32 len;                 // length of the packet
 }
 
+/**
+ * Sandesh definition for arp packet
+ */
 struct ArpPkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -304,11 +435,17 @@ struct ArpPkt {
     4: ArpHdr arp_hdr;
 }
 
+/**
+ * Response message for arp packet list
+ */
 response sandesh ArpPktSandesh {
     1: string type;
     2: list<ArpPkt> pkt_list;
 }
 
+/**
+ * Sandesh definition for dhcp packet list
+ */
 struct DhcpPkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -318,11 +455,17 @@ struct DhcpPkt {
     6: Dhcpv4Hdr dhcp_hdr;
 }
 
+/**
+ * Response message for dhcp packet list
+ */
 response sandesh DhcpPktSandesh {
     1: string type;
     2: list<DhcpPkt> pkt_list;
 }
 
+/**
+ * Statistics for dhcpv6 packet
+ */
 struct Dhcpv6Pkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -332,11 +475,17 @@ struct Dhcpv6Pkt {
     6: Dhcpv6Header dhcp_hdr;
 }
 
+/**
+ * Response message for dhcpv6 packet list
+ */
 response sandesh Dhcpv6PktSandesh {
     1: string type;
     2: list<Dhcpv6Pkt> pkt_list;
 }
 
+/**
+ * Sandesh definition for dns packet
+ */
 struct DnsPkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -346,11 +495,17 @@ struct DnsPkt {
     6: DnsHdr dns_hdr;
 }
 
+/**
+ * Response message for dns packet list
+ */
 response sandesh DnsPktSandesh {
     1: string type;
     2: list<DnsPkt> pkt_list;
 }
 
+/**
+ * Sandesh definition for icmp packet
+ */
 struct IcmpPkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -359,6 +514,9 @@ struct IcmpPkt {
     5: Icmpv4Hdr icmp_hdr;
 }
 
+/**
+ * Sandesh definition for icmpv6 packet
+ */
 struct Icmpv6Pkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -367,16 +525,25 @@ struct Icmpv6Pkt {
     5: Icmpv6Hdr icmp_hdr;
 }
 
+/**
+ * Response message for icmp packet list
+ */
 response sandesh IcmpPktSandesh {
     1: string type;
     2: list<IcmpPkt> pkt_list;
 }
 
+/**
+ * Response message for icmpv6 packet list
+ */
 response sandesh Icmpv6PktSandesh {
     1: string type;
     2: list<Icmpv6Pkt> pkt_list;
 }
 
+/**
+ * Sandesh definition for packet dump
+ */
 struct PktDump {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -384,6 +551,9 @@ struct PktDump {
     4: string pkt;
 }
 
+/**
+ * Response message for sandesh packet list
+ */
 response sandesh PktSandesh {
     1: string type;
     2: list<PktDump> pkt_list;
@@ -391,6 +561,9 @@ response sandesh PktSandesh {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Sandesh definition for vm dns record
+ */
 struct VmDnsRecord {
     1: string type;
     2: string name;
@@ -399,6 +572,9 @@ struct VmDnsRecord {
     5: string eclass;
 }
 
+/**
+ * Sandesh definition for vm dns data
+ */
 struct VmDnsSandesh {
     1: string vm;
     2: string virtual_dns;
@@ -407,38 +583,65 @@ struct VmDnsSandesh {
     5: list<VmDnsRecord> records;
 }
 
+/**
+ * Request to get agent dns entries
+ */
 request sandesh ShowDnsEntries {
 }
 
+/**
+ * Response message for agent dns service list
+ */
 response sandesh AgentDnsEntries {
     1: list<VmDnsSandesh> dns_list;
 }
 
+/**
+ * Sandesh definition for virtual machine vdns
+ */
 struct VmVdnsDataEntry {
     1: string ip;
     2: string vdns_name;
 }
 
+/**
+ * Request message for vm vdns data
+ */
 request sandesh VmVdnsDataReq {
     1: u32 vm_interface_index;
 }
 
+/**
+ * Response message for vm vdns entry list
+ */
 response sandesh VmVdnsDataResponse {
     1: list<VmVdnsDataEntry> rlist;
 }
 
+/**
+ * Sandesh definition for vm vdns entries
+ */
 struct VmVdnsListEntry {
     1: string name;
     2: u32 vm_interface_index (link="VmVdnsDataReq");
 }
 
+/**
+ * Request message for vm vdns list
+ */
 request sandesh VmVdnsListReq {
 }
 
+/**
+ * Response message returning list of vm vdns entry
+ */
 response sandesh VmVdnsListResponse {
     1: list<VmVdnsListEntry> rlist;
 }
 
+/**
+ * Sandesh definition for fip vdns entry
+ */
 struct FipVdnsEntry {
     1: string vn;
     2: string ip;
@@ -446,15 +649,24 @@ struct FipVdnsEntry {
     4: string vdns_name;
 }
 
+/**
+ * Request message for fip vdns
+ */
 request sandesh FipVdnsDataReq {
 }
 
+/**
+ * Response message for fip vdns data containing list of fip vdns entry
+ */
 response sandesh FipVdnsDataResponse {
     1: list<FipVdnsEntry> rlist;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Sandesh definition for arp
+ */
 struct ArpSandeshData {
     1: string ip;                // IP Address
     2: string vrf;               // VRF name
@@ -462,18 +674,30 @@ struct ArpSandeshData {
     4: string state;             // Active / Static / Permanent / Resolving
 }
 
+/**
+ * Request message to show cached arp
+ */
 request sandesh ShowArpCache {
 }
 
+/**
+ * Response message for cached arp
+ */
 response sandesh ArpCacheResp {
     1: list<ArpSandeshData> arp_list;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Request message for gateway dhcp lease
+ */
 request sandesh ShowGwDhcpLeases {
 }
 
+/**
+ * Sandesh definition for dhcp lease
+ */
 struct DhcpLeaseData {
     1: string mac;
     2: string ip;
@@ -481,18 +705,29 @@ struct DhcpLeaseData {
     4: string released;
 }
 
+/**
+ * Sandesh definition for gateway dhcp lease
+ */
 struct GwDhcpLeases {
     1: string physical_interface;
     2: string vm_interface;
     3: list<DhcpLeaseData> leases;
 }
 
+/**
+ * Response message for gateway dhcp lease
+ */
 response sandesh GwDhcpLeasesResponse {
     1: list<GwDhcpLeases> gw_leases;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @description: Trace message for arp
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh ArpTrace {
     1: string op;
     2: string ip;
@@ -500,30 +735,65 @@ trace sandesh ArpTrace {
     4: string mac;
 }
 
+/**
+ * @description: Trace message for arp error
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh ArpError {
     1: string err;
 }
 
+/**
+ * @description: Trace message for dhcp error
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh DhcpError {
     1: string error;
 }
 
+/**
+ * @description: Trace message for dhcp
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh DhcpTrace {
     1: string msg;
 }
 
+/**
+ * @description: Trace message for dhcpv6 error
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh Dhcpv6Error {
     1: string error;
 }
 
+/**
+ * @description: Trace message for dhcpv6
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh Dhcpv6Trace {
     1: string msg;
 }
 
+/**
+ * @description: Trace message for icmpv6
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh Icmpv6Trace {
     1: string msg;
 }
 
+/**
+ * @description: Trace message for meta data service
+ * @type: Trace
+ * @severity: DEBUG
+ */
 trace sandesh MetadataTrace {
     1: string msg;
 }
