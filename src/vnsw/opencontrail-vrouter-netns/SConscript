@@ -10,6 +10,7 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 sources = [
+    'MANIFEST.in',
     'README.md',
     'setup.py',
     'requirements.txt',
