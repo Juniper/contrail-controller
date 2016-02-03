@@ -2,45 +2,45 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>3.1.0.0/16</prefix>
-                    <type>longer</type>
+                    <prefix-type>longer</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>3.1.1.1/32</prefix>
-                    <type>exact</type>
+                    <prefix-type>exact</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>reject</action>
-            </then>
+            </term-action-list>
         </term>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>1/8</prefix>
-                    <type>orlonger</type>
+                    <prefix-type>orlonger</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <community>
                         <add><community>11:44</community></add>
                     </community>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

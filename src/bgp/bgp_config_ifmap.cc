@@ -1567,45 +1567,45 @@ void BgpIfmapRoutingPolicyConfig::RemoveInstance(BgpIfmapInstanceConfig *rti) {
 }
 
 
-static void BuildPolicyTerm(autogen::PolicyTerm cfg_term,
+static void BuildPolicyTerm(autogen::PolicyTermType cfg_term,
                             RoutingPolicyTerm *term) {
-    term->match.protocols_match = cfg_term.fromxx.protocol;
-    term->match.community_match = cfg_term.fromxx.community;
-    BOOST_FOREACH(const autogen::PrefixMatch &prefix_match,
-                  cfg_term.fromxx.prefix) {
+    term->match.protocols_match = cfg_term.term_match_condition.protocol;
+    term->match.community_match = cfg_term.term_match_condition.community;
+    BOOST_FOREACH(const autogen::PrefixMatchType &prefix_match,
+                  cfg_term.term_match_condition.prefix) {
         PrefixMatchConfig match;
         match.prefix_to_match = prefix_match.prefix;
-        match.prefix_match_type =
-            prefix_match.type_.empty() ? "exact" : prefix_match.type_;
+        match.prefix_match_type = prefix_match.prefix_type.empty() ?
+            "exact" : prefix_match.prefix_type;
         term->match.prefixes_to_match.push_back(match);
     }
 
     BOOST_FOREACH(const std::string community,
-                  cfg_term.then.update.community.add.community) {
+                  cfg_term.term_action_list.update.community.add.community) {
         term->action.update.community_add.push_back(community);
     }
     BOOST_FOREACH(const std::string community,
-                  cfg_term.then.update.community.remove.community) {
+                  cfg_term.term_action_list.update.community.remove.community) {
         term->action.update.community_remove.push_back(community);
     }
     BOOST_FOREACH(const std::string community,
-                  cfg_term.then.update.community.set.community) {
+                  cfg_term.term_action_list.update.community.set.community) {
         term->action.update.community_set.push_back(community);
     }
-    term->action.update.local_pref = cfg_term.then.update.local_pref;
-    term->action.update.med = cfg_term.then.update.med;
+    term->action.update.local_pref =
+        cfg_term.term_action_list.update.local_pref;
+    term->action.update.med = cfg_term.term_action_list.update.med;
     term->action.action = RoutingPolicyActionConfig::NEXT_TERM;
-    if (strcmp(cfg_term.then.action.c_str(), "reject") == 0) {
+    if (strcmp(cfg_term.term_action_list.action.c_str(), "reject") == 0)
         term->action.action = RoutingPolicyActionConfig::REJECT;
-    } else if (strcmp(cfg_term.then.action.c_str(), "accept") == 0) {
+    else if (strcmp(cfg_term.term_action_list.action.c_str(), "accept") == 0)
         term->action.action = RoutingPolicyActionConfig::ACCEPT;
-    }
 }
 
 static void BuildPolicyTerms(BgpRoutingPolicyConfig *policy_cfg,
                              const autogen::RoutingPolicy *policy) {
-    std::vector<autogen::PolicyTerm> terms = policy->entries();
-    BOOST_FOREACH(autogen::PolicyTerm cfg_term, terms) {
+    std::vector<autogen::PolicyTermType> terms = policy->entries();
+    BOOST_FOREACH(autogen::PolicyTermType cfg_term, terms) {
         RoutingPolicyTerm policy_term;
         BuildPolicyTerm(cfg_term, &policy_term);
         policy_cfg->add_term(policy_term);

@@ -2,33 +2,33 @@
 <config>
     <routing-policy name='basic_0'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>23:13</community>
                 <prefix>
                     <prefix> 1/8 </prefix>
-                    <type> orlonger </type>
+                    <prefix-type> orlonger </prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-policy name='basic_1'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>23:11</community>
                 <prefix>
                     <prefix> 2001:db8:85a3:aaaa::b:c:d/64 </prefix>
-                    <type> longer </type>
+                    <prefix-type> longer </prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>reject</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
 

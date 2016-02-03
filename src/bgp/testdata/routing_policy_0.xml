@@ -2,26 +2,26 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>10.0.1.1/32</prefix>
-                    <type> exact </type>
+                    <prefix-type> exact </prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
         <term>
-            <from>
+            <term-match-condition>
                 <community>11:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>reject</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

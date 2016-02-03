@@ -2,21 +2,21 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>10.0.1.1/32</prefix>
                 </prefix>
                 <prefix>
                     <prefix>20.1.1.0/24</prefix>
-                    <type>longer</type>
+                    <prefix-type>longer</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

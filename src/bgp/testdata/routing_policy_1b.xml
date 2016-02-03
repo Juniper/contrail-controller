@@ -2,11 +2,11 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <then>
+            <term-action-list>
                 <update>
                     <med>1234</med>
                 </update>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

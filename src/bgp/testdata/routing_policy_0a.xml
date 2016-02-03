@@ -2,12 +2,12 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>11:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
 </config>
