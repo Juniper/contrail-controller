@@ -1406,11 +1406,40 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref']) -->
 
+<xsd:complexType name="CommunityAttributes">
+    <xsd:annotation>
+        <xsd:documentation>
+          List of Community attributes
+          This list indicates the attributes with which routes are tagged while 
+          publishing. The attributes will be represented as bgp community in 
+          the path attribute. Each attribute is indicated as string
+            1. String with two integer seperated by  ':'. E.g. "64512:123"
+            2. Wellknown community as string.  Possible values are
+                 "no-export"
+                 "accept-own"
+                 "no-advertise"
+                 "no-export-subconfed"
+                 "no-reoriginate"
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:all>
+        <xsd:element name="community-attribute" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="RouteNextHopType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="service-instance"/>
+        <xsd:enumeration value="ip-address"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='RouteType'>
     <xsd:all>
         <xsd:element name='prefix' type='xsd:string'/>
         <xsd:element name='next-hop' type='xsd:string'/>
-        <xsd:element name='next-hop-type' type='xsd:string'/>
+        <xsd:element name='next-hop-type' type='RouteNextHopType'/>
+        <xsd:element name='community-attributes' type='CommunityAttributes'/>
     </xsd:all>
 </xsd:complexType>
 
