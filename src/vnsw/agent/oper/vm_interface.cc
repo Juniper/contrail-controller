@@ -2567,6 +2567,8 @@ void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
         return;
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (old_vrf->GetBridgeRouteTable());
+    if (table == NULL)
+        return;
     Agent *agent = table->agent();
     table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
                                    old_vrf->GetName(),
