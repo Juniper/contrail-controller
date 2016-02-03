@@ -2781,8 +2781,9 @@ class BgpRouterST(DBBaseST):
             params.autonomous_system = int(bgpaas.asn)
             self.asn = bgpaas.asn
             update = True
-        if params.address != bgpaas.ip_address:
-            params.address = bgpaas.ip_address
+        ip = bgpaas.ip_address or vmi.get_primary_instance_ip_address()
+        if params.address != ip:
+            params.address = ip
             update = True
         if params.identifier != bgpaas.ip_address:
             params.identifier = bgpaas.ip_address
@@ -2795,6 +2796,7 @@ class BgpRouterST(DBBaseST):
             self.obj.set_bgp_router_list([router_refs[0]['to']],
                                          [bgpaas.peering_attribs])
             update = True
+
         return update
     # end update_bgpaas_client
 
@@ -2900,11 +2902,6 @@ class BgpAsAServiceST(DBBaseST):
         ri = vn.get_primary_routing_instance()
         if not ri:
             return
-        router_fq_name = ri.obj.get_fq_name_str() + ':' + vmi.obj.name
-        if router_fq_name in BgpRouterST:
-            self.bgp_routers.add(router_fq_name)
-            self.bgpaas_clients[name] = router_fq_name
-            return
         server_fq_name = ri.obj.get_fq_name_str() + ':bgpaas-server'
         server_router = BgpRouterST.get(server_fq_name)
         if not server_router:
@@ -2915,20 +2912,33 @@ class BgpAsAServiceST(DBBaseST):
             BgpRouterST.locate(server_fq_name, server_router)
         else:
             server_router = server_router.obj
-        bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
+        router_fq_name = ri.obj.get_fq_name_str() + ':' + vmi.obj.name
+        bgpr = BgpRouterST.get(router_fq_name)
+        create = False
+        src_port = None
+        if not bgpr:
+            bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
+            create = True
+            src_port = self._cassandra.alloc_bgpaas_port(router_fq_name)
+        else:
+            bgp_router = self._vnc_lib.bgp_router_read(id=bgpr.obj.uuid)
+            src_port = bgpr.source_port
         ip = self.ip_address or vmi.get_primary_instance_ip_address()
         params = BgpRouterParams(
             autonomous_system=int(self.asn) if self.asn else None,
             address=ip,
             identifier=ip,
-            source_port=self._cassandra.alloc_bgpaas_port(router_fq_name),
+            source_port=src_port,
             router_type='bgpaas-client')
         bgp_router.set_bgp_router_parameters(params)
         bgp_router.set_bgp_router(server_router, self.peering_attribs)
-        self._vnc_lib.bgp_router_create(bgp_router)
-        bgpr = BgpRouterST.locate(router_fq_name, bgp_router)
-        self.obj.add_bgp_router(bgp_router)
-        self._vnc_lib.bgp_as_a_service_update(self.obj)
+        if not create:
+            self._vnc_lib.bgp_router_update(bgp_router)
+        else:
+            self._vnc_lib.bgp_router_create(bgp_router)
+            bgpr = BgpRouterST.locate(router_fq_name, bgp_router)
+            self.obj.add_bgp_router(bgp_router)
+            self._vnc_lib.bgp_as_a_service_update(self.obj)
         self.bgp_routers.add(router_fq_name)
         bgpr.bgp_as_a_service = self.name
         self.bgpaas_clients[name] = router_fq_name
