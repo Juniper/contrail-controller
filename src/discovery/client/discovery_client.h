@@ -18,6 +18,7 @@
 #include "base/timer.h"
 
 #include "http/client/http_client.h"
+#include "http/client/http_curl.h"
 
 class ServiceType;
 class DiscoveryServiceClient;
@@ -57,6 +58,7 @@ struct DSSubscribeResponse {
     int sub_sent_;
     int sub_rcvd_;
     int sub_fail_;
+    int sub_last_ttl_;
 
     bool subscribe_cb_called_;
 
@@ -90,6 +92,8 @@ struct DSPublishResponse {
 
     /* HeartBeat publisher cookie */
     std::string cookie_;
+    uint32_t publish_resp_chksum_;
+    
     /* HeartBeat Timer */
     Timer *publish_hb_timer_;
     /* Connect Timer */
@@ -109,9 +113,11 @@ struct DSPublishResponse {
     int pub_rcvd_;
     int pub_fail_;
     int pub_fallback_;
+    int pub_timeout_;
     int pub_hb_sent_;
     int pub_hb_fail_;
     int pub_hb_rcvd_;
+    int pub_hb_timeout_;
 
     bool publish_cb_called_;
     bool heartbeat_cb_called_;
