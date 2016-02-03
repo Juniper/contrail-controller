@@ -6,7 +6,7 @@ kazoo
 bitarray
 gevent==1.1a2
 geventhttpclient
-psutil
+psutil>=0.6.0
 bottle
 amqp
 kombu
