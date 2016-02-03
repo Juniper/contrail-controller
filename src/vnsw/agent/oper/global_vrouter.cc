@@ -528,8 +528,11 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             flow_export_rate_ = kDefaultFlowExportRate;
         }
         UpdateFlowAging(cfg);
-        resync_vn = ecmp_load_balance_.UpdateFields(cfg->
-                                              ecmp_hashing_include_fields());
+        if (cfg->ecmp_hashing_include_fields().hashing_configured) {
+            resync_vn =
+                ecmp_load_balance_.UpdateFields(cfg->
+                                                ecmp_hashing_include_fields());
+        }
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
