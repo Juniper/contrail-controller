@@ -150,7 +150,7 @@ void Options::Initialize(EventManager &evm,
              "IFMAP server username")
 
 
-        ("DEFAULT.xmpp_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
+        ("DEFAULT.xmpp_dns_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
              "Enable authentication over Xmpp")
         ("DEFAULT.xmpp_server_cert",
              opt::value<string>()->default_value(
@@ -287,7 +287,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user");
     GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store");
 
-    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
+    GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_dns_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
 }
