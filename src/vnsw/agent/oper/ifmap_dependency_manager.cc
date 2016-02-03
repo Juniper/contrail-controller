@@ -412,6 +412,12 @@ void IFMapDependencyManager::Unregister(const string &type) {
     event_map_.erase(type);
 }
 
+// Check if a IFMapNode type is registerd with dependency manager
+bool IFMapDependencyManager::IsRegistered(const IFMapNode *node) {
+    EventMap::iterator it = event_map_.find(node->table()->Typename());
+    return (it != event_map_.end());
+}
+
 IFMapDependencyManager::Path MakePath
 (const char *link1,        const char *node1,        bool interest1,
  const char *link2 = NULL, const char *node2 = NULL, bool interest2 = false,

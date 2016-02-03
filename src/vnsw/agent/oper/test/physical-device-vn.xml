@@ -6,7 +6,7 @@
 
     <virtual-network uuid="1" name="vn-1"/>
     <physical-interface uuid="1" name="intf-1" />
-    <logical-interface uuid="1" name="l-intf-1"/>
+    <logical-interface uuid="1" name="l-intf-1" vlan="1"/>
     <virtual-machine uuid="1" name="vm1"/>
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
     <vmi nova="1"
@@ -100,7 +100,7 @@
    <!-- Validate VMI - VN link propogation to physical-device-vn -->
     <virtual-network uuid="1" name="vn-1"/>
     <physical-interface uuid="1" name="intf-1" />
-    <logical-interface uuid="1" name="l-intf-1"/>
+    <logical-interface uuid="1" name="l-intf-1" vlan="1"/>
     <virtual-machine uuid="1" name="vm1"/>
     <physical-router uuid="1" name="router-1"/>
 
@@ -161,7 +161,7 @@
     <virtual-network uuid="1" name="vn-1"/>
     <physical-interface uuid="1" name="intf-1" />
     <!-- Add logical-interface with UUID 0 -->
-    <logical-interface uuid="0" name="l-intf-1"/>
+    <logical-interface uuid="0" name="l-intf-1" vlan="1"/>
     <virtual-machine uuid="1" name="vm1"/>
     <physical-router uuid="1" name="router-1"/>
 
@@ -182,7 +182,7 @@
     </validate>
 
     <!-- Change UUID for logical-interface to 1 -->
-    <logical-interface uuid="1" name="l-intf-1"/>
+    <logical-interface uuid="1" name="l-intf-1" vlan="1"/>
     <validate name="validate-5">
         <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
          present="yes"/>
