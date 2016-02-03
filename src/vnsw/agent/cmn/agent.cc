@@ -240,6 +240,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::FlowTable",
         "Agent::FlowHandler",
         "Agent::StatsCollector",
+        "Flow::Management",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
