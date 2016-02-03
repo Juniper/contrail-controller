@@ -2,13 +2,13 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>1.1.1.1/32</prefix>
-                    <type>exact</type>
+                    <prefix-type>exact</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <community>
                         <set>
@@ -19,7 +19,7 @@
                     </community>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

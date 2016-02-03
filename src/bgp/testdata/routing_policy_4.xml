@@ -2,22 +2,22 @@
 <config>
     <routing-policy name='basic_0'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>22:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>reject</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-policy name='basic_1'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>11:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <action>reject</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

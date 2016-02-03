@@ -2,15 +2,15 @@
 <config>
     <routing-policy name='basic_0'>
         <term>
-            <from>
+            <term-match-condition>
                 <community>23:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test_0">

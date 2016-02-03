@@ -8,15 +8,15 @@
     </virtual-network>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <protocol>service-chain</protocol>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="red">
