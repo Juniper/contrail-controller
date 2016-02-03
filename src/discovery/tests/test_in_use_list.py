@@ -5,7 +5,7 @@ from test_utils import *
 import fixtures
 import testtools
 import test_common
-import test_discovery
+import test_case
 
 import discoveryclient.client as client
 
@@ -14,7 +14,7 @@ def info_callback(info, client_id):
     print 'client-id %s info %s' % (client_id, info)
     pass
 
-class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures):
+class DiscoveryServerTestCase(test_case.DsTestCase):
 
     def test_in_use_list(self):
         # publish 3 instances of service foobar
