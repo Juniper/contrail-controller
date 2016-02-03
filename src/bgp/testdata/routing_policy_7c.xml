@@ -2,20 +2,20 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>2001:db8:85a3::8a2e:370:7334/128</prefix>
-                    <type>exact</type>
+                    <prefix-type>exact</prefix-type>
                 </prefix>
                 <community>11:13</community>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <community>
                         <add><community>11:22</community></add>
                     </community>
                 </update>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

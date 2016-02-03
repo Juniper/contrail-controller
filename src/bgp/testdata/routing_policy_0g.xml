@@ -2,17 +2,17 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <protocol>service-chain</protocol>
                 <protocol>bgp</protocol>
                 <protocol>xmpp</protocol>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>999</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
 </config>

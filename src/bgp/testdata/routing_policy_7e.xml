@@ -2,19 +2,19 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>2001:db8:85a3::/64</prefix>
-                    <type>longer</type>
+                    <prefix-type>longer</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <community>
                         <remove><community>33:66</community></remove>
                     </community>
                 </update>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">
