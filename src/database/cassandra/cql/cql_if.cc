@@ -261,8 +261,9 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
     }
     // Value
     const GenDb::DbDataTypeVec &values(cf.default_validation_class);
-    assert(values.size() == 1);
-    query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
+    if (values.size() > 0) {
+        query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
+    }
     // Primarry Key
     query << "PRIMARY KEY (";
     std::ostringstream rkey_ss;
@@ -322,13 +323,20 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
         int cnum(i + 1);
         query << ", column" << cnum;
         boost::apply_visitor(values_printer, cnames[i]);
-        values_ss << ", ";
+        if (i != cn_size -1 ) {
+            values_ss << ", ";
+        }
     }
     // Column Values
     const GenDb::DbDataValueVec &cvalues(*column.value.get());
-    assert(cvalues.size() == 1);
-    query << ", value) VALUES (";
-    boost::apply_visitor(values_printer, cvalues[0]);
+    if (cvalues.size() > 0) {
+        query << ", value) VALUES (";
+        values_ss << ", ";
+        boost::apply_visitor(values_printer, cvalues[0]);
+    } else {
+        query << ") VALUES (";
+    }
+    //boost::apply_visitor(values_printer, cvalues[0]);
     values_ss << ")";
     query << values_ss.str();
     if (column.ttl > 0) {
@@ -585,7 +593,6 @@ static bool DynamicCfGetResultSync(CassSession *session, const char *query,
         const CassRow *row(cass_iterator_get_row(riterator.get()));
         // Iterate over columns
         size_t ccount(cass_result_column_count(result.get()));
-        assert(ccount == rk_count + ck_count + 1);
         // Clustering key
         GenDb::DbDataValueVec *cnames(new GenDb::DbDataValueVec);
         for (size_t i = rk_count; i < rk_count + ck_count; i++) {

@@ -183,7 +183,7 @@ private:
     static tbb::mutex fmutex_;
     bool use_cql_;
     std::string tablespace_;
- 
+    UniformInt8RandomGenerator gen_partition_no_;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
