@@ -2,16 +2,16 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <protocol>bgp</protocol>
                 <protocol>xmpp</protocol>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <local-pref>102</local-pref>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

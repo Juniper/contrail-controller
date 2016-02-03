@@ -2,13 +2,13 @@
 <config>
     <routing-policy name='basic'>
         <term>
-            <from>
+            <term-match-condition>
                 <prefix>
                     <prefix>1/8</prefix>
-                    <type>orlonger</type>
+                    <prefix-type>orlonger</prefix-type>
                 </prefix>
-            </from>
-            <then>
+            </term-match-condition>
+            <term-action-list>
                 <update>
                     <community>
                         <remove>
@@ -19,7 +19,7 @@
                     </community>
                 </update>
                 <action>accept</action>
-            </then>
+            </term-action-list>
         </term>
     </routing-policy>
     <routing-instance name="test">

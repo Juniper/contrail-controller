@@ -600,8 +600,8 @@ bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
     string policy_name(node.attribute("name").value());
     assert(!policy_name.empty());
 
-    auto_ptr<autogen::PolicyStatement> policy_statement(
-        new autogen::PolicyStatement());
+    auto_ptr<autogen::PolicyStatementType> policy_statement(
+        new autogen::PolicyStatementType());
     assert(policy_statement->XmlParse(node));
 
     if (add_change) {

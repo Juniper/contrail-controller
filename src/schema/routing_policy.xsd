@@ -6,12 +6,12 @@
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
 <xsd:element name='routing-policy' type='ifmap::IdentityType'/>
-<xsd:element name='routing-policy-entries' type='PolicyStatement'/>
+<xsd:element name='routing-policy-entries' type='PolicyStatementType'/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('routing-policy-entries', 'routing-policy') -->
 
-<xsd:complexType name='PolicyStatement'> 
-    <xsd:element name='term' type='PolicyTerm' maxOccurs='unbounded'/>
+<xsd:complexType name='PolicyStatementType'>
+    <xsd:element name='term' type='PolicyTermType' maxOccurs='unbounded'/>
 </xsd:complexType>
 
 <xsd:simpleType name='ActionType'>
@@ -26,24 +26,24 @@
     <xsd:element name='community' type='xsd:string' maxOccurs='unbounded'/>
 </xsd:complexType>
 
-<xsd:complexType name="ActionCommunity">
+<xsd:complexType name="ActionCommunityType">
     <xsd:element name='add'    type='CommunityListType'/>
     <xsd:element name='remove' type='CommunityListType'/>
     <xsd:element name='set'    type='CommunityListType'/>
 </xsd:complexType>
 
-<xsd:complexType name="ActionUpdate">
-    <xsd:element name="community"   type="ActionCommunity"/>
+<xsd:complexType name="ActionUpdateType">
+    <xsd:element name="community"   type="ActionCommunityType"/>
     <xsd:element name="local-pref"  type="xsd:integer"/>
     <xsd:element name="med"         type="xsd:integer"/>
 </xsd:complexType>
 
-<xsd:complexType name='PolicyAction'>
-    <xsd:element name='update'  type='ActionUpdate'/>
+<xsd:complexType name='TermActionListType'>
+    <xsd:element name='update'  type='ActionUpdateType'/>
     <xsd:element name='action'  type='ActionType'/>
 </xsd:complexType>
 
-<xsd:simpleType name='PrefixMatchType'>
+<xsd:simpleType name='PrefixType'>
     <xsd:restriction base="xsd:string" default="exact">
         <xsd:enumeration value="exact"/>
         <xsd:enumeration value="longer"/>
@@ -61,19 +61,19 @@
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name="PrefixMatch">
-    <xsd:element name="prefix"   type="xsd:string"/>
-    <xsd:element name="type"     type="PrefixMatchType"/>
+<xsd:complexType name="PrefixMatchType">
+    <xsd:element name="prefix"      type="xsd:string"/>
+    <xsd:element name="prefix-type" type="PrefixType"/>
 </xsd:complexType>
 
-<xsd:complexType name="PolicyMatch">
-    <xsd:element name="protocol"    type="PathSourceType" maxOccurs="unbounded"/>
-    <xsd:element name="community"   type="xsd:string"/>
-    <xsd:element name="prefix"      type="PrefixMatch" maxOccurs="unbounded"/>
+<xsd:complexType name="TermMatchConditionType">
+    <xsd:element name="protocol"  type="PathSourceType" maxOccurs="unbounded"/>
+    <xsd:element name="community" type="xsd:string"/>
+    <xsd:element name="prefix"    type="PrefixMatchType" maxOccurs="unbounded"/>
 </xsd:complexType>
 
-<xsd:complexType name='PolicyTerm'>
-    <xsd:element name='from' type='PolicyMatch'/>
-    <xsd:element name='then' type='PolicyAction'/>
+<xsd:complexType name='PolicyTermType'>
+    <xsd:element name='term-match-condition' type='TermMatchConditionType'/>
+    <xsd:element name='term-action-list'     type='TermActionListType'/>
 </xsd:complexType>
 </xsd:schema>
