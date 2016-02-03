@@ -641,6 +641,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Ecmp load balance parameters to be used -->
 <xsd:complexType name="EcmpHashingIncludeFields">
     <xsd:all>
+        <!-- hashing-configured - decides if fields should be used or not -->
+        <xsd:element name="hashing-configured" type="xsd:boolean" default="false"/>
         <xsd:element name="source-mac" type="xsd:boolean" default="true"/>
         <xsd:element name="destination-mac" type="xsd:boolean" default="true"/>
         <xsd:element name="source-ip" type="xsd:boolean" default="true"/>
