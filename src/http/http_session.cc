@@ -155,7 +155,6 @@ public:
     }
 
     void NotFound(HttpSession *session, const HttpRequest *request) {
-        string url = request->UrlPath().substr(1);
         static const char no_response[] =
 "HTTP/1.1 404 Not Found\r\n"
 "Content-Type: text/html; charset=UTF-8\r\n"
