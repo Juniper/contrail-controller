@@ -32,7 +32,7 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 import discoveryclient.client as client
-from vnc_api.common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus

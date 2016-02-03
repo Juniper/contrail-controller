@@ -6,7 +6,6 @@ from vnc_api.vnc_api import *
 import uuid
 import argparse
 
-
 class TestPerms():
 
     def parse_args(self):
