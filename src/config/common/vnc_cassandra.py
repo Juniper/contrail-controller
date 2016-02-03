@@ -609,7 +609,7 @@ class VncCassandraClient(object):
                 map_key_name = obj_class.prop_map_field_key_names[prop_name]
                 for map_elem in map_coll:
                     map_key = map_elem[map_key_name]
-                    self._add_to_prop_list(bch, obj_uuid,
+                    self._set_in_prop_map(bch, obj_uuid,
                         prop_name, map_elem, map_key)
             else:
                 self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
