@@ -467,7 +467,14 @@ class SchemaTransformer(object):
             PortTupleST.locate(pt.get_fq_name_str(), pt)
         for bgpass in BgpAsAServiceST.list_vnc_obj():
             BgpAsAServiceST.locate(bgpass.get_fq_name_str(), bgpass)
+
+        # evaluate virtual network objects first because other objects,
+        # e.g. vmi, depend on it.
+        for vn_obj in VirtualNetworkST.values():
+            vn_obj.evaluate()
         for cls in DBBaseST.get_obj_type_map().values():
+            if cls is VirtualNetworkST:
+                continue
             for obj in cls.values():
                 obj.evaluate()
         self.process_stale_objects()
