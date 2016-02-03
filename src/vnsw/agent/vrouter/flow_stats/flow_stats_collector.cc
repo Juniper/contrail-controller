@@ -847,6 +847,12 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     default:
          assert(0);
     }
+
+    if (deleted_ && flow_tree_.size() == 0 &&
+        request_queue_.IsQueueEmpty() == true) {
+        flow_stats_manager_->Free(flow_aging_key_);
+    }
+
     return true;
 }
 
