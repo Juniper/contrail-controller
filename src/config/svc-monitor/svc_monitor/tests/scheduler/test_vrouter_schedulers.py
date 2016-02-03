@@ -26,255 +26,21 @@ from sandesh_common.vns import constants
 import svc_monitor.scheduler.vrouter_scheduler as scheduler
 from vnc_api.vnc_api import VirtualRouter, VirtualMachine
 
+from svc_monitor.config_db import ServiceInstanceSM, VirtualRouterSM
+import svc_monitor.tests.test_common_utils as test_utils
 
-RUNNING_VROUTER_UVES_STATUS = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "0",
-                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
-                "state": "Functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
+AGENTS_STATUS = \
+{
+ u'vrouter1': {u'NodeStatus': {u'process_status':
+    [{u'module_id': u'contrail-vrouter-agent', u'state': u'Functional'}]}},
+ u'vrouter2': {u'NodeStatus': {u'process_status':
+    [{u'module_id': u'contrail-vrouter-agent', u'state': u'Functional'}]}}
 }
 
-NON_RUNNING_VROUTER_UVES_STATUS_1 = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "2",
-                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
-                "state": "Functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"1.06\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
-}
-
-NON_RUNNING_VROUTER_UVES_STATUS_2 = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "0",
-                "module_id": "FakeModuleID",
-                "state": "Functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"1.10\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
-}
-
-NON_RUNNING_VROUTER_UVES_STATUS_3 = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "0",
-                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
-                "state": "Non-functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
-}
-
-NON_RUNNING_VROUTER_UVES_STATUS_4 = {}
-
-NON_RUNNING_VROUTER_UVES_STATUS_5 = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "0",
-                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
-                "state": "Functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "mode": "TOR",
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
-}
-
-NON_RUNNING_VROUTER_UVES_STATUS_6 = {
-    "NodeStatus": {
-        "process_status": [
-            {
-                "instance_id": "0",
-                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
-                "state": "Functional",
-                "connection_infos": [
-                    {
-                        "server_addrs": [
-                            "10.0.1.2:0"
-                        ],
-                        "status": "Up",
-                        "type": "XMPP",
-                        "name": "control-node:10.0.1.2",
-                        "description": "OpenSent"
-                    },
-                    {
-                        "server_addrs": [
-                            "127.0.0.1:8086"
-                        ],
-                        "status": "Up",
-                        "type": "Collector",
-                        "name": "null",
-                        "description": "Established"
-                    }
-                ]
-            }
-        ],
-        "description": "null"
-    },
-    "VrouterAgent": {
-        "mode": "TSN",
-        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
-    }
-}
-
-
-VROUTER_LIST = {
-    "virtual-routers": [
-        {
-            "href": "http://127.0.0.1:8082/virtual-router/uuid1",
-            "fq_name": [
-                "default-global-system-config",
-                "vrouter1"
-            ],
-            "uuid": "uuid1"
-        },
-        {
-            "href": "http://127.0.0.1:8082/virtual-router/uuid2",
-            "fq_name": [
-                "default-global-system-config",
-                "vrouter2"
-            ],
-            "uuid": "uuid2"
-        },
-        {
-            "href": "http://127.0.0.1:8082/virtual-router/uuid3",
-            "fq_name": [
-                "default-global-system-config",
-                "vrouter3"
-            ],
-            "uuid": "uuid3"
-        }
-    ]
+VROUTERS_MODE = \
+{
+ u'vrouter1': {u'VrouterAgent': {u'mode': u'VROUTER'}},
+ u'vrouter2': {u'VrouterAgent': {u'mode': u'VROUTER'}}
 }
 
 
@@ -291,106 +57,73 @@ class TestRandomScheduler(unittest.TestCase):
 
         self.scheduler = \
             scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock(),
+                mock.MagicMock(), mock.MagicMock(), 
                 mock.MagicMock(netns_availability_zone=False))
 
     def tearDown(self):
         self.analytics_patch.stop()
+        VirtualRouterSM.reset()
+        ServiceInstanceSM.reset()
         super(TestRandomScheduler, self).tearDown()
 
     def test_get_candidates(self):
-        self.vnc_mock.virtual_routers_list.return_value = VROUTER_LIST
+        test_utils.create_test_project('fake-domain:fake-project')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:vn1')
+        test_utils.create_test_virtual_network('fake-domain:fake-project:vn2')
+        test_utils.create_test_security_group('fake-domain:fake-project:default')
+        st = test_utils.create_test_st(name='test-template',
+            virt_type='network-namespace',
+            intf_list=[['right', True], ['left', True]])
+        si = test_utils.create_test_si(name='test-instance', count=2,
+            intf_list=['vn1', 'vn2'])
 
-        self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS]
+        # test anti-affinity
+        vr1 = test_utils.create_test_virtual_router('vr-candidate1')
+        vr2 = test_utils.create_test_virtual_router('vr-candidate2')
+        vm1 = test_utils.create_test_virtual_machine('vm1')
+        vm2 = test_utils.create_test_virtual_machine('vm2')
+        si.virtual_machines.add(vm1.uuid)
+        si.virtual_machines.add(vm2.uuid)
+        vm1.virtual_router = vr1.uuid
+        candidates = self.scheduler._get_candidates(si, vm2)
+        self.assertEqual(candidates, [vr2.uuid])
 
-        vr_obj = VirtualRouter()
-        vr_obj.get_virtual_machine_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_vm_uuid1'}])
-        self.vnc_mock.virtual_router_read.return_value = vr_obj
+        # test same vrouter returned if already scheduled
+        candidates = self.scheduler._get_candidates(si, vm1)
+        self.assertEqual(len(candidates), 1) 
+        self.assertEqual(candidates, [vr1.uuid])
 
-        vm_obj_1 = VirtualMachine()
-        vm_obj_1.get_service_instance_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_si_uuid1'}])
-        vm_obj_2 = VirtualMachine()
-        vm_obj_2.get_service_instance_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_si_uuid2'}])
-        self.vnc_mock.virtual_machine_read.side_effect = [vm_obj_1, vm_obj_2]
+        # test all candidates returned
+        vm1.virtual_router = None
+        candidates = self.scheduler._get_candidates(si, vm1)
+        self.assertEqual(len(candidates), 2)
 
-        # Test the vrouters seected does not already have a VM of the same SI
-        # schedule on it.
-        expected_result = [["default-global-system-config", "vrouter3"]]
-        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid1',
-                                                        'fake_vm_uuid2'),
-                         expected_result)
+        # test non running candidates returned
+        vr1.agent_state = False
+        candidates = self.scheduler._get_candidates(si, vm1)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates, [vr2.uuid])
 
-        self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS]
-        self.vnc_mock.virtual_machine_read.side_effect = [vm_obj_1, vm_obj_2]
-
-        # Test the same vrouter is return if the VM is already scheduled on
-        # a running vrouter
-        expected_result = [["default-global-system-config", "vrouter1"]]
-        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid1',
-                                                        'fake_vm_uuid1'),
-                         expected_result)
+        # test no candidates
+        vr1.agent_state = False
+        vr2.agent_state = False
+        candidates = self.scheduler._get_candidates(si, vm1)
+        self.assertEqual(len(candidates), 0)
 
     def test_vrouter_running(self):
-        self.analytics_mock.side_effect = [analytics.OpenContrailAPIFailed,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_1,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_1,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_2,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_2,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_4,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_5,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_6,
-                                           RUNNING_VROUTER_UVES_STATUS,
-                                           RUNNING_VROUTER_UVES_STATUS]
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
-        self.assertTrue(self.scheduler.vrouter_running('fake_vrouter_name'))
-
-    def test_vrouter_check_version(self):
-        self.analytics_mock.side_effect = [analytics.OpenContrailAPIFailed,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_1,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_2,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
-                                           NON_RUNNING_VROUTER_UVES_STATUS_4,
-                                           RUNNING_VROUTER_UVES_STATUS]
-        self.assertFalse(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
-        self.assertFalse(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
-        self.assertTrue(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
-        self.assertTrue(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
-        self.assertFalse(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
-        self.assertTrue(self.scheduler.vrouter_check_version(
-            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        vr1 = test_utils.create_test_virtual_router('vrouter1')
+        vr2 = test_utils.create_test_virtual_router('vrouter2')
+        self.scheduler.get_analytics_client = mock.MagicMock()
+        def query_uve_side_effect(query_str):
+            if 'NodeStatus' in query_str:
+                return AGENTS_STATUS
+            elif 'VrouterAgent' in query_str:
+                return VROUTERS_MODE
+            else:
+                return {}
+        self.scheduler.query_uve = query_uve_side_effect
+        self.assertTrue(VirtualRouterSM.get('vrouter1').agent_state)
+        self.assertTrue(VirtualRouterSM.get('vrouter2').agent_state)
 
     def test_random_scheduling(self):
         random_patch = mock.patch('random.choice')
@@ -400,11 +133,14 @@ class TestRandomScheduler(unittest.TestCase):
             return seq[0]
         random_mock.side_effect = side_effect
 
+        si = test_utils.create_test_si(name='test-instance', count=2,
+            intf_list=['vn1', 'vn2'])
+        vm = test_utils.create_test_virtual_machine('vm')
+
         with mock.patch.object(scheduler.RandomScheduler, '_get_candidates',
-            return_value=[["default-global-system-config", "vrouter1"],
-                          ["default-global-system-config", "vrouter2"]]):
-            self.assertEqual(self.scheduler.schedule('fake_uuid', 'fake_uuid'),
-                             ["default-global-system-config", "vrouter1"])
+                return_value=['vrouter1', 'vrouter2']):
+            chosen_vrouter = self.scheduler.schedule(si, vm)
             self.assertEqual(random_mock.call_count, 1)
+            self.assertEqual(chosen_vrouter, 'vrouter1')
 
         random_patch.stop()

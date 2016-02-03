@@ -25,6 +25,9 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        self.mocked_scheduler = mock.MagicMock()
+        self.mocked_scheduler.schedule = mock.Mock(return_value=('fake-virtual-router'))
+
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
 
@@ -35,7 +38,7 @@ class SnatInstanceManager(unittest.TestCase):
 
         self.netns_manager = NetworkNamespaceManager(
             db=self.mocked_db, logger=mock.MagicMock(),
-            vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
+            vnc_lib=self.mocked_vnc, vrouter_scheduler=self.mocked_scheduler,
             nova_client=self.nova_mock, agent_manager=self.mocked_manager,
             args=self.mocked_args)
 
@@ -58,6 +61,7 @@ class SnatInstanceManager(unittest.TestCase):
         test_utils.create_test_virtual_network('fake-domain:fake-project:public-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:fake-vn-uuid')
         test_utils.create_test_security_group('fake-domain:fake-project:default')
+        test_utils.create_test_virtual_router('fake-virtual-router')
 
         st = test_utils.create_test_st(name='snat-template',
             virt_type='network-namespace',
