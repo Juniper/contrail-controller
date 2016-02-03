@@ -70,7 +70,9 @@ DbHandler::DbHandler(EventManager *evm,
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
     use_cql_(use_cql),
-    tablespace_() {
+    tablespace_(),
+    gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
+        (uint8_t)g_viz_constants.PARTITION_MAX) {
 #ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
@@ -92,7 +94,9 @@ DbHandler::DbHandler(EventManager *evm,
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
-    ttl_map_(ttl_map) {
+    ttl_map_(ttl_map),
+    gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
+        (uint8_t)g_viz_constants.PARTITION_MAX) {
 }
 
 DbHandler::~DbHandler() {
@@ -410,6 +414,51 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     col_list->cfname_ = cfname;
     // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+#ifdef USE_CASSANDRA_CQL
+    rowkey.reserve(2);
+    uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
+    rowkey.push_back(T2);
+    //Push partition into row key
+    rowkey.push_back(gen_partition_no_());
+    // Columns
+    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
+    col_name->reserve(3);
+    int ttl;
+    if (message_type == "VncApiConfigLog") {
+        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
+    } else {
+        ttl = GetTtl(TtlType::GLOBAL_TTL);
+    }
+    if (cfname == g_viz_constants.MESSAGE_TABLE_SOURCE) {
+        col_name->push_back(header.get_Source());
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MODULE_ID) {
+        col_name->push_back(header.get_Module());
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_CATEGORY) {
+        col_name->push_back(header.get_Category());
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
+        col_name->push_back(message_type);
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
+        if (keyword.length()) {
+            col_name->push_back(keyword);
+        } else {
+            return false;
+        }
+    } else {
+        DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
+                << message_type << ", message UUID: " << unm);
+        return false;
+    }
+    uint32_t T1(header.get_Timestamp() & g_viz_constants.RowTimeInMask);
+    col_name->push_back(T1);
+    col_name->push_back(unm);
+    //No value to be stored against the columns
+    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(0));
+    GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
+    GenDb::NewColVec& columns = col_list->columns_;
+    columns.reserve(1);
+    columns.push_back(col);
+#else
     rowkey.reserve(8);
     uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
     rowkey.push_back(T2);
@@ -446,6 +495,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     }
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
+#endif
     if (!dbif_->Db_AddColumn(col_list)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
