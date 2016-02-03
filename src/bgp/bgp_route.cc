@@ -438,6 +438,10 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             srp.set_protocol("StaticRoute");
         } else if (path->GetSource() == BgpPath::Local) {
             srp.set_protocol("Local");
+        } else if (path->GetSource() == BgpPath::Aggregate) {
+            srp.set_protocol("Aggregate");
+        } else if (path->GetSource() == BgpPath::ResolvedRoute) {
+            srp.set_protocol("ResolvedRoute");
         }
 
         const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
