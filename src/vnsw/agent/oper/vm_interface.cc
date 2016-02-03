@@ -693,7 +693,8 @@ static void BuildEcmpHashingIncludeFields(VirtualMachineInterface *cfg,
                                           VmInterfaceConfigData *data) {
     data->ecmp_load_balance_.set_use_global_vrouter(false);
     if (cfg->IsPropertySet
-        (VirtualMachineInterface::ECMP_HASHING_INCLUDE_FIELDS)) {
+        (VirtualMachineInterface::ECMP_HASHING_INCLUDE_FIELDS) &&
+        (cfg->ecmp_hashing_include_fields().hashing_configured)) {
         data->ecmp_load_balance_.UpdateFields(cfg->
                                               ecmp_hashing_include_fields());
     } else {
@@ -705,9 +706,9 @@ static void BuildEcmpHashingIncludeFields(VirtualMachineInterface *cfg,
         }
         VirtualNetwork *vn_cfg =
             static_cast <VirtualNetwork *> (vn_node->GetObject());
-        if (vn_cfg->IsPropertySet
-            (VirtualNetwork::ECMP_HASHING_INCLUDE_FIELDS) ==
-            false) {
+        if ((vn_cfg->IsPropertySet
+            (VirtualNetwork::ECMP_HASHING_INCLUDE_FIELDS) == false) &&
+            (cfg->ecmp_hashing_include_fields().hashing_configured == false)) {
             data->ecmp_load_balance_.set_use_global_vrouter(true);
             data->ecmp_load_balance_.reset();
             return;
