@@ -153,6 +153,8 @@ public:
     void PropogateNodeChange(IFMapNode *node);
     void PropogateNodeAndLinkChange(IFMapNode *node);
 
+    // Check if a IFMapNode type is registerd with dependency manager
+    bool IsRegistered(const IFMapNode *node);
 private:
     /*
      * IFMapNodeState (DBState) should exist:

@@ -260,7 +260,7 @@ static void AddSgEntry(const char *sg_name, const char *name, int id,
 
             strncpy(acl_name, name, max_len);
             strncat(acl_name, "ingress-access-control-list", max_len);
-            AddAclEntry(name, id, proto, action, INGRESS);
+            AddAclEntry(name, id+1, proto, action, INGRESS);
             AddLink("security-group", sg_name, "access-control-list", acl_name);
             break;
     }
@@ -292,7 +292,7 @@ static void AddSgEntry(const char *sg_name, const char *name, int id,
             AddLink("security-group", sg_name, "access-control-list", acl_name);
 
             strncpy(acl_name, name, max_len);
-            AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, INGRESS);
+            AddSgIdAcl(name, id+1, proto, sg_id, dest_sg_id, action, INGRESS);
             strncat(acl_name, "ingress-access-control-list", max_len);
             AddLink("security-group", sg_name, "access-control-list", acl_name);
             break;
