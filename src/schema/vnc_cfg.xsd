@@ -1686,11 +1686,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="RouteNextHopType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="service-instance"/>
+        <xsd:enumeration value="ip-address"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='RouteType'>
     <xsd:all>
         <xsd:element name='prefix' type='xsd:string'/>
         <xsd:element name='next-hop' type='xsd:string'/>
-        <xsd:element name='next-hop-type' type='xsd:string'/>
+        <xsd:element name='next-hop-type' type='RouteNextHopType'/>
         <xsd:element name='community-attributes' type='CommunityAttributes'/>
     </xsd:all>
 </xsd:complexType>
