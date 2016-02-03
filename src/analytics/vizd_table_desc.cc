@@ -64,42 +64,86 @@ void init_vizd_tables(bool use_cql) {
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_SOURCE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_MODULE_ID,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_CATEGORY,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_TIMESTAMP,
                       boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
                       (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         (GenDb::NewCf(g_viz_constants.OBJECT_VALUE_TABLE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
@@ -142,11 +186,20 @@ void init_vizd_tables(bool use_cql) {
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_KEYWORD,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+#ifdef USE_CASSANDRA_CQL
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      std::vector<GenDb::DbDataType::type>()))
+#else
                       (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+#endif
         ;
 
 /* flow records table and flow series table are created in the code path itself

@@ -498,8 +498,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value);
+#else
                 db_query->row_key_suffix.push_back(value);
-
+#endif
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
 
@@ -514,7 +518,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value);
+#else
                 db_query->row_key_suffix.push_back(value);
+#endif
 
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
@@ -529,7 +538,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value);
+#else
                 db_query->row_key_suffix.push_back(value);
+#endif
 
                 // dont filter query engine logs if the query is about query
                 // engine
@@ -550,7 +564,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value);
+#else
                 db_query->row_key_suffix.push_back(value);
+#endif
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
@@ -566,7 +585,12 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
+#ifdef USE_CASSANDRA_CQL
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value);
+#else
                 db_query->row_key_suffix.push_back(value);
+#endif
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }

@@ -60,7 +60,24 @@ query_status_t DbQueryUnit::process_query()
                 rowkey.push_back(*it);
             }
         }
+
+#ifdef USE_CASSANDRA_CQL
+        // If querying message_index_tables, partion_no is an additional row_key
+        // It spans values 0..15
+        if (t_only_col) {
+            for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
+                     part_no < (uint8_t)g_viz_constants.PARTITION_MAX + 1;
+                     part_no++) {
+                GenDb::DbDataValueVec tmp_rowkey(rowkey);
+                tmp_rowkey.push_back(part_no);
+                keys.push_back(tmp_rowkey);
+            }
+        } else {
+            keys.push_back(rowkey);
+        }
+#else
         keys.push_back(rowkey);
+#endif
     }
 
     if (!m_query->dbif_->Db_GetMultiRow(&mget_res, cfname, keys, cr)) {
@@ -120,7 +137,18 @@ query_status_t DbQueryUnit::process_query()
                             assert(0);
                         }
                     } else {
+#ifdef USE_CASSANDRA_CQL
+                        // For MessageIndex tables t1 is stored in the first column
+                        // except for timestamp table
+                        int ts_at = 0;
+                        if (t_only_col) {
+                            ts_at = i->name->size() - 2;
+                        } else {
+                            ts_at = i->name->size() - 1;
+                        }
+#else
                         int ts_at = i->name->size() - 1;
+#endif
                         assert(ts_at >= 0);
                         try {
                             t1 = boost::get<uint32_t>(i->name->at(ts_at));
@@ -165,7 +193,19 @@ query_status_t DbQueryUnit::process_query()
                             attribstr,
                             uuid);
                     } else {
+#ifdef USE_CASSANDRA_CQL
+                        // If message index table uuid is not the value, but
+                        // column name
+                        if (t_only_col) {
+                            GenDb::DbDataValueVec uuid_val;
+                            uuid_val.push_back(i->name->at(i->name->size()-1));
+                            result_unit.info = uuid_val;
+                        } else {
+                            result_unit.info = *i->value;
+                        }
+#else
                         result_unit.info = *i->value;
+#endif
                     }
 
                     query_result.push_back(result_unit);
