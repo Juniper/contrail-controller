@@ -8,18 +8,17 @@ struct DiscoveryClientSubscriberStats {
     3: u32 subscribe_fail;
     4: u32 subscribe_rcvd;
     5: u32 subscribe_retries;
+    6: u32 subscribe_last_ttl;
 }
 
 struct DiscoveryClientPublisherStats {
     1: string serviceName;
-    2: u32 heartbeat_sent;
-    3: u32 heartbeat_fail;
-    4: u32 heartbeat_rcvd;
-    5: u32 publish_sent;
-    6: u32 publish_fail;
-    7: u32 publish_rcvd;
-    8: u32 publish_retries;
-    9: u32 publish_fallback;
+    2: u32 publish_sent;
+    3: u32 publish_fail;
+    4: u32 publish_rcvd;
+    5: u32 publish_retries;
+    6: u32 publish_fallback;
+    7: u32 publish_timeout;
 }
 
 request sandesh DiscoveryClientSubscriberStatsReq {
