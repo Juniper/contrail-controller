@@ -1456,6 +1456,8 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
                                         false);
     autogen::EnetNextHopType nh = item.entry.next_hops.next_hop.back();
     EXPECT_TRUE(nh.label != 0);
+    EXPECT_TRUE(item.entry.nlri.ethernet_tag != 0);
+    EXPECT_TRUE(item.entry.nlri.ethernet_tag == nh.label);
     //Add VM
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
