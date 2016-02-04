@@ -111,10 +111,6 @@ bool ThriftIf::Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
 }
 
 // Connection
-std::string ThriftIf::Db_GetHost() const {
-    return impl_->Db_GetHost();
-}
-
-int ThriftIf::Db_GetPort() const {
-    return impl_->Db_GetPort();
+std::vector<GenDb::Endpoint> ThriftIf::Db_GetEndpoints() const {
+    return impl_->Db_GetEndpoints();
 }
