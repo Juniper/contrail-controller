@@ -28,9 +28,9 @@ class AgentManager(object):
     def pre_create_service_vm(self, instance_index, si, st, vm):
         agent = self._agents.get(st.params.get('service_type'))
         if agent:
-            agent.pre_create_service_vm(instance_index, si, st, vm)
+            return agent.pre_create_service_vm(instance_index, si, st, vm)
 
     def post_create_service_vm(self, instance_index, si, st, vm):
         agent = self._agents.get(st.params.get('service_type'))
         if agent:
-            agent.post_create_service_vm(instance_index, si, st, vm)
+            return agent.post_create_service_vm(instance_index, si, st, vm)

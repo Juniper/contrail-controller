@@ -37,13 +37,19 @@ class LoadbalancerAgent(Agent):
         for nic in si.vn_info:
            if nic['type'] == svc_info.get_right_if_str():
                 vmi = self._get_vip_vmi(si)
+                if not vmi:
+                    return False
                 for iip_id in vmi.instance_ips:
                     nic['iip-id'] = iip_id
                     break
                 for fip_id in vmi.floating_ips:
                     nic['fip-id'] = fip_id
                     break
+                if len(vmi.security_groups):
+                    nic['sg-list'] = vmi.security_groups
+                    break
                 nic['user-visible'] = False
+        return True
 
     def _get_vip_vmi(self, si):
         lb = LoadbalancerSM.get(si.loadbalancer)
