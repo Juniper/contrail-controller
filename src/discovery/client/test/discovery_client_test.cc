@@ -52,6 +52,16 @@ public:
         }
     }
 
+    void AsyncSubscribeXmppHandlerWithFakePubId(std::vector<DSResponse> dr) {
+        //Connect handler for the service
+        xmpp_cb_count_++;
+        xmpp_instances_ = dr.size();
+        DSResponse ds_resp;
+        ds_resp.ep.address(ip::address::from_string("10.84.7.1"));
+        ds_resp.ep.port(9699);
+        AddSubscribeInUseServiceList("xmpp-server-test", ds_resp.ep);
+    }
+
     void AsyncSubscribeIfMapHandler(std::vector<DSResponse> dr) {
         //Connect handler for the service
         ifmap_cb_count_++; 
@@ -741,6 +751,44 @@ TEST_F(DiscoveryServiceClientTest, SubscribeWithPubId) {
     task_util::WaitForIdle();
 }
 
+TEST_F(DiscoveryServiceClientTest, SubscribeWithNonExistantPubId) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_subscribe =
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test2"));
+    dsc_subscribe->Init();
+
+    //subscribe a service
+    dsc_subscribe->Subscribe("xmpp-server-test", 2,
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandlerWithFakePubId,
+                    dsc_subscribe, _1));
+    task_util::WaitForIdle();
+
+    //subscribe response
+    std::string msg;
+    dsc_subscribe->BuildSubscribeResponseMessageWithPubliserId(
+                   "xmpp-server-test", 2, msg);
+    boost::system::error_code ec;
+    dsc_subscribe->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
+    EXPECT_TRUE(dsc_subscribe->XmppInstances() == 2);
+
+    DSSubscribeResponse *resp = dsc_subscribe->GetSubscribeResponse("xmpp-server-test");
+    TASK_UTIL_EXPECT_EQ(2, resp->sub_sent_);
+    EXPECT_TRUE(1 == resp->inuse_service_list_.size());
+
+    EvmShutdown();
+
+    //unsubscribe to service
+    dsc_subscribe->Unsubscribe("xmpp-server-test");
+
+    dsc_subscribe->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle();
+    delete dsc_subscribe;
+    task_util::WaitForIdle();
+}
 
 TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
 
