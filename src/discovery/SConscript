@@ -62,12 +62,18 @@ for file in local_sources:
         env.Install("discovery", '#controller/src/discovery/' + file))
 
 introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
+cfgm_pkg = env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'discovery/sandesh/', False)
+cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'discovery/sandesh/cfgm_cpuinfo/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'discovery/sandesh/cfgm_cpuinfo/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(introspect_pkg)
+sdist_depends.extend(cfgm_pkg)
+sdist_depends.extend(cpu_info_pkg)
+sdist_depends.extend(process_info_pkg)
 
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
