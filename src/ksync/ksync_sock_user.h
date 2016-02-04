@@ -176,8 +176,6 @@ public:
     static void SetFlowEntry(vr_flow_req *req, bool set);
     static void IncrFlowStats(int idx, int pkts, int bytes);
     static void SetTcpFlag(int idx, uint32_t flags);
-    static void SetEvictedFlag(int idx);
-    static void ResetEvictedFlag(int idx);
     static void SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes);
     static void SetFlowTcpFlags(int idx, uint16_t flags);;
     static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);

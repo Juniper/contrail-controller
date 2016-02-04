@@ -50,8 +50,8 @@ public:
     void set_flow_table_path(const std::string &path) {
         flow_table_path_ = path;
     }
-    bool IsEvictionMarked(const vr_flow_entry *entry) const;
 private:
+    bool IsEvictionMarked(const vr_flow_entry *entry) const;
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
 
     KSync                   *ksync_;

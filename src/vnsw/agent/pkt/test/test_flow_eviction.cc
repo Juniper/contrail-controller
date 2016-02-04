@@ -9,7 +9,6 @@
 #include "ksync/ksync_sock_user.h"
 #include "oper/tunnel_nh.h"
 #include "pkt/flow_mgmt.h"
-#include "uve/test/test_uve_util.h"
 #include <algorithm>
 
 #define vm1_ip "1.1.1.1"
@@ -24,7 +23,7 @@ struct PortInfo input[] = {
 
 class FlowEvictionTest : public ::testing::Test {
 public:
-    FlowEvictionTest() : peer_(NULL), agent_(Agent::GetInstance()), util_() {
+    FlowEvictionTest() : peer_(NULL), agent_(Agent::GetInstance()) {
         flow_proto_ = agent_->pkt()->get_flow_proto();
         flow_mgmt_ = agent_->pkt()->flow_mgmt_manager();
         eth = EthInterfaceGet("vnet0");
@@ -106,7 +105,6 @@ protected:
     char router_id_[80];
     InetUnicastAgentRouteTable *inet4_table_;
     KSyncSockTypeMap *ksync_sock_;
-    TestUveUtil util_;
 };
 
 // New flow no-eviction
@@ -419,7 +417,7 @@ TEST_F(FlowEvictionTest, Delete_Evicted_Flow_1) {
     EXPECT_TRUE(FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 2, 0, 0,
                         vif0->flow_key_nh()->id()) == false);
 
-    flow_proto_->DeleteFlowRequest(key, true, false);
+    flow_proto_->DeleteFlowRequest(key, true);
     client->WaitForIdle();
 
     // New flow should be present
@@ -443,7 +441,7 @@ TEST_F(FlowEvictionTest, Delete_Evicted_Flow_2) {
     EXPECT_TRUE(flow != NULL);
 
     // Generate delete request followed by flow-evict
-    flow_proto_->DeleteFlowRequest(flow->key(), true, false);
+    flow_proto_->DeleteFlowRequest(flow->key(), true);
     // Generate a flow that evicts flow created above
     TxIpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
                    remote_vm1_ip, vm1_ip, 1, 1);
@@ -476,7 +474,7 @@ TEST_F(FlowEvictionTest, Delete_Index_Unassigned_Flow_1) {
     EXPECT_TRUE(flow != NULL);
 
     FlowKey key = flow->key();
-    flow_proto_->DeleteFlowRequest(key, true, false);
+    flow_proto_->DeleteFlowRequest(key, true);
     client->WaitForIdle();
 
     ksync_sock_->DisableReceiveQueue(false);
@@ -484,53 +482,6 @@ TEST_F(FlowEvictionTest, Delete_Index_Unassigned_Flow_1) {
 
     EXPECT_TRUE(FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 1, 0, 0,
                         vif0->flow_key_nh()->id()) == NULL);
-}
-
-TEST_F(FlowEvictionTest, AgeOutVrouterEvictedFlow) {
-    TxIpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
-                   remote_vm1_ip, vm1_ip, 1, 1);
-    client->WaitForIdle();
-
-    uint32_t vrf_id = vif0->vrf_id();
-    FlowEntry *flow = FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 1, 0, 0,
-                              vif0->flow_key_nh()->id());
-    EXPECT_TRUE(flow != NULL);
-    uint32_t flow_handle = flow->flow_handle();
-    EXPECT_TRUE(flow_handle != FlowEntry::kInvalidFlowHandle);
-    KSyncSock *sock = KSyncSock::Get(0);
-
-    //Fetch the delete_count_ for delete enqueues
-    uint32_t delete_count = agent_->GetFlowProto()->flow_stats()->delete_count_;
-    uint32_t tx_count = sock->tx_count();
-
-    //Invoke FlowStatsCollector to enqueue delete for evicted flow.
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle();
-
-    //Verify that delete count has not been modified
-    EXPECT_EQ(delete_count, agent_->GetFlowProto()->flow_stats()->
-                                  delete_count_);
-
-    //Set Evicted flag for the flow
-    KSyncSockTypeMap::SetEvictedFlag(flow_handle);
-
-    //Invoke FlowStatsCollector to enqueue delete for evicted flow.
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle();
-
-    //Verify that delete count has been increased by 1
-    EXPECT_EQ((delete_count + 1), agent_->GetFlowProto()->flow_stats()->
-                                  delete_count_);
-
-    //Verify that evicted flows have been removed
-    WAIT_FOR(100, 100, (flow_proto_->FlowCount() == 0));
-
-    //Verify that tx_count is unchanged after deletion of evicted flows
-    //because agent does not sent any message to vrouter for evicted flows
-    EXPECT_EQ(tx_count, sock->tx_count());
-
-    //Reset the Evicted flag set by this test-case
-    KSyncSockTypeMap::ResetEvictedFlag(flow_handle);
 }
 
 int main(int argc, char *argv[]) {

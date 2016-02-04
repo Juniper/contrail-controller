@@ -263,8 +263,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time) {
     agent_->stats()->UpdateFlowDelMinMaxStats(time);
 }
 
-bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow,
-                       bool vrouter_evicted) {
+bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
     FlowEntryMap::iterator it;
     FlowEntry *fe;
 
@@ -273,7 +272,6 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow,
         return false;
     }
     fe = it->second;
-    fe->set_vrouter_evicted(vrouter_evicted);
 
     FlowEntry *reverse_flow = NULL;
     if (del_reverse_flow) {
@@ -290,7 +288,6 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow,
 
     it = flow_entry_map_.find(reverse_flow->key());
     if (it != flow_entry_map_.end()) {
-        it->second->set_vrouter_evicted(vrouter_evicted);
         DeleteInternal(it, time);
         return true;
     }
@@ -308,7 +305,7 @@ void FlowTable::DeleteAll() {
             it->second == entry->reverse_flow_entry()) {
             ++it;
         }
-        Delete(entry->key(), true, false);
+        Delete(entry->key(), true);
     }
 }
 
@@ -369,7 +366,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         //same reverse flow as its is nat'd with fabric sip/dip.
         //To avoid this delete old flow and dont let new flow to be short flow.
         if (rflow_rev) {
-            Delete(rflow_rev->key(), false, false);
+            Delete(rflow_rev->key(), false);
             rflow_rev = NULL;
         }
     }
@@ -671,7 +668,7 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
 // Handle deletion of a Route. Flow management module has identified that route
 // must be deleted
 void FlowTable::DeleteMessage(FlowEntry *flow) {
-    Delete(flow->key(), true, false);
+    Delete(flow->key(), true);
     DeleteFlowInfo(flow);
 }
 
