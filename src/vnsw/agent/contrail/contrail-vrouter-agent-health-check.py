@@ -7,7 +7,7 @@ import os
 import sys
 from threading import Event
 from subprocess import call
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 class HealthCheckBase():
     def __init__(self, event, ip, timer, timeout, retries, uri):
@@ -80,39 +80,39 @@ def HealthCheckService(x):
         "HTTP": HealthCheckHttp,
     }.get(x, HealthCheckBase) #[x]
 
-parser = OptionParser()
-parser.add_option("-m", "--method", dest="method",
-                  help="method to do Health Check (Ping/Http)",
-                  metavar="METHOD")
-parser.add_option("-d", "--destip", dest="dest_ip",
-                  help="Destination IP to run Health Check", metavar="IP",
-                  default="")
-parser.add_option("-i", "--interval", dest="interval", type="int",
-                  help="Health Check interval in seconds", metavar="TIME",
-                  default="2")
-parser.add_option("-t", "--timeout", dest="timeout", type="int",
-                  help="Health Check timeout in seconds", metavar="TIME",
-                  default="1")
-parser.add_option("-r", "--retries", dest="retries", type="int",
-                  help="Number of retries to be done to declare error",
-                  metavar="COUNT", default="2")
-parser.add_option("-u", "--uri", dest="uri",
-                  help="Additional indentifier for Health Check object",
-                  metavar="STRING", default="")
-(option, args) = parser.parse_args()
+parser = ArgumentParser()
+parser.add_argument("-m", "--method", dest="method",
+                    help="method to do Health Check (Ping/Http)",
+                    metavar="METHOD")
+parser.add_argument("-d", "--destip", dest="dest_ip",
+                    help="Destination IP to run Health Check", metavar="IP",
+                    default="")
+parser.add_argument("-i", "--interval", dest="interval", type=int,
+                    help="Health Check interval in seconds", metavar="TIME",
+                    default=2)
+parser.add_argument("-t", "--timeout", dest="timeout", type=int,
+                    help="Health Check timeout in seconds", metavar="TIME",
+                    default=1)
+parser.add_argument("-r", "--retries", dest="retries", type=int,
+                    help="Number of retries to be done to declare error",
+                    metavar="COUNT", default=2)
+parser.add_argument("-u", "--uri", dest="uri",
+                    help="Additional indentifier for Health Check object",
+                    metavar="STRING", default="")
+args= parser.parse_args()
 
-if option.interval < 1:
-    option.interval = 1
+if args.interval < 1:
+    args.interval = 1
 
-if option.timeout < 1:
-    option.timeout = 1
+if args.timeout < 1:
+    args.timeout = 1
 
-if option.retries < 1:
-    option.retries = 1
+if args.retries < 1:
+    args.retries = 1
 
 timerEvent = Event()
-service = HealthCheckService(option.method)(timerEvent, option.dest_ip,
-                                            option.interval, option.timeout,
-                                            option.retries, option.uri)
+service = HealthCheckService(args.method)(timerEvent, args.dest_ip,
+                                          args.interval, args.timeout,
+                                          args.retries, args.uri)
 service.start()
 
