@@ -2748,7 +2748,6 @@ class BgpRouterST(DBBaseST):
                         pass
                 try:
                     self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
-                    self.delete(self.name)
                 except RefsExistError:
                     pass
             elif ret:
@@ -2866,7 +2865,14 @@ class BgpAsAServiceST(DBBaseST):
         self.bgp_routers = set()
         self.bgpaas_clients = {}
         self.update(self.obj)
+        self.set_bgpaas_clients()
     # end __init__
+
+    def set_bgpaas_clients(self):
+        for bgp_router in self.bgp_routers:
+            bgpr = BgpRouterST.get(bgp_router)
+            self.bgpaas_clients[bgpr.obj.name] = bgpr.obj.get_fq_name_str()
+    # end set_bgp_clients
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
@@ -2890,7 +2896,23 @@ class BgpAsAServiceST(DBBaseST):
         for name in (self.virtual_machine_interfaces -
                      set(self.bgpaas_clients.keys())):
             self.create_bgp_router(name)
+        for name in ( set(self.bgpaas_clients.keys()) -
+                      self.virtual_machine_interfaces):
+            self.delete_bgp_router(name)
     # end evaluate
+
+    def delete_bgp_router(self, vmi_name):
+
+        router_fq_name = self.bgpaas_clients[vmi_name]
+        bgpr = BgpRouterST.get(router_fq_name)
+
+        self.obj.del_bgp_router(bgpr.obj)
+        self._vnc_lib.bgp_as_a_service_update(self.obj)
+        self.bgp_routers.remove(router_fq_name)
+
+        self._vnc_lib.bgp_router_delete(id=bgpr.obj.uuid)
+        del self.bgpaas_clients[vmi_name]
+    # end delete_bgp_router
 
     def create_bgp_router(self, name):
         vmi = VirtualMachineInterfaceST.get(name)
