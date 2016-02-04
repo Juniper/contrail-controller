@@ -326,6 +326,48 @@ request sandesh ShowRtGroupPeerReq {
     1: string search_string;
 }
 
+struct ShowPathResolverPath {
+    1: string prefix;
+    2: string nexthop;
+    3: u32 resolved_path_count;
+}
+
+struct ShowPathResolverNexthop {
+    1: string address;
+    2: string table;
+    3: ShowRouteBrief nexthop_route;
+}
+
+struct ShowPathResolver {
+    1: string name (link="ShowPathResolverReq");
+    2: u32 path_count;
+    3: u32 modified_path_count;
+    4: u32 nexthop_count;
+    5: u32 modified_nexthop_count;
+    6: optional list<ShowPathResolverPath> paths;
+    7: optional list<ShowPathResolverNexthop> nexthops;
+}
+
+response sandesh ShowPathResolverSummaryResp {
+    1: list<ShowPathResolver> resolvers;
+    2: optional string next_batch (link="ShowPathResolverSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowPathResolverSummaryReq {
+    1: string search_string;
+}
+
+response sandesh ShowPathResolverResp {
+    1: list<ShowPathResolver> resolvers;
+    2: optional string next_batch (link="ShowPathResolverReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowPathResolverReq {
+    1: string search_string;
+}
+
 struct ShowEvpnMcastLeaf {
     1: string address;
     2: string replicator;

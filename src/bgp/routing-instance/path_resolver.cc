@@ -12,6 +12,7 @@
 #include "base/task_annotations.h"
 #include "base/task_trigger.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
@@ -476,6 +477,62 @@ size_t PathResolver::GetResolverPathUpdateListSize() const {
         total += partitions_[part_id]->GetResolverPathUpdateListSize();
     }
     return total;
+}
+
+//
+// Fill introspect information.
+//
+void PathResolver::FillShowInfo(ShowPathResolver *spr, bool summary) const {
+    spr->set_name(table_->name());
+
+    size_t path_count = 0;
+    size_t modified_path_count = 0;
+    vector<ShowPathResolverPath> sprp_list;
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        const PathResolverPartition *partition = partitions_[part_id];
+        path_count += partition->rpath_map_.size();
+        modified_path_count += partition->rpath_update_list_.size();
+        if (summary)
+            continue;
+        for (PathResolverPartition::PathToResolverPathMap::const_iterator it =
+             partition->rpath_map_.begin(); it != partition->rpath_map_.end();
+             ++it) {
+            const ResolverPath *rpath = it->second;
+            ShowPathResolverPath sprp;
+            sprp.set_prefix(rpath->route()->ToString());
+            sprp.set_nexthop(rpath->rnexthop()->address().to_string());
+            sprp.set_resolved_path_count(rpath->resolved_path_count());
+            sprp_list.push_back(sprp);
+        }
+    }
+    spr->set_path_count(path_count);
+    spr->set_modified_path_count(modified_path_count);
+    spr->set_nexthop_count(nexthop_map_.size());
+    spr->set_modified_nexthop_count(nexthop_reg_unreg_list_.size() +
+        nexthop_delete_list_.size() + nexthop_update_list_.size());
+
+    if (summary)
+        return;
+
+    vector<ShowPathResolverNexthop> sprn_list;
+    for (ResolverNexthopMap::const_iterator it = nexthop_map_.begin();
+         it != nexthop_map_.end(); ++it) {
+        const ResolverNexthop *rnexthop = it->second;
+        const BgpTable *table = rnexthop->table();
+        ShowPathResolverNexthop sprn;
+        sprn.set_address(rnexthop->address().to_string());
+        sprn.set_table(table->name());
+        const BgpRoute *route = rnexthop->route();
+        if (route) {
+            ShowRouteBrief show_route;
+            route->FillRouteInfo(table, &show_route);
+            sprn.set_nexthop_route(show_route);
+        }
+        sprn_list.push_back(sprn);
+    }
+
+    spr->set_paths(sprp_list);
+    spr->set_nexthops(sprn_list);
 }
 
 //
