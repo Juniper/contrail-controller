@@ -34,6 +34,7 @@ except:
 import jsonpickle
 
 _PROTO_STR_TO_NUM = {
+    'icmp6': '58',
     'icmp': '1',
     'tcp': '6',
     'udp': '17',

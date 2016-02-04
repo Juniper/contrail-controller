@@ -1194,7 +1194,7 @@ def _check_policy_rules(entries, network_policy_rule=False):
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
         else:
-            valids = ['any', 'icmp', 'tcp', 'udp']
+            valids = ['any', 'icmp', 'tcp', 'udp', 'icmp6']
             if protocol not in valids:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
