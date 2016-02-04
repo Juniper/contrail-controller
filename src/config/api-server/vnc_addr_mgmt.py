@@ -4,20 +4,20 @@
 
 import copy
 import uuid
-from netaddr import IPNetwork, IPAddress, IPSet, IPRange, all_matching_cidrs
+from netaddr import IPNetwork, IPAddress, IPRange, all_matching_cidrs
 from vnc_quota import QuotaHelper
 from pprint import pformat
-from cfgm_common import jsonutils as json
 import cfgm_common.exceptions
 import cfgm_common.utils
 try:
-    #python2.7
+    # python2.7
     from collections import OrderedDict
 except:
-    #python2.6
+    # python2.6
     from ordereddict import OrderedDict
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 
 class AddrMgmtError(Exception):
     pass
@@ -198,7 +198,7 @@ class Subnet(object):
             # reserve a gateway ip in subnet
             if addr_from_start:
                 gw_ip = IPAddress(network.first + 1)
-            else: 
+            else:
                 gw_ip = IPAddress(network.last - 1)
 
         # check service_address
@@ -227,23 +227,25 @@ class Subnet(object):
 
         # if allocation-pool is not specified, create one with entire cidr
         if not alloc_pool_list:
-            alloc_pool_list = [{'start':str(IPAddress(network.first)),
-                                'end':str(IPAddress(network.last-1))}]
+            alloc_pool_list = [{'start': str(IPAddress(network.first)),
+                                'end': str(IPAddress(network.last-1))}]
 
         # need alloc_pool_list with integer to use in Allocator
         alloc_int_list = list()
 
-        #store integer for given ip address in allocation list
+        # store integer for given ip address in allocation list
         for alloc_pool in alloc_pool_list:
-            alloc_int = {'start':int(IPAddress(alloc_pool['start'])),
-                         'end':int(IPAddress(alloc_pool['end']))}
+            alloc_int = {'start': int(IPAddress(alloc_pool['start'])),
+                         'end': int(IPAddress(alloc_pool['end']))}
             alloc_int_list.append(alloc_int)
 
-        # exclude gw_ip, service_node_address if they are within allocation-pool
+        # exclude gw_ip, service_node_address if they are within
+        # allocation-pool
         for alloc_int in alloc_int_list:
             if alloc_int['start'] <= int(gw_ip) <= alloc_int['end']:
                 exclude.append(gw_ip)
-            if alloc_int['start'] <= int(service_node_address) <= alloc_int['end']:
+            if (alloc_int['start'] <= int(service_node_address)
+                    <= alloc_int['end']):
                 exclude.append(service_node_address)
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
                                               addr_from_start,
@@ -254,7 +256,8 @@ class Subnet(object):
         # reserve excluded addresses
         for addr in exclude:
             if should_persist:
-                self._db_conn.subnet_reserve_req(name, int(addr), 'system-reserved')
+                self._db_conn.subnet_reserve_req(name, int(addr),
+                                                 'system-reserved')
             else:
                 self._db_conn.subnet_set_in_use(name, int(addr))
 
@@ -266,7 +269,7 @@ class Subnet(object):
         self.dns_server_address = service_node_address
         self._alloc_pool_list = alloc_pool_list
         self.enable_dhcp = enable_dhcp
-        self.dns_nameservers = dns_nameservers 
+        self.dns_nameservers = dns_nameservers
     # end __init__
 
     @classmethod
@@ -277,7 +280,7 @@ class Subnet(object):
 
     def get_name(self):
         return self._name
-    #end get_name
+    # end get_name
 
     def get_exclude(self):
         return self._exclude
@@ -322,7 +325,7 @@ class Subnet(object):
     def ip_alloc(self, ipaddr=None, value=None):
         if ipaddr:
             return self.ip_reserve(ipaddr, value)
-    
+
         addr = self._db_conn.subnet_alloc_req(self._name, value)
         if addr:
             return str(IPAddress(addr))
@@ -369,7 +372,7 @@ class Subnet(object):
 class AddrMgmt(object):
 
     def __init__(self, server_mgr):
-        #self.vninfo = {}
+        # self.vninfo = {}
         self.version = 0
         self._server_mgr = server_mgr
         self._db_conn = None
@@ -507,7 +510,7 @@ class AddrMgmt(object):
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
 
-        # check db_subnet_dicts and req_subnet_dicts  
+        # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
         # 1. enable_dhcp, 2. default_gateway, 3. dns_server_address
         # 4. allocation_pool, 5. dns_nameservers
@@ -639,29 +642,17 @@ class AddrMgmt(object):
 
     # check subnets associated with a virtual network, return error if
     # any two subnets have overlap ip addresses
-    def net_check_subnet_overlap(self, db_vn_dict, req_vn_dict):
+    def net_check_subnet_overlap(self, req_vn_dict):
         # get all subnets existing + requested and check any non-exact overlaps
         requested_subnets = self._vn_to_subnets(req_vn_dict)
         if not requested_subnets:
             return True, ""
-
-        existing_subnets = self._vn_to_subnets(db_vn_dict)
-        if not existing_subnets:
-            existing_subnets = []
-
-        # literal/string sets
-        # eg. existing [1.1.1.0/24],
-        #     requested [1.1.1.0/24, 2.2.2.0/24] OR
-        #     requested [1.1.1.0/16, 2.2.2.0/24]
-        existing_set = set([sn for sn in existing_subnets])
-        requested_set = set([sn for sn in requested_subnets])
-        new_set = requested_set - existing_set
-
-        # IPSet to find any overlapping subnets
-        overlap_set = IPSet(existing_set) & IPSet(new_set)
-        if overlap_set:
-            err_msg = "Overlapping addresses between requested and existing: "
-            return False, err_msg + str(overlap_set)
+        subnets = [IPNetwork(subnet) for subnet in requested_subnets]
+        for i, net1 in enumerate(subnets):
+            for net2 in subnets[i+1:]:
+                if net1 in net2 or net2 in net1:
+                    err_msg = "Overlapping addresses: "
+                    return False, err_msg + str([net1, net2])
 
         return True, ""
     # end net_check_subnet_overlap
