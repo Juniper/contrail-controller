@@ -233,6 +233,7 @@ void HealthCheckService::PostAdd() {
 bool HealthCheckService::Copy(HealthCheckTable *table,
                               const HealthCheckServiceData *data) {
     bool ret = false;
+    bool dest_ip_changed = false;
 
     if (monitor_type_ != data->monitor_type_) {
         monitor_type_ = data->monitor_type_;
@@ -271,6 +272,7 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
 
     if (dest_ip_ != data->dest_ip_) {
         dest_ip_ = data->dest_ip_;
+        dest_ip_changed = true;
         ret = true;
     }
 
@@ -318,6 +320,11 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 inst->ip_->set_destination_ip(dest_ip_);
                 ret = true;
             } else {
+                if (dest_ip_changed) {
+                    // change in destination IP needs to be propagated
+                    // explicitly to metadata-IP object
+                    it->second->ip_->set_destination_ip(dest_ip_);
+                }
                 it++;
             }
             it_cfg++;
