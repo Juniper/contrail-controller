@@ -3518,7 +3518,7 @@ class ServiceInstanceST(DBBaseST):
         for ref in self.obj.get_routing_policy_back_refs() or []:
             self.routing_policys[':'.join(ref['to'])] = ref['attr']
         for ref in self.obj.get_route_aggregate_back_refs() or []:
-            self.route_aggregate[':'.join(ref['to'])] = ref['attr']['interface_type']
+            self.route_aggregates[':'.join(ref['to'])] = ref['attr']['interface_type']
         self.set_children('port_tuple', self.obj)
     # end __init__
 
