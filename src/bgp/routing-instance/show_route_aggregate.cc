@@ -44,9 +44,9 @@ bool BgpShowHandler<ShowRouteAggregateReq, ShowRouteAggregateReqIterate,
 
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(data->next_entry);
-    AggregateRouteEntriesInfo info;
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rinstance = it->second;
+        AggregateRouteEntriesInfo info;
         if (FillRouteAggregateInfo(Address::INET, data->search_string, info,
                                 rinstance)) {
             data->show_list.push_back(info);
