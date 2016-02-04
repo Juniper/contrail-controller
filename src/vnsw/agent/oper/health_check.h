@@ -48,11 +48,12 @@ struct HealthCheckServiceData : public AgentOperDBData {
                            const std::string &url_path,
                            const std::string &expected_codes,
                            uint32_t delay, uint32_t timeout,
-                           uint32_t max_retries, IFMapNode *ifmap_node) :
+                           uint32_t max_retries, bool enabled,
+                           IFMapNode *ifmap_node) :
         AgentOperDBData(agent, ifmap_node), dest_ip_(dest_ip), name_(name),
         monitor_type_(monitor_type), http_method_(http_method),
         url_path_(url_path), expected_codes_(expected_codes), delay_(delay),
-        timeout_(timeout), max_retries_(max_retries) {
+        timeout_(timeout), max_retries_(max_retries), enabled_(enabled) {
     }
     virtual ~HealthCheckServiceData() {}
 
@@ -65,6 +66,7 @@ struct HealthCheckServiceData : public AgentOperDBData {
     uint32_t delay_;
     uint32_t timeout_;
     uint32_t max_retries_;
+    bool enabled_;
     std::set<boost::uuids::uuid> intf_uuid_list_;
 };
 
@@ -114,7 +116,7 @@ struct HealthCheckInstance {
     void OnRead(InstanceTask *task, const std::string &data);
     // OnExit Callback for Task
     void OnExit(InstanceTask *task, const boost::system::error_code &ec);
-    bool active() {return active_;}
+    bool active() { return active_; }
 
     // reference to health check service under
     // which this instance is running
@@ -162,6 +164,7 @@ public:
     void DeleteInstances();
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
+    bool enabled() const { return enabled_; }
 
 private:
     friend class HealthCheckInstance;
@@ -179,6 +182,7 @@ private:
     uint32_t delay_;
     uint32_t timeout_;
     uint32_t max_retries_;
+    bool enabled_;
     // List of interfaces associated to this HealthCheck Service
     InstanceList intf_list_;
     DISALLOW_COPY_AND_ASSIGN(HealthCheckService);
