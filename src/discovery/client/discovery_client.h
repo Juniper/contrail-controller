@@ -49,7 +49,6 @@ struct DSSubscribeResponse {
     /* Subscribe Response cached */
     uint32_t chksum_;
     Timer *subscribe_timer_; 
-    std::vector<DSResponse> service_list_;   
     DiscoveryServiceClient *ds_client_;
     std::string subscribe_msg_;
     int attempts_;
@@ -62,12 +61,15 @@ struct DSSubscribeResponse {
 
     bool subscribe_cb_called_;
 
+    // Map of <ep, PublisherId> PublisherIdMap
+    typedef std::map<std::string, std::string> PublisherIdMap;
+    PublisherIdMap publisher_id_map_;
+    std::string GetPublisherId(std::string ip_address);
+
     // Save in-use server list
     void AddInUseServiceList(boost::asio::ip::tcp::endpoint ep);
     void DeleteInUseServiceList(boost::asio::ip::tcp::endpoint ep);
     std::vector<boost::asio::ip::tcp::endpoint> inuse_service_list_;
-
-    std::string GetPublisherId(std::string ip_address);
 };
 
 struct DSPublishResponse {
