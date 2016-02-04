@@ -30,6 +30,8 @@ sources = [
     'svc_monitor/logger.py',
     'svc_monitor/nova_client.py',
     'svc_monitor/port_tuple.py',
+    'svc_monitor/reaction_map.py',
+    'svc_monitor/rabbit.py',
     'svc_monitor/scheduler/__init__.py',
     'svc_monitor/scheduler/vrouter_scheduler.py',
     'svc_monitor/services/__init__.py',

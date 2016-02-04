@@ -43,6 +43,9 @@ class LoadbalancerAgent(Agent):
                 for fip_id in vmi.floating_ips:
                     nic['fip-id'] = fip_id
                     break
+                if len(vmi.security_groups):
+                    nic['sg-list'] = vmi.security_groups
+                    break
                 nic['user-visible'] = False
 
     def _get_vip_vmi(self, si):
