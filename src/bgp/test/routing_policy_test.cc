@@ -537,8 +537,7 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetCommunity) {
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
-    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100,
-                 list_of("23:13")("23:44"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
     task_util::WaitForIdle();
 
     VERIFY_EQ(1, RouteCount("test.inet.0"));
@@ -549,7 +548,7 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetCommunity) {
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()), list_of("11:13"));
     ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
-              list_of("23:13")("23:44"));
+              vector<string>());
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
 }
 
@@ -607,6 +606,32 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveMultipleCommunity_1) {
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
 }
 
+// Input route has no community to begin with
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchRemoveMultipleCommunity_2) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_2d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()), vector<string>());
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              vector<string>());
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
 TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleCommunity) {
     string content =
         FileRead("controller/src/bgp/testdata/routing_policy_2e.xml");
@@ -633,6 +658,34 @@ TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleCommunity) {
               list_of("11:13")("11:44")("33:66")("77:88"));
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
 }
+
+// Route has not community to start with
+TEST_F(RoutingPolicyTest, PolicyPrefixMatchAddMultipleCommunity_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_2e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_EQ(GetCommunityListFromRoute(rt->BestPath()),
+        list_of("11:22")("22:44")("44:88"));
+    ASSERT_EQ(GetOriginalCommunityListFromRoute(rt->BestPath()),
+              vector<string>());
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+}
+
 
 TEST_F(RoutingPolicyTest, PolicyPrefixMatchSetMultipleCommunity) {
     string content =
