@@ -786,10 +786,10 @@ class SvcMonitorTest(unittest.TestCase):
 
     def test_svc_monitor_init(self):
         ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('template created with uuid'))
-        self.assertTrue(self._svc_monitor._db_resync_done)
+        self.assertTrue(self._svc_monitor.rabbit._db_resync_done)
 
     def test_svc_monitor_cgitb(self):
-        self._svc_monitor._vnc_subscribe_callback(si_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_add_info)
         self.assertTrue(ServiceMonitorLogger.log.called)
 
     def test_svc_monitor_upgrade(self):
@@ -818,16 +818,16 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.DBBaseSM._cassandra.object_read = db_read
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
-        self._svc_monitor._vnc_subscribe_callback(sas_add_info)
-        self._svc_monitor._vnc_subscribe_callback(sa_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_add_info)
         self.assertTrue('Test-SAS' in self._svc_monitor.loadbalancer_agent._loadbalancer_driver)
 
         # verify that there is exactly one entry in the DB
         self.assertEqual(len(config_db.ServiceApplianceSM._dict), 1)
         self.assertEqual(len(config_db.ServiceApplianceSetSM._dict), 1)
 
-        self._svc_monitor._vnc_subscribe_callback(sa_del_info)
-        self._svc_monitor._vnc_subscribe_callback(sas_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_del_info)
         self.assertTrue('Test-SAS' not in self._svc_monitor.loadbalancer_agent._loadbalancer_driver)
 
         self.assertIsNone(config_db.ServiceApplianceSM.get('sa'))
@@ -847,20 +847,20 @@ class SvcMonitorTest(unittest.TestCase):
 
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
-        self._svc_monitor._vnc_subscribe_callback(sas_add_info)
-        self._svc_monitor._vnc_subscribe_callback(sa_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_add_info)
 
         pool_obj = self.add_pool("Test-pool", "pool", proj_obj, sas_obj)
-        self._svc_monitor._vnc_subscribe_callback(pool_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(pool_add_info)
         pool = config_db.LoadbalancerPoolSM.get('pool')
 
         member_obj = self.add_member("member-0", "member", pool_obj)
         member = config_db.LoadbalancerMemberSM.get('member')
-        self._svc_monitor._vnc_subscribe_callback(member_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_add_info)
 
         vip_obj = self.add_vip("Test-vip", "vip", proj_obj, pool_obj)
         vip = config_db.VirtualIpSM.get('vip')
-        self._svc_monitor._vnc_subscribe_callback(vip_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vip_add_info)
 
         # verify that there is exactly one entry in the DB
         self.assertEqual(len(config_db.ServiceApplianceSM._dict), 1)
@@ -874,11 +874,11 @@ class SvcMonitorTest(unittest.TestCase):
         self.validate_pool_member(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._members['member'],  member)
         self.validate_vip(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._vips['vip'], vip)
 
-        self._svc_monitor._vnc_subscribe_callback(member_del_info)
-        self._svc_monitor._vnc_subscribe_callback(vip_del_info)
-        self._svc_monitor._vnc_subscribe_callback(pool_del_info)
-        self._svc_monitor._vnc_subscribe_callback(sa_del_info)
-        self._svc_monitor._vnc_subscribe_callback(sas_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vip_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(pool_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_del_info)
 
         self.assertIsNone(config_db.ServiceApplianceSM.get('sa'))
         self.assertIsNone(config_db.ServiceApplianceSetSM.get('sas'))
@@ -905,20 +905,20 @@ class SvcMonitorTest(unittest.TestCase):
 
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
-        self._svc_monitor._vnc_subscribe_callback(sas_add_info)
-        self._svc_monitor._vnc_subscribe_callback(sa_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_add_info)
 
         pool_obj = self.add_pool("Test-pool", "pool", proj_obj, sas_obj)
-        self._svc_monitor._vnc_subscribe_callback(pool_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(pool_add_info)
         pool = config_db.LoadbalancerPoolSM.get('pool')
 
         member_obj = self.add_member("member-0", "member", pool_obj)
         member = config_db.LoadbalancerMemberSM.get('member')
-        self._svc_monitor._vnc_subscribe_callback(member_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_add_info)
 
         vip_obj = self.add_vip("Test-vip", "vip", proj_obj, pool_obj)
         vip = config_db.VirtualIpSM.get('vip')
-        self._svc_monitor._vnc_subscribe_callback(vip_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vip_add_info)
 
         self.assertTrue('Test-SAS' in self._svc_monitor.loadbalancer_agent._loadbalancer_driver)
         self.validate_pool(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._pools['pool'], pool)
@@ -932,16 +932,16 @@ class SvcMonitorTest(unittest.TestCase):
         self._return_obj['loadbalancer_pool']['loadbalancer_members'] = {"uuid": "member"}
         self._return_obj['loadbalancer_pool']['loadbalancer_pool_properties']['loadbalancer_method'] = 'SOURCE_IP'
 
-        self._svc_monitor._vnc_subscribe_callback(pool_update_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(pool_update_info)
         self.validate_pool(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._pools['pool'], pool)
 
         self._return_obj['loadbalancer_member']['loadbalancer_member_properties']['weight'] = '999'
-        self._svc_monitor._vnc_subscribe_callback(member_update_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_update_info)
         self.validate_pool(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._pools['pool'], pool)
         self.validate_pool_member(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._members['member'],  member)
 
         self._return_obj['virtual_ip']['virtual_ip_properties']['protocol_port'] = '777'
-        self._svc_monitor._vnc_subscribe_callback(member_update_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_update_info)
         self.validate_pool(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._pools['pool'], pool)
         self.validate_pool_member(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._members['member'],  member)
         self.validate_vip(self._svc_monitor.loadbalancer_agent._loadbalancer_driver['Test-SAS']._vips['vip'], vip)
@@ -953,11 +953,11 @@ class SvcMonitorTest(unittest.TestCase):
         self.assertEqual(len(config_db.LoadbalancerPoolSM._dict), 1)
         self.assertEqual(len(config_db.VirtualIpSM._dict), 1)
 
-        self._svc_monitor._vnc_subscribe_callback(member_del_info)
-        self._svc_monitor._vnc_subscribe_callback(vip_del_info)
-        self._svc_monitor._vnc_subscribe_callback(pool_del_info)
-        self._svc_monitor._vnc_subscribe_callback(sa_del_info)
-        self._svc_monitor._vnc_subscribe_callback(sas_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(member_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vip_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(pool_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sa_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(sas_del_info)
 
         # verify that there no entries left
         self.assertEqual(len(config_db.ServiceApplianceSM._dict), 0)
@@ -974,7 +974,7 @@ class SvcMonitorTest(unittest.TestCase):
         st.virtualization_type = 'virtual-machine'
 
         self._svc_monitor.vm_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_add_info)
         self._svc_monitor.vm_manager.create_service.assert_called_with(st, si)
         self.assertTrue(si.launch_count==1)
         match_str = "SI %s creation success" % (':').join(si.fq_name)
@@ -989,9 +989,9 @@ class SvcMonitorTest(unittest.TestCase):
         vm = config_db.VirtualMachineSM.get('fake-vm')
 
         self._svc_monitor.vm_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_del_info)
         self._svc_monitor.vm_manager.delete_service.assert_called_with(vm)
-        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('deletion succeed'))
+        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('Deleted VM'))
 
     def test_svc_monitor_vm_delayed_vn_add(self):
         st = test_utils.create_test_st(name='fake-template',
@@ -1004,7 +1004,7 @@ class SvcMonitorTest(unittest.TestCase):
 
         config_db.VirtualNetworkSM._cassandra.object_read = self.cassandra_vn_read
         self._svc_monitor.vm_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(vn_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vn_add_info)
         self._svc_monitor.vm_manager.create_service.assert_called_with(st, si)
         self.assertTrue(si.launch_count==1)
         match_str = "SI %s creation success" % (':').join(si.fq_name)
@@ -1025,7 +1025,7 @@ class SvcMonitorTest(unittest.TestCase):
         vmi.if_type = 'left'
 
         config_db.VirtualMachineInterfaceSM._cassandra.object_read = self.cassandra_vmi_read
-        self._svc_monitor._vnc_subscribe_callback(vmi_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vmi_add_info)
         ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('updated SI'))
 
     def test_svc_monitor_vmi_del(self):
@@ -1037,7 +1037,7 @@ class SvcMonitorTest(unittest.TestCase):
         vmi.interface_route_table = 'fake-irt'
 
         config_db.VirtualMachineInterfaceSM._cassandra.object_read = self.cassandra_vmi_read
-        self._svc_monitor._vnc_subscribe_callback(vmi_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vmi_del_info)
         self.vnc_mock.interface_route_table_delete.assert_called_with(id='fake-irt')
 
     def test_svc_monitor_snat_service_create(self):
@@ -1048,7 +1048,7 @@ class SvcMonitorTest(unittest.TestCase):
         st.virtualization_type = 'network-namespace'
 
         self._svc_monitor.netns_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_add_info)
         self._svc_monitor.netns_manager.create_service.assert_called_with(st, si)
         self.assertTrue(si.launch_count==1)
         match_str = "SI %s creation success" % (':').join(si.fq_name)
@@ -1063,9 +1063,9 @@ class SvcMonitorTest(unittest.TestCase):
         vm = config_db.VirtualMachineSM.get('fake-vm')
 
         self._svc_monitor.netns_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_del_info)
         self._svc_monitor.netns_manager.delete_service.assert_called_with(vm)
-        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('deletion succeed'))
+        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('Deleted VM'))
 
     def test_svc_monitor_vrouter_service_create(self):
         st_obj = self.add_st('fake-template', 'fake-template')
@@ -1075,7 +1075,7 @@ class SvcMonitorTest(unittest.TestCase):
         st.virtualization_type = 'vrouter-instance'
 
         self._svc_monitor.vrouter_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_add_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_add_info)
         self._svc_monitor.vrouter_manager.create_service.assert_called_with(st, si)
         self.assertTrue(si.launch_count==1)
         match_str = "SI %s creation success" % (':').join(si.fq_name)
@@ -1090,9 +1090,9 @@ class SvcMonitorTest(unittest.TestCase):
         vm = config_db.VirtualMachineSM.get('fake-vm')
 
         self._svc_monitor.vrouter_manager = mock.MagicMock()
-        self._svc_monitor._vnc_subscribe_callback(si_del_info)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(si_del_info)
         self._svc_monitor.vrouter_manager.delete_service.assert_called_with(vm)
-        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('deletion succeed'))
+        ServiceMonitorLogger.log_info.assert_any_call(test_utils.AnyStringWith('Deleted VM'))
 
     def test_svc_monitor_timer_delete_vms(self):
         st_obj = self.add_st('fake-template', 'fake-template')
@@ -1181,7 +1181,7 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.DBBaseSM._cassandra.reset()
         config_db.DBBaseSM._cassandra.object_list = db_list
         config_db.DBBaseSM._cassandra.object_read = db_read
-        self._svc_monitor._create_service_instance = mock.MagicMock()
+        self._svc_monitor.create_service_instance = mock.MagicMock()
 
         st_obj = self.add_st('fake-template', 'fake-template')
         si_obj = self.add_si('fake-instance', 'fake-instance', st_obj)
@@ -1190,4 +1190,4 @@ class SvcMonitorTest(unittest.TestCase):
         st.virtualization_type = 'virtual-machine'
         st.params = {'service_type': 'firewall'}
         self._svc_monitor.post_init(self.vnc_mock, self.args)
-        self._svc_monitor._create_service_instance.assert_called_with(si)
+        self._svc_monitor.create_service_instance.assert_called_with(si)
