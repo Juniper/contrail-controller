@@ -78,10 +78,17 @@ public:
     const FlowStats *flow_stats() const { return &stats_; }
 
     void SetProfileData(ProfileData *data);
+    uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
+    void update_linklocal_flow_count(int val) {
+        int tmp = linklocal_flow_count_.fetch_and_add(val);
+        if (val < 0)
+            assert(tmp >= val);
+    }
 private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
+    tbb::atomic<uint32_t> linklocal_flow_count_;
     FlowStats stats_;
 };
 

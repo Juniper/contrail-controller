@@ -88,7 +88,6 @@ public:
     bool VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
                       PktControlInfo *rev_flow, const IpAddress &src_ip,
                       bool nat_flow);
-    uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
     void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p,
                             const PktControlInfo *in, const PktControlInfo *o);
     const NextHop *TunnelToNexthop(const PktInfo *pkt);
@@ -100,7 +99,7 @@ public:
     void GenerateTrafficSeen(const PktInfo *pkt, const PktControlInfo *in);
     void ApplyFlowLimits(const PktControlInfo *in, const PktControlInfo *out);
     void LinkLocalPortBind(const PktInfo *pkt, const PktControlInfo *in,
-                           const FlowEntry *flow);
+                           FlowEntry *flow);
     bool IngressRouteAllowNatLookup(const AgentRoute *in_rt,
                                     const AgentRoute *out_rt,
                                     uint32_t sport,
