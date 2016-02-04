@@ -151,14 +151,42 @@ class InstanceManager(object):
         if iipv6_obj:
             self._link_and_update_iip_for_family(si, vmi_obj, iipv6_obj)
 
-    def _link_fip_to_vmi(self, vmi_obj, fip_id):
+    def _link_fip_to_vmi(self, vmi_id, fip_id):
         fip = FloatingIpSM.get(fip_id)
-        if not fip:
+        vmi = VirtualMachineInterfaceSM.get(vmi_id)
+        if not fip or not vmi:
+            return
+        if fip_id in vmi.floating_ips:
+            return
+        self._vnc_lib.ref_update('floating-ip', fip_id,
+            'virtual-machine-interface', vmi_id, None, 'ADD')
+        vmi.floating_ips.add(fip_id)
+
+    def _link_sgs_to_vmi(self, vmi_id, sg_list):
+        vmi = VirtualMachineInterfaceSM.get(vmi_id)
+        if not vmi:
             return
 
-        if vmi_obj.uuid not in fip.virtual_machine_interfaces:
-            self._vnc_lib.ref_update('floating-ip', fip_id,
-                'virtual-machine-interface', vmi_obj.uuid, None, 'ADD')
+        for sg_id in vmi.security_groups:
+            if sg_id in sg_list:
+                continue
+            try:
+                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                    'security-group', sg_id, None, 'DELETE')
+            except Exception as e:
+                self.logger.log_error(
+                    "Security group detach from loadbalancer ports failed")
+
+        for sg_id in sg_list:
+            if sg_id in vmi.security_groups:
+                continue
+            try:
+                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                    'security-group', sg_id, None, 'ADD')
+                vmi.security_groups.add(sg_id)
+            except Exception as e:
+                self.logger.log_error(
+                    "Security group attach to loadbalancer ports failed")
 
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
@@ -484,7 +512,7 @@ class InstanceManager(object):
                     **vmi.params)
                 vmi_network = vmi.virtual_network
                 vmi_irt = vmi.interface_route_table
-                vmi_sg = vmi.security_group
+                vmi_sg = vmi.security_groups
                 vmi_vm = vmi.virtual_machine
                 break
         if not vmi_obj.uuid:
@@ -589,7 +617,10 @@ class InstanceManager(object):
 
         # link vmi to fip
         if 'fip-id' in nic:
-            self._link_fip_to_vmi(vmi_obj, nic['fip-id'])
+            self._link_fip_to_vmi(vmi_obj.uuid, nic['fip-id'])
+        # link vmi to sg
+        if 'sg-list' in nic:
+            self._link_sgs_to_vmi(vmi_obj.uuid, nic['sg-list'])
 
         return vmi_obj
 
@@ -719,38 +750,24 @@ class NetworkNamespaceManager(VRouterHostedManager):
                                      status='CREATE', vms=instances,
                                      st_name=(':').join(st.fq_name))
 
-    def add_fip_to_vip_vmi(self, vmi, fip):
-        iip = None
-        for iip_id in vmi.instance_ips:
+    def add_fip_to_vip_vmi(self, vip_vmi, fip):
+        for iip_id in vip_vmi.instance_ips:
             iip = InstanceIpSM.get(iip_id)
-            if iip:
-                break
-        if not iip:
-            return
-
-        proj_obj = self._get_project_obj(vmi.fq_name[:-1])
-        if not proj_obj:
-            return
-
-        try:
-            fip_obj = self._vnc_lib.floating_ip_read(id=fip.uuid)
-        except NoIdError:
-            return
-
-        fip_updated = False
-        for vmi_id in iip.virtual_machine_interfaces:
-            if vmi_id in fip.virtual_machine_interfaces:
+            if not iip:
                 continue
-            vmi = VirtualMachineInterfaceSM.get(vmi_id)
-            if not vmi:
+            for vmi_id in iip.virtual_machine_interfaces:
+                if vmi_id == vip_vmi.uuid:
+                    continue
+                self._link_fip_to_vmi(vmi_id, fip.uuid)
+            return
+
+    def add_sg_to_vip_vmi(self, vip_vmi, sg):
+        for iip_id in vip_vmi.instance_ips:
+            iip = InstanceIpSM.get(iip_id)
+            if not iip:
                 continue
-
-            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj,
-                                              name=vmi.name)
-            vmi_obj.uuid = vmi.uuid
-            vmi_obj.fq_name = vmi.fq_name
-            fip_obj.add_virtual_machine_interface(vmi_obj)
-            fip_updated = True
-
-        if fip_updated:
-            self._vnc_lib.floating_ip_update(fip_obj)
+            for vmi_id in iip.virtual_machine_interfaces:
+                if vmi_id == vip_vmi.uuid:
+                    continue
+                self._link_sgs_to_vmi(vmi_id, vip_vmi.security_groups)
+            return

@@ -112,6 +112,10 @@ class SvcMonitor(object):
         "floating_ip": {
             'self': [],
         },
+        "security_group": {
+            'self': [],
+            'virtual_machine_interface': [],
+        },
         "service_template": {
             'self': [],
         },
@@ -143,8 +147,9 @@ class SvcMonitor(object):
             'virtual_machine_interface': [],
         },
         "virtual_machine_interface": {
-            'self': ['interface_route_table', 'virtual_machine', 'port_tuple'],
+            'self': ['interface_route_table', 'virtual_machine', 'port_tuple', 'security_group'],
             'interface_route_table': [],
+            'security_group': [],
             'virtual_machine': [],
             'port_tuple': ['physical_interface'],
             'physical_interface': ['service_instance']
@@ -219,50 +224,60 @@ class SvcMonitor(object):
             cgitb_error_log(self)
 
     def _vnc_subscribe_actions(self, oper_info):
-        try:
-            msg = "Notification Message: %s" % (pformat(oper_info))
-            self.logger.log_debug(msg)
-            obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBaseSM.get_obj_type_map().get(obj_type)
-            if obj_class is None:
-                return
+        msg = "Notification Message: %s" % (pformat(oper_info))
+        self.logger.log_debug(msg)
+        obj_type = oper_info['type'].replace('-', '_')
+        obj_class = DBBaseSM.get_obj_type_map().get(obj_type)
+        if obj_class is None:
+            return
 
-            if oper_info['oper'] == 'CREATE' or oper_info['oper'] == 'UPDATE':
-                dependency_tracker = DependencyTracker(
+        if oper_info['oper'] == 'CREATE':
+            obj_dict = oper_info['obj_dict']
+            obj_id = obj_dict['uuid']
+            obj = obj_class.locate(obj_id, obj_dict)
+            dependency_tracker = DependencyTracker(
+                DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
+            dependency_tracker.evaluate(obj_type, obj)
+        elif oper_info['oper'] == 'UPDATE':
+            obj_id = oper_info['uuid']
+            obj = obj_class.get(obj_id)
+            old_dt = None
+            if obj is not None:
+                old_dt = DependencyTracker(
                     DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
-                obj_id = oper_info['uuid']
-                obj = obj_class.get(obj_id)
-                if obj is not None:
-                    dependency_tracker.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                try:
-                    obj.update()
-                except NoIdError:
-                    return
-                dependency_tracker.evaluate(obj_type, obj)
-            elif oper_info['oper'] == 'DELETE':
-                obj_id = oper_info['uuid']
-                obj = obj_class.get(obj_id)
-                if obj is None:
-                    return
-                dependency_tracker = DependencyTracker(
-                    DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-                obj_class.delete(obj_id)
+                old_dt.evaluate(obj_type, obj)
             else:
-                # unknown operation
-                self.logger.log_error('Unknown operation %s' %
-                                      oper_info['oper'])
-                return
-
+                obj = obj_class.locate(obj_id)
+            obj.update()
+            dependency_tracker = DependencyTracker(
+                DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
+            dependency_tracker.evaluate(obj_type, obj)
+            if old_dt:
+                for resource, ids in old_dt.resources.items():
+                    if resource not in dependency_tracker.resources:
+                        dependency_tracker.resources[resource] = ids
+                    else:
+                        dependency_tracker.resources[resource] = list(
+                            set(dependency_tracker.resources[resource]) |
+                            set(ids))
+        elif oper_info['oper'] == 'DELETE':
+            obj_id = oper_info['uuid']
+            obj = obj_class.get(obj_id)
             if obj is None:
-                self.logger.log_error('Error while accessing %s uuid %s' % (
-                                      obj_type, obj_id))
                 return
+            dependency_tracker = DependencyTracker(
+                DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
+            dependency_tracker.evaluate(obj_type, obj)
+            obj_class.delete(obj_id)
+        else:
+            # unknown operation
+            self.logger.log_error('Unknown operation %s' % oper_info['oper'])
+            return
 
-        except Exception:
-            cgitb_error_log(self)
+        if obj is None:
+            self.logger.log_error('Error while accessing %s uuid %s' % (
+                            obj_type, obj_id))
+            return
 
         for sas_id in dependency_tracker.resources.get(
                 'service_appliance_set', []):
@@ -324,10 +339,16 @@ class SvcMonitor(object):
             if fip:
                 for vmi_id in fip.virtual_machine_interfaces:
                     vmi = VirtualMachineInterfaceSM.get(vmi_id)
-                    if vmi and vmi.virtual_ip:
+                    if vmi and (vmi.virtual_ip or vmi.loadbalancer):
                         self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
-                    elif vmi and vmi.loadbalancer:
-                        self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
+
+        for sg_id in dependency_tracker.resources.get('security_group', []):
+            sg = SecurityGroupSM.get(sg_id)
+            if sg:
+                for vmi_id in sg.virtual_machine_interfaces:
+                    vmi = VirtualMachineInterfaceSM.get(vmi_id)
+                    if vmi and (vmi.virtual_ip or vmi.loadbalancer):
+                        self.netns_manager.add_sg_to_vip_vmi(vmi, sg)
 
         for lr_id in dependency_tracker.resources.get('logical_router', []):
             lr = LogicalRouterSM.get(lr_id)

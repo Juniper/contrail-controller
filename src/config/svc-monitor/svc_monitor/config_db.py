@@ -387,7 +387,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.floating_ips = set()
         self.interface_route_table = None
         self.service_health_check = None
-        self.security_group = None
+        self.security_groups = set()
         self.service_instance = None
         self.instance_id = None
         self.physical_interface = None
@@ -419,7 +419,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('interface_route_table', obj)
         self.update_single_ref('service_health_check', obj)
         self.update_single_ref('physical_interface',obj)
-        self.update_single_ref('security_group', obj)
+        self.update_multiple_refs('security_group', obj)
         self.update_single_ref('port_tuple', obj)
         if self.virtual_machine:
             vm = VirtualMachineSM.get(self.virtual_machine)
@@ -443,7 +443,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_single_ref('logical_interface', {})
         obj.update_single_ref('interface_route_table', {})
         obj.update_single_ref('service_health_check', {})
-        obj.update_single_ref('security_group', {})
+        obj.update_multiple_refs('security_group', {})
         obj.update_single_ref('port_tuple', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
@@ -878,6 +878,7 @@ class SecurityGroupSM(DBBaseSM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
 
@@ -886,6 +887,7 @@ class SecurityGroupSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.update_multiple_refs('virtual_machine_interface', obj)
     # end update
 
     @classmethod
@@ -893,6 +895,7 @@ class SecurityGroupSM(DBBaseSM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 # end SecurityGroupSM
