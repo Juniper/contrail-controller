@@ -92,9 +92,15 @@ const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
 // Go through all export targets for the RoutingInstance and add an entry for
 // each one to the InstanceTargetMap.
 //
+// Ignore export targets that are not in the import list.  This is done since
+// export only targets are managed by user and the same export only target can
+// be configured on multiple virtual networks.
+//
 void RoutingInstanceMgr::InstanceTargetAdd(RoutingInstance *rti) {
     for (RoutingInstance::RouteTargetList::const_iterator it =
          rti->GetExportList().begin(); it != rti->GetExportList().end(); ++it) {
+        if (rti->GetImportList().find(*it) == rti->GetImportList().end())
+            continue;
         target_map_.insert(make_pair(*it, rti));
     }
 }
@@ -105,9 +111,14 @@ void RoutingInstanceMgr::InstanceTargetAdd(RoutingInstance *rti) {
 // entries in the InstanceTargetMap for a given export target.  Hence we need
 // to make sure that we only remove the entry that matches the RoutingInstance.
 //
+// Ignore export targets that are not in the import list. They shouldn't be in
+// in the map because of the same check in InstanceTargetAdd.
+//
 void RoutingInstanceMgr::InstanceTargetRemove(const RoutingInstance *rti) {
     for (RoutingInstance::RouteTargetList::const_iterator it =
          rti->GetExportList().begin(); it != rti->GetExportList().end(); ++it) {
+        if (rti->GetImportList().find(*it) == rti->GetImportList().end())
+            continue;
         for (InstanceTargetMap::iterator loc = target_map_.find(*it);
              loc != target_map_.end() && loc->first == *it; ++loc) {
             if (loc->second == rti) {

@@ -654,9 +654,12 @@ static bool GetInstanceTargetRouteTarget(DBGraph *graph, IFMapNode *node,
 //
 // Fill in all the export route targets for a routing-instance.  The input
 // IFMapNode represents the routing-instance.  We traverse the graph edges
-// and look for instance-target adjacencies. If the instance-target has is
-// an export target i.e. it's not import-only, add the route-target to the
-// vector.
+// and look for instance-target adjacencies. If the instance-target is an
+// export and import target, add it to the vector.
+//
+// Note that we purposely skip adding export only targets to the vector.
+// Reasoning is that export only targets are manually configured by users
+// and hence should not be imported based on policy.
 //
 static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
         vector<string> *target_list) {
@@ -671,7 +674,7 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
             if (!itarget)
                 continue;
             const autogen::InstanceTargetType &itt = itarget->data();
-            if (itt.import_export != "import")
+            if (itt.import_export.empty())
                 target_list->push_back(target);
         }
     }
