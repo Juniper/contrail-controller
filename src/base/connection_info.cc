@@ -7,6 +7,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/string_util.h"
 #include "base/sandesh/process_info_constants.h"
@@ -43,9 +44,9 @@ void ConnectionState::Update() {
     }
 }
 
-void ConnectionState::Update(ConnectionType::type ctype,
+void ConnectionState::UpdateInternal(ConnectionType::type ctype,
     const std::string &name, ConnectionStatus::type status,
-    Endpoint server, std::string message) {
+    const std::vector<Endpoint> &servers, std::string message) {
     // Populate key
     ConnectionInfoKey key(ctype, name);
     // Populate info
@@ -53,12 +54,14 @@ void ConnectionState::Update(ConnectionType::type ctype,
     info.set_type(
         g_process_info_constants.ConnectionTypeNames.find(ctype)->second);
     info.set_name(name);
-    boost::system::error_code ec;
-    std::string saddr(server.address().to_string(ec));
-    int sport(server.port());
-    std::string server_address(saddr + ":" + integerToString(sport));
-    std::vector<std::string> server_addrs = boost::assign::list_of
-        (server_address);
+    std::vector<std::string> server_addrs;
+    BOOST_FOREACH(const Endpoint &server, servers) {
+        boost::system::error_code ec;
+        std::string saddr(server.address().to_string(ec));
+        int sport(server.port());
+        std::string server_address(saddr + ":" + integerToString(sport));
+        server_addrs.push_back(server_address);
+    }
     info.set_server_addrs(server_addrs);
     info.set_status(
         g_process_info_constants.ConnectionStatusNames.find(status)->second);
@@ -76,6 +79,19 @@ void ConnectionState::Update(ConnectionType::type ctype,
     if (!send_uve_cb_.empty()) {
         send_uve_cb_();
     }
+}
+
+void ConnectionState::Update(ConnectionType::type ctype,
+    const std::string &name, ConnectionStatus::type status,
+    const std::vector<Endpoint> &servers, std::string message) {
+    UpdateInternal(ctype, name, status, servers, message);
+}
+
+void ConnectionState::Update(ConnectionType::type ctype,
+    const std::string &name, ConnectionStatus::type status,
+    Endpoint server, std::string message) {
+    UpdateInternal(ctype, name, status, boost::assign::list_of(server),
+        message);
 }
 
 void ConnectionState::Delete(ConnectionType::type ctype,

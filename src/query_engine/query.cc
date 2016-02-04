@@ -1071,17 +1071,16 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        dbif_->Db_GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
     if (this->status_details != 0) {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            std::string(), ConnectionStatus::DOWN, db_endpoint, std::string());
+            std::string(), ConnectionStatus::DOWN, dbif_->Db_GetEndpoints(),
+            std::string());
     } else {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            std::string(), ConnectionStatus::UP, db_endpoint, std::string());
+            std::string(), ConnectionStatus::UP, dbif_->Db_GetEndpoints(),
+            std::string());
     }
     dbif_->Db_SetInitDone(true);
     Init(qid, json_api_data);
@@ -1222,11 +1221,9 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
             // Update connection info
-            boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-                dbif_->Db_GetHost(), ec));
-            boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
             ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-                std::string(), ConnectionStatus::DOWN, db_endpoint, std::string());
+                std::string(), ConnectionStatus::DOWN,
+                dbif_->Db_GetEndpoints(), std::string());
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
             dbif_->Db_Uninit("qe::DbHandler", -1);
             sleep(5);
@@ -1303,11 +1300,9 @@ QueryEngine::QueryEngine(EventManager *evm,
     }
     dbif_->Db_SetInitDone(true);
     // Update connection info
-    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        dbif_->Db_GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif_->Db_GetPort());
     ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-        std::string(), ConnectionStatus::UP, db_endpoint, std::string());
+        std::string(), ConnectionStatus::UP, dbif_->Db_GetEndpoints(),
+        std::string());
 }
 
 QueryEngine::~QueryEngine() {

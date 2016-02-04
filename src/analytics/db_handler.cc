@@ -121,12 +121,9 @@ uint64_t DbHandler::GetTtlFromMap(const TtlMap& ttl_map,
 std::string DbHandler::GetName() const {
     return name_;
 }
-std::string DbHandler::GetHost() const {
-    return dbif_->Db_GetHost();
-}
 
-int DbHandler::GetPort() const {
-    return dbif_->Db_GetPort();
+std::vector<boost::asio::ip::tcp::endpoint> DbHandler::GetEndpoints() const {
+    return dbif_->Db_GetEndpoints();
 }
 
 bool DbHandler::DropMessage(const SandeshHeader &header,
@@ -1626,21 +1623,17 @@ bool DbHandlerInitializer::Initialize() {
     boost::system::error_code ec;
     if (!db_handler_->Init(true, db_task_instance_)) {
         // Update connection info
-        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-            db_handler_->GetHost(), ec));
-        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            db_name_, ConnectionStatus::DOWN, db_endpoint, std::string());
+            db_name_, ConnectionStatus::DOWN, db_handler_->GetEndpoints(),
+            std::string());
         LOG(DEBUG, db_name_ << ": Db Initialization FAILED");
         ScheduleInit();
         return false;
     }
     // Update connection info
-    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        db_handler_->GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
     ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-        db_name_, ConnectionStatus::UP, db_endpoint, std::string());
+        db_name_, ConnectionStatus::UP, db_handler_->GetEndpoints(),
+        std::string());
 
     if (callback_) {
        callback_();

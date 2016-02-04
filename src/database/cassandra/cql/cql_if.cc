@@ -1129,6 +1129,13 @@ CqlIf::CqlIf(EventManager *evm,
     impl_ = new CqlIfImpl(evm, cassandra_ips, cassandra_port,
         cassandra_user, cassandra_password);
     initialized_ = false;
+    BOOST_FOREACH(const std::string &cassandra_ip, cassandra_ips) {
+        boost::system::error_code ec;
+        boost::asio::ip::address cassandra_addr(
+            boost::asio::ip::address::from_string(cassandra_ip, ec));
+        GenDb::Endpoint endpoint(cassandra_addr, cassandra_port);
+        endpoints_.push_back(endpoint);
+    }
 }
 
 CqlIf::CqlIf() : impl_(NULL) {
@@ -1268,14 +1275,8 @@ bool CqlIf::Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
 }
 
 // Connection
-std::string CqlIf::Db_GetHost() const {
-    //return impl_->Db_GetHost();
-    return std::string();
-}
-
-int CqlIf::Db_GetPort() const {
-    //return impl_->Db_GetPort();
-    return -1;
+std::vector<GenDb::Endpoint> CqlIf::Db_GetEndpoints() const {
+    return endpoints_;
 }
 
 }  // namespace cql

@@ -39,10 +39,17 @@ public:
     void Update(ConnectionType::type ctype, const std::string &name,
         ConnectionStatus::type status, Endpoint server,
         std::string message);
+    void Update(ConnectionType::type ctype, const std::string &name,
+        ConnectionStatus::type status, const std::vector<Endpoint> &servers,
+        std::string message);
     void Delete(ConnectionType::type ctype, const std::string &name);
     std::vector<ConnectionInfo> GetInfos() const;
 
 private:
+    void UpdateInternal(ConnectionType::type ctype,
+        const std::string &name, ConnectionStatus::type status,
+        const std::vector<Endpoint> &servers, std::string message);
+
     template <typename UVEType, typename UVEDataType> friend class
         ConnectionStateManager;
 
