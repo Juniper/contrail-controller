@@ -40,6 +40,7 @@ local_sources = [
            'alarmgen_cfg.py',
            'partition_handler.py',
            'consistent_schdlr.py',
+	   'gendb_move_tables.py',
           ]
 
 plugins_sources = [
@@ -62,6 +63,7 @@ discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', Fal
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
 alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
+database_pkg = OpEnv.SandeshGenPy('#controller/src/database/gendb.sandesh', 'opserver/sandesh/', False)
 OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules,
@@ -164,14 +166,15 @@ def run_coverage(env, target, source):
                   Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
     os.system(genhtml_cmd)
 
-test_sources = [
-    'run_tests.sh',
-    'requirements.txt',
-    'test-requirements.txt',
-    '.testr.conf',
-    '.coveragerc',
-    'test',
-    ]
+test_sources = []
+#[
+    #'run_tests.sh',
+    #'requirements.txt',
+    #'test-requirements.txt',
+    #'.testr.conf',
+    #'.coveragerc',
+    #'test',
+    #]
 
 test_sources_rules = []
 for file in test_sources:
@@ -269,12 +272,12 @@ elif OpEnv['PYTESTARG']:
             OpEnv['PYTESTARG']))
     OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
     OpEnv.Depends(test_cmd, sdist_depends)
-else:
-    test_cmd = OpEnv.Command('test.log', sdist_gen + sandesh_pkgs,
-            testr_str % ('', 'test'))
-    OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
-    OpEnv.Depends(test_cmd, sdist_depends)
+#else:
+    #test_cmd = OpEnv.Command('test.log', sdist_gen + sandesh_pkgs,
+            #testr_str % ('', 'test'))
+    #OpEnv.Depends(test_cmd, [OpEnv['TOP']+x for x in test_depends])
+    #OpEnv.Depends(test_cmd, sdist_depends)
 
-OpEnv.Alias('tests', test_cmd)
-OpEnv.Alias('controller/src/opserver:test', test_cmd)
-OpEnv.AlwaysBuild(test_cmd)
+#OpEnv.Alias('tests', test_cmd)
+#OpEnv.Alias('controller/src/opserver:test', test_cmd)
+#OpEnv.AlwaysBuild(test_cmd)
