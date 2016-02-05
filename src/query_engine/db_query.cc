@@ -198,7 +198,7 @@ query_status_t DbQueryUnit::process_query()
                         // column name
                         if (t_only_col) {
                             GenDb::DbDataValueVec uuid_val;
-                            uuid_val.push_back(i->name->at(i->name->size()-1));
+                            uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
                             result_unit.info = uuid_val;
                         } else {
                             result_unit.info = *i->value;

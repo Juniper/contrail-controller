@@ -323,7 +323,7 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
         int cnum(i + 1);
         query << ", column" << cnum;
         boost::apply_visitor(values_printer, cnames[i]);
-        if (i != cn_size -1 ) {
+        if (i != cn_size - 1) {
             values_ss << ", ";
         }
     }
@@ -336,7 +336,6 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     } else {
         query << ") VALUES (";
     }
-    //boost::apply_visitor(values_printer, cvalues[0]);
     values_ss << ")";
     query << values_ss.str();
     if (column.ttl > 0) {
