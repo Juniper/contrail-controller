@@ -85,7 +85,7 @@ public:
         return false;
     }
 
-    void Copy(const EcmpLoadBalance &rhs) {
+    virtual void Copy(const EcmpLoadBalance &rhs) {
         for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
@@ -248,6 +248,10 @@ public:
     bool use_global_vrouter() const {return use_global_vrouter_;}
     void set_use_global_vrouter(bool use_global_vrouter) {
         use_global_vrouter_ = use_global_vrouter;
+    }
+    virtual void Copy(const VmiEcmpLoadBalance &rhs) {
+        use_global_vrouter_ = rhs.use_global_vrouter_;
+        EcmpLoadBalance::Copy(rhs);
     }
 
 private:

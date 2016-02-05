@@ -528,10 +528,14 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             flow_export_rate_ = kDefaultFlowExportRate;
         }
         UpdateFlowAging(cfg);
+        EcmpLoadBalance ecmp_load_balance;
         if (cfg->ecmp_hashing_include_fields().hashing_configured) {
-            resync_vn =
-                ecmp_load_balance_.UpdateFields(cfg->
-                                                ecmp_hashing_include_fields());
+            ecmp_load_balance.UpdateFields(cfg->
+                                           ecmp_hashing_include_fields());
+        }
+        if (ecmp_load_balance_ != ecmp_load_balance) {
+            ecmp_load_balance_ = ecmp_load_balance;
+            resync_vn = true;
         }
     } else {
         DeleteLinkLocalServiceConfig();
@@ -559,6 +563,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         resync_vn = true;
     }
 
+    //Rebakes VN and then all interfaces.
     if (resync_vn)
         oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
 }
