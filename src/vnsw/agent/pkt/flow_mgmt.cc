@@ -259,7 +259,7 @@ bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
 
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
-        FlowEvent flow_resp(event, (*it)->key(), true, false);
+        FlowEvent flow_resp(event, (*it)->key(), true);
         flow_resp.set_flow(*it);
         mgr->EnqueueFlowEvent(flow_resp);
         it++;

@@ -289,10 +289,8 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(key, info, 0, 0);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev,
-                                           bool evicted) {
-    agent_uve_->agent()->pkt()->get_flow_proto()->
-        DeleteFlowRequest(key, rev, evicted);
+void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
+    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -346,7 +344,7 @@ bool FlowStatsCollector::Run() {
     FlowExportInfo *rev_info = NULL;
     FlowExportInfo *info = NULL;
     uint32_t count = 0;
-    bool key_updation_reqd = true, deleted, vrouter_evicted;
+    bool key_updation_reqd = true, deleted;
     Agent *agent = agent_uve_->agent();
     FlowTable *flow_obj = agent->pkt()->flow_table(0);
     FlowKey key;
@@ -368,18 +366,12 @@ bool FlowStatsCollector::Run() {
         info = &it->second;
         it++;
         deleted = false;
-        vrouter_evicted = false;
 
         flow_iteration_key_ = it->first;
         const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
             (key, info->flow_handle());
-        if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
-            deleted = true;
-            vrouter_evicted = true;
-            rev_info = FindFlowExportInfo(info->rev_flow_key());
-        }
         // Can the flow be aged?
-        if (!deleted && ShouldBeAged(info, k_flow, curr_time, key)) {
+        if (ShouldBeAged(info, k_flow, curr_time, key)) {
             rev_info = FindFlowExportInfo(info->rev_flow_key());
             // If reverse_flow is present, wait till both are aged
             if (rev_info) {
@@ -403,8 +395,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, rev_info != NULL? true : false,
-                              vrouter_evicted);
+            FlowDeleteEnqueue(key, rev_info != NULL? true : false);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -447,7 +438,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, true, vrouter_evicted);
+            FlowDeleteEnqueue(key, true);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {

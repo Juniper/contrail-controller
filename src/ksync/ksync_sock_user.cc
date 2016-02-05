@@ -639,20 +639,6 @@ void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
     }
 }
 
-void KSyncSockTypeMap::SetEvictedFlag(int idx) {
-    vr_flow_entry *f = &flow_table_[idx];
-    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
-        f->fe_flags |= VR_FLOW_FLAG_EVICTED;
-    }
-}
-
-void KSyncSockTypeMap::ResetEvictedFlag(int idx) {
-    vr_flow_entry *f = &flow_table_[idx];
-    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
-        f->fe_flags &= ~VR_FLOW_FLAG_EVICTED;
-    }
-}
-
 void KSyncSockTypeMap::SetTcpFlag(int idx, uint32_t flags) {
     vr_flow_entry *f = &flow_table_[idx];
     if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {

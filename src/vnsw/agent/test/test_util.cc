@@ -2792,7 +2792,7 @@ static bool FlowDeleteTrigger(FlowKey key) {
         return true;
     }
 
-    table->Delete(key, true, false);
+    table->Delete(key, true);
     return true;
 }
 

@@ -246,7 +246,7 @@ private:
         virtual bool Run() {
             FlowTable *table =
                 Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key_);
-            table->Delete(key_, true, false);
+            table->Delete(key_, true);
             return true;
         }
         std::string Description() const { return "FlowDeleteTask"; }

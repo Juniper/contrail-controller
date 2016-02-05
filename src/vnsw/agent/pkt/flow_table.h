@@ -163,7 +163,7 @@ public:
     bool IsEvictedFlow(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     void Update(FlowEntry *flow, FlowEntry *rflow);
-    bool Delete(const FlowKey &key, bool del_reverse_flow, bool evicted);
+    bool Delete(const FlowKey &key, bool del_reverse_flow);
     bool Delete(const FlowKey &flow_key);
     void DeleteAll();
     // Test code only used method
