@@ -41,20 +41,18 @@ UpdateCommunity::UpdateCommunity(const std::vector<string> communities,
 void UpdateCommunity::operator()(BgpAttr *attr) const {
     if (!attr) return;
     const Community *comm = attr->community();
-    if (comm) {
-        BgpAttrDB *attr_db = attr->attr_db();
-        BgpServer *server = attr_db->server();
-        CommunityDB *comm_db = server->comm_db();
-        CommunityPtr new_community;
-        if (op_ == SET) {
-            new_community = comm_db->SetAndLocate(comm, communities_);
-        } else if (op_ == ADD) {
-            new_community = comm_db->AppendAndLocate(comm, communities_);
-        } else if (op_ == REMOVE) {
-            new_community = comm_db->RemoveAndLocate(comm, communities_);
-        }
-        attr->set_community(new_community);
+    BgpAttrDB *attr_db = attr->attr_db();
+    BgpServer *server = attr_db->server();
+    CommunityDB *comm_db = server->comm_db();
+    CommunityPtr new_community = NULL;
+    if (op_ == SET) {
+        new_community = comm_db->SetAndLocate(comm, communities_);
+    } else if (op_ == ADD) {
+        new_community = comm_db->AppendAndLocate(comm, communities_);
+    } else if (op_ == REMOVE) {
+        if (comm) new_community = comm_db->RemoveAndLocate(comm, communities_);
     }
+    attr->set_community(new_community);
 }
 
 string UpdateCommunity::ToString() const {
