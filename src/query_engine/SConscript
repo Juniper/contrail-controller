@@ -69,7 +69,7 @@ env.Append(LIBPATH=libs)
 env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('discovery/client'),
     SrcBuildDir('io'), SrcBuildDir('sandesh')])
 
-includes = MapBuildDir(['analytics', 'query_engine'])
+includes = MapBuildDir(['analytics', 'query_engine', 'database'])
 env.Append(CPPPATH = includes)
 env.Append(CPPPATH = ['#/src/analytics', '#/build/include/thrift'])
 
