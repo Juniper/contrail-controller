@@ -185,16 +185,6 @@ void KSyncFlowMemory::KFlow2FlowKey(const vr_flow_entry *kflow,
     key->family = family;
 }
 
-bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
-    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
-        return true;
-    }
-    if (entry->fe_flags & VR_FLOW_FLAG_EVICT_CANDIDATE) {
-        return true;
-    }
-    return false;
-}
-
 const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
                                                          uint32_t idx) const {
     const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
@@ -202,11 +192,6 @@ const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
         return NULL;
     }
     if (key.protocol == IPPROTO_TCP) {
-        FlowProto *proto = ksync_->agent()->GetFlowProto();
-        FlowTable *table = proto->GetFlowTable(key);
-        if (table->IsEvictedFlow(key) && !IsEvictionMarked(kflow)) {
-            return NULL;
-        }
         FlowKey rhs;
         KFlow2FlowKey(kflow, &rhs);
         if (!key.IsEqual(rhs)) {

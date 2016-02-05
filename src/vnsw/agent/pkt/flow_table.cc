@@ -111,15 +111,6 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
     }
 }
 
-bool FlowTable::IsEvictedFlow(const FlowKey &key) {
-    FlowEntry *fe = Find(key);
-    if (fe) {
-        tbb::mutex::scoped_lock lock(fe->mutex());
-        return fe->ksync_index_entry()->IsEvicted();
-    }
-    return false;
-}
-
 void FlowTable::Copy(FlowEntry *lhs, const FlowEntry *rhs) {
     DeleteFlowInfo(lhs);
     if (rhs)
