@@ -40,6 +40,7 @@ local_sources = [
            'alarmgen_cfg.py',
            'partition_handler.py',
            'consistent_schdlr.py',
+	   'gendb_move_tables.py',
           ]
 
 plugins_sources = [
@@ -62,6 +63,7 @@ discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', Fal
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
 alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
+database_pkg = OpEnv.SandeshGenPy('#controller/src/database/gendb.sandesh', 'opserver/sandesh/viz/', False)
 OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules,
