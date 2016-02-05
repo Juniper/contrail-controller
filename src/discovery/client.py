@@ -149,12 +149,6 @@ class Subscribe(object):
         infostr = json.dumps(info)
         sig = hashlib.md5(infostr).hexdigest()
 
-        # convert to strings
-        for obj in info:
-            if type(obj) is dict:
-                for k, v in obj.items():
-                    obj[k] = v.encode('utf-8')
-
         self.ttl = response['ttl']
         self.change = False
         if sig != self.sig:
