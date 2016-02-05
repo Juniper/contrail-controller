@@ -17,3 +17,11 @@ trace sandesh dsHeartBeat {
     3: "Service";
     4: string service_type;
 }
+
+trace sandesh dsPublish {
+    1: string msg;
+}
+
+trace sandesh dsSubscribe {
+    1: string msg;
+}

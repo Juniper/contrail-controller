@@ -204,6 +204,10 @@ class DiscoveryServer():
                                          file=self._args.log_file)
         self._sandesh.trace_buffer_create(name="dsHeartBeatTraceBuf",
                                           size=1000)
+        self._sandesh.trace_buffer_create(name="dsPublishTraceBuf",
+                                          size=1000)
+        self._sandesh.trace_buffer_create(name="dsSubscribeTraceBuf",
+                                          size=1000)
 
         # DB interface initialization
         self._db_connect(self._args.reset_config)
@@ -492,8 +496,9 @@ class DiscoveryServer():
         if ctype != 'application/json':
             response = xmltodict.unparse({'response': response})
 
-        self.syslog('publish service "%s", sid=%s, info=%s'
-                    % (service_type, sig, info))
+        msg = 'service=%s, id=%s, info=%s' % (service_type, sig, json.dumps(info))
+        m = sandesh.dsPublish(msg=msg, sandesh=self._sandesh)
+        m.trace_msg(name='dsPublishTraceBuf', sandesh=self._sandesh)
 
         if not service_type.lower() in self.service_config:
             self.service_config[
@@ -707,10 +712,11 @@ class DiscoveryServer():
             ttl = random.randint(1, 32)
             self._debug['ttl_short'] += 1
 
-        self.syslog(
-            'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
+        msg = 'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d' \
             % (service_type, client_type, client_id, ttl, count,
-            len(pubs), len(pubs_active), len(subs)))
+            len(pubs), len(pubs_active), len(subs))
+        m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+        m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
 
         pubs_active = self.apply_dsa_config(pubs_active, cl_entry)
         plist = dict((entry['service_id'],entry) for entry in pubs_active)
@@ -730,7 +736,9 @@ class DiscoveryServer():
                 top = [plist[pubid] for pubid in inuse_list if pubid in plist]
                 bottom = [entry for entry in pubs_active if entry['service_id'] not in inuse_list]
                 for entry in top:
-                    self.syslog(' in-service-list assign service=%s' % entry['service_id'])
+                    msg = ' in-service-list assign service=%s' % entry['service_id']
+                    m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+                    m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
                     self._db_conn.insert_client(service_type, entry['service_id'],
                         client_id, entry['info'], ttl)
                 pubs_active = top + bottom
@@ -797,8 +805,10 @@ class DiscoveryServer():
             result['@publisher-id'] = entry['service_id']
             r.append(result)
 
-            self.syslog(' assign service=%s, info=%s' %
-                        (entry['service_id'], json.dumps(result)))
+            msg = ' assign service=%s, info=%s' % \
+                        (entry['service_id'], json.dumps(result))
+            m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+            m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
 
             # create client entry
             self._db_conn.insert_client(
