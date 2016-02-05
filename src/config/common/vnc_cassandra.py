@@ -296,7 +296,7 @@ class VncCassandraClient(object):
         # Properties
         for prop_field in obj_class.prop_fields:
             field = obj_dict.get(prop_field)
-            if field is None:
+            if not field:
                 continue
             if prop_field == 'id_perms':
                 field['created'] = datetime.datetime.utcnow().isoformat()

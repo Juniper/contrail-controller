@@ -832,6 +832,9 @@ class VncApiServer(object):
 
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
+            (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
+            if not ok:
+                return (ok, del_result)
             # Delete default children first
             for child_field in r_class.children_fields:
                 child_type, is_derived = r_class.children_field_types[child_field]
@@ -842,9 +845,6 @@ class VncApiServer(object):
                     continue
                 self.delete_default_children(child_type, read_result)
 
-            (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
-            if not ok:
-                return (ok, del_result)
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
