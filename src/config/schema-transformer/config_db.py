@@ -898,7 +898,7 @@ class VirtualNetworkST(DBBaseST):
         if not vm_analyzer and not pt_list:
             return (None, None)
         if pt_list:
-            vm_pt = PortTupleST.get(pt[0])
+            vm_pt = PortTupleST.get(pt_list[0])
         else:
             vm_pt = VirtualMachineST.get(vm_analyzer[0])
         if vm_pt is None:
