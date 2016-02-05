@@ -2,10 +2,23 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ *  The ovsdb module supports extending a cluster to include baremetal servers
+ *   and other virtual instances connected to a TOR switch supporting OVSDB protocol.
+ *
+ *  The ovsdb clinet module interacts with the tor switch for all ovsdb interactions
+ *  It programs the differnet OVSDB tables on the TOR switch and receives the local 
+ *   unicast table entries from it.
+ *
+ */
+
 /****************************************************************************
   Sandesh definitions for OVSDB Client
  ****************************************************************************/
 
+/*
+ * Sandesh definition for ovsdb messages to tor switch
+ */
 struct SandeshOvsdbTxnStats {
     1: u64 txn_initiated;
     2: u64 txn_succeeded;
@@ -14,6 +27,9 @@ struct SandeshOvsdbTxnStats {
     5: u64 pending_send_msg;
 }
 
+/**
+ * Sandesh definition for ovsdb client session
+ */
 struct SandeshOvsdbClientSession {
     1: string status;
     2: string remote_ip;
@@ -22,6 +38,9 @@ struct SandeshOvsdbClientSession {
     5: SandeshOvsdbTxnStats txn_stats;
 }
 
+/**
+ * Sandesh definition for ovsdb client configuration
+ */
 struct SandeshOvsdbClient {
     1: string protocol;
     2: string server;
@@ -32,25 +51,47 @@ struct SandeshOvsdbClient {
     7: list<SandeshOvsdbClientSession> sessions;
 }
 
+/**
+ * Response message for ovsdb client configuration
+ */
 response sandesh OvsdbClientResp {
     1: SandeshOvsdbClient client;
 }
 
+/**
+ * Request message to get ovsdb client configuration
+ */
 request sandesh OvsdbClientReq {
 }
 
+/**
+ * @description: Trace message for ovsdb client configuration request
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OvsdbTrace {
     1: string log;
 }
 
+/**
+ * @description: Error message for ovsdb client configuration request
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OvsdbError {
     1: string error;
 }
 
+/**
+ * Request message to get ovsdb table entries filtered by given key
+ */
 request sandesh OvsdbPageReq {
     1: string key;
 }
 
+/**
+ * Sandesh definition for ovsdb table entry
+ */
 struct OvsdbPageRespData {
     1: string prev_page (link="OvsdbPageReq");
     2: string next_page (link="OvsdbPageReq");
@@ -60,42 +101,56 @@ struct OvsdbPageRespData {
     6: string entries;
 }
 
+/**
+ * Response message for ovsdb table entries filtered by given key
+ */
 response sandesh OvsdbPageResp {
     1: OvsdbPageRespData req;
 }
 
-/****************************************************************************
-  Sandesh definitions for Physical Switch.
- ****************************************************************************/
-
+/**
+ *  Sandesh definitions for Physical Switch.
+ */
 struct OvsdbPhysicalSwitchEntry {
     1: string state;
     2: string name;
     3: string tunnel_ip;
 }
 
+/**
+ * Response message for ovsdb physical switch list
+ */
 response sandesh OvsdbPhysicalSwitchResp {
     1: list<OvsdbPhysicalSwitchEntry> pswitch;
 }
 
+/**
+ * Request message for ovsdb physical switch list
+ */
 request sandesh OvsdbPhysicalSwitchReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
 }
 
+/**
+ * Sandesh definition for physical switch
+ */
 struct SandeshPhysicalSwitchInfo {
     1: string op;
     2: string name;
 }
 
+/**
+ * @description: Trace message for ovsdb physical switch config
+ * @severity: DEBUG
+ */
 traceobject sandesh OvsdbPhysicalSwitch {
     1: SandeshPhysicalSwitchInfo p_switch;
 }
 
-/****************************************************************************
-  Sandesh definitions for Physical Port.
- ****************************************************************************/
-
+/**
+ * Sandesh definitions for Physical Port.
+ */
 struct OvsdbPhysicalPortVlanInfo {
     1: u16 vlan;
     2: string logical_switch;
@@ -105,6 +160,9 @@ struct OvsdbPhysicalPortVlanInfo {
     6: i64 out_bytes;
 }
 
+/**
+ * Sandesh definitions for Physical Port entry
+ */
 struct OvsdbPhysicalPortEntry {
     1: string state;
     2: string switch_name;
@@ -112,20 +170,25 @@ struct OvsdbPhysicalPortEntry {
     4: list<OvsdbPhysicalPortVlanInfo> vlans;
 }
 
+/**
+ * Response message for ovsdb physical port entry list
+ */
 response sandesh OvsdbPhysicalPortResp {
     1: list<OvsdbPhysicalPortEntry> port;
 }
 
+/**
+ * Request message for ovsdb physical port entry list
+ */
 request sandesh OvsdbPhysicalPortReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
     3: string name;
 }
 
-/****************************************************************************
-  Sandesh definitions for Logical Switch.
- ****************************************************************************/
-
+/**
+ * Sandesh definitions for Logical Switch entry
+ */
 struct OvsdbLogicalSwitchEntry {
     1: string state;
     2: string name;
@@ -138,10 +201,16 @@ struct OvsdbLogicalSwitchEntry {
     9: optional string message;
 }
 
+/**
+ * Response message for ovsdb logical switch entry list
+ */
 response sandesh OvsdbLogicalSwitchResp {
     1: list<OvsdbLogicalSwitchEntry> lswitch;
 }
 
+/**
+ * Request message for ovsdb logical switch entry list
+ */
 request sandesh OvsdbLogicalSwitchReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
@@ -149,6 +218,9 @@ request sandesh OvsdbLogicalSwitchReq {
     4: u32 vxlan_id;
 }
 
+/**
+ * Sandesh defenition for logical switch configuration
+ */
 struct SandeshLogicalSwitchInfo {
     1: string op;
     2: string name;
@@ -156,6 +228,10 @@ struct SandeshLogicalSwitchInfo {
     4: string device_name;
 }
 
+/**
+ * @description: Trace message ovsdb switch configuration
+ * @severity: DEBUG
+ */
 traceobject sandesh OvsdbLogicalSwitch {
     1: SandeshLogicalSwitchInfo l_switch;
 }
@@ -164,6 +240,9 @@ traceobject sandesh OvsdbLogicalSwitch {
   Sandesh definitions for Vlan Port Bindings.
  ****************************************************************************/
 
+/**
+ * Sandesh definition for ovsdb port binding entry
+ */
 struct OvsdbVlanPortBindingEntry {
     1: string state;
     2: string physical_port;
@@ -172,10 +251,16 @@ struct OvsdbVlanPortBindingEntry {
     5: u16 vlan;
 }
 
+/**
+ * Response message for ovsdb port binding list
+ */
 response sandesh OvsdbVlanPortBindingResp {
     1: list<OvsdbVlanPortBindingEntry> bindings;
 }
 
+/**
+ * Request message to get ovsdb port binding entry list
+ */
 request sandesh OvsdbVlanPortBindingReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
@@ -186,6 +271,9 @@ request sandesh OvsdbVlanPortBindingReq {
   Sandesh definitions for Unicast Mac Local.
  ****************************************************************************/
 
+/**
+ * Sandesh definition for ovsdb unicast local mac entry
+ */
 struct OvsdbUnicastMacLocalEntry {
     1: string state;
     2: string mac;
@@ -193,10 +281,16 @@ struct OvsdbUnicastMacLocalEntry {
     4: string dest_ip;
 }
 
+/**
+ * Response message for unicast local mac entry list
+ */
 response sandesh OvsdbUnicastMacLocalResp {
     1: list<OvsdbUnicastMacLocalEntry> macs;
 }
 
+/**
+ * Request message to get unicast local mac entry list
+ */
 request sandesh OvsdbUnicastMacLocalReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
@@ -208,16 +302,25 @@ request sandesh OvsdbUnicastMacLocalReq {
   Sandesh definitions for Vrf OVSDB.
  ****************************************************************************/
 
+/**
+ * Sandesh definition for ovsdb vrf entry
+ */
 struct OvsdbVrfEntry {
     1: string state;
     2: string logical_switch;
     3: string unicast_remote_table (link="OvsdbPageReq");
 }
 
+/**
+ * Response message for ovsdb vrf entry list
+ */
 response sandesh OvsdbVrfResp {
     1: list<OvsdbVrfEntry> vrfs;
 }
 
+/**
+ * Request message for ovsdb vrf entry list
+ */
 request sandesh OvsdbVrfReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
@@ -229,6 +332,9 @@ request sandesh OvsdbVrfReq {
   Sandesh definitions for Unicast Mac Remote.
  ****************************************************************************/
 
+/**
+ * Sandesh definition for ovsdb remote unicast mac entry
+ */
 struct OvsdbUnicastMacRemoteEntry {
     1: string state;
     2: string mac;
@@ -240,16 +346,26 @@ struct OvsdbUnicastMacRemoteEntry {
     8: bool ecmp_suppressed;
 }
 
+/**
+ * Response message for ovsdb remote unicast entry list
+ */
 response sandesh OvsdbUnicastMacRemoteResp {
     1: list<OvsdbUnicastMacRemoteEntry> macs;
 }
 
+/**
+ * Request message for ovsdb remote unicast mac entry list
+ */
 request sandesh OvsdbUnicastMacRemoteReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
     3: string logical_switch;
     4: string mac;
 }
+
+/**
+ * Sandesh definition for remote unicast mac
+ */
 struct SandeshUnicastMacRemoteInfo {
     1: string op;
     2: string mac;
@@ -257,6 +373,11 @@ struct SandeshUnicastMacRemoteInfo {
     4: string dest_ip;
 }
 
+/**
+ * @description: Trace message for ovsdb remote mac
+ * @type: Trace
+ * @severity: DEBUG
+ */
 traceobject sandesh OvsdbUnicastMacRemote {
     1: SandeshUnicastMacRemoteInfo ucast_remote;
 }
@@ -265,6 +386,9 @@ traceobject sandesh OvsdbUnicastMacRemote {
   Sandesh definitions for Multicast Mac Local.
  ****************************************************************************/
 
+/**
+ * Definition for ovsdb multicast local mac entry
+ */
 struct OvsdbMulticastMacLocalEntry {
     1: string state;
     2: string mac;
@@ -273,20 +397,25 @@ struct OvsdbMulticastMacLocalEntry {
     5: list<string> tor_ip;
 }
 
+/**
+ * Response message for ovsdb multicat local mac entries list
+ */
 response sandesh OvsdbMulticastMacLocalResp {
     1: list<OvsdbMulticastMacLocalEntry> macs;
 }
 
+/**
+ * Request message to get ovsdb multicat local mac entries list
+ */
 request sandesh OvsdbMulticastMacLocalReq {
     1: string session_remote_ip;
     2: u16 session_remote_port;
     3: string logical_switch;
 }
 
-/****************************************************************************
-  Sandesh definitions for HA Stale Dev VN.
- ****************************************************************************/
-
+/**
+ *  Sandesh definitions for HA Stale Dev VN.
+ */
 struct OvsdbHaStaleDevVnExport {
     1: string state;
     2: string dev_name;
@@ -297,19 +426,24 @@ struct OvsdbHaStaleDevVnExport {
     7: string l2_route_table (link="OvsdbPageReq");
 }
 
+/**
+ *  Response message for HA Stale Dev VN list
+ */
 response sandesh OvsdbHaStaleDevVnExportResp {
     1: list<OvsdbHaStaleDevVnExport> dev_vn;
 }
 
+/**
+ *  Request message for HA Stale Dev VN list
+ */
 request sandesh OvsdbHaStaleDevVnExportReq {
     1: string dev_name;
     2: optional string vn_uuid;
 }
 
-/****************************************************************************
-  Sandesh definitions for HA Stale L2 Route.
- ****************************************************************************/
-
+/**
+ *  Sandesh definitions for HA Stale L2 Route.
+ */
 struct OvsdbHaStaleL2RouteExport {
     1: string state;
     2: string dev_ip;
@@ -320,10 +454,16 @@ struct OvsdbHaStaleL2RouteExport {
     7: string status;
 }
 
+/**
+ *  Response message for HA Stale L2 route list
+ */
 response sandesh OvsdbHaStaleL2RouteExportResp {
     1: list<OvsdbHaStaleL2RouteExport> l2_route;
 }
 
+/**
+ * Request message for HA Stale L2 route list
+ */
 request sandesh OvsdbHaStaleL2RouteExportReq {
     1: string dev_name;
     2: string vn_uuid;

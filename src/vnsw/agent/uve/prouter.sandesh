@@ -2,6 +2,13 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Uve definitions for physical device for agent
+ */
+
+/**
+ * Statistics for physical device
+ */
 struct ProuterData {
     1: string name (key="ObjectPRouter")
     2: optional bool deleted
@@ -11,10 +18,17 @@ struct ProuterData {
     6: optional string agent_name
 }
 
+/**
+ * @description: uve for physical device
+ * @object: PhysicalDevice
+ */
 uve sandesh UveProuterAgent {
     1: ProuterData data
 }
 
+/**
+ * Statistics for logical interface for agent
+ */
 struct UveLogicalInterfaceAgent {
     1: string                name (key="ObjectLogicalInterfaceTable")
     2: optional bool         deleted
@@ -23,10 +37,17 @@ struct UveLogicalInterfaceAgent {
     5: optional list<string> vm_interface_list
 }
 
+/**
+ * @description: uve for logical interface for agent
+ * @object: LogicalInterface
+ */
 uve sandesh UveLogicalInterfaceAgentTrace {
     1: UveLogicalInterfaceAgent data;
 }
 
+/**
+ * Statistics for physical interface for agent
+ */
 struct UvePhysicalInterfaceAgent {
     1: string                name (key="ObjectPhysicalInterfaceTable")
     2: optional bool         deleted
@@ -34,6 +55,10 @@ struct UvePhysicalInterfaceAgent {
     4: optional list<string> logical_interface_list
 }
 
+/**
+ * @description: uve for physical interface for agent
+ * @object: PhysicalInterface
+ */
 uve sandesh UvePhysicalInterfaceAgentTrace {
     1: UvePhysicalInterfaceAgent data;
 }

@@ -6,6 +6,16 @@
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
 
+/**
+ * Message definitions for loadbalancer uve (user visible entities)
+ *
+ * These messages provide operational state of loadbalancers
+ *
+ */
+
+/**
+ * Sandesh definition for loadbalancer
+ */
 struct UveLoadbalancerStats {
     10: string          obj_name;
     11: string          uuid;
@@ -22,6 +32,9 @@ struct UveLoadbalancerStats {
     28: optional u64    reponse_errors;
 }
 
+/**
+ * Sandesh definition for loadbalancer uve
+ */
 struct UveLoadbalancer {
     10: string                                  name (key="ObjectSITable")
     11: optional bool                           deleted
@@ -31,6 +44,11 @@ struct UveLoadbalancer {
     15: optional list<UveLoadbalancerStats>     member_stats     (tags=".uuid,.obj_name,.vrouter",aggtype="union");
 }
 
+/**
+ * @description: Trace message for loadbalancer
+ * @type: uve
+ * @object: Loadbalancer
+ */
 uve sandesh UveLoadbalancerTrace {
     1: UveLoadbalancer data
 }
