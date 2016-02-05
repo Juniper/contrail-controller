@@ -171,60 +171,6 @@ public:
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
 
-    static void RunFlowAudit() {
-        KSync *ksync_obj = Agent::GetInstance()->ksync();
-        ksync_obj->ksync_flow_memory()->AuditProcess();
-        ksync_obj->ksync_flow_memory()->AuditProcess();
-    }
-
-    static bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip, 
-                             const char *dip, int proto, int sport, int dport,
-                             int nh_id) {
-        KSync *ksync_obj = Agent::GetInstance()->ksync();
-        if (hash_id >= ksync_obj->ksync_flow_memory()->flow_table_entries_count()) {
-            return false;
-        }
-        if (ksync_init_) {
-            return false;
-        }
-
-        vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(hash_id);
-
-        vr_flow_req req;
-        req.set_fr_index(hash_id);
-        IpAddress saddr = IpAddress::from_string(sip);
-        IpAddress daddr = IpAddress::from_string(dip);
-        req.set_fr_flow_ip(IpToVector(saddr, daddr, Address::INET));
-        req.set_fr_flow_proto(proto);
-        req.set_fr_family(AF_INET);
-        req.set_fr_flow_sport(htons(sport));
-        req.set_fr_flow_dport(htons(dport));
-        req.set_fr_flow_vrf(vrf);
-        req.set_fr_flow_nh_id(nh_id);
-
-        vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
-        KSyncSockTypeMap::SetFlowEntry(&req, true);
-
-        return true;
-    }
-
-    static void KFlowPurgeHold() {
-        if (ksync_init_) {
-            return;
-        }
-        KSync *ksync_obj = Agent::GetInstance()->ksync();
-        for (size_t count = 0; count < ksync_obj->ksync_flow_memory()->flow_table_entries_count();
-             count++) {
-            vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
-            vr_flow->fe_action = VR_FLOW_ACTION_DROP;
-            vr_flow_req req;
-            req.set_fr_index(hash_id);
-            KSyncSockTypeMap::SetFlowEntry(&req, false);
-        }
-
-        return;
-    }
-
     static void FlowAdd(int hash_id, int vrf, const char *sip, const char *dip,
                         int proto, int sport, int dport, const char *nat_sip,
                         const char *nat_dip, int nat_vrf) {
@@ -1952,52 +1898,6 @@ TEST_F(FlowTest, TwoNatFlow) {
 
     DeleteFlow(nat_flow, 1);    
     EXPECT_TRUE(FlowTableWait(0));
-}
-
-TEST_F(FlowTest, FlowAudit) {
-    KFlowPurgeHold();
-    FlowStatsTimerStartStop(true);
-    EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
-    EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
-    RunFlowAudit();
-    EXPECT_TRUE(FlowTableWait(2));
-    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0);
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
-                fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
-    FlowStatsTimerStartStop(false);
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
-    KFlowPurgeHold();
-
-    string vrf_name =
-        Agent::GetInstance()->vrf_table()->FindVrfFromId(1)->GetName();
-    TestFlow flow[] = {
-        {
-            TestFlowPkt(Address::INET, "1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
-                    flow0->id(), 1),
-            {
-            }
-        }
-    };
-
-    CreateFlow(flow, 1);
-
-    EXPECT_TRUE(FlowTableWait(2));
-    EXPECT_TRUE(KFlowHoldAdd(10, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
-    RunFlowAudit();
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    usleep(500);
-    int tmp_age_time = 10 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
-    //Set the flow age time to 10 microsecond
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
-    KFlowPurgeHold();
 }
 
 //Test flow deletion on ACL deletion
