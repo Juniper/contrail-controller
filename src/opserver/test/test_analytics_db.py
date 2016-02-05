@@ -61,7 +61,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         mockredis.stop_redis(cls.redis_password_port, password='contrail')
         pass
 
-    @unittest.skip('Skipping test_00_verify_database_purge_with_percentage_input')
+    #@unittest.skip('Skipping test_00_verify_database_purge_with_percentage_input')
     def test_00_verify_database_purge_with_percentage_input(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -85,7 +85,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_00_database_purge_query
 
-    @unittest.skip('Skipping test_01_verify_database_purge_support_utc_time_format')
+    #@unittest.skip('Skipping test_01_verify_database_purge_support_utc_time_format')
     def test_01_verify_database_purge_support_utc_time_format(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -110,7 +110,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_01_database_purge_query
 
-    @unittest.skip('Skipping test_02_verify_database_purge_support_datetime_format')
+    #@unittest.skip('Skipping test_02_verify_database_purge_support_datetime_format')
     def test_02_verify_database_purge_support_datetime_format(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -134,7 +134,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_database_purge_query
 
-    @unittest.skip('Skipping test_03_verify_database_purge_support_deltatime_format')
+    #@unittest.skip('Skipping test_03_verify_database_purge_support_deltatime_format')
     def test_03_verify_database_purge_support_deltatime_format(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -158,7 +158,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_03_database_purge_query
 
-    @unittest.skip('Skipping test_04_verify_database_purge_request_limit')
+    #@unittest.skip('Skipping test_04_verify_database_purge_request_limit')
     def test_04_verify_database_purge_request_limit(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -182,7 +182,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_database_purge_query
 
-    @unittest.skip('Skipping test_05_verify_database_purge_with_percentage_input_with_redis_password')
+    #@unittest.skip('Skipping test_05_verify_database_purge_with_percentage_input_with_redis_password')
     def test_05_verify_database_purge_with_percentage_input_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -207,7 +207,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_05_database_purge_query
 
-    @unittest.skip('Skipping test_06_verify_database_purge_support_utc_time_format_with_redis_password')
+    #@unittest.skip('Skipping test_06_verify_database_purge_support_utc_time_format_with_redis_password')
     def test_06_verify_database_purge_support_utc_time_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -232,7 +232,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_06_database_purge_query
 
-    @unittest.skip('Skipping test_07_verify_database_purge_support_datetime_format_with_redis_password')
+    #@unittest.skip('Skipping test_07_verify_database_purge_support_datetime_format_with_redis_password')
     def test_07_verify_database_purge_support_datetime_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -257,7 +257,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_07_database_purge_query
 
-    @unittest.skip('Skipping test_08_verify_database_purge_support_deltatime_format_with_redis_password')
+    #@unittest.skip('Skipping test_08_verify_database_purge_support_deltatime_format_with_redis_password')
     def test_08_verify_database_purge_support_deltatime_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -282,7 +282,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_08_database_purge_query
 
-    @unittest.skip('Skipping test_09_verify_database_purge_request_limit_with_redis_password')
+    #@unittest.skip('Skipping test_09_verify_database_purge_request_limit_with_redis_password')
     def test_09_verify_database_purge_request_limit_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed

@@ -247,8 +247,10 @@ class AnalyticsDb(object):
             return None
 
     def _update_analytics_start_time_cql(self, start_times):
-        insert_query = "INSERT INTO SYSTEM_OBJECT_TABLE VALUES(%s, %s) " % \
-            (SYSTEM_OBJECT_ANALYTICS, start_times)
+        set_val = ", ".join(["=".join(["\""+key+"\"", str(val)]) for key, val \
+            in start_times.items()])
+        insert_query = "UPDATE %s SET %s WHERE (key='%s') " % \
+            (SYSTEM_OBJECT_TABLE, set_val, SYSTEM_OBJECT_ANALYTICS)
         try:
             self._session.execute(insert_query)
         except Exception as e:
@@ -378,8 +380,16 @@ class AnalyticsDb(object):
                         keyspaces[COLLECTOR_KEYSPACE_CQL].tables[table].\
                         partition_key
                     pk_name = [i.name for i in partion_key_list]
-                    query_str = "SELECT %s,value FROM %s" % \
-                        ((','.join(pk_name)), table)
+                    if table == "objecttable" or table not in _MSG_TABLES_TO_LOWER:
+                        query_str = "SELECT %s,value FROM %s" % \
+                            ((','.join(pk_name)), table)
+                    else:
+                        # UUID is the last column in the case of msg_index tables
+                        clustering_key_len = len(self._session.cluster.metadata.\
+                            keyspaces['ContrailAnalyticsCql'].tables[table].\
+                            clustering_key)
+                        query_str = "SELECT %s,column%d FROM %s" % \
+                            ((','.join(pk_name)), clustering_key_len, table)
                     try:
                         # Having tuple factory makes it easier for substitution later
                         old_row_factory = self._session.row_factory
