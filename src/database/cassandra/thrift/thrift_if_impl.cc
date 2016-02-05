@@ -991,16 +991,14 @@ void ThriftIfImpl::Db_Uninit(const std::string& task_id, int task_instance) {
     Db_UninitUnlocked(task_id, task_instance);
 }
 
-std::string ThriftIfImpl::Db_GetHost() const {
+std::vector<GenDb::Endpoint> ThriftIfImpl::Db_GetEndpoints() const {
     boost::shared_ptr<TSocket> tsocket =
         boost::dynamic_pointer_cast<TSocket>(socket_);
-    return tsocket->getHost();
-}
-
-int ThriftIfImpl::Db_GetPort() const {
-    boost::shared_ptr<TSocket> tsocket =
-        boost::dynamic_pointer_cast<TSocket>(socket_);
-    return tsocket->getPort();
+    boost::system::error_code ec;
+    boost::asio::ip::address addr(boost::asio::ip::address::from_string(
+        tsocket->getHost(), ec));
+    GenDb::Endpoint endpoint(addr, tsocket->getPort());
+    return boost::assign::list_of(endpoint);
 }
 
 void ThriftIfImpl::Db_SetQueueWaterMarkInternal(ThriftIfQueue *queue,

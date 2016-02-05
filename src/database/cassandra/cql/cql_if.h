@@ -62,13 +62,13 @@ class CqlIf : public GenDb::GenDbIf {
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
     // Connection
-    virtual std::string Db_GetHost() const;
-    virtual int Db_GetPort() const;
+    virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
  private:
     class CqlIfImpl;
     CqlIfImpl *impl_;
     tbb::atomic<bool> initialized_;
+    std::vector<GenDb::Endpoint> endpoints_;
 };
 
 } // namespace cql

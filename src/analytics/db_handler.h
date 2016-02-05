@@ -144,8 +144,7 @@ public:
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
         boost::function<void (void)> defer_undefer_cb);
     void ResetDbQueueWaterMarkInfo();
-    std::string GetHost() const;
-    int GetPort() const;
+    std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
     bool UseCql() const;
 

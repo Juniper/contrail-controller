@@ -53,8 +53,7 @@ class ThriftIf : public GenDb::GenDbIf {
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
     // Connection
-    virtual std::string Db_GetHost() const;
-    virtual int Db_GetPort() const;
+    virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
  private:
     ThriftIfImpl *impl_;

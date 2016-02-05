@@ -358,12 +358,9 @@ void Collector::TestDatabaseConnection() {
     if (connect_status_change)
     {
         // update connection status
-        boost::system::error_code ec;
-        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-            db_handler_->GetHost(), ec));
-        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            DbGlobalName(false), dbConnStatus_, db_endpoint, std::string());
+            DbGlobalName(false), dbConnStatus_, testdbif_->Db_GetEndpoints(),
+            std::string());
     }
 #endif // !USE_CASSANDRA_CQL
 }

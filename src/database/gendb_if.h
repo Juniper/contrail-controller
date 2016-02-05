@@ -16,6 +16,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <database/gendb_types.h>
 #include <net/address.h>
+#include <boost/asio/ip/tcp.hpp>
 
 namespace GenDb {
 
@@ -182,6 +183,8 @@ struct ColumnNameRange {
     uint32_t count_;
 };
 
+typedef boost::asio::ip::tcp::endpoint Endpoint;
+
 class GenDbIf {
 public:
     typedef boost::function<void(void)> DbErrorHandler;
@@ -224,8 +227,7 @@ public:
     virtual bool Db_GetStats(std::vector<DbTableInfo> *vdbti,
         DbErrors *dbe) = 0;
     // Connection
-    virtual std::string Db_GetHost() const = 0;
-    virtual int Db_GetPort() const = 0;
+    virtual std::vector<Endpoint> Db_GetEndpoints() const = 0;
 };
 
 } // namespace GenDb
