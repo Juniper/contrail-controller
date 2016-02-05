@@ -873,7 +873,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      vn_list,
                                                      item->entry.security_group_list.security_group,
                                                      path_preference,
-                                                     (item->entry.next_hops.next_hop.size() > 1));
+                                                     (item->entry.next_hops.next_hop.size() > 1),
+                                                     EcmpLoadBalance());
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -1008,12 +1009,14 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                      addr.to_v4().to_string(), label, vn_string);
 
     if (agent_->router_id() != addr.to_v4()) {
+        EcmpLoadBalance ecmp_load_balance;
+        GetEcmpHashFieldsToUse(item, ecmp_load_balance);
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr.to_v4(), encap, label, vn_list,
                                item->entry.security_group_list.security_group,
-                               path_preference, false);
+                               path_preference, false, ecmp_load_balance);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
                                       prefix_len, data);
         return;
@@ -1033,6 +1036,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
                                     intf_nh->GetIfUuid(), "");
             EcmpLoadBalance ecmp_load_balance;
+            GetEcmpHashFieldsToUse(item, ecmp_load_balance);
             BgpPeer *bgp_peer = bgp_peer_id();
             if (interface->type() == Interface::VM_INTERFACE) {
                 ControllerLocalVmRoute *local_vm_route =

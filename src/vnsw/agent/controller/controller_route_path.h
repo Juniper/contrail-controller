@@ -77,11 +77,12 @@ public:
                   const VnListType &dest_vn_list, int bmap,
                   const SecurityGroupList &sg_list,
                   const PathPreference &path_preference,
-                  DBRequest &req, bool ecmp_suppressed):
+                  DBRequest &req, bool ecmp_suppressed,
+                  const EcmpLoadBalance &ecmp_load_balance):
         ControllerPeerPath(peer), server_vrf_(vrf_name), tunnel_dest_(addr),
         tunnel_bmap_(bmap), label_(label), dest_vn_list_(dest_vn_list),
         sg_list_(sg_list),path_preference_(path_preference),
-        ecmp_suppressed_(ecmp_suppressed)
+        ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance)
         {nh_req_.Swap(&req);}
     // Data passed in case of delete from BGP peer, to validate 
     // the request at time of processing.
@@ -103,9 +104,9 @@ public:
                                             uint32_t label,
                                             const VnListType &dest_vn_list,
                                             const SecurityGroupList &sg_list,
-                                            const PathPreference
-                                            &path_preference,
-                                            bool ecmp_suppressed);
+                                            const PathPreference &path_preference,
+                                            bool ecmp_suppressed,
+                                            const EcmpLoadBalance &ecmp_load_balance);
 
 private:
     string server_vrf_;
@@ -117,6 +118,7 @@ private:
     PathPreference path_preference_;
     DBRequest nh_req_;
     bool ecmp_suppressed_;
+    EcmpLoadBalance ecmp_load_balance_;
     DISALLOW_COPY_AND_ASSIGN(ControllerVmRoute);
 };
 
