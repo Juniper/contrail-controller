@@ -308,6 +308,10 @@ class SvcMonitor(object):
                 'virtual_machine_interface', []):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
             if vmi:
+                # If it's a VIP port and security_group changed,
+                # we need to update the corresponding SI VM ports
+                self.update_sg_si_vmi(vmi)
+
                 for vm_id in dependency_tracker.resources.get(
                         'virtual_machine', []):
                     vm = VirtualMachineSM.get(vm_id)
@@ -716,6 +720,32 @@ class SvcMonitor(object):
         for cls in DBBaseSM.get_obj_type_map().values():
             cls.reset()
 
+    def update_sg_si_vmi(self, vmi_obj):
+        try:
+            vip_vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
+            instance_ip = InstanceIpSM.get(vmi_obj.instance_ip)
+            for vmi_uuid in instance_ip.virtual_machine_interfaces:
+                if vmi_uuid == vmi_obj.uuid:
+                    continue
+                else:
+                    vmi_sm = VirtualMachineInterfaceSM.get(vmi_uuid)
+                    vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+                    if str(vmi_cfg.security_group_refs) == str(vip_vmi_cfg.security_group_refs):
+                        continue
+
+                    # Delete old security group refs
+                    for sec_group in vmi_cfg.security_group_refs:
+                        self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
+                            'security_group', sec_group['uuid'], None, 'DELETE')
+
+                    # Create new security group refs
+                    for sec_group in vip_vmi_cfg.security_group_refs:
+                        self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
+                            'security_group', sec_group['uuid'], None, 'ADD')
+
+                    vmi_sm.update()
+        except Exception as e:
+            self.logger.log_error('Error %s while updating sgs for SI VMIs' % str(e))
 
 def skip_check_service(si):
     # wait for first launch
