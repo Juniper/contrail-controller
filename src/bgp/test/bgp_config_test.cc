@@ -1146,7 +1146,7 @@ TEST_F(BgpConfigTest, Instances3) {
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     // Change the connection to a unidirectional one from green to red.
     autogen::ConnectionType *connection_type1 = new autogen::ConnectionType;
@@ -1180,7 +1180,7 @@ TEST_F(BgpConfigTest, Instances3) {
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     // Clean up.
     ifmap_test_util::IFMapMsgUnlink(&config_db_,

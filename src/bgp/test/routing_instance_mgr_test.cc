@@ -733,6 +733,54 @@ TEST_F(RoutingInstanceMgrTest, VnIndexByExtCommunity12) {
     TASK_UTIL_EXPECT_EQ(0, GetVnIndexByExtCommunity(ext_community_12y));
 }
 
+//
+// Two RIs with a common export only target, different VNs.
+// The 2 RIs also have their unique import + export targets.
+// Lookup based on the common export target should fail.
+// Lookup based on the unique target should succeed.
+// Lookup based on the both targets should succeed.
+//
+TEST_F(RoutingInstanceMgrTest, VnIndexByExtCommunity13) {
+    scoped_ptr<BgpInstanceConfigTest> ri1_cfg;
+    ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("ri1",
+            "target:100:1", "target:100:1 target:100:99", "vn1", 1));
+    scoped_ptr<BgpInstanceConfigTest> ri2_cfg;
+    ri2_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("ri2",
+            "target:100:2", "target:100:99 target:100:2", "vn2", 2));
+
+    CreateRoutingInstance(ri1_cfg.get());
+    CreateRoutingInstance(ri2_cfg.get());
+
+    // Lookup based on common target should fail.
+    ExtCommunityPtr ext_community = GetExtCommunity("target:100:99");
+    TASK_UTIL_EXPECT_EQ(0, GetVnIndexByExtCommunity(ext_community));
+
+    // Lookup based on unique targets should succeed.
+    ExtCommunityPtr ext_community1 = GetExtCommunity("target:100:1");
+    TASK_UTIL_EXPECT_EQ(1, GetVnIndexByExtCommunity(ext_community1));
+    ExtCommunityPtr ext_community2 = GetExtCommunity("target:100:2");
+    TASK_UTIL_EXPECT_EQ(2, GetVnIndexByExtCommunity(ext_community2));
+
+    // Lookup based on common and unique targets should succeed.
+    ExtCommunityPtr ext_community1x =
+        GetExtCommunity("target:100:1 target:100:99");
+    ExtCommunityPtr ext_community1y =
+        GetExtCommunity("target:100:99 target:100:1");
+    TASK_UTIL_EXPECT_EQ(1, GetVnIndexByExtCommunity(ext_community1x));
+    TASK_UTIL_EXPECT_EQ(1, GetVnIndexByExtCommunity(ext_community1y));
+
+    // Lookup based on common and unique targets should succeed.
+    ExtCommunityPtr ext_community2x =
+        GetExtCommunity("target:100:2 target:100:99");
+    ExtCommunityPtr ext_community2y =
+        GetExtCommunity("target:100:99 target:100:2");
+    TASK_UTIL_EXPECT_EQ(2, GetVnIndexByExtCommunity(ext_community2x));
+    TASK_UTIL_EXPECT_EQ(2, GetVnIndexByExtCommunity(ext_community2y));
+
+    DeleteRoutingInstance(ri1_cfg.get());
+    DeleteRoutingInstance(ri2_cfg.get());
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
