@@ -5,6 +5,7 @@
 Import('BuildEnv')
 DbEnv = BuildEnv.Clone()
 
+gen_py_files = DbEnv.SandeshGenPy('gendb.sandesh')
 gen_files = DbEnv.SandeshGenCpp('gendb.sandesh')
 gen_srcs = DbEnv.ExtractCpp(gen_files)
 
