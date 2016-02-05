@@ -32,7 +32,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
                            uint32_t index) :
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), type_(entry->type_),
     vrf_id_(entry->vrf_id_), label_(entry->label_),
-    interface_(entry->interface_), sip_(entry->sip_), dip_(entry->dip_),
+    interface_(entry->interface_, this), sip_(entry->sip_), dip_(entry->dip_),
     sport_(entry->sport_), dport_(entry->dport_), smac_(entry->smac_),
     dmac_(entry->dmac_), valid_(entry->valid_), policy_(entry->policy_),
     is_mcast_nh_(entry->is_mcast_nh_), defer_(entry->defer_),
@@ -49,7 +49,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
-    vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
+    vrf_id_(0), interface_(NULL, this), valid_(nh->IsValid()),
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),

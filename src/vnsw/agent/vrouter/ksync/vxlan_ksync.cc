@@ -30,13 +30,13 @@ VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
                                      const VxLanIdKSyncEntry *entry, 
                                      uint32_t index) :
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_), 
-    nh_(NULL) { 
+    nh_(NULL, this) { 
 }
 
 VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
                                      const VxLanId *vxlan_id) : 
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    label_(vxlan_id->vxlan_id()), nh_(NULL) {
+    label_(vxlan_id->vxlan_id()), nh_(NULL, this) {
 }
 
 VxLanIdKSyncEntry::~VxLanIdKSyncEntry() {

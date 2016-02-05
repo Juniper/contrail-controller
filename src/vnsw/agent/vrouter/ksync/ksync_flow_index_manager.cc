@@ -11,7 +11,8 @@
 //////////////////////////////////////////////////////////////////////////////
 KSyncFlowIndexEntry::KSyncFlowIndexEntry() :
     state_(INIT), index_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-    index_owner_(NULL), evict_count_(0), delete_in_progress_(false) {
+    index_owner_(NULL), evict_count_(0), delete_in_progress_(false)
+{
 }
 
 KSyncFlowIndexEntry::~KSyncFlowIndexEntry() {
@@ -34,7 +35,8 @@ void KSyncFlowIndexEntry::Reset() {
 // KSyncFlowIndexManager routines
 //////////////////////////////////////////////////////////////////////////////
 KSyncFlowIndexManager::KSyncFlowIndexManager(KSync *ksync) :
-    ksync_(ksync), proto_(NULL), count_(0), index_list_() {
+    ksync_(ksync), proto_(NULL), count_(0), index_list_(),
+ksync_ptr_(NULL, this){
 }
 
 KSyncFlowIndexManager::~KSyncFlowIndexManager() {
@@ -140,8 +142,9 @@ bool KSyncFlowIndexManager::Delete(FlowEntry *flow) {
 
     index_entry->delete_in_progress_ = true;
     // Hold reference to ksync-entry till this function call is over
-    KSyncEntry::KSyncEntryPtr ksync_ptr = index_entry->ksync_entry_;
+    ksync_ptr_ = index_entry->ksync_entry_;
     object->Delete(index_entry->ksync_entry_);
+    ksync_ptr_.reset();
     return true;
 }
 

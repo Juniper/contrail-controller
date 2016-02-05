@@ -13,14 +13,15 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    uint32_t index) : 
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_), 
     sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_), 
-    dport_(entry->dport_), analyzer_name_(entry->analyzer_name_) {
+    dport_(entry->dport_), nh_(entry->nh_, this),
+    analyzer_name_(entry->analyzer_name_) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
                                    const uint32_t vrf_id, IpAddress dip,
                                    uint16_t dport) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id), 
-    dip_(dip), dport_(dport) {
+    dip_(dip), dport_(dport), nh_(NULL, this) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
@@ -28,7 +29,7 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(mirror_entry->vrf_id()), sip_(*mirror_entry->GetSip()), 
     sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
-    dport_(mirror_entry->GetDPort()), nh_(NULL),
+    dport_(mirror_entry->GetDPort()), nh_(NULL, this),
     analyzer_name_(mirror_entry->GetAnalyzerName()) {
 }
 

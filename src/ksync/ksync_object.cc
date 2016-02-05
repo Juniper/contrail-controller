@@ -628,6 +628,18 @@ std::string KSyncEntry::EventString(KSyncEvent event) {
     return str.str();
 }
 
+void intrusive_ptr_add_back_ref(const IntrusiveReferrer ref,
+                                const KSyncEntry* p) {
+    tbb::mutex::scoped_lock lock(p->mutex_);
+    p->back_ref_set_.insert(ref);
+}
+
+void intrusive_ptr_del_back_ref(const IntrusiveReferrer ref,
+                                const KSyncEntry* p) {
+    tbb::mutex::scoped_lock lock(p->mutex_);
+    p->back_ref_set_.erase(ref);
+}
+
 void intrusive_ptr_add_ref(KSyncEntry *p) {
     p->refcount_++;
 };

@@ -15,12 +15,12 @@
 MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *me,
                                uint32_t index) :
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(me->label_), 
-    nh_(NULL)  { 
+    nh_(NULL, this)  { 
 }
 
 MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    label_(mpls->label()), nh_(NULL) {
+    label_(mpls->label()), nh_(NULL, this) {
 }
 
 MplsKSyncEntry::~MplsKSyncEntry() {

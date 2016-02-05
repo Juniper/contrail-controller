@@ -11,6 +11,7 @@
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <db/db_entry.h>
+#include <base/intrusive_ptr_back_ref.h>
 
 #define KSYNC_ERROR(obj, ...)\
 do {\
@@ -56,7 +57,7 @@ public:
     std::string EventString(KSyncEvent event);
     // All referring KSyncEntries must use KSyncEntryPtr. The ref-count
     // maintained is optionally used to defer DELETE till refcount is 0
-    typedef boost::intrusive_ptr<KSyncEntry> KSyncEntryPtr;
+    typedef IntrusivePtrRef<KSyncEntry> KSyncEntryPtr;
     static const size_t kInvalidIndex = 0xFFFFFFFF;
     static const int kDefaultMsgSize = 512;
 
@@ -152,11 +153,17 @@ public:
     bool IsActive() { return (state_ != TEMP && !IsDeleted()); }
 
     void set_del_add_pending(bool pending) {del_add_pending_ = pending;}
+    mutable tbb::mutex mutex_;
+    mutable std::set<IntrusiveReferrer> back_ref_set_;
 
 protected:
     void SetIndex(size_t index) {index_ = index;};
     void SetState(KSyncState state) {state_ = state;};
 private:
+    friend void intrusive_ptr_add_back_ref(const IntrusiveReferrer ref, const
+                                           KSyncEntry* p);
+    friend void intrusive_ptr_del_back_ref(const IntrusiveReferrer ref, const
+                                           KSyncEntry* p);
     friend void intrusive_ptr_add_ref(KSyncEntry *p);
     friend void intrusive_ptr_release(KSyncEntry *p);
     friend class KSyncSock;

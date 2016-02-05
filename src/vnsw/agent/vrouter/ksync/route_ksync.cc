@@ -39,7 +39,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), 
     rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
     addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
-    prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
+    prefix_len_(entry->prefix_len_), nh_(entry->nh_, this), label_(entry->label_), 
     proxy_arp_(false), flood_dhcp_(entry->flood_dhcp_),
     address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
@@ -50,7 +50,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    vrf_id_(rt->vrf_id()), mac_(), nh_(NULL), label_(0), proxy_arp_(false),
+    vrf_id_(rt->vrf_id()), mac_(), nh_(NULL, this), label_(0), proxy_arp_(false),
     flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
     wait_for_traffic_(false), local_vm_peer_route_(false),
     flood_(false), ethernet_tag_(0) {

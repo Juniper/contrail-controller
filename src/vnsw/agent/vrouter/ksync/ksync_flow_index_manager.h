@@ -6,6 +6,7 @@
 
 #include <tbb/mutex.h>
 #include <pkt/flow_entry.h>
+#include <ksync/ksync_entry.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // The module is responsible to manage assignment of vrouter flow-table index
@@ -203,6 +204,7 @@ private:
     FlowProto *proto_;
     uint32_t count_;
     IndexList index_list_;
+    KSyncEntry::KSyncEntryPtr ksync_ptr_;
 };
 
 #endif //  __VNSW_AGENT_VROUTER_KSYNC_KSYNC_FLOW_INDEX_MANAGER_H__

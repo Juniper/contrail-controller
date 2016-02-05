@@ -97,13 +97,15 @@ static uint16_t GetDropReason(uint16_t dr) {
     return VR_FLOW_DR_UNKNOWN;
 }
 
-FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj) {
+FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj) : nh_(NULL,
+                                                                          this) {
     Reset();
     ksync_obj_ = obj;
 }
 
 FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj,
-                                         FlowEntry *flow, uint32_t hash_id) {
+                                         FlowEntry *flow, uint32_t hash_id) :
+nh_(NULL, this) {
     Reset();
     Reset(flow, hash_id);
     ksync_obj_ = obj;

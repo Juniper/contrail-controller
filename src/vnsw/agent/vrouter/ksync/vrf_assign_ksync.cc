@@ -26,14 +26,16 @@
 VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
                                          const VrfAssignKSyncEntry *entry, 
                                          uint32_t index) :
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), interface_(entry->interface_),
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), interface_(entry->interface_,
+                                                            this),
     vlan_tag_(entry->vlan_tag_), vrf_id_(entry->vrf_id_),
-    nh_(entry->nh_) {
+    nh_(entry->nh_, this) {
 }
 
 VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
                                          const VrfAssign *vassign) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj) {
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
+    interface_(NULL, this), nh_(NULL, this) {
 
     InterfaceKSyncObject *intf_object = 
         ksync_obj_->ksync()->interface_ksync_obj();
