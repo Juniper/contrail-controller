@@ -54,8 +54,8 @@ KSyncFlowMemory::KSyncFlowMemory(KSync *ksync) :
                   0)),
     audit_timeout_(0),
     audit_yield_(0),
+    audit_interval_(0),
     audit_flow_idx_(0),
-    audit_timestamp_(0),
     audit_flow_list_() {
 }
 
@@ -66,9 +66,19 @@ KSyncFlowMemory::~KSyncFlowMemory() {
 void KSyncFlowMemory::Init() {
     IcmpErrorProto *proto = ksync_->agent()->services()->icmp_error_proto();
     proto->Register(boost::bind(&KSyncFlowMemory::GetFlowKey, this, _1, _2));
-    audit_yield_ = kAuditYield;
+
+    audit_interval_ = kAuditYieldTimer;
     audit_timeout_ = kAuditTimeout;
-    audit_timer_->Start(audit_timeout_,
+    uint32_t flow_table_count = ksync_->agent()->flow_table_size();
+    // Compute number of entries to visit per timer interval so that complete
+    // table can be visited in kAuditSweepTime
+    uint32_t timer_per_sec = 1000 / kAuditYieldTimer;
+    uint32_t timer_per_sweep = kAuditSweepTime * timer_per_sec;
+    audit_yield_ = flow_table_count / timer_per_sweep;
+    if (audit_yield_ > kAuditYieldMax)
+        audit_yield_ = kAuditYieldMax;
+
+    audit_timer_->Start(audit_interval_,
                         boost::bind(&KSyncFlowMemory::AuditProcess, this));
 }
 
@@ -160,7 +170,7 @@ void KSyncFlowMemory::InitTest() {
     memset(flow_table_, 0, kTestFlowTableSize);
     flow_table_entries_count_ = kTestFlowTableSize / sizeof(vr_flow_entry);
     audit_yield_ = flow_table_entries_count_;
-    audit_timeout_ = 0; // timout immediately.
+    audit_timeout_ = 10; // timout immediately.
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
 }
 
@@ -260,10 +270,14 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
 bool KSyncFlowMemory::AuditProcess() {
     uint32_t flow_idx;
     const vr_flow_entry *vflow_entry;
-    audit_timestamp_ += kAuditYieldTimer;
+    // Get current time
+    uint64_t t = UTCTimestampUsec();
+
     while (!audit_flow_list_.empty()) {
         std::pair<uint32_t, uint64_t> list_entry = audit_flow_list_.front();
-        if ((audit_timestamp_ - list_entry.second) < audit_timeout_) {
+        // audit_flow_list_ is sorted on last time of insertion in the list
+        // So, break on finding first flow entry that cannot be aged
+        if ((t - list_entry.second) < audit_timeout_) {
             /* Wait for audit_timeout_ to create short flow for the entry */
             break;
         }
@@ -271,6 +285,7 @@ bool KSyncFlowMemory::AuditProcess() {
         audit_flow_list_.pop_front();
 
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
+        // Audit and remove flow entry if its still in HOLD state
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
             int family = (vflow_entry->fe_key.flow_family == AF_INET)?
                 Address::INET : Address::INET6;
@@ -284,22 +299,18 @@ bool KSyncFlowMemory::AuditProcess() {
                         ntohs(vflow_entry->fe_key.flow_dport));
 
             FlowProto *proto = ksync_->agent()->pkt()->get_flow_proto();
-            FlowTable *flow_table = proto->GetFlowTable(key);
-            FlowEntry *flow = FlowEntry::Allocate(key, flow_table);
-            flow->InitAuditFlow(flow_idx);
-            proto->CreateAuditEntry(flow);
+            proto->CreateAuditEntry(key, flow_idx);
             AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                         "entry to short flow");
         }
     }
 
-    int count = 0;
+    uint32_t count = 0;
     assert(audit_yield_);
     while (count < audit_yield_) {
         vflow_entry = GetKernelFlowEntry(audit_flow_idx_, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            audit_flow_list_.push_back(std::make_pair(audit_flow_idx_,
-                                                      audit_timestamp_));
+            audit_flow_list_.push_back(std::make_pair(audit_flow_idx_, t));
         }
 
         count++;

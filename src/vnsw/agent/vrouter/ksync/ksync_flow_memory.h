@@ -18,9 +18,14 @@ struct vr_flow_entry;
 
 class KSyncFlowMemory {
 public:
-    static const uint32_t kAuditYieldTimer = 500;         // in msec
-    static const uint32_t kAuditTimeout = 2000;           // in msec
-    static const int kAuditYield = 1024;
+    // Time to sweep flow-table for audit
+    static const uint32_t kAuditSweepTime = 180;
+    // Timer interval for audit process
+    static const uint32_t kAuditYieldTimer = 100;  // in msec
+    // Flows in HOLD state longer than kAuditTimeout are deleted
+    static const uint32_t kAuditTimeout = 5000;    // in msec
+    // Upper limit on number of entries to visit per timer
+    static const uint32_t kAuditYieldMax = (1024);
 
     KSyncFlowMemory(KSync *ksync);
     ~KSyncFlowMemory();
@@ -50,6 +55,7 @@ public:
     void set_flow_table_path(const std::string &path) {
         flow_table_path_ = path;
     }
+    uint32_t audit_timeout() const { return audit_timeout_; }
 private:
     bool IsEvictionMarked(const vr_flow_entry *entry) const;
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
@@ -67,9 +73,9 @@ private:
     // Audit related entries
     Timer                   *audit_timer_;
     uint32_t                audit_timeout_;
-    int                     audit_yield_;
+    uint32_t                audit_yield_;
+    uint32_t                audit_interval_;
     uint32_t                audit_flow_idx_;
-    uint64_t                audit_timestamp_;
     std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
 };
 

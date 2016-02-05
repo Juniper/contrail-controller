@@ -208,7 +208,6 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
         break;
     }
 
-    case FlowEvent::AUDIT_FLOW:
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::EVICT_FLOW:
     case FlowEvent::RETRY_INDEX_ACQUIRE:
@@ -226,6 +225,7 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
         break;
     }
 
+    case FlowEvent::AUDIT_FLOW:
     case FlowEvent::GROW_FREE_LIST: {
         FlowTable *table = GetFlowTable(event.get_flow_key());
         flow_event_queue_[table->table_index()]->Enqueue(event);
@@ -264,8 +264,9 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     }
 
     case FlowEvent::AUDIT_FLOW: {
-        FlowEntry *flow = req.flow();
-        flow->flow_table()->Add(flow, NULL);
+        FlowEntryPtr flow = FlowEntry::Allocate(req.get_flow_key(), table);
+        flow->InitAuditFlow(req.flow_handle());
+        flow->flow_table()->Add(flow.get(), NULL);
         break;
     }
 
@@ -370,8 +371,8 @@ void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){
     return;
 }
 
-void FlowProto::CreateAuditEntry(FlowEntry *flow) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::AUDIT_FLOW, flow));
+void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle) {
+    EnqueueFlowEvent(FlowEvent(FlowEvent::AUDIT_FLOW, key, flow_handle));
     return;
 }
 
