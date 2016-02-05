@@ -71,6 +71,12 @@ class InstanceTaskExecvp : public InstanceTask {
 
     InstanceTaskExecvp(const std::string &name, const std::string &cmd,
                        int cmd_type, EventManager *evm);
+    virtual ~InstanceTaskExecvp() {
+        boost::system::error_code close_ec;
+        if (input_.is_open()) {
+            input_.close(close_ec);
+        }
+    }
 
     bool Run();
     void Stop();
