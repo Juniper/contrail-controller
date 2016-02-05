@@ -10,8 +10,6 @@
 from cfgm_common import jsonutils as json
 import re
 import itertools
-import copy
-import bottle
 import socket
 
 import cfgm_common
@@ -21,8 +19,7 @@ import netaddr
 import uuid
 from vnc_quota import QuotaHelper
 
-import context
-from context import get_context, set_context, get_request
+from context import get_context
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
@@ -528,6 +525,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not read_ok:
             return (False, (500, read_result))
 
+        if ('virtual_machine_interface_refs' in obj_dict and
+                not obj_dict['virtual_machine_interface_refs'] and
+                'virtual_machine_interface_refs' in read_result):
+            # Dont allow remove of vmi ref during update
+            msg = "VMI ref delete not allowed during update"
+            return (False, (409, msg))
+
         aap_config = obj_dict.get(
             'virtual_machine_interface_allowed_address_pairs', {})
         for aap in aap_config.get('allowed_address_pair', []):
@@ -552,6 +556,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        if ('virtual_machine_interface_refs' in obj_dict and
+               'virtual_machine_interface_properties' in obj_dict):
+            vmi_props = obj_dict['virtual_machine_interface_properties']
+            if 'sub_interface_vlan_tag' not in vmi_props:
+                msg = "Cannot delete vmi with existing ref to sub interface"
+                return (False, (409, msg))
+
+        return True, ""
+    # end pre_dbe_delete
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
