@@ -2357,19 +2357,19 @@ class ServiceChain(DBBaseST):
                     self.log_error('virtual machine %s not found' % service_vm)
                     return None
                 vm_info = self._get_vm_pt_info(vm_obj, mode)
-                if vm_info is None:
-                    return None
-                vm_info_list.append(vm_info)
+                if vm_info:
+                    vm_info_list.append(vm_info)
             for pt in pt_list:
                 pt_obj = PortTupleST.get(pt)
                 if pt_obj is None:
                     self.log_error('virtual machine %s not found' % pt)
                     return None
                 vm_info = self._get_vm_pt_info(pt_obj, mode)
-                if vm_info is None:
-                    return None
-                vm_info_list.append(vm_info)
+                if vm_info:
+                    vm_info_list.append(vm_info)
             # end for service_vm
+            if not vm_info:
+                return None
             virtualization_type = si.get_virtualization_type()
             ret_dict[service] = {'mode': mode, 'vm_list': vm_info_list,
                                  'virtualization_type': virtualization_type}
