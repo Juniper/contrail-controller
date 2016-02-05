@@ -528,6 +528,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not read_ok:
             return (False, (500, read_result))
 
+        if ('virtual_machine_interface_refs' in read_result and
+               'virtual_machine_interface_properties' in read_result):
+            vmi_props = read_result['virtual_machine_interface_properties']
+            if 'sub_interface_vlan_tag' not in vmi_props:
+                msg = "Cannot delete vmi with existing ref to sub interface"
+                return (False, (409, msg))
+
         aap_config = obj_dict.get(
             'virtual_machine_interface_allowed_address_pairs', {})
         for aap in aap_config.get('allowed_address_pair', []):
@@ -552,6 +559,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        if ('virtual_machine_interface_refs' in obj_dict and
+               'virtual_machine_interface_properties' in obj_dict):
+            vmi_props = obj_dict['virtual_machine_interface_properties']
+            if 'sub_interface_vlan_tag' not in vmi_props:
+                msg = "Cannot delete vmi with existing ref to sub interface"
+                return (False, (409, msg))
+
+        return True, ""
+    # end pre_dbe_delete
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
