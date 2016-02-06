@@ -208,6 +208,10 @@ class DiscoveryServer():
                                          file=self._args.log_file)
         self._sandesh.trace_buffer_create(name="dsHeartBeatTraceBuf",
                                           size=1000)
+        self._sandesh.trace_buffer_create(name="dsPublishTraceBuf",
+                                          size=1000)
+        self._sandesh.trace_buffer_create(name="dsSubscribeTraceBuf",
+                                          size=1000)
         ConnectionState.init(self._sandesh, socket.gethostname(), module_name, 
                 instance_id, staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
@@ -502,8 +506,9 @@ class DiscoveryServer():
         if ctype != 'application/json':
             response = xmltodict.unparse({'response': response})
 
-        self.syslog('publish service "%s", sid=%s, info=%s'
-                    % (service_type, sig, info))
+        msg = 'service=%s, id=%s, info=%s' % (service_type, sig, json.dumps(info))
+        m = sandesh.dsPublish(msg=msg, sandesh=self._sandesh)
+        m.trace_msg(name='dsPublishTraceBuf', sandesh=self._sandesh)
 
         if not service_type.lower() in self.service_config:
             self.service_config[
@@ -713,50 +718,60 @@ class DiscoveryServer():
         # send short ttl if no publishers
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
-        if len(pubs_active) < count:
-            ttl = random.randint(1, 32)
-            self._debug['ttl_short'] += 1
-
-        self.syslog(
-            'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
-            % (service_type, client_type, client_id, ttl, count,
-            len(pubs), len(pubs_active), len(subs)))
-
         pubs_active = self.apply_dsa_config(pubs_active, cl_entry)
+        pubs_active = self.service_list(service_type, pubs_active)
         plist = dict((entry['service_id'],entry) for entry in pubs_active)
         plist_all = dict((entry['service_id'],entry) for entry in pubs)
 
-        # handle query for all publishers
+        try:
+            inuse_list = json_req['service-in-use-list']['publisher-id']
+            # convert to list if singleton
+            if type(inuse_list) != list:
+                inuse_list = [inuse_list]
+        except Exception as e:
+            inuse_list = []
+
+        min_instances = int(json_req.get('min-instances', '0'))
+        assign = count or max(len(inuse_list), min_instances)
+
+        if len(pubs_active) < count or len(pubs_active) < min_instances:
+            ttl = random.randint(1, 32)
+            self._debug['ttl_short'] += 1
+
+        cid = "<cl=%s,st=%s>" % (client_id, service_type)
+        msg = '%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d, m_i=%d, assign=%d, siul=%d' \
+            % (cid, ttl, count, len(pubs), len(pubs_active), len(subs),
+            min_instances, assign, len(inuse_list))
+        m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+        m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
+
         if count == 0:
-            # Handle in-use services list from client
-            # Reorder services (pubs) based on what client is actually using.
-            # Client's in-use list publishers are pushed to the top
-            # pubs_active = self.adjust_in_use_list(pubs_active, json_req.get('service-in-use-list', None))
-            try:
-                inuse_list = json_req['service-in-use-list']['publisher-id']
-                # convert to list if singleton
-                if type(inuse_list) != list:
-                    inuse_list = [inuse_list]
-                top = [plist[pubid] for pubid in inuse_list if pubid in plist]
-                bottom = [entry for entry in pubs_active if entry['service_id'] not in inuse_list]
-                for entry in top:
-                    self.syslog(' in-service-list assign service=%s' % entry['service_id'])
-                    self._db_conn.insert_client(service_type, entry['service_id'],
-                        client_id, entry['info'], ttl)
-                pubs_active = top + bottom
-            except Exception as e:
-                pass
+            count = len(pubs_active)
 
-            for entry in pubs_active:
-                r_dict = entry['info'].copy()
-                r_dict['@publisher-id'] = entry['service_id']
-                r.append(r_dict)
-            response = {'ttl': ttl, service_type: r}
-            if 'application/xml' in ctype:
-                response = xmltodict.unparse({'response': response})
-            return response
+        # if subscriber in-use-list present, forget previous assignments
+        if len(inuse_list) and subs:
+            for service_id, expired in subs:
+                self._db_conn.delete_subscription(service_type, client_id, service_id)
+            subs = None
 
-        if subs:
+        for service_id in inuse_list:
+            entry = plist.get(service_id, None)
+            if entry is None:
+                continue
+            msg = ' in-service-list assign service=%s' % entry['service_id']
+            m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+            m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
+            self.syslog("%s %s" % (cid, msg))
+
+            if assign:
+                assign -= 1
+                self._db_conn.insert_client(service_type, entry['service_id'],
+                    client_id, entry['info'], ttl)
+            r.append(entry)
+            count -= 1
+            assigned_sid.add(service_id)
+
+        if subs and count:
             policy = self.get_service_config(service_type, 'policy')
 
             # Auto load-balance is triggered if enabled and some servers are
@@ -781,38 +796,34 @@ class DiscoveryServer():
                         self._debug['auto_lb'] += 1
                         load_balance = False
                     continue
-                result = entry['info'].copy()
-                result['@publisher-id'] = entry['service_id']
-                self._db_conn.insert_client(
-                    service_type, service_id, client_id, result, ttl)
-                r.append(result)
+                if assign:
+                    assign -= 1
+                    self._db_conn.insert_client(
+                        service_type, service_id, client_id, entry['info'], ttl)
+                r.append(entry)
                 assigned_sid.add(service_id)
                 count -= 1
                 if count == 0:
-                    response = {'ttl': ttl, service_type: r}
-                    if 'application/xml' in ctype:
-                        response = xmltodict.unparse({'response': response})
-                    return response
-
+                    break
 
         # skip duplicates from existing assignments
         pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
 
-        # find instances based on policy (lb, rr, fixed ...)
-        pubs = self.service_list(service_type, pubs)
-
         # take first 'count' publishers
         for entry in pubs[:min(count, len(pubs))]:
-            result = entry['info'].copy()
-            result['@publisher-id'] = entry['service_id']
-            r.append(result)
+            r.append(entry)
 
-            self.syslog(' assign service=%s, info=%s' %
-                        (entry['service_id'], json.dumps(result)))
+            msg = ' assign service=%s, info=%s' % \
+                        (entry['service_id'], json.dumps(entry['info']))
+            m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+            m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
+            self.syslog("%s %s" % (cid, msg))
 
             # create client entry
-            self._db_conn.insert_client(
-                service_type, entry['service_id'], client_id, result, ttl)
+            if assign:
+                assign -= 1
+                self._db_conn.insert_client(
+                    service_type, entry['service_id'], client_id, entry['info'], ttl)
 
             # update publisher TS for round-robin algorithm
             entry['ts_use'] = self._ts_use
@@ -821,7 +832,12 @@ class DiscoveryServer():
                 service_type, entry['service_id'], entry)
 
 
-        response = {'ttl': ttl, service_type: r}
+        pubs = []
+        for entry in r:
+            result = entry['info'].copy()
+            result['@publisher-id'] = entry['service_id']
+            pubs.append(result)
+        response = {'ttl': ttl, service_type: pubs}
         if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response

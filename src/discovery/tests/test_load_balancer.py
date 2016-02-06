@@ -246,3 +246,53 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         response = json.loads(msg)
         failure = validate_assignment_count(response, 'In-use count just after publisher-3 up again')
         self.assertEqual(failure, False)
+
+    def test_load_balance_min_instances(self):
+        # publish 3 instances
+        tasks = []
+        service_type = 'Foobar'
+        pubcount =  5
+        for i in range(pubcount):
+            client_type = 'test-discovery'
+            pub_id = 'test_discovery-%d' % i
+            pub_data = {service_type : '%s-%d' % (service_type, i)}
+            disc = client.DiscoveryClient(
+                        self._disc_server_ip, self._disc_server_port,
+                        client_type, pub_id)
+            task = disc.publish(service_type, pub_data)
+            tasks.append(task)
+
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), pubcount)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+
+        # multiple subscribers for 2 instances each
+        subcount = 100
+        min_instances = 2
+        suburl = "/subscribe"
+        payload = {
+            'service'      : '%s' % service_type,
+            'instances'    : 0,
+            'min-instances': min_instances,
+            'client-type'  : 'Vrouter-Agent',
+            'remote-addr'  : '3.3.3.3',
+            'version'      : '2.2',
+        }
+        for i in range(subcount):
+            payload['client'] = "test-load-balance-%d" % i
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), pubcount)
+
+        # validate all clients have subscribed
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        failure = validate_assignment_count(response, 'In-use count after clients with min_instances 2')
+        self.assertEqual(failure, False)
