@@ -28,7 +28,7 @@ class VncKombuClientBase(object):
     def _update_sandesh_status(self, status, msg=''):
         ConnectionState.update(conn_type=ConnType.DATABASE,
             name='RabbitMQ', status=status, message=msg,
-            server_addrs=["%s:%s" % (self._rabbit_ip, self._rabbit_port)])
+            server_addrs=self._server_addrs)
     # end _update_sandesh_status
 
     def publish(self, message):
@@ -205,6 +205,7 @@ class VncKombuClientV1(VncKombuClientBase):
                                                rabbit_user, rabbit_password,
                                                rabbit_vhost, rabbit_ha_mode,
                                                q_name, subscribe_cb, logger)
+        self._server_addrs = ["%s:%s" % (self._rabbit_ip, self._rabbit_port)]
 
         self._conn = kombu.Connection(hostname=self._rabbit_ip,
                                       port=self._rabbit_port,
@@ -242,6 +243,7 @@ class VncKombuClientV2(VncKombuClientBase):
                                                rabbit_user, rabbit_password,
                                                rabbit_vhost, rabbit_ha_mode,
                                                q_name, subscribe_cb, logger)
+        self._server_addrs = rabbit_hosts.split(',')
 
         _hosts = self._parse_rabbit_hosts(rabbit_hosts)
         self._urls = []
