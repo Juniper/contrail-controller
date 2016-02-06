@@ -270,7 +270,10 @@ class VncIfmapClient(object):
     def _object_read_to_meta_index(self, ifmap_id):
         # metas is a dict where key is meta-name and val is list of dict of
         # form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
-        return self._id_to_metas[ifmap_id].copy()
+        metas = {}
+        if ifmap_id in self._id_to_metas:
+            metas = self._id_to_metas[ifmap_id].copy()
+        return metas
     # end _object_read_to_meta_index
 
     def object_update(self, res_type, ifmap_id, new_obj_dict):
