@@ -235,15 +235,6 @@ class Controller(object):
                 self._conf.discovery()['server'],
                 self._conf.discovery()['port'],
                 ModuleNames[Module.ALARM_GENERATOR])
-            data = {
-                'ip-address': self._conf.host_ip(),
-                'instance-id': self._instance_id,
-                'redis-port': str(self._conf.redis_server_port()),
-                'partitions': json.dumps({})
-            }
-            print("Disc Publish to %s : %s" \
-                % (str(self._conf.discovery()), str(data)))
-            self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
 
         is_collector = True
         if test_logger is not None:
@@ -580,7 +571,7 @@ class Controller(object):
         """
 
         lredis = None
-        oldworkerset = {}
+        oldworkerset = None
         while True:
             workerset = {}
             for part in self._workers.keys():
