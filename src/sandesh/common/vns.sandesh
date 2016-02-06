@@ -68,6 +68,7 @@ const u16 HttpPortDns = 8092
 const u16 HttpPortAlarmGenerator = 5995
 const u16 HttpPortSnmpCollector = 5920
 const u16 HttpPortTopology = 5921
+const u16 HttpPortDiscovery = 5997
 
 // Supervisord control ports
 const u16 AnalyticsSupervisorPort = 9002
@@ -119,7 +120,8 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_INVENTORY_AGENT: HttpPortInventorymgr,
     SERVICE_ALARM_GENERATOR: HttpPortAlarmGenerator,
     SERVICE_SNMP_COLLECTOR : HttpPortSnmpCollector,
-    SERVICE_TOPOLOGY : HttpPortTopology
+    SERVICE_TOPOLOGY : HttpPortTopology,
+    SERVICE_DISCOVERY : HttpPortDiscovery
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -142,6 +144,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_CONTROL_NODE_MGR,
     SERVICE_DATABASE_NODE_MGR,
     SERVICE_TOPOLOGY,
+    SERVICE_DISCOVERY,
 ]
 
 const list<string> BackupImplementedServices = [
@@ -160,6 +163,7 @@ const map<string, string> ServicesDefaultConfigurationFile = {
     SERVICE_SNMP_COLLECTOR : '/etc/contrail/contrail-snmp-collector.conf',
     SERVICE_TOPOLOGY : '/etc/contrail/contrail-topology.conf',
     SERVICE_API_SERVER : '/etc/contrail/contrail-api.conf',
+    SERVICE_DISCOVERY : '/etc/contrail/contrail-discovery.conf',
     SERVICE_SCHEMA_TRANSFORMER : '/etc/contrail/contrail-schema.conf',
     SERVICE_SVC_MONITOR : '/etc/contrail/contrail-svc-monitor.conf',
     SERVICE_DEVICE_MANAGER : '/etc/contrail/contrail-device-manager.conf',

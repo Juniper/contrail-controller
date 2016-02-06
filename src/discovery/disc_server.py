@@ -43,9 +43,11 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module, NodeType
+from pysandesh.connection_info import ConnectionState
+from sandesh.discovery_introspect import ttypes as sandesh
+from sandesh.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
     INSTANCE_ID_DEFAULT    
-from sandesh.discovery_introspect import ttypes as sandesh
 
 from gevent.coros import BoundedSemaphore
 from cfgm_common.rest import LinkObject
@@ -206,6 +208,9 @@ class DiscoveryServer():
                                          file=self._args.log_file)
         self._sandesh.trace_buffer_create(name="dsHeartBeatTraceBuf",
                                           size=1000)
+        ConnectionState.init(self._sandesh, socket.gethostname(), module_name, 
+                instance_id, staticmethod(ConnectionState.get_process_state_cb),
+                NodeStatusUVE, NodeStatus)
 
         # DB interface initialization
         self._db_connect(self._args.reset_config)
