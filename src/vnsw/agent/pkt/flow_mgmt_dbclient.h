@@ -47,7 +47,7 @@ public:
     };
 
     struct VrfFlowHandlerState : public FlowMgmtState {
-        VrfFlowHandlerState() {}
+        VrfFlowHandlerState() : deleted_(false) {}
         virtual ~VrfFlowHandlerState() {}
 
         // Register to all the route tables of intrest
