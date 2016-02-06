@@ -159,7 +159,7 @@ void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
     req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref));
-    Enqueue(&req);
+    agent()->fabric_evpn_table()->Enqueue(&req);
 }
 
 void EvpnAgentRouteTable::AddReceiveRoute(const Peer *peer,
