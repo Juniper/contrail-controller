@@ -2866,7 +2866,14 @@ class BgpAsAServiceST(DBBaseST):
         self.bgp_routers = set()
         self.bgpaas_clients = {}
         self.update(self.obj)
+        self.set_bgpaas_clients()
     # end __init__
+
+    def set_bgpaas_clients(self):
+        for bgp_router in self.bgp_routers:
+            bgpr = BgpRouterST.get(bgp_router)
+            self.bgpaas_clients[bgpr.obj.name] = bgpr.obj.get_fq_name_str()
+    # end set_bgp_clients
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
@@ -2953,7 +2960,7 @@ class BgpAsAServiceST(DBBaseST):
         ]
         resp.properties = [
             sandesh.PropList('ip_address', self.ip_address),
-            sandesh.PropList('asn', self.asn)
+            sandesh.PropList('asn', str(self.asn))
         ]
         return resp
     # end handle_st_object_req
