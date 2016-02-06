@@ -703,9 +703,10 @@ class AddrMgmt(object):
                         err_msg = "Invalid gateway Ip address:%s" \
                             %(gw)
                         return False, err_msg
-                    if gw_ip != IPAddress('0.0.0.0') and \
-                       (gw_ip < IPAddress(network.first + 1) or \
-                       gw_ip > IPAddress(network.last - 1)):
+                    if (gw_ip != IPAddress('0.0.0.0') and
+                            gw_ip != IPAddress('::') and
+                            (gw_ip < IPAddress(network.first + 1) or
+                                gw_ip > IPAddress(network.last - 1))):
                         err_msg = "gateway Ip %s out of cidr: %s" \
                             %(gw, subnet_name)
                         return False, err_msg
