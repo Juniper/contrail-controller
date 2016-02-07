@@ -663,6 +663,18 @@ void FlowTable::DeleteMessage(FlowEntry *flow) {
     DeleteFlowInfo(flow);
 }
 
+void FlowTable::EvictFlow(FlowEntry *flow) {
+    FlowEntry *reverse_flow = flow->reverse_flow_entry();
+    Delete(flow->key(), false);
+    DeleteFlowInfo(flow);
+
+    // Reverse flow unlinked with forward flow. Make it short-flow
+    if (reverse_flow && reverse_flow->deleted() == false) {
+        reverse_flow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        UpdateKSync(reverse_flow, true);
+    }
+}
+
 // Handle events from Flow Management module for a flow
 bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
     FlowEntry *flow = resp->flow();
