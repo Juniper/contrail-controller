@@ -54,7 +54,10 @@ class VrouterPortControl(object):
             payload = self.GetJSonDict(port_type_value, project_id)
             json_dump = json.dumps(payload)
             if not self._args.no_persist:
-                ret_code = self.WriteToFile(port_type_value, project_id)
+                '''Ignore return value of self.WriteToFile as agent attempts to
+                   write to the file when this script fails
+                '''
+                self.WriteToFile(port_type_value, project_id)
             try:
                 '''We post the request to agent even if WriteToFile has failed.
                    Agent will write to file if file is not already present
@@ -62,7 +65,9 @@ class VrouterPortControl(object):
                 r = requests.post(url, data=json_dump, headers=headers)
                 if r.status_code != 200:
                     ret_code = 1
-                elif self._args.vif_type == "VhostUser":
+                else:
+                    ret_code = 0
+                if ret_code == 0 and self._args.vif_type == "VhostUser":
                     #In DPDK mode we should wait until socket is created by
                     #vrouter module
                     ret_code  = self.WaitForSocketFile()
