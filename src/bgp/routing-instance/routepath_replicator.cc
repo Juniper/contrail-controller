@@ -582,7 +582,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
             continue;
 
         // Add OriginVn when replicating self-originated routes from a VRF.
-        if (!rtinstance->IsDefaultRoutingInstance() &&
+        if (!vn_index && !rtinstance->IsDefaultRoutingInstance() &&
             path->IsVrfOriginated() && rtinstance->virtual_network_index()) {
             vn_index = rtinstance->virtual_network_index();
             OriginVn origin_vn(server_->autonomous_system(), vn_index);

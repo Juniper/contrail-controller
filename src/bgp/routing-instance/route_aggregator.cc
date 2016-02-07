@@ -13,6 +13,7 @@
 #include "base/lifetime.h"
 #include "base/map_util.h"
 #include "base/task_annotations.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/route_aggregate_types.h"
@@ -380,6 +381,11 @@ void AggregateRoute<T>::AddAggregateRoute() {
     BgpAttrSpec attrs;
     BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
     attrs.push_back(&attr_nexthop);
+    ExtCommunitySpec extcomm_spec;
+    OriginVn origin_vn(routing_instance()->server()->autonomous_system(),
+        routing_instance()->GetOriginVnForAggregateRoute(GetFamily()));
+    extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
+    attrs.push_back(&extcomm_spec);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
     BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
@@ -411,6 +417,11 @@ void AggregateRoute<T>::UpdateAggregateRoute() {
     BgpAttrSpec attrs;
     BgpAttrNextHop attr_nexthop(this->GetAddress(nexthop()));
     attrs.push_back(&attr_nexthop);
+    ExtCommunitySpec extcomm_spec;
+    OriginVn origin_vn(routing_instance()->server()->autonomous_system(),
+        routing_instance()->GetOriginVnForAggregateRoute(GetFamily()));
+    extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
+    attrs.push_back(&extcomm_spec);
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
     BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
