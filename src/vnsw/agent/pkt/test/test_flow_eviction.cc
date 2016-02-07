@@ -143,6 +143,15 @@ TEST_F(FlowEvictionTest, NewFlow_Evicted_Index_1) {
     EXPECT_TRUE(FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 2, 0, 0,
                         vif0->flow_key_nh()->id()) == false);
 
+    // The reverse flow should not be deleted. Should be marked short flow
+    FlowEntry *rflow = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 2, 0, 0,
+                               vif0->flow_key_nh()->id());
+    EXPECT_TRUE(rflow != NULL);
+    if (rflow) {
+        EXPECT_TRUE(rflow->IsShortFlow());
+        EXPECT_TRUE(rflow->reverse_flow_entry() == NULL);
+    }
+
     // New flow should be present
     flow = FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 1, 0, 0,
                    vif0->flow_key_nh()->id());

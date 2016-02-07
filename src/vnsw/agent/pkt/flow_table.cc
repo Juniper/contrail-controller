@@ -263,26 +263,29 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
         return false;
     }
     fe = it->second;
-
-    FlowEntry *reverse_flow = NULL;
-    if (del_reverse_flow) {
-        reverse_flow = fe->reverse_flow_entry();
-    }
+    FlowEntry *reverse_flow = fe->reverse_flow_entry();
 
     uint64_t time = UTCTimestampUsec();
     /* Delete the forward flow */
     DeleteInternal(it, time);
 
-    if (!reverse_flow) {
+    if (reverse_flow == NULL)
+        return true;
+    if (reverse_flow->deleted())
+        return true;
+
+    if (del_reverse_flow) {
+        it = flow_entry_map_.find(reverse_flow->key());
+        if (it != flow_entry_map_.end()) {
+            DeleteInternal(it, time);
+        }
         return true;
     }
 
-    it = flow_entry_map_.find(reverse_flow->key());
-    if (it != flow_entry_map_.end()) {
-        DeleteInternal(it, time);
-        return true;
-    }
-    return false;
+    // If reverse flow is not deleted, update KSync to de-link the flows
+    reverse_flow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+    UpdateKSync(reverse_flow, true);
+    return true;
 }
 
 void FlowTable::DeleteAll() {
@@ -660,6 +663,11 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
 // must be deleted
 void FlowTable::DeleteMessage(FlowEntry *flow) {
     Delete(flow->key(), true);
+    DeleteFlowInfo(flow);
+}
+
+void FlowTable::EvictFlow(FlowEntry *flow) {
+    Delete(flow->key(), false);
     DeleteFlowInfo(flow);
 }
 
