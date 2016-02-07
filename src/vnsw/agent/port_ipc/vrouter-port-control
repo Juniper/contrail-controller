@@ -60,9 +60,12 @@ class VrouterPortControl(object):
                    Agent will write to file if file is not already present
                 '''
                 r = requests.post(url, data=json_dump, headers=headers)
+                '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
                     ret_code = 1
-                elif self._args.vif_type == "VhostUser":
+                else:
+                    ret_code = 0
+                if ret_code == 0 and self._args.vif_type == "VhostUser":
                     #In DPDK mode we should wait until socket is created by
                     #vrouter module
                     ret_code  = self.WaitForSocketFile()
