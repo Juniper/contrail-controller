@@ -276,7 +276,7 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
         FlowEntry *flow = req.flow();
         if (flow->flow_handle() != req.flow_handle())
             break;
-        flow->flow_table()->DeleteMessage(flow);
+        flow->flow_table()->EvictFlow(flow);
         break;
     }
 

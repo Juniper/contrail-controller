@@ -199,6 +199,7 @@ public:
    
     void RevaluateFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
+    void EvictFlow(FlowEntry *flow);
 
     void RevaluateInterface(FlowEntry *flow);
     void RevaluateVn(FlowEntry *flow);
