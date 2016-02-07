@@ -719,7 +719,8 @@ void AgentRoute::EnqueueRouteResync(void) const {
     DBRequest  req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key = GetDBRequestKey();
     (static_cast<AgentKey *>(req.key.get()))->sub_op_ = AgentKey::RESYNC;
-    get_table()->Enqueue(&req);
+    Agent *agent = (static_cast<AgentRouteTable *>(get_table()))->agent();
+    agent->fabric_inet4_unicast_table()->Enqueue(&req);
 }
 
 //If a direct route get modified invariably trigger change
