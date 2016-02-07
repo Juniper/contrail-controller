@@ -91,10 +91,6 @@ const std::map<uint16_t, const char*>
         ((uint16_t)DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
-InetUnicastRouteEntry FlowEntry::inet4_route_key_(NULL, Ip4Address(), 32,
-                                                  false);
-InetUnicastRouteEntry FlowEntry::inet6_route_key_(NULL, Ip6Address(), 128,
-                                                  false);
 SecurityGroupList FlowEntry::default_sg_list_;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -626,11 +622,11 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
                                   const IpAddress &addr) {
     AgentRoute *rt = NULL;
     if (addr.is_v4()) {
-        inet4_route_key_.set_addr(addr.to_v4());
-        rt = entry->GetUcRoute(inet4_route_key_);
+        InetUnicastRouteEntry key(NULL, addr, 32, false);
+        rt = entry->GetUcRoute(key);
     } else {
-        inet6_route_key_.set_addr(addr.to_v6());
-        rt = entry->GetUcRoute(inet6_route_key_);
+        InetUnicastRouteEntry key(NULL, addr, 128, false);
+        rt = entry->GetUcRoute(key);
     }
     if (rt != NULL && rt->IsRPFInvalid()) {
         return NULL;
