@@ -15,8 +15,6 @@ namespace autogen {
 }
 
 static const std::string HashingFieldsStr[] = {
-    "l2-source-address",
-    "l2-destination-address",
     "l3-source-address",
     "l3-destination-address",
     "l4-protocol",
@@ -28,8 +26,6 @@ static const std::string LoadBalanceDecision = "field-hash";
 class EcmpLoadBalance {
 public:
     enum kHashingFields {
-        SOURCE_MAC,
-        DESTINATION_MAC,
         SOURCE_IP,
         DESTINATION_IP,
         IP_PROTOCOL,
@@ -43,12 +39,6 @@ public:
     }
     virtual ~EcmpLoadBalance() { }
     
-    const std::string &source_mac_str() const {
-        return HashingFieldsStr[(uint8_t)EcmpLoadBalance::SOURCE_MAC];
-    }
-    const std::string &destination_mac_str() const {
-        return HashingFieldsStr[(uint8_t)EcmpLoadBalance::DESTINATION_MAC];
-    }
     const std::string &source_ip_str() const {
         return HashingFieldsStr[(uint8_t)EcmpLoadBalance::SOURCE_IP];
     }
@@ -66,7 +56,7 @@ public:
     }
 
     void GetStringVector (std::vector<std::string> &string_vector) const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type])
@@ -75,7 +65,7 @@ public:
     }
 
     bool operator!=(const EcmpLoadBalance &rhs) const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type] !=
@@ -86,7 +76,7 @@ public:
     }
 
     virtual void Copy(const EcmpLoadBalance &rhs) {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] =
@@ -95,7 +85,7 @@ public:
     }
 
     void SetAll() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = true;
@@ -103,7 +93,7 @@ public:
     }
 
     void ResetAll() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = false;
@@ -111,26 +101,13 @@ public:
     }
 
     bool AllSet() const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type] == false)
                 return false;
         }
         return true;
-    }
-
-    void set_source_mac() {
-        hash_fields_to_use_[SOURCE_MAC] = true;
-    }
-    void reset_source_mac() {
-        hash_fields_to_use_[SOURCE_MAC] = false;
-    }
-    void set_destination_mac() {
-        hash_fields_to_use_[DESTINATION_MAC] = true;
-    }
-    void reset_destination_mac() {
-        hash_fields_to_use_[DESTINATION_MAC] = false;
     }
     void set_source_ip() {
         hash_fields_to_use_[SOURCE_IP] = true;
@@ -163,12 +140,6 @@ public:
         hash_fields_to_use_[DESTINATION_PORT] = false;
     }
 
-    bool is_source_mac_set() const {
-        return (hash_fields_to_use_[SOURCE_MAC]);
-    }
-    bool is_destination_mac_set() const {
-        return (hash_fields_to_use_[DESTINATION_MAC]);
-    }
     bool is_source_ip_set() const {
         return (hash_fields_to_use_[SOURCE_IP]);
     }
@@ -186,7 +157,7 @@ public:
     }
 
     void reset() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_MAC);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = false;
@@ -197,16 +168,6 @@ public:
         (const autogen::EcmpHashingIncludeFields &ecmp_hashing_fields) {
         bool ret = false;    
 
-        if (hash_fields_to_use_[SOURCE_MAC] != ecmp_hashing_fields.source_mac) {
-            hash_fields_to_use_[SOURCE_MAC] = ecmp_hashing_fields.source_mac;
-            ret = true;
-        }
-        if (hash_fields_to_use_[DESTINATION_MAC] !=
-            ecmp_hashing_fields.destination_mac) {
-            hash_fields_to_use_[DESTINATION_MAC] =
-                ecmp_hashing_fields.destination_mac;
-            ret = true;
-        }
         if (hash_fields_to_use_[SOURCE_IP] != ecmp_hashing_fields.source_ip) {
             hash_fields_to_use_[SOURCE_IP] = ecmp_hashing_fields.source_ip;
             ret = true;

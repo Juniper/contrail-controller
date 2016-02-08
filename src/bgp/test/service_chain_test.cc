@@ -1632,9 +1632,9 @@ TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttributeNoAggregates) {
 
     // Create non-default load balance attribute.
     LoadBalance lbc;
-    lbc.SetL2SourceAddress();
+    lbc.SetL3SourceAddress(false);
     LoadBalance lbo;
-    lbo.SetL2DestinationAddress();
+    lbo.SetL3DestinationAddress(false);
 
     // Add load-balance attribute to connected route and verify
     this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
@@ -1735,9 +1735,9 @@ TYPED_TEST(ServiceChainTest, UpdateLoadBalanceAttribute) {
 
     // Create non-default load balance attribute.
     LoadBalance lbc;
-    lbc.SetL2SourceAddress();
+    lbc.SetL3SourceAddress(false);
     LoadBalance lbo;
-    lbo.SetL2DestinationAddress();
+    lbo.SetL3DestinationAddress(false);
 
     // Add load-balance attribute to connected route and verify
     this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,

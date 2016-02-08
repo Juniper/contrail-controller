@@ -1687,7 +1687,7 @@ TYPED_TEST(StaticRouteTest, LoadBalance) {
 
     // Create non-default load balance attribute
     LoadBalance lb = LoadBalance();
-    lb.SetL2SourceAddress();
+    lb.SetL3SourceAddress(false);
 
     // Add Nexthop Route
     this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32),
@@ -1724,7 +1724,7 @@ TYPED_TEST(StaticRouteTest, LoadBalance) {
     EXPECT_EQ(lb, static_path_lb);
     EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
 
-    lb.SetL2DestinationAddress();
+    lb.SetL3DestinationAddress(false);
     // Update Nexthop Route
     this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32),
                    100, this->BuildNextHopAddress("2.3.4.5"),

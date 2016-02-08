@@ -19,8 +19,6 @@ LoadBalance::LoadBalanceAttribute::LoadBalanceAttribute() {
     type = BgpExtendedCommunityType::Opaque;
     sub_type = BgpExtendedCommunityOpaqueSubType::LoadBalance;
 
-    l2_source_address = false;
-    l2_destination_address = false;
     l3_source_address = true;
     l3_destination_address = true;
     l4_protocol = true;
@@ -44,12 +42,6 @@ LoadBalance::LoadBalanceAttribute::LoadBalanceAttribute(
 void LoadBalance::LoadBalanceAttribute::Encode(
         autogen::LoadBalanceType *lb_type) const {
     lb_type->load_balance_fields.load_balance_field_list.clear();
-    if (l2_source_address)
-        lb_type->load_balance_fields.load_balance_field_list.push_back(
-                string("l2-source-address"));
-    if (l2_destination_address)
-        lb_type->load_balance_fields.load_balance_field_list.push_back(
-                string("l2-destination-address"));
     if (l3_source_address)
         lb_type->load_balance_fields.load_balance_field_list.push_back(
                 string("l3-source-address"));
@@ -116,8 +108,6 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &lb_type) {
     LoadBalanceAttribute attr;
 
     attr.source_bias = lb_type.load_balance_decision == "source-bias";
-    attr.l2_source_address = false;
-    attr.l2_destination_address = false;
 
     // autogen::LoadBalanceType fields list empty should imply as standard
     // 5-tuple fields set. xml schema does not let one specifify default values
@@ -135,14 +125,6 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &lb_type) {
             lb_type.load_balance_fields.begin();
             it != lb_type.load_balance_fields.end(); ++it) {
         const string s = *it;
-        if (s == "l2-source-address") {
-            attr.l2_source_address = true;
-            continue;
-        }
-        if (s == "l2-destination-address") {
-            attr.l2_destination_address = true;
-            continue;
-        }
         if (s == "l3-source-address") {
             attr.l3_source_address = true;
             continue;
@@ -180,65 +162,49 @@ const LoadBalance::LoadBalanceAttribute LoadBalance::ToAttribute() const {
             get_value_unaligned(&data_[4], 4));
 }
 
-void LoadBalance::SetL2SourceAddress() {
+void LoadBalance::SetL3SourceAddress(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l2_source_address = 1;
+    attr.l3_source_address = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::SetL2DestinationAddress() {
+void LoadBalance::SetL3DestinationAddress(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l2_destination_address = 1;
+    attr.l3_destination_address = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::SetL3SourceAddress() {
+void LoadBalance::SetL4Protocol(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l3_source_address = 1;
+    attr.l4_protocol = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::SetL3DestinationAddress() {
+void LoadBalance::SetL4SourcePort(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l3_destination_address = 1;
+    attr.l4_source_port = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::SetL4Protocol() {
+void LoadBalance::SetL4DestinationPort(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l4_protocol = 1;
+    attr.l4_destination_port = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
 
-void LoadBalance::SetL4SourcePort() {
+void LoadBalance::SetSourceBias(bool flag) {
     LoadBalanceAttribute attr = ToAttribute();
-    attr.l4_source_port = 1;
-
-    put_value(&data_[0], 4, attr.value1);
-    put_value(&data_[4], 4, attr.value2);
-}
-
-void LoadBalance::SetL4DestinationPort() {
-    LoadBalanceAttribute attr = ToAttribute();
-    attr.l4_destination_port = 1;
-
-    put_value(&data_[0], 4, attr.value1);
-    put_value(&data_[4], 4, attr.value2);
-}
-
-void LoadBalance::SetSourceBias() {
-    LoadBalanceAttribute attr = ToAttribute();
-    attr.source_bias = 1;
+    attr.source_bias = flag;
 
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
@@ -283,10 +249,6 @@ void LoadBalance::ShowAttribute(ShowLoadBalance *show_load_balance) const {
     }
 
     show_load_balance->decision_type = "field-hash";
-    if (attr.l2_source_address)
-        show_load_balance->fields.push_back("l2-source-address");
-    if (attr.l2_destination_address)
-        show_load_balance->fields.push_back("l2-destination-address");
     if (attr.l3_source_address)
         show_load_balance->fields.push_back("l3-source-address");
     if (attr.l3_destination_address)

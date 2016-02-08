@@ -26,17 +26,15 @@
  *  0                   1                   2                   3
  *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * | Type  0x03    | Sub-Type 0xAA |s d S D c p P R|R R R R R R R R|
+ * | Type  0x03    | Sub-Type 0xAA |s d c p P R R R|R R R R R R R R|
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * | Reserved      |B R R R R R R R| Reserved      | Reserved      |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Type: 0x03 Opaque
  * SubType: 0xAA LoadBalance attribute information (TBA)
- * s: Use l2_source_address for ECMP Load-balancing
- * d: Use l2_destination_address ECMP Load-balancing
- * S: Use l3_source_address ECMP Load-balancing
- * D: Use l3_destination_address ECMP Load-balancing
+ * s: Use l3_source_address ECMP Load-balancing
+ * d: Use l3_destination_address ECMP Load-balancing
  * c: Use l4_protocol ECMP Load-balancing
  * p: Use l4_source_port ECMP Load-balancing
  * P: Use l4_destination_port ECMP Load-balancing
@@ -57,14 +55,12 @@ public:
                 uint8_t sub_type;
 
                 // ecmp hash fields selection list
-                uint8_t l2_source_address:1;
-                uint8_t l2_destination_address:1;
                 uint8_t l3_source_address:1;      // Set by default
                 uint8_t l3_destination_address:1; // Set by default
                 uint8_t l4_protocol:1;            // Set by default
                 uint8_t l4_source_port:1;         // Set by default
                 uint8_t l4_destination_port:1;    // Set by default
-                uint8_t reserved1:1;
+                uint8_t reserved1:3;
 
                 uint8_t  reserved2; // For future fields such as interface
 
@@ -79,14 +75,12 @@ public:
                 uint8_t  reserved2; // For future fields such as interface
 
                 // ecmp hash fields selection list
-                uint8_t reserved1:1;
+                uint8_t reserved1:3;
                 uint8_t l4_destination_port:1;    // Set by default
                 uint8_t l4_source_port:1;         // Set by default
                 uint8_t l4_protocol:1;            // Set by default
                 uint8_t l3_destination_address:1; // Set by default
                 uint8_t l3_source_address:1;      // Set by default
-                uint8_t l2_destination_address:1;
-                uint8_t l2_source_address:1;
 
                 // Opaque extended community header
                 uint8_t sub_type;
@@ -132,14 +126,12 @@ public:
     const bool IsDefault() const;
     void ShowAttribute(ShowLoadBalance *show_load_balance) const;
     std::string ToString() const;
-    void SetL2SourceAddress();
-    void SetL2DestinationAddress();
-    void SetL3SourceAddress();
-    void SetL3DestinationAddress();
-    void SetL4Protocol();
-    void SetL4SourcePort();
-    void SetL4DestinationPort();
-    void SetSourceBias();
+    void SetL3SourceAddress(bool flag);
+    void SetL3DestinationAddress(bool flag);
+    void SetL4Protocol(bool flag);
+    void SetL4SourcePort(bool flag);
+    void SetL4DestinationPort(bool flag);
+    void SetSourceBias(bool flag);
 
     static bool IsPresent(const BgpPath *path);
 
