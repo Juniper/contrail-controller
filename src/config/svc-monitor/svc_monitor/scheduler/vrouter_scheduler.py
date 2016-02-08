@@ -114,6 +114,24 @@ class VRouterScheduler(object):
                 continue
 
             try:
+                module_found = False
+                for vr_status in agents_status[vr.name]['NodeStatus']['process_status'] or []:
+                    if (vr_status['module_id'] != constants.MODULE_VROUTER_AGENT_NAME):
+                        continue
+                    if (int(vr_status['instance_id']) == 0 and
+                            vr_status['state'] == 'Functional'):
+                        vr.set_agent_state(True)
+                    else:
+                        vr.set_agent_state(False)
+                    module_found = True
+                    break
+                if not module_found:
+                    vr.set_agent_state(False)
+            except Exception as e:
+                vr.set_agent_state(False)
+                continue
+
+            try:
                 vr_mode = vrouters_mode[vr.name]['VrouterAgent']
                 if (vr_mode['mode'] != constants.VrouterAgentTypeMap[
                         constants.VrouterAgentType.VROUTER_AGENT_EMBEDDED]):
