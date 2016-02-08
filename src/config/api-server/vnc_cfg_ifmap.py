@@ -138,7 +138,9 @@ class VncIfmapClient(object):
         my_imid = 'contrail:%s:%s' %(res_type, my_fqn)
         if parent_fqn:
             if parent_type is None:
-                return (None, None)
+                err_msg = "Parent: %s type is none for: %s" % (parent_fqn,
+                                                               my_fqn)
+                return False, (409, err_msg)
             parent_imid = 'contrail:' + parent_type + ':' + parent_fqn
         else: # parent is config-root
             parent_imid = 'contrail:config-root:root'
@@ -1511,6 +1513,11 @@ class VncDbClient(object):
                 parent_type = obj_dict.get('parent_type', None)
                 (ok, result) = self._ifmap_db.object_alloc(
                     obj_type, parent_type, obj_dict['fq_name'])
+                if not ok:
+                    self.config_object_error(
+                        obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc',
+                        result[1])
+                    continue
                 (my_imid, parent_imid) = result
             except Exception as e:
                 self.config_object_error(
