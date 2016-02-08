@@ -550,7 +550,7 @@ TEST_F(RouteAggregatorTest, Basic_1) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 3);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
-    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
 
     TASK_UTIL_EXPECT_TRUE(IsAggregateRoute<InetDefinition>("test",
                                            "test.inet.0", "2.2.0.0/16"));
@@ -570,7 +570,7 @@ TEST_F(RouteAggregatorTest, Basic_1) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
-    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
     task_util::WaitForIdle();
@@ -610,7 +610,7 @@ TEST_F(RouteAggregatorTest, Basic_NoReplication) {
     ASSERT_TRUE(rt != NULL);
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
-    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
 
     // Verify that aggregate route is replicated
     VERIFY_EQ(2, RouteCount("test_1.inet.0"));
@@ -2003,7 +2003,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 3);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
-    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
 
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2002:db8:85a3::/64");
@@ -2015,7 +2015,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
     TASK_UTIL_EXPECT_EQ(rt->count(), 2);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
-    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ResolvedRoute);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::Aggregate);
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2002:db8:85a3::8a2e:370:7334/128");
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",

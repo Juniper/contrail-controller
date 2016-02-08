@@ -14,26 +14,6 @@ string BgpPath::PathIdString(uint32_t path_id) {
     return addr.to_string();
 }
 
-string BgpPath::PathSourceString(PathSource source) {
-    switch (source) {
-        case None:
-            return "None";
-        case ResolvedRoute:
-            return "ResolvedRoute";
-        case BGP_XMPP:
-            return "BGP_XMPP";
-        case StaticRoute:
-            return "StaticRoute";
-        case ServiceChain:
-            return "ServiceChain";
-        case Local:
-            return "Local";
-        default:
-            break;
-    }
-    return "Other";
-}
-
 BgpPath::BgpPath(const IPeer *peer, uint32_t path_id, PathSource src,
                  const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
     : peer_(peer), path_id_(path_id), source_(src), attr_(ptr),
@@ -160,10 +140,39 @@ vector<string> BgpPath::GetFlagsStringList() const {
             flag_names.push_back("OriginatorIdLooped");
         if (flags_ & ResolveNexthop)
             flag_names.push_back("ResolveNexthop");
+        if (flags_ & ResolvedPath)
+            flag_names.push_back("ResolvedPath");
         if (flags_ & RoutingPolicyReject)
             flag_names.push_back("RoutingPolicyReject");
     }
     return flag_names;
+}
+
+string BgpPath::GetSourceString(bool combine_bgp_and_xmpp) const {
+    switch (source_) {
+    case None:
+        return "None";
+    case BGP_XMPP:
+        if (combine_bgp_and_xmpp) {
+            return "BGP_XMPP";
+        } else if (peer_) {
+            return(peer_->IsXmppPeer() ? "XMPP" : "BGP");
+        } else {
+            return "None";
+        }
+        break;
+    case ServiceChain:
+        return "ServiceChain";
+    case StaticRoute:
+        return "StaticRoute";
+    case Aggregate:
+        return "Aggregate";
+    case Local:
+        return "Local";
+    default:
+        break;
+    }
+    return "None";
 }
 
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,

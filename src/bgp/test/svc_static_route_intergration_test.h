@@ -872,7 +872,7 @@ protected:
             set<string> list = GetTunnelEncapListFromRoute(path);
             if (BgpPath::PathIdString(path->GetPathId()) != vit->path_id)
                 return false;
-            if (BgpPath::PathSourceString(path->GetSource()) != vit->path_src)
+            if (path->GetSourceString(true) != vit->path_src)
                 return false;
             if (attr->nexthop().to_v4().to_string() != vit->nexthop)
                 return false;

@@ -809,8 +809,8 @@ void ResolverPath::DeleteResolvedPath(ResolvedPathList::const_iterator it) {
 //
 // Find or create the matching resolved BgpPath.
 //
-BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
-    uint32_t label) {
+BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id,
+    const BgpAttr *attr, uint32_t label) {
     for (ResolvedPathList::iterator it = resolved_path_list_.begin();
          it != resolved_path_list_.end(); ++it) {
         BgpPath *path = *it;
@@ -820,7 +820,11 @@ BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
             return path;
         }
     }
-    return (new BgpPath(path_id, BgpPath::ResolvedRoute, attr, 0, label));
+
+    BgpPath::PathSource src = path_->GetSource();
+    uint32_t flags =
+        (path_->GetFlags() & ~BgpPath::ResolveNexthop) | BgpPath::ResolvedPath;
+    return (new BgpPath(path_id, src, attr, flags, label));
 }
 
 //
