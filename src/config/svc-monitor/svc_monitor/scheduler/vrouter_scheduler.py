@@ -124,12 +124,16 @@ class VRouterScheduler(object):
                 continue
 
             try:
-                vr_status = agents_status[vr.name]['NodeStatus']['process_status'][0]
-                if (vr_status['module_id'] == constants.MODULE_VROUTER_AGENT_NAME and
-                        int(vr_status['instance_id']) == 0 and
-                        vr_status['state'] == 'Functional'):
-                    vr.set_agent_state(True)
-                else:
+                state_up = False
+                for vr_status in agents_status[vr.name]['NodeStatus']['process_status'] or []:
+                    if (vr_status['module_id'] != constants.MODULE_VROUTER_AGENT_NAME):
+                        continue
+                    if (int(vr_status['instance_id']) == 0 and
+                            vr_status['state'] == 'Functional'):
+                        vr.set_agent_state(True)
+                        state_up = True
+                        break
+                if not state_up:
                     vr.set_agent_state(False)
             except Exception as e:
                 vr.set_agent_state(False)
