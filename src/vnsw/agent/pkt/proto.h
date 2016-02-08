@@ -24,6 +24,7 @@ public:
 
     void FreeBuffer(PktInfo *msg);
     bool ProcessProto(boost::shared_ptr<PktInfo> msg_info);
+    bool RunProtoHandler(ProtoHandler *handler);
     void set_trace(bool val) { trace_ = val; }
     void set_free_buffer(bool val) { free_buffer_ = val; }
     Agent *agent() const { return agent_; }

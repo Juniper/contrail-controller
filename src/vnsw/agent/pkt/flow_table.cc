@@ -651,8 +651,7 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
     }
 
     if (flow->set_pending_recompute(true)) {
-        agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
-                                                  new FlowTaskMsg(flow));
+        agent_->pkt()->get_flow_proto()->MessageRequest(new FlowTaskMsg(flow));
     }
 }
 

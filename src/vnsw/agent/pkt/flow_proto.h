@@ -19,14 +19,16 @@ class ProfileData;
 struct FlowStats {
     uint64_t add_count_;
     uint64_t delete_count_;
+    uint64_t flow_messages_;
     uint64_t revaluate_count_;
     uint64_t audit_count_;
     uint64_t handle_update_;
     uint64_t vrouter_error_;
 
     FlowStats() :
-        add_count_(0), delete_count_(0), revaluate_count_(0), audit_count_(0),
-        handle_update_(0), vrouter_error_(0) {
+        add_count_(0), delete_count_(0), flow_messages_(0),
+        revaluate_count_(0), audit_count_(0), handle_update_(0),
+        vrouter_error_(0) {
     }
 };
 
@@ -71,6 +73,7 @@ public:
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);
     void KSyncFlowErrorRequest(KSyncEntry *ksync_entry);
+    void MessageRequest(InterTaskMsg *msg);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);
