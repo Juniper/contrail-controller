@@ -37,22 +37,19 @@ static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
     if (!path)
         return 0;
 
-    if (path->IsVrfOriginated())
-        return table->routing_instance()->virtual_network_index();
-
     const BgpAttr *attr = path->GetAttr();
     const ExtCommunity *ext_community = attr->ext_community();
-    if (!ext_community)
-        return 0;
-
-    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
-                  ext_community->communities()) {
-        if (!ExtCommunity::is_origin_vn(comm))
-            continue;
-        OriginVn origin_vn(comm);
-        return origin_vn.vn_index();
+    if (ext_community) {
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_community->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            OriginVn origin_vn(comm);
+            return origin_vn.vn_index();
+        }
     }
-
+    if (path->IsVrfOriginated())
+        return table->routing_instance()->virtual_network_index();
     return 0;
 }
 
@@ -988,8 +985,13 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     RoutingInstance *dest = mgr->GetRoutingInstance(config.routing_instance);
+    //
     // Destination routing instance is not yet created.
-    if (dest == NULL || dest->deleted()) {
+    // Or Destination routing instance is deleted Or
+    // virtual network index is not yet calculated (due missing virtual network
+    // link)
+    //
+    if (dest == NULL || dest->deleted() || !dest->virtual_network_index()) {
         // Wait for the creation of RoutingInstance
         AddPendingServiceChain(rtinstance);
         return false;

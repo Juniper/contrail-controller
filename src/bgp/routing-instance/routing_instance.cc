@@ -1234,3 +1234,14 @@ bool RoutingInstance::IsContributingRoute(const BgpTable *table,
     if (!route_aggregator(table->family())) return false;
     return route_aggregator(table->family())->IsContributingRoute(route);
 }
+
+int RoutingInstance::GetOriginVnForAggregateRoute(Address::Family fmly) const {
+    const ServiceChainConfig *sc_config =
+        config_ ? config_->service_chain_info(fmly) : NULL;
+    if (sc_config && !sc_config->routing_instance.empty()) {
+        RoutingInstance *dest =
+            mgr_->GetRoutingInstance(sc_config->routing_instance);
+        if (dest) return dest->virtual_network_index();
+    }
+    return virtual_network_index_;
+}

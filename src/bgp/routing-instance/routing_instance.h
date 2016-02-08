@@ -168,6 +168,8 @@ public:
     bool IsContributingRoute(const BgpTable *table,
                              const BgpRoute *route) const;
 
+    int GetOriginVnForAggregateRoute(Address::Family family) const;
+
 private:
     friend class RoutingInstanceMgr;
     class DeleteActor;

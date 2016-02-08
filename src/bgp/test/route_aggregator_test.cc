@@ -314,6 +314,20 @@ protected:
         return list;
     }
 
+    string GetOriginVnFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            OriginVn origin_vn(comm);
+            RoutingInstanceMgr *ri_mgr = bgp_server_->routing_instance_mgr();
+            return ri_mgr->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
+        }
+        return "unresolved";
+    }
+
     void DisableUnregResolveTask(const string &instance, Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
@@ -885,6 +899,64 @@ TEST_F(RouteAggregatorTest, Basic_LastMoreSpecificDelete) {
     VerifyRouteAggregateSandesh("test");
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Add route aggregate config to routing instance with service chain config
+// Ensure that origin vn is set correctly on the aggregate route
+//
+TEST_F(RouteAggregatorTest, ServiceChain) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_4.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.1.3/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "red.inet.0", "2.2.2.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "blue.inet.0", "1.1.1.3/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "blue.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(4, RouteCount("red.inet.0"));
+    VERIFY_EQ(4, RouteCount("blue.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("blue.inet.0", "2.2.2.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "red-vn");
+    rt = RouteLookup<InetDefinition>("blue.inet.0", "2.2.2.1/32");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
+    TASK_UTIL_EXPECT_TRUE(IsContributingRoute<InetDefinition>("blue",
+                                            "blue.inet.0", "2.2.2.1/32"));
+
+    rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.1.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    TASK_UTIL_EXPECT_TRUE(GetOriginVnFromRoute(rt->BestPath()) == "blue-vn");
+    rt = RouteLookup<InetDefinition>("red.inet.0", "1.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 1);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetSource() == BgpPath::ServiceChain);
+    TASK_UTIL_EXPECT_TRUE(IsContributingRoute<InetDefinition>("red",
+                                            "red.inet.0", "1.1.1.1/32"));
+
+    DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "1.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "red.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "blue.inet.0", "1.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "blue.inet.0", "1.1.1.3/32");
     task_util::WaitForIdle();
 }
 
