@@ -393,9 +393,33 @@ bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
     GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Get(vstats_dbti);
+        stable_stats_.GetDiffs(vstats_dbti);
     }
     return dbif_->Db_GetStats(vdbti, dbe);
+}
+
+bool DbHandler::GetCqlMetrics(cass::cql::Metrics *metrics) const {
+    if (!UseCql()) {
+        return false;
+    }
+    cass::cql::CqlIf *cql_if(dynamic_cast<cass::cql::CqlIf *>(dbif_.get()));
+    if (cql_if == NULL) {
+        return false;
+    }
+    cql_if->Db_GetCqlMetrics(metrics);
+    return true;
+}
+
+bool DbHandler::GetCqlStats(cass::cql::DbStats *stats) const {
+    if (!UseCql()) {
+        return false;
+    }
+    cass::cql::CqlIf *cql_if(dynamic_cast<cass::cql::CqlIf *>(dbif_.get()));
+    if (cql_if == NULL) {
+        return false;
+    }
+    cql_if->Db_GetCqlStats(stats);
+    return true;
 }
 
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
@@ -853,7 +877,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
             break;
         default:
             tbb::mutex::scoped_lock lock(smutex_);
-            stable_stats_.Update(statName + ":" + statAttr, true, true);
+            stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
             DB_LOG(ERROR, "Bad Prefix Tag " << statName <<
                     ", " << statAttr <<  " tag " << ptag.first <<
                     ":" << stag.first << " jsonline " << jsonline);
@@ -861,7 +885,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     }
     if (bad_suffix) {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true);
+        stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
         DB_LOG(ERROR, "Bad Suffix Tag " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " jsonline " << jsonline);
@@ -914,11 +938,11 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 ":" << stag.first << " into table " <<
                 cfname <<" FAILED");
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true);
+        stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
         return false;
     } else {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, false);
+        stable_stats_.Update(statName + ":" + statAttr, true, false, 1);
         return true;
     }
 }

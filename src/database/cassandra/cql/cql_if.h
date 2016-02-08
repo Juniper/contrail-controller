@@ -11,6 +11,8 @@
 #include <tbb/atomic.h>
 
 #include <database/gendb_if.h>
+#include <database/gendb_statistics.h>
+#include <database/cassandra/cql/cql_types.h>
 
 class EventManager;
 
@@ -61,14 +63,32 @@ class CqlIf : public GenDb::GenDbIf {
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
+    virtual void Db_GetCqlMetrics(Metrics *metrics) const;
+    virtual void Db_GetCqlStats(cass::cql::DbStats *db_stats) const;
     // Connection
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
  private:
+    void IncrementTableWriteStats(const std::string &table_name);
+    void IncrementTableWriteStats(const std::string &table_name,
+        uint64_t num_writes);
+    void IncrementTableWriteFailStats(const std::string &table_name);
+    void IncrementTableWriteFailStats(const std::string &table_name,
+        uint64_t num_writes);
+    void IncrementTableReadStats(const std::string &table_name);
+    void IncrementTableReadStats(const std::string &table_name,
+        uint64_t num_reads);
+    void IncrementTableReadFailStats(const std::string &table_name);
+    void IncrementTableReadFailStats(const std::string &table_name,
+        uint64_t num_reads);
+    void IncrementErrors(GenDb::IfErrors::Type err_type);
+
     class CqlIfImpl;
     CqlIfImpl *impl_;
     tbb::atomic<bool> initialized_;
     std::vector<GenDb::Endpoint> endpoints_;
+    tbb::mutex stats_mutex_;
+    GenDb::GenDbIfStats stats_;
 };
 
 } // namespace cql

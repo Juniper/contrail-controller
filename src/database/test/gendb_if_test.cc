@@ -15,6 +15,7 @@
 
 #include "testing/gunit.h"
 #include <database/gendb_if.h>
+#include <database/gendb_statistics.h>
 
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
     boost::uuids::uuid, uint8_t, uint16_t, double> DbTestVarVariant;
@@ -534,6 +535,45 @@ TEST_F(DbPerfTest, StructEncode) {
 }
 
 class GenDbTest : public ::testing::Test {
+ protected:
+    void GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) {
+        stats_.GetDiffs(vdbti, dbe);
+    }
+    void UpdateErrorsWriteTablespace() {
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_TABLESPACE);
+    }
+    void UpdateStatsCfWrite(const std::string &cfname) {
+        stats_.IncrementTableWrite(cfname);
+    }
+    void UpdateStatsAll(const std::string &cfname) {
+        // Write success
+        stats_.IncrementTableWrite(cfname);
+        // Write fail
+        stats_.IncrementTableWriteFail(cfname);
+        // Read success
+        stats_.IncrementTableRead(cfname);
+        // Read fail
+        stats_.IncrementTableReadFail(cfname);
+        // Increment errors of each type
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_TABLESPACE);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_READ_TABLESPACE);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_COLUMN);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_BATCH_COLUMN);
+        stats_.IncrementErrors(
+            GenDb::IfErrors::ERR_READ_COLUMN);
+    }
+
+    GenDb::GenDbIfStats stats_;
 };
 
 TEST_F(GenDbTest, NewColSizeSql) {
@@ -606,6 +646,50 @@ TEST_F(GenDbTest, ColListSize) {
     GenDb::NewCol *nosql_col(CreateNewColNoSql(&expected_size));
     colList.columns_.push_back(nosql_col);
     EXPECT_EQ(expected_size, colList.GetSize());
+}
+
+TEST_F(GenDbTest, Stats) {
+    // Update Cf stats
+    const std::string cfname("FakeColumnFamily");
+    UpdateStatsAll(cfname);
+    // Get and verify
+    std::vector<GenDb::DbTableInfo> vdbti;
+    GenDb::DbErrors adbe;
+    GetStats(&vdbti, &adbe);
+    ASSERT_EQ(1, vdbti.size());
+    GenDb::DbTableInfo edbti;
+    edbti.set_table_name(cfname);
+    edbti.set_reads(1);
+    edbti.set_read_fails(1);
+    edbti.set_writes(1);
+    edbti.set_write_fails(1);
+    EXPECT_EQ(edbti, vdbti[0]);
+    vdbti.clear();
+    GenDb::DbErrors edbe;
+    edbe.set_write_tablespace_fails(1);
+    edbe.set_read_tablespace_fails(1);
+    edbe.set_write_table_fails(1);
+    edbe.set_read_table_fails(1);
+    edbe.set_write_column_fails(1);
+    edbe.set_write_batch_column_fails(1);
+    edbe.set_read_column_fails(1);
+    EXPECT_EQ(edbe, adbe);
+    // Diffs
+    // Write success
+    UpdateStatsCfWrite(cfname);
+    UpdateErrorsWriteTablespace();
+    // Get and verify
+    GenDb::DbErrors adbe_diffs;
+    GetStats(&vdbti, &adbe_diffs);
+    ASSERT_EQ(1, vdbti.size());
+    GenDb::DbTableInfo edbti_diffs;
+    edbti_diffs.set_table_name(cfname);
+    edbti_diffs.set_writes(1);
+    EXPECT_EQ(edbti_diffs, vdbti[0]);
+    vdbti.clear();
+    GenDb::DbErrors edbe_diffs;
+    edbe_diffs.set_write_tablespace_fails(1);
+    EXPECT_EQ(edbe_diffs, adbe_diffs);
 }
 
 int main(int argc, char **argv) {

@@ -94,7 +94,7 @@ using namespace GenDb;
 #define THRIFTIF_END_TRY_LOG_INTERNAL(msg, ignore_eexist, no_log_not_found,\
     invoke_hdlr, err_type, cf_op)                                          \
     catch (NotFoundException &tx) {                                        \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": NotFoundException: " << tx.what();               \
@@ -102,7 +102,7 @@ using namespace GenDb;
             THRIFTIF_LOG_ERR(ostr.str());                                  \
         }                                                                  \
     } catch (SchemaDisagreementException &tx) {                            \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": SchemaDisagreementException: " << tx.what();     \
@@ -112,39 +112,39 @@ using namespace GenDb;
             size_t eexist = tx.why.find(                                   \
                 "Cannot add already existing column family");              \
             if (eexist == std::string::npos) {                             \
-                stats_.IncrementErrors(err_type);                          \
+                IncrementErrors(err_type);                                 \
                 UpdateCfStats(cf_op, msg);                                 \
                 std::ostringstream ostr;                                   \
                 ostr << msg << ": InvalidRequestException: " << tx.why;    \
                 THRIFTIF_LOG_ERR(ostr.str());                              \
             }                                                              \
         } else {                                                           \
-            stats_.IncrementErrors(err_type);                              \
+            IncrementErrors(err_type);                                     \
             UpdateCfStats(cf_op, msg);                                     \
             std::ostringstream ostr;                                       \
             ostr << msg << ": InvalidRequestException: " << tx.why;        \
             THRIFTIF_LOG_ERR(ostr.str());                                  \
         }                                                                  \
     } catch (UnavailableException& ue) {                                   \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": UnavailableException: " << ue.what();            \
         THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TimedOutException& te) {                                      \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TimedOutException: " << te.what();               \
         THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TApplicationException &tx) {                                  \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TApplicationException: " << tx.what();           \
         THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TTransportException &tx) {                                    \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         if ((invoke_hdlr)) {                                               \
             errhandler_();                                                 \
@@ -153,7 +153,7 @@ using namespace GenDb;
         ostr << msg << ": TTransportException: " << tx.what();             \
         THRIFTIF_LOG_ERR(ostr.str());                                      \
     } catch (TException &tx) {                                             \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TException: " << tx.what();                      \
@@ -163,7 +163,7 @@ using namespace GenDb;
 #define THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(msg, ignore_eexist,         \
     no_log_not_found, invoke_hdlr, err_type, cf_op)                        \
     catch (NotFoundException &tx) {                                        \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": NotFoundException: " << tx.what();               \
@@ -173,7 +173,7 @@ using namespace GenDb;
             return false;                                                  \
         }                                                                  \
     } catch (SchemaDisagreementException &tx) {                            \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": SchemaDisagreementException: " << tx.what();     \
@@ -183,45 +183,45 @@ using namespace GenDb;
             size_t eexist = tx.why.find(                                   \
                 "Cannot add already existing column family");              \
             if (eexist == std::string::npos) {                             \
-                stats_.IncrementErrors(err_type);                          \
+                IncrementErrors(err_type);                                 \
                 UpdateCfStats(cf_op, msg);                                 \
                 std::ostringstream ostr;                                   \
                 ostr << msg << ": InvalidRequestException: " << tx.why;    \
                 THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                 \
             }                                                              \
         } else {                                                           \
-            stats_.IncrementErrors(err_type);                              \
+            IncrementErrors(err_type);                                     \
             UpdateCfStats(cf_op, msg);                                     \
             std::ostringstream ostr;                                       \
             ostr << msg << ": InvalidRequestException: " << tx.why;        \
             THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                     \
         }                                                                  \
     } catch (UnavailableException& ue) {                                   \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": UnavailableException: " << ue.what();            \
         THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TimedOutException& te) {                                      \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TimedOutException: " << te.what();               \
         THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TApplicationException &tx) {                                  \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TApplicationException: " << tx.what();           \
         THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (AuthenticationException &tx) {                                \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": Authentication Exception: " << tx.what();        \
         THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     }  catch (TTransportException &tx) {                                   \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         if ((invoke_hdlr)) {                                               \
             errhandler_();                                                 \
@@ -230,7 +230,7 @@ using namespace GenDb;
         ostr << msg << ": TTransportException: " << tx.what();             \
         THRIFTIF_LOG_ERR_RETURN_FALSE(ostr.str());                         \
     } catch (TException &tx) {                                             \
-        stats_.IncrementErrors(err_type);                                  \
+        IncrementErrors(err_type);                                         \
         UpdateCfStats(cf_op, msg);                                         \
         std::ostringstream ostr;                                           \
         ostr << msg << ": TException: " << tx.what();                      \
@@ -239,13 +239,13 @@ using namespace GenDb;
 
 #define THRIFTIF_END_TRY_RETURN_FALSE(msg)                                    \
     THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(msg, false, false, false,          \
-        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,                           \
-        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
+        GenDb::IfErrors::ERR_NO_ERROR,                                        \
+        GenDb::GenDbIfStats::TABLE_OP_NONE)
 
 #define THRIFTIF_END_TRY_LOG(msg)                                             \
     THRIFTIF_END_TRY_LOG_INTERNAL(msg, false, false, false,                   \
-        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,                           \
-        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
+        GenDb::IfErrors::ERR_NO_ERROR,                                        \
+        GenDb::GenDbIfStats::TABLE_OP_NONE)
 
 //
 // Types supported by Cassandra are the following, but we use only a subset for
@@ -1087,13 +1087,13 @@ bool ThriftIfImpl::Db_SetTablespace(const std::string& tablespace) {
 bool ThriftIfImpl::Db_AddSetTablespace(const std::string& tablespace,
     const std::string& replication_factor) {
     if (!Db_AddTablespace(tablespace, replication_factor)) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_TABLESPACE);
         return false;
     }
     if (!Db_SetTablespace(tablespace)) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_READ_TABLESPACE);
         return false;
     }
     return true;
@@ -1104,8 +1104,8 @@ bool ThriftIfImpl::Db_FindTablespace(const std::string& tablespace) {
         KsDef retval;
         client_->describe_keyspace(retval, tablespace);
     } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(tablespace, false, true, false,
-        ThriftIfStats::THRIFTIF_STATS_ERR_NO_ERROR,
-        ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
+        GenDb::IfErrors::ERR_NO_ERROR,
+        GenDb::GenDbIfStats::TABLE_OP_NONE)
     return true;
 }
 
@@ -1124,8 +1124,8 @@ bool ThriftIfImpl::Db_UseColumnfamily(const GenDb::NewCf& cf) {
     }
     ThriftIfCfInfo *cfinfo;
     if (!Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
         UpdateCfReadFailStats(cf.cfname_);
         return false;
     }
@@ -1179,10 +1179,10 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
     if (Db_FindColumnfamily(cf.cfname_)) {
         return true;
     }
-    ThriftIfStats::ErrorType err_type(
-        ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY);
-    ThriftIfStats::CfOp op(
-         ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE_FAIL);
+    GenDb::IfErrors::Type err_type(
+        GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
+    GenDb::GenDbIfStats::TableOp op(
+         GenDb::GenDbIfStats::TABLE_OP_WRITE_FAIL);
     if (cf.cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
         cassandra::CfDef cf_def;
         cf_def.__set_keyspace(tablespace_);
@@ -1193,7 +1193,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class,
             cf.key_validation_class)) {
-            stats_.IncrementErrors(err_type);
+            IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": KeyValidate encode FAILED");
@@ -1207,7 +1207,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         for (it = cf.cfcolumns_.begin(); it != cf.cfcolumns_.end(); it++) {
             col_def.__set_name(it->first);
             if ((jt = ThriftIfTypeMap.find(it->second)) == ThriftIfTypeMap.end()) {
-                stats_.IncrementErrors(err_type);
+                IncrementErrors(err_type);
                 UpdateCfStats(op, cf.cfname_);
                 THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " <<
                     it->second);
@@ -1249,7 +1249,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class,
             cf.key_validation_class)) {
-            stats_.IncrementErrors(err_type);
+            IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": KeyValidate encode FAILED");
@@ -1259,7 +1259,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         std::string comparator_type;
         if (!DbDataTypeVecToCompositeType(comparator_type,
             cf.comparator_type)) {
-            stats_.IncrementErrors(err_type);
+            IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                ": Comparator encode FAILED");
@@ -1269,7 +1269,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
         std::string default_validation_class;
         if (!DbDataTypeVecToCompositeType(default_validation_class,
             cf.default_validation_class)) {
-            stats_.IncrementErrors(err_type);
+            IncrementErrors(err_type);
             UpdateCfStats(op, cf.cfname_);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ <<
                 ": Validate encode FAILED");
@@ -1298,7 +1298,7 @@ bool ThriftIfImpl::Db_AddColumnfamily(const GenDb::NewCf& cf) {
                 new GenDb::NewCf(cf)));
         }
     } else {
-        stats_.IncrementErrors(err_type);
+        IncrementErrors(err_type);
         UpdateCfStats(op, cf.cfname_);
         THRIFTIF_LOG_ERR_RETURN_FALSE(cf.cfname_ << ": Unknown type " <<
             cf.cftype_);
@@ -1350,8 +1350,8 @@ bool ThriftIfImpl::DB_IsCfSchemaChanged(org::apache::cassandra::CfDef *cfdef,
 bool ThriftIfImpl::Db_AsyncAddColumn(ThriftIfColList &cl) {
     GenDb::ColList *new_colp(cl.gendb_cl);
     if (new_colp == NULL) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_WRITE_COLUMN);
         THRIFTIF_LOG_ERR("No Column Information");
         return true;
     }
@@ -1432,8 +1432,8 @@ bool ThriftIfImpl::Db_AsyncAddColumn(ThriftIfColList &cl) {
             mutation.__set_column_or_supercolumn(c_or_sc);
             mutations.push_back(mutation);
         } else {
-            stats_.IncrementErrors(
-                ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
+            IncrementErrors(
+                GenDb::IfErrors::ERR_WRITE_COLUMN);
             UpdateCfWriteFailStats(cfname);
             THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": Invalid CFtype: " <<
                 it->cftype_);
@@ -1452,8 +1452,8 @@ void ThriftIfImpl::Db_BatchAddColumn(bool done) {
         client_->batch_mutate(mutation_map_,
             org::apache::cassandra::ConsistencyLevel::ONE);
     } THRIFTIF_END_TRY_LOG_INTERNAL(integerToString(mutation_map_.size()),
-          false, false, true, ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN,
-          ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE)
+          false, false, true, GenDb::IfErrors::ERR_WRITE_BATCH_COLUMN,
+          GenDb::GenDbIfStats::TABLE_OP_NONE)
     mutation_map_.clear();
 }
 
@@ -1532,8 +1532,8 @@ bool ThriftIfImpl::Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
         UpdateCfReadFailStats(cfname);
         THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
@@ -1554,8 +1554,8 @@ bool ThriftIfImpl::Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
         client_->get_slice(result, key, cparent, slicep,
             ConsistencyLevel::ONE);
     } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
-        ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN,
-        ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL)
+        GenDb::IfErrors::ERR_READ_COLUMN,
+        GenDb::GenDbIfStats::TABLE_OP_READ_FAIL)
     bool success = ColListFromColumnOrSuper(ret, result, cfname);
     if (success) {
         UpdateCfReadStats(cfname);
@@ -1578,8 +1578,8 @@ bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret,
     ThriftIfCfInfo *info;
     GenDb::NewCf *cf;
     if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
-        stats_.IncrementErrors(
-            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
+        IncrementErrors(
+            GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
         UpdateCfReadFailStats(cfname);
         THRIFTIF_LOG_ERR_RETURN_FALSE(cfname << ": NOT FOUND");
     }
@@ -1629,8 +1629,8 @@ bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret,
         THRIFTIF_BEGIN_TRY {
             client_->multiget_slice(ret_c, keys, cparent, slicep, ConsistencyLevel::ONE);
         } THRIFTIF_END_TRY_RETURN_FALSE_INTERNAL(cfname, false, false, false,
-            ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN,
-            ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL)
+            GenDb::IfErrors::ERR_READ_COLUMN,
+            GenDb::GenDbIfStats::TABLE_OP_READ_FAIL)
         // Update stats
         UpdateCfReadStats(cfname);
         // Convert result
@@ -1665,143 +1665,39 @@ bool ThriftIfImpl::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) c
 
 bool ThriftIfImpl::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
     tbb::mutex::scoped_lock lock(smutex_);
-    stats_.Get(vdbti, dbe);
+    stats_.GetDiffs(vdbti, dbe);
     return true;
 }
 
 void ThriftIfImpl::UpdateCfWriteStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
-    stats_.UpdateCf(cf_name, true, false);
+    stats_.IncrementTableWrite(cf_name);
 }
 
 void ThriftIfImpl::UpdateCfWriteFailStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
-    stats_.UpdateCf(cf_name, true, true);
+    stats_.IncrementTableWriteFail(cf_name);
 }
 
 void ThriftIfImpl::UpdateCfReadStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
-    stats_.UpdateCf(cf_name, false, false);
+    stats_.IncrementTableRead(cf_name);
 }
 
 void ThriftIfImpl::UpdateCfReadFailStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
-    stats_.UpdateCf(cf_name, false, true);
+    stats_.IncrementTableReadFail(cf_name);
 }
 
-void ThriftIfImpl::UpdateCfStats(ThriftIfImpl::ThriftIfStats::CfOp op,
+void ThriftIfImpl::UpdateCfStats(GenDb::GenDbIfStats::TableOp op,
     const std::string &cf_name) {
-    switch (op) {
-    case ThriftIfStats::THRIFTIF_STATS_CF_OP_NONE:
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE:
-        UpdateCfWriteStats(cf_name);
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_CF_OP_WRITE_FAIL:
-        UpdateCfWriteFailStats(cf_name);
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_CF_OP_READ:
-        UpdateCfReadStats(cf_name);
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_CF_OP_READ_FAIL:
-        UpdateCfReadFailStats(cf_name);
-        break;
-    default:
-        break;
-    }
+    tbb::mutex::scoped_lock lock(smutex_);
+    stats_.IncrementTableStats(op, cf_name);
 }
 
-// ThriftIfStats
-void ThriftIfImpl::ThriftIfStats::UpdateCf(const std::string &cfname, bool write,
-    bool fail) {
-    cf_stats_.Update(cfname, write, fail);
-}
-
-void ThriftIfImpl::ThriftIfStats::IncrementErrors(ThriftIfImpl::ThriftIfStats::ErrorType type) {
-    switch (type) {
-    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE:
-        db_errors_.write_tablespace_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE:
-        db_errors_.read_tablespace_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY:
-        db_errors_.write_column_family_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY:
-        db_errors_.read_column_family_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN:
-        db_errors_.write_column_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN:
-        db_errors_.write_batch_column_fails++;
-        break;
-    case ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN:
-        db_errors_.read_column_fails++;
-        break;
-    default:
-        break;
-    }
-}
-
-void ThriftIfImpl::ThriftIfStats::Get(std::vector<DbTableInfo> *vdbti,
-    DbErrors *dbe) {
-    // Get diff cfstats
-    cf_stats_.Get(vdbti);
-    // Subtract old from new
-    ThriftIfImpl::ThriftIfStats::Errors derrors(db_errors_ - odb_errors_);
-    // Update old
-    odb_errors_ = db_errors_;
-    // Populate from diff
-    derrors.Get(dbe);
-}
-
-// Errors
-ThriftIfImpl::ThriftIfStats::Errors operator+(const ThriftIfImpl::ThriftIfStats::Errors &a,
-    const ThriftIfImpl::ThriftIfStats::Errors &b) {
-    ThriftIfImpl::ThriftIfStats::Errors sum;
-    sum.write_tablespace_fails = a.write_tablespace_fails +
-        b.write_tablespace_fails;
-    sum.read_tablespace_fails = a.read_tablespace_fails +
-        b.read_tablespace_fails;
-    sum.write_column_family_fails = a.write_column_family_fails +
-        b.write_column_family_fails;
-    sum.read_column_family_fails = a.read_column_family_fails +
-        b.read_column_family_fails;
-    sum.write_column_fails = a.write_column_fails + b.write_column_fails;
-    sum.write_batch_column_fails = a.write_batch_column_fails +
-        b.write_batch_column_fails;
-    sum.read_column_fails = a.read_column_fails + b.read_column_fails;
-    return sum;
-}
-
-ThriftIfImpl::ThriftIfStats::Errors operator-(const ThriftIfImpl::ThriftIfStats::Errors &a,
-    const ThriftIfImpl::ThriftIfStats::Errors &b) {
-    ThriftIfImpl::ThriftIfStats::Errors diff;
-    diff.write_tablespace_fails = a.write_tablespace_fails -
-        b.write_tablespace_fails;
-    diff.read_tablespace_fails = a.read_tablespace_fails -
-        b.read_tablespace_fails;
-    diff.write_column_family_fails = a.write_column_family_fails -
-        b.write_column_family_fails;
-    diff.read_column_family_fails = a.read_column_family_fails -
-        b.read_column_family_fails;
-    diff.write_column_fails = a.write_column_fails - b.write_column_fails;
-    diff.write_batch_column_fails = a.write_batch_column_fails -
-        b.write_batch_column_fails;
-    diff.read_column_fails = a.read_column_fails - b.read_column_fails;
-    return diff;
-}
-
-void ThriftIfImpl::ThriftIfStats::Errors::Get(DbErrors *db_errors) const {
-    db_errors->set_write_tablespace_fails(write_tablespace_fails);
-    db_errors->set_read_tablespace_fails(read_tablespace_fails);
-    db_errors->set_write_table_fails(write_column_family_fails);
-    db_errors->set_read_table_fails(read_column_family_fails);
-    db_errors->set_write_column_fails(write_column_fails);
-    db_errors->set_write_batch_column_fails(write_batch_column_fails);
-    db_errors->set_read_column_fails(read_column_fails);
+void ThriftIfImpl::IncrementErrors(GenDb::IfErrors::Type etype) {
+    tbb::mutex::scoped_lock lock(smutex_);
+    stats_.IncrementErrors(etype);
 }
 
 template<>

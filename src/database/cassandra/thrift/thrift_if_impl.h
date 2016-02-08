@@ -113,64 +113,13 @@ class ThriftIfImpl {
     // Read
     static const int kMaxQueryRows = 50;
 
-    // Statistics
-    struct ThriftIfStats {
-        ThriftIfStats() {
-        }
-        struct Errors {
-            Errors() {
-                write_tablespace_fails = 0;
-                read_tablespace_fails = 0;
-                write_column_family_fails = 0;
-                read_column_family_fails = 0;
-                write_column_fails = 0;
-                write_batch_column_fails = 0;
-                read_column_fails = 0;
-            }
-            void Get(GenDb::DbErrors *db_errors) const;
-            tbb::atomic<uint64_t> write_tablespace_fails;
-            tbb::atomic<uint64_t> read_tablespace_fails;
-            tbb::atomic<uint64_t> write_column_family_fails;
-            tbb::atomic<uint64_t> read_column_family_fails;
-            tbb::atomic<uint64_t> write_column_fails;
-            tbb::atomic<uint64_t> write_batch_column_fails;
-            tbb::atomic<uint64_t> read_column_fails;
-        };
-        enum ErrorType {
-            THRIFTIF_STATS_ERR_NO_ERROR,
-            THRIFTIF_STATS_ERR_WRITE_TABLESPACE,
-            THRIFTIF_STATS_ERR_READ_TABLESPACE,
-            THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY,
-            THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY,
-            THRIFTIF_STATS_ERR_WRITE_COLUMN,
-            THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN,
-            THRIFTIF_STATS_ERR_READ_COLUMN,
-        };
-        enum CfOp {
-            THRIFTIF_STATS_CF_OP_NONE,
-            THRIFTIF_STATS_CF_OP_WRITE,
-            THRIFTIF_STATS_CF_OP_WRITE_FAIL,
-            THRIFTIF_STATS_CF_OP_READ,
-            THRIFTIF_STATS_CF_OP_READ_FAIL,
-        };
-        void IncrementErrors(ErrorType type);
-        void UpdateCf(const std::string &cf_name, bool write, bool fail);
-        void Get(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe);
-        GenDb::DbTableStatistics cf_stats_;
-        Errors db_errors_;
-        Errors odb_errors_;
-    };
-
-    friend ThriftIfStats::Errors operator+(const ThriftIfStats::Errors &a,
-        const ThriftIfStats::Errors &b);
-    friend ThriftIfStats::Errors operator-(const ThriftIfStats::Errors &a,
-        const ThriftIfStats::Errors &b);
-
-    void UpdateCfStats(ThriftIfStats::CfOp op, const std::string &cf_name);
+    void UpdateCfStats(GenDb::GenDbIfStats::TableOp op,
+        const std::string &cf_name);
     void UpdateCfWriteStats(const std::string &cf_name);
     void UpdateCfWriteFailStats(const std::string &cf_name);
     void UpdateCfReadStats(const std::string &cf_name);
     void UpdateCfReadFailStats(const std::string &cf_name);
+    void IncrementErrors(GenDb::IfErrors::Type err_type);
 
     static const size_t kQueueSize = 200 * 1024 * 1024; // 200 MB
     typedef WorkQueue<ThriftIfColList> ThriftIfQueue;
@@ -203,8 +152,8 @@ class ThriftIfImpl {
     typedef std::map<std::string, MutationList> CFMutationMap;
     typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
     CassandraMutationMap mutation_map_;
-    mutable tbb::mutex smutex_;
-    ThriftIfStats stats_;
+    tbb::mutex smutex_;
+    GenDb::GenDbIfStats stats_;
     std::vector<DbQueueWaterMarkInfo> q_wm_info_;
     std::string cassandra_user_;
     std::string cassandra_password_;
@@ -215,13 +164,6 @@ class ThriftIfImpl {
     static const int keepaliveProbeCount = 5;
     static const int tcpUserTimeoutMs = 30000;
 };
-
-ThriftIfImpl::ThriftIfStats::Errors operator+(
-    const ThriftIfImpl::ThriftIfStats::Errors &a,
-    const ThriftIfImpl::ThriftIfStats::Errors &b);
-ThriftIfImpl::ThriftIfStats::Errors operator-(
-    const ThriftIfImpl::ThriftIfStats::Errors &a,
-    const ThriftIfImpl::ThriftIfStats::Errors &b);
 
 template<>
 size_t ThriftIfImpl::ThriftIfQueue::AtomicIncrementQueueCount(

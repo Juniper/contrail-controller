@@ -900,6 +900,79 @@ const list<stat_table> _STAT_TABLES  = [
       ]
     },
     {
+      'display_name' : 'Collector Database Table Statistics',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'table_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'table_info.reads', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table_info.read_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table_info.writes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table_info.write_fails', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Collector Statistics Database Table',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'statistics_table_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'statistics_table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'statistics_table_info.reads', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'statistics_table_info.read_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'statistics_table_info.writes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'statistics_table_info.write_fails', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Collector Database Errors',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'errors',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'errors.write_tablespace_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.read_tablespace_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.write_table_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.read_table_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.write_column_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.write_batch_column_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'errors.read_column_fails', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Collector Database CQL Request Statistics',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'cql_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cql_stats.requests_one_minute_rate', 'datatype' : 'double', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Collector Database CQL Cluster Statistics',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'cql_stats.stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cql_stats.stats.total_connections', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'cql_stats.stats.available_connections', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'cql_stats.stats.exceeded_pending_requests_water_mark', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'cql_stats.stats.exceeded_write_bytes_water_mark', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Collector Database CQL Errors',
+      'stat_type' : 'CollectorDbStats',
+      'stat_attr' : 'cql_stats.errors',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cql_stats.errors.connection_timeouts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'cql_stats.errors.pending_request_timeouts', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'cql_stats.errors.request_timeouts', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
       'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'

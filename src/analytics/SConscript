@@ -24,6 +24,7 @@ AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
                                AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
                                AnalyticsEnv['TOP'] + '/io',
                                AnalyticsEnv['TOP'] + '/database',
+                               AnalyticsEnv['TOP'] + '/database/cassandra/cql',
                                AnalyticsEnv['TOP'],
                               ])
 AnalyticsEnv.Append(LIBS=['boost_python', python])
