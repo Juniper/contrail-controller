@@ -485,7 +485,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         if (attr->ext_community()) {
             FillRoutePathExtCommunityInfo(table, attr->ext_community(), &srp);
         }
-        if (!table->IsVpnTable() && path->IsVrfOriginated()) {
+        if (srp.get_origin_vn().empty() && !table->IsVpnTable() && path->IsVrfOriginated()) {
             srp.set_origin_vn(ri->GetVirtualNetworkName());
         }
         if (attr->origin_vn_path()) {
