@@ -45,8 +45,8 @@ DSSubscribeResponse::DSSubscribeResponse(std::string serviceName,
 }
 
 DSSubscribeResponse::~DSSubscribeResponse() {
-    service_list_.clear();
     inuse_service_list_.clear();
+    publisher_id_map_.clear();
     TimerManager::DeleteTimer(subscribe_timer_);
 }
 
@@ -98,12 +98,9 @@ void DSSubscribeResponse::DeleteInUseServiceList(
 
 std::string DSSubscribeResponse::GetPublisherId(string ip_address) {
 
-    std::vector<DSResponse>::iterator it = service_list_.begin();
-    for (; it != service_list_.end(); it++) {
-        DSResponse resp = *it;
-        if (resp.ep.address().to_string().compare(ip_address) == 0) {
-            return (resp.publisher_id);
-        }
+    PublisherIdMap::iterator loc = publisher_id_map_.find(ip_address);
+    if (loc != publisher_id_map_.end()) {
+        return(loc->second);
     }
     return "";
 }
@@ -907,6 +904,9 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
                 boost::trim(value);
                 if (strcmp(subnode.name(), "ip-address") == 0) {
                     resp.ep.address(ip::address::from_string(value));
+                    // Update Map to get publisher-id during next subscribe
+                    hdr->publisher_id_map_.insert(make_pair(
+                        resp.ep.address().to_string(), resp.publisher_id));
                 } else  if (strcmp(subnode.name(), "port") == 0) {
                     uint32_t port; 
                     stringstream sport(value);
@@ -916,7 +916,6 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             } 
             ds_response.push_back(resp);
         }
-
 
         // generate hash of the message
         boost::hash<std::string> string_hash;
@@ -951,9 +950,6 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
         ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::UP, ds_endpoint_,
                 "SubscribeResponse");
-
-        hdr->service_list_.clear();
-        hdr->service_list_ = ds_response;
 
         //Start Subscribe Timer
         hdr->StartSubscribeTimer(ttl);
