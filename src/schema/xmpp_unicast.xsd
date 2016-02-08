@@ -45,8 +45,6 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
 <xsd:simpleType name="LoadBalanceFieldType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="l2-source-address"/>
-        <xsd:enumeration value="l2-destination-address"/>
         <xsd:enumeration value="l3-source-address"/>
         <xsd:enumeration value="l3-destination-address"/>
         <xsd:enumeration value="l4-protocol"/>

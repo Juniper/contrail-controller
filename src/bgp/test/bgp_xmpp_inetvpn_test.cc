@@ -1851,7 +1851,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_2) {
     LoadBalance::bytes_type data =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+            0xF8, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance loadBalance(data);
     test::RouteAttributes attributes(loadBalance.ToAttribute());
     agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
@@ -1909,7 +1909,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_3) {
     LoadBalance::bytes_type data =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0xaa, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+            0xa8, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance loadBalance(data);
     test::RouteAttributes attributes(loadBalance.ToAttribute());
     agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);

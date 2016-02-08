@@ -22,8 +22,6 @@ TEST_F(LoadBalanceTest, Default_1) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-    EXPECT_FALSE(lba.l2_source_address);
-    EXPECT_FALSE(lba.l2_destination_address);
 
     EXPECT_TRUE(lba.l3_source_address);
     lb_fields.push_back("l3-source-address");
@@ -72,7 +70,7 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
     LoadBalance::bytes_type data =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+            0xF8, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
     EXPECT_NE(lb, LoadBalance());
@@ -84,12 +82,6 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-
-    lb_fields.push_back("l2-source-address");
-    EXPECT_TRUE(lba.l2_source_address);
-
-    lb_fields.push_back("l2-destination-address");
-    EXPECT_TRUE(lba.l2_destination_address);
 
     lb_fields.push_back("l3-source-address");
     EXPECT_TRUE(lba.l3_source_address);
@@ -154,8 +146,6 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-    EXPECT_FALSE(lba.l2_source_address);
-    EXPECT_FALSE(lba.l2_destination_address);
     EXPECT_FALSE(lba.l3_source_address);
     EXPECT_FALSE(lba.l3_destination_address);
     EXPECT_FALSE(lba.l4_protocol);
@@ -201,7 +191,7 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
     LoadBalance::bytes_type data =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0xaa, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+            0xa8, 0x00, 0x80, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
     EXPECT_NE(lb, LoadBalance());
@@ -213,11 +203,6 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-
-    lb_fields.push_back("l2-source-address");
-    EXPECT_TRUE(lba.l2_source_address);
-
-    EXPECT_FALSE(lba.l2_destination_address);
 
     lb_fields.push_back("l3-source-address");
     EXPECT_TRUE(lba.l3_source_address);
@@ -267,7 +252,7 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
     LoadBalance::bytes_type data =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0x54, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
     const LoadBalance::LoadBalanceAttribute lba = lb.ToAttribute();
     EXPECT_NE(lb, LoadBalance());
@@ -279,10 +264,6 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-    EXPECT_FALSE(lba.l2_source_address);
-
-    lb_fields.push_back("l2-destination-address");
-    EXPECT_TRUE(lba.l2_destination_address);
 
     EXPECT_FALSE(lba.l3_source_address);
 
@@ -333,8 +314,6 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
     LoadBalance lb(data);
 
-    lb.SetL2SourceAddress();
-    lb.SetL2DestinationAddress();
     lb.SetL3SourceAddress();
     lb.SetL3DestinationAddress();
     lb.SetL4Protocol();
@@ -350,12 +329,6 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
 
     EXPECT_EQ(BgpExtendedCommunityType::Opaque, lba.type);
     EXPECT_EQ(BgpExtendedCommunityOpaqueSubType::LoadBalance, lba.sub_type);
-
-    lb_fields.push_back("l2-source-address");
-    EXPECT_TRUE(lba.l2_source_address);
-
-    lb_fields.push_back("l2-destination-address");
-    EXPECT_TRUE(lba.l2_destination_address);
 
     lb_fields.push_back("l3-source-address");
     EXPECT_TRUE(lba.l3_source_address);
@@ -387,7 +360,7 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
     LoadBalance::bytes_type data2 =
         { { BgpExtendedCommunityType::Opaque,
               BgpExtendedCommunityOpaqueSubType::LoadBalance,
-            0xFE, 0x00, 0x80, 0x00, 0x00, 0x00 } };
+            0xF8, 0x00, 0x80, 0x00, 0x00, 0x00 } };
 
     // Reconstruct community from the attribute and verify data
     EXPECT_EQ(data2, LoadBalance(lba).GetExtCommunity());
