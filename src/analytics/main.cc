@@ -126,7 +126,7 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
     CollectorCPULogger(analytics->name());
     CollectorSummaryLogger(analytics->GetCollector(), analytics->name(),
             analytics->GetOsp());
-
+    analytics->SendDbStatistics();
     analytics->SendProtobufCollectorStatistics();
 
     vector<ModuleServerState> sinfos;

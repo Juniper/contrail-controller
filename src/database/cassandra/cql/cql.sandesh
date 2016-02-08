@@ -1,0 +1,47 @@
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+namespace cpp cass.cql
+
+struct RequestsMetrics {
+    1: u64 min; /**< Minimum in microseconds */
+    2: u64 max; /**< Maximum in microseconds */
+    3: u64 mean; /**< Mean in microseconds */
+    4: u64 stddev; /**< Standard deviation in microseconds */
+    5: u64 median; /**< Median in microseconds */
+    6: u64 percentile_75th; /**< 75th percentile in microseconds */
+    7: u64 percentile_95th; /**< 95th percentile in microseconds */
+    8: u64 percentile_98th; /**< 98th percentile in microseconds */
+    9: u64 percentile_99th; /**< 99the percentile in microseconds */
+    10: u64 percentile_999th; /**< 99.9th percentile in microseconds */
+    11: double mean_rate; /**<  Mean rate in requests per second*/
+    12: double one_minute_rate; /**< 1 minute rate in requests per second */
+    13: double five_minute_rate; /**<  5 minute rate in requests per second*/
+    14: double fifteen_minute_rate; /**< 15 minute rate in requests per second*/
+}
+
+struct ClusterStats {
+    1: u64 total_connections; /**< The total number of connections */
+    2: u64 available_connections; /**< The number of connections available to take requests */
+    3: u64 exceeded_pending_requests_water_mark; /**< Occurrences when requests exceeded a pool's water mark */
+    4: u64 exceeded_write_bytes_water_mark; /**< Occurrences when number of bytes exceeded a connection's water mark */
+}
+
+struct ClusterErrors {
+    1: u64 connection_timeouts; /**< Occurrences of a connection timeout */
+    2: u64 pending_request_timeouts; /** Occurrences of requests that timed out waiting for a connection */
+    3: u64 request_timeouts; /** Occurrences of requests that timed out waiting for a request to finish */
+}
+
+struct Metrics {
+    1: RequestsMetrics requests;
+    2: ClusterStats stats;
+    3: ClusterErrors errors;
+}
+
+struct DbStats {
+    1: double requests_one_minute_rate;
+    2: ClusterStats stats (tags="");
+    3: ClusterErrors errors (tags="");
+}

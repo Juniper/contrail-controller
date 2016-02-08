@@ -6,7 +6,9 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
+#include <boost/assign/list_of.hpp>
 #include <iostream>
+#include <vector>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -16,11 +18,13 @@
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_session.h"
+#include <sandesh/request_pipeline.h>
 
 #include "ruleeng.h"
 #include "protobuf_collector.h"
 #include "sflow_collector.h"
 #include "ipfix_collector.h"
+#include "viz_sandesh.h"
 
 using std::stringstream;
 using std::string;
@@ -230,4 +234,83 @@ void VizCollector::TestDatabaseConnection() {
     if (collector_) {
         collector_->TestDatabaseConnection();
     }
+}
+
+void VizCollector::SendDbStatistics() {
+    DbHandlerPtr db_handler(db_initializer_->GetDbHandler());
+    // DB stats
+    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
+    GenDb::DbErrors dbe;
+    db_handler->GetStats(&vdbti, &dbe, &vstats_dbti);
+    CollectorDbStats *snh(COLLECTOR_DB_STATS_CREATE());
+    snh->set_name(name_);
+    snh->set_table_info(vdbti);
+    snh->set_errors(dbe);
+    snh->set_statistics_table_info(vstats_dbti);
+    cass::cql::DbStats cql_stats;
+    if (db_handler->GetCqlStats(&cql_stats)) {
+        snh->set_cql_stats(cql_stats);
+    }
+    COLLECTOR_DB_STATS_SEND_SANDESH(snh);
+}
+
+bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {
+    DbHandlerPtr db_handler(db_initializer_->GetDbHandler());
+    return db_handler->GetCqlMetrics(metrics);
+}
+
+class ShowCollectorServerHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        const ShowCollectorServerReq *req =
+            static_cast<const ShowCollectorServerReq *>(ps.snhRequest_.get());
+        ShowCollectorServerResp *resp = new ShowCollectorServerResp;
+        VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(req->client_context());
+        if (!vsc) {
+            LOG(ERROR, __func__ << ": Sandesh client context NOT PRESENT");
+            resp->Response();
+            return true;
+        }
+        // Socket statistics
+        SocketIOStats rx_socket_stats;
+        Collector *collector(vsc->Analytics()->GetCollector());
+        collector->GetRxSocketStats(rx_socket_stats);
+        resp->set_rx_socket_stats(rx_socket_stats);
+        SocketIOStats tx_socket_stats;
+        collector->GetTxSocketStats(tx_socket_stats);
+        resp->set_tx_socket_stats(tx_socket_stats);
+        // Collector statistics
+        resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
+        // SandeshGenerator summary info
+        std::vector<GeneratorSummaryInfo> generators;
+        collector->GetGeneratorSummaryInfo(&generators);
+        resp->set_generators(generators);
+        resp->set_num_generators(generators.size());
+        // CQL metrics if supported
+        cass::cql::Metrics cmetrics;
+        if (vsc->Analytics()->GetCqlMetrics(&cmetrics)) {
+            resp->set_cql_metrics(cmetrics);
+        }
+        // Send the response
+        resp->set_context(req->context());
+        resp->Response();
+        return true;
+    }
+};
+
+void ShowCollectorServerReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+
+    // Request pipeline has single stage to collect neighbor config info
+    // and respond to the request
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    s1.taskId_ = scheduler->GetTaskId("collector::ShowCommand");
+    s1.cbFn_ = ShowCollectorServerHandler::CallbackS1;
+    s1.instances_.push_back(0);
+    ps.stages_ = boost::assign::list_of(s1);
+    RequestPipeline rp(ps);
 }

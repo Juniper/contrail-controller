@@ -12,6 +12,7 @@ env = BuildEnv.Clone()
 
 env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/base/sandesh/',
+                      env['TOP'] + '/database/',
                      ])
 
 env.Prepend(LIBS=[  'cpuinfo',

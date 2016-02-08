@@ -218,6 +218,9 @@ TEST_F(SyslogCollectorTest, End2End)
     task_util::WaitForIdle();
 }
 
+void ShowCollectorServerReq::HandleRequest() const {
+}
+
 int
 main(int argc, char **argv)
 {
