@@ -115,13 +115,21 @@ LoadBalance::LoadBalance(const LoadBalanceAttribute &attr) {
 LoadBalance::LoadBalance(const autogen::LoadBalanceType &lb_type) {
     LoadBalanceAttribute attr;
 
+    attr.source_bias = lb_type.load_balance_decision == "source-bias";
     attr.l2_source_address = false;
     attr.l2_destination_address = false;
-    attr.l3_source_address = false;
-    attr.l3_destination_address = false;
-    attr.l4_protocol = false;
-    attr.l4_source_port = false;
-    attr.l4_destination_port = false;
+
+    // autogen::LoadBalanceType fields list empty should imply as standard
+    // 5-tuple fields set. xml schema does not let one specifify default values
+    // a complex type such as a list in this case.
+    bool load_balance_default =
+        !attr.source_bias && (lb_type.load_balance_fields.begin() ==
+                              lb_type.load_balance_fields.end());
+    attr.l3_source_address = load_balance_default || false;
+    attr.l3_destination_address = load_balance_default || false;
+    attr.l4_protocol = load_balance_default || false;
+    attr.l4_source_port = load_balance_default || false;
+    attr.l4_destination_port = load_balance_default || false;
 
     for (autogen::LoadBalanceFieldListType::const_iterator it =
             lb_type.load_balance_fields.begin();
@@ -157,7 +165,6 @@ LoadBalance::LoadBalance(const autogen::LoadBalanceType &lb_type) {
         }
     }
 
-    attr.source_bias = lb_type.load_balance_decision == "source-bias";
     put_value(&data_[0], 4, attr.value1);
     put_value(&data_[4], 4, attr.value2);
 }
