@@ -439,6 +439,9 @@ void FlowTable::RevaluateInterface(FlowEntry *flow) {
 
 void FlowTable::RevaluateVn(FlowEntry *flow) {
     const VnEntry *vn = flow->vn_entry();
+    if (vn == NULL)
+        return;
+
     // Revaluate flood unknown-unicast flag. If flow has UnknownUnicastFlood and
     // VN doesnt allow it, make Short Flow
     if (vn->flood_unknown_unicast() == false &&
@@ -686,9 +689,12 @@ bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
     tbb::mutex::scoped_lock lock1(*mutex_ptr_1);
     tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
+    if (flow->is_flags_set(FlowEntry::ShortFlow))
+        return true;
+
     bool active_flow = true;
     bool deleted_flow = flow->deleted();
-    if (deleted_flow || flow->is_flags_set(FlowEntry::ShortFlow))
+    if (deleted_flow)
         active_flow = false;
 
     switch (resp->event()) {
