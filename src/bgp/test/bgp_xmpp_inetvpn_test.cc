@@ -1975,11 +1975,15 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, LoadBalanceExtendedCommunity_4) {
     agent_a_->AddRoute("blue", route_a.str(), next_hops, attributes);
     task_util::WaitForIdle();
 
+    // Even though the load-balance attribute sent was empty, we expect the
+    // controller to default to standard 5 tuple values, the one produced by
+    // the default LoadBalance() constructor.
+
     // Verify that route showed up on agents A and B with expected lba.
     VerifyRouteExists(
-        agent_a_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+        agent_a_, "blue", route_a.str(), "192.168.1.1", LoadBalance());
     VerifyRouteExists(
-        agent_b_, "blue", route_a.str(), "192.168.1.1", loadBalance);
+        agent_b_, "blue", route_a.str(), "192.168.1.1", LoadBalance());
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
