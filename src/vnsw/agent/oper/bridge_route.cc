@@ -104,7 +104,7 @@ void BridgeAgentRouteTable::AddBridgeReceiveRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
     req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0));
-    Enqueue(&req);
+    agent()->fabric_l2_unicast_table()->Enqueue(&req);
 }
 
 void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
