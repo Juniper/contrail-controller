@@ -11,8 +11,10 @@
 #include <sstream>
 
 #include "base/task_annotations.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"

@@ -4,8 +4,11 @@
 
 #include "bgp/ermvpn/ermvpn_table.h"
 
+#include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"

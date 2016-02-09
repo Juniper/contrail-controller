@@ -9,11 +9,14 @@
 #include <sandesh/request_pipeline.h>
 
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
 
 using namespace boost::assign;
 using namespace std;

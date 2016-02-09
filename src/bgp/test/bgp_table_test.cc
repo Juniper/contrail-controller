@@ -5,10 +5,11 @@
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/inet/inet_table.h"
 #include "bgp/bgp_log.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/xmpp_message_builder.h"
+#include "bgp/inet/inet_table.h"
+#include "db/db.h"
 
 using namespace std;
 

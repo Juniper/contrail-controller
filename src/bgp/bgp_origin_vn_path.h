@@ -13,9 +13,9 @@
 #include <string>
 #include <vector>
 
-#include "bgp/bgp_attr_base.h"
 #include "base/parse_object.h"
 #include "base/util.h"
+#include "bgp/bgp_attr_base.h"
 
 class BgpAttr;
 class OriginVnPathDB;

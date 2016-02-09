@@ -20,15 +20,19 @@
 
 #include "base/queue_task.h"
 #include "base/lifetime.h"
-#include "bgp/bgp_table.h"
-#include "bgp/bgp_route.h"
 #include "bgp/community.h"
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "db/db_table_partition.h"
 
+class BgpRoute;
 class BgpServer;
+class BgpTable;
+class RibOut;
+class RibPeerSet;
 class RTargetRoute;
+class RTargetGroupMgr;
+class TaskTrigger;
 
 //
 // This keeps track of the RTargetGroupMgr's listener state for a BgpTable.

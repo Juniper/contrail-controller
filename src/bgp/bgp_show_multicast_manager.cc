@@ -7,6 +7,7 @@
 
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_server.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 

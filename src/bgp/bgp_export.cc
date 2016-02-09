@@ -4,10 +4,12 @@
 
 #include "bgp/bgp_export.h"
 
+#include <boost/bind.hpp>
 
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
+#include "bgp/bgp_update.h"
 #include "bgp/bgp_update_monitor.h"
 #include "bgp/scheduling_group.h"
 

@@ -14,14 +14,14 @@
 #include <set>
 #include <string>
 
+#include "base/lifetime.h"
 #include "base/util.h"
-#include "bgp/bgp_table.h"
-#include "bgp/community.h"
-#include "bgp/rtarget/rtarget_address.h"
+#include "bgp/bgp_path.h"
 #include "db/db_table_walker.h"
 
 class BgpRoute;
 class BgpServer;
+class BgpTable;
 class RtGroup;
 class RoutePathReplicator;
 class RouteTarget;
@@ -70,9 +70,7 @@ public:
         listener_id_ = listener_id;
     }
 
-    uint32_t route_count() const {
-        return table_->GetDBStateCount(listener_id());
-    }
+    uint32_t route_count() const;
 
     RoutePathReplicator *replicator() {
         return replicator_;
@@ -324,6 +322,8 @@ private:
     BgpTable *vpn_table_;
     boost::scoped_ptr<TaskTrigger> walk_trigger_;
     SandeshTraceBufferPtr trace_buf_;
+
+    DISALLOW_COPY_AND_ASSIGN(RoutePathReplicator);
 };
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_ROUTEPATH_REPLICATOR_H_

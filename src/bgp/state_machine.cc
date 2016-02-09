@@ -16,7 +16,9 @@
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 

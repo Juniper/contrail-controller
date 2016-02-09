@@ -4,9 +4,11 @@
 
 #include "bgp/evpn/evpn_table.h"
 
-
+#include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_evpn.h"
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_update.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 

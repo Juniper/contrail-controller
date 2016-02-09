@@ -4,7 +4,8 @@
 
 #include "bgp/inet6/inet6_table.h"
 
-
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_update.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"

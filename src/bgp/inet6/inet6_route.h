@@ -12,7 +12,6 @@
 #include "bgp/bgp_route.h"
 #include "net/address.h"
 #include "net/bgp_af.h"
-#include "route/route.h"
 
 class Inet6Prefix {
 public:

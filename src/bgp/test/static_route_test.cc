@@ -22,6 +22,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/origin-vn/origin_vn.h"

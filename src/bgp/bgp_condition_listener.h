@@ -6,15 +6,22 @@
 #define SRC_BGP_BGP_CONDITION_LISTENER_H_
 
 #include <boost/intrusive_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <tbb/mutex.h>
 
 #include <map>
 #include <set>
 
-#include "base/task_trigger.h"
-#include "bgp/bgp_table.h"
-#include "bgp/bgp_route.h"
-#include "db/db_table_partition.h"
+#include "base/util.h"
+
+class BgpRoute;
+class BgpServer;
+class BgpTable;
+class DBEntryBase;
+class DBTableBase;
+class DBTablePartBase;
+class TaskTrigger;
+class WalkRequest;
 
 //
 // ConditionMatch
@@ -212,8 +219,8 @@ private:
     void WalkDone(DBTableBase *table);
 
     // For testing only.
-    void DisableTableWalkProcessing() { walk_trigger_->set_disable(); }
-    void EnableTableWalkProcessing() { walk_trigger_->set_enable(); }
+    void DisableTableWalkProcessing();
+    void EnableTableWalkProcessing();
 
     boost::scoped_ptr<TaskTrigger> walk_trigger_;
 

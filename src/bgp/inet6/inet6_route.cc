@@ -4,6 +4,7 @@
 
 #include "bgp/inet6/inet6_route.h"
 
+#include "base/string_util.h"
 #include "bgp/inet6/inet6_table.h"
 
 using boost::system::error_code;

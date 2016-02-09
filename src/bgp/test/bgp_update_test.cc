@@ -12,6 +12,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_ribout_updates.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/message_builder.h"
 #include "bgp/scheduling_group.h"

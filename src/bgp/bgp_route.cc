@@ -4,8 +4,8 @@
 
 #include "bgp/bgp_route.h"
 
-
-
+#include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/default_gateway.h"
 #include "bgp/extended-community/es_import.h"

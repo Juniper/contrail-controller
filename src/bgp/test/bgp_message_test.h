@@ -5,6 +5,8 @@
 #ifndef BGP_MESSAGE_TEST_H_
 #define BGP_MESSAGE_TEST_H_
 
+#include "bgp/bgp_proto.h"
+
 using namespace std;
 
 class BgpMessageTest {

@@ -11,6 +11,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
@@ -18,6 +19,7 @@
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-policy/routing_policy.h"
 

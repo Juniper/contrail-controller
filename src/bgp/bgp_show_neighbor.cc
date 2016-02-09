@@ -7,7 +7,9 @@
 
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
 
 using std::string;
 using std::vector;

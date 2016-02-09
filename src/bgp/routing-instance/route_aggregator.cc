@@ -10,9 +10,14 @@
 #include <string>
 #include <vector>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
 #include "base/lifetime.h"
 #include "base/map_util.h"
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_server.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"

@@ -16,7 +16,6 @@
 #include "bgp/l3vpn/inetvpn_address.h"
 #include "net/address.h"
 #include "net/bgp_af.h"
-#include "route/route.h"
 
 class InetVpnRoute : public BgpRoute {
 public:

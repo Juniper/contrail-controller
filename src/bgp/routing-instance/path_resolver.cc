@@ -14,6 +14,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_table.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
 
@@ -139,6 +140,14 @@ void PathResolver::StopPathResolution(int part_id, const BgpPath *path) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
 
     partitions_[part_id]->StopPathResolution(path);
+}
+
+//
+// Return the BgpConditionListener for the given family.
+//
+BgpConditionListener *PathResolver::get_condition_listener(
+    Address::Family family) {
+    return table_->server()->condition_listener(family);
 }
 
 //
@@ -622,6 +631,13 @@ void PathResolverPartition::TriggerPathResolution(ResolverPath *rpath) {
 
     rpath_update_list_.insert(rpath);
     rpath_update_trigger_->Set();
+}
+
+//
+// Get the BgpTable partition corresponding to this PathResolverPartition.
+//
+DBTablePartBase *PathResolverPartition::table_partition() {
+    return table()->GetTablePartition(part_id_);
 }
 
 //

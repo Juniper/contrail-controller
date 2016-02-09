@@ -16,6 +16,7 @@
 #include "control-node/control_node.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"

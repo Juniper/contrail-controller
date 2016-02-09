@@ -13,6 +13,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_peer_types.h"
@@ -24,6 +25,7 @@
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
 
 using boost::assign::list_of;

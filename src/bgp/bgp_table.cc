@@ -9,6 +9,8 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_ribout_updates.h"
+#include "bgp/bgp_route.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/path_resolver.h"

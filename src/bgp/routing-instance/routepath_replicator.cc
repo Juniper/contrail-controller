@@ -10,7 +10,11 @@
 
 #include "base/set_util.h"
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_route.h"
+#include "bgp/bgp_server.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
@@ -116,6 +120,10 @@ void TableState::RemoveGroup(RtGroup *group) {
 const RtGroup *TableState::FindGroup(RtGroup *group) const {
     GroupList::const_iterator it = list_.find(group);
     return (it != list_.end() ? *it : NULL);
+}
+
+uint32_t TableState::route_count() const {
+    return table_->GetDBStateCount(listener_id());
 }
 
 RtReplicated::RtReplicated(RoutePathReplicator *replicator)

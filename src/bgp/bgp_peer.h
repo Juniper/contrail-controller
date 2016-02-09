@@ -30,7 +30,6 @@ class BgpPeerInfo;
 class BgpServer;
 class BgpSession;
 class RoutingInstance;
-class StateMachine;
 class BgpSession;
 class BgpPeerInfo;
 class BgpNeighborResp;

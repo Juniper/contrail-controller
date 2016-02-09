@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 
+#include "bgp/bgp_server.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "net/bgp_af.h"
 

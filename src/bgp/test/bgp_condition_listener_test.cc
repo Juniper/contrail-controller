@@ -11,6 +11,7 @@
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/routing-instance/routing_instance.h"

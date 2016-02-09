@@ -295,8 +295,8 @@ private:
         aggregate_host_route_ = value;
     }
 
-    virtual void DisableResolveTrigger() { resolve_trigger_->set_disable(); }
-    virtual void EnableResolveTrigger() { resolve_trigger_->set_enable(); }
+    virtual void DisableResolveTrigger();
+    virtual void EnableResolveTrigger();
 
     // Work Queue to handle requests posted from Match function, called
     // in the context of db::DBTable task.

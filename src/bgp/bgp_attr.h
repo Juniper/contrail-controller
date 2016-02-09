@@ -18,18 +18,23 @@
 #include "bgp/bgp_aspath.h"
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_origin_vn_path.h"
-#include "bgp/bgp_server.h"
 #include "bgp/community.h"
 #include "net/address.h"
 #include "net/esi.h"
 #include "net/rd.h"
 
+class BgpAttr;
+class BgpAttrDB;
+class BgpOListDB;
+class BgpServer;
+class ClusterListDB;
+class EdgeDiscoveryDB;
+class EdgeForwardingDB;
+class PmsiTunnelDB;
+
 // BGP UPDATE attributes: as-path, community, ext-community, next-hop,
 // cluster-list, ...
 // all information in the UPDATE except: NLRI (prefix) and label.
-
-class BgpAttr;
-class ClusterListDB;
 
 struct BgpAttrOrigin : public BgpAttribute {
     static const int kSize = 1;

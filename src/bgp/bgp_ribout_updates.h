@@ -100,6 +100,7 @@ private:
     MessageBuilder *builder_;
     QueueVec queue_vec_;
     boost::scoped_ptr<RibUpdateMonitor> monitor_;
+
     DISALLOW_COPY_AND_ASSIGN(RibOutUpdates);
 };
 

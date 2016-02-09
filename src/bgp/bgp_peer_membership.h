@@ -15,11 +15,13 @@
 #include "base/queue_task.h"
 #include "db/db_table_walker.h"
 #include "bgp/bgp_ribout.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 
 class IPeer;
 class BgpServer;
 class DBTableBase;
+class IPeerRib;
 class PeerRibMembershipManager;
 class RibOut;
 class ShowRoutingInstanceTable;

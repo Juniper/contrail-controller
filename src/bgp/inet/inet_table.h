@@ -10,7 +10,6 @@
 #include "bgp/bgp_table.h"
 #include "bgp/inet/inet_route.h"
 #include "net/address.h"
-#include "route/table.h"
 
 class Ip4Prefix;
 class BgpServer;

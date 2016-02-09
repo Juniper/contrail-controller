@@ -4,6 +4,7 @@
 
 
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "control-node/control_node.h"
 #include "testing/gunit.h"

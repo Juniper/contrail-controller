@@ -9,13 +9,13 @@
 #include <vector>
 
 #include "base/util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_route.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/rtarget/rtarget_prefix.h"
 #include "net/bgp_af.h"
-#include "route/route.h"
+
+class BgpAttr;
+class BgpProtoPrefix;
 
 class RTargetRoute : public BgpRoute {
 public:

@@ -4,8 +4,10 @@
 
 #include "bgp/bgp_show_handler.h"
 
-
+#include "bgp/bgp_config.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
+#include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route.h"
 #include "bgp/routing-instance/static_route_types.h"

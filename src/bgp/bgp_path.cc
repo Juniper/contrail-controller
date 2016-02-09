@@ -5,6 +5,7 @@
 #include "bgp/bgp_path.h"
 
 #include "bgp/bgp_route.h"
+#include "bgp/bgp_peer.h"
 
 using std::string;
 using std::vector;
@@ -111,6 +112,19 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     }
 
     return 0;
+}
+
+void BgpPath::UpdatePeerRefCount(int count) const {
+    if (!peer_)
+        return;
+    peer_->UpdateRefCount(count);
+    if (source_ != BGP_XMPP || IsReplicated())
+        return;
+    peer_->UpdatePrimaryPathCount(count);
+}
+
+string BgpPath::ToString() const {
+    return peer_ ? peer_->ToString() : "Nil";
 }
 
 RouteDistinguisher BgpPath::GetSourceRouteDistinguisher() const {
