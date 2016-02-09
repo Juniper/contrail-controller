@@ -228,7 +228,9 @@ class Controller(object):
         self.constnt_schdlr = ConsistentScheduler(
                             self.uve._moduleid,
                             zookeeper=self._config.zookeeper_server(),
-                            delete_hndlr=self._del_uves)
+                            delete_hndlr=self._del_uves,
+                            cluster_id=self._config.cluster_id())
+
         while self._keep_running:
             self.scan_data()
             if self.constnt_schdlr.schedule(self.prouters):

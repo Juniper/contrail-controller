@@ -386,11 +386,11 @@ class Controller(object):
             agp_trace = AlarmgenPartitionTrace(data=agp, sandesh=self._sandesh)
             agp_trace.send(sandesh=self._sandesh) 
 
-            pc = PartitionClient("alarmgen",
+            pc = PartitionClient(self._conf.kafka_prefix() + "-alarmgen",
                     self._libpart_name, ag_list,
                     self._conf.partitions(), self.libpart_cb,
                     ','.join(self._conf.zk_list()), self._logger)
-            self._logger.error('Started PC')
+            self._logger.error('Started PC' % self._conf.kafka_prefix() + "-alarmgen")
             return pc
         except Exception as e:
             self._logger.error('Could not import libpartition: %s' % str(e))

@@ -262,7 +262,8 @@ class Controller(object):
                             self._config._name,
                             zookeeper=self._config.zookeeper_server(),
                             delete_hndlr=self._del_uves,
-                            logger=self._logger)
+                            logger=self._logger, 
+                            cluster_id=self._config.cluster_id())
         while self._keep_running:
             self._logger.debug('@run: ittr(%d)' % i)
             if constnt_schdlr.schedule(self._config.devices()):
