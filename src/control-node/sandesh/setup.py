@@ -23,6 +23,6 @@ setup(
         'redis',
         'xmltodict',
         'prettytable',
-        'psutil==0.4.1'
+        'psutil>=0.6.0'
     ]
 )

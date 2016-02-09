@@ -41,7 +41,7 @@ setup(
         'pycassa>=1.7.2',
         'netaddr>=0.7.5',
         'bitarray>=0.8.0',
-        'psutil>=0.4.1',
+        'psutil>=0.6.0',
     ],
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change

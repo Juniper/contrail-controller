@@ -16,6 +16,6 @@ setup(
     install_requires=[
         'gevent',
         'geventhttpclient',
-        'psutil==0.4.1'
+        'psutil==0.6.0'
     ]
 )

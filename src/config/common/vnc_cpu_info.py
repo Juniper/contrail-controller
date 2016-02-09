@@ -32,8 +32,7 @@ class CpuInfo(object):
         self._vms = 0
         self._pvms = 0
         self._load_avg = (0, 0, 0)
-        self._phymem_usage = (0, 0, 0, 0)
-        self._phymem_buffers = 0
+        self._virtmem_info = None
         self._num_cpus = 0
         self._cpu_share = 0
         self._curr_build_info = None
@@ -77,14 +76,8 @@ class CpuInfo(object):
                 if (load_avg != self._load_avg):
                     self._load_avg = load_avg
 
-                # collect systemmeory info
-                phymem_usage = psutil.phymem_usage()
-                if (phymem_usage != self._phymem_usage):
-                    self._phymem_usage = phymem_usage
-
-                phymem_buffers = psutil.phymem_buffers()
-                if (phymem_buffers != self._phymem_buffers):
-                    self._phymem_buffers = phymem_buffers
+                # collect system memory info
+                self._virtmem_info = psutil.virtual_memory()
 
                 if (self._new_ip != self._curr_ip):
                     self._new_ip = self.get_config_node_ip()
@@ -129,10 +122,10 @@ class CpuInfo(object):
         if self._sysinfo:
             # populate system memory details
             mod_cpu.cpu_info.sys_mem_info = SysMemInfo()
-            mod_cpu.cpu_info.sys_mem_info.total = self._phymem_usage[0] / 1024
-            mod_cpu.cpu_info.sys_mem_info.used = self._phymem_usage[1] / 1024
-            mod_cpu.cpu_info.sys_mem_info.free = self._phymem_usage[2] / 1024
-            mod_cpu.cpu_info.sys_mem_info.buffers = self._phymem_buffers / 1024
+            mod_cpu.cpu_info.sys_mem_info.total = self._virtmem_info.total / 1024
+            mod_cpu.cpu_info.sys_mem_info.used = self._virtmem_info.used / 1024
+            mod_cpu.cpu_info.sys_mem_info.free = self._virtmem_info.free / 1024
+            mod_cpu.cpu_info.sys_mem_info.buffers = self._virtmem_info.buffers / 1024
 
             # populate CPU Load avg
             mod_cpu.cpu_info.cpuload = CpuLoadAvg()

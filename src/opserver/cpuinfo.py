@@ -27,11 +27,11 @@ class CpuInfoData(object):
     #end _get_num_cpu
 
     def _get_sys_mem_info(self):
-        phymem_info = psutil.phymem_usage()
+        virtmem_info = psutil.virtual_memory()
         sys_mem_info = SysMemInfo()
-        sys_mem_info.total = phymem_info[0]/1024
-        sys_mem_info.used = phymem_info[1]/1024
-        sys_mem_info.free = phymem_info[2]/1024
+        sys_mem_info.total = virtmem_info.total/1024
+        sys_mem_info.used = virtmem_info.used/1024
+        sys_mem_info.free = virtmem_info.free/1024
         return sys_mem_info
     #end _get_sys_mem_info
 

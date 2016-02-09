@@ -1,4 +1,4 @@
 bitarray
 bottle
 geventhttpclient
-psutil
+psutil>=0.6.0

@@ -2,7 +2,7 @@ bitarray
 bottle
 gevent
 geventhttpclient
-psutil
+psutil>=0.6.0
 sandesh_common
 sandesh
 discoveryclient
