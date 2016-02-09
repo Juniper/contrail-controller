@@ -107,6 +107,10 @@ public:
         return ((flags_ & INFEASIBLE_MASK) == 0);
     }
 
+    bool IsResolutionFeasible() const {
+        return ((flags_ & (INFEASIBLE_MASK & ~ResolveNexthop)) == 0);
+    }
+
     uint32_t GetFlags() const {
         return flags_;
     }
