@@ -196,11 +196,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     delete msg;
 }
 
-#ifdef USE_CASSANDRA_CQL
-TEST_F(DbHandlerTest, MessageIndexTableInsertTestCql) {
-#else
-TEST_F(DbHandlerTest, DISABLE_MessageIndexTableInsertTestCql) {
-#endif
+TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
     SandeshHeader hdr;
 
     hdr.set_Source("127.0.0.1");
@@ -211,10 +207,10 @@ TEST_F(DbHandlerTest, DISABLE_MessageIndexTableInsertTestCql) {
 
 #ifdef USE_CASSANDRA_CQL
     DbDataValueVec *colname(new DbDataValueVec());
-        colname->reserve(3);
-        colname->push_back(hdr.get_Source());
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-        colname->push_back(unm);
+    colname->reserve(3);
+    colname->push_back(hdr.get_Source());
+    colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
+    colname->push_back(unm);
 
     DbDataValueVec *colvalue(new DbDataValueVec());
     boost::ptr_vector<GenDb::NewCol> idx_expected_vector =
@@ -250,11 +246,8 @@ TEST_F(DbHandlerTest, DISABLE_MessageIndexTableInsertTestCql) {
             hdr, "", unm, "");
 }
 
-#ifdef USE_CASSANDRA_CQL
-TEST_F(DbHandlerTest, DISABLED_MessageTableInsertTestThrift) {
-#else
-TEST_F(DbHandlerTest, MessageTableInsertTestThrift) {
-#endif
+#ifndef USE_CASSANDRA_CQL
+TEST_F(DbHandlerTest, MessageTableInsertTest) {
     SandeshHeader hdr;
 
     hdr.set_Source("127.0.0.1");
@@ -403,12 +396,8 @@ TEST_F(DbHandlerTest, MessageTableInsertTestThrift) {
     vmsgp.msg = NULL;
     delete msg;
 }
-
-#ifdef USE_CASSANDRA_CQL
-TEST_F(DbHandlerTest, MessageTableInsertTestCql) {
 #else
-TEST_F(DbHandlerTest, DISABLED_MessageTableInsertTestCql) {
-#endif
+TEST_F(DbHandlerTest, MessageTableInsertTest) {
     SandeshHeader hdr;
 
     hdr.set_Source("127.0.0.1");
@@ -599,6 +588,7 @@ TEST_F(DbHandlerTest, DISABLED_MessageTableInsertTestCql) {
     vmsgp.msg = NULL;
     delete msg;
 }
+#endif
 
 TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     SandeshHeader hdr;
