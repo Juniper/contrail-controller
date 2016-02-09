@@ -94,6 +94,12 @@ class DBBaseST(DBBase):
         pass
 
     @classmethod
+    def reinit(cls):
+        for obj in cls.list_vnc_obj():
+            cls.locate(obj.get_fq_name_str(), obj)
+    # reinit
+
+    @classmethod
     def locate(cls, key, *args):
         obj = super(DBBaseST, cls).locate(key, *args)
         if obj.obj.uuid not in cls._uuid_fq_name_map:
@@ -142,6 +148,12 @@ class GlobalSystemConfigST(DBBaseST):
     obj_type = 'global_system_config'
     _autonomous_system = 0
     _ibgp_auto_mesh = None
+
+    @classmethod
+    def reinit(cls):
+        for gsc in cls.list_vnc_obj():
+            cls.locate(gsc.uuid, gsc)
+    # end reinit
 
     def __init__(self, uuid, obj):
         self.name = uuid
@@ -3084,9 +3096,14 @@ class VirtualMachineInterfaceST(DBBaseST):
     def delete_routing_instance(self, ri):
         if ri.name not in self.routing_instances:
             return
-        self._vnc_lib.ref_update(
-            'virtual-machine-interface', self.uuid, 'routing-instance',
-            ri.obj.uuid, None, 'DELETE')
+        try:
+            self._vnc_lib.ref_update(
+                'virtual-machine-interface', self.uuid, 'routing-instance',
+                ri.obj.uuid, None, 'DELETE')
+        except NoIdError:
+            # NoIdError could happen if RI is deleted while we try to remove
+            # the link from VMI
+            pass
         del self.routing_instances[ri.name]
         ri.virtual_machine_interfaces.discard(self.name)
     # end delete_routing_instance

@@ -342,13 +342,9 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
-        for gsc in GlobalSystemConfigST.list_vnc_obj():
-            GlobalSystemConfigST.locate(gsc.uuid, gsc)
-        for bgpr in BgpRouterST.list_vnc_obj():
-            if bgpr.get_bgp_router_parameters():
-                BgpRouterST.locate(bgpr.get_fq_name_str(), bgpr)
-        for lr in LogicalRouterST.list_vnc_obj():
-           LogicalRouterST.locate(lr.get_fq_name_str(), lr)
+        GlobalSystemConfigST.reinit()
+        BgpRouterST.reinit()
+        LogicalRouterST.reinit()
         vn_list = list(VirtualNetworkST.list_vnc_obj())
         vn_id_list = [vn.uuid for vn in vn_list]
         ri_dict = {}
@@ -359,7 +355,8 @@ class SchemaTransformer(object):
             else:
                 # if the RI was for a service chain and service chain no
                 # longer exists, delete the RI
-                sc_id = RoutingInstanceST._get_service_id_from_ri(ri.get_fq_name_str())
+                sc_id = RoutingInstanceST._get_service_id_from_ri(
+                    ri.get_fq_name_str())
                 if sc_id and sc_id not in ServiceChain:
                     delete = True
                 else:
@@ -417,26 +414,20 @@ class SchemaTransformer(object):
             sg.update_policy_entries()
 
         gevent.sleep(0.001)
-        for rt in RouteTargetST.list_vnc_obj():
-            rt_name = rt.get_fq_name_str()
-            RouteTargetST.locate(rt_name, RouteTarget(rt_name))
+        RouteTargetST.reinit()
         for vn in vn_list:
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
         for ri_name, ri_obj in ri_dict.items():
             RoutingInstanceST.locate(ri_name, ri_obj)
 
-        for policy in NetworkPolicyST.list_vnc_obj():
-            NetworkPolicyST.locate(policy.get_fq_name_str(), policy)
+        NetworkPolicyST.reinit()
         gevent.sleep(0.001)
-        for vmi in VirtualMachineInterfaceST.list_vnc_obj():
-            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+        VirtualMachineInterfaceST.reinit()
 
         gevent.sleep(0.001)
-        for iip in InstanceIpST.list_vnc_obj():
-            InstanceIpST.locate(iip.get_fq_name_str(), iip)
+        InstanceIpST.reinit()
         gevent.sleep(0.001)
-        for fip in FloatingIpST.list_vnc_obj():
-            FloatingIpST.locate(fip.get_fq_name_str(), fip)
+        FloatingIpST.reinit()
 
         gevent.sleep(0.001)
         for si in ServiceInstanceST.list_vnc_obj():
@@ -453,16 +444,13 @@ class SchemaTransformer(object):
             si_st.add_properties(props)
 
         gevent.sleep(0.001)
-        for rp in RoutingPolicyST.list_vnc_obj():
-            RoutingPolicyST.locate(rp.get_fq_name_str(), rp)
+        RoutingPolicyST.reinit()
         gevent.sleep(0.001)
-        for ra in RouteAggregateST.list_vnc_obj():
-            RouteAggregateST.locate(ra.get_fq_name_str(), ra)
+        RouteAggregateST.reinit()
         gevent.sleep(0.001)
-        for pt in PortTupleST.list_vnc_obj():
-            PortTupleST.locate(pt.get_fq_name_str(), pt)
-        for bgpass in BgpAsAServiceST.list_vnc_obj():
-            BgpAsAServiceST.locate(bgpass.get_fq_name_str(), bgpass)
+        PortTupleST.reinit()
+        BgpAsAServiceST.reinit()
+        RouteTableST.reinit()
 
         # evaluate virtual network objects first because other objects,
         # e.g. vmi, depend on it.
