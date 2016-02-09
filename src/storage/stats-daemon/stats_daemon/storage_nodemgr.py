@@ -739,7 +739,8 @@ class EventManager:
                 disk_stats.op_r_latency = 0
                 disk_stats.op_w_latency = 0
                 if arr1[0] in new_dict:
-                    cs_disk.uuid = new_dict.get(arr1[0])
+                    if cs_disk.uuid == '':
+                        cs_disk.uuid = new_dict.get(arr1[0])
                 disk_stats.iops = int(float(arr1[3]) + float(arr1[4]))
                 disk_stats.bw = int(float(arr1[5])) + \
                     int(float(arr1[6]))
