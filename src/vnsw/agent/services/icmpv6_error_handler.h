@@ -13,7 +13,7 @@ class Icmpv6ErrorProto;
 // ICMP protocol handler
 class Icmpv6ErrorHandler : public ProtoHandler {
  public:
-    static const int ICMPV6_PAYLOAD_LEN = 64;
+    static const int ICMPV6_PAYLOAD_LEN = 128;
     Icmpv6ErrorHandler(Agent *agent, Icmpv6ErrorProto *proto,
                        boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service *io);
