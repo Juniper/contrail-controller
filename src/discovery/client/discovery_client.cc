@@ -58,7 +58,7 @@ int DSSubscribeResponse::GetConnectTime() const {
 
 bool DSSubscribeResponse::SubscribeTimerExpired() {
     // Resend subscription request
-    ds_client_->Subscribe(serviceName_, numbOfInstances_); 
+    ds_client_->Subscribe(serviceName_); 
     return false;
 }
 
@@ -728,7 +728,74 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
                                 serviceName, ss.str());
 }
 
-void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfInstances) {
+void DiscoveryServiceClient::Subscribe(std::string serviceName,
+                                       uint8_t numbOfInstances, 
+                                       ServiceHandler cb, 
+                                       uint8_t minInstances) {
+    //Register the callback handler
+    RegisterSubscribeResponseHandler(serviceName, cb); 
+
+    //Build the DOM tree                                 
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    impl->LoadDoc(""); 
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi->AddNode(serviceName, "");
+
+    stringstream inst;
+    inst << static_cast<int>(numbOfInstances);
+    pugi->AddChildNode("instances", inst.str());
+    pugi->ReadNode(serviceName); //Reset parent
+    if (minInstances != 0) {
+        stringstream min_inst;
+        min_inst << static_cast<int>(minInstances);
+        pugi->AddChildNode("min-instances", min_inst.str());
+        pugi->ReadNode(serviceName); //Reset parent
+    }
+
+    if (!subscriber_name_.empty()) {
+        pugi->AddChildNode("client-type", subscriber_name_);
+        pugi->ReadNode(serviceName); //Reset parent
+    }
+    boost::system::error_code error;
+    string client_id = boost::asio::ip::host_name(error) + ":" + 
+                       subscriber_name_;
+    pugi->AddChildNode("client", client_id);
+    pugi->ReadNode(serviceName); //Reset parent
+    pugi->AddChildNode("remote-addr", local_addr_);
+
+    stringstream ss; 
+    impl->PrintDoc(ss);
+
+    // Create Response Header
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc == service_response_map_.end()) {
+        DSSubscribeResponse *resp = new DSSubscribeResponse(serviceName, numbOfInstances,
+                                                      evm_, this);
+        //cache the request
+        resp->subscribe_msg_ = ss.str();
+        resp->sub_sent_++;
+        service_response_map_.insert(make_pair(serviceName, resp));
+
+        // generate hash of subscribe message
+        boost::hash<std::string> string_hash;
+        uint32_t gen_chksum = string_hash(ss.str());
+        resp->subscribe_chksum_ = gen_chksum;
+    }
+
+    SendHttpPostMessage("subscribe", serviceName, ss.str());
+
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+        serviceName, ConnectionStatus::INIT, ds_endpoint_,
+        "Subscribe");
+    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
+                           serviceName, ss.str());
+    DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, "subscribe",
+                                serviceName, ss.str());
+}
+
+
+void DiscoveryServiceClient::Subscribe(std::string serviceName) {
     // Get Response Header
     ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
     if (loc != service_response_map_.end()) {

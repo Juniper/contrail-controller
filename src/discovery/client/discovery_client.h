@@ -151,9 +151,11 @@ public:
 
     /* Subscribe api's */
     typedef boost::function<void(std::vector<DSResponse>)> ServiceHandler;
-    void Subscribe(std::string serviceName, 
-                   uint8_t numbOfInstances, ServiceHandler);
-    void Subscribe(std::string serviceName, uint8_t numbOfInstances);
+    void Subscribe(std::string serviceName, uint8_t numbOfInstances,
+                   ServiceHandler);
+    void Subscribe(std::string serviceName, uint8_t numbOfInstances,
+                   ServiceHandler, uint8_t minInstances);
+    void Subscribe(std::string serviceName);
     void SubscribeResponseHandler(std::string &msg, boost::system::error_code &, 
                                   std::string serviceName, HttpConnection *);
     void AddSubscribeInUseServiceList(std::string serviceName,
