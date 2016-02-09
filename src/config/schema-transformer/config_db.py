@@ -250,6 +250,7 @@ class VirtualNetworkST(DBBaseST):
         self._route_target = None
         self.route_tables = set()
         self.routes = {}
+        self.ip_routes = {}
         self.service_chains = {}
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
@@ -269,6 +270,7 @@ class VirtualNetworkST(DBBaseST):
         self.update(self.obj)
         self.update_multiple_refs('virtual_machine_interface', self.obj)
         self.multi_policy_service_chains_status_changed = False
+        self.init_static_ip_routes()
     # end __init__
 
     def update(self, obj=None):
@@ -711,6 +713,7 @@ class VirtualNetworkST(DBBaseST):
             if update:
                 left_ri.obj.set_static_route_entries(static_route_entries)
                 self._vnc_lib.routing_instance_update(left_ri.obj)
+
         for rt in rt_del - (rt_add | rt_add_export | rt_add_import):
             try:
                 RouteTargetST.delete(rt)
@@ -751,6 +754,34 @@ class VirtualNetworkST(DBBaseST):
         left_ri_name = left_vn.get_service_name(sc.name, next_hop)
         return RoutingInstanceST.get(left_ri_name)
     # end _get_routing_instance_from_route
+
+    def init_static_ip_routes(self):
+        primary_ri = self.get_primary_routing_instance()
+        if primary_ri is None:
+            return
+        static_route_entries = primary_ri.obj.get_static_route_entries(
+            ) or StaticRouteEntriesType()
+        for sr in static_route_entries.get_route() or []:
+            self.ip_routes[sr.prefix] = sr.next_hop
+    #end init_static_ip_routes
+
+    def update_static_ip_routes(self, new_ip_routes):
+        primary_ri = self.get_primary_routing_instance()
+        if primary_ri is None:
+            return
+
+        if self.ip_routes == new_ip_routes:
+            return
+
+        static_route_entries = StaticRouteEntriesType()
+        for prefix, next_hop_ip in new_ip_routes.items():
+            static_route = StaticRouteType(prefix=prefix, next_hop=next_hop_ip)
+            static_route_entries.add_route(static_route)
+
+        primary_ri.obj.set_static_route_entries(static_route_entries)
+        self._vnc_lib.routing_instance_update(primary_ri.obj)
+        self.ip_routes = new_ip_routes
+    # end update_static_ip_routes
 
     def add_route(self, prefix, next_hop):
         self.routes[prefix] = next_hop
@@ -820,6 +851,7 @@ class VirtualNetworkST(DBBaseST):
 
     def update_route_table(self):
         stale = {}
+        new_ip_map = {}
         for prefix in self.routes:
             stale[prefix] = True
         for rt_name in self.route_tables:
@@ -832,12 +864,16 @@ class VirtualNetworkST(DBBaseST):
                     if route.next_hop == self.routes[route.prefix]:
                         continue
                     self.delete_route(route.prefix)
-                # end if route.prefix
-                self.add_route(route.prefix, route.next_hop)
+                # end
+                if route.next_hop_type == "ip-address":
+                    new_ip_map[route.prefix] = route.next_hop
+                else:
+                    self.add_route(route.prefix, route.next_hop)
             # end for route
         # end for route_table
         for prefix in stale:
             self.delete_route(prefix)
+        self.update_static_ip_routes(new_ip_map)
     # end update_route_table
 
     def uve_send(self, deleted=False):
@@ -1495,6 +1531,7 @@ class NetworkPolicyST(DBBaseST):
 class RouteTableST(DBBaseST):
     _dict = {}
     obj_type = 'route_table'
+
     _service_instances = {}
 
     def __init__(self, name, obj=None):
@@ -1511,7 +1548,10 @@ class RouteTableST(DBBaseST):
         routes = self.obj.get_routes()
         if routes:
             self.routes = routes.get_route() or []
-        si_set = set(route.next_hop for route in self.routes)
+        si_set = set()
+        for route in self.routes:
+            if route.next_hop_type != 'ip-address':
+                si_set.add(route.next_hop)
         self.update_service_instances(si_set)
     # end update
 
