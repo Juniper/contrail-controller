@@ -54,49 +54,50 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
     
     char *buff = (char *)pkt_info_->pkt;                                        
     uint16_t buff_len = pkt_info_->packet_buffer()->data_len();                 
+    char data[ICMPV6_PAYLOAD_LEN];
     int len = ICMPV6_PAYLOAD_LEN;
 
     if (len > pkt_info_->ip6->ip6_plen)
         len = pkt_info_->ip6->ip6_plen;
+    memcpy(data, pkt_info_->ip6, len);
 
-    const VnIpam *ipam = intf->vn()->GetIpam(pkt_info_->ip_saddr.to_v6());               
-    if (ipam == NULL) {                                                         
-        proto_->increment_interface_errors();                                   
-        return true;                                                            
+    const VnIpam *ipam = intf->vn()->GetIpam(pkt_info_->ip_saddr.to_v6());
+    if (ipam == NULL) {
+        proto_->increment_interface_errors();
+        return true;
     }
   
-    icmp6_hdr *icmp = pkt_info_->transp.icmp6; 
-    bzero(icmp, sizeof(icmp6_hdr));
-    icmp->icmp6_type = ICMP6_PACKET_TOO_BIG;
-    icmp->icmp6_code = 0;                                       
-    icmp->icmp6_cksum = 0;                                                     
-    icmp->icmp6_mtu = htonl(pkt_info_->agent_hdr.mtu); 
-    icmp->icmp6_cksum = 
-        Icmpv6Csum(ipam->default_gw.to_v6().to_bytes().data(), 
-                   pkt_info_->ip_saddr.to_v6().to_bytes().data(),               
-                   icmp, len);                     
-    
     uint32_t interface = 
-        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?          
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
-                                                                                
+
     uint16_t eth_len = EthHdr(buff, buff_len, interface,
-                              agent()->vhost_interface()->mac(),     
+                              agent()->vhost_interface()->mac(),
                               MacAddress(pkt_info_->eth->ether_shost),
-                              ETHERTYPE_IPV6);                        
-                                                                                
-    pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);                        
+                              ETHERTYPE_IPV6);
+
+    pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
     Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, 
            ipam->default_gw.to_v6().to_bytes().data(),
            pkt_info_->ip_saddr.to_v6().to_bytes().data());
 
-    memcpy(buff + sizeof(ip6_hdr) + eth_len, icmp,len);                       
-    pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len);                        
+    icmp6_hdr *icmp = pkt_info_->transp.icmp6 = 
+        (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header)
+                      + sizeof(ip6_hdr));
+    icmp->icmp6_type = ICMP6_PACKET_TOO_BIG;
+    icmp->icmp6_code = 0;
+    icmp->icmp6_mtu = htonl(pkt_info_->agent_hdr.mtu); 
+    icmp->icmp6_cksum =
+        Icmpv6Csum(ipam->default_gw.to_v6().to_bytes().data(),
+                   pkt_info_->ip_saddr.to_v6().to_bytes().data(),
+                   icmp, len);
+    memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN, data,len); 
+    pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN);
  
-    uint16_t command =                                                          
-        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?          
-        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;                     
-   
+    uint16_t command =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+  
     Send(GetInterfaceIndex(), pkt_info_->vrf, command,
          PktHandler::ICMPV6);
     return true;
