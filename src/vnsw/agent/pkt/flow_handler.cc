@@ -66,6 +66,7 @@ bool FlowHandler::Run() {
         ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
+        assert(flow_table_index_ == fe->flow_table()->table_index());
         if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
             return true;
         }

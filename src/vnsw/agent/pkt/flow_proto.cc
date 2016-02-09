@@ -202,6 +202,13 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
         break;
     }
 
+    case FlowEvent::FLOW_MESSAGE: {
+        FlowTaskMsg *ipc = static_cast<FlowTaskMsg *>(event.pkt_info()->ipc);
+        FlowTable *table = ipc->fe_ptr.get()->flow_table();
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
     case FlowEvent::DELETE_FLOW: {
         FlowTable *table = GetFlowTable(event.get_flow_key());
         flow_event_queue_[table->table_index()]->Enqueue(event);
@@ -254,6 +261,13 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     switch (req.event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
         ProcessProto(req.pkt_info());
+        break;
+    }
+
+    case FlowEvent::FLOW_MESSAGE: {
+        FlowHandler *handler = new FlowHandler(agent(), req.pkt_info(), io_,
+                                               this, table->table_index());
+        RunProtoHandler(handler);
         break;
     }
 
@@ -399,6 +413,13 @@ void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry) {
     return;
 }
 
+void FlowProto::MessageRequest(InterTaskMsg *msg) {
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(PktHandler::FLOW, msg));
+    FreeBuffer(pkt_info.get());
+    EnqueueFlowEvent(FlowEvent(FlowEvent::FLOW_MESSAGE, pkt_info));
+    return;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // Set profile information
 //////////////////////////////////////////////////////////////////////////////
@@ -406,6 +427,9 @@ void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
     switch (event) {
     case FlowEvent::VROUTER_FLOW_MSG:
         stats->add_count_++;
+        break;
+    case FlowEvent::FLOW_MESSAGE:
+        stats->flow_messages_++;
         break;
     case FlowEvent::DELETE_FLOW:
         stats->delete_count_++;

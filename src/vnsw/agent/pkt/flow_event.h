@@ -16,6 +16,8 @@ public:
         INVALID,
         // Flow add message from VRouter
         VROUTER_FLOW_MSG,
+        // Message to update a flow
+        FLOW_MESSAGE,
         // Event to delete a flow entry
         DELETE_FLOW,
         // Event by audit module to delete a flow

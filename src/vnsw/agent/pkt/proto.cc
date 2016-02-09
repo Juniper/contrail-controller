@@ -47,6 +47,12 @@ bool Proto::Enqueue(boost::shared_ptr<PktInfo> msg) {
     return work_queue_.Enqueue(msg);
 }
 
+bool Proto::RunProtoHandler(ProtoHandler *handler) {
+    if (handler->Run())
+        delete handler;
+    return true;
+}
+
 // PktHandler enqueues the packet as-is without decoding based on "cmd" in
 // agent_hdr. Decode the pacekt first. Its possible that protocol handler may
 // change based on packet decode
@@ -58,7 +64,5 @@ bool Proto::ProcessProto(boost::shared_ptr<PktInfo> msg_info) {
     }
 
     ProtoHandler *handler = AllocProtoHandler(msg_info, io_);
-    if (handler->Run())
-        delete handler;
-    return true;
+    return RunProtoHandler(handler);
 }
