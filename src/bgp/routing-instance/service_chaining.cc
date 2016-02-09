@@ -1096,7 +1096,8 @@ bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
 
 template <typename T>
 void ServiceChainMgr<T>::RoutingInstanceCallback(string name, int op) {
-    if (op == RoutingInstanceMgr::INSTANCE_ADD) StartResolve();
+    if (op != RoutingInstanceMgr::INSTANCE_DELETE)
+        StartResolve();
 }
 
 template <typename T>

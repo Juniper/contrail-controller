@@ -600,8 +600,7 @@ protected:
         return table->Size();
     }
 
-    BgpRoute *RouteLookup(const string &instance_name,
-                              const string &prefix) {
+    BgpRoute *RouteLookup(const string &instance_name, const string &prefix) {
         BgpTable *bgp_table = GetTable(instance_name);
         TableT *table = dynamic_cast<TableT *>(bgp_table);
         EXPECT_TRUE(table != NULL);
@@ -612,12 +611,14 @@ protected:
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
         typename TableT::RequestKey key(nlri, NULL);
-        BgpRoute *rt = dynamic_cast<BgpRoute *>(table->Find(&key));
-        return rt;
+        DBEntry *db_entry = table->Find(&key);
+        if (db_entry == NULL) {
+            return NULL;
+        }
+        return dynamic_cast<BgpRoute *>(db_entry);
     }
 
-    BgpRoute *VerifyRouteExists(const string &instance,
-                                    const string &prefix) {
+    BgpRoute *VerifyRouteExists(const string &instance, const string &prefix) {
         TASK_UTIL_EXPECT_TRUE(RouteLookup(instance, prefix) != NULL);
         BgpRoute *rt = RouteLookup(instance, prefix);
         if (rt == NULL) {
@@ -627,13 +628,11 @@ protected:
         return rt;
     }
 
-    void VerifyRouteNoExists(const string &instance,
-                                 const string &prefix) {
+    void VerifyRouteNoExists(const string &instance, const string &prefix) {
         TASK_UTIL_EXPECT_TRUE(RouteLookup(instance, prefix) == NULL);
     }
 
-    void VerifyRouteIsDeleted(const string &instance,
-                                  const string &prefix) {
+    void VerifyRouteIsDeleted(const string &instance, const string &prefix) {
         TASK_UTIL_EXPECT_TRUE(RouteLookup(instance, prefix) != NULL);
         BgpRoute *rt = RouteLookup(instance, prefix);
         TASK_UTIL_EXPECT_TRUE(rt->IsDeleted());
