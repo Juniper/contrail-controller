@@ -148,6 +148,9 @@ void Options::Initialize(EventManager &evm,
              "ipfix listener UDP port (< 0 will disable ipfix Collector)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
+        ("DEFAULT.disable_flow_collection",
+            opt::bool_switch(&disable_flow_collection_),
+            "Disable flow message collection")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
