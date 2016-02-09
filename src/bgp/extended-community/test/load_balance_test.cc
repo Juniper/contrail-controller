@@ -182,14 +182,18 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
 
     // Reconstruct load-balance extended community from autogen item and verify
     LoadBalance lb2 = LoadBalance(item);
-    EXPECT_EQ(lba, lb2.ToAttribute());
-    EXPECT_EQ(data, lb2.GetExtCommunity());
+
+    // Since item's load_balance_fields is empty, expect default attribute.
+    EXPECT_EQ(LoadBalance().ToAttribute(), lb2.ToAttribute());
+    EXPECT_EQ(LoadBalance().GetExtCommunity(), lb2.GetExtCommunity());
     EXPECT_EQ("load-balance:field-hash", lb2.ToString());
 
     ShowLoadBalance show_load_balance;
     lb2.ShowAttribute(&show_load_balance);
     EXPECT_EQ("field-hash", show_load_balance.decision_type);
-    EXPECT_EQ(0, show_load_balance.fields.size());
+
+    // Expect default values set even though ext-community is fully reset.
+    EXPECT_EQ(5, show_load_balance.fields.size());
 }
 
 // Set all boolean options alternately
