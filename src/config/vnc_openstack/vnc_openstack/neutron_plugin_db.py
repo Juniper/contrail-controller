@@ -1828,11 +1828,21 @@ class DBInterface(object):
                     KeyValuePair(key=k, value=v))
 
         if 'security_groups' in port_q:
-            port_obj.set_security_group_list([])
-            for sg_id in port_q.get('security_groups') or []:
-                # TODO optimize to not read sg (only uuid/fqn needed)
-                sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-                port_obj.add_security_group(sg_obj)
+            security_groups = port_q.get('security_groups') or []
+            no_rule_sg_obj = self._get_no_rule_security_group()
+            no_rule_sg_id = no_rule_sg_obj.uuid()
+            # Remove the no rule security group, if present
+            # during update port with any other security groups
+            if (no_rule_sg_id in security_groups and
+                    len(security_groups) > 1):
+                security_groups.remove(no_rule_sg_id)
+            # Update port with remaining security groups
+            if (security_groups and no_rule_sg_id not in security_groups):
+                port_obj.set_security_group_list([])
+                for sg_id in security_groups:
+                    # TODO optimize to not read sg (only uuid/fqn needed)
+                    sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                    port_obj.add_security_group(sg_obj)
 
             # When there is no-security-group for a port,the internal
             # no_rule group should be used.
