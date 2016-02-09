@@ -650,7 +650,7 @@ protected:
         for (Route::PathList::iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            if (path->GetSource() != BgpPath::ResolvedRoute)
+            if ((path->GetFlags() & BgpPath::ResolvedPath) == 0)
                 continue;
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
@@ -673,7 +673,7 @@ protected:
         for (Route::PathList::iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            if (path->GetSource() != BgpPath::ResolvedRoute)
+            if ((path->GetFlags() & BgpPath::ResolvedPath) == 0)
                 continue;
             if (BgpPath::PathIdString(path->GetPathId()) == path_id)
                 return false;
