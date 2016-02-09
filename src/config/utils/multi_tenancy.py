@@ -6,7 +6,7 @@ import uuid
 import os
 
 from vnc_api.vnc_api import *
-import vnc_api
+import cfgm_common
 
 
 class MultiTenancy():
@@ -96,7 +96,7 @@ if mt.args.on or mt.args.off:
     data = {'enabled': mt.args.on}
     try:
         rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
-    except vnc_api.common.exceptions.PermissionDenied:
+    except cfgm_common.exceptions.PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
 

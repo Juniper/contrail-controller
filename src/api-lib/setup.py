@@ -23,7 +23,6 @@ setup(
     version='0.1dev',
     packages=['vnc_api',
               'vnc_api.gen',
-              'vnc_api.common',
              ],
     long_description="VNC API Library Package",
     install_requires=[

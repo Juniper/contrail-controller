@@ -6,7 +6,6 @@
 This file contains implementation of data model for physical router
 configuration manager
 """
-from vnc_api.common.exceptions import NoIdError
 from physical_router_config import PhysicalRouterConfig
 from physical_router_config import JunosInterface
 from physical_router_config import PushConfigState
