@@ -621,10 +621,6 @@ static void GetEcmpHashFieldsToUse(ItemType *item,
     for (uint32_t i = 0; i < field_list_size; i++) {
         std::string field_type = item->entry.
             load_balance.load_balance_fields.load_balance_field_list[i];
-        if (field_type == ecmp_load_balance.source_mac_str())
-            ecmp_load_balance.set_source_mac();
-        if (field_type == ecmp_load_balance.destination_mac_str())
-            ecmp_load_balance.set_destination_mac();
         if (field_type == ecmp_load_balance.source_ip_str())
             ecmp_load_balance.set_source_ip();
         if (field_type == ecmp_load_balance.destination_ip_str())

@@ -643,8 +643,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <!-- hashing-configured - decides if fields should be used or not -->
         <xsd:element name="hashing-configured" type="xsd:boolean" default="false"/>
-        <xsd:element name="source-mac" type="xsd:boolean" default="true"/>
-        <xsd:element name="destination-mac" type="xsd:boolean" default="true"/>
         <xsd:element name="source-ip" type="xsd:boolean" default="true"/>
         <xsd:element name="destination-ip" type="xsd:boolean" default="true"/>
         <xsd:element name="ip-protocol" type="xsd:boolean" default="true"/>
