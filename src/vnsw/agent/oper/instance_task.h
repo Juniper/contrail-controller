@@ -19,6 +19,8 @@ class InstanceTask {
  public:
     typedef boost::function<void(InstanceTask *task, const std::string errors)>
         OnErrorCallback;
+    typedef boost::function<void(InstanceTask *task,
+            const boost::system::error_code &ec)>OnExitCallback;
 
     InstanceTask();
     virtual ~InstanceTask() {}
@@ -45,10 +47,15 @@ class InstanceTask {
         on_error_cb_ = cb;
     }
 
+    void set_on_exit_cb(OnExitCallback cb) {
+        on_exit_cb_ = cb;
+    }
+
  protected:
     bool is_running_;
     time_t start_time_;
     OnErrorCallback on_error_cb_;
+    OnExitCallback on_exit_cb_;
 };
 
 class InstanceTaskExecvp : public InstanceTask {
@@ -76,13 +83,11 @@ class InstanceTaskExecvp : public InstanceTask {
 
  private:
     void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
-
     const std::string cmd_;
     boost::asio::posix::stream_descriptor errors_;
     std::stringstream errors_data_;
     char rx_buff_[kBufLen];
     AgentSignal::SignalChildHandler sig_handler_;
-
     pid_t pid_;
     int cmd_type_;
 };
@@ -97,6 +102,7 @@ class InstanceTaskMethod : public InstanceTask {
 class InstanceTaskQueue {
 public:
     typedef boost::function<void(InstanceTaskQueue *task_queue)> OnTimeoutCallback;
+
     InstanceTaskQueue(EventManager *evm);
     ~InstanceTaskQueue();
 
