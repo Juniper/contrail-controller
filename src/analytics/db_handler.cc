@@ -232,7 +232,9 @@ bool DbHandler::CreateTables() {
         columns.push_back(stat_col);
 
         if (!dbif_->Db_AddColumnSync(col_list)) {
-            VIZD_ASSERT(0);
+            DB_LOG(ERROR, g_viz_constants.SYSTEM_OBJECT_TABLE <<
+                ": Start Time Column Add FAILED");
+            return false;
         }
     }
 
@@ -267,7 +269,9 @@ bool DbHandler::CreateTables() {
         columns.push_back(stat_col);
 
         if (!dbif_->Db_AddColumnSync(col_list)) {
-            VIZD_ASSERT(0);
+            DB_LOG(ERROR, g_viz_constants.SYSTEM_OBJECT_TABLE <<
+                ": TTL Column Add FAILED");
+            return false;
         }
     }
 
