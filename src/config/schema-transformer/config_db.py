@@ -238,27 +238,10 @@ class VirtualNetworkST(DBBaseST):
                 self.dynamic_acl = acl_obj
 
         self.ipams = {}
-        rt_list = self.obj.get_route_target_list()
-        if rt_list:
-            self.rt_list = set(rt_list.get_route_target())
-            for rt in self.rt_list:
-                RouteTargetST.locate(rt)
-        else:
-            self.rt_list = set()
-        import_rt_list = self.obj.get_import_route_target_list()
-        if import_rt_list:
-            self.import_rt_list = set(import_rt_list.get_route_target())
-            for rt in self.import_rt_list:
-                RouteTargetST.locate(rt)
-        else:
-            self.import_rt_list = set()
-        export_rt_list = self.obj.get_export_route_target_list()
-        if export_rt_list:
-            self.export_rt_list = set(export_rt_list.get_route_target())
-            for rt in self.export_rt_list:
-                RouteTargetST.locate(rt)
-        else:
-            self.export_rt_list = set()
+        self.get_route_target_lists(self.obj)
+        for rt in itertools.chain(self.rt_list, self.import_rt_list,
+                                  self.export_rt_list):
+            RouteTargetST.locate(rt)
         self._route_target = None
         self.route_tables = set()
         self.routes = {}
@@ -661,26 +644,36 @@ class VirtualNetworkST(DBBaseST):
                     ri.update_route_target_list(rt_del=[self.get_route_target()])
     # end set_properties
 
-    def set_route_target_list(self, obj):
-        ri = self.get_primary_routing_instance()
-        old_rt_list = self.rt_list
+    def get_route_target_lists(self, obj):
         rt_list = obj.get_route_target_list()
         if rt_list:
             self.rt_list = set(rt_list.get_route_target())
         else:
             self.rt_list = set()
-        old_import_rt_list = self.import_rt_list
         rt_list = obj.get_import_route_target_list()
         if rt_list:
             self.import_rt_list = set(rt_list.get_route_target())
         else:
             self.import_rt_list = set()
-        old_export_rt_list = self.export_rt_list
         rt_list = obj.get_export_route_target_list()
         if rt_list:
             self.export_rt_list = set(rt_list.get_route_target())
         else:
             self.export_rt_list = set()
+
+        # if any RT exists in both import and export, just add it to rt_list
+        self.rt_list |= self.import_rt_list & self.export_rt_list
+        # if any RT exists in rt_list, remove it from import/export lists
+        self.import_rt_list -= self.rt_list
+        self.export_rt_list -= self.rt_list
+    # end get_route_target_lists
+
+    def set_route_target_list(self, obj):
+        ri = self.get_primary_routing_instance()
+        old_rt_list = self.rt_list
+        old_import_rt_list = self.import_rt_list
+        old_export_rt_list = self.export_rt_list
+        self.get_route_target_lists(obj)
 
         rt_add = self.rt_list - old_rt_list
         rt_add_export = self.export_rt_list - old_export_rt_list
