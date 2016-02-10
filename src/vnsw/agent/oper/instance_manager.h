@@ -34,9 +34,9 @@ class InstanceManager {
     };
 
     enum ChldEventType {
-        SigChldEvent = 1,
         OnErrorEvent,
-        OnTaskTimeoutEvent
+        OnTaskTimeoutEvent,
+        OnExitEvent
     };
 
     struct LBPoolState :public DBState {
@@ -48,16 +48,11 @@ class InstanceManager {
         int type;
 
         /*
-         * SigChld variables
-         */
-        pid_t pid;
-        int status;
-
-        /*
          * OnError variables
          */
         InstanceTask *task;
         std::string errors;
+        int error_val;
 
         /*
          * OnTimeout
@@ -71,9 +66,9 @@ class InstanceManager {
     InstanceManager(Agent *);
     ~InstanceManager();
 
-    void Initialize(DB *database, AgentSignal *signal,
-                    const std::string &netns_cmd, const std::string &docker_cmd,
-                    const int netns_workers, const int netns_timeout);
+    void Initialize(DB *database, const std::string &netns_cmd,
+            const std::string &docker_cmd, const int netns_workers,
+            const int netns_timeout);
     void Terminate();
     bool DequeueEvent(InstanceManagerChildEvent event);
 
@@ -89,8 +84,6 @@ class InstanceManager {
     friend class InstanceManagerTest;
     class NamespaceStaleCleaner;
 
-    void HandleSigChild(const boost::system::error_code& error, int sig,
-                        pid_t pid, int status);
     void RegisterSigHandler();
     void InitSigHandler(AgentSignal *signal);
 
@@ -103,6 +96,7 @@ class InstanceManager {
     void StopStaleNetNS(ServiceInstance::Properties &props);
 
     void OnError(InstanceTask *task, const std::string errors);
+    void OnExit(InstanceTask *task, const boost::system::error_code &ec);
     void RegisterSvcInstance(InstanceTask *task,
                              ServiceInstance *svc_instance);
     void UnregisterSvcInstance(ServiceInstance *svc_instance);
@@ -118,7 +112,7 @@ class InstanceManager {
     void SetState(ServiceInstance *svc_instance, InstanceState *state);
     void ClearState(ServiceInstance *svc_instance);
     bool DeleteState(ServiceInstance *svc_instance);
-    void UpdateStateStatusType(InstanceTask* task, int status);
+    void UpdateStateStatusType(InstanceManagerChildEvent event);
 
     void SetLastCmdType(ServiceInstance *svc_instance, int last_cmd_type);
     int GetLastCmdType(ServiceInstance *svc_instance) const;
@@ -126,8 +120,8 @@ class InstanceManager {
 
     void OnTaskTimeout(InstanceTaskQueue *task_queue);
 
-    void SigChldEventHandler(InstanceManagerChildEvent event);
     void OnErrorEventHandler(InstanceManagerChildEvent event);
+    void OnExitEventHandler(InstanceManagerChildEvent event);
     void OnTaskTimeoutEventHandler(InstanceManagerChildEvent event);
 
     /*
@@ -199,8 +193,13 @@ class InstanceState : public DBState {
     }
 
     void set_errors(const std::string &errors) {
-        errors_ = errors;
+        errors_.append(errors);
     }
+
+    void reset_errors() {
+        errors_.clear();
+    }
+
     std::string errors() const {
         return errors_;
     }

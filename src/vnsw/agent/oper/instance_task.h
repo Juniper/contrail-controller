@@ -17,8 +17,6 @@ class EventManager;
 
 class InstanceTask {
  public:
-    typedef boost::function<void(InstanceTask *task, const std::string errors)>
-        OnErrorCallback;
     typedef boost::function<void(InstanceTask *task, const std::string &msg)>
         OnDataCallback;
     typedef boost::function<void(InstanceTask *task,
@@ -45,10 +43,6 @@ class InstanceTask {
         return start_time_;
     }
 
-    void set_on_error_cb(OnErrorCallback cb) {
-        on_error_cb_ = cb;
-    }
-
     void set_on_data_cb(OnDataCallback cb) {
         on_data_cb_ = cb;
     }
@@ -60,7 +54,6 @@ class InstanceTask {
  protected:
     bool is_running_;
     time_t start_time_;
-    OnErrorCallback on_error_cb_;
     OnDataCallback on_data_cb_;
     OnExitCallback on_exit_cb_;
 };
@@ -102,7 +95,6 @@ class InstanceTaskExecvp : public InstanceTask {
     const std::string name_;
     std::string cmd_;
     boost::asio::posix::stream_descriptor input_;
-    std::stringstream errors_data_;
     char rx_buff_[kBufLen];
     AgentSignal::SignalChildHandler sig_handler_;
 
