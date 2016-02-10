@@ -229,6 +229,13 @@ class TestPolicy(test_case.STTestCase):
             print 'vn deleted'
 
     @retries(5)
+    def check_all_vmis_are_deleted(self):
+        vmi_list = self._vnc_lib.virtual_machine_interfaces_list()
+        if vmi_list['virtual-machine-interfaces']:
+            raise Exception('virtual machine interfaces still exist' + str(vmi_list))
+        print 'all virtual machine interfaces deleted'
+
+    @retries(5)
     def check_ri_is_deleted(self, fq_name):
         try:
             self._vnc_lib.routing_instance_read(fq_name)
@@ -1432,6 +1439,7 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
 
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_all_vmis_are_deleted()
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,

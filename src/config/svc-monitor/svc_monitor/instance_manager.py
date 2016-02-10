@@ -263,10 +263,11 @@ class InstanceManager(object):
                              (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
         return pt_obj
 
-    def create_service_vn(self, vn_name, vn_subnet,
+    def create_service_vn(self, vn_name, vn_subnet, vn_subnet6,
                           proj_fq_name, user_visible=None):
         self.logger.log_info(
-            "Creating network %s subnet %s" % (vn_name, vn_subnet))
+            "Creating network %s subnet %s subnet6 %s" %
+            (vn_name, vn_subnet, vn_subnet6))
 
         proj_obj = self._get_project_obj(proj_fq_name)
         if not proj_obj:
@@ -282,12 +283,19 @@ class InstanceManager(object):
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         except NoIdError:
             ipam_obj = NetworkIpam()
+
+        ipam_subnets = []
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
         pfx_len = int(cidr[1])
-        subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
-        subnet_data = VnSubnetsType([subnet_info])
-        vn_obj.add_network_ipam(ipam_obj, subnet_data)
+        ipam_subnets.append(IpamSubnetType(subnet=SubnetType(pfx, pfx_len)))
+        if vn_subnet6:
+            cidr = vn_subnet6.split('/')
+            pfx = cidr[0]
+            pfx_len = int(cidr[1])
+            ipam_subnets.append(IpamSubnetType(subnet=SubnetType(pfx, pfx_len)))
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
+
         try:
             self._vnc_lib.virtual_network_create(vn_obj)
         except RefsExistError:
@@ -429,6 +437,9 @@ class InstanceManager(object):
         funcname = "get_" + itf_type + "_vn_subnet"
         func = getattr(svc_info, funcname)
         service_vn_subnet = func()
+        funcname = "get_" + itf_type + "_vn_subnet6"
+        func = getattr(svc_info, funcname)
+        service_vn_subnet6 = func()
 
         vn_fq_name = si.fq_name[:-1] + [service_vn_name]
         try:
@@ -436,7 +447,7 @@ class InstanceManager(object):
                 'virtual-network', vn_fq_name)
         except NoIdError:
             vn_id = self.create_service_vn(service_vn_name,
-                                           service_vn_subnet, si.fq_name[:-1])
+                service_vn_subnet, service_vn_subnet6, si.fq_name[:-1])
 
         return vn_id
 
