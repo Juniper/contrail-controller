@@ -775,6 +775,9 @@ public:
     void set_tunnel_type(TunnelType tunnel_type) {
         tunnel_type_ = tunnel_type;
     }
+    const Ip4Address dip() const {
+        return dip_;
+    }
 private:
     friend class TunnelNH;
     VrfKey vrf_key_;
@@ -1217,6 +1220,7 @@ public:
     const ComponentNHKeyList& component_nh_key_list() const {
         return component_nh_key_list_;
     }
+
     void Reorder(Agent *agent, uint32_t label, const NextHop *nh);
     void CreateTunnelNH(Agent *agent);
     void CreateTunnelNHReq(Agent *agent);

@@ -221,7 +221,8 @@ struct FlowData {
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false), pending_recompute(false), enable_rpf(true),
-        l2_rpf_plen(Address::kMaxV4PrefixLen) {}
+        l2_rpf_plen(Address::kMaxV4PrefixLen), ecmp_rpf_nh_(0),
+        acl_assigned_vrf_index_(VrfEntry::kInvalidIndex) {}
 
     MacAddress smac;
     MacAddress dmac;
@@ -260,6 +261,8 @@ struct FlowData {
     FlowRouteRefMap     flow_dest_plen_map;
     bool enable_rpf;
     uint8_t l2_rpf_plen;
+    uint32_t ecmp_rpf_nh_;
+    uint32_t acl_assigned_vrf_index_;
 };
 
 class FlowEntry {
@@ -346,6 +349,7 @@ class FlowEntry {
     bool l3_flow() const { return l3_flow_; }
     uint32_t flow_handle() const { return flow_handle_; }
     void set_flow_handle(uint32_t flow_handle, FlowTable* table);
+    void set_ecmp_rpf_nh(FlowTable *table, uint32_t id);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
@@ -409,6 +413,7 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    void set_acl_assigned_vrf_index();
     uint32_t reverse_flow_fip() const;
     uint32_t reverse_flow_vmport_id() const;
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
@@ -429,6 +434,9 @@ class FlowEntry {
     bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
     const MacAddress &dmac() const { return data_.dmac; }
+    const FlowTableKSyncEntry* ksync_entry() const {
+        return ksync_entry_;
+    }
 
 private:
     friend class FlowTable;
@@ -441,6 +449,8 @@ private:
     void GetSourceRouteInfo(const AgentRoute *rt);
     void GetDestRouteInfo(const AgentRoute *rt);
     void UpdateRpf();
+    bool SetRpfNHState(FlowTable *ft, const NextHop *nh);
+    bool SetEcmpRpfNH(FlowTable *ft, uint32_t id);
 
     FlowKey key_;
     FlowData data_;
@@ -760,6 +770,7 @@ private:
     void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt);
+    void ResyncEcmpInfo(const RouteFlowKey &key, const AgentRoute *rt);
 
     void DeleteFlowInfo(FlowEntry *fe);
     void DeleteVnFlowInfo(FlowEntry *fe);
@@ -797,6 +808,13 @@ private:
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     bool SetUnderlayPort(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SetComponentIndex(FlowEntry *fe, const NextHopKey *nh_key,
+                           uint32_t label, bool mpls_path);
+    void SetLocalFlowEcmpIndex(FlowEntry *fe);
+    void SetRemoteFlowEcmpIndex(FlowEntry *fe);
+    void UpdateEcmpInfo(FlowEntry *fe);
+
+
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
