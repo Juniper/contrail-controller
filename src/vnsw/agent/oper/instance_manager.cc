@@ -10,7 +10,6 @@
 #include <boost/tokenizer.hpp>
 #include <sys/wait.h>
 #include "cmn/agent.h"
-#include "cmn/agent_signal.h"
 #include "db/db.h"
 #include "io/event_manager.h"
 #include "oper/instance_task.h"
@@ -146,14 +145,10 @@ InstanceManager::InstanceManager(Agent *agent)
 }
 
 
-void InstanceManager::Initialize(DB *database, AgentSignal *signal,
-                                 const std::string &netns_cmd,
+void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
                                  const std::string &docker_cmd,
                                  const int netns_workers,
                                  const int netns_timeout) {
-    if (signal) {
-        InitSigHandler(signal);
-    }
 
     DBTableBase *lb_table = agent_->loadbalancer_table();
     assert(lb_table);
@@ -240,36 +235,6 @@ void InstanceManager::OnTaskTimeoutEventHandler(InstanceManagerChildEvent event)
     ScheduleNextTask(event.task_queue);
 }
 
-void InstanceManager::SigChldEventHandler(InstanceManagerChildEvent event) {
-    /*
-      * check the head of each taskqueue in order to check whether there is
-      * a task with the corresponding pid, if present dequeue it.
-      */
-     for (std::vector<InstanceTaskQueue *>::iterator iter =
-                  task_queues_.begin();
-          iter != task_queues_.end(); ++iter) {
-         InstanceTaskQueue *task_queue = *iter;
-         if (!task_queue->Empty()) {
-             InstanceTask *task = task_queue->Front();
-             if (task->pid() == event.pid) {
-
-                 //Get the sevice instance first, to delete the state later
-                 ServiceInstance* svc_instance = GetSvcInstance(task);
-                 UpdateStateStatusType(task, event.status);
-
-                 task_queue->Pop();
-                 delete task;
-
-                 task_queue->StopTimer();
-
-                 DeleteState(svc_instance);
-                 ScheduleNextTask(task_queue);
-                 return;
-             }
-         }
-     }
-}
-
 void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
     ServiceInstance *svc_instance = GetSvcInstance(event.task);
     if (!svc_instance) {
@@ -282,30 +247,55 @@ void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
     }
 }
 
+void InstanceManager::OnExitEventHandler(InstanceManagerChildEvent event) {
+    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    if (!svc_instance) {
+       return;
+    }
+
+    UpdateStateStatusType(event);
+    for (std::vector<InstanceTaskQueue *>::iterator iter =
+                  task_queues_.begin();
+          iter != task_queues_.end(); ++iter) {
+         InstanceTaskQueue *task_queue = *iter;
+         if (!task_queue->Empty()) {
+             if (task_queue->Front() == event.task) {
+                 task_queue->Pop();
+                 delete event.task;
+                 task_queue->StopTimer();
+                 DeleteState(svc_instance);
+                 ScheduleNextTask(task_queue);
+                 return;
+             }
+         }
+    }
+
+}
+
 bool InstanceManager::DequeueEvent(InstanceManagerChildEvent event) {
-    if (event.type == SigChldEvent) {
-        SigChldEventHandler(event);
-    } else if (event.type == OnErrorEvent) {
+    if (event.type == OnErrorEvent) {
         OnErrorEventHandler(event);
     } else if (event.type == OnTaskTimeoutEvent) {
         OnTaskTimeoutEventHandler(event);
+    } else if (event.type == OnExitEvent) {
+        OnExitEventHandler(event);
     }
 
     return true;
 }
 
-void InstanceManager::UpdateStateStatusType(InstanceTask* task, int status) {
-    ServiceInstance* svc_instance = UnregisterSvcInstance(task);
+void InstanceManager::UpdateStateStatusType(InstanceManagerChildEvent event) {
+    ServiceInstance* svc_instance = UnregisterSvcInstance(event.task);
     if (svc_instance) {
         InstanceState *state = GetState(svc_instance);
         if (state != NULL) {
-            state->set_status(status);
+            state->set_status(event.error_val);
             LOG(DEBUG, "NetNS update status for uuid: "
                 << svc_instance->ToString()
-                << " " << status);
+                << " " << event.error_val);
 
-            if (! WIFEXITED(status) || WIFSIGNALED(status) ||
-                WEXITSTATUS(status) != 0) {
+            if (event.error_val != 
+                    boost::system::errc::no_such_file_or_directory) {
                 if (state->status_type() != InstanceState::Timeout) {
                     state->set_status_type(InstanceState::Error);
                 }
@@ -315,20 +305,6 @@ void InstanceManager::UpdateStateStatusType(InstanceTask* task, int status) {
                 state->set_status_type(InstanceState::Stopped);
             }
         }
-    }
-}
-
-void InstanceManager::HandleSigChild(const boost::system::error_code &error,
-                                     int sig, pid_t pid, int status) {
-    switch(sig) {
-    case SIGCHLD:
-        InstanceManagerChildEvent event;
-        event.type = SigChldEvent;
-        event.pid = pid;
-        event.status = status;
-
-        work_queue_.Enqueue(event);
-        break;
     }
 }
 
@@ -374,10 +350,6 @@ bool InstanceManager::DeleteState(ServiceInstance *svc_instance) {
     return false;
 }
 
-void InstanceManager::InitSigHandler(AgentSignal *signal) {
-    signal->RegisterChildHandler(
-        boost::bind(&InstanceManager::HandleSigChild, this, _1, _2, _3, _4));
-}
 
 void InstanceManager::StateClear() {
     DBTablePartition *partition = static_cast<DBTablePartition *>(
@@ -584,6 +556,8 @@ void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
         if (task != NULL) {
             task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
                                               this, _1, _2));
+            task->set_on_exit_cb(boost::bind(&InstanceManager::OnExit,
+                        this, _1, _2));
             state->set_properties(props);
             RegisterSvcInstance(task, svc_instance);
             std::stringstream info;
@@ -606,6 +580,10 @@ void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
     if (adapter != NULL) {
         InstanceTask *task = adapter->CreateStopTask(props);
         if (task != NULL) {
+            task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
+                                              this, _1, _2));
+            task->set_on_exit_cb(boost::bind(&InstanceManager::OnExit,
+                        this, _1, _2));
             RegisterSvcInstance(task, svc_instance);
             std::stringstream info;
             info << "Service stop command queued: " << task->cmd();
@@ -626,6 +604,17 @@ void InstanceManager::OnError(InstanceTask *task,
     event.type = OnErrorEvent;
     event.task = task;
     event.errors = errors;
+
+    work_queue_.Enqueue(event);
+}
+
+void InstanceManager::OnExit(InstanceTask *task,
+                    const boost::system::error_code &ec) {
+
+    InstanceManagerChildEvent event;
+    event.type = OnExitEvent;
+    event.task = task;
+    event.error_val = ec.value();
 
     work_queue_.Enqueue(event);
 }
