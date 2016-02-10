@@ -269,9 +269,7 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
 bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                           uint32_t path_id, uint32_t flags, uint32_t label,
-                           bool notify) {
-    bool is_stale = false;
+                           uint32_t path_id, uint32_t flags, uint32_t label) {
     bool delete_rt = false;
 
     switch (oper) {
@@ -286,15 +284,13 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             if ((path->GetAttr() != attrs.get()) ||
                 (path->GetFlags() != flags) ||
                 (path->GetLabel() != label)) {
+
                 // Update Attributes and notify (if needed)
-                is_stale = path->IsStale();
                 if (path->NeedsResolution())
                     path_resolver_->StopPathResolution(root->index(), path);
                 rt->DeletePath(path);
             } else {
                 // Ignore duplicate update.
-                if (notify)
-                    root->Notify(rt);
                 break;
             }
         }
@@ -302,12 +298,6 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         BgpPath *new_path;
         new_path =
             new BgpPath(peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label);
-
-        // If the path is being staled (by bringing down the local pref,
-        // mark the same in the new path created.
-        if (is_stale) {
-            new_path->SetStale();
-        }
 
         if (new_path->NeedsResolution()) {
             Address::Family family = new_path->GetAttr()->nexthop_family();
@@ -420,15 +410,9 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
                 break;
             }
 
-            bool notify = false;
             path = rt->FindPath(BgpPath::BGP_XMPP, peer, path_id);
-            if (path && req->oper != DBRequest::DB_ENTRY_DELETE) {
-                if (path->IsStale()) {
-                    path->ResetStale();
-                    notify = true;
-                }
+            if (path && req->oper != DBRequest::DB_ENTRY_DELETE)
                 deleted_paths.erase(path);
-            }
 
             if (data->attrs() && count > 0) {
                 BgpAttr *clone = new BgpAttr(*data->attrs());
@@ -442,8 +426,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
             }
 
             delete_rt = InputCommon(root, rt, path, peer, req, req->oper,
-                                     attr, path_id, nexthop.flags_,
-                                     nexthop.label_, notify);
+                                    attr, path_id, nexthop.flags_,
+                                    nexthop.label_);
         }
     }
 

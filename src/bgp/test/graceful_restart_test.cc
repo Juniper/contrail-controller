@@ -38,16 +38,15 @@ using ::testing::Bool;
 using ::testing::ValuesIn;
 using ::testing::Combine;
 
-static vector<int>  n_instances = boost::assign::list_of(1)(5);
-static vector<int>  n_routes    = boost::assign::list_of(1)(5);
-static vector<int>  n_agents    = boost::assign::list_of(1)(5);
-static vector<int>  n_targets   = boost::assign::list_of(1)(1);
+static vector<int>  n_instances = boost::assign::list_of(5);
+static vector<int>  n_routes    = boost::assign::list_of(5);
+static vector<int>  n_agents    = boost::assign::list_of(5);
+static vector<int>  n_targets   = boost::assign::list_of(1);
 static vector<bool> xmpp_close_from_control_node =
                                   boost::assign::list_of(false);
 static char **gargv;
 static int    gargc;
 static int    n_db_walker_wait_usecs = 0;
-static int    wait_for_idle = 30; // Seconds
 
 static void process_command_line_args(int argc, char **argv) {
     static bool cmd_line_processed;
@@ -68,8 +67,6 @@ static void process_command_line_args(int argc, char **argv) {
         ("ninstances", value<int>(), "set number of routing instances")
         ("ntargets", value<int>(), "set number of route targets")
         ("db-walker-wait-usecs", value<int>(), "set usecs delay in walker cb")
-        ("wait-for-idle-time", value<int>(),
-             "task_util::WaitForIdle() wait time, 0 to disable")
         ("close-from-control-node", bool_switch(&close_from_control_node),
              "Initiate xmpp session close from control-node")
         ;
@@ -105,10 +102,6 @@ static void process_command_line_args(int argc, char **argv) {
     }
     if (vm.count("db-walker-wait-usecs")) {
         n_db_walker_wait_usecs = vm["db-walker-wait-usecs"].as<int>();
-        cmd_line_arg_set = true;
-    }
-    if (vm.count("wait-for-idle-time")) {
-        wait_for_idle = vm["wait-for-idle-time"].as<int>();
         cmd_line_arg_set = true;
     }
 
@@ -148,13 +141,6 @@ static vector<int> GetRouteParameters() {
 static vector<int> GetTargetParameters() {
     process_command_line_args(gargc, gargv);
     return n_targets;
-}
-
-static void WaitForIdle() {
-    if (wait_for_idle) {
-        usleep(10);
-        task_util::WaitForIdle(wait_for_idle);
-    }
 }
 
 class PeerCloseManagerTest : public PeerCloseManager {
@@ -304,26 +290,27 @@ void GracefulRestartTest::SetUp() {
 }
 
 void GracefulRestartTest::TearDown() {
-    WaitForIdle();
+    task_util::WaitForIdle();
     SetPeerCloseGraceful(false);
     XmppPeerClose();
     xmpp_server_->Shutdown();
-    WaitForIdle();
+    task_util::WaitForIdle();
 
     VerifyRoutes(0);
     VerifyReceivedXmppRoutes(0);
 
     if (n_agents_) {
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionCount());
+        TASK_UTIL_EXPECT_EQ(0, xmpp_server_->connection_map().size());
     }
     AgentCleanup();
+    TASK_UTIL_EXPECT_EQ(0, channel_manager_->channel_map().size());
     channel_manager_.reset();
-    WaitForIdle();
+    task_util::WaitForIdle();
 
     TcpServerManager::DeleteServer(xmpp_server_);
     xmpp_server_ = NULL;
     server_->Shutdown();
-    WaitForIdle();
+    task_util::WaitForIdle();
     evm_.Shutdown();
     thread_.Join();
     task_util::WaitForIdle();
@@ -335,7 +322,7 @@ void GracefulRestartTest::TearDown() {
 
 void GracefulRestartTest::Configure() {
     server_->Configure(GetConfig().c_str());
-    WaitForIdle();
+    task_util::WaitForIdle();
     VerifyRoutingInstances();
 }
 
@@ -437,11 +424,11 @@ void GracefulRestartTest::AddXmppPeersWithRoutes() {
         WaitForAgentToBeEstablished(agent);
     }
 
-    WaitForIdle();
+    task_util::WaitForIdle();
     Subscribe();
     VerifyReceivedXmppRoutes(0);
     AddOrDeleteXmppRoutes(true);
-    WaitForIdle();
+    task_util::WaitForIdle();
     VerifyReceivedXmppRoutes(n_instances_ * n_agents_ * n_routes_);
 }
 
@@ -458,7 +445,7 @@ void GracefulRestartTest::CreateAgents() {
             prefix.ip4_addr().to_string());
         agent->set_id(i);
         xmpp_agents_.push_back(agent);
-        WaitForIdle();
+        task_util::WaitForIdle();
 
         TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpXmppChannel *>(NULL),
                           channel_manager_->channel_,
@@ -479,7 +466,7 @@ void GracefulRestartTest::Subscribe() {
             agent->Subscribe(instance_name, i);
         }
     }
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 void GracefulRestartTest::UnSubscribe() {
@@ -492,7 +479,7 @@ void GracefulRestartTest::UnSubscribe() {
         }
     }
     VerifyReceivedXmppRoutes(0);
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 test::NextHops GracefulRestartTest::GetNextHops (test::NetworkAgentMock *agent,
@@ -533,7 +520,7 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
             }
         }
     }
-    WaitForIdle();
+    task_util::WaitForIdle();
     // if (!add) VerifyReceivedXmppRoutes(0);
 }
 
@@ -551,10 +538,9 @@ void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
                 continue;
             TASK_UTIL_EXPECT_EQ_MSG(routes, agent->RouteCount(instance_name),
                                     "Wait for routes in " + instance_name);
-            ASSERT_TRUE(agent->RouteCount(instance_name) == routes);
         }
     }
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 void GracefulRestartTest::DeleteRoutingInstances(int count,
@@ -584,7 +570,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
     out << "</delete>";
 
     server_->Configure(out.str().c_str());
-    WaitForIdle();
+    task_util::WaitForIdle();
 
     // Unsubscribe from all agents who have subscribed
     BOOST_FOREACH(int i, instances) {
@@ -597,7 +583,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
                 agent->Unsubscribe(instance_name);
         }
     }
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 void GracefulRestartTest::VerifyDeletedRoutingInstnaces(vector<int> instances) {
@@ -607,7 +593,7 @@ void GracefulRestartTest::VerifyDeletedRoutingInstnaces(vector<int> instances) {
                             server_->routing_instance_mgr()->\
                                 GetRoutingInstance(instance_name));
     }
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 void GracefulRestartTest::VerifyRoutingInstances() {
@@ -636,7 +622,7 @@ void GracefulRestartTest::AddAgentsWithRoutes(
 // Invoke stale timer callbacks directly as evm is not running in this unit test
 void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
     channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
-    WaitForIdle();
+    task_util::WaitForIdle();
 }
 
 void GracefulRestartTest::XmppPeerClose(int nagents) {
@@ -800,7 +786,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
             CallStaleTimer(xmpp_peers_[agent->id()]);
     }
 
-    WaitForIdle();
+    task_util::WaitForIdle();
 
     // Trigger GR timer for agents which went down permanently.
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {

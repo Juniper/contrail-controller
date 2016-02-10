@@ -60,7 +60,7 @@ struct BgpNeighborResp {
     53: string instance_name;
     1: string peer (link="BgpNeighborReq"); // Peer name
     36: bool deleted;           // Deletion in progress
-    43: string deleted_at;
+    43: string closed_at;
     47: bool admin_down;
     48: bool passive;
     2: string peer_address (link="BgpNeighborReq");

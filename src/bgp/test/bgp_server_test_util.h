@@ -92,6 +92,8 @@ public:
         return XmppServer::IsPeerCloseGraceful();
     }
 
+    const ConnectionMap &connection_map() const { return connection_map_; }
+
     // Protect connection db with mutex as it is queried from main thread which
     // does not adhere to control-node scheduler policy.
     XmppServerConnection *FindConnection(const std::string &peer_addr) {

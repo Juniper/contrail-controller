@@ -144,6 +144,11 @@ protected:
         b_->Shutdown();
         task_util::WaitForIdle();
 
+        // Delete the channel first
+        delete xmpp_cchannel_;
+        task_util::WaitForIdle();
+        xmpp_cchannel_ = NULL;
+
         // This will trigger cleanup of all clients
         xs_a_->Shutdown();
         task_util::WaitForIdle();

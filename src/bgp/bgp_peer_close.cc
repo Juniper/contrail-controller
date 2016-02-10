@@ -287,6 +287,7 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
         if (path->GetPeer() != peer_)
             continue;
+        uint32_t stale = 0;
 
         switch (action) {
             case MembershipRequest::RIBIN_SWEEP:
@@ -294,6 +295,7 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                 // Stale paths must be deleted
                 if (!path->IsStale())
                     return;
+                path->ResetStale();
                 stats_.deleted_state_paths++;
                 oper = DBRequest::DB_ENTRY_DELETE;
                 attrs = NULL;
@@ -319,7 +321,7 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                 // TODO(ananth): Check for the right local-pref value to use
                 attrs = peer_->server()->attr_db()->\
                         ReplaceLocalPreferenceAndLocate(path->GetAttr(), 1);
-                path->SetStale();
+                stale = BgpPath::Stale;
                 break;
 
             default:
@@ -329,7 +331,8 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
         // Feed the route modify/delete request to the table input process.
         delete_rt = table->InputCommon(root, rt, path, peer_, NULL, oper,
                                        attrs, path->GetPathId(),
-                                       path->GetFlags(), path->GetLabel());
+                                       path->GetFlags() | stale,
+                                       path->GetLabel());
     }
 
     // rt can be now deleted safely.
