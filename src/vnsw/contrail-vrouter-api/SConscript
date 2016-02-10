@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -65,8 +63,15 @@ test = env.Command(None, test_sources,
 
 env.Alias('controller/src/vnsw/contrail_vrouter_api:test', test)
 
+# This add'l alias is to allow retry of UT in CI
+env.Alias('controller/src/vnsw/contrail-vrouter-api/contrail_vrouter_api:test', test)
+
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)
+
+# Local Variables:
+# mode: python
+# End:
