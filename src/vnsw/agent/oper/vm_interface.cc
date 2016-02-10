@@ -780,6 +780,20 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
         return;
     }
 
+    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
+                   (node->GetObject());
+    const std::vector<KeyValuePair> &bindings  = cfg->bindings();
+    for (std::vector<KeyValuePair>::const_iterator it = bindings.begin();
+            it != bindings.end(); ++it) {
+        KeyValuePair kvp = *it;
+        if ((kvp.key == "vnic_type") && (kvp.value == "direct")) {
+            data->device_type_ = VmInterface::VM_SRIOV;
+            data->vmi_type_ = VmInterface::SRIOV;
+            return;
+        }
+    }
+
+
     data->device_type_ = VmInterface::DEVICE_TYPE_INVALID;
     data->vmi_type_ = VmInterface::VMI_TYPE_INVALID;
     // Does it have physical-interface
@@ -1465,6 +1479,13 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
                               bool force_update,
                               const Ip4Address &old_dhcp_addr,
                               bool old_metadata_ip_active) {
+
+    //For SRIOV we dont generate any things lile l2 routes, l3 routes
+    //etc
+    if (device_type_ == VmInterface::VM_SRIOV) {
+        return;
+    }
+
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.

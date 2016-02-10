@@ -1687,6 +1687,28 @@ void DelVn(const char *name) {
     DelNode("virtual-network", name);
 }
 
+void AddSriovPort(const char *name, int id) {
+    std::stringstream str;
+    str << "<virtual-machine-interface-mac-addresses>" << endl;
+    str << "    <mac-address>00:00:00:00:00:" << id << "</mac-address>"
+        << endl;
+    str << "</virtual-machine-interface-mac-addresses>" << endl;
+    str << "<display-name> " << name << "</display-name>" << endl;
+
+    //vnic type as direct makes the port sriov
+    str << "<virtual-machine-interface-bindings>";
+    str << "<key-value-pair>";
+    str << "<key>vnic_type</key>";
+    str << "<value>direct</value>";
+    str << "</key-value-pair>";
+    str << "</virtual-machine-interface-bindings>";
+
+    char buff[4096];
+    strcpy(buff, str.str().c_str());
+    AddNode("virtual-machine-interface", name, id, buff);
+
+}
+
 void AddPort(const char *name, int id, const char *attr) {
     std::stringstream str;
     str << "<virtual-machine-interface-mac-addresses>" << endl;
@@ -1697,8 +1719,6 @@ void AddPort(const char *name, int id, const char *attr) {
 
     char buff[4096];
     strcpy(buff, str.str().c_str());
-    if (attr != NULL)
-        strcat(buff, attr);
     AddNode("virtual-machine-interface", name, id, buff);
 }
 

@@ -223,6 +223,7 @@ void DelVn(const char *name);
 void AddPortWithMac(const char *name, int id, const char *mac,
                     const char *attr);
 void AddPort(const char *name, int id, const char *attr = NULL);
+void AddSriovPort(const char *name, int id);
 void AddPortByStatus(const char *name, int id, bool admin_status);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
