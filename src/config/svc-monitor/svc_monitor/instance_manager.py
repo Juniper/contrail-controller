@@ -459,7 +459,9 @@ class InstanceManager(object):
             try:
                 self._vnc_lib.virtual_machine_create(vm_obj)
             except RefsExistError:
-                self._vnc_lib.virtual_machine_update(vm_obj)
+                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_obj.fq_name)
+                self._vnc_lib.ref_update('service-instance', si.uuid,
+                    'virtual-machine', vm_obj.uuid)
             vm = VirtualMachineSM.locate(vm_obj.uuid)
             self.logger.log_info("Info: VM %s created for SI %s" %
                                  (instance_name, si_obj.get_fq_name_str()))
@@ -672,12 +674,18 @@ class VRouterHostedManager(InstanceManager):
         self.cleanup_svc_vm_ports(vmi_list)
 
         if vm.virtual_router:
-            self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
-                                     'virtual-machine', vm.uuid, None, 'DELETE')
-            self.logger.log_info("vm %s deleted from vr %s" %
-                                 (vm.fq_name, vm.virtual_router))
+            try:
+                self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
+                    'virtual-machine', vm.uuid, None, 'DELETE')
+                self.logger.log_info("vm %s deleted from vr %s" %
+                    (vm.fq_name, vm.virtual_router))
+            except NoIdError:
+                pass
 
-        self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        try:
+            self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        except NoIdError:
+            pass
         VirtualMachineSM.delete(vm.uuid)
 
     def check_service(self, si):
