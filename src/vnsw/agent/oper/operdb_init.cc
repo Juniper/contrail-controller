@@ -200,8 +200,8 @@ void OperDB::Init() {
         netns_workers = agent_->params()->si_netns_workers();
         netns_timeout = agent_->params()->si_netns_timeout();
     }
-    instance_manager_->Initialize(agent_->db(), agent_->agent_signal(),
-                                   netns_cmd, docker_cmd, netns_workers, netns_timeout);
+    instance_manager_->Initialize(agent_->db(), netns_cmd,
+                    docker_cmd, netns_workers, netns_timeout);
     if (nexthop_manager_.get()) {
         nexthop_manager_->Initialize(agent_->db());
     }

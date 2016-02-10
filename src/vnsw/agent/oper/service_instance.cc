@@ -838,7 +838,6 @@ int ServiceInstanceTypesMapping::StrVRouterInstanceTypeToInt(
     if (it != vrouter_instance_type_map_.end()) {
         return it->second;
     }
-    LOG(ERROR, "Unkown type: " << type);
     return 0;
 }
 

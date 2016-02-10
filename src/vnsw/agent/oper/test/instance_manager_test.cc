@@ -272,11 +272,6 @@ protected:
         return agent_->oper_db()->instance_manager()->GetTaskQueue(ss.str());
     }
 
-    void TriggerSigChild(pid_t pid, int status) {
-        boost::system::error_code ec;
-        agent_->oper_db()->instance_manager()->HandleSigChild(ec, SIGCHLD, pid, status);
-    }
-
     void NotifyChange(boost::uuids::uuid id) {
         ServiceInstance *svc_instance = GetServiceInstance(id);
         if (svc_instance == NULL) {
@@ -339,13 +334,14 @@ TEST_F(InstanceManagerTest, ExecTrue) {
 
     EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
+    ASSERT_TRUE(ns_state->errors().empty() == true);
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 
-TEST_F(InstanceManagerTest, ExecFalse) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", "/bin/false", 1, 10);
+TEST_F(InstanceManagerTest, ExecNotExisting) {
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/junk");
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -354,6 +350,7 @@ TEST_F(InstanceManagerTest, ExecFalse) {
 
     EXPECT_EQ(0, ns_state->status());
     EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
+    ASSERT_TRUE(ns_state->errors().empty() == true);
 
     task_util::WaitForCondition(agent_->event_manager(),
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Error),
@@ -361,6 +358,7 @@ TEST_F(InstanceManagerTest, ExecFalse) {
 
     EXPECT_EQ(InstanceState::Error, ns_state->status_type());
     EXPECT_NE(0, ns_state->status());
+    ASSERT_TRUE(ns_state->errors().empty() == false);
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
