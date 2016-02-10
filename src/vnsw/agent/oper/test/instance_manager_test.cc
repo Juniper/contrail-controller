@@ -254,11 +254,6 @@ protected:
         return agent_->oper_db()->instance_manager()->GetTaskQueue(ss.str());
     }
 
-    void TriggerSigChild(pid_t pid, int status) {
-        boost::system::error_code ec;
-        agent_->oper_db()->instance_manager()->HandleSigChild(ec, SIGCHLD, pid, status);
-    }
-
     void NotifyChange(boost::uuids::uuid id) {
         ServiceInstance *svc_instance = GetServiceInstance(id);
         if (svc_instance == NULL) {
@@ -331,8 +326,8 @@ TEST_F(InstanceManagerTest, ExecTrue) {
     ASSERT_TRUE(node == NULL);
 }
 
-TEST_F(InstanceManagerTest, ExecFalse) {
-    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/false");
+TEST_F(InstanceManagerTest, ExecNotExisting) {
+    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/junk");
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
