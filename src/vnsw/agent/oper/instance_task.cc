@@ -20,23 +20,18 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
 void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
                                                    size_t read_bytes) {
     if (read_bytes) {
-        errors_data_ << rx_buff_;
+        on_error_cb_(this, rx_buff_);
     }
 
     if (ec) {
         boost::system::error_code close_ec;
         errors_.close(close_ec);
 
-        std::string errors = errors_data_.str();
-        if (errors.length() > 0) {
-            LOG(ERROR, "NetNS run errors: " << std::endl << errors);
+        LOG(ERROR, "error value " << ec.value() << " for pid " << pid_ << "\n");
 
-            if (!on_error_cb_.empty()) {
-                on_error_cb_(this, errors);
-            }
+        if (!on_exit_cb_.empty()) {
+            on_exit_cb_(this, ec);
         }
-        errors_data_.clear();
-
         return;
     }
 
