@@ -500,7 +500,6 @@ ArpProto::ArpIterator
 ArpProto::DeleteArpEntry(ArpProto::ArpIterator iter) {
     ArpEntry *entry = iter->second;
     arp_cache_.erase(iter++);
-    ValidateAndClearVrfState(const_cast<VrfEntry *>(entry->key().vrf));
     delete entry;
     return iter;
 }
