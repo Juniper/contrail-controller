@@ -385,17 +385,14 @@ class InstanceManager(object):
                 continue
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
-                vip = False
-                iip_cache = InstanceIpSM.get(iip['uuid'])
-                for port_id in iip_cache.virtual_machine_interfaces:
-                    port = VirtualMachineInterfaceSM.get(port_id)
-                    if port and port.virtual_ip:
-                        vip = True
-                        break
-                if vip:
+                try:
                     self._vnc_lib.ref_update('instance-ip', iip['uuid'],
-                                             'virtual-machine-interface', vmi_id, None, 'DELETE')
-                else:
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
+                except NoIdError:
+                    pass
+
+                iip_obj = self._vnc_lib.instance_ip_read(id=iip['uuid'])
+                if not iip_obj.get_virtual_machine_interface_refs():
                     try:
                         self._vnc_lib.instance_ip_delete(id=iip['uuid'])
                         InstanceIpSM.delete(iip['uuid'])
@@ -403,16 +400,11 @@ class InstanceManager(object):
                         pass
 
             for fip in vmi_obj.get_floating_ip_back_refs() or []:
-                vip = False
-                fip_cache = FloatingIpSM.get(fip['uuid'])
-                for port_id in fip_cache.virtual_machine_interfaces:
-                    port = VirtualMachineInterfaceSM.get(port_id)
-                    if port and port.virtual_ip:
-                        vip = True
-                        break
-                if vip:
+                try:
                     self._vnc_lib.ref_update('floating-ip', fip['uuid'],
-                                             'virtual-machine-interface', vmi_id, None, 'DELETE')
+                        'virtual-machine-interface', vmi_id, None, 'DELETE')
+                except NoIdError:
+                    pass
 
             try:
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
