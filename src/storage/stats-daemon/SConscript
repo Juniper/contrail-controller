@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 import os
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -57,9 +55,16 @@ test = env.Command(None, test_sources,
                    cd_cmd + 'python setup.py test')
 env.Alias('controller/src/storage/stats_daemon:test', test)
 
+# This add'l alias is to allow retry of UT in CI
+env.Alias('controller/src/storage/stats-daemon/stats_daemon:test', test)
+
 if 'install_stats_daemon' in BUILD_TARGETS:
     env.Alias('install_stats_daemon',
               env.Command(None, sources,
                           cd_cmd + 'python setup.py install %s' %
                           env['PYTHON_INSTALL_OPT']))
 env.Alias('install_stats_daemon', env.Install(env['INSTALL_CONF'], 'stats-daemon.conf'))
+
+# Local Variables:
+# mode: python
+# End:
