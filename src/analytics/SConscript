@@ -46,6 +46,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'process_info',
         'base',
         'io',
+        'z',
 	'net',
         'ipfix',
         'misc',
@@ -53,8 +54,6 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'pugixml',
         'hiredis',
         'protobuf',
-        'rdkafka++',
-        'rdkafka',
         'boost_filesystem',
         'boost_program_options'])
 
@@ -115,7 +114,10 @@ buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../l
 
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
-
+    AnalyticsEnv.Prepend(LINKFLAGS =
+                         ['-Wl,--whole-archive',
+                          '-l:librdkafka.a', '-l:librdkafka++.a',
+                          '-Wl,--no-whole-archive'])
 
 def RedisLuaBuild(env, scr_name):
   env.Command('%s_lua.cpp' % scr_name ,'%s.lua' % scr_name,\
