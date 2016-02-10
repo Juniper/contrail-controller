@@ -108,6 +108,7 @@ class VrouterPortControl(object):
         parser.add_argument("--tx_vlan_id", type = int, help = "Transmit VLAN ID")
         parser.add_argument("--rx_vlan_id", type = int, help = "Receive VLAN ID")
         parser.add_argument("--no_persist", type = bool, help = "Dont't store port information in files", default=False)
+        parser.add_argument("--vif_type", choices=['VhostUser', 'Vrouter'], help = "VIF type")
 
         self._args = parser.parse_args(remaining_argv)
 
