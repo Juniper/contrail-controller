@@ -117,8 +117,7 @@ public:
     bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                     uint32_t path_id, uint32_t flags, uint32_t label,
-                     bool notify = false);
+                     uint32_t path_id, uint32_t flags, uint32_t label);
 
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;

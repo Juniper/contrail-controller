@@ -52,6 +52,7 @@
                     "NO_HEAPCHECK=TRUE",
                     "TASK_UTIL_DEFAULT_RETRY_COUNT=6000",
                     "TASK_UTIL_WAIT_TIME=10000",
+                    "WAIT_FOR_IDLE=60",
                     "LOG_DISABLE=TRUE"
                 ],
                 "tests" : [

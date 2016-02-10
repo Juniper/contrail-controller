@@ -90,9 +90,9 @@ public:
     TcpSession::Endpoint local_endpoint() const;
     std::string transport_address_string() const;
 
-    void set_peer_deleted(bool flag = true); // For unit testing only.
+    void set_peer_closed(bool flag);
     bool peer_deleted() const;
-    uint64_t peer_deleted_at() const;
+    uint64_t peer_closed_at() const;
 
     const XmppSession *GetSession() const;
     const Stats &rx_stats() const { return stats_[RX]; }
@@ -241,7 +241,7 @@ private:
     RoutingTableMembershipRequestMap routingtable_membership_request_map_;
     VrfMembershipRequestMap vrf_membership_request_map_;
     BgpXmppChannelManager *manager_;
-    bool close_in_progress_;
+    bool delete_in_progress_;
     bool deleted_;
     bool defer_peer_close_;
     WorkQueue<std::string> membership_response_worker_;
@@ -306,9 +306,9 @@ public:
         return channel_map_.size();
     }
 
-    uint32_t closing_count() const { return closing_count_; }
-    void increment_closing_count() { closing_count_++; }
-    void decrement_closing_count() { closing_count_--; }
+    uint32_t closing_count() const { return deleting_count_; }
+    void increment_deleting_count() { deleting_count_++; }
+    void decrement_deleting_count() { deleting_count_--; }
 
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
@@ -329,7 +329,7 @@ private:
     int admin_down_listener_id_;
     int asn_listener_id_;
     int identifier_listener_id_;
-    uint32_t closing_count_;
+    uint32_t deleting_count_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };

@@ -59,12 +59,12 @@ private:
     friend class PeerCloseManagerTest;
 
     void ProcessClosure();
+    void CloseComplete();
     const std::string GetStateName(State state) const;
 
     struct Stats {
-        Stats() : init(0), close(0), nested(0), deletes(0), stale(0),
-                  sweep(0), gr_timer(0) {
-        }
+        Stats() { memset(this, 0, sizeof(Stats)); }
+
         uint64_t init;
         uint64_t close;
         uint64_t nested;

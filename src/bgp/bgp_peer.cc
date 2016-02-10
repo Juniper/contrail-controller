@@ -1704,7 +1704,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_instance_name(rtinstance_->name());
     bnr->set_peer(peer_basename_);
     bnr->set_deleted(IsDeleted());
-    bnr->set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
+    bnr->set_closed_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
     bnr->set_peer_address(peer_address_string());

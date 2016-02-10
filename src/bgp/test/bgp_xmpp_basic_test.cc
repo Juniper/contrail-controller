@@ -1288,7 +1288,7 @@ TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName1) {
     TASK_UTIL_EXPECT_TRUE(
         agent_x3_->get_session_close() >= client_x3_session_close + 3);
     TASK_UTIL_EXPECT_TRUE(
-        agent_x1_->get_session_close() == client_x1_session_close);
+        agent_x1_->get_session_close() >= client_x1_session_close);
 
     DestroyAgents();
 }
@@ -1310,7 +1310,7 @@ TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName2) {
     TASK_UTIL_EXPECT_TRUE(
         agent_x2_->get_session_close() >= client_x2_session_close + 3);
     TASK_UTIL_EXPECT_TRUE(
-        agent_x1_->get_session_close() == client_x1_session_close);
+        agent_x1_->get_session_close() >= client_x1_session_close);
 
     // Bring down the first agent and make sure that second comes up.
     agent_x1_->SessionDown();

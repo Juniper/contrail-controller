@@ -84,13 +84,15 @@ protected:
     virtual SslSession *AllocSession(SslSocket *socket);
     virtual bool AcceptSession(TcpSession *session);
 
+    typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
+    ConnectionMap connection_map_;
+
 private:
     class DeleteActor;
     friend class BgpXmppBasicTest;
     friend class DeleteActor;
     friend class XmppStateMachineTest;
 
-    typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     typedef std::set<XmppServerConnection *> ConnectionSet;
     typedef std::map<std::string, XmppConnectionEndpoint *> ConnectionEndpointMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
@@ -100,7 +102,6 @@ private:
     void SetConnectionQueueDisable(bool disabled);
     void WorkQueueExitCallback(bool done);
 
-    ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;
     size_t max_connections_;
 
