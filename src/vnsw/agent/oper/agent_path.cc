@@ -1186,6 +1186,16 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
              return false;
          }
          local_ecmp_mpls_label_.reset(mpls);
+         //Check if MPLS is pointing to same NH as mentioned in key list.
+         //It may so happen that by the time this request is serviced(say in
+         //case of remote route add from CN), mpls label ahs been re-used for
+         //some other purpose. If it is so then ignore the request and wait for
+         //another update.
+         if (component_nh_key->nh_key() !=
+             static_cast<const NextHopKey *>(mpls->nexthop()->
+                                             GetDBRequestKey().release())) {
+             return false;
+         }
          break;
      }
 
