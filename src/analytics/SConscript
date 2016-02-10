@@ -43,7 +43,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'xml',
         'process_info',
         'base',
-        'io',
+        'z',
 	'net',
         'ipfix',
         'misc',
@@ -51,8 +51,6 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'pugixml',
         'hiredis',
         'protobuf',
-        'rdkafka++',
-        'rdkafka',
         'boost_filesystem',
         'boost_program_options'])
 
@@ -115,20 +113,10 @@ if sys.platform != 'darwin':
     AnalyticsEnv.Prepend(LINKFLAGS =
                          ['-Wl,--whole-archive',
                           '-lcpuinfo',
+                          '-l:librdkafka.a', '-l:librdkafka++.a',
                           '-Wl,--no-whole-archive'])
 else:
     AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
-
-buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
-                      '../../lib/libcurl.a', '../../lib/libgendb.a', '../../lib/libthrift.a', '../../lib/libcassandra_thrift.a',
-                      '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a',
-                      '../../lib/libsandeshvns.a', '../../lib/libpugixml.a', '../../lib/libhiredis.a',
-                      '../../lib/libboost_program_options.a', '../../lib/libboost_system.a',
-                      '../../lib/liblog4cplus.a', '../../lib/libboost_python.a']
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
-
 
 def RedisLuaBuild(env, scr_name):
   env.Command('%s_lua.cpp' % scr_name ,'%s.lua' % scr_name,\
