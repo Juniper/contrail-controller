@@ -108,14 +108,10 @@ void KSyncFlowIndexManager::Add(FlowEntry *flow) {
 
 void KSyncFlowIndexManager::Change(FlowEntry *flow) {
     KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
+    // Ignore Change operation if a flow entry is marked deleted
+    // or if it doesnot have state INDEX_SET
     if (flow->deleted() ||
-        (index_entry->state_ != KSyncFlowIndexEntry::INDEX_SET &&
-         index_entry->state_ != KSyncFlowIndexEntry::INDEX_FAILED)) {
-        return;
-    }
-
-    // If index not yet assigned for flow, the flow will be written when later
-    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED) {
+        index_entry->state_ != KSyncFlowIndexEntry::INDEX_SET) {
         return;
     }
 

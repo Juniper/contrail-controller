@@ -66,6 +66,9 @@ bool FlowHandler::Run() {
         ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
+        // take lock on flow entry before accessing it, since we need to read
+        // forward flow only take lock only on forward flow
+        tbb::mutex::scoped_lock lock1(fe->mutex());
         assert(flow_table_index_ == fe->flow_table()->table_index());
         if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
             return true;

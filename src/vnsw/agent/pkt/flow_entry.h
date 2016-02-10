@@ -439,7 +439,7 @@ class FlowEntry {
     }
     bool deleted() { return deleted_; }
 
-    bool IsShortFlow() { return (flags_ & (1 << ShortFlow)); }
+    bool IsShortFlow() { return is_flags_set(FlowEntry::ShortFlow); }
     // Flow action routines
     void ResyncFlow();
     bool ActionRecompute();
