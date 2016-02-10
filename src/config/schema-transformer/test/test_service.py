@@ -2469,7 +2469,8 @@ class TestPolicy(test_case.STTestCase):
     def test_bgpaas(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
-        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+        vn1_obj = self.create_virtual_network(vn1_name,
+                                              ['10.0.0.0/24', '1000::/16'])
 
         project_name = ['default-domain', 'default-project']
         project_obj = self._vnc_lib.project_read(fq_name=project_name)
@@ -2478,15 +2479,30 @@ class TestPolicy(test_case.STTestCase):
         port_obj.add_virtual_network(vn1_obj)
         self._vnc_lib.virtual_machine_interface_create(port_obj)
 
+        v6_obj = InstanceIp(name=port_name+'-v6')
+        v6_obj.set_virtual_machine_interface(port_obj)
+        v6_obj.set_virtual_network(vn1_obj)
+        v6_obj.set_instance_ip_family('v6')
+        self._vnc_lib.instance_ip_create(v6_obj)
+
+        v4_obj = InstanceIp(name=port_name+'-v4')
+        v4_obj.set_virtual_machine_interface(port_obj)
+        v4_obj.set_virtual_network(vn1_obj)
+        v4_obj.set_instance_ip_family('v4')
+        self._vnc_lib.instance_ip_create(v4_obj)
+
         bgpaas_name = self.id() + 'bgp1'
         bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj)
         bgpaas.add_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
 
+        router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name
         self.wait_to_get_object(config_db.BgpAsAServiceST,
                                 bgpaas.get_fq_name_str())
-        self.wait_to_get_object(config_db.BgpRouterST,
-                                vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name)
+        self.wait_to_get_object(config_db.BgpRouterST, router1_name)
+        router1_obj = self._vnc_lib.bgp_router_read(fq_name_str=router1_name)
+        self.assertEqual(router1_obj.get_bgp_router_parameters().address,
+                         '10.0.0.252')
 
         port2_name = self.id() + 'p2'
         port2_obj = VirtualMachineInterface(port2_name, parent_obj=project_obj)
@@ -2494,15 +2510,18 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_machine_interface_create(port2_obj)
         bgpaas.add_virtual_machine_interface(port2_obj)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
-        self.wait_to_get_object(config_db.BgpRouterST,
-                                vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port2_name)
+        router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port2_name
+        self.wait_to_get_object(config_db.BgpRouterST, router2_name)
 
         bgpaas.del_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
-        self.wait_to_delete_object(config_db.BgpRouterST,
-                                   vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name)
+        self.wait_to_delete_object(config_db.BgpRouterST, router1_name)
         self._vnc_lib.bgp_as_a_service_delete(id=bgpaas.uuid)
-        self.wait_to_delete_object(config_db.BgpRouterST,
-                                   vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port2_name)
+        self.wait_to_delete_object(config_db.BgpRouterST, router2_name)
+
+        self._vnc_lib.instance_ip_delete(id=v6_obj.uuid)
+        self._vnc_lib.instance_ip_delete(id=v4_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=port2_obj.uuid)
     # end test_bgpaas
 # end class TestRouteTable

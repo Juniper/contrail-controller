@@ -3082,17 +3082,15 @@ class VirtualMachineInterfaceST(DBBaseST):
                 continue
             if not ip.service_instance_ip:
                 continue
-            if not ip_version or IPAddress(ip.address).version == ip_version:
+            if not ip_version or ip.ip_version == ip_version:
                 return ip.address
         return None
     # end get_any_instance_ip_address
 
-    def get_primary_instance_ip_address(self):
+    def get_primary_instance_ip_address(self, ip_version=4):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
-            if ip.address is None:
-                continue
-            if ip.is_primary():
+            if ip.is_primary() and ip.address and ip_version == ip.ip_version:
                 return ip.address
         return None
     # end get_primary_instance_ip_address
@@ -3234,16 +3232,16 @@ class VirtualMachineInterfaceST(DBBaseST):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
             if ip and ip.address:
-                ip_list.append(ip.address)
+                ip_list.append(ip)
         for ip_name in self.floating_ips:
             ip = FloatingIpST.get(ip_name)
             if ip and ip.address:
-                ip_list.append(ip.address)
+                ip_list.append(ip)
         for ip in ip_list:
-            if IPAddress(ip).version == 6:
-                address = AddressType(subnet=SubnetType(ip, 128))
+            if ip.ip_version == 6:
+                address = AddressType(subnet=SubnetType(ip.address, 128))
             else:
-                address = AddressType(subnet=SubnetType(ip, 32))
+                address = AddressType(subnet=SubnetType(ip.address, 32))
 
             mc = MatchConditionType(src_address=address,
                                     protocol='any',
@@ -3321,12 +3319,15 @@ class InstanceIpST(DBBaseST):
         self.name = name
         self.is_secondary = False
         self.virtual_machine_interfaces = set()
+        self.ip_version = None
         self.update(obj)
     # end __init
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         self.address = self.obj.get_instance_ip_address()
+        if self.address:
+            self.ip_version = IPAddress(self.address).version
         self.service_instance_ip = self.obj.get_service_instance_ip()
         self.is_secondary = self.obj.get_instance_ip_secondary() or False
         self.update_multiple_refs('virtual_machine_interface', self.obj)
@@ -3361,12 +3362,15 @@ class FloatingIpST(DBBaseST):
     def __init__(self, name, obj=None):
         self.name = name
         self.virtual_machine_interface = None
+        self.ip_version = None
         self.update(obj)
     # end __init
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
         self.address = self.obj.get_floating_ip_address()
+        if self.address:
+            self.ip_version = IPAddress(self.address).version
         self.update_single_ref('virtual_machine_interface', self.obj)
     # end update
 
