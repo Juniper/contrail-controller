@@ -158,7 +158,7 @@ class FloatingIpServer(FloatingIpServerGen):
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
-    # end dbe_delete_notification
+    ## end dbe_delete_notification
 
 # end class FloatingIpServer
 
