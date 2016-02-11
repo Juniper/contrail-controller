@@ -502,6 +502,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         }
     }
 
+    flow_info->ecmp = true;
     if (nh && nh->GetType() == NextHop::COMPOSITE) {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         //Find component entry index in composite NH
@@ -1080,6 +1081,12 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
     if (out->rt_) {
         const NextHop* nh = out->rt_->GetActiveNextHop();
+
+        if (nh && nh->GetType() == NextHop::COMPOSITE) {
+            const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+            nh = comp_nh->GetNH(out_component_nh_idx);
+        }
+
         if (nh && nh->GetType() == NextHop::TUNNEL) {
             const TunnelNH* tunnel_nh = static_cast<const TunnelNH *>(nh);
             const Ip4Address *ip = tunnel_nh->GetDip();
@@ -1329,6 +1336,11 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (in->rt_->GetActiveNextHop() &&
         in->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
         SetInEcmpIndex(pkt, this, in, out);
+    }
+
+    if (out->rt_ && out->rt_->GetActiveNextHop() &&
+        out->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
+        ecmp = true;
     }
 
     if (ecmp == true && nat_done == false) {
