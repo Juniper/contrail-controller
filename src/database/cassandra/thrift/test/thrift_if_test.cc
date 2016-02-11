@@ -23,44 +23,6 @@ protected:
     }
     virtual void TearDown() {
     }
-    void GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
-        GenDb::DbErrors *dbe) {
-        stats_.Get(vdbti, dbe);
-    }
-    void UpdateErrorsWriteTablespace() {
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
-    }
-    void UpdateStatsCfWrite(const std::string &cfname) {
-        stats_.UpdateCf(cfname, true, false);
-    }
-    void UpdateStatsAll(const std::string &cfname) {
-        // Write success
-        stats_.UpdateCf(cfname, true, false);
-        // Write fail
-        stats_.UpdateCf(cfname, true, true);
-        // Read success
-        stats_.UpdateCf(cfname, false, false);
-        // Read fail
-        stats_.UpdateCf(cfname, false, true);
-        // Increment errors of each type
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_TABLESPACE);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_TABLESPACE);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN_FAMILY);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN_FAMILY);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_COLUMN);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_WRITE_BATCH_COLUMN);
-        stats_.IncrementErrors(
-            ThriftIfImpl::ThriftIfStats::THRIFTIF_STATS_ERR_READ_COLUMN);
-    }
-
-    ThriftIfImpl::ThriftIfStats stats_;
 };
 
 TEST_F(ThriftIfTest, EncodeDecodeString) {
@@ -353,50 +315,6 @@ TEST_F(ThriftIfTest, EncodeDecodeCompositeVector) {
     EXPECT_EQ(col_name[1], dec_col_name[1]);
     uint32_t t1 = boost::get<uint32_t>(dec_col_name.at(1));
     ASSERT_EQ(T1, t1);
-}
-
-TEST_F(ThriftIfTest, Stats) {
-    // Update Cf stats
-    const std::string cfname("FakeColumnFamily");
-    UpdateStatsAll(cfname);
-    // Get and verify
-    std::vector<GenDb::DbTableInfo> vdbti;
-    GenDb::DbErrors adbe;
-    GetStats(&vdbti, &adbe);
-    ASSERT_EQ(1, vdbti.size());
-    GenDb::DbTableInfo edbti;
-    edbti.set_table_name(cfname);
-    edbti.set_reads(1);
-    edbti.set_read_fails(1);
-    edbti.set_writes(1);
-    edbti.set_write_fails(1);
-    EXPECT_EQ(edbti, vdbti[0]);
-    vdbti.clear();
-    GenDb::DbErrors edbe;
-    edbe.set_write_tablespace_fails(1);
-    edbe.set_read_tablespace_fails(1);
-    edbe.set_write_table_fails(1);
-    edbe.set_read_table_fails(1);
-    edbe.set_write_column_fails(1);
-    edbe.set_write_batch_column_fails(1);
-    edbe.set_read_column_fails(1);
-    EXPECT_EQ(edbe, adbe);
-    // Diffs
-    // Write success
-    UpdateStatsCfWrite(cfname);
-    UpdateErrorsWriteTablespace();
-    // Get and verify
-    GenDb::DbErrors adbe_diffs;
-    GetStats(&vdbti, &adbe_diffs);
-    ASSERT_EQ(1, vdbti.size());
-    GenDb::DbTableInfo edbti_diffs;
-    edbti_diffs.set_table_name(cfname);
-    edbti_diffs.set_writes(1);
-    EXPECT_EQ(edbti_diffs, vdbti[0]);
-    vdbti.clear();
-    GenDb::DbErrors edbe_diffs;
-    edbe_diffs.set_write_tablespace_fails(1);
-    EXPECT_EQ(edbe_diffs, adbe_diffs);
 }
 
 int main(int argc, char **argv) {

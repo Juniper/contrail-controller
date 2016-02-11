@@ -10,6 +10,7 @@
 include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
 include "database/gendb.sandesh"
+include "database/cassandra/cql/cql.sandesh"
 
 /**
  * structure to store sandesh stats on a per message type
@@ -64,7 +65,7 @@ struct GeneratorInfo {
 objectlog sandesh GeneratorDbStats {
     1: string                             name (key="ObjectGeneratorInfo")
     2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
-    3: optional list<gendb.DbErrors>      errors (tags="")
+    3: optional gendb.DbErrors            errors (tags="")
     4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
@@ -108,9 +109,9 @@ struct GeneratorSummaryInfo {
     4: string                              instance_id
     5: string                              node_type
     6: u64                                 sm_queue_count
-    7: u64                                 db_queue_count
+    7: optional u64                        db_queue_count
     8: string                              sm_drop_level
-    9: string                              db_drop_level
+    9: optional string                     db_drop_level
 }
 
 /**
@@ -122,6 +123,19 @@ struct CollectorStats {
     3: u64                                 redis_error
     4: u64                                 session_mismatch_error
     5: u64                                 sandesh_type_mismatch_error
+}
+
+/**
+ * @description: This structure is used to send statistics data related to
+ * database operations in the contrail-collector
+ * @object: analytics-node
+ */
+objectlog sandesh CollectorDbStats {
+    1: string                             name (key="ObjectCollectorInfo")
+    2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    3: optional gendb.DbErrors            errors (tags="")
+    4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
+    5: optional cql.DbStats               cql_stats (tags="")
 }
 
 /**
@@ -138,7 +152,7 @@ objectlog sandesh ProtobufCollectorStats {
     6: optional list<gendb.DbErrors>                db_errors (tags="")
     7: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
     8: optional u64                                 db_queue_count
-    9: optional u64				    db_enqueues
+    9: optional u64                                 db_enqueues
 }
 
 /**
@@ -156,6 +170,7 @@ response sandesh ShowCollectorServerResp {
     3: u64                                 num_generators
     4: list<GeneratorSummaryInfo>          generators
     5: CollectorStats                      stats
+    6: optional cql.Metrics                cql_metrics
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this

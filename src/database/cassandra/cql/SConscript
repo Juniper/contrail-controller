@@ -9,7 +9,11 @@ CqlIfEnv.Append(CPPPATH = ['/usr/include'])
 
 local_srcs = ['cql_if.cc']
 
-srcs = local_srcs
+gen_files = CqlIfEnv.SandeshGenCpp('cql.sandesh')
+gen_srcs = CqlIfEnv.ExtractCpp(gen_files)
+
+srcs = local_srcs + gen_srcs
+
 libcasscql = CqlIfEnv.Library('cassandra_cql', srcs)
 CqlIfEnv.Install(CqlIfEnv['TOP_LIB'], libcasscql)
 

@@ -32,6 +32,7 @@
 #include "viz_message.h"
 #include "uflow_types.h"
 #include "viz_constants.h"
+#include <database/cassandra/cql/cql_types.h>
 
 class DbHandler {
 public:
@@ -140,7 +141,8 @@ public:
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
     void GetSandeshStats(std::string *drop_level,
         std::vector<SandeshStats> *vdropmstats) const;
-
+    bool GetCqlMetrics(cass::cql::Metrics *metrics) const;
+    bool GetCqlStats(cass::cql::DbStats *stats) const;
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
         boost::function<void (void)> defer_undefer_cb);
     void ResetDbQueueWaterMarkInfo();

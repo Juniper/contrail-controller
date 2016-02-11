@@ -26,7 +26,6 @@
 #include <sandesh/sandesh_session.h>
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
-#include <sandesh/request_pipeline.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <discovery/client/discovery_client.h>
 #include <discovery_client_stats_types.h>
@@ -377,8 +376,10 @@ void Collector::SendGeneratorStatistics() {
         }
         // Sandesh message info
         gen->SendSandeshMessageStatistics();
-        // DB stats
-        gen->SendDbStatistics();
+        // DB stats are only sent if each generator has its only DBHandler
+        if (!UseGlobalDbHandler()) {
+            gen->SendDbStatistics();
+        }
     }
 }
 
@@ -415,16 +416,18 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
             ginfo.set_sm_stats(sm_stats);
             ginfo.set_sm_msg_stats(sm_msg_stats);
         }
-        uint64_t db_queue_count;
-        uint64_t db_enqueues;
-        std::string db_drop_level;
-        vector<SandeshStats> vdropmstats;
-        if (gen->GetDbStats(&db_queue_count, &db_enqueues,
-                &db_drop_level, &vdropmstats)) {
-            ginfo.set_db_queue_count(db_queue_count);
-            ginfo.set_db_enqueues(db_enqueues);
-            ginfo.set_db_drop_level(db_drop_level);
-            ginfo.set_db_dropped_msg_stats(vdropmstats);
+        if (!UseGlobalDbHandler()) {
+            uint64_t db_queue_count;
+            uint64_t db_enqueues;
+            std::string db_drop_level;
+            vector<SandeshStats> vdropmstats;
+            if (gen->GetDbStats(&db_queue_count, &db_enqueues,
+                    &db_drop_level, &vdropmstats)) {
+                ginfo.set_db_queue_count(db_queue_count);
+                ginfo.set_db_enqueues(db_enqueues);
+                ginfo.set_db_drop_level(db_drop_level);
+                ginfo.set_db_dropped_msg_stats(vdropmstats);
+            }
         }
         // Only send if generator is connected
         VizSession *session = gen->session();
@@ -469,13 +472,15 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> *genlist) {
             if (gen->GetSandeshStateMachineDropLevel(sm_drop_level)) {
                 gsinfo.set_sm_drop_level(sm_drop_level);
             }
-            uint64_t db_queue_count;
-            uint64_t db_enqueues;
-            std::string db_drop_level;
-            if (gen->GetDbStats(&db_queue_count, &db_enqueues,
-                    &db_drop_level, NULL)) {
-                gsinfo.set_db_queue_count(db_queue_count);
-                gsinfo.set_db_drop_level(db_drop_level);
+            if (!UseGlobalDbHandler()) {
+                uint64_t db_queue_count;
+                uint64_t db_enqueues;
+                std::string db_drop_level;
+                if (gen->GetDbStats(&db_queue_count, &db_enqueues,
+                        &db_drop_level, NULL)) {
+                    gsinfo.set_db_queue_count(db_queue_count);
+                    gsinfo.set_db_drop_level(db_drop_level);
+                }
             }
             genlist->push_back(gsinfo);
         }
@@ -589,55 +594,6 @@ void Collector::GetSmQueueWaterMarkInfo(
     GetQueueWaterMarkInfo(QueueType::Sm, wm_info);
 }
 
-class ShowCollectorServerHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps, int stage, int instNum,
-            RequestPipeline::InstData *data) {
-        const ShowCollectorServerReq *req =
-            static_cast<const ShowCollectorServerReq *>(ps.snhRequest_.get());
-        ShowCollectorServerResp *resp = new ShowCollectorServerResp;
-        VizSandeshContext *vsc =
-            dynamic_cast<VizSandeshContext *>(req->client_context());
-        if (!vsc) {
-            LOG(ERROR, __func__ << ": Sandesh client context NOT PRESENT");
-            resp->Response();
-            return true;
-        }
-        // Socket statistics
-        SocketIOStats rx_socket_stats;
-        vsc->Analytics()->GetCollector()->GetRxSocketStats(rx_socket_stats);
-        resp->set_rx_socket_stats(rx_socket_stats);
-        SocketIOStats tx_socket_stats;
-        vsc->Analytics()->GetCollector()->GetTxSocketStats(tx_socket_stats);
-        resp->set_tx_socket_stats(tx_socket_stats);
-        // Collector statistics
-        resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
-        // SandeshGenerator summary info
-        vector<GeneratorSummaryInfo> generators;
-        vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(&generators);
-        resp->set_generators(generators);
-        resp->set_num_generators(generators.size());
-        // Send the response
-        resp->set_context(req->context());
-        resp->Response();
-        return true;
-    }
-};
-
-void ShowCollectorServerReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-
-    // Request pipeline has single stage to collect neighbor config info
-    // and respond to the request
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("collector::ShowCommand");
-    s1.cbFn_ = ShowCollectorServerHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
-    RequestPipeline rp(ps);
-}
 
 static void SendQueueParamsError(std::string estr, const std::string &context) {
     // SandeshGenerator is required, send error

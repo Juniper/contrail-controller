@@ -71,11 +71,13 @@ public:
             CollectorPublish();
         }
     }
+    void SendDbStatistics();
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
     void TestDatabaseConnection();
     void CollectorPublish();
-    
+    bool GetCqlMetrics(cass::cql::Metrics *metrics);
+
     static const unsigned int kPartCountCnodes = 1;
     static const unsigned int kPartMinTotalCount = 15;
     static std::pair<unsigned int,unsigned int> PartitionRange(
