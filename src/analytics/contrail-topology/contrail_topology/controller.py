@@ -7,6 +7,7 @@ from topology_uve import LinkUve
 import gevent
 from gevent.coros import Semaphore
 from opserver.consistent_schdlr import ConsistentScheduler
+import traceback
 
 class PRouter(object):
     def __init__(self, name, data):
@@ -21,6 +22,7 @@ class Controller(object):
         self.uve = LinkUve(self._config)
         self.sleep_time()
         self._keep_running = True
+        self._vnc = self._config.vnc_api()
 
     def stop(self):
         self._keep_running = False
@@ -102,6 +104,38 @@ class Controller(object):
                     return d['ifOperStatus'] == 1
         return False
 
+    def bms_links(self, prouter, ifm):
+        if not self._vnc:
+            self._vnc = self._config.vnc_api()
+        if self._vnc:
+            try:
+                for li in self._vnc.logical_interfaces_list()[
+                            'logical-interfaces']:
+                    if prouter.name in li['fq_name']:
+                        lif = self._vnc.logical_interface_read(id=li['uuid'])
+                        for vmif in lif.get_virtual_machine_interface_refs():
+                            vmi = self._vnc.virtual_machine_interface_read(
+                                    id=vmif['uuid'])
+                            for mc in vmi.virtual_machine_interface_mac_addresses.get_mac_address():
+                                ifi = [k for k in ifm if ifm[k] in li[
+                                                    'fq_name']][0]
+                                rsys = '-'.join(['bms', 'host'] + mc.split(
+                                            ':'))
+                                if self._add_link(
+                                        prouter=prouter,
+                                        remote_system_name=rsys,
+                                        local_interface_name=li['fq_name'][
+                                                                    -1],
+                                        remote_interface_name='em0',#no idea
+                                        local_interface_index=ifi,
+                                        remote_interface_index=1, #dont know TODO:FIX
+                                        link_type=2):
+                                    pass
+            except:
+                traceback.print_exc()
+                self._vnc = None # refresh
+
+
     def compute(self):
         self.link = {}
         for prouter in self.constnt_schdlr.work_items():
@@ -112,6 +146,7 @@ class Controller(object):
             lldp_ints = []
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
+            self.bms_links(prouter, ifm)
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
                 if d['PRouterEntry']['lldpTable']['lldpLocalSystemData'][
                     'lldpLocSysDesc'].startswith('Cisco'):
