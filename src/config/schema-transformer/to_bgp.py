@@ -3151,6 +3151,8 @@ class SchemaTransformer(object):
             if result_type != 'searchResult' and not self.ifmap_search_done:
                 self.ifmap_search_done = True
                 self.process_stale_objects()
+                self.current_network_set = VirtualNetworkST.keys()
+                something_done = True
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
                 if result_type == 'deleteResult':
@@ -3174,7 +3176,11 @@ class SchemaTransformer(object):
         if not something_done:
             _sandesh._logger.debug("Process IF-MAP: Nothing was done, skip.")
             return
+        if self.ifmap_search_done:
+            self.process_networks()
+    # end process_poll_results
 
+    def process_networks(self):
         # Second pass to construct ACL entries and connectivity table
         for network_name in self.current_network_set:
             virtual_network = VirtualNetworkST.get(network_name)
@@ -3457,6 +3463,14 @@ class SchemaTransformer(object):
 # end class SchemaTransformer
 
 
+def set_ifmap_search_done(transformer):
+    gevent.sleep(60)
+    transformer.ifmap_search_done = True
+    transformer.process_stale_objects()
+    transformer.current_network_set = list(VirtualNetworkST.keys())
+    transformer.process_networks()
+# end set_ifmap_search_done
+
 def launch_arc(transformer, ssrc_mapc):
     arc_mapc = arc_initialize(transformer._args, ssrc_mapc)
     while True:
@@ -3466,7 +3480,12 @@ def launch_arc(transformer, ssrc_mapc):
                 time.sleep(1)
                 continue
             pollreq = PollRequest(arc_mapc.get_session_id())
+            glet = None
+            if not transformer.ifmap_search_done:
+                glet = gevent.spawn(set_ifmap_search_done, transformer)
             result = arc_mapc.call('poll', pollreq)
+            if glet:
+                glet.kill()
             transformer.process_poll_result(result)
         except Exception as e:
             if type(e) == socket.error:
@@ -3491,6 +3510,7 @@ def launch_arc(transformer, ssrc_mapc):
 def launch_ssrc(transformer):
     while True:
         ssrc_mapc = ssrc_initialize(transformer._args)
+        transformer.ifmap_search_done = False
         transformer.arc_task = gevent.spawn(launch_arc, transformer, ssrc_mapc)
         transformer.arc_task.join()
 # end launch_ssrc
