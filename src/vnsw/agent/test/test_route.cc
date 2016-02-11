@@ -2200,6 +2200,90 @@ TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
     client->WaitForIdle();
 }
 
+// https://bugs.launchpad.net/juniperopenstack/+bug/1458194
+TEST_F(RouteTest, EcmpTest_1) {
+    ComponentNHKeyList comp_nh_list;
+
+    const Agent *agent = Agent::GetInstance();
+    int remote_server_ip = 0x0A0A0A0A;
+    int label = agent->mpls_table()->AllocLabel();
+    int nh_count = 3;
+
+
+    //Create CNH
+    ComponentNHKeyList component_nh_list;
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
+                                        false,
+                                        component_nh_list,
+                                        vrf_name_));
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Enqueue(&nh_req);
+    client->WaitForIdle();
+    //Attach CNH to MPLS
+    DBRequest req1;
+    req1.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    MplsLabelKey *key1 = new MplsLabelKey(MplsLabel::VPORT_NH, label);
+    req1.key.reset(key1);
+    MplsLabelData *data1 = new MplsLabelData(Composite::LOCAL_ECMP, true,
+                                             component_nh_list,
+                                             vrf_name_);
+    req1.data.reset(data1);
+    agent->mpls_table()->Enqueue(&req1);
+    client->WaitForIdle();
+
+    BgpPeer *peer = CreateBgpPeer("127.0.0.1", "remote");
+    client->WaitForIdle();
+    MplsLabel *mpls =
+        agent->mpls_table()->FindMplsLabel(label);
+    DBEntryBase::KeyPtr key_tmp = mpls->nexthop()->GetDBRequestKey();
+    NextHopKey *comp_nh_key = static_cast<NextHopKey *>(key_tmp.release());
+    std::auto_ptr<const NextHopKey> nh_key_ptr(comp_nh_key);
+    ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                   nh_key_ptr));
+    comp_nh_list.push_back(component_nh_key);
+    for(int i = 1; i < nh_count; i++) {
+        ComponentNHKeyPtr comp_nh(new ComponentNHKey((label + i),
+            Agent::GetInstance()->fabric_vrf_name(),
+            Agent::GetInstance()->router_id(),
+            Ip4Address(remote_server_ip++),
+            false, TunnelType::AllType()));
+        comp_nh_list.push_back(comp_nh);
+    }
+
+    SecurityGroupList sg_id_list;
+    TaskScheduler::GetInstance()->Stop();
+    //Move label to tunnel enqueue request
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData("vnet1", false,
+                                            InterfaceNHFlags::INET4);
+    req.data.reset(data);
+
+    agent->mpls_table()->Enqueue(&req);
+    //Now add ecmp tunnel add request
+    EcmpTunnelRouteAdd(peer, vrf_name_, remote_vm_ip_, 32, 
+                       comp_nh_list, false, "test", sg_id_list,
+                       PathPreference());
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Start();
+
+    //DeleteRoute(vrf_name_.c_str(), remote_vm_ip_, 32, peer); 
+    Agent::GetInstance()->fabric_inet4_unicast_table()->
+        DeleteReq(peer, vrf_name_.c_str(), remote_vm_ip_, 32,
+                  new ControllerVmRoute(peer));
+    MplsLabel::DeleteReq(agent, label);
+    client->WaitForIdle(5);
+    EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
+    CompositeNHKey comp_key(Composite::ECMP, true, comp_nh_list, vrf_name_);
+    EXPECT_FALSE(FindNH(&comp_key));
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
+}
 
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
