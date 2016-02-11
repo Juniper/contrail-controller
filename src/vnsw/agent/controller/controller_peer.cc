@@ -1984,6 +1984,9 @@ bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
                 nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
             }
         } else {
+            if (path == NULL)
+                path = route->FindPath(agent_->local_peer());
+
             if (path) {
                 nh.label = path->vxlan_id();
                 item.entry.nlri.ethernet_tag = nh.label;
