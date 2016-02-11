@@ -205,11 +205,13 @@ HaStaleDevVnTable::HaStaleDevVnTable(Agent *agent,
 }
 
 HaStaleDevVnTable::~HaStaleDevVnTable() {
+    // validate vn_table and vn_reeval_queue are deleted
+    // before the destuctor is called
+    assert(vn_table_ == NULL && vn_reeval_queue_ == NULL);
+
     // Cancel timer if running
     stale_clear_timer_->Cancel();
     TimerManager::DeleteTimer(stale_clear_timer_);
-    vn_reeval_queue_->Shutdown();
-    delete vn_reeval_queue_;
     manager_->Free(route_peer_.release());
 }
 
@@ -260,6 +262,12 @@ void HaStaleDevVnTable::DeleteTableDone() {
         vn_table_->DeleteTable();
         vn_table_ = NULL;
     }
+
+    if (vn_reeval_queue_ != NULL) {
+        vn_reeval_queue_->Shutdown();
+        delete vn_reeval_queue_;
+        vn_reeval_queue_ = NULL;
+    }
 }
 
 void HaStaleDevVnTable::EmptyTable() {
@@ -272,7 +280,11 @@ void HaStaleDevVnTable::EmptyTable() {
 }
 
 void HaStaleDevVnTable::VnReEvalEnqueue(const boost::uuids::uuid &vn_uuid) {
-    vn_reeval_queue_->Enqueue(vn_uuid);
+    // vn_reeval_queue_ will be NULL if delete of the table
+    // is already triggered
+    if (vn_reeval_queue_ != NULL) {
+        vn_reeval_queue_->Enqueue(vn_uuid);
+    }
 }
 
 bool HaStaleDevVnTable::VnReEval(const boost::uuids::uuid &vn_uuid) {
