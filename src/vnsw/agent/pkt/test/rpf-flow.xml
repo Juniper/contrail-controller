@@ -87,7 +87,7 @@
          dvn="vn1" action="pass" rpf_nh="12"/>
         <flow name="l3-udp-from-ecmp-vm" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.6"
          dip="1.1.1.2" proto="udp" sport="1" dport="14" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="2"/>
+         dvn="vn1" action="pass" rpf_nh="25"/>
     </validate>
 
     <!-- Update SG of the interface and verify RPF NH gets
