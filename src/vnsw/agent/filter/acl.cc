@@ -715,8 +715,10 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
     }
     protocol.push_back(rs);
 
-    // src port, check for not icmp
-    if (match_condition->protocol.compare("1") != 0) {
+    // check for not icmp/icmpv6
+    if ((match_condition->protocol.compare("1") != 0) &&
+        (match_condition->protocol.compare("58") != 0)) {
+        //src port
         PortType sp;
         sp = match_condition->src_port;
         rs.min = sp.start_port;
@@ -725,10 +727,8 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
             rs.min = 0;
         }
         src_port.push_back(rs);
-    }
 
-    // dst port, check for not icmp
-    if (match_condition->protocol.compare("1") != 0) {
+        //dst port
         PortType dp;
         dp = match_condition->dst_port;
         rs.min = dp.start_port;
