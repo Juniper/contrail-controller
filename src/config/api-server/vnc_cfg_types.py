@@ -146,20 +146,6 @@ class FloatingIpServer(FloatingIpServerGen):
         return True, ""
     # end http_delete_fail
 
-    @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        fip_addr = obj_dict['floating_ip_address']
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
-    # end dbe_create_notification
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        fip_addr = obj_dict['floating_ip_address']
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
-    # end dbe_delete_notification
-
 # end class FloatingIpServer
 
 
@@ -294,20 +280,6 @@ class InstanceIpServer(InstanceIpServerGen):
 
         return True, ""
     # end http_delete_fail
-
-    @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        ip_addr = obj_dict['instance_ip_address']
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
-    # end dbe_create_notification
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        ip_addr = obj_dict['instance_ip_address']
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
-    # end dbe_delete_notification
 
 # end class InstanceIpServer
 
