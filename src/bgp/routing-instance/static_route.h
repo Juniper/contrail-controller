@@ -84,6 +84,7 @@ public:
     const StaticRouteMap &static_route_map() const { return static_route_map_; }
 
     virtual void NotifyAllRoutes();
+    virtual void UpdateAllRoutes();
     virtual uint32_t GetRouteCount() const;
     virtual uint32_t GetDownRouteCount() const;
     virtual bool FillStaticRouteInfo(RoutingInstance *rtinstance,
