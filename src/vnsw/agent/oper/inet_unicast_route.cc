@@ -117,8 +117,7 @@ static void Inet4UnicastTableEnqueue(Agent *agent, DBRequest *req) {
 
 static void Inet6UnicastTableEnqueue(Agent *agent, const string &vrf_name,
                                      DBRequest *req) {
-    AgentRouteTable *table =
-        agent->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
+    AgentRouteTable *table = agent->fabric_inet4_unicast_table();
     if (table) {
         table->Enqueue(req);
     }
