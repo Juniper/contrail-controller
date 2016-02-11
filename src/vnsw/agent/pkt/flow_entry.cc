@@ -392,6 +392,7 @@ void intrusive_ptr_release(FlowEntry *fe) {
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
         if (fe->on_tree()) {
+            flow_table->ConcurrencyCheck();
             FlowTable::FlowEntryMap::iterator it =
                 flow_table->flow_entry_map_.find(fe->key());
             assert(it != flow_table->flow_entry_map_.end());

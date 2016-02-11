@@ -403,7 +403,7 @@ protected:
 
 class SetupTask : public Task {
     public:
-        SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent)), -1), test_(test) {
+        SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent)), 0), test_(test) {
         }
         virtual bool Run() {
             FlowProto *proto = test_->get_flow_proto();

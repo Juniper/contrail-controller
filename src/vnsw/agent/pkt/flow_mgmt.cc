@@ -160,7 +160,7 @@ void FlowMgmtManager::RetryVrfDeleteEvent(const VrfEntry *vrf) {
     request_queue_.Enqueue(req);
 }
 
-void FlowMgmtManager::EnqueueFlowEvent(const FlowEvent &event) {
+void FlowMgmtManager::EnqueueFlowEvent(FlowEvent *event) {
     agent_->pkt()->get_flow_proto()->EnqueueFlowEvent(event);
 }
 
@@ -259,8 +259,8 @@ bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
 
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
-        FlowEvent flow_resp(event, (*it)->key(), true);
-        flow_resp.set_flow(*it);
+        FlowEvent *flow_resp = new FlowEvent(event, (*it)->key(), true);
+        flow_resp->set_flow(*it);
         mgr->EnqueueFlowEvent(flow_resp);
         it++;
     }
@@ -342,14 +342,6 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
     case FlowMgmtRequest::DELETE_FLOW: {
         //Handle the Delete request for flow-mgmt
         DeleteFlow(req->flow());
-        // On return from here reference to the flow is removed which can
-        // result in deletion of flow from the tree. But, flow management runs
-        // in parallel to flow processing. As a result, it can result in tree
-        // being modified by two threads. Avoid the concurrency issue by
-        // enqueuing a dummy request to flow-table queue. The reference will
-        // be removed in flow processing context
-        FlowEvent flow_resp(FlowEvent::FREE_FLOW_REF, req->flow().get());
-        EnqueueFlowEvent(flow_resp);
         break;
     }
 
@@ -387,6 +379,27 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
          assert(0);
 
     }
+
+    // Flow management runs in parallel to flow processing. As a result,
+    // we need to ensure that last reference for flow will go away from
+    // kTaskFlowEvent context only. This is ensured by following 2 actions
+    //
+    // 1. On return from here reference to the flow is removed which can
+    //    potentially be last reference. So, enqueue a dummy request to
+    //    flow-table queue.
+    // 2. Due to OS scheduling, its possible that the request we are
+    //    enqueuing completes even before this function is returned. So,
+    //    drop the reference immediately after allocating the event
+    if (req->flow().get()) {
+        tbb::mutex::scoped_lock lock(req->flow()->mutex());
+        if (req->flow()->deleted()) {
+            FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
+                                             req->flow().get());
+            req->set_flow(NULL);
+            EnqueueFlowEvent(event);
+        }
+    }
+
     return true;
 }
 
@@ -820,9 +833,7 @@ void FlowMgmtTree::FreeNotify(FlowMgmtKey *key, uint32_t gen_id) {
     FlowEvent::Event event = key->FreeDBEntryEvent();
     if (event == FlowEvent::INVALID)
         return;
-
-    FlowEvent resp(event, key->db_entry(), gen_id);
-    mgr_->EnqueueFlowEvent(resp);
+    mgr_->EnqueueFlowEvent(new FlowEvent(event, key->db_entry(), gen_id));
 }
 
 // An object is added/updated. Enqueue REVALUATE for flows dependent on it
@@ -895,11 +906,11 @@ bool FlowMgmtEntry::OperEntryAdd(FlowMgmtManager *mgr,
     if (event == FlowEvent::INVALID)
         return false;
 
-    FlowEvent flow_resp(event, NULL, key->db_entry());
-    key->KeyToFlowRequest(&flow_resp);
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
-        flow_resp.set_flow(*it);
+        FlowEvent *flow_resp = new FlowEvent(event, NULL, key->db_entry());
+        key->KeyToFlowRequest(flow_resp);
+        flow_resp->set_flow(*it);
         mgr->EnqueueFlowEvent(flow_resp);
         it++;
     }
@@ -923,11 +934,11 @@ bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
     if (event == FlowEvent::INVALID)
         return false;
 
-    FlowEvent flow_resp(event, NULL, key->db_entry());
-    key->KeyToFlowRequest(&flow_resp);
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
-        flow_resp.set_flow(*it);
+        FlowEvent *flow_resp = new FlowEvent(event, NULL, key->db_entry());
+        key->KeyToFlowRequest(flow_resp);
+        flow_resp->set_flow(*it);
         mgr->EnqueueFlowEvent(flow_resp);
         it++;
     }

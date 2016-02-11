@@ -61,7 +61,8 @@ FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     table_index_(table_index),
     ksync_object_(NULL),
     flow_entry_map_(),
-    free_list_(this) {
+    free_list_(this),
+    flow_task_id_(0) {
 }
 
 FlowTable::~FlowTable() {
@@ -69,6 +70,7 @@ FlowTable::~FlowTable() {
 }
 
 void FlowTable::Init() {
+    flow_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowEvent);
     FlowEntry::Init();
     rand_gen_ = boost::uuids::random_generator();
     return;
@@ -78,6 +80,19 @@ void FlowTable::InitDone() {
 }
 
 void FlowTable::Shutdown() {
+}
+
+// Concurrency check to ensure all flow-table and free-list manipulations
+// are done from FlowEvent task context only
+void FlowTable::ConcurrencyCheck() {
+    Task *current = Task::Running();
+    // test code invokes FlowTable API from main thread. The running task
+    // will be NULL in such cases
+    if (current == NULL) {
+        return;
+    }
+    assert(current->GetTaskId() == flow_task_id_);
+    assert(current->GetTaskInstance() == table_index_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -101,6 +116,7 @@ void FlowTable::GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
 }
 
 FlowEntry *FlowTable::Find(const FlowKey &key) {
+    ConcurrencyCheck();
     FlowEntryMap::iterator it;
 
     it = flow_entry_map_.find(key);
@@ -118,6 +134,7 @@ void FlowTable::Copy(FlowEntry *lhs, const FlowEntry *rhs) {
 }
 
 FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
+    ConcurrencyCheck();
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
@@ -863,6 +880,7 @@ void FlowEntryFreeList::Grow() {
 }
 
 FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
+    table_->ConcurrencyCheck();
     FlowEntry *flow = NULL;
     if (free_list_.size() == 0) {
         flow = new FlowEntry(table_);
@@ -884,6 +902,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
 }
 
 void FlowEntryFreeList::Free(FlowEntry *flow) {
+    table_->ConcurrencyCheck();
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);
