@@ -209,7 +209,7 @@ class UVEServer(object):
 	if not self._redis_uve_map[r_inst]:
 	    return redis.StrictRedis(
 		    host=r_ip, port=r_port,
-		    password=self._redis_password, db=1)
+		    password=self._redis_password, db=1, socket_timeout=90)
 	else:
 	    return self._redis_uve_map[r_inst]
 
