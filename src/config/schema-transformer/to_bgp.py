@@ -72,7 +72,6 @@ _SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
 
 _SERVICE_CHAIN_MAX_VLAN = 4093
 _SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
->>>>>>> fa93ff2... Mask the passwords displayed in log files and stdout during exception.
 
 _PROTO_STR_TO_NUM = {
     'icmp': '1',
