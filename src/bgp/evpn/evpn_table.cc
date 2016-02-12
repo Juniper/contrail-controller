@@ -116,10 +116,10 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         ExtCommunityPtr community) {
     assert(src_table->family() == Address::EVPN);
 
-    if (!IsDefault()) {
+    if (!IsMaster()) {
         // Don't replicate to a VRF from other VRF tables.
         EvpnTable *src_evpn_table = dynamic_cast<EvpnTable *>(src_table);
-        if (!src_evpn_table->IsDefault())
+        if (!src_evpn_table->IsMaster())
             return NULL;
 
         // Don't replicate to VRF from the VPN table if OriginVn doesn't match.
@@ -143,7 +143,7 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     BgpAttrDB *attr_db = server->attr_db();
     BgpAttrPtr new_attr(src_path->GetAttr());
 
-    if (IsDefault()) {
+    if (IsMaster()) {
         if (evpn_prefix.route_distinguisher().IsZero()) {
             evpn_prefix.set_route_distinguisher(new_attr->source_rd());
         }
@@ -273,8 +273,8 @@ void EvpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     CreateEvpnManager();
 }
 
-bool EvpnTable::IsDefault() const {
-    return routing_instance()->IsDefaultRoutingInstance();
+bool EvpnTable::IsMaster() const {
+    return routing_instance()->IsMasterRoutingInstance();
 }
 
 static void RegisterFactory() {

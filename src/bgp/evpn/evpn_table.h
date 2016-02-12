@@ -30,8 +30,8 @@ public:
     virtual void AddRemoveCallback(const DBEntryBase *entry, bool add) const;
 
     virtual Address::Family family() const { return Address::EVPN; }
-    bool IsDefault() const;
-    virtual bool IsVpnTable() const { return IsDefault(); }
+    bool IsMaster() const;
+    virtual bool IsVpnTable() const { return IsMaster(); }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;

@@ -143,7 +143,7 @@ bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
 }
 
 PathResolver *InetTable::CreatePathResolver() {
-    if (routing_instance()->IsDefaultRoutingInstance())
+    if (routing_instance()->IsMasterRoutingInstance())
         return NULL;
     return (new PathResolver(this));
 }

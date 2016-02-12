@@ -515,7 +515,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             const BgpSecondaryPath *spath =
                 static_cast<const BgpSecondaryPath *>(connected_path);
             const RoutingInstance *ri = spath->src_table()->routing_instance();
-            if (ri->IsDefaultRoutingInstance()) {
+            if (ri->IsMasterRoutingInstance()) {
                 const VpnRouteT *vpn_route =
                     static_cast<const VpnRouteT *>(spath->src_rt());
                 new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(),
