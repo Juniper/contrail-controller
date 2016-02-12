@@ -13,6 +13,8 @@ _ZK_PORT = 2181
 _TTL_MIN = 1 * 60
 _TTL_MAX = 3 * 60
 CLIENT_TAG = '$client-entry$'
+SERVICE_TAG = 'service-entry'
+ADMIN_STATE_TAG = 'admin-state'
 MAX_COL = 10000000
 DEFAULT_VERSION='1.0'
 
