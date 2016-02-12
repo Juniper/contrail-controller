@@ -11,14 +11,11 @@ monkey.patch_all()
 import gevent
 import gevent.event
 from gevent.queue import Queue, Empty
-import sys
 import time
 from pprint import pformat
 
-from lxml import etree, objectify
-import cgitb
+from lxml import etree
 import StringIO
-import re
 
 import socket
 from netaddr import IPNetwork
@@ -29,11 +26,12 @@ from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest
 from cfgm_common.ifmap.id import Identity
 from cfgm_common.ifmap.operations import PublishUpdateOperation,\
     PublishDeleteOperation
-from cfgm_common.ifmap.response import Response, newSessionResult
+from cfgm_common.ifmap.response import newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
+from cfgm_common.utils import cgitb_hook
 
 import copy
 from cfgm_common import jsonutils as json
@@ -826,7 +824,7 @@ class VncServerKombuClient(VncKombuClient):
             trace_msg(trace, 'MessageBusNotifyTraceBuf', self._sandesh)
         except Exception as e:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             errmsg = string_buf.getvalue()
             self.config_log(string_buf.getvalue(),
                 level=SandeshLevel.SYS_ERR)
