@@ -10,7 +10,6 @@ This file contains implementation of managing physical router configuration
 from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
-from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
 import cgitb
 import sys
@@ -25,7 +24,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
 from pysandesh.connection_info import ConnectionState
@@ -41,7 +40,7 @@ from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
     GlobalSystemConfigDM, GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB
 from cfgm_common.dependency_tracker import DependencyTracker
-from sandesh.dm_introspect import ttypes as sandesh
+from cfgm_common.utils import cgitb_hook
 
 
 class DeviceManager(object):
@@ -337,7 +336,7 @@ class DeviceManager(object):
 
         except Exception:
             string_buf = cStringIO.StringIO()
-            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            cgitb_hook(file=string_buf, format="text")
             self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
         if not dependency_tracker:

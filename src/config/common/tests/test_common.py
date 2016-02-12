@@ -11,20 +11,20 @@ from pprint import pformat
 import coverage
 import fixtures
 import testtools
-from testtools import content, content_type
-from flexmock import flexmock, Mock
+from testtools import content
+from flexmock import flexmock
 from webtest import TestApp
 import contextlib
 
 from vnc_api.vnc_api import *
 import cfgm_common.vnc_cpu_info
 import cfgm_common.ifmap.client as ifmap_client
-import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
 from cfgm_common import imid
+from cfgm_common.utils import cgitb_hook
 
 from test_utils import *
 import bottle
@@ -271,7 +271,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         from cStringIO  import StringIO
 
         tmp_file = StringIO()
-        cgitb.Hook(format="text", file=tmp_file).handle(exc_info)
+        cgitb_hook(format="text", file=tmp_file, info=exc_info)
         tb_str = tmp_file.getvalue()
         tmp_file.close()
         self.addDetail('detailed-traceback', content.text_content(tb_str))
