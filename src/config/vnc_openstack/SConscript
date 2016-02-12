@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 #
 # Copyright (c) 2013 Contrail Systems. All rights reserved.
 #
@@ -82,3 +80,10 @@ env.Alias('test', test_cmd)
 env.Alias('coverage', cov_cmd)
 env.Alias('controller/src/config/vnc_openstack:test', test_cmd)
 env.Alias('controller/src/config/vnc_openstack:coverage', cov_cmd)
+
+# This add'l alias is to allow retry of UT in CI
+env.Alias('controller/src/config/vnc_openstack/vnc_openstack:test', test_cmd)
+
+# Local Variables:
+# mode: python
+# End:
