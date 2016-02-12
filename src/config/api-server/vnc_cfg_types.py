@@ -378,7 +378,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _kvp_to_dict
 
     @classmethod
-    def _check_vrouter_link(cls, obj_dict, kvp_dict, db_conn):
+    def _check_vrouter_link(cls, kvp_dict, obj_dict, db_conn):
         host_id = kvp_dict.get('host_id')
         vm_refs = obj_dict.get('virtual_machine_refs')
 
@@ -514,15 +514,16 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end post_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                       prop_collection_updates=None, **kwargs):
 
         vmi_id = {'uuid': id}
 
         try:
-            (read_ok, read_result) = db_conn.dbe_read('virtual-machine-interface', vmi_id)
+            (ok, read_result) = db_conn.dbe_read('virtual-machine-interface', vmi_id)
         except cfgm_common.exceptions.NoIdError as e:
             return (False, (404, str(e)))
-        if not read_ok:
+        if not ok:
             return (False, (500, read_result))
 
         if ('virtual_machine_interface_refs' in obj_dict and
@@ -545,15 +546,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         kvp_dict = cls._kvp_to_dict(kvps)
         old_vnic_type = kvp_dict.get('vnic_type', 'normal')
 
-        if 'virtual_machine_interface_bindings' in obj_dict:
-            bindings = obj_dict['virtual_machine_interface_bindings']
-            if 'key_value_pair' in bindings:
-                kvps = bindings['key_value_pair']
-                kvp_dict = cls._kvp_to_dict(kvps)
-                new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
-                if (old_vnic_type  != new_vnic_type):
-                    return (False, (409, "Vnic_type can not be modified"))
-                cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
+        bindings = obj_dict.get('virtual_machine_interface_bindings', {})
+        kvps = bindings.get('key_value_pair', [])
+
+        for oper_param in prop_collection_updates or []:
+            if (oper_param['field'] == 'virtual_machine_interface_bindings' and
+                    oper_param['operation'] == 'set'):
+                kvps.append(oper_param['value'])
+
+        if kvps:
+            kvp_dict = cls._kvp_to_dict(kvps)
+            new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
+            if (old_vnic_type  != new_vnic_type):
+                return (False, (409, "Vnic_type can not be modified"))
+            cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
 
         return True, ""
     # end pre_dbe_update
