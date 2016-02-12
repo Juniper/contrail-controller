@@ -56,7 +56,6 @@ class DiscoveryCassandraClient(VncCassandraClient):
         various column names
         ('client', client_id, 'client-entry')
         ('subscriber', service_id, client_id)
-        ('subscription', client_id, service_id)
         ('service', service_id, 'service-entry')
     """
 
@@ -82,14 +81,34 @@ class DiscoveryCassandraClient(VncCassandraClient):
                     column_start = col_name, column_finish = col_name)
             else:
                 data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
+            # admin state is maintained seperately from rest of publisher info
+            # thus need a seperate pass to merge them together
+            data_dict = {}; admin_state = {}
             for service_type, services in data:
-                for col_name in services:
-                    col_value = services[col_name]
-                    entry = json.loads(col_value)
-                    col_name = ('subscriber', entry['service_id'],)
-                    entry['in_use'] = self._disco_cf.get_count(service_type, 
-                        column_start = col_name, column_finish = col_name)
-                    yield(entry)
+                for col_name, col_val in services.items():
+                    (foo, service_id, tag) = col_name
+                    if tag == disc_consts.SERVICE_TAG:
+                        entry = json.loads(col_val)
+                        entry['in_use'] = 0
+                        data_dict[(service_type,service_id)] = entry
+                    elif tag == disc_consts.ADMIN_STATE_TAG:
+                        admin_state[(service_type,service_id)] = col_val
+                # get in-use count for each publisher.
+                col_name = ('subscriber',)
+                try:
+                    # read all subs for a service type to minimize read requests
+                    subscribers = self._disco_cf.get(service_type,
+                        column_start = col_name, column_finish = col_name,
+                        column_count = disc_consts.MAX_COL)
+                    for col, val in subscribers.items():
+                        x, service_id, client_id = col
+                        data_dict[(service_type,service_id)]['in_use'] += 1
+                except pycassa.NotFoundException:
+                    pass
+            for key in sorted(data_dict.iterkeys()):
+                entry = data_dict[key]
+                entry['admin_state'] = admin_state.get(key, "up")
+                yield(entry)
         except pycassa.pool.AllServersUnavailable:
             raise disc_exceptions.ServiceUnavailable()
             #raise StopIteration
@@ -170,6 +189,13 @@ class DiscoveryCassandraClient(VncCassandraClient):
         self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
     # end insert_service
 
+    @cass_error_handler
+    # admin state has been split from rest of published information
+    def set_admin_state(self, service_type, service_id, admin_state):
+        col_name = ('service', service_id, disc_consts.ADMIN_STATE_TAG)
+        self._disco_cf.insert(service_type, {col_name : admin_state})
+    # end insert_service
+
     # forget service and subscribers
     @cass_error_handler
     def delete_service(self, entry):
@@ -179,25 +205,67 @@ class DiscoveryCassandraClient(VncCassandraClient):
 
     # return service entry
     @cass_error_handler
-    def lookup_service(self, service_type, service_id=None):
+    def lookup_service(self, service_type, service_id=None, include_count=False):
         try:
             if service_id:
-                services = self._disco_cf.get(service_type, columns = [('service', service_id, 'service-entry')])
-                data = [json.loads(val) for col,val in services.items()]
-                entry = data[0]
+                col_name = ('service', service_id,)
+                services = self._disco_cf.get(service_type,
+                    column_start = col_name, column_finish = col_name,
+                    column_count = disc_consts.MAX_COL)
+                # not sure why next two lines are needed - we should have got exception
+                if len(services) == 0:
+                    return None
+                # missing admin_state column in db means admin state is up
+                admin_state = "up"
+                for col_name, col_val in services.items():
+                    (foo, service_id, tag) = col_name
+                    if tag == disc_consts.SERVICE_TAG:
+                        entry = json.loads(col_val)
+                    elif tag == disc_consts.ADMIN_STATE_TAG:
+                        admin_state = col_val
+                entry['admin_state'] = admin_state
+                if not include_count:
+                    return entry
+
                 col_name = ('subscriber', service_id,)
-                entry['in_use'] = self._disco_cf.get_count(service_type, 
+                entry['in_use'] = self._disco_cf.get_count(service_type,
                     column_start = col_name, column_finish = col_name)
                 return entry
             else:
                 col_name = ('service',)
-                services = self._disco_cf.get(service_type, 
-                    column_start = col_name, column_finish = col_name)
-                data = [json.loads(val) for col,val in services.items()]
+                services = self._disco_cf.get(service_type,
+                    column_start = col_name, column_finish = col_name,
+                    column_count = disc_consts.MAX_COL)
+                data_dict = {}; admin_state = {}
+                for col_name, col_val in services.items():
+                    (foo, service_id, tag) = col_name
+                    if tag == disc_consts.SERVICE_TAG:
+                        data_dict[service_id] = json.loads(col_val)
+                    elif tag == disc_consts.ADMIN_STATE_TAG:
+                        admin_state[service_id] = col_val
+                # missing admin_state column in db means admin state is up
+                for service_id, entry in data_dict.items():
+                    entry['admin_state'] = admin_state.get(service_id, "up")
+
+                data = [entry for service_id, entry in data_dict.items()]
+                if not include_count:
+                    return data
+
+                # include in-use count per publisher
                 for entry in data:
-                    col_name = ('subscriber', entry['service_id'],)
-                    entry['in_use'] = self._disco_cf.get_count(service_type, 
-                        column_start = col_name, column_finish = col_name)
+                    entry['in_use'] = 0
+
+                col_name = ('subscriber',)
+                try:
+                    subscribers = self._disco_cf.get(service_type,
+                        column_start = col_name, column_finish = col_name,
+                        column_count = disc_consts.MAX_COL)
+                    for col, val in subscribers.items():
+                        x, service_id, client_id = col
+                        data_dict[service_id]['in_use'] += 1
+                except pycassa.NotFoundException:
+                    pass
+
                 return data
         except pycassa.NotFoundException:
             return None
@@ -220,10 +288,10 @@ class DiscoveryCassandraClient(VncCassandraClient):
     def insert_client(self, service_type, service_id, client_id, blob, ttl):
         col_val = json.dumps({'ttl': ttl, 'blob': blob, 'mtime': int(time.time())})
         col_name = ('subscriber', service_id, client_id)
-        self._disco_cf.insert(service_type, {col_name : col_val}, 
+        self._disco_cf.insert(service_type, {col_name : col_val},
             ttl = ttl + disc_consts.TTL_EXPIRY_DELTA)
         col_name = ('client', client_id, service_id)
-        self._disco_cf.insert(service_type, {col_name : col_val}, 
+        self._disco_cf.insert(service_type, {col_name : col_val},
             ttl = ttl + disc_consts.TTL_EXPIRY_DELTA)
     # end insert_client
 
@@ -234,7 +302,8 @@ class DiscoveryCassandraClient(VncCassandraClient):
         col_name = ('client', client_id, )
         try:
             subs = self._disco_cf.get(service_type, column_start = col_name,
-                column_finish = col_name, include_timestamp = True)
+                column_finish = col_name, include_timestamp = True,
+                column_count = disc_consts.MAX_COL)
             # sort columns by timestamp (subs is array of (col_name, (value, timestamp)))
             subs = sorted(subs.items(), key=lambda entry: entry[1][1])
             # col_name = (client, cliend_id, service_id)
@@ -259,7 +328,7 @@ class DiscoveryCassandraClient(VncCassandraClient):
         col_name = ('client', client_id, )
         try:
             subs = self._disco_cf.get(service_type, column_start = col_name,
-                column_finish = col_name)
+                column_finish = col_name, column_count = disc_consts.MAX_COL)
             # col_name = subscription, cliend_id, service_id
             for col_name, col_val in subs.items():
                 foo, client_id, bar = col_name
@@ -272,10 +341,10 @@ class DiscoveryCassandraClient(VncCassandraClient):
             return None
     # end lookup_subscription
 
-    # delete client subscription. 
+    # delete client subscription.
     @cass_error_handler
     def delete_subscription(self, service_type, client_id, service_id):
-        self._disco_cf.remove(service_type, 
+        self._disco_cf.remove(service_type,
             columns = [('client', client_id, service_id)])
         self._disco_cf.remove(service_type,
             columns = [('subscriber', service_id, client_id)])
