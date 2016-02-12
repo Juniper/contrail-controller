@@ -658,8 +658,8 @@ class TestPolicy(test_case.STTestCase):
         self.check_ri_ref_not_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
 
-
-        rp = RoutingPolicy('rp1')
+        rp_name = self.id() + 'rp1'
+        rp = RoutingPolicy(rp_name)
         si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_name)
         si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
         rp.add_service_instance(si_obj, si_rp)
@@ -1424,6 +1424,25 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
+        si_name = 'default-domain:default-project:' + service_name
+        rp_name = self.id() + 'rp1'
+        rp = RoutingPolicy(rp_name)
+        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_name)
+        si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
+        rp.add_service_instance(si_obj, si_rp)
+        self._vnc_lib.routing_policy_create(rp)
+        self.wait_to_get_object(config_db.RoutingPolicyST,
+                                rp.get_fq_name_str())
+
+        rlist = RouteListType(route=['100.0.0.0/24'])
+        ra = RouteAggregate('ra1', aggregate_route_entries=rlist)
+
+        sit = ServiceInterfaceTag(interface_type='left')
+        ra.add_service_instance(si_obj, sit)
+        self._vnc_lib.route_aggregate_create(ra)
+        self.wait_to_get_object(config_db.RouteAggregateST,
+                                ra.get_fq_name_str())
+
         sc = self.wait_to_get_sc()
         sc_ri_name = ('service-' + sc + '-default-domain_default-project_'
                       + service_name)
@@ -1439,8 +1458,10 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        gevent.sleep(3)
-
+        ra.del_service_instance(si_obj)
+        self._vnc_lib.route_aggregate_update(ra)
+        rp.del_service_instance(si_obj)
+        self._vnc_lib.routing_policy_update(rp)
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
