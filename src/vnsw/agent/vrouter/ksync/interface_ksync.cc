@@ -492,6 +492,14 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     uint32_t flags = 0;
     encoder.set_h_op(op);
+    if (op == sandesh_op::DELETE) {
+        encoder.set_vifr_idx(interface_id_);
+        int error = 0;
+        encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+        assert(error == 0);
+        assert(encode_len <= buf_len);
+        return encode_len;
+    }
 
     switch (type_) {
     case Interface::VM_INTERFACE: {
