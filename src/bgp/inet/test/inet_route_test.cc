@@ -166,6 +166,33 @@ TEST_F(InetRouteTest, FromProtoPrefixError1) {
     EXPECT_NE(0, result);
 }
 
+TEST_F(InetRouteTest, IsMoreSpecific1) {
+    string prefix_str = "240.240.240.240/32";
+    InetRoute route(Ip4Prefix::FromString(prefix_str));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.240.240/32"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.240.240/28"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.240.0/24"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.240.0/20"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.0.0/16"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.240.0.0/12"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.0.0.0/8"));
+    EXPECT_TRUE(route.IsMoreSpecific("240.0.0.0/4"));
+    EXPECT_TRUE(route.IsMoreSpecific("0.0.0.0/0"));
+}
+
+TEST_F(InetRouteTest, IsMoreSpecific2) {
+    string prefix_str = "224.224.224.224/32";
+    InetRoute route(Ip4Prefix::FromString(prefix_str));
+    EXPECT_FALSE(route.IsMoreSpecific("224.224.224.240/32"));
+    EXPECT_FALSE(route.IsMoreSpecific("224.224.224.240/28"));
+    EXPECT_FALSE(route.IsMoreSpecific("224.224.240.0/24"));
+    EXPECT_FALSE(route.IsMoreSpecific("224.224.240.0/20"));
+    EXPECT_FALSE(route.IsMoreSpecific("224.240.0.0/16"));
+    EXPECT_FALSE(route.IsMoreSpecific("224.240.0.0/12"));
+    EXPECT_FALSE(route.IsMoreSpecific("240.0.0.0/8"));
+    EXPECT_FALSE(route.IsMoreSpecific("240.0.0.0/4"));
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

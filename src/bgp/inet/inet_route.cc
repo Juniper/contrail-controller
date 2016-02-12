@@ -70,8 +70,9 @@ bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
     // My prefixlen must be longer in order to be more specific.
     if (prefixlen_ < rhs.prefixlen()) return false;
 
-    uint32_t mask =
-        ((uint32_t) ~0) << (Address::kMaxV4PrefixLen - rhs.prefixlen());
+    uint32_t mask = 0;
+    if (rhs.prefixlen())
+       mask = ((uint32_t) ~0) << (Address::kMaxV4PrefixLen - rhs.prefixlen());
     return (ip4_addr_.to_ulong() & mask) ==
         (rhs.ip4_addr().to_ulong() & mask);
 }
