@@ -526,6 +526,18 @@ struct RouteFlowKey {
     }
     virtual ~RouteFlowKey() {}
 
+    bool Match(const IpAddress &match_ip) const {
+        if (ip.is_v4()) {
+            return (Address::GetIp4SubnetAddress(ip.to_v4(), plen) ==
+                    Address::GetIp4SubnetAddress(match_ip.to_v4(), plen));
+        } else if (ip.is_v6()) {
+            return (Address::GetIp6SubnetAddress(ip.to_v6(), plen) ==
+                    Address::GetIp6SubnetAddress(match_ip.to_v6(), plen));
+        }
+        assert(0);
+        return false;
+    }
+
     bool FlowSrcMatch(const FlowEntry *key, bool rpf_check = false) const;
     bool FlowDestMatch(const FlowEntry *key) const;
 
@@ -714,7 +726,8 @@ public:
     virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
     void IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb);
     RouteFlowInfo *FindRouteFlowInfo(RouteFlowInfo *key);
-    void FlowRecompute(RouteFlowInfo *rt_info);
+    bool NeedsReCompute(const FlowEntry *flow, const RouteFlowKey *key);
+    void FlowRecompute(RouteFlowInfo *rt_info, const RouteFlowKey *rt_key);
     void FlowL2Recompute(RouteFlowInfo *rt_info);
 
     // Update flow port bucket information
