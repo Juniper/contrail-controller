@@ -119,14 +119,14 @@ void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
 // the caller to call StartPathResolution instead.
 //
 void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path,
-    BgpTable *nh_table) {
+    BgpRoute *route, BgpTable *nh_table) {
     CHECK_CONCURRENCY("db::DBTable");
 
     if (!nh_table)
         nh_table = table_;
     assert(nh_table->family() == Address::INET ||
         nh_table->family() == Address::INET6);
-    partitions_[part_id]->UpdatePathResolution(path, nh_table);
+    partitions_[part_id]->UpdatePathResolution(path, route, nh_table);
 }
 
 //
@@ -571,6 +571,8 @@ PathResolverPartition::~PathResolverPartition() {
 //
 void PathResolverPartition::StartPathResolution(const BgpPath *path,
     BgpRoute *route, BgpTable *nh_table) {
+    if (!path->IsResolutionFeasible())
+        return;
     if (table()->IsDeleted() || nh_table->IsDeleted())
         return;
     IpAddress address = path->GetAttr()->nexthop();
@@ -587,15 +589,17 @@ void PathResolverPartition::StartPathResolution(const BgpPath *path,
 // old ResolverPath and creating a new one.
 //
 void PathResolverPartition::UpdatePathResolution(const BgpPath *path,
-    BgpTable *nh_table) {
+    BgpRoute *route, BgpTable *nh_table) {
     ResolverPath *rpath = FindResolverPath(path);
-    if (!rpath)
+    if (!rpath) {
+        StartPathResolution(path, route, nh_table);
         return;
+    }
     const ResolverNexthop *rnexthop = rpath->rnexthop();
     if (rnexthop->address() != path->GetAttr()->nexthop() ||
         rnexthop->table() != nh_table) {
         StopPathResolution(path);
-        StartPathResolution(path, rpath->route(), nh_table);
+        StartPathResolution(path, route, nh_table);
     } else {
         TriggerPathResolution(rpath);
     }

@@ -86,7 +86,7 @@ public:
 
     void StartPathResolution(int part_id, const BgpPath *path, BgpRoute *route,
         BgpTable *nh_table = NULL);
-    void UpdatePathResolution(int part_id, const BgpPath *path,
+    void UpdatePathResolution(int part_id, const BgpPath *path, BgpRoute *route,
         BgpTable *nh_table = NULL);
     void StopPathResolution(int part_id, const BgpPath *path);
 
@@ -183,7 +183,8 @@ public:
 
     void StartPathResolution(const BgpPath *path, BgpRoute *route,
         BgpTable *nh_table);
-    void UpdatePathResolution(const BgpPath *path, BgpTable *nh_table);
+    void UpdatePathResolution(const BgpPath *path, BgpRoute *route,
+        BgpTable *nh_table);
     void StopPathResolution(const BgpPath *path);
 
     void TriggerPathResolution(ResolverPath *rpath);
