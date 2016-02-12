@@ -2005,10 +2005,9 @@ class DBInterface(object):
 
                 port_q_dict['fixed_ips'].append(ip_q_dict)
 
-        port_q_dict['security_groups'] = []
-        sg_refs = port_obj.get_security_group_refs()
-        for sg_ref in sg_refs or []:
-            port_q_dict['security_groups'].append(sg_ref['uuid'])
+        sg_refs = port_obj.get_security_group_refs() or []
+        port_q_dict['security_groups'] = [ref['uuid'] for ref in sg_refs
+                                          if ref['to'] != SG_NO_RULE_FQ_NAME]
 
         port_q_dict['admin_state_up'] = port_obj.get_id_perms().enable
 
