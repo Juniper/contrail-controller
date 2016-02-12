@@ -434,6 +434,12 @@ class TestPolicy(test_case.STTestCase):
         ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
         self.assertTrue(set(rt_list) <= ri_rt_refs)
 
+    @retries(5)
+    def check_bgp_router_ip(self, router_name, ip):
+        router_obj = self._vnc_lib.bgp_router_read(fq_name=router_name)
+        self.assertEqual(router_obj.get_bgp_router_parameters().address,
+                         ip)
+
     def get_ri_name(self, vn, ri_name=None):
         return vn.get_fq_name() + [ri_name or vn.name]
 
@@ -2585,6 +2591,12 @@ class TestPolicy(test_case.STTestCase):
 
     #end test_misc
 
+    @retries(5)
+    def check_bgp_no_peering(self, router1, router2):
+        r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
+        ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
+        self.assertThat(ref_names, Not(Contains(router2.get_fq_name())))
+
     def test_bgpaas(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -2619,9 +2631,33 @@ class TestPolicy(test_case.STTestCase):
         self.wait_to_get_object(config_db.BgpAsAServiceST,
                                 bgpaas.get_fq_name_str())
         self.wait_to_get_object(config_db.BgpRouterST, router1_name)
+        server_fq_name = ':'.join(self.get_ri_name(vn1_obj)) + ':bgpaas-server'
+        self.wait_to_get_object(config_db.BgpRouterST, server_fq_name)
+        server_router_obj = self._vnc_lib.bgp_router_read(fq_name_str=server_fq_name)
+
+        mx_bgp_router = self.create_bgp_router("mx-bgp-router", "contrail")
+        mx_bgp_router_name = mx_bgp_router.get_fq_name_str()
+        self.wait_to_get_object(config_db.BgpRouterST, mx_bgp_router_name)
+        mx_bgp_router = self._vnc_lib.bgp_router_read(fq_name_str=mx_bgp_router_name)
+        self.check_bgp_no_peering(server_router_obj, mx_bgp_router)
+
         router1_obj = self._vnc_lib.bgp_router_read(fq_name_str=router1_name)
         self.assertEqual(router1_obj.get_bgp_router_parameters().address,
                          '10.0.0.252')
+
+        self.check_bgp_peering(server_router_obj, router1_obj, 1)
+
+        v4_obj.set_instance_ip_address('10.0.0.260')
+        self._vnc_lib.instance_ip_update(v4_obj)
+        self.check_bgp_router_ip(router1_name, '10.0.0.260')
+
+        bgpaas.set_bgpaas_ip_address('10.0.0.270')
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self.check_bgp_router_ip(router1_name, '10.0.0.270')
+        v4_obj.del_virtual_machine_interface(port_obj)
+        v4_obj.del_virtual_network(vn1_obj)
+        self._vnc_lib.instance_ip_delete(id=v4_obj.uuid)
+        self.check_bgp_router_ip(router1_name, '10.0.0.270')
 
         port2_name = self.id() + 'p2'
         port2_obj = VirtualMachineInterface(port2_name, parent_obj=project_obj)
@@ -2632,6 +2668,10 @@ class TestPolicy(test_case.STTestCase):
         router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port2_name
         self.wait_to_get_object(config_db.BgpRouterST, router2_name)
 
+        router2_obj = self._vnc_lib.bgp_router_read(fq_name_str=router2_name)
+        self.check_bgp_peering(server_router_obj, router2_obj, 2)
+        self.check_bgp_peering(server_router_obj, router1_obj, 2)
+
         bgpaas.del_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
         self.wait_to_delete_object(config_db.BgpRouterST, router1_name)
@@ -2639,7 +2679,6 @@ class TestPolicy(test_case.STTestCase):
         self.wait_to_delete_object(config_db.BgpRouterST, router2_name)
 
         self._vnc_lib.instance_ip_delete(id=v6_obj.uuid)
-        self._vnc_lib.instance_ip_delete(id=v4_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port2_obj.uuid)
     # end test_bgpaas
