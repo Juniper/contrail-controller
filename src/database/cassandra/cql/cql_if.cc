@@ -214,6 +214,11 @@ static std::string DbDataTypes2CassTypes(
     return std::string(DbDataType2CassType(v_db_types[0]));
 }
 
+static const std::string kQCompactionStrategy(
+    "compaction = {'class': "
+    "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}");
+static const std::string kQGCGraceSeconds("gc_grace_seconds = 0");
+
 std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
     std::ostringstream query;
     // Table name
@@ -231,7 +236,8 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
         query << ", \"" << column.first << "\" " <<
             DbDataType2CassType(column.second);
     }
-    query << ")";
+    query << ") WITH " << kQCompactionStrategy << " AND " <<
+        kQGCGraceSeconds;
     return query.str();
 }
 
@@ -287,7 +293,8 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
         }
         query << "column" << cnum;
     }
-    query << "))";
+    query << ")) WITH " << kQCompactionStrategy << " AND " <<
+        kQGCGraceSeconds;
     return query.str();
 }
 

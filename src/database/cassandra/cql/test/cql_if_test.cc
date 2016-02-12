@@ -82,7 +82,10 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
          "\"columnH\" double, "
          "\"columnI\" text, "
          "\"columnJ\" inet, "
-         "\"columnK\" varint)");
+         "\"columnK\" varint) "
+         "WITH compaction = {'class': "
+         "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
+         "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
 
@@ -103,7 +106,10 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "key int, "
         "column1 int, "
         "value uuid, "
-        "PRIMARY KEY (key, column1))");
+        "PRIMARY KEY (key, column1)) "
+        "WITH compaction = {'class': "
+        "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
+        "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring, actual_qstring);
     // Multiple elements in partition key, column name, and single in value
     GenDb::DbDataTypeVec all_types = boost::assign::list_of
@@ -154,7 +160,10 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "PRIMARY KEY ("
         "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11), "
         "column1, column2, column3, column4, column5, column6, column7, "
-        "column8, column9, column10, column11))");
+        "column8, column9, column10, column11)) "
+        "WITH compaction = {'class': "
+        "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
+        "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring1, actual_qstring1);
 }
 
