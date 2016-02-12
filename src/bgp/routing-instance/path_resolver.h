@@ -5,16 +5,21 @@
 #ifndef SRC_BGP_ROUTING_INSTANCE_PATH_RESOLVER_H_
 #define SRC_BGP_ROUTING_INSTANCE_PATH_RESOLVER_H_
 
+#include <boost/scoped_ptr.hpp>
 #include <tbb/mutex.h>
 
 #include <map>
 #include <set>
 #include <vector>
 
+#include "base/lifetime.h"
 #include "base/util.h"
 #include "bgp/bgp_condition_listener.h"
+#include "db/db_entry.h"
+#include "db/db_table.h"
 #include "net/address.h"
 
+class BgpAttr;
 class BgpPath;
 class BgpRoute;
 class BgpServer;
@@ -93,9 +98,7 @@ public:
     BgpTable *table() { return table_; }
     Address::Family family() const;
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
-    BgpConditionListener *get_condition_listener(Address::Family family) {
-        return table_->server()->condition_listener(family);
-    }
+    BgpConditionListener *get_condition_listener(Address::Family family);
 
     bool IsDeleted() const;
     void ManagedDelete();
@@ -195,9 +198,7 @@ public:
     }
     PathResolver *resolver() const { return resolver_; }
     BgpTable *table() const { return resolver_->table(); }
-    DBTablePartBase *table_partition() {
-        return table()->GetTablePartition(part_id_);
-    }
+    DBTablePartBase *table_partition();
 
 private:
     friend class PathResolver;

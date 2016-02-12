@@ -20,6 +20,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/scheduling_group.h"

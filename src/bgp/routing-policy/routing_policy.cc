@@ -8,6 +8,7 @@
 #include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_server.h"

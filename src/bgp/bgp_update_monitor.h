@@ -15,11 +15,18 @@
 #include <vector>
 
 #include "base/util.h"
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_update.h"
 
+class AdvertiseSList;
 class DBEntryBase;
 struct DBState;
+class RibOut;
+class RibPeerSet;
+class RouteState;
+class RouteUpdate;
+class UpdateEntry;
+class UpdateInfo;
+class UpdateInfoSList;
+class UpdateList;
 class UpdateQueue;
 
 //

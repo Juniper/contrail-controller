@@ -11,6 +11,8 @@
 
 #include "base/proto.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
 #include "net/bgp_af.h"
 
 using boost::system::error_code;

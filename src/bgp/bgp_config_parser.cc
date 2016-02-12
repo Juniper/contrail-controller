@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "ifmap/ifmap_server_table.h"

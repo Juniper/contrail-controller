@@ -11,7 +11,10 @@
 #include <vector>
 
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -836,6 +839,16 @@ void StaticRouteMgr<T>::NotifyAllRoutes() {
              static_cast<StaticRouteT *>(it->second.get());
         static_route->NotifyRoute();
     }
+}
+
+template <typename T>
+void StaticRouteMgr<T>::DisableResolveTrigger() {
+    resolve_trigger_->set_disable();
+}
+
+template <typename T>
+void StaticRouteMgr<T>::EnableResolveTrigger() {
+    resolve_trigger_->set_enable();
 }
 
 template <typename T>

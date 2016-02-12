@@ -10,6 +10,11 @@
 #include "base/map_util.h"
 #include "base/set_util.h"
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_config.h"
+#include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_route.h"
 

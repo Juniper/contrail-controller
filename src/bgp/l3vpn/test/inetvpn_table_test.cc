@@ -6,7 +6,9 @@
 
 
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 

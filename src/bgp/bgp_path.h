@@ -9,11 +9,11 @@
 
 #include "base/util.h"
 #include "route/path.h"
-#include "bgp/bgp_peer.h"
 #include "bgp/bgp_attr.h"
 
 class BgpTable;
 class BgpRoute;
+class IPeer;
 
 class BgpPath : public Path {
 public:
@@ -73,14 +73,7 @@ public:
         return path_id_;
     }
 
-    void UpdatePeerRefCount(int count) {
-        if (!peer_)
-            return;
-        peer_->UpdateRefCount(count);
-        if (source_ != BGP_XMPP || IsReplicated())
-            return;
-        peer_->UpdatePrimaryPathCount(count);
-    }
+    void UpdatePeerRefCount(int count) const;
 
     void SetAttr(const BgpAttrPtr attr, const BgpAttrPtr original_attr) {
         attr_ = attr;
@@ -152,10 +145,7 @@ public:
 
     bool NeedsResolution() const { return ((flags_ & ResolveNexthop) != 0); }
 
-    virtual std::string ToString() const {
-        // Dump the peer name
-        return peer_ ? peer_->ToString() : "Nil";
-    }
+    virtual std::string ToString() const;
 
     // Select one path over other
     int PathCompare(const BgpPath &rhs, bool allow_ecmp) const;

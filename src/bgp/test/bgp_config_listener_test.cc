@@ -11,6 +11,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"

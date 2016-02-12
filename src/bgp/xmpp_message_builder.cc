@@ -10,13 +10,15 @@
 #include <string>
 #include <vector>
 
-#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/ipeer.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/security_group/security_group.h"
 #include "net/community_type.h"
 #include "schema/xmpp_multicast_types.h"

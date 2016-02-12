@@ -12,6 +12,7 @@
 #include "bgp/scheduling_group.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
+#include "db/db.h"
 
 using namespace std;
 

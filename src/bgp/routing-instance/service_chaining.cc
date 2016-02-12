@@ -9,6 +9,8 @@
 #include <algorithm>
 
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/extended-community/load_balance.h"
@@ -1156,6 +1158,16 @@ void ServiceChainMgr<T>::PeerRegistrationCallback(IPeer *peer, BgpTable *table,
         new ServiceChainRequestT(ServiceChainRequestT::UPDATE_ALL_ROUTES, NULL,
                                 NULL, PrefixT(), ServiceChainPtr(chain));
     Enqueue(req);
+}
+
+template <typename T>
+void ServiceChainMgr<T>::DisableResolveTrigger() {
+    resolve_trigger_->set_disable();
+}
+
+template <typename T>
+void ServiceChainMgr<T>::EnableResolveTrigger() {
+    resolve_trigger_->set_enable();
 }
 
 template <typename T>

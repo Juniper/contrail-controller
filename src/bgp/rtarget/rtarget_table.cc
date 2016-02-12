@@ -4,6 +4,8 @@
 
 #include "bgp/rtarget/rtarget_table.h"
 
+#include "bgp/bgp_update.h"
+#include "db/db.h"
 
 using std::auto_ptr;
 using std::string;
@@ -16,7 +18,6 @@ auto_ptr<DBEntry> RTargetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
     return auto_ptr<DBEntry> (new RTargetRoute(pfxkey->prefix));
 }
-
 
 auto_ptr<DBEntry> RTargetTable::AllocEntryStr(const string &key_str) const {
     RTargetPrefix prefix = RTargetPrefix::FromString(key_str);

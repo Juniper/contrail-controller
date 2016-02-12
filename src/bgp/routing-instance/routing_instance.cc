@@ -9,8 +9,10 @@
 
 #include "base/set_util.h"
 #include "base/task_annotations.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"

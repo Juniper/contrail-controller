@@ -8,6 +8,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_route.h"
+#include "bgp/bgp_server.h"
 
 //
 // Create an instance of PeerCloseManager with back reference to the parent

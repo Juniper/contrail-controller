@@ -7,8 +7,14 @@
 #include <utility>
 #include <boost/foreach.hpp>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_table.h"
 #include "bgp/rtarget/rtarget_route.h"
+#include "db/db.h"
 
 using std::pair;
 using std::string;

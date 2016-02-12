@@ -4,6 +4,9 @@
 
 #include "bgp/l3vpn/inetvpn_table.h"
 
+#include "bgp/ipeer.h"
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 

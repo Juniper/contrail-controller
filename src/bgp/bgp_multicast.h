@@ -14,12 +14,12 @@
 #include "base/label_block.h"
 #include "base/lifetime.h"
 #include "base/queue_task.h"
-#include "bgp/bgp_attr.h"
 #include "db/db_entry.h"
 #include "net/address.h"
 #include "net/rd.h"
 
-class DBEntryBase;
+class BgpOListSpec;
+class BgpServer;
 class DBTablePartBase;
 class ErmVpnRoute;
 class ErmVpnTable;

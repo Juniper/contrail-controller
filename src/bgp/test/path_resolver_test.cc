@@ -9,6 +9,9 @@
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"

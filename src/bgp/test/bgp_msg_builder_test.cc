@@ -7,9 +7,12 @@
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 
 using namespace std;

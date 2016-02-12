@@ -7,7 +7,10 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_server.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 
 struct BgpSandeshContext;
@@ -236,6 +239,14 @@ const BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) const {
     }
 
     return NULL;
+}
+
+const string &PeerManager::name() const {
+    return instance_->name();
+}
+
+BgpServer *PeerManager::server() const {
+    return instance_->server();
 }
 
 void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,

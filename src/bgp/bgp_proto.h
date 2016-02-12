@@ -5,6 +5,7 @@
 #ifndef SRC_BGP_BGP_PROTO_H_
 #define SRC_BGP_BGP_PROTO_H_
 
+#include <sstream>
 #include <string>
 #include <vector>
 

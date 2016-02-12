@@ -13,7 +13,7 @@
 
 #include "bgp/bgp_peer_key.h"
 #include "bgp/ipeer.h"
-#include "bgp/routing-instance/routing_instance.h"
+#include "io/tcp_session.h"
 
 class BgpPeer;
 class BgpServer;
@@ -48,10 +48,10 @@ public:
     size_t GetNeighborCount(std::string up_or_down);
 
     size_t size() { return peers_by_key_.size(); }
-    const std::string &name() const { return instance_->name(); }
+    const std::string &name() const;
     const RoutingInstance *instance() const { return instance_; }
     RoutingInstance *instance() { return instance_; }
-    BgpServer *server() { return instance_->server(); }
+    BgpServer *server() const;
 
     const BgpPeerKeyMap &peer_map() const { return peers_by_key_; }
     BgpPeerKeyMap *peer_map_mutable() { return &peers_by_key_; }

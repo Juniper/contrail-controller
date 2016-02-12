@@ -9,7 +9,6 @@
 
 #include <string>
 
-#include "bgp/bgp_peer.h"
 #include "io/tcp_session.h"
 
 class BgpPeer;
@@ -48,14 +47,8 @@ public:
     virtual int GetSessionInstance() const { return index_; }
     void ProcessWriteReady();
 
-    void set_peer(BgpPeer *peer) {
-        peer_ = peer;
-        index_ = peer_->GetIndex();
-    }
-    void clear_peer() {
-        peer_ = NULL;
-        index_ = -1;
-    }
+    void set_peer(BgpPeer *peer);
+    void clear_peer();
     BgpPeer *peer() { return peer_; }
 
 protected:
@@ -64,9 +57,7 @@ protected:
     }
 
 private:
-    bool ReceiveMsg(const u_int8_t *msg, size_t size) {
-        return peer_->ReceiveMsg(this, msg, size);
-    }
+    bool ReceiveMsg(const u_int8_t *msg, size_t size);
     virtual void WriteReady(const boost::system::error_code &error);
 
     BgpSessionManager *session_mgr_;

@@ -10,10 +10,14 @@
 #include <string>
 #include <vector>
 
-#include "bgp/bgp_table.h"
+#include "base/bitset.h"
+#include "base/util.h"
 #include "bgp/rtarget/rtarget_address.h"
+#include "net/address.h"
 
+class BgpPeer;
 class BgpRoute;
+class BgpTable;
 class RTargetRoute;
 class ShowRtGroupMemberTableList;
 class ShowRtGroupInfo;

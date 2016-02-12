@@ -8,6 +8,8 @@
 #include <string>
 
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
 
@@ -47,6 +49,13 @@ BgpSession::BgpSession(BgpSessionManager *session_mgr, Socket *socket)
 }
 
 BgpSession::~BgpSession() {
+}
+
+//
+// Concurrency: called in the context of io::Reader task.
+//
+bool BgpSession::ReceiveMsg(const u_int8_t *msg, size_t size) {
+    return peer_->ReceiveMsg(this, msg, size);
 }
 
 //
@@ -107,4 +116,14 @@ void BgpSession::SendNotification(int code, int subcode,
     if (msglen > BgpProto::kMinMessageSize) {
         Send(buf, msglen, NULL);
     }
+}
+
+void BgpSession::set_peer(BgpPeer *peer) {
+    peer_ = peer;
+    index_ = peer_->GetIndex();
+}
+
+void BgpSession::clear_peer() {
+    peer_ = NULL;
+    index_ = -1;
 }

@@ -15,7 +15,6 @@
 #include "net/address.h"
 #include "net/bgp_af.h"
 #include "net/rd.h"
-#include "route/route.h"
 
 class Inet6VpnPrefix {
 public:

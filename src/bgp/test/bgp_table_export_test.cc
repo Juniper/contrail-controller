@@ -4,6 +4,8 @@
 
 
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_route.h"
+#include "bgp/bgp_update.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"

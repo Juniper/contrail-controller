@@ -5,6 +5,7 @@
 #include "bgp/bgp_multicast.h"
 
 #include "base/task_annotations.h"
+#include "bgp/bgp_update.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"

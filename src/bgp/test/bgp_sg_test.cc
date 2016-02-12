@@ -12,6 +12,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_ribout_updates.h"
+#include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "control-node/control_node.h"
 

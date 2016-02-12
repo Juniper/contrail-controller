@@ -10,6 +10,7 @@
 
 #include "bgp/routing-instance/istatic_route_mgr.h"
 
+#include "base/queue_task.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
@@ -104,8 +105,8 @@ private:
     bool ResolvePendingStaticRouteConfig();
     bool StaticRouteEventCallback(StaticRouteRequest *req);
 
-    virtual void DisableResolveTrigger() { resolve_trigger_->set_disable(); }
-    virtual void EnableResolveTrigger() { resolve_trigger_->set_enable(); }
+    virtual void DisableResolveTrigger();
+    virtual void EnableResolveTrigger();
 
     virtual void DisableQueue() { static_route_queue_->set_disable(true); }
     virtual void EnableQueue() { static_route_queue_->set_disable(false); }

@@ -12,9 +12,10 @@
 #include <sstream>
 #include <vector>
 
-#include <bgp/bgp_attr.h>
-#include <bgp/bgp_path.h>
-#include <net/community_type.h>
+#include "bgp/ipeer.h"
+#include "bgp/bgp_attr.h"
+#include "bgp/bgp_path.h"
+#include "net/community_type.h"
 
 using std::ostringstream;
 using std::string;

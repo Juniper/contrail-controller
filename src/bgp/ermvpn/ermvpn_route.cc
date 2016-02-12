@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/string_util.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 
 using std::copy;

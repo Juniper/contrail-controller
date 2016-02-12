@@ -7,6 +7,7 @@
 
 #include "bgp/bgp_evpn.h"
 #include "bgp/bgp_peer_internal_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 

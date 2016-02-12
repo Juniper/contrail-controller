@@ -4,8 +4,8 @@
 
 #include "bgp/bgp_show_handler.h"
 
-
 #include "bgp/bgp_peer_internal_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
 using std::string;

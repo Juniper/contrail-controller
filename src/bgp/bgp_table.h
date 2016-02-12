@@ -12,9 +12,7 @@
 #include <vector>
 
 #include "base/lifetime.h"
-#include "bgp/bgp_path.h"
 #include "bgp/bgp_ribout.h"
-#include "bgp/bgp_update.h"
 #include "db/db_table_walker.h"
 #include "route/table.h"
 
@@ -26,6 +24,7 @@ class PathResolver;
 class Route;
 class RoutingInstance;
 class SchedulingGroupManager;
+class UpdateInfoSList;
 struct UpdateInfo;
 
 class BgpTable : public RouteTable {

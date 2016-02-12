@@ -5,10 +5,10 @@
 #include "base/test/task_test_util.h"
 
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/inet/inet_route.h"
 #include "control-node/control_node.h"
-
 
 class BgpPeerMock : public IPeer {
 public:
