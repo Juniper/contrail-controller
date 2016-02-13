@@ -1481,10 +1481,12 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
                 std::stringstream ss;
                 ss << node.child_value();
                 boost::uuids::uuid u;
-                ss >> u;
-                if (ss.fail()) {
-                    LOG(ERROR, "FlowRecordTable: " << col_name << ": (" << 
-                        node.child_value() << ") INVALID");
+                if (!ss.str().empty()) {
+                    ss >> u;
+                    if (ss.fail()) {
+                        LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
+                            node.child_value() << ") INVALID");
+                    }
                 }     
                 values_[ftinfo.get<0>()] = u;
                 break;
