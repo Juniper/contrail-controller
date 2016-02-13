@@ -2831,8 +2831,8 @@ class BgpRouterST(DBBaseST):
         if params.address != ip:
             params.address = ip
             update = True
-        if params.identifier != bgpaas.ip_address:
-            params.identifier = bgpaas.ip_address
+        if params.identifier != ip:
+            params.identifier = ip
             update = True
         if update:
             self.obj.set_bgp_router_parameters(params)

@@ -439,6 +439,11 @@ class TestPolicy(test_case.STTestCase):
         router_obj = self._vnc_lib.bgp_router_read(fq_name=router_name)
         self.assertEqual(router_obj.get_bgp_router_parameters().address,
                          ip)
+    @retries(5)
+    def check_bgp_router_identifier(self, router_name, ip):
+        router_obj = self._vnc_lib.bgp_router_read(fq_name=router_name)
+        self.assertEqual(router_obj.get_bgp_router_parameters().identifier,
+                         ip)
 
     def get_ri_name(self, vn, ri_name=None):
         return vn.get_fq_name() + [ri_name or vn.name]
@@ -2623,12 +2628,15 @@ class TestPolicy(test_case.STTestCase):
         router1_obj = self._vnc_lib.bgp_router_read(fq_name_str=router1_name)
         self.assertEqual(router1_obj.get_bgp_router_parameters().address,
                          '10.0.0.252')
+        self.assertEqual(router1_obj.get_bgp_router_parameters().identifier,
+                         '10.0.0.252')
 
         self.check_bgp_peering(server_router_obj, router1_obj)
 
         v4_obj.set_instance_ip_address('10.0.0.260')
         self._vnc_lib.instance_ip_update(v4_obj)
         self.check_bgp_router_ip(router1_name, '10.0.0.260')
+        self.check_bgp_router_identifier(router1_name, '10.0.0.260')
 
         bgpaas.set_bgpaas_ip_address('10.0.0.270')
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
@@ -2637,6 +2645,7 @@ class TestPolicy(test_case.STTestCase):
         v4_obj.del_virtual_network(vn1_obj)
         self._vnc_lib.instance_ip_delete(id=v4_obj.uuid)
         self.check_bgp_router_ip(router1_name, '10.0.0.270')
+        self.check_bgp_router_identifier(router1_name, '10.0.0.270')
 
         port2_name = self.id() + 'p2'
         port2_obj = VirtualMachineInterface(port2_name, parent_obj=project_obj)
