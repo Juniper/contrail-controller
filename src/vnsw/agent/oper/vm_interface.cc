@@ -3616,7 +3616,7 @@ bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs) cons
     if (addr_ != rhs->addr_)
         return addr_ < rhs->addr_;
 
-    if (plen_ < rhs->plen_) {
+    if (plen_ != rhs->plen_) {
         return plen_ < rhs->plen_;
     }
 
