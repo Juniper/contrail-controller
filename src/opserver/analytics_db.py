@@ -247,8 +247,14 @@ class AnalyticsDb(object):
             return None
 
     def _update_analytics_start_time_cql(self, start_times):
-        insert_query = "INSERT INTO SYSTEM_OBJECT_TABLE VALUES(%s, %s) " % \
-            (SYSTEM_OBJECT_ANALYTICS, start_times)
+        # The column names in SYSTEM_OBJECT_TABLE have to be encoded in ""
+        key_subst = 'key, ' + ', '.join('"' + item + '"' for item in \
+            start_times.keys())
+        # The SYSTEM_OBJECT_ANALYTICS col name has to be inside ''
+        val_subst = '\''+ SYSTEM_OBJECT_ANALYTICS + '\', '
+        val_subst += ",".join(map(str,start_times.values()))
+        insert_query = "INSERT INTO %s (%s) VALUES (%s) " % \
+            (SYSTEM_OBJECT_TABLE, key_subst, val_subst)
         try:
             self._session.execute(insert_query)
         except Exception as e:
@@ -378,8 +384,17 @@ class AnalyticsDb(object):
                         keyspaces[COLLECTOR_KEYSPACE_CQL].tables[table].\
                         partition_key
                     pk_name = [i.name for i in partion_key_list]
-                    query_str = "SELECT %s,value FROM %s" % \
-                        ((','.join(pk_name)), table)
+                    if table == OBJECT_TABLE or table not in \
+                        _MSG_TABLES_TO_LOWER:
+                        query_str = "SELECT %s,value FROM %s" % \
+                            ((','.join(pk_name)), table)
+                    else:
+                        # UUID is the last column in the case of msg_index tables
+                        clustering_key_len = len(self._session.cluster.metadata.\
+                            keyspaces['ContrailAnalyticsCql'].tables[table].\
+                            clustering_key)
+                        query_str = "SELECT %s,column%d FROM %s" % \
+                            ((','.join(pk_name)), clustering_key_len, table)
                     try:
                         # Having tuple factory makes it easier for substitution later
                         old_row_factory = self._session.row_factory
