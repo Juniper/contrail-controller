@@ -1881,6 +1881,10 @@ class RoutingInstanceST(DBBaseST):
         vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
         self.virtual_machine_interfaces = set([':'.join(ref['to'])
                                               for ref in vmi_refs])
+        self.update_multiple_refs('route_aggregate', self.obj)
+        for ref in self.obj.get_routing_policy_back_refs() or []:
+            rp_name = ':'.join(ref['to'])
+            self.routing_policys[rp_name] = ref['attr']['sequence']
     # end __init__
 
     def update(self, obj=None):
@@ -2174,11 +2178,21 @@ class RoutingInstanceST(DBBaseST):
         for rp_name in self.routing_policys:
             rp = RoutingPolicyST.get(rp_name)
             if rp:
-                rp.delete_routing_instance(self.name)
+                rp.delete_routing_instance(self)
+            else:
+                rp_obj = RoutingPolicyST.read_vnc_obj(fq_name=rp_name)
+                if rp_obj:
+                    rp_obj.del_routing_instance(self.obj)
+                    self._vnc_lib.routing_policy_update(rp_obj)
         for ra_name in self.route_aggregates:
             ra = RouteAggregateST.get(ra_name)
             if ra:
-                ra.delete_routing_instance(self.name)
+                ra.delete_routing_instance(self)
+            else:
+                ra_obj = RouteAggregateST.read_vnc_obj(fq_name=ra_name)
+                if ra_obj:
+                    ra_obj.del_routing_instance(self.obj)
+                    self._vnc_lib.route_aggregate_update(ra_obj)
         self.routing_policys = {}
         self.route_aggregates = set()
         bgpaas_server_name = self.obj.get_fq_name_str() + ':bgpaas-server'
