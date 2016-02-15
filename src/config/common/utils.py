@@ -78,14 +78,14 @@ def mask_password(message, secret="***"):
 # end mask_password
 
 
-def cgitb_hook(info=sys.exc_info(), **kwargs):
+def cgitb_hook(info=None, **kwargs):
     buf = sys.stdout
     if 'file' in kwargs:
         buf = kwargs['file']
 
     local_buf = cStringIO.StringIO()
     kwargs['file'] = local_buf
-    cgitb.Hook(**kwargs).handle(info)
+    cgitb.Hook(**kwargs).handle(info or sys.exc_info())
 
     doc = local_buf.getvalue()
     local_buf.close()
