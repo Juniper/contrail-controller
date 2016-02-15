@@ -8,6 +8,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <tbb/atomic.h>
 
 #include <map>
 #include <string>
@@ -275,18 +276,19 @@ private:
     LifetimeRef<RoutingPolicy> manager_delete_ref_;
 
     // Updated when routing policy undergoes a change
-    uint32_t refcount_;
+    tbb::atomic<uint32_t> refcount_;
     uint32_t generation_;
     RoutingPolicyTermList terms_;
 };
 
 inline void intrusive_ptr_add_ref(RoutingPolicy *policy) {
-    policy->refcount_++;
+    policy->refcount_.fetch_and_increment();
+    return;
 }
 
 inline void intrusive_ptr_release(RoutingPolicy *policy) {
-    assert(policy->refcount_ != 0);
-    if (--policy->refcount_ == 0) {
+    int prev = policy->refcount_.fetch_and_decrement();
+    if (prev == 1) {
         if (policy->MayDelete())
             policy->RetryDelete();
     }

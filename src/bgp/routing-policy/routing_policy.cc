@@ -341,7 +341,8 @@ RoutingPolicy::RoutingPolicy(std::string name, BgpServer *server,
                                  const BgpRoutingPolicyConfig *config)
     : name_(name), server_(server), mgr_(mgr), config_(config),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, mgr->deleter()), refcount_(0), generation_(0) {
+      manager_delete_ref_(this, mgr->deleter()), generation_(0) {
+    refcount_ = 0;
 }
 
 RoutingPolicy::~RoutingPolicy() {
