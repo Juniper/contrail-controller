@@ -246,7 +246,7 @@ private:
     void DeleteFlowInfo(FlowEntry *fe);
 
     void AddFlowInfo(FlowEntry *fe);
-    void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
+    void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow, bool *update);
 
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
                      FlowEntry *new_rflow, bool update);
