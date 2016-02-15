@@ -456,6 +456,9 @@ void FlowTable::RevaluateInterface(FlowEntry *flow) {
 
 void FlowTable::RevaluateVn(FlowEntry *flow) {
     const VnEntry *vn = flow->vn_entry();
+    if (vn == NULL)
+        return;
+
     // Revaluate flood unknown-unicast flag. If flow has UnknownUnicastFlood and
     // VN doesnt allow it, make Short Flow
     if (vn->flood_unknown_unicast() == false &&
@@ -723,6 +726,7 @@ bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
         }
 
         const VnEntry *vn = dynamic_cast<const VnEntry *>(entry);
+        // TODO: check if the following need not be done for short flows
         if (vn && (deleted_flow == false)) {
             RevaluateVn(flow);
             break;
