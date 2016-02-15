@@ -566,7 +566,9 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
-        changed = true;
+        if (new_route == false) {
+            AddEvent(route, state);
+        }
     }
 
     if (HandleTrackingIpChange(route, state)) {
