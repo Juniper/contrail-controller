@@ -248,6 +248,12 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
+    case FlowEvent::REENTRANT: {
+        uint32_t index = event->table_index();
+        flow_event_queue_[index]->Enqueue(event);
+        break;
+    }
+
     default:
         assert(0);
         break;
@@ -364,6 +370,11 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
+    case FlowEvent::REENTRANT: {
+        ProcessProto(req->pkt_info());
+        break;
+    }
+
     default: {
         assert(0);
         break;
@@ -423,6 +434,13 @@ void FlowProto::MessageRequest(InterTaskMsg *msg) {
     FreeBuffer(pkt_info.get());
     EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, pkt_info));
     return;
+}
+
+bool FlowProto::EnqueuePartitionChange(boost::shared_ptr<PktInfo> msg,
+                                       uint8_t flow_partition) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::REENTRANT,
+                                   msg, flow_partition));
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////

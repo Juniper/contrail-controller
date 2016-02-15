@@ -86,6 +86,9 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
+    bool EnqueuePartitionChange(boost::shared_ptr<PktInfo> msg,
+                                uint8_t flow_partition);
+
 private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;

@@ -56,6 +56,8 @@ public:
         KSYNC_VROUTER_ERROR,
         // Generate KSync event for the flow
         KSYNC_EVENT,
+        // Pkt is re-entering processing in new partition
+        REENTRANT,
     };
 
     FlowEvent() :
@@ -115,6 +117,13 @@ public:
         gen_id_(0), flow_key_(), del_rev_flow_(),
         flow_handle_(FlowEntry::kInvalidFlowHandle),
         ksync_entry_(NULL), ksync_event_() {
+    }
+
+    FlowEvent(Event event, PktInfoPtr pkt_info, uint8_t table_index) :
+        event_(event), flow_(NULL), pkt_info_(pkt_info), db_entry_(NULL),
+        gen_id_(0), flow_key_(), del_rev_flow_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle),
+        ksync_entry_(NULL), ksync_event_(), table_index_(table_index) {
     }
 
     FlowEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) :
