@@ -778,6 +778,9 @@ public:
     void set_tunnel_type(TunnelType tunnel_type) {
         tunnel_type_ = tunnel_type;
     }
+    const Ip4Address dip() const {
+        return dip_;
+    }
 private:
     friend class TunnelNH;
     VrfKey vrf_key_;

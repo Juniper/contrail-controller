@@ -1323,6 +1323,14 @@ void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
         ExtractKeys(flow, tree, flow->data().flow_source_vrf,
                     flow->key().src_addr, flow->data().source_plen);
     }
+
+    if (flow->data().acl_assigned_vrf_index_ != VrfEntry::kInvalidIndex) {
+        ExtractKeys(flow, tree, flow->data().acl_assigned_vrf_index_,
+                    flow->key().src_addr, flow->data().source_plen);
+        ExtractKeys(flow, tree, flow->data().acl_assigned_vrf_index_,
+                    flow->key().dst_addr, flow->data().dest_plen);
+    }
+
     ExtractKeys(flow, tree, flow->key().src_addr,
                 &flow->data().flow_source_plen_map);
 
