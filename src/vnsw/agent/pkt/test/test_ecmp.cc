@@ -286,9 +286,9 @@ TEST_F(EcmpTest, EcmpTest_2) {
             CompositeNH::kInvalidComponentNHIdx);
     
     //Make sure reverse component index point to right interface
-    Ip4Address ip = Ip4Address::from_string("3.1.1.100");
+    Ip4Address ip = Ip4Address::from_string("2.1.1.1");
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("default-project:vn3:vn3", ip, 32)->GetActiveNextHop());
+        (RouteGet("vrf2", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
@@ -521,7 +521,6 @@ TEST_F(EcmpTest, EcmpTest_9) {
 //Ping from vip to ECMP VIP with ingress vrf and egress VRF having
 //different order of component NH
 TEST_F(EcmpTest, EcmpTest_10) {
-    //Add service VRF and VN
     struct PortInfo input1[] = {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
@@ -536,6 +535,7 @@ TEST_F(EcmpTest, EcmpTest_10) {
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
                                           rt->GetActiveNextHop());
     ComponentNHKeyList comp_nh_list = composite_nh->component_nh_key_list();
+    std::reverse(comp_nh_list.begin(), comp_nh_list.end());
     AddRemoteEcmpRoute("vrf9", "2.1.1.1", 32, "vn2", 0, comp_nh_list);
     AddLocalVmRoute("vrf2", "9.1.1.1", 32, "vn9", 9);
     client->WaitForIdle();
@@ -635,12 +635,14 @@ TEST_F(EcmpTest, EcmpTest_11) {
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
                                           rt->GetActiveNextHop());
     ComponentNHKeyList comp_nh_list = composite_nh->component_nh_key_list();
+    std::reverse(comp_nh_list.begin(), comp_nh_list.end());
     AddRemoteEcmpRoute("vrf9", "3.1.1.100", 32, "default-project:vn3", 0,
                        comp_nh_list);
     AddLocalVmRoute("default-project:vn3:vn3", "9.1.1.1", 32, "vn9", 9);
     client->WaitForIdle();
 
-    rt = RouteGet("vrf9", vm_ip, 32);
+    Ip4Address vm_src_ip = Ip4Address::from_string("2.1.1.1");
+    rt = RouteGet("vrf2", vm_src_ip, 32);
     EXPECT_TRUE(rt != NULL);
     composite_nh = static_cast<const CompositeNH *>(
                        rt->GetActiveNextHop());
@@ -1136,6 +1138,29 @@ TEST_F(EcmpTest, EcmpTest_16) {
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
+TEST_F(EcmpTest, EcmpTest_17) {
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                               "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+            CompositeNH::kInvalidComponentNHIdx);
+
+    //Reverse flow is no ECMP
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().ecmp_rpf_nh_ != 0);
+
+    AddRemoteVmRoute("vrf2", "2.1.1.1", 32, "vn10");
+    client->WaitForIdle();
+    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                    "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == true);
+}
+
 TEST_F(EcmpTest, EcmpReEval_1) {
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
@@ -1155,14 +1180,14 @@ TEST_F(EcmpTest, EcmpReEval_1) {
     IntfCfgDel(input2, ecmp_index); 
     client->WaitForIdle();
     //Enqueue a re-evaluate request
-    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
     //Upon interface deletion flow would have been deleted, get flow again
     FlowEntry *entry2 = FlowGet(VrfGet("vrf2")->vrf_id(),
             "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
  
     //Verify compoennt NH index is different
-    EXPECT_TRUE(entry->data().component_nh_idx !=
+    EXPECT_TRUE(entry2->data().component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
     //make sure new ecmp index is different from that of old ecmp index
     EXPECT_TRUE(ecmp_index != entry2->data().component_nh_idx);
@@ -1194,8 +1219,10 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
+    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+            "1.1.1.1", "3.1.1.10", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
     //Since flow already existed, use same old NH which would be at index 0
     EXPECT_TRUE(entry->data().component_nh_idx == 0);
@@ -1242,7 +1269,7 @@ TEST_F(EcmpTest, EcmpReEval_3) {
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(), "1.1.1.1", "3.1.1.10", 1, 0, 0,
                     GetFlowKeyNH(1));
