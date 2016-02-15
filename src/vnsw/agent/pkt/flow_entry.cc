@@ -722,7 +722,8 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
         data_.source_plen = 0;
     } else {
         data_.source_vn_list = path->dest_vn_list();
-        data_.source_vn_match = *path->dest_vn_list().begin();
+        if (path->dest_vn_list().size())
+            data_.source_vn_match = *path->dest_vn_list().begin();
         data_.source_sg_id_l = path->sg_list();
         data_.source_plen = rt->plen();
     }
@@ -744,7 +745,8 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
         data_.dest_plen = 0;
     } else {
         data_.dest_vn_list = path->dest_vn_list();
-        data_.dest_vn_match = *path->dest_vn_list().begin();
+        if (path->dest_vn_list().size())
+            data_.dest_vn_match = *path->dest_vn_list().begin();
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
     }
