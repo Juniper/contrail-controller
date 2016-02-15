@@ -120,6 +120,11 @@ public:
     const MacVmBindingPath *FindMacVmBindingPath() const;
 
 private:
+    void HandleMulticastLabel(const Agent *agent,
+                              AgentPath *path,
+                              const AgentPath *local_peer_path,
+                              const AgentPath *local_vm_peer_path,
+                              bool del, uint32_t *evpn_label);
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
     AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data) const;

@@ -918,7 +918,9 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     path->set_dest_vn_list(dest_vn_list);
     path->set_unresolved(unresolved);
     path->set_vxlan_id(vxlan_id);
-    path->set_label(label);
+    if ((path->peer() != agent->local_vm_peer()) &&
+        (path->peer() != agent->local_peer()))
+        path->set_label(label);
 
     //Setting of tunnel is only for simulated TOR.
     path->set_tunnel_bmap(tunnel_type);
