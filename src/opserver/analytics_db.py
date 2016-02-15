@@ -598,7 +598,7 @@ class AnalyticsDb(object):
         return (total_rows_deleted, purge_error_details)
     # end db_purge
 
-    def get_dbusage_info(self, rest_api_port):
+    def get_dbusage_info(self, rest_api_ip, rest_api_port):
         """Collects database usage information from all db nodes
         Returns:
         A dictionary with db node name as key and db usage in % as value
@@ -606,7 +606,7 @@ class AnalyticsDb(object):
 
         to_return = {}
         try:
-            uve_url = "http://127.0.0.1:" + str(rest_api_port) + "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
+            uve_url = "http://" + rest_api_ip + ":" + str(rest_api_port) + "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
             node_dburls = json.loads(urllib2.urlopen(uve_url).read())
 
             for node_dburl in node_dburls:
