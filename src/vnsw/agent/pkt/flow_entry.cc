@@ -1867,6 +1867,9 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_smac(data_.smac.ToString());
     info.set_dmac(data_.dmac.ToString());
     info.set_drop_reason(FlowEntry::DropReasonStr(data_.drop_reason));
+    if (flow_table_) {
+        info.set_table_id(flow_table_->table_index());
+    }
 }
 
 static void SetAclListAceId(const AclDBEntry *acl,

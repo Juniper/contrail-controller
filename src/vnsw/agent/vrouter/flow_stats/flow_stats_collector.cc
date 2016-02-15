@@ -800,8 +800,12 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
         /* Fetch the update stats and export the flow with teardown_time */
         FlowExportInfo *info = FindFlowExportInfo(req->key());
         if (!info) {
-            /* Do not expect duplicate deletes */
-            assert(0);
+            /* Ignore duplicate deletes for NOW. When two flow-entries point
+             * to same flow-key (because entries are in different partition),
+             * we can get duplicate deletes */
+            /* TODO: change the flow_tree_ key of FlowStatsCollector from
+             * FlowKey to Flow UUID */
+            break;
         }
         /* While updating stats for evicted flows, we set the teardown_time
          * and export the flow. So delete handling for evicted flows need not
