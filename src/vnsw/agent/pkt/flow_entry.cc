@@ -112,9 +112,9 @@ VmFlowRef:: ~VmFlowRef() {
 }
 
 void VmFlowRef::operator=(const VmFlowRef &rhs) {
-    // UPDATE on linklocal flows is not supported. So, fd_ should be invalid
-    assert(fd_ == VmFlowRef::kInvalidFd);
-    assert(rhs.fd_ == VmFlowRef::kInvalidFd);
+    // When flow is evicted by vrouter, reuse the older fd and port
+    fd_ = rhs.fd_;
+    port_ = rhs.port_;
     SetVm(rhs.vm_.get());
 }
 
