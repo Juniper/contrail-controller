@@ -46,6 +46,10 @@ void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
         if (!on_exit_cb_.empty()) {
             on_exit_cb_(this, ec);
         }
+
+        // reset is running flag on reset
+        is_running_ = false;
+
         return;
     }
 

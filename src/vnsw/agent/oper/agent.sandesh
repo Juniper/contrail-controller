@@ -1997,7 +1997,8 @@ struct HealthCheckSandeshData {
     7: u32 delay;
     8: u32 timeout;
     9: u32 max_retries;
-    10: list<HealthCheckInstanceSandeshData> inst_list;
+    10: bool enabled;
+    11: list<HealthCheckInstanceSandeshData> inst_list;
 }
 
 /**

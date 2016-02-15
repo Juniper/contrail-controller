@@ -49,7 +49,7 @@ HealthCheckInstance::HealthCheckInstance(HealthCheckService *service,
                                          MetaDataIpAllocator *allocator,
                                          VmInterface *intf) :
     service_(NULL), intf_(intf), ip_(new MetaDataIp(allocator, intf)),
-    task_(NULL), last_update_time_("-"), deleted_(false) {
+    task_(NULL), last_update_time_("-"), deleted_(false), running_(false) {
     active_ = false;
     ip_->set_active(true);
     intf->InsertHealthCheckInstance(this);
@@ -57,6 +57,7 @@ HealthCheckInstance::HealthCheckInstance(HealthCheckService *service,
 }
 
 HealthCheckInstance::~HealthCheckInstance() {
+    assert(!running_);
     VmInterface *intf = static_cast<VmInterface *>(intf_.get());
     intf->DeleteHealthCheckInstance(this);
     ResyncInterface(service_.get());
@@ -72,6 +73,7 @@ void HealthCheckInstance::ResyncInterface(HealthCheckService *service) {
 
 bool HealthCheckInstance::CreateInstanceTask() {
     if (!deleted_ && task_.get() != NULL) {
+        running_ = false;
         return false;
     }
 
@@ -88,9 +90,16 @@ bool HealthCheckInstance::CreateInstanceTask() {
                 boost::bind(&HealthCheckInstance::OnRead, this, _1, _2));
         task_->set_on_exit_cb(
                 boost::bind(&HealthCheckInstance::OnExit, this, _1, _2));
-        return task_->Run();
+        if (service_->enabled()) {
+            running_ = task_->Run();
+            return running_;
+        }
+
+        active_ = true;
+        ResyncInterface(service_.get());
     }
 
+    running_ = false;
     return false;
 }
 
@@ -99,7 +108,7 @@ bool HealthCheckInstance::DestroyInstanceTask() {
         return true;
     }
 
-    if (task_.get() == NULL) {
+    if (task_.get() == NULL || !running_) {
         return false;
     }
 
@@ -200,6 +209,7 @@ bool HealthCheckService::DBEntrySandesh(Sandesh *sresp,
     data.set_delay(delay_);
     data.set_timeout(timeout_);
     data.set_max_retries(max_retries_);
+    data.set_enabled(enabled_);
 
     std::vector<HealthCheckInstanceSandeshData> inst_list;
     InstanceList::const_iterator it = intf_list_.begin();
@@ -213,7 +223,7 @@ bool HealthCheckService::DBEntrySandesh(Sandesh *sresp,
             (it->second->ip_->destination_ip().to_string());
         inst_data.set_active(it->second->active_);
         inst_data.set_running(it->second->task_.get() != NULL ?
-                              it->second->task_->is_running(): false);
+                              it->second->running_ : false);
         inst_data.set_last_update_time(it->second->last_update_time_);
         inst_list.push_back(inst_data);
         it++;
@@ -270,6 +280,11 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         ret = true;
     }
 
+    if (enabled_ != data->enabled_) {
+        enabled_ = data->enabled_;
+        ret = true;
+    }
+
     if (dest_ip_ != data->dest_ip_) {
         dest_ip_ = data->dest_ip_;
         dest_ip_changed = true;
@@ -281,7 +296,16 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         // to force them restart with updated values.
         InstanceList::iterator it = intf_list_.begin();
         while (it != intf_list_.end()) {
-            it->second->task_->Stop();
+            if (it->second->running_) {
+                // task is running stop task to update params
+                it->second->task_->Stop();
+            } else {
+                if (enabled_) {
+                    // trigger task exit report to restart the task
+                    boost::system::error_code ec;
+                    it->second->OnExit(it->second->task_.get(), ec);
+                }
+            }
             it++;
         }
     }
@@ -446,7 +470,7 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         new HealthCheckServiceData(agent, dest_ip, node->name(),
                                    p.monitor_type, p.http_method, url_path,
                                    p.expected_codes, p.delay, p.timeout,
-                                   p.max_retries, node);
+                                   p.max_retries, p.enabled, node);
 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
@@ -553,10 +577,21 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
         }
         break;
     case HealthCheckInstanceEvent::TASK_EXIT:
+        // mark instance not running on exit
+        inst->running_ = false;
         if (!inst->deleted_) {
-            HEALTH_CHECK_TRACE(Trace, "Restarting " + inst->to_string());
             inst->UpdateInstanceTaskCommand();
-            inst->task_->Run();
+            if (inst->service_->enabled()) {
+                HEALTH_CHECK_TRACE(Trace, "Restarting " + inst->to_string());
+                inst->running_ = inst->task_->Run();
+            } else {
+                // service is disabled do not restart the task and let the
+                // instance report status as active till service is enabled
+                // again
+                HEALTH_CHECK_TRACE(Trace, "Stopped " + inst->to_string());
+                inst->active_ = true;
+                inst->ResyncInterface(inst->service_.get());
+            }
         } else {
             HEALTH_CHECK_TRACE(Trace, "Stopped " + inst->to_string());
             delete inst;
