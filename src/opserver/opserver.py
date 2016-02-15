@@ -1814,7 +1814,9 @@ class OpServer(object):
         # continuously monitor and purge
         while True:
             trigger_purge = False
-            db_node_usage = self._analytics_db.get_dbusage_info(self._args.rest_api_port)
+            db_node_usage = self._analytics_db.get_dbusage_info(
+                self._args.rest_api_ip,
+                self._args.rest_api_port)
             self._logger.info("node usage:" + str(db_node_usage) )
             self._logger.info("threshold:" + str(self._args.db_purge_threshold))
 
