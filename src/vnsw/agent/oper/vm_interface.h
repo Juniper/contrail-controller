@@ -76,7 +76,8 @@ public:
                             // (used in VMWare VCenter)
                             // VMI is created based on the INSTANCE_MSG
         TOR,                // Baremetal connected to ToR
-        LOCAL_DEVICE        // VMI on a local port. Used in GATEWAY
+        LOCAL_DEVICE,       // VMI on a local port. Used in GATEWAY
+        VM_SRIOV            // VMI on an SRIOV VM
     };
 
     // Type of VM on the VMI
@@ -86,7 +87,8 @@ public:
         SERVICE_CHAIN,
         SERVICE_INSTANCE,
         BAREMETAL,
-        GATEWAY
+        GATEWAY,
+        SRIOV
     };
 
     struct ListEntry {

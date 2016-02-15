@@ -311,6 +311,12 @@ public:
         client->WaitForIdle();
     }
 
+    void ConfigSriovPortAdd(struct PortInfo *input) {
+        client->Reset();
+        AddSriovPort(input[0].name, input[0].intf_id);
+        client->WaitForIdle();
+    }
+
     void CreateRemoteRoute(const char *vrf, const char *remote_vm,
                            const char *serv, int label, const char *vn,
                            BgpPeer *peer) {
