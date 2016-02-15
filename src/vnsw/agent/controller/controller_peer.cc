@@ -1124,6 +1124,9 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
 }
 
 bool AgentXmppChannel::IsEcmp(const std::vector<autogen::NextHopType> &nexthops) {
+    if (nexthops.size() == 0)
+        return false;
+
     std::string address = nexthops[0].address;
     for (uint32_t index = 1; index < nexthops.size(); index++) {
         if (nexthops[index].address != address)
@@ -2473,7 +2476,9 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                                    type, ecmp_load_balance);
     }
     if (type == Agent::EVPN) {
-        std::string vn = *vn_list.begin();
+        std::string vn;
+        if (vn_list.size())
+            vn = *vn_list.begin();
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   sg_list, communities, label,
                                                   bmap, "", "",
@@ -2515,9 +2520,11 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
     }
     if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);
+        std::string vn;
+        if (vn_list.size())
+            vn = *vn_list.begin();
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip,
-                                                  *vn_list.begin(),
-                                                  NULL, NULL,
+                                                  vn, NULL, NULL,
                                                   label, bmap, "", "",
                                                   path_preference, false);
     }

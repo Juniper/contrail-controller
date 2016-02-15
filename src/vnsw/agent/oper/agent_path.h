@@ -172,7 +172,10 @@ public:
     const CommunityList &communities() const {return communities_;}
     const std::string &dest_vn_name() const {
         assert(dest_vn_list_.size() <= 1);
-        return *dest_vn_list_.begin();
+        if (dest_vn_list_.size())
+            return *dest_vn_list_.begin();
+        else
+            return Agent::NullString();
     }
     const VnListType &dest_vn_list() const {return dest_vn_list_;}
     void GetDestinationVnList(std::vector<std::string> *vn_list) const;
