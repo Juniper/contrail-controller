@@ -627,7 +627,7 @@ void FlowTable::RevaluateRoute(FlowEntry *flow, const AgentRoute *route) {
         sg_changed = true;
     }
 
-    if (RevaluateSgList(rflow, route, sg_list)) {
+    if (rflow && RevaluateSgList(rflow, route, sg_list)) {
         sg_changed = true;
     }
 
