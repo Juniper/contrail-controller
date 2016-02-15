@@ -2586,6 +2586,52 @@ TEST_F(RoutingPolicyTest, ShowPolicy_2) {
     TASK_UTIL_EXPECT_TRUE(validate_done);
 }
 
+//
+// Add routes with different hashes such that route belongs to different DBTable
+// partition. Validate the routing policy
+//
+TEST_F(RoutingPolicyTest, MultipleRoutes_DifferentPartition) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i << "/32";
+        AddRoute<InetDefinition>(peers_[0], "test.inet.0", oss.str(), 100);
+        oss.str("");
+    }
+    task_util::WaitForIdle();
+    VERIFY_EQ(255, RouteCount("test.inet.0"));
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Policy applied on all routes
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i << "/32";
+        DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", oss.str());
+        oss.str("");
+    }
+    task_util::WaitForIdle();
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
