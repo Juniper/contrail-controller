@@ -232,6 +232,10 @@ public:
     void GrowFreeList();
     FlowEntryFreeList *free_list() { return &free_list_; }
 
+    // Concurrency check to ensure all flow-table and free-list manipulations
+    // are done from FlowEvent task context only
+    void ConcurrencyCheck();
+
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class PktSandeshFlowStats;
@@ -264,6 +268,7 @@ private:
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
     FlowEntryFreeList free_list_;
     tbb::mutex mutex_;
+    int flow_task_id_;
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 

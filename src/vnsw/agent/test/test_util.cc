@@ -2838,7 +2838,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent);
     std::auto_ptr<TaskTrigger> trigger_
         (new TaskTrigger(boost::bind(FlowDeleteTrigger, key), task_id, 0));
     trigger_->Set();

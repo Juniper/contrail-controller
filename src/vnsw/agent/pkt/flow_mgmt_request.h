@@ -86,6 +86,7 @@ public:
 
     Event event() const { return event_; }
     FlowEntryPtr &flow() { return flow_; }
+    void set_flow(FlowEntry *flow) { flow_.reset(flow); }
     const DBEntry *db_entry() const { return db_entry_; }
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
     uint32_t vrf_id() const { return vrf_id_; }

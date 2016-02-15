@@ -34,7 +34,7 @@ struct FlowStats {
 
 class FlowProto : public Proto {
 public:
-    typedef WorkQueue<FlowEvent> FlowEventQueue;
+    typedef WorkQueue<FlowEvent *> FlowEventQueue;
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
 
@@ -62,13 +62,13 @@ public:
     bool AddFlow(FlowEntry *flow);
     bool UpdateFlow(FlowEntry *flow);
 
-    void EnqueueEvent(const FlowEvent &event, FlowTable *table);
-    void EnqueueFlowEvent(const FlowEvent &event);
+    void EnqueueEvent(FlowEvent *event, FlowTable *table);
+    void EnqueueFlowEvent(FlowEvent *event);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow);
     void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle);
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle);
-    bool FlowEventHandler(const FlowEvent &req, FlowTable *table);
+    bool FlowEventHandler(FlowEvent *req, FlowTable *table);
     void GrowFreeListRequest(const FlowKey &key);
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);

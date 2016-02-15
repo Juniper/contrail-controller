@@ -124,8 +124,7 @@ bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
         return true;
     }
     FreeBuffer(msg.get());
-    FlowEvent event(FlowEvent::VROUTER_FLOW_MSG, msg);
-    EnqueueFlowEvent(event);
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::VROUTER_FLOW_MSG, msg));
     return true;
 }
 
@@ -187,30 +186,30 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 /////////////////////////////////////////////////////////////////////////////
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
-void FlowProto::EnqueueEvent(const FlowEvent &event, FlowTable *table) {
+void FlowProto::EnqueueEvent(FlowEvent *event, FlowTable *table) {
     flow_event_queue_[table->table_index()]->Enqueue(event);
 }
 
-void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
+void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     // Keep UpdateStats in-sync on add of new events
-    UpdateStats(event.event(), &stats_);
-    switch (event.event()) {
+    UpdateStats(event->event(), &stats_);
+    switch (event->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
-        PktInfo *info = event.pkt_info().get();
+        PktInfo *info = event->pkt_info().get();
         uint32_t index = FlowTableIndex(info->sport, info->dport);
         flow_event_queue_[index]->Enqueue(event);
         break;
     }
 
     case FlowEvent::FLOW_MESSAGE: {
-        FlowTaskMsg *ipc = static_cast<FlowTaskMsg *>(event.pkt_info()->ipc);
+        FlowTaskMsg *ipc = static_cast<FlowTaskMsg *>(event->pkt_info()->ipc);
         FlowTable *table = ipc->fe_ptr.get()->flow_table();
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
     }
 
     case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(event.get_flow_key());
+        FlowTable *table = GetFlowTable(event->get_flow_key());
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
     }
@@ -220,7 +219,7 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
     case FlowEvent::RETRY_INDEX_ACQUIRE:
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
-        FlowEntry *flow = event.flow();
+        FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
@@ -234,7 +233,7 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
 
     case FlowEvent::AUDIT_FLOW:
     case FlowEvent::GROW_FREE_LIST: {
-        FlowTable *table = GetFlowTable(event.get_flow_key());
+        FlowTable *table = GetFlowTable(event->get_flow_key());
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
     }
@@ -243,7 +242,7 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
     case FlowEvent::KSYNC_VROUTER_ERROR:
     case FlowEvent::KSYNC_EVENT: {
         FlowTableKSyncObject *ksync_obj = static_cast<FlowTableKSyncObject *>
-            (event.ksync_entry()->GetObject());
+            (event->ksync_entry()->GetObject());
         FlowTable *table = ksync_obj->flow_table();
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
@@ -257,29 +256,33 @@ void FlowProto::EnqueueFlowEvent(const FlowEvent &event) {
     return;
 }
 
-bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
-    switch (req.event()) {
+bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
+    std::auto_ptr<FlowEvent> req_ptr(req);
+    if (table) {
+        table->ConcurrencyCheck();
+    }
+    switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
-        ProcessProto(req.pkt_info());
+        ProcessProto(req->pkt_info());
         break;
     }
 
     case FlowEvent::FLOW_MESSAGE: {
-        FlowHandler *handler = new FlowHandler(agent(), req.pkt_info(), io_,
+        FlowHandler *handler = new FlowHandler(agent(), req->pkt_info(), io_,
                                                this, table->table_index());
         RunProtoHandler(handler);
         break;
     }
 
     case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(req.get_flow_key());
-        table->Delete(req.get_flow_key(), req.get_del_rev_flow());
+        FlowTable *table = GetFlowTable(req->get_flow_key());
+        table->Delete(req->get_flow_key(), req->get_del_rev_flow());
         break;
     }
 
     case FlowEvent::AUDIT_FLOW: {
-        FlowEntryPtr flow = FlowEntry::Allocate(req.get_flow_key(), table);
-        flow->InitAuditFlow(req.flow_handle());
+        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
+        flow->InitAuditFlow(req->flow_handle());
         flow->flow_table()->Add(flow.get(), NULL);
         break;
     }
@@ -287,8 +290,8 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     // Check if flow-handle changed. This can happen if vrouter tries to
     // setup the flow which was evicted earlier
     case FlowEvent::EVICT_FLOW: {
-        FlowEntry *flow = req.flow();
-        if (flow->flow_handle() != req.flow_handle())
+        FlowEntry *flow = req->flow();
+        if (flow->flow_handle() != req->flow_handle())
             break;
         flow->flow_table()->EvictFlow(flow);
         break;
@@ -297,8 +300,8 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
     // Flow was waiting for an index. Index is available now. Retry acquiring
     // the index
     case FlowEvent::RETRY_INDEX_ACQUIRE: {
-        FlowEntry *flow = req.flow();
-        if (flow->flow_handle() != req.flow_handle())
+        FlowEntry *flow = req->flow();
+        if (flow->flow_handle() != req->flow_handle())
             break;
         flow->flow_table()->UpdateKSync(flow, false);
         break;
@@ -309,44 +312,44 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
 
     case FlowEvent::FREE_DBENTRY: {
         FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
-        mgr->flow_mgmt_dbclient()->FreeDBState(req.db_entry(), req.gen_id());
+        mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
         break;
     }
 
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::REVALUATE_DBENTRY:
     case FlowEvent::REVALUATE_FLOW: {
-        FlowEntry *flow = req.flow();
-        flow->flow_table()->FlowResponseHandler(&req);
+        FlowEntry *flow = req->flow();
+        flow->flow_table()->FlowResponseHandler(req);
         break;
     }
 
     case FlowEvent::GROW_FREE_LIST: {
-        FlowTable *table = GetFlowTable(req.get_flow_key());
+        FlowTable *table = GetFlowTable(req->get_flow_key());
         table->GrowFreeList();
         break;
     }
 
     case FlowEvent::FLOW_HANDLE_UPDATE: {
         FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
         FlowEntry *flow = ksync_entry->flow_entry().get();
-        table->KSyncSetFlowHandle(flow, req.flow_handle());
+        table->KSyncSetFlowHandle(flow, req->flow_handle());
         break;
     }
 
     case FlowEvent::KSYNC_EVENT: {
         FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
         FlowTableKSyncObject *ksync_object = static_cast<FlowTableKSyncObject *>
             (ksync_entry->GetObject());
-        ksync_object->GenerateKSyncEvent(ksync_entry, req.ksync_event());
+        ksync_object->GenerateKSyncEvent(ksync_entry, req->ksync_event());
         break;
     }
 
     case FlowEvent::KSYNC_VROUTER_ERROR: {
         FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req.ksync_entry()));
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
         // Mark the flow entry as short flow and update ksync error event
         // to ksync index manager
         FlowEntry *flow = ksync_entry->flow_entry().get();
@@ -366,57 +369,59 @@ bool FlowProto::FlowEventHandler(const FlowEvent &req, FlowTable *table) {
         break;
     }
     }
+
     return true;
 }
 
 void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key,
+                                   del_rev_flow));
     return;
 }
 
 void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::EVICT_FLOW, flow, flow_handle));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::EVICT_FLOW, flow, flow_handle));
     return;
 }
 
 void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){
-    EnqueueFlowEvent(FlowEvent(FlowEvent::RETRY_INDEX_ACQUIRE, flow,
-                               flow_handle));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::RETRY_INDEX_ACQUIRE, flow,
+                                   flow_handle));
     return;
 }
 
 void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::AUDIT_FLOW, key, flow_handle));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::AUDIT_FLOW, key, flow_handle));
     return;
 }
 
 
 void FlowProto::GrowFreeListRequest(const FlowKey &key) {
-    EnqueueFlowEvent(FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
     return;
 }
 
 void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
                                   KSyncEntry::KSyncEvent event) {
-    EnqueueFlowEvent(FlowEvent(ksync_entry, event));
+    EnqueueFlowEvent(new FlowEvent(ksync_entry, event));
     return;
 }
 
 void FlowProto::KSyncFlowHandleRequest(KSyncEntry *ksync_entry,
                                        uint32_t flow_handle) {
-    EnqueueFlowEvent(FlowEvent(ksync_entry, flow_handle));
+    EnqueueFlowEvent(new FlowEvent(ksync_entry, flow_handle));
     return;
 }
 
 void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry) {
-    EnqueueFlowEvent(FlowEvent(ksync_entry));
+    EnqueueFlowEvent(new FlowEvent(ksync_entry));
     return;
 }
 
 void FlowProto::MessageRequest(InterTaskMsg *msg) {
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(PktHandler::FLOW, msg));
     FreeBuffer(pkt_info.get());
-    EnqueueFlowEvent(FlowEvent(FlowEvent::FLOW_MESSAGE, pkt_info));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, pkt_info));
     return;
 }
 

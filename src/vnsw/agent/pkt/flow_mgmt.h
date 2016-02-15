@@ -1016,7 +1016,7 @@ public:
     bool RequestHandler(boost::shared_ptr<FlowMgmtRequest> req);
     bool BgpAsAServiceRequestHandler(FlowMgmtRequest *req);
     bool DbClientHandler(const DBEntry *entry);
-    void EnqueueFlowEvent(const FlowEvent &event);
+    void EnqueueFlowEvent(FlowEvent *event);
 
     Agent *agent() const { return agent_; }
     void AddEvent(FlowEntry *low);
