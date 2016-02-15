@@ -67,6 +67,9 @@ Ip4Prefix Ip4Prefix::FromString(const string &str,
 
 // Check whether 'this' is more specific than rhs.
 bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
+    // All routes are more specific for 0/0 subnet
+    if (rhs.prefixlen() == 0) return true;
+
     // My prefixlen must be longer in order to be more specific.
     if (prefixlen_ < rhs.prefixlen()) return false;
 

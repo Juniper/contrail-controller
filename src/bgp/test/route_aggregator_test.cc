@@ -672,6 +672,47 @@ TEST_F(RouteAggregatorTest, Basic_MultipleAggregatePrefix) {
 }
 
 //
+// Validate the route aggregation functionality with default route
+// Verify that aggregate route is published
+//
+TEST_F(RouteAggregatorTest, Basic_Default) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_5a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "0/0");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    TASK_UTIL_EXPECT_TRUE(IsAggregateRoute<InetDefinition>("test",
+                                           "test.inet.0", "0/0"));
+    TASK_UTIL_EXPECT_FALSE(IsAggregateRoute<InetDefinition>("test",
+                                           "test.inet.0", "1.1.1.1/32"));
+    TASK_UTIL_EXPECT_TRUE(IsContributingRoute<InetDefinition>("test",
+                                            "test.inet.0", "2.2.1.1/32"));
+    TASK_UTIL_EXPECT_FALSE(IsContributingRoute<InetDefinition>("test",
+                                            "test.inet.0", "1.1.1.1/32"));
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    task_util::WaitForIdle();
+}
+
+//
 // Validate the route aggregation config handling
 // Verify that aggregate route config is ignored if the nexthop and routes
 // belong to different family
@@ -2020,6 +2061,42 @@ TEST_F(RouteAggregatorTest, BasicInet6_1) {
                                  "2002:db8:85a3::8a2e:370:7334/128");
     DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
                                  "2002:db8:85a3::8a2e:370:7335/128");
+    task_util::WaitForIdle();
+}
+
+//
+// Validate the route aggregation functionality with default inet6
+// Verify that aggregate route is published
+//
+TEST_F(RouteAggregatorTest, BasicInet6_Default) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_5.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                              "2001:db8:85a3::8a2e:370:7334/128", 100);
+    task_util::WaitForIdle();
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                              "2002:db8:85a3::8a2e:370:7334/128", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0", "::/0");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    VerifyRouteAggregateSandesh("test");
+
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                                 "2001:db8:85a3::8a2e:370:7334/128");
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                                 "2002:db8:85a3::8a2e:370:7334/128");
     task_util::WaitForIdle();
 }
 
