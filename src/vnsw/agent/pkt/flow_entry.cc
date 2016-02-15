@@ -45,10 +45,6 @@
 #include <pkt/flow_mgmt.h>
 #include <pkt/flow_event.h>
 #include <pkt/flow_entry.h>
-#include <uve/agent_uve.h>
-#include <uve/vm_uve_table.h>
-#include <uve/vn_uve_table.h>
-#include <uve/vrouter_uve_entry.h>
 
 const std::map<FlowEntry::FlowPolicyState, const char*>
     FlowEntry::FlowPolicyStateStr = boost::assign::map_list_of
@@ -318,6 +314,7 @@ FlowEntry::FlowEntry(FlowTable *flow_table) :
     fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), fsc_(NULL) {
     Reset();
     alloc_count_.fetch_and_increment();
+    uuid_ = FlowTable::rand_gen_();
 }
 
 FlowEntry::~FlowEntry() {

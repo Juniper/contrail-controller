@@ -70,11 +70,16 @@ bool VnUveTableBase::TimerExpiry() {
                 entry->set_changed(false);
                 SendVnMsg(entry, entry->vn());
             }
-        } else if (entry->changed()) {
-            SendVnMsg(entry, entry->vn());
-            entry->set_changed(false);
-            /* Clear renew flag to be on safer side. Not really required */
-            entry->set_renewed(false);
+        } else {
+            if (entry->changed()) {
+                SendVnMsg(entry, entry->vn());
+                entry->set_changed(false);
+                /* Clear renew flag to be on safer side. Not really required */
+                entry->set_renewed(false);
+            }
+
+            // Send VN ACE stats
+            SendVnAceStats(entry, entry->vn());
         }
     }
 

@@ -7,6 +7,8 @@
 #include "pkt/flow_mgmt.h"
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_dbclient.h"
+#include "pkt/flow_ace_stats_request.h"
+#include "uve/agent_uve_stats.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
 const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
 
@@ -432,11 +434,40 @@ void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
     }
 }
 
+void FlowMgmtManager::EnqueueUveAddEvent(FlowEntryPtr &flow) {
+    AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
+    if (uve) {
+        const Interface *itf = flow->intf_entry();
+        const VmInterface *vmi = dynamic_cast<const VmInterface *>(itf);
+        const VnEntry *vn = flow->vn_entry();
+        string vn_name = vn? vn->GetName() : "";
+        string itf_name = vmi? vmi->cfg_name() : "";
+        if ((!itf_name.empty() && !flow->sg_rule_uuid().empty()) ||
+            (!vn_name.empty() && !flow->nw_ace_uuid().empty())) {
+            FlowAceStatsRequest req(FlowAceStatsRequest::ADD_FLOW, flow->uuid(),
+                                    itf_name, flow->sg_rule_uuid(),
+                                    vn_name, flow->nw_ace_uuid());
+            uve->stats_manager()->EnqueueEvent(req);
+        }
+    }
+}
+
+void FlowMgmtManager::EnqueueUveDeleteEvent(FlowEntryPtr &flow) {
+    AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
+    if (uve) {
+        FlowAceStatsRequest req(FlowAceStatsRequest::DELETE_FLOW, flow->uuid());
+        uve->stats_manager()->EnqueueEvent(req);
+    }
+}
+
 void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
     LogFlow(flow.get(), "ADD");
 
     //Enqueue Add request to flow-stats-collector
     agent_->flow_stats_manager()->AddEvent(flow);
+
+    //Enqueue Add request to UVE module for ACE stats
+    EnqueueUveAddEvent(flow);
 
     // Trace the flow add/change
     FlowMgmtKeyTree new_tree;
