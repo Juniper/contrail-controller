@@ -24,7 +24,7 @@ class SNATAgent(Agent):
             st_obj = ServiceTemplateSM.get(si.service_template)
             if st_obj.params['service_type'] != "source-nat":
                 continue
-            lr_uuid = si_name.split('_')[1]
+            lr_uuid = iter(si.logical_routers).next()
             lr = LogicalRouterSM.get(lr_uuid)
             if lr is None or lr.virtual_network is None:
                 self.cleanup_snat_instance(lr_uuid, si.uuid)
