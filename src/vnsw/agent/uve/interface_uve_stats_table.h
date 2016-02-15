@@ -23,6 +23,8 @@ public:
     (uint32_t fip, const string &vn, Interface *intf);
     void UpdatePortBitmap
     (const string &name, uint8_t proto, uint16_t sport, uint16_t dport);
+    void IncrInterfaceAceStats(const std::string &itf, const std::string &u);
+    void SendInterfaceAceStats(const string &name, UveInterfaceEntry *entry);
 
 private:
     void SendInterfaceStatsMsg(UveInterfaceEntry* entry);
