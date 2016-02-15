@@ -202,3 +202,24 @@ InterfaceUveTable::FloatingIp * InterfaceUveStatsTable::FipEntry
     UveInterfaceEntry *entry = intf_it->second.get();
     return entry->FipEntry(fip, vn);
 }
+
+void InterfaceUveStatsTable::IncrInterfaceAceStats(const std::string &itf,
+                                                   const std::string &u) {
+    if (itf.empty() || u.empty()) {
+        return;
+    }
+    InterfaceMap::iterator intf_it = interface_tree_.find(itf);
+
+    if (intf_it != interface_tree_.end()) {
+        UveInterfaceEntry *entry = intf_it->second.get();
+        entry->UpdateInterfaceAceStats(u);
+    }
+}
+
+void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
+                                                   UveInterfaceEntry *entry) {
+    UveVMInterfaceAgent uve;
+    if (entry->FrameInterfaceAceStatsMsg(name, &uve)) {
+        DispatchInterfaceMsg(uve);
+    }
+}

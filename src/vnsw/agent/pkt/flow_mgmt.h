@@ -1042,6 +1042,8 @@ public:
     void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
+    void EnqueueUveAddEvent(FlowEntryPtr &flow);
+    void EnqueueUveDeleteEvent(FlowEntryPtr &flow);
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);

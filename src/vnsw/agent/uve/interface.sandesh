@@ -39,6 +39,14 @@ struct VmInterfaceStats {
 }
 
 /**
+ * Number of flow hits for a given SG ACL Rule
+ */
+struct SgAclRuleStats {
+    1: string rule;
+    2: u64 count;
+}
+
+/**
  * Sandesh definition for vm interface in agent
  */
 struct UveVMInterfaceAgent {
@@ -65,6 +73,7 @@ struct UveVMInterfaceAgent {
    20: optional u64 in_bw_usage;
    21: optional u64 out_bw_usage;
    22: optional bool ip4_active;
+   23: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule")
 }
 
 /**

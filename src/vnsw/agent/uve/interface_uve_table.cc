@@ -48,13 +48,18 @@ bool InterfaceUveTable::TimerExpiry() {
                 entry->changed_ = false;
                 SendInterfaceMsg(cfg_name, entry);
             }
-        } else if (entry->changed_) {
-            SendInterfaceMsg(cfg_name, entry);
-            entry->changed_ = false;
-            /* Clear renew flag to be on safer side. Not really required */
-            entry->renewed_ = false;
+        } else {
+            if (entry->changed_) {
+                SendInterfaceMsg(cfg_name, entry);
+                entry->changed_ = false;
+                /* Clear renew flag to be on safer side. Not really required */
+                entry->renewed_ = false;
+            }
+            // Send Interface ACE stats
+            SendInterfaceAceStats(cfg_name, entry);
         }
     }
+
 
     if (it == interface_tree_.end()) {
         timer_last_visited_ = "";
@@ -542,3 +547,38 @@ void InterfaceUveTable::UveInterfaceEntry::RemoveFloatingIp
     }
 }
 
+void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceAceStats
+    (const std::string &ace_uuid) {
+    AceStats key(ace_uuid);
+    ace_stats_changed_ = true;
+    AceStatsSet::const_iterator it = ace_set_.find(key);
+    if (it != ace_set_.end()) {
+        it->count++;
+        return;
+    }
+    key.count = 1;
+    ace_set_.insert(key);
+}
+
+bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceAceStatsMsg
+    (const std::string &name, UveVMInterfaceAgent *s_intf) const {
+    if (!ace_stats_changed_) {
+        return false;
+    }
+    std::vector<SgAclRuleStats> list;
+    AceStatsSet::iterator it = ace_set_.begin();
+    while (it != ace_set_.end()) {
+        SgAclRuleStats item;
+        item.set_rule(it->ace_uuid);
+        uint64_t diff_count = it->count - it->prev_count;
+        item.set_count(diff_count);
+        //Update prev_count
+        it->prev_count = it->count;
+        list.push_back(item);
+        ++it;
+    }
+    s_intf->set_name(name);
+    s_intf->set_sg_rule_stats(list);
+    ace_stats_changed_ = false;
+    return true;
+}
