@@ -239,6 +239,7 @@ struct FlowInfo {
    37: optional u64 dip_upper;
    38: optional u64 dip_lower;
    43: string drop_reason;
+   44: u16 table_id;
 }
 
 /**
