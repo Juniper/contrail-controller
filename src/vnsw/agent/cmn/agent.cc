@@ -196,6 +196,14 @@ void Agent::SetAgentTaskPolicy() {
     const char *walk_cancel_exclude_list[] = {
         "Agent::ControllerXmpp",
         "db::DBTable",
+        // For ToR Agent Agent::KSync and Agent::RouteWalker both task tries
+        // to modify route path list inline (out of DB table context) to
+        // manage route exports from dynamic peer before release the peer
+        // which is resulting in parallel access, for now we will avoid this
+        // race by adding task exclusion policy.
+        // TODO(prabhjot): need to remove this task exclusion one dynamic peer
+        // handling is done.
+        "Agent::KSync",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
