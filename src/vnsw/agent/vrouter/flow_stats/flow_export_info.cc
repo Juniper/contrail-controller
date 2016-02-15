@@ -15,7 +15,8 @@ FlowExportInfo::FlowExportInfo() :
 }
 
 FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
-    source_vn_(fe->data().source_vn_match), dest_vn_(fe->data().dest_vn_match),
+    flow_uuid_(fe->uuid()), source_vn_(fe->data().source_vn_match),
+    dest_vn_(fe->data().dest_vn_match),
     sg_rule_uuid_(fe->sg_rule_uuid()), nw_ace_uuid_(fe->nw_ace_uuid()),
     setup_time_(setup_time), teardown_time_(0), last_modified_time_(setup_time),
     bytes_(0), packets_(0), flags_(fe->flags()),
@@ -23,7 +24,6 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     vm_cfg_name_(fe->data().vm_cfg_name), peer_vrouter_(fe->peer_vrouter()),
     tunnel_type_(fe->tunnel_type()), underlay_source_port_(0),
     changed_(true), fip_(fe->fip()), fip_vmi_(fe->fip_vmi()), tcp_flags_(0) {
-    flow_uuid_ = FlowTable::rand_gen_();
     egress_uuid_ = FlowTable::rand_gen_();
     FlowEntry *rflow = fe->reverse_flow_entry();
     if (rflow) {
