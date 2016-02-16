@@ -274,39 +274,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
-    case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(req->get_flow_key());
-        table->Delete(req->get_flow_key(), req->get_del_rev_flow());
-        break;
-    }
-
-    case FlowEvent::AUDIT_FLOW: {
-        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
-        flow->InitAuditFlow(req->flow_handle());
-        flow->flow_table()->Add(flow.get(), NULL);
-        break;
-    }
-
-    // Check if flow-handle changed. This can happen if vrouter tries to
-    // setup the flow which was evicted earlier
-    case FlowEvent::EVICT_FLOW: {
-        FlowEntry *flow = req->flow();
-        if (flow->flow_handle() != req->flow_handle())
-            break;
-        flow->flow_table()->EvictFlow(flow);
-        break;
-    }
-
-    // Flow was waiting for an index. Index is available now. Retry acquiring
-    // the index
-    case FlowEvent::RETRY_INDEX_ACQUIRE: {
-        FlowEntry *flow = req->flow();
-        if (flow->flow_handle() != req->flow_handle())
-            break;
-        flow->flow_table()->UpdateKSync(flow, false);
-        break;
-    }
-
     case FlowEvent::FREE_FLOW_REF:
         break;
 
@@ -317,10 +284,10 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::DELETE_DBENTRY:
-    case FlowEvent::REVALUATE_DBENTRY:
-    case FlowEvent::REVALUATE_FLOW: {
+    case FlowEvent::REVALUATE_DBENTRY: {
         FlowEntry *flow = req->flow();
         flow->flow_table()->FlowResponseHandler(req);
+        EnqueueFreeFlowReference(req->flow_ref());
         break;
     }
 
@@ -330,42 +297,24 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
-    case FlowEvent::FLOW_HANDLE_UPDATE: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        FlowEntry *flow = ksync_entry->flow_entry().get();
-        table->KSyncSetFlowHandle(flow, req->flow_handle());
+    case FlowEvent::AUDIT_FLOW: {
+        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
+        flow->InitAuditFlow(req->flow_handle());
+        flow->flow_table()->Add(flow.get(), NULL);
         break;
     }
 
-    case FlowEvent::KSYNC_EVENT: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        FlowTableKSyncObject *ksync_object = static_cast<FlowTableKSyncObject *>
-            (ksync_entry->GetObject());
-        ksync_object->GenerateKSyncEvent(ksync_entry, req->ksync_event());
-        break;
-    }
-
+    case FlowEvent::DELETE_FLOW:
+    case FlowEvent::EVICT_FLOW:
+    case FlowEvent::RETRY_INDEX_ACQUIRE:
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+    case FlowEvent::REVALUATE_FLOW:
+    case FlowEvent::KSYNC_EVENT:
     case FlowEvent::KSYNC_VROUTER_ERROR: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        // Mark the flow entry as short flow and update ksync error event
-        // to ksync index manager
-        FlowEntry *flow = ksync_entry->flow_entry().get();
-        // For EEXIST error donot mark the flow as ShortFlow since Vrouter
-        // generates EEXIST only for cases where another add should be
-        // coming from the pkt trap from Vrouter
-        if (req->ksync_error() != EEXIST) {
-            flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-            // Enqueue Add request to flow-stats-collector
-            // to update flow flags in stats collector
-            FlowEntryPtr flow_ptr(flow);
-            agent()->flow_stats_manager()->AddEvent(flow_ptr);
-        }
-        KSyncFlowIndexManager *mgr =
-            agent()->ksync()->ksync_flow_index_manager();
-        mgr->UpdateKSyncError(flow);
+        FlowTable *table = GetFlowTable(req->get_flow_key());
+        table->ProcessFlowEvent(req);
+        //In case flow is deleted enqueue a free flow reference event.
+        EnqueueFreeFlowReference(req->flow_ref());
         break;
     }
 
@@ -430,6 +379,29 @@ void FlowProto::MessageRequest(InterTaskMsg *msg) {
     FreeBuffer(pkt_info.get());
     EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, pkt_info));
     return;
+}
+
+// Flow management runs in parallel to flow processing. As a result,
+// we need to ensure that last reference for flow will go away from
+// kTaskFlowEvent context only. This is ensured by following 2 actions
+//
+// 1. On return from here reference to the flow is removed which can
+//    potentially be last reference. So, enqueue a dummy request to
+//    flow-table queue.
+// 2. Due to OS scheduling, its possible that the request we are
+//    enqueuing completes even before this function is returned. So,
+//    drop the reference immediately after allocating the event
+void FlowProto::EnqueueFreeFlowReference(FlowEntryPtr &flow) {
+    if (flow == NULL) {
+        return;
+    }
+    tbb::mutex::scoped_lock lock(flow->mutex());
+    if (flow->deleted()) {
+        FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
+                                         flow.get());
+        flow.reset();
+        EnqueueFlowEvent(event);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
