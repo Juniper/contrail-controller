@@ -285,7 +285,7 @@ bool KSyncFlowMemory::AuditProcess() {
 
             FlowProto *proto = ksync_->agent()->pkt()->get_flow_proto();
             proto->CreateAuditEntry(key, flow_idx);
-            AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
+            AGENT_LOG(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                         "entry to short flow");
         }
     }
