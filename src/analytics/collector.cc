@@ -411,7 +411,7 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
             ginfo.set_sm_drop_level(sm_drop_level);
         }
 	SandeshStateMachineStats sm_stats;
-        SandeshGeneratorStats sm_msg_stats;
+        SandeshGeneratorBasicStats sm_msg_stats;
         if (gen->GetSandeshStateMachineStats(sm_stats, sm_msg_stats)) {
             ginfo.set_sm_stats(sm_stats);
             ginfo.set_sm_msg_stats(sm_msg_stats);

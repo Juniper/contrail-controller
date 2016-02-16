@@ -281,7 +281,7 @@ bool SandeshGenerator::GetSandeshStateMachineDropLevel(
 
 bool SandeshGenerator::GetSandeshStateMachineStats(
                     SandeshStateMachineStats &sm_stats,
-                    SandeshGeneratorStats &sm_msg_stats) const {
+                    SandeshGeneratorBasicStats &sm_msg_stats) const {
     if (!state_machine_) {
         return false;
     }

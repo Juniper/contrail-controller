@@ -63,7 +63,7 @@ public:
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
     bool GetSandeshStateMachineDropLevel(std::string &drop_level) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
-                                     SandeshGeneratorStats &sm_msg_stats) const;
+                                SandeshGeneratorBasicStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
         std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const;
     void SendDbStatistics();
