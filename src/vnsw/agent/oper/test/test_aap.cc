@@ -315,6 +315,7 @@ TEST_F(TestAap, EvpnRoute_3) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 }
 #endif
+
 //Just add a local path, verify that sequence no gets initialized to 0
 TEST_F(TestAap, StateMachine_1) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
@@ -1072,6 +1073,49 @@ TEST_F(TestAap, StateMachine_18) {
     DelVrf("default-project:vn2:vn2");
     client->WaitForIdle();
 }
+
+TEST_F(TestAap, StateMachine_16) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    client->WaitForIdle();
+
+    EvpnRouteEntry *rt = EvpnRouteGet("vrf1", mac, ip, 0);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          mac);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    AddLink("virtual-machine-interface", "intf1", "security-group", "sg1");
+    client->WaitForIdle();
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
+    DelAcl("acl1");
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+}
+
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
