@@ -391,13 +391,7 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
     //    enqueuing completes even before this function is returned. So,
     //    drop the reference immediately after allocating the event
     if (req->flow().get()) {
-        tbb::mutex::scoped_lock lock(req->flow()->mutex());
-        if (req->flow()->deleted()) {
-            FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
-                                             req->flow().get());
-            req->set_flow(NULL);
-            EnqueueFlowEvent(event);
-        }
+        agent_->pkt()->get_flow_proto()->EnqueueFreeFlowReference(req->flow());
     }
 
     return true;
