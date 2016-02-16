@@ -338,6 +338,9 @@ void PathPreferenceSM::Process() {
          const AgentPath *path =
              static_cast<const AgentPath *>(it.operator->());
          if (path == local_path) {
+             if (path->path_preference().sequence() < sequence()) {
+                 EnqueuePathChange();
+             }
              continue;
          }
          //Get best preference and sequence no from all BGP peer
