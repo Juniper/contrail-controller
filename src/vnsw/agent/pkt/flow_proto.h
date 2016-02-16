@@ -86,7 +86,11 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
+    void EnqueueFreeFlowReference(FlowEntryPtr &flow);
+
 private:
+    bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
+
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
