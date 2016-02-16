@@ -424,6 +424,48 @@ protected:
 };
 
 //
+// Validate the route aggregation functionality for default route
+// Add nexthop route and more specific route for aggregate prefix
+// Verify that aggregate route is published
+//
+TEST_F(RouteAggregatorTest, Default) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_0i.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32", 100);
+    task_util::WaitForIdle();
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "0.0.0.0/0");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    TASK_UTIL_EXPECT_TRUE(IsAggregateRoute<InetDefinition>("test",
+                                           "test.inet.0", "0.0.0.0/0"));
+    TASK_UTIL_EXPECT_FALSE(IsAggregateRoute<InetDefinition>("test",
+                                           "test.inet.0", "1.1.1.1/32"));
+    TASK_UTIL_EXPECT_TRUE(IsContributingRoute<InetDefinition>("test",
+                                            "test.inet.0", "2.2.1.1/32"));
+    TASK_UTIL_EXPECT_FALSE(IsContributingRoute<InetDefinition>("test",
+                                            "test.inet.0", "1.1.1.1/32"));
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "1.1.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.1.1/32");
+    task_util::WaitForIdle();
+}
+
+//
 // Validate the route aggregation functionality
 // Add nexthop route and more specific route for aggregate prefix
 // Verify that aggregate route is published
@@ -1885,6 +1927,43 @@ TEST_F(RouteAggregatorTest, ConfigDelete_DelayedRouteProcessing_2) {
 }
 
 //
+// Validate the route aggregation functionality with inet6 default route
+// Add nexthop route and more specific route for aggregate prefix
+// Verify that aggregate route is published
+//
+TEST_F(RouteAggregatorTest, DefaultInet6) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_1c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                              "2002:db8:85a3::8a2e:370:7334/128", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(1, RouteCount("test.inet6.0"));
+
+    AddRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                              "2002:db8:85a3::8a2e:370:7335/128", 100);
+    task_util::WaitForIdle();
+    VERIFY_EQ(3, RouteCount("test.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test.inet6.0", "::/0");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                                 "2002:db8:85a3::8a2e:370:7334/128");
+    DeleteRoute<Inet6Definition>(peers_[0], "test.inet6.0",
+                                 "2002:db8:85a3::8a2e:370:7335/128");
+    task_util::WaitForIdle();
+}
+
+//
 // Validate the route aggregation functionality with inet6
 // Add nexthop route and more specific route for aggregate prefix
 // Verify that aggregate route is published
@@ -1966,7 +2045,7 @@ TEST_F(RouteAggregatorTest, BasicInet6_0) {
 //
 // Validate the route aggregation functionality with inet6
 // Add a route with aggregate prefix and verify that route aggregation is not
-// triggerred
+// triggered
 //
 TEST_F(RouteAggregatorTest, BasicInet6_1) {
     string content =
