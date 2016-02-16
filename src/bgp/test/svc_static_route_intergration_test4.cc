@@ -67,6 +67,69 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRoute) {
 }
 
 //
+// Verify static route in VN's default routing instance.
+//
+TYPED_TEST(ServiceChainIntegrationTest, StaticRouteDefaultRoutingInstance) {
+    auto_ptr<autogen::StaticRouteEntriesType> params;
+
+    params = this->GetStaticRouteConfig(
+            "controller/src/bgp/testdata/static_route_13.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(this->cn1_->config_db(),
+            "routing-instance", "blue", "static-route-entries",
+            params.release(), 0);
+
+    params = this->GetStaticRouteConfig(
+            "controller/src/bgp/testdata/static_route_13.xml");
+    ifmap_test_util::IFMapMsgPropertyAdd(this->cn2_->config_db(),
+        "routing-instance", "blue", "static-route-entries",
+        params.release(), 0);
+    task_util::WaitForIdle();
+
+    // Add Connected route
+    this->AddConnectedRoute(true);
+    task_util::WaitForIdle();
+
+    vector<PathVerify> path_list;
+    if (ServiceChainIntegrationTestGlobals::mx_push_connected_) {
+        PathVerify verify_1(
+            "1.2.2.1", "StaticRoute", "1.2.2.1", set<string>(), "blue");
+        PathVerify verify_2(
+            "7.8.9.1", "StaticRoute", "7.8.9.1", set<string>(), "blue");
+        PathVerify verify_3(
+            "1.2.2.1", "BGP_XMPP", "1.2.2.1", set<string>(), "blue");
+        PathVerify verify_4(
+            "7.8.9.1", "BGP_XMPP", "7.8.9.1", set<string>(), "blue");
+        path_list.push_back(verify_1);
+        path_list.push_back(verify_2);
+        path_list.push_back(verify_3);
+        path_list.push_back(verify_4);
+    } else {
+        PathVerify verify_1("88.88.88.88", "StaticRoute", "88.88.88.88",
+                            list_of("gre"), "blue");
+        PathVerify verify_2("99.99.99.99", "StaticRoute", "99.99.99.99",
+                            list_of("gre"), "blue");
+        PathVerify verify_3(
+            "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "blue");
+        PathVerify verify_4(
+            "99.99.99.99", "BGP_XMPP", "99.99.99.99", list_of("gre"), "blue");
+        path_list.push_back(verify_1);
+        path_list.push_back(verify_2);
+        path_list.push_back(verify_3);
+        path_list.push_back(verify_4);
+    }
+
+    // Check for ServiceChain route
+    this->VerifyServiceChainRoute(this->cn1_.get(), "blue",
+        this->BuildPrefix("10.1.1.0", 24), path_list);
+    this->VerifyServiceChainRoute(this->cn2_.get(), "blue",
+        this->BuildPrefix("10.1.1.0", 24), path_list);
+
+    // Add Connected route
+    this->DeleteConnectedRoute(true);
+    task_util::WaitForIdle();
+}
+
+//
 // Verify when externally connected route is available as both static route
 // and service chain route
 //

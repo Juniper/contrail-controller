@@ -585,6 +585,16 @@ void RoutingInstance::FlushStaticRouteConfig() {
     }
 }
 
+void RoutingInstance::UpdateAllStaticRoutes() {
+    if (is_default_)
+        return;
+
+    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    BOOST_FOREACH(Address::Family family, families) {
+        static_route_mgr(family)->UpdateAllRoutes();
+    }
+}
+
 void RoutingInstance::ProcessRouteAggregationConfig() {
     if (is_default_)
         return;
@@ -708,6 +718,10 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
             table->NotifyAllEntries();
         }
     }
+
+    // Update all static routes so that they reflect the new OriginVn.
+    if (virtual_network_index_ != cfg->virtual_network_index())
+        UpdateAllStaticRoutes();
 
     // Update virtual network info.
     virtual_network_ = cfg->virtual_network();

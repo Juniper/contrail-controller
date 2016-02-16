@@ -17,6 +17,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
 #include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/static_route_types.h"
@@ -168,23 +169,7 @@ private:
         return (nexthop_ == ip_route->GetPrefix().addr());
     }
 
-    ExtCommunityPtr ExtCommunityRouteTargetList(const BgpAttr *attr) const {
-        ExtCommunity::ExtCommunityList export_list;
-        for (RouteTargetList::const_iterator it = rtarget_list().begin();
-             it != rtarget_list().end(); it++) {
-            export_list.push_back(it->GetExtCommunity());
-        }
-
-        ExtCommunityPtr new_ext_community(NULL);
-        ExtCommunityDB *comm_db = routing_instance()->server()->extcomm_db();
-        if (!export_list.empty()) {
-            new_ext_community =
-                comm_db->ReplaceRTargetAndLocate(attr->ext_community(),
-                                                 export_list);
-        }
-
-        return new_ext_community;
-    }
+    ExtCommunityPtr UpdateExtCommunity(const BgpAttr *attr) const;
 
     RoutingInstance *routing_instance_;
     StaticRouteMgrT *manager_;
@@ -328,6 +313,37 @@ bool StaticRoute<T>::Match(BgpServer *server, BgpTable *table,
     return true;
 }
 
+//
+// Build an updated ExtCommunity for the static route.
+//
+// Replace any RouteTargets with the list of RouteTargets for the StaticRoute.
+// If the StaticRoute has an empty RouteTarget list, then we infer that this
+// is not a snat use case and add the OriginVn as well. We don't want to add
+// OriginVn in snat scenario because the route has to be imported into many
+// VRFs and we want to set the OriginVn differently for each imported route.
+//
+template <typename T>
+ExtCommunityPtr StaticRoute<T>::UpdateExtCommunity(const BgpAttr *attr) const {
+    ExtCommunity::ExtCommunityList export_list;
+    for (RouteTargetList::const_iterator it = rtarget_list().begin();
+        it != rtarget_list().end(); it++) {
+        export_list.push_back(it->GetExtCommunity());
+    }
+
+    BgpServer *server = routing_instance()->server();
+    ExtCommunityDB *extcomm_db = server->extcomm_db();
+    ExtCommunityPtr new_ext_community = extcomm_db->ReplaceRTargetAndLocate(
+        attr->ext_community(), export_list);
+
+    int vn_index = routing_instance()->virtual_network_index();
+    if (export_list.empty() && vn_index) {
+        OriginVn origin_vn(server->autonomous_system(), vn_index);
+        new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+            new_ext_community.get(), origin_vn.GetExtCommunity());
+    }
+    return new_ext_community;
+}
+
 // RemoveStaticRoute
 template <typename T>
 void StaticRoute<T>::RemoveStaticRoute() {
@@ -379,9 +395,8 @@ void StaticRoute<T>::UpdateStaticRoute() {
             << BgpPath::PathIdString(*it) << " in table "
             << bgp_table()->name());
 
-        ExtCommunityPtr ptr =
-            ExtCommunityRouteTargetList(existing_path->GetAttr());
-        // Add the route target in the ExtCommunity attribute
+        // Add the route target in the ExtCommunity attribute.
+        ExtCommunityPtr ptr = UpdateExtCommunity(existing_path->GetAttr());
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             existing_path->GetAttr(), ptr);
 
@@ -434,9 +449,8 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         if (nexthop_route()->DuplicateForwardingPath(nexthop_route_path))
             continue;
 
-        // Add the route target in the ExtCommunity attribute
-        ExtCommunityPtr ptr =
-            ExtCommunityRouteTargetList(nexthop_route_path->GetAttr());
+        // Add the route target in the ExtCommunity attribute.
+        ExtCommunityPtr ptr = UpdateExtCommunity(nexthop_route_path->GetAttr());
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             nexthop_route_path->GetAttr(), ptr);
 
@@ -838,6 +852,17 @@ void StaticRouteMgr<T>::NotifyAllRoutes() {
         StaticRouteT *static_route =
              static_cast<StaticRouteT *>(it->second.get());
         static_route->NotifyRoute();
+    }
+}
+
+template <typename T>
+void StaticRouteMgr<T>::UpdateAllRoutes() {
+    CHECK_CONCURRENCY("bgp::Config");
+    for (typename StaticRouteMap::iterator it = static_route_map_.begin();
+         it != static_route_map_.end(); ++it) {
+        StaticRouteT *static_route =
+             static_cast<StaticRouteT *>(it->second.get());
+        static_route->UpdateStaticRoute();
     }
 }
 

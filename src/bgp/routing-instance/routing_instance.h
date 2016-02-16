@@ -65,6 +65,7 @@ public:
     void ProcessStaticRouteConfig();
     void UpdateStaticRouteConfig();
     void FlushStaticRouteConfig();
+    void UpdateAllStaticRoutes();
 
     void ProcessRouteAggregationConfig();
     void UpdateRouteAggregationConfig();
