@@ -396,7 +396,7 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                 aaps = aap_config['allowed_address_pair']
                 for aap in aaps or []:
                     if aap['mac'] == "":
-                        aap['mac'] = obj_dict['virtual_machine_interface_mac_addresses']['mac_address']
+                        aap['mac'] = obj_dict['virtual_machine_interface_mac_addresses']['mac_address'][0]
         return True, ""
     # end http_post_collection
 
@@ -413,7 +413,7 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                 aaps = aap_config['allowed_address_pair']
                 for aap in aaps or []:
                     if aap['mac'] == "":
-                        aap['mac'] = read_result['virtual_machine_interface_mac_addresses']['mac_address']
+                        aap['mac'] = read_result['virtual_machine_interface_mac_addresses']['mac_address'][0]
         return True, ""
     # end http_put
 # end class VirtualMachineInterfaceServer
