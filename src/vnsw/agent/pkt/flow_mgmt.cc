@@ -380,24 +380,8 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
 
     }
 
-    // Flow management runs in parallel to flow processing. As a result,
-    // we need to ensure that last reference for flow will go away from
-    // kTaskFlowEvent context only. This is ensured by following 2 actions
-    //
-    // 1. On return from here reference to the flow is removed which can
-    //    potentially be last reference. So, enqueue a dummy request to
-    //    flow-table queue.
-    // 2. Due to OS scheduling, its possible that the request we are
-    //    enqueuing completes even before this function is returned. So,
-    //    drop the reference immediately after allocating the event
     if (req->flow().get()) {
-        tbb::mutex::scoped_lock lock(req->flow()->mutex());
-        if (req->flow()->deleted()) {
-            FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
-                                             req->flow().get());
-            req->set_flow(NULL);
-            EnqueueFlowEvent(event);
-        }
+        agent_->pkt()->get_flow_proto()->EnqueueFreeFlowReference(req->flow());
     }
 
     return true;
