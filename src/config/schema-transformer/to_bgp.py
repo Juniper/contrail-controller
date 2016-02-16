@@ -101,7 +101,8 @@ class SchemaTransformer(object):
             'self': ['virtual_network', 'network_policy', 'service_instance'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
-            'virtual_network': ['virtual_network', 'network_policy']
+            'virtual_network': ['virtual_network', 'network_policy',
+                                'service_instance']
         },
         'security_group': {
             'self': ['security_group'],
