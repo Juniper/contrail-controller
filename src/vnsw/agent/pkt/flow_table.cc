@@ -1325,6 +1325,13 @@ bool FlowEntry::SetRpfNHState(FlowTable *ft, const NextHop *nh) {
         }
     }
 
+    if (data_.nh_state_ && nh) {
+        if (data_.nh_state_->nh()->GetType() != NextHop::COMPOSITE &&
+                nh->GetType() == NextHop::COMPOSITE) {
+            set_flags(FlowEntry::Trap);
+        }
+    }
+
     if (data_.nh_state_ != nh_state) {
         data_.nh_state_ = nh_state;
         return true;

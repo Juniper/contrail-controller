@@ -336,7 +336,7 @@ public:
         }
 
         const IpAddress ip_;
-        bool ecmp_;
+        mutable bool ecmp_;
         mutable bool l2_installed_;
         const Ip4Address gw_ip_;
         mutable bool old_ecmp_;

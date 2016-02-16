@@ -3296,6 +3296,7 @@ void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
 void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
                                          const InstanceIp *rhs) {
     lhs->set_del_pending(false);
+   lhs->ecmp_ = rhs->ecmp_;
 }
 
 void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
