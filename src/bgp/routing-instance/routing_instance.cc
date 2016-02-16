@@ -490,7 +490,7 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
                                  RoutingInstanceMgr *mgr,
                                  const BgpInstanceConfig *config)
     : name_(name), index_(-1), server_(server), mgr_(mgr), config_(config),
-      is_default_(false), always_subscribe_(false), virtual_network_index_(0),
+      is_master_(false), always_subscribe_(false), virtual_network_index_(0),
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
@@ -556,7 +556,7 @@ void RoutingInstance::ProcessServiceChainConfig() {
 }
 
 void RoutingInstance::ProcessStaticRouteConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -566,7 +566,7 @@ void RoutingInstance::ProcessStaticRouteConfig() {
 }
 
 void RoutingInstance::UpdateStaticRouteConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -576,7 +576,7 @@ void RoutingInstance::UpdateStaticRouteConfig() {
 }
 
 void RoutingInstance::FlushStaticRouteConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -586,7 +586,7 @@ void RoutingInstance::FlushStaticRouteConfig() {
 }
 
 void RoutingInstance::UpdateAllStaticRoutes() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -596,7 +596,7 @@ void RoutingInstance::UpdateAllStaticRoutes() {
 }
 
 void RoutingInstance::ProcessRouteAggregationConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -606,7 +606,7 @@ void RoutingInstance::ProcessRouteAggregationConfig() {
 }
 
 void RoutingInstance::UpdateRouteAggregationConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -616,7 +616,7 @@ void RoutingInstance::UpdateRouteAggregationConfig() {
 }
 
 void RoutingInstance::FlushRouteAggregationConfig() {
-    if (is_default_)
+    if (is_master_)
         return;
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
@@ -659,7 +659,7 @@ void RoutingInstance::ProcessConfig() {
     // Create BGP Table
     if (name_ == BgpConfigManager::kMasterInstance) {
         assert(mgr_->count() == 1);
-        is_default_ = true;
+        is_master_ = true;
 
         VpnTableCreate(Address::INETVPN);
         VpnTableCreate(Address::INET6VPN);
@@ -731,7 +731,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     // Master routing instance doesn't have import & export list
     // Master instance imports and exports all RT
-    if (IsDefaultRoutingInstance())
+    if (IsMasterRoutingInstance())
         return;
 
     RouteTargetList future_import;
@@ -781,8 +781,8 @@ void RoutingInstance::ClearConfig() {
 }
 
 void RoutingInstance::ManagedDelete() {
-    // RoutingInstanceMgr logs the delete for non-default instances.
-    if (IsDefaultRoutingInstance()) {
+    // RoutingInstanceMgr logs the delete for non-master instances.
+    if (IsMasterRoutingInstance()) {
         RTINSTANCE_LOG(Delete, this,
             SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
     }
@@ -1003,7 +1003,7 @@ void RoutingInstance::DeleteRouteTarget(bool import,
 
 void RoutingInstance::ClearRouteTarget() {
     CHECK_CONCURRENCY("bgp::Config");
-    if (IsDefaultRoutingInstance()) {
+    if (IsMasterRoutingInstance()) {
         return;
     }
 
@@ -1149,7 +1149,7 @@ string RoutingInstance::GetVrfFromTableName(const string table) {
 
 void RoutingInstance::set_index(int index) {
     index_ = index;
-    if (is_default_)
+    if (is_master_)
         return;
 
     rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index));

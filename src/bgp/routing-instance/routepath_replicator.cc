@@ -435,9 +435,9 @@ void RoutePathReplicator::DBStateSync(BgpTable *table, TableState *ts,
 static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
         const RoutingInstance *rtinstance, const ExtCommunity *ext_community,
         const ExtCommunity::ExtCommunityList &export_list) {
-    // Add RouteTargets exported by the instance for a non-default instance.
+    // Add RouteTargets exported by the instance for a non-master instance.
     ExtCommunityPtr extcomm_ptr;
-    if (!rtinstance->IsDefaultRoutingInstance()) {
+    if (!rtinstance->IsMasterRoutingInstance()) {
         extcomm_ptr =
             server->extcomm_db()->AppendAndLocate(ext_community, export_list);
         return extcomm_ptr;
@@ -528,7 +528,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
 
     // Get the export route target list from the routing instance.
     ExtCommunity::ExtCommunityList export_list;
-    if (!rtinstance->IsDefaultRoutingInstance()) {
+    if (!rtinstance->IsMasterRoutingInstance()) {
         BOOST_FOREACH(RouteTarget rtarget, rtinstance->GetExportList()) {
             export_list.push_back(rtarget.GetExtCommunity());
         }
@@ -590,7 +590,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
             continue;
 
         // Add OriginVn when replicating self-originated routes from a VRF.
-        if (!vn_index && !rtinstance->IsDefaultRoutingInstance() &&
+        if (!vn_index && !rtinstance->IsMasterRoutingInstance() &&
             path->IsVrfOriginated() && rtinstance->virtual_network_index()) {
             vn_index = rtinstance->virtual_network_index();
             OriginVn origin_vn(server_->autonomous_system(), vn_index);

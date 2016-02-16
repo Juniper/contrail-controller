@@ -76,10 +76,10 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
     if (mroute->GetPrefix().type() == ErmVpnPrefix::NativeRoute)
         return NULL;
 
-    if (!IsDefault()) {
+    if (!IsMaster()) {
         // Don't replicate to a VRF from other VRF tables.
         ErmVpnTable *src_ermvpn_table = dynamic_cast<ErmVpnTable *>(src_table);
-        if (!src_ermvpn_table->IsDefault())
+        if (!src_ermvpn_table->IsMaster())
             return NULL;
 
         // Don't replicate to VRF from the VPN table if OriginVn doesn't match.
@@ -93,7 +93,7 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
     // pick up the RD from the SourceRD attribute. The SourceRD is always set
     // for Local and Global routes that the multicast code adds to a VRF.
     ErmVpnPrefix mprefix(mroute->GetPrefix());
-    if (IsDefault()) {
+    if (IsMaster()) {
         mprefix.set_route_distinguisher(src_path->GetAttr()->source_rd());
     } else {
         mprefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
@@ -179,7 +179,7 @@ bool ErmVpnTable::Export(RibOut *ribout, Route *route,
 
 void ErmVpnTable::CreateTreeManager() {
     // Don't create the McastTreeManager for the VPN table.
-    if (IsDefault())
+    if (IsMaster())
         return;
     assert(!tree_manager_);
     tree_manager_ = BgpObjectFactory::Create<McastTreeManager>(this);
@@ -206,8 +206,8 @@ void ErmVpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     CreateTreeManager();
 }
 
-bool ErmVpnTable::IsDefault() const {
-    return routing_instance()->IsDefaultRoutingInstance();
+bool ErmVpnTable::IsMaster() const {
+    return routing_instance()->IsMasterRoutingInstance();
 }
 
 static void RegisterFactory() {

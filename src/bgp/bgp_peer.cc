@@ -1510,8 +1510,8 @@ string BgpPeer::ToString() const {
 string BgpPeer::ToUVEKey() const {
     ostringstream out;
 
-    // XXX Skip default instance names from the logs and uves.
-    if (true || !rtinstance_->IsDefaultRoutingInstance()) {
+    // XXX Skip master instance names from the logs and uves.
+    if (true || !rtinstance_->IsMasterRoutingInstance()) {
         out << rtinstance_->name() << ":";
     }
     // out << peer_key_.endpoint.address();

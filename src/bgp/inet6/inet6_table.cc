@@ -144,7 +144,7 @@ bool Inet6Table::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
 }
 
 PathResolver *Inet6Table::CreatePathResolver() {
-    if (routing_instance()->IsDefaultRoutingInstance())
+    if (routing_instance()->IsMasterRoutingInstance())
         return NULL;
     return (new PathResolver(this));
 }
