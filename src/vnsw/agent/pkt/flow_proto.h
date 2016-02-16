@@ -87,6 +87,8 @@ public:
             assert(tmp >= val);
     }
 private:
+    bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
+
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
