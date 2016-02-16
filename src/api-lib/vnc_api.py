@@ -308,7 +308,7 @@ class VncApi(object):
             if 'user' in self._user_info:
                 self._headers['X-API-USER'] = self._user_info['user']
             if 'role' in self._user_info:
-                self._headers['X-API-ROLE'] = self._user_info['role']
+                self.set_user_roles([self._user_info['role']])
 
         #self._http = HTTPClient(self._web_host, self._web_port,
         #                        network_timeout = 300)
@@ -1136,6 +1136,14 @@ class VncApi(object):
     def set_auth_token(self, token):
         """Park user token for forwarding to API server for RBAC."""
         self._headers['X-AUTH-TOKEN'] = token
+    #end set_auth_token
+
+    def set_user_roles(self, roles):
+        """Park user roles for forwarding to API server for RBAC.
+
+        :param roles: list of roles
+        """
+        self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_auth_token
 
 #end class VncApi
