@@ -520,7 +520,7 @@ static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
                     "configuration VM UUID is",
                     UuidToString(data->vm_uuid_),
                     "compute VM uuid is",
-                    UuidToString(cfg_entry->GetVnUuid()));
+                    UuidToString(cfg_entry->GetVmUuid()));
     }
 }
 
