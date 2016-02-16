@@ -63,16 +63,23 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         src_ip = pkt_info_->ip_saddr.to_v4().to_ulong();
     } else {
         if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
-            == false) {
+            == false ||
+            key.family != Address::INET ||
+            key.src_addr != pkt_info_->ip_saddr ||
+            key.dst_addr != pkt_info_->ip_daddr ||
+            key.protocol != pkt_info_->ip_proto ||
+            key.src_port != pkt_info_->sport ||
+            key.dst_port != pkt_info_->dport) {
             proto_->increment_invalid_flow_index();
             return true;
         }
+
         src_ip = key.src_addr.to_v4().to_ulong();
     }
 
     // Get IPAM to find default gateway
     const VnIpam *ipam = intf->vn()->GetIpam(Ip4Address(src_ip));
-    if (ipam == NULL) {
+    if (ipam == NULL || ipam->default_gw.is_v4() == false) {
         proto_->increment_interface_errors();
         return true;
     }
