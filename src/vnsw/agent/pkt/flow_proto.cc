@@ -274,39 +274,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
-    case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(req->get_flow_key());
-        table->Delete(req->get_flow_key(), req->get_del_rev_flow());
-        break;
-    }
-
-    case FlowEvent::AUDIT_FLOW: {
-        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
-        flow->InitAuditFlow(req->flow_handle());
-        flow->flow_table()->Add(flow.get(), NULL);
-        break;
-    }
-
-    // Check if flow-handle changed. This can happen if vrouter tries to
-    // setup the flow which was evicted earlier
-    case FlowEvent::EVICT_FLOW: {
-        FlowEntry *flow = req->flow();
-        if (flow->flow_handle() != req->flow_handle())
-            break;
-        flow->flow_table()->EvictFlow(flow);
-        break;
-    }
-
-    // Flow was waiting for an index. Index is available now. Retry acquiring
-    // the index
-    case FlowEvent::RETRY_INDEX_ACQUIRE: {
-        FlowEntry *flow = req->flow();
-        if (flow->flow_handle() != req->flow_handle())
-            break;
-        flow->flow_table()->UpdateKSync(flow, false);
-        break;
-    }
-
     case FlowEvent::FREE_FLOW_REF:
         break;
 
@@ -317,8 +284,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::DELETE_DBENTRY:
-    case FlowEvent::REVALUATE_DBENTRY:
-    case FlowEvent::REVALUATE_FLOW: {
+    case FlowEvent::REVALUATE_DBENTRY: {
         FlowEntry *flow = req->flow();
         flow->flow_table()->FlowResponseHandler(req);
         break;
@@ -330,37 +296,16 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
-    case FlowEvent::FLOW_HANDLE_UPDATE: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        FlowEntry *flow = ksync_entry->flow_entry().get();
-        table->KSyncSetFlowHandle(flow, req->flow_handle());
-        break;
-    }
-
-    case FlowEvent::KSYNC_EVENT: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        FlowTableKSyncObject *ksync_object = static_cast<FlowTableKSyncObject *>
-            (ksync_entry->GetObject());
-        ksync_object->GenerateKSyncEvent(ksync_entry, req->ksync_event());
-        break;
-    }
-
+    case FlowEvent::DELETE_FLOW:
+    case FlowEvent::AUDIT_FLOW:
+    case FlowEvent::EVICT_FLOW:
+    case FlowEvent::RETRY_INDEX_ACQUIRE:
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+    case FlowEvent::REVALUATE_FLOW:
+    case FlowEvent::KSYNC_EVENT:                             
     case FlowEvent::KSYNC_VROUTER_ERROR: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        // Mark the flow entry as short flow and update ksync error event
-        // to ksync index manager
-        FlowEntry *flow = ksync_entry->flow_entry().get();
-        flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-        KSyncFlowIndexManager *mgr =
-            agent()->ksync()->ksync_flow_index_manager();
-        mgr->UpdateKSyncError(flow);
-        // Enqueue Add request to flow-stats-collector
-        // to update flow flags in stats collector
-        FlowEntryPtr flow_ptr(flow);
-        agent()->flow_stats_manager()->AddEvent(flow_ptr);
+        FlowTable *table = GetFlowTable(req->get_flow_key());
+        table->ProcessFlowEvent(req);
         break;
     }
 
