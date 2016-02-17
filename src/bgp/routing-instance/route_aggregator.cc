@@ -236,7 +236,7 @@ public:
         return contributors_[part_id].empty();
     }
 
-    void FillShowInfo(AggregateRouteInfo *info) const;
+    void FillShowInfo(AggregateRouteInfo *info, bool summary) const;
 
 private:
     RoutingInstance *routing_instance_;
@@ -481,7 +481,8 @@ void AggregateRoute<T>::set_aggregate_route(BgpRoute *aggregate) {
 }
 
 template <typename T>
-void AggregateRoute<T>::FillShowInfo(AggregateRouteInfo *info) const {
+void AggregateRoute<T>::FillShowInfo(AggregateRouteInfo *info,
+    bool summary) const {
     BgpTable *table = bgp_table();
     info->set_deleted(deleted());
     info->set_prefix(aggregate_route_prefix_.ToString());
@@ -492,6 +493,9 @@ void AggregateRoute<T>::FillShowInfo(AggregateRouteInfo *info) const {
     }
 
     info->set_nexthop(nexthop_.to_string());
+
+    if (summary)
+        return;
 
     std::vector<string> contributor_list;
     BOOST_FOREACH(const RouteList &list, contribute_route_list()) {
@@ -688,18 +692,18 @@ bool RouteAggregator<T>::IsContributingRoute(const BgpRoute *route) const {
 }
 
 template <typename T>
-bool RouteAggregator<T>::FillAggregateRouteInfo(RoutingInstance *ri,
-                                      AggregateRouteEntriesInfo *info) const {
-    if (aggregate_route_map().empty()) return false;
+bool RouteAggregator<T>::FillAggregateRouteInfo(AggregateRouteEntriesInfo *info,
+    bool summary) const {
+    if (aggregate_route_map().empty())
+        return false;
 
-    info->set_ri_name(ri->name());
-
-    for (typename AggregateRouteMap::const_iterator it = aggregate_route_map_.begin();
-         it != aggregate_route_map_.end(); it++) {
+    info->set_name(rtinstance_->name());
+    for (typename AggregateRouteMap::const_iterator it =
+         aggregate_route_map_.begin(); it != aggregate_route_map_.end(); it++) {
         AggregateRouteT *aggregate =
             static_cast<AggregateRouteT *>(it->second.get());
         AggregateRouteInfo aggregate_info;
-        aggregate->FillShowInfo(&aggregate_info);
+        aggregate->FillShowInfo(&aggregate_info, summary);
         info->aggregate_route_list.push_back(aggregate_info);
     }
     return true;

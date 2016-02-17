@@ -523,7 +523,7 @@ static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
                     "configuration VM UUID is",
                     UuidToString(data->vm_uuid_),
                     "compute VM uuid is",
-                    UuidToString(cfg_entry->GetVnUuid()));
+                    UuidToString(cfg_entry->GetVmUuid()));
     }
 }
 
@@ -4385,6 +4385,11 @@ void VmInterface::InsertHealthCheckInstance(HealthCheckInstance *hc_inst) {
 void VmInterface::DeleteHealthCheckInstance(HealthCheckInstance *hc_inst) {
     std::size_t ret = hc_instance_set_.erase(hc_inst);
     assert(ret != 0);
+}
+
+const VmInterface::HealthCheckInstanceSet &
+VmInterface::hc_instance_set() const {
+    return hc_instance_set_;
 }
 
 ////////////////////////////////////////////////////////////////////////////

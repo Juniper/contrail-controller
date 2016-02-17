@@ -289,8 +289,10 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(key, info, 0, 0);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
+void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev,
+                                           FlowExportInfo *info) {
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
+    info->set_delete_enqueued(true);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -338,15 +340,12 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
     ExportFlow(key, info, diff_bytes, diff_pkts);
 }
 
-// FIXME : Handle multiple tables
 bool FlowStatsCollector::Run() {
     FlowEntryTree::iterator it;
     FlowExportInfo *rev_info = NULL;
     FlowExportInfo *info = NULL;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
-    Agent *agent = agent_uve_->agent();
-    FlowTable *flow_obj = agent->pkt()->flow_table(0);
     FlowKey key;
 
     run_counter_++;
@@ -395,7 +394,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, rev_info != NULL? true : false);
+            FlowDeleteEnqueue(key, rev_info != NULL? true : false, info);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -438,7 +437,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, true);
+            FlowDeleteEnqueue(key, true, info);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -470,7 +469,7 @@ bool FlowStatsCollector::Run() {
     /* Update the flow_timer_interval and flow_count_per_pass_ based on
      * total flows that we have
      */
-    uint32_t total_flows = flow_obj->Size();
+    uint32_t total_flows = flow_tree_.size();
     uint32_t flow_timer_interval;
 
     uint32_t age_time_millisec = flow_age_time_intvl() / 1000;
@@ -1010,6 +1009,7 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
     Ip4Address ip(value.fip());
     info.set_fip(ip.to_string());
     info.set_underlay_source_port(value.underlay_source_port());
+    info.set_delete_enqueued(value.delete_enqueued());
 }
 
 void FlowStatsRecordsReq::HandleRequest() const {

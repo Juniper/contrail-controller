@@ -379,38 +379,49 @@ protected:
         return list;
     }
 
-    static void ValidateShowRouteAggregationResponse(Sandesh *sandesh,
-                    string &result, RouteAggregatorTest *self, bool empty) {
-        ShowRouteAggregateResp *resp =
-            dynamic_cast<ShowRouteAggregateResp *>(sandesh);
-        TASK_UTIL_EXPECT_NE((ShowRouteAggregateResp *)NULL, resp);
-        self->validate_done_ = true;
+    template <typename RespT>
+    void ValidateResponse(Sandesh *sandesh, string &result, bool empty) {
+        RespT *resp = dynamic_cast<RespT *>(sandesh);
+        TASK_UTIL_EXPECT_NE((RespT *) NULL, resp);
 
-        if (empty)
+        if (empty) {
             TASK_UTIL_EXPECT_EQ(0, resp->get_aggregate_route_entries().size());
-        else
+        } else {
             TASK_UTIL_EXPECT_EQ(1, resp->get_aggregate_route_entries().size());
+        }
         int i = 0;
         BOOST_FOREACH(const AggregateRouteEntriesInfo &info,
                       resp->get_aggregate_route_entries()) {
-            TASK_UTIL_EXPECT_EQ(info.get_ri_name(), result);
+            TASK_UTIL_EXPECT_EQ(info.get_name(), result);
             i++;
         }
+        validate_done_ = true;
     }
 
-    void VerifyRouteAggregateSandesh(std::string ri_name, bool empty=false) {
+    void VerifyRouteAggregateSandesh(std::string ri_name, bool empty = false) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(
-                boost::bind(ValidateShowRouteAggregationResponse, _1, ri_name,
-                    this, empty));
+
+        Sandesh::set_response_callback(boost::bind(
+            &RouteAggregatorTest::ValidateResponse<ShowRouteAggregateResp>,
+            this, _1, ri_name, empty));
         ShowRouteAggregateReq *req = new ShowRouteAggregateReq;
         req->set_search_string(ri_name);
         validate_done_ = false;
         req->HandleRequest();
         req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+        Sandesh::set_response_callback(boost::bind(
+            &RouteAggregatorTest::ValidateResponse<ShowRouteAggregateSummaryResp>,
+            this, _1, ri_name, empty));
+        ShowRouteAggregateSummaryReq *sreq = new ShowRouteAggregateSummaryReq;
+        sreq->set_search_string(ri_name);
+        validate_done_ = false;
+        sreq->HandleRequest();
+        sreq->Release();
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
     }
 

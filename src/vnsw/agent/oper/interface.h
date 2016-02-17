@@ -112,6 +112,7 @@ public:
     VrfEntry *vrf() const {return vrf_.get();}
     bool ipv4_active() const {return ipv4_active_;}
     bool ipv6_active() const {return ipv6_active_;}
+    bool is_hc_active() const { return is_hc_active_; }
     bool metadata_ip_active() const {return metadata_ip_active_;}
     bool ip_active(Address::Family family) const;
     bool l2_active() const {return l2_active_;}

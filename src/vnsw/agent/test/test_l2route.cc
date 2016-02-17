@@ -1524,6 +1524,37 @@ TEST_F(RouteTest, add_local_peer_and_then_vm) {
     bgp_peer.reset();
 }
 
+TEST_F(RouteTest, l2_flood_vxlan_update) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    VnAddReq(1, "vn1");
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Add a peer and enqueue path add in multicast route.
+    BridgeRouteEntry *rt = L2RouteGet("vrf1",
+                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                                      Ip4Address(0));
+    EXPECT_TRUE(rt->FindPath(agent_->multicast_peer()));
+    uint32_t vxlan_id = rt->FindPath(agent_->multicast_peer())->vxlan_id();
+    EXPECT_TRUE(vxlan_id != 0);
+
+    VxLanNetworkIdentifierMode(true);
+    client->WaitForIdle();
+
+    uint32_t new_vxlan_id = rt->FindPath(agent_->multicast_peer())->vxlan_id();
+    EXPECT_TRUE(vxlan_id != new_vxlan_id);
+
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();

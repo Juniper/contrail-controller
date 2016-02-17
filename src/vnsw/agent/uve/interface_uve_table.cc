@@ -3,6 +3,7 @@
  */
 
 #include <oper/interface_common.h>
+#include <oper/health_check.h>
 #include <uve/interface_uve_table.h>
 #include <uve/agent_uve_base.h>
 
@@ -107,6 +108,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_mac_address(intf_->vm_mac());
     s_intf->set_ip6_address(intf_->primary_ip6_addr().to_string());
     s_intf->set_ip6_active(intf_->ipv6_active());
+    s_intf->set_is_health_check_active(intf_->is_hc_active());
 
     vector<VmFloatingIPAgent> uve_fip_list;
     if (intf_->HasFloatingIp(Address::INET)) {
@@ -131,6 +133,23 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
         }
     }
     s_intf->set_floating_ips(uve_fip_list);
+
+    vector<VmHealthCheckInstance> uve_hc_list;
+    const VmInterface::HealthCheckInstanceSet hc_list =
+        intf_->hc_instance_set();
+    VmInterface::HealthCheckInstanceSet::const_iterator hc_it =
+        hc_list.begin();
+    while (hc_it != hc_list.end()) {
+        HealthCheckInstance *inst = (*hc_it);
+        VmHealthCheckInstance uve_inst;
+        uve_inst.set_name(inst->service_->name());
+        uve_inst.set_uuid(to_string(inst->service_->uuid()));
+        uve_inst.set_status(inst->active() ? "Active" : "InActive");
+        uve_inst.set_is_running(inst->IsRunning());
+        hc_it++;
+        uve_hc_list.push_back(uve_inst);
+    }
+    s_intf->set_health_check_instance_list(uve_hc_list);
 
     s_intf->set_label(intf_->label());
     s_intf->set_ip4_active(intf_->ipv4_active());
