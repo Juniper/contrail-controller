@@ -9,13 +9,23 @@ struct AggregateRouteInfo {
     1: string prefix;
     2: bgp_peer.ShowRouteBrief aggregate_rt;
     3: string nexthop;
-    4: list<string> contributors;
-    5: bool deleted;
+    4: bool deleted;
+    5: optional list<string> contributors;
 }
 
 struct AggregateRouteEntriesInfo {
-    1: string ri_name;
+    1: string name (link="ShowRouteAggregateReq");
     2: list<AggregateRouteInfo> aggregate_route_list;
+}
+
+response sandesh ShowRouteAggregateSummaryResp {
+    1: list<AggregateRouteEntriesInfo> aggregate_route_entries;
+    2: optional string next_batch (link="ShowRouteAggregateSummaryReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowRouteAggregateSummaryReq {
+    1: string search_string;
 }
 
 response sandesh ShowRouteAggregateResp {

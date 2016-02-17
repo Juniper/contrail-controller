@@ -23,8 +23,8 @@ public:
     virtual bool IsAggregateRoute(const BgpRoute *route) const = 0;
     virtual bool IsContributingRoute(const BgpRoute *route) const = 0;
 
-    virtual bool FillAggregateRouteInfo(RoutingInstance *ri,
-                                     AggregateRouteEntriesInfo *info) const = 0;
+    virtual bool FillAggregateRouteInfo(AggregateRouteEntriesInfo *info,
+        bool summary) const = 0;
 
 private:
     friend class RouteAggregatorTest;

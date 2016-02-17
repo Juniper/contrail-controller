@@ -199,8 +199,8 @@ public:
     virtual bool IsAggregateRoute(const BgpRoute *route) const;
     virtual bool IsContributingRoute(const BgpRoute *route) const;
 
-    virtual bool FillAggregateRouteInfo(RoutingInstance *ri,
-                                        AggregateRouteEntriesInfo *info) const;
+    virtual bool FillAggregateRouteInfo(AggregateRouteEntriesInfo *info,
+        bool summary) const;
 
 private:
     class DeleteActor;
