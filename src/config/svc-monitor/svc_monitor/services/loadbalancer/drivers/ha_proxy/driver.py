@@ -120,19 +120,19 @@ class OpencontrailLoadbalancerDriver(
             listener = LoadbalancerListenerSM.get(listener_id)
             if not listener:
                 msg = ('Unable to retrieve listener %s' % listener_id)
-                self._svc_manager.logger.log_error(msg)
+                self._svc_manager.logger.error(msg)
                 return
             lb = LoadbalancerSM.get(listener.loadbalancer)
             if not lb:
                 msg = ('Unable to retrieve loadbalancer for listener %s' % listener_id)
-                self._svc_manager.logger.log_error(msg)
+                self._svc_manager.logger.error(msg)
                 return
             vmi_id = lb.virtual_machine_interface
         elif vip_id:
             vip = VirtualIpSM.get(vip_id)
             if not vip:
                 msg = ('Unable to retrieve vip %s' % vip_id)
-                self._svc_manager.logger.log_error(msg)
+                self._svc_manager.logger.error(msg)
                 return
             vmi_id = vip.virtual_machine_interface
 
@@ -148,13 +148,13 @@ class OpencontrailLoadbalancerDriver(
         pool = LoadbalancerPoolSM.get(pool_id)
         if pool is None:
             msg = ('Unable to retrieve pool %s' % pool_id)
-            self._svc_manager.logger.log_error(msg)
+            self._svc_manager.logger.error(msg)
             return
 
         vip_vmi = self._get_vip_vmi(pool, vip_id)
         if vip_vmi is None:
             msg = ('Unable to retrieve vip port for pool %s' % pool.uuid)
-            self._svc_manager.logger.log_error(msg)
+            self._svc_manager.logger.error(msg)
             return
 
         fq_name = pool.fq_name[:-1]
@@ -168,7 +168,7 @@ class OpencontrailLoadbalancerDriver(
                 self._api.service_instance_delete(id=si_refs)
                 ServiceInstanceSM.delete(si_refs)
             except RefsExistError as ex:
-                self._svc_manager.logger.log_error(str(ex))
+                self._svc_manager.logger.error(str(ex))
             return
 
         if si_obj:
@@ -204,14 +204,14 @@ class OpencontrailLoadbalancerDriver(
             self._api.service_instance_delete(id=si_id)
             ServiceInstanceSM.delete(si_id)
         except RefsExistError as ex:
-            self._svc_manager.logger.log_error(str(ex))
+            self._svc_manager.logger.error(str(ex))
         self.db.pool_remove(pool_id, ['service_instance'])
 
     def _update_loadbalancer_instance_v2(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
         if lb is None:
             msg = ('Unable to retrieve loadbalancer %s' % lb_id)
-            self._svc_manager.logger.log_error(msg)
+            self._svc_manager.logger.error(msg)
             return
 
         fq_name = lb.fq_name[:-1]
@@ -226,7 +226,7 @@ class OpencontrailLoadbalancerDriver(
                 self._api.service_instance_delete(id=si_refs)
                 ServiceInstanceSM.delete(si_refs)
             except RefsExistError as ex:
-                self._svc_manager.logger.log_error(str(ex))
+                self._svc_manager.logger.error(str(ex))
             return
 
         if si_obj:
@@ -260,7 +260,7 @@ class OpencontrailLoadbalancerDriver(
             self._api.service_instance_delete(id=si_id)
             ServiceInstanceSM.delete(si_id)
         except RefsExistError as ex:
-            self._svc_manager.logger.log_error(str(ex))
+            self._svc_manager.logger.error(str(ex))
 
     def create_loadbalancer(self, loadbalancer):
         self._update_loadbalancer_instance_v2(loadbalancer['id'])

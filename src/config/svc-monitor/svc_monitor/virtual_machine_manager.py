@@ -37,7 +37,7 @@ class VirtualMachineManager(InstanceManager):
         except nc_exc.NotFound:
             flavor = None
         if not flavor:
-            self.logger.log_error("Flavor not found %s" %
+            self.logger.error("Flavor not found %s" %
                 ((':').join(st.fq_name)))
             return None
 
@@ -46,7 +46,7 @@ class VirtualMachineManager(InstanceManager):
         except nc_exc.NotFound:
             image = None
         if not image:
-            self.logger.log_error("Image not found %s" % si.image)
+            self.logger.error("Image not found %s" % si.image)
             return None
 
         instance_name = self._get_instance_name(si, instance_index)
@@ -62,17 +62,17 @@ class VirtualMachineManager(InstanceManager):
         # launch vm
         idx_str = "%(#)03d" % {'#': (instance_index + 1)}
         nova_vm_name = si.name + idx_str
-        self.logger.log_info('Launching VM : ' + nova_vm_name)
+        self.logger.info('Launching VM : ' + nova_vm_name)
         nova_vm = self._nc.oper('servers', 'create', proj_name,
             name=nova_vm_name, image=image,
             flavor=flavor, nics=nics_with_port,
             availability_zone=si.availability_zone)
         if not nova_vm:
-            self.logger.log_error("Nova vm create failed %s" % nova_vm_name)
+            self.logger.error("Nova vm create failed %s" % nova_vm_name)
             return None
 
         nova_vm.get()
-        self.logger.log_info('Created VM : ' + str(nova_vm))
+        self.logger.info('Created VM : ' + str(nova_vm))
 
         # link si and vm
         self.link_si_to_vm(si, st, instance_index, nova_vm.id)
@@ -83,7 +83,7 @@ class VirtualMachineManager(InstanceManager):
         si.flavor = st.params.get('flavor', None)
         si.image = st.params.get('image_name', None)
         if not si.image:
-            self.logger.log_error("Image not present in %s" %
+            self.logger.error("Image not present in %s" %
                 ((':').join(st.fq_name)))
             return False
 
@@ -155,7 +155,7 @@ class VirtualMachineManager(InstanceManager):
                 nova_vm.delete()
                 nova_vm_deleted = True
             except Exception as e:
-                self.logger.log_error("%s nova delete failed with error %s" %
+                self.logger.error("%s nova delete failed with error %s" %
                     (vm.uuid, str(e)))
 
         if nova_vm_deleted:
@@ -164,7 +164,7 @@ class VirtualMachineManager(InstanceManager):
             except NoIdError:
                 pass
             except RefsExistError:
-                self.logger.log_error("%s vm delete RefsExist" % (vm.uuid))
+                self.logger.error("%s vm delete RefsExist" % (vm.uuid))
 
     def check_service(self, si):
         vm_id_list = list(si.virtual_machines)

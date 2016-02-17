@@ -87,7 +87,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
         st.params['image_name'] = None
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_error.assert_called_with("Image not present in %s" % ((':').join(st.fq_name)))
+        self.log_mock.error.assert_called_with("Image not present in %s" % ((':').join(st.fq_name)))
 
     def test_missing_image_in_nova(self):
         test_utils.create_test_project('fake-domain:fake-project')
@@ -109,7 +109,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.nova_mock.oper = nova_oper
 
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_error.assert_called_with("Image not found %s" % si.image)
+        self.log_mock.error.assert_called_with("Image not found %s" % si.image)
 
     def test_nova_vm_create_fail(self):
         test_utils.create_test_project('fake-domain:fake-project')
@@ -131,7 +131,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.nova_mock.oper = nova_oper
 
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_error.assert_any_call(test_utils.AnyStringWith('Nova vm create failed'))
+        self.log_mock.error.assert_any_call(test_utils.AnyStringWith('Nova vm create failed'))
 
     def test_missing_flavor_in_template(self):
         test_utils.create_test_project('fake-domain:fake-project')
@@ -154,7 +154,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
         st.params['flavor'] = None
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_error.assert_called_with(test_utils.AnyStringWith("Flavor not found"))
+        self.log_mock.error.assert_called_with(test_utils.AnyStringWith("Flavor not found"))
 
     def test_availability_zone_setting(self):
         test_utils.create_test_project('fake-domain:fake-project')
@@ -195,7 +195,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
         st.params['interface_type'] = []
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_notice.assert_called_with("Interface list empty for ST %s SI %s" %
+        self.log_mock.notice.assert_called_with("Interface list empty for ST %s SI %s" %
             ((':').join(st.fq_name), (':').join(si.fq_name)))
 
     def test_virtual_machine_exists(self):
@@ -221,13 +221,13 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_create = test_utils.vm_create
 
         self.vm_manager.create_service(st, si)
-        self.log_mock.log_info.assert_any_call(test_utils.AnyStringWith('Launching VM :'))
-        self.log_mock.log_info.assert_any_call(test_utils.AnyStringWith('Created VM :'))
-        self.log_mock.log_info.assert_any_call(test_utils.AnyStringWith(si.name))
+        self.log_mock.info.assert_any_call(test_utils.AnyStringWith('Launching VM :'))
+        self.log_mock.info.assert_any_call(test_utils.AnyStringWith('Created VM :'))
+        self.log_mock.info.assert_any_call(test_utils.AnyStringWith(si.name))
         self.log_mock.reset_mock()
 
         self.vm_manager.create_service(st, si)
-        self.assertTrue(self.log_mock.log_info.call_count, 1)
+        self.assertTrue(self.log_mock.info.call_count, 1)
 
     def test_virtual_machine_static_routes(self):
         test_utils.create_test_project('fake-domain:fake-project')

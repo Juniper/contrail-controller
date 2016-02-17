@@ -37,19 +37,19 @@ class ServiceMonitorNovaClient(object):
             else:
                 return oper_func(**kwargs)
         except nc_exc.NotFound:
-            self.logger.log_error(
+            self.logger.error(
                 "%s %s=%s not found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
             raise
         except nc_exc.NoUniqueMatch:
-            self.logger.log_error(
+            self.logger.error(
                 "Multiple %s %s=%s found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
             return None
         except nc_exc.Unauthorized:
             raise
         except Exception as e:
-            self.logger.log_error("nova error %s" % str(e))
+            self.logger.error("nova error %s" % str(e))
             return None
 
     def oper(self, resource, oper, proj_name, **kwargs):
@@ -58,11 +58,11 @@ class ServiceMonitorNovaClient(object):
                 proj_name, False, **kwargs)
         except nc_exc.Unauthorized:
             try:
-                self.logger.log_notice("nova refresh token")
+                self.logger.notice("nova refresh token")
                 return self._novaclient_exec(resource, oper,
                     proj_name, True, **kwargs)
             except nc_exc.Unauthorized:
-                self.logger.log_error(
+                self.logger.error(
                     "%s %s=%s not authorized in project %s"
                     % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
                 return None

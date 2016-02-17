@@ -64,7 +64,7 @@ class InstanceManager(object):
                 sg_obj.fq_name = sg.fq_name
                 return sg_obj
 
-        self.logger.log_error(
+        self.logger.error(
             "Security group not found %s" % (':'.join(sg_fq_name)))
         return None
 
@@ -88,7 +88,7 @@ class InstanceManager(object):
                 proj_obj.fq_name = proj.fq_name
                 break
         if not proj_obj:
-            self.logger.log_error("%s project not found" %
+            self.logger.error("%s project not found" %
                                   (':'.join(proj_fq_name)))
         return proj_obj
 
@@ -175,7 +175,7 @@ class InstanceManager(object):
                     'security-group', sg_id, None, 'DELETE')
                 vmi.security_groups.remove(sg_id)
             except Exception as e:
-                self.logger.log_error(
+                self.logger.error(
                     "Security group detach from loadbalancer ports failed")
 
         for sg_id in sg_list:
@@ -186,7 +186,7 @@ class InstanceManager(object):
                     'security-group', sg_id, None, 'ADD')
                 vmi.security_groups.add(sg_id)
             except Exception as e:
-                self.logger.log_error(
+                self.logger.error(
                     "Security group attach to loadbalancer ports failed")
 
     def _set_static_routes(self, nic, si):
@@ -238,7 +238,7 @@ class InstanceManager(object):
             self._vnc_lib.virtual_machine_update(vm_obj)
 
         VirtualMachineSM.locate(vm_obj.uuid)
-        self.logger.log_info("Info: VM %s updated SI %s" %
+        self.logger.info("Info: VM %s updated SI %s" %
                              (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
         return vm_obj
 
@@ -255,17 +255,17 @@ class InstanceManager(object):
         try:
             self._vnc_lib.port_tuple_create(pt_obj)
         except RefsExistError:
-              self.logger.log_info("Info: PT %s of SI %s already exist" %
+              self.logger.info("Info: PT %s of SI %s already exist" %
                              (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
         PortTupleSM.locate(pt_uuid,pt_obj.__dict__)
-        self.logger.log_info("Info: PT %s updated SI %s" %
+        self.logger.info("Info: PT %s updated SI %s" %
                              (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
         return pt_obj
 
     def create_service_vn(self, vn_name, vn_subnet, vn_subnet6,
                           proj_fq_name, user_visible=None):
-        self.logger.log_info(
+        self.logger.info(
             "Creating network %s subnet %s subnet6 %s" %
             (vn_name, vn_subnet, vn_subnet6))
 
@@ -329,7 +329,7 @@ class InstanceManager(object):
         si_props.set_interface_list(itf_list)
         si_obj.set_service_instance_properties(si_props)
         self._vnc_lib.service_instance_update(si_obj)
-        self.logger.log_notice("SI %s config upgraded for interfaces" %
+        self.logger.notice("SI %s config upgraded for interfaces" %
                                (si_obj.get_fq_name_str()))
 
     def validate_network_config(self, st, si):
@@ -339,7 +339,7 @@ class InstanceManager(object):
         st_if_list = st.params.get('interface_type', [])
         si_if_list = si.params.get('interface_list', [])
         if not len(st_if_list) or not len(si_if_list):
-            self.logger.log_notice("Interface list empty for ST %s SI %s" %
+            self.logger.notice("Interface list empty for ST %s SI %s" %
                                    ((':').join(st.fq_name), (':').join(si.fq_name)))
             return False
 
@@ -376,10 +376,10 @@ class InstanceManager(object):
             si.vn_info.insert(index, nic)
 
         if config_complete:
-            self.logger.log_info("SI %s info is complete" % si.fq_name)
+            self.logger.info("SI %s info is complete" % si.fq_name)
             si.state = 'config_complete'
         else:
-            self.logger.log_warning("SI %s info is not complete" % si.fq_name)
+            self.logger.warning("SI %s info is not complete" % si.fq_name)
             si.state = 'config_pending'
 
         return config_complete
@@ -474,7 +474,7 @@ class InstanceManager(object):
                 self._vnc_lib.ref_update('service-instance', si.uuid,
                     'virtual-machine', vm_obj.uuid)
             vm = VirtualMachineSM.locate(vm_obj.uuid)
-            self.logger.log_info("Info: VM %s created for SI %s" %
+            self.logger.info("Info: VM %s created for SI %s" %
                                  (instance_name, si_obj.get_fq_name_str()))
         else:
             vm_obj.uuid = vm.uuid
@@ -499,7 +499,7 @@ class InstanceManager(object):
             vn_obj.uuid = vn.uuid
             vn_obj.fq_name = vn.fq_name
         else:
-            self.logger.log_error(
+            self.logger.error(
                 "Virtual network %s not found for port create %s %s"
                 % (nic['net-id'], instance_name, ':'.join(si.fq_name)))
             return
@@ -542,7 +542,7 @@ class InstanceManager(object):
         if not vmi_vm and vm_obj:
             vmi_obj.set_virtual_machine(vm_obj)
             vmi_updated = True
-            self.logger.log_info("Info: VMI %s updated with VM %s" %
+            self.logger.info("Info: VMI %s updated with VM %s" %
                                  (vmi_obj.get_fq_name_str(), instance_name))
 
         if not vmi_network:
@@ -609,7 +609,7 @@ class InstanceManager(object):
             iip_name = instance_name + '-' + nic['type'] + '-' + vmi_obj.uuid
             iip_obj, iipv6_obj = self._allocate_iip(vn_obj, iip_name)
         if not iip_obj and not iipv6_obj:
-            self.logger.log_error(
+            self.logger.error(
                 "Instance IP not allocated for %s %s"
                 % (instance_name, proj_obj.name))
             return
@@ -643,7 +643,7 @@ class InstanceManager(object):
             if chosen_vr:
                 vr = VirtualRouterSM.get(chosen_vr)
                 vrouter_name = vr.name
-                self.logger.log_notice("vrouter %s updated with vm %s" %
+                self.logger.notice("vrouter %s updated with vm %s" %
                                        (':'.join(vr.fq_name), vm.name))
                 vm.update()
         else:
@@ -688,7 +688,7 @@ class VRouterHostedManager(InstanceManager):
             try:
                 self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                     'virtual-machine', vm.uuid, None, 'DELETE')
-                self.logger.log_info("vm %s deleted from vr %s" %
+                self.logger.info("vm %s deleted from vr %s" %
                     (vm.fq_name, vm.virtual_router))
             except NoIdError:
                 pass
@@ -707,7 +707,7 @@ class VRouterHostedManager(InstanceManager):
                 continue
 
             if not vm.virtual_router:
-                self.logger.log_error("vrouter not found for vm %s" % vm.uuid)
+                self.logger.error("vrouter not found for vm %s" % vm.uuid)
                 service_up = False
             else:
                 vr = VirtualRouterSM.get(vm.virtual_router)
@@ -716,7 +716,7 @@ class VRouterHostedManager(InstanceManager):
                 self._vnc_lib.ref_update('virtual-router', vr.uuid,
                                          'virtual-machine', vm.uuid, None, 'DELETE')
                 vr.update()
-                self.logger.log_error(
+                self.logger.error(
                     "vrouter %s down for vm %s" % (vr.name, vm.uuid))
                 service_up = False
 
@@ -753,7 +753,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
             vr_name = self._associate_vrouter(si, vm)
             if not vr_name:
-                self.logger.log_error("No vrouter available for VM %s" %
+                self.logger.error("No vrouter available for VM %s" %
                                       vm.name)
 
             if si.local_preference[index] == svc_info.get_standby_preference():

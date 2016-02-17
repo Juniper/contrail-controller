@@ -71,11 +71,11 @@ class VRouterScheduler(object):
            sub_obj = self._disc.subscribe(analytics_svc_name, 0)
            slist= sub_obj.info
        except Exception as ex:
-           self._logger.log_error('Failed to get analytics api from discovery')
+           self._logger.error('Failed to get analytics api from discovery')
            return None
        else:
            if not slist:
-               self._logger.log_error('No analytics api client in discovery')
+               self._logger.error('No analytics api client in discovery')
                return None
            analytics_api = random.choice(slist)
            endpoint = "http://%s:%s" % (analytics_api['ip-address'],
