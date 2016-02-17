@@ -85,7 +85,7 @@ struct ModuleServerState {
     9: optional sandesh_uve.SandeshSessionStats session_stats
     10: optional io.SocketIOStats          session_rx_socket_stats
     11: optional io.SocketIOStats          session_tx_socket_stats
-    12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
+    12: optional sandesh_uve.SandeshGeneratorBasicStats  sm_msg_stats
     13: optional string                    db_drop_level
     14: optional list<SandeshStats>        db_dropped_msg_stats
     15: optional string                    sm_drop_level
