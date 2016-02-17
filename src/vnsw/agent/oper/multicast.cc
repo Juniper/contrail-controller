@@ -177,6 +177,11 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
                                                        state->vrf_name_,
                                                        state->vxlan_id_,
                                                        data);
+        Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
+                                                       ec).to_v4();
+        AddL2BroadcastRoute(all_broadcast, state->vrf_name_, vn->GetName(),
+                            broadcast, MplsTable::kInvalidLabel,
+                            state->vxlan_id_, 0);
     }
 
     //Delete or withdraw old vxlan id
