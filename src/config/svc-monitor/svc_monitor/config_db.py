@@ -469,7 +469,6 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         vm = VirtualMachineSM.get(self.virtual_machine)
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
-            return
 
         self._manager.port_tuple_agent.update_port_tuple(self)
 

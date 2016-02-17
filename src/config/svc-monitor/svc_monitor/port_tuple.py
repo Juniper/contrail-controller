@@ -53,7 +53,7 @@ class PortTupleAgent(Agent):
             iip_obj.set_instance_ip_mode(si.ha_mode)
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
-                self._vnc_lib.ref_relax_for_delete(iip_id, vn_obj.uuid)
+                self._vnc_lib.ref_relax_for_delete(iip_obj.uuid, vn_obj.uuid)
             except RefsExistError:
                 self._vnc_lib.instance_ip_update(iip_obj)
             except Exception as e:
@@ -196,12 +196,14 @@ class PortTupleAgent(Agent):
 
         return port_config
 
-    def update_port_tuple(self, vmi):
-        if not vmi.port_tuple:
-            self.delete_old_vmi_links(vmi)
-            return
-
-        pt = PortTupleSM.get(vmi.port_tuple)
+    def update_port_tuple(self, vmi=None, pt_id=None):
+        if vmi:
+            if not vmi.port_tuple:
+                self.delete_old_vmi_links(vmi)
+                return
+            pt = PortTupleSM.get(vmi.port_tuple)
+        if pt_id:
+            pt = PortTupleSM.get(pt_id)
         if not pt:
             return
         si = ServiceInstanceSM.get(pt.parent_key)
@@ -234,6 +236,6 @@ class PortTupleAgent(Agent):
     def update_port_tuples(self):
         for si in ServiceInstanceSM.values():
             for pt_id in si.port_tuples:
-                self.update_port_tuple(pt_id)
+                self.update_port_tuple(pt_id=pt_id)
         for iip in InstanceIpSM.values():
                 self.delete_shared_iip(iip)
