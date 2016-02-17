@@ -31,6 +31,7 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
+from pysandesh.connection_info import ConnectionState
 from control_node.control_node.ttypes \
     import NodeStatusUVE, NodeStatus
 from control_node.control_node.process_info.ttypes \
@@ -59,6 +60,10 @@ class ControlEventManager(EventManager):
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8101, ['control_node.control_node'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
+        ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
+            self.instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
     # end __init__
 
     def process(self):
