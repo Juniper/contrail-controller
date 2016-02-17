@@ -1201,7 +1201,7 @@ class SecurityGroupST(DBBase):
                 if int(sg_id) > SGID_MIN_ALLOC:
                     self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
                 else:
-                    if self.name == self._cassanda.get_sg_from_id(sg_id):
+                    if self.name == self._cassandra.get_sg_from_id(sg_id):
                         self._cassandra.free_sg_id(sg_id)
             self.obj.set_security_group_id(str(config_id))
         else:
