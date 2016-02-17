@@ -316,3 +316,13 @@ objectlog sandesh SandeshMessageStat {
     2: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
 }
 
+request sandesh DisableFlowCollectionRequest {
+    1: optional bool disable
+}
+
+request sandesh FlowCollectionStatusRequest {
+}
+
+response sandesh FlowCollectionStatusResponse {
+    1: bool disable
+}

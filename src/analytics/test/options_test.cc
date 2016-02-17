@@ -87,6 +87,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
+    EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -131,6 +132,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
+    EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -179,19 +181,22 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.test_mode";
+    char argv_3[] = "--DEFAULT.disable_flow_collection";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -224,6 +229,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
+    EXPECT_EQ(options_.disable_flow_collection(), true); // Overridden from command line.
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -248,6 +254,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "test_mode=1\n"
         "syslog_port=101\n"
         "sandesh_send_rate_limit=5\n"
+        "disable_flow_collection=1\n"
         "\n"
         "[COLLECTOR]\n"
         "port=100\n"
@@ -325,6 +332,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.disable_flow_collection(), true);
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3333);
