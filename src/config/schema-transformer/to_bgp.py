@@ -349,6 +349,7 @@ class SchemaTransformer(object):
         vn_list = list(VirtualNetworkST.list_vnc_obj())
         vn_id_list = [vn.uuid for vn in vn_list]
         ri_dict = {}
+        service_ri_dict = {}
         for ri in DBBaseST.list_vnc_obj('routing_instance'):
             delete = False
             if ri.parent_uuid not in vn_id_list:
@@ -358,8 +359,11 @@ class SchemaTransformer(object):
                 # longer exists, delete the RI
                 sc_id = RoutingInstanceST._get_service_id_from_ri(
                     ri.get_fq_name_str())
-                if sc_id and sc_id not in ServiceChain:
-                    delete = True
+                if sc_id:
+                    if sc_id not in ServiceChain:
+                        delete = True
+                    else:
+                        service_ri_dict[ri.get_fq_name_str()] = ri
                 else:
                     ri_dict[ri.get_fq_name_str()] = ri
             if delete:
@@ -420,6 +424,9 @@ class SchemaTransformer(object):
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
         for ri_name, ri_obj in ri_dict.items():
             RoutingInstanceST.locate(ri_name, ri_obj)
+        # Initialize service instance RI's after Primary RI's
+        for si_ri_name, si_ri_obj in service_ri_dict.items():
+            RoutingInstanceST.locate(si_ri_name, si_ri_obj)
 
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
