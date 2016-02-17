@@ -23,7 +23,7 @@ class VRouterInstanceManager(VRouterHostedManager):
                 vr_obj.fq_name = vr.fq_name
                 vr_obj.del_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_router_update(vr_obj)
-                self.logger.log_info("vm %s deleted from vrouter %s" %
+                self.logger.info("vm %s deleted from vrouter %s" %
                     (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
                 vm.virtual_router = None
 
@@ -34,7 +34,7 @@ class VRouterInstanceManager(VRouterHostedManager):
             vr_obj.fq_name = vr.fq_name
             vr_obj.add_virtual_machine(vm_obj)
             self._vnc_lib.virtual_router_update(vr_obj)
-            self.logger.log_info("vrouter %s updated with vm %s" %
+            self.logger.info("vrouter %s updated with vm %s" %
                 (':'.join(vr_obj.get_fq_name()), vm.name))
             vrouter_name = vr_obj.get_fq_name()[-1]
 

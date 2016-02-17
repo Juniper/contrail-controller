@@ -42,7 +42,7 @@ class RabbitConnection(object):
 
     def _vnc_subscribe_actions(self, oper_info):
         msg = "Notification Message: %s" % (pformat(oper_info))
-        self.logger.log_debug(msg)
+        self.logger.debug(msg)
         obj_type = oper_info['type'].replace('-', '_')
         obj_class = DBBaseSM.get_obj_type_map().get(obj_type)
         if obj_class is None:
@@ -88,11 +88,11 @@ class RabbitConnection(object):
             obj_class.delete(obj_id)
         else:
             # unknown operation
-            self.logger.log_error('Unknown operation %s' % oper_info['oper'])
+            self.logger.error('Unknown operation %s' % oper_info['oper'])
             return
 
         if obj is None:
-            self.logger.log_error('Error while accessing %s uuid %s' % (
+            self.logger.error('Error while accessing %s uuid %s' % (
                 obj_type, obj_id))
             return
 

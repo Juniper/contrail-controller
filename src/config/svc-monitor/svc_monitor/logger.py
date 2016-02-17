@@ -76,32 +76,29 @@ class ServiceMonitorLogger(object):
             log_msg=log_msg, sandesh=self._sandesh)
         vn_log.send(sandesh=self._sandesh)
 
-    def log_emergency(self, log_msg):
+    def emergency(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_EMERG)
 
-    def log_alert(self, log_msg):
+    def alert(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_ALERT)
 
-    def log_critical(self, log_msg):
+    def critical(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_CRIT)
 
-    def log_error(self, log_msg):
+    def error(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_ERR)
 
-    def log_warning(self, log_msg):
+    def warning(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_WARN)
 
-    def log_notice(self, log_msg):
+    def notice(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_NOTICE)
 
-    def log_info(self, log_msg):
+    def info(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_INFO)
 
-    def log_debug(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
-
     def debug(self, log_msg):
-        self.log_debug(log_msg)
+        self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
 
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(conn_type=ConnType.APISERVER,

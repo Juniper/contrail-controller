@@ -81,7 +81,7 @@ class SvcMonitor(object):
                     self._err_file, maxBytes=64*1024, backupCount=2)
                 self._svc_err_logger.addHandler(handler)
         except IOError:
-            self.logger.log_warning("Failed to open trace file %s" %
+            self.logger.warning("Failed to open trace file %s" %
                                     self._err_file)
 
         # init cassandra
@@ -211,7 +211,7 @@ class SvcMonitor(object):
                 try:
                     self._vnc_lib.instance_ip_update(iip_obj)
                 except NoIdError:
-                    self.logger.log_error("upgrade instance ip to service ip failed %s" % (iip.name))
+                    self.logger.error("upgrade instance ip to service ip failed %s" % (iip.name))
                     continue
 
     def upgrade(self):
@@ -294,7 +294,7 @@ class SvcMonitor(object):
         domain_name = 'default-domain'
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
-        self.logger.log_info("Creating %s %s hypervisor %s" %
+        self.logger.info("Creating %s %s hypervisor %s" %
                              (domain_name, st_name, hypervisor_type))
 
         domain_obj = None
@@ -305,12 +305,12 @@ class SvcMonitor(object):
                 domain_obj.fq_name = domain_fq_name
                 break
         if not domain_obj:
-            self.logger.log_error("%s domain not found" % (domain_name))
+            self.logger.error("%s domain not found" % (domain_name))
             return
 
         for st in ServiceTemplateSM.values():
             if st.fq_name == st_fq_name:
-                self.logger.log_info("%s exists uuid %s" %
+                self.logger.info("%s exists uuid %s" %
                                      (st.name, str(st.uuid)))
                 return
 
@@ -349,14 +349,14 @@ class SvcMonitor(object):
         try:
             st_uuid = self._vnc_lib.service_template_create(st_obj)
         except Exception as e:
-            self.logger.log_error("%s create failed with error %s" %
+            self.logger.error("%s create failed with error %s" %
                                   (st_name, str(e)))
             return
 
         # Create the service template in local db
         ServiceTemplateSM.locate(st_uuid)
 
-        self.logger.log_info("%s created with uuid %s" %
+        self.logger.info("%s created with uuid %s" %
                              (st_name, str(st_uuid)))
     #_create_default_analyzer_template
 
@@ -388,13 +388,13 @@ class SvcMonitor(object):
             return
         st = ServiceTemplateSM.get(si.service_template)
         if not st:
-            self.logger.log_error("template not found for %s" %
+            self.logger.error("template not found for %s" %
                                   ((':').join(si.fq_name)))
             return
         if st.params and st.params.get('version', 1) == 2:
             return
 
-        self.logger.log_info("Creating SI %s (%s)" %
+        self.logger.info("Creating SI %s (%s)" %
                              ((':').join(si.fq_name), st.virtualization_type))
         try:
             if st.virtualization_type == 'virtual-machine':
@@ -406,15 +406,15 @@ class SvcMonitor(object):
             elif st.virtualization_type == 'physical-device':
                 self.ps_manager.create_service(st, si)
             else:
-                self.logger.log_error("Unknown virt type: %s" %
+                self.logger.error("Unknown virt type: %s" %
                                       st.virtualization_type)
         except Exception:
             cgitb_error_log(self)
         si.launch_count += 1
-        self.logger.log_info("SI %s creation success" % (':').join(si.fq_name))
+        self.logger.info("SI %s creation success" % (':').join(si.fq_name))
 
     def delete_service_instance(self, vm):
-        self.logger.log_info("Deleting VM %s %s for SI %s" %
+        self.logger.info("Deleting VM %s %s for SI %s" %
             ((':').join(vm.fq_name), vm.uuid, vm.service_id))
 
         try:
@@ -426,7 +426,7 @@ class SvcMonitor(object):
                 self.vrouter_manager.delete_service(vm)
             elif vm.virtualization_type == 'physical-device':
                 self.ps_manager.delete_service(vm)
-            self.logger.log_info("Deleted VM %s %s for SI %s" %
+            self.logger.info("Deleted VM %s %s for SI %s" %
                 ((':').join(vm.fq_name), vm.uuid, vm.service_id))
         except Exception:
             cgitb_error_log(self)
@@ -465,7 +465,7 @@ class SvcMonitor(object):
 
     def _delete_shared_vn(self, vn_uuid):
         try:
-            self.logger.log_info("Deleting vn %s" % (vn_uuid))
+            self.logger.info("Deleting vn %s" % (vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
             VirtualNetworkSM.delete(vn_uuid)
         except (NoIdError, RefsExistError):
@@ -559,11 +559,11 @@ def timer_callback(monitor):
 
 def launch_timer(monitor):
     if not monitor._args.check_service_interval.isdigit():
-        monitor.logger.log_emergency("set seconds for check_service_interval "
+        monitor.logger.emergency("set seconds for check_service_interval "
                                      "in contrail-svc-monitor.conf. \
                                         example: check_service_interval=60")
         sys.exit()
-    monitor.logger.log_notice("check_service_interval set to %s seconds" %
+    monitor.logger.notice("check_service_interval set to %s seconds" %
                               monitor._args.check_service_interval)
 
     while True:

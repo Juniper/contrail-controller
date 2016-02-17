@@ -20,14 +20,14 @@ class PhysicalServiceManager(InstanceManager):
         # get service appliances from service template
         sa_set = st.service_appliance_set
         if not sa_set:
-            self.logger.log_error("Can't find service appliances set")
+            self.logger.error("Can't find service appliances set")
             return
         service_appliance_set = ServiceApplianceSetSM.get(sa_set)
         service_appliances = service_appliance_set.service_appliances
 
         # validation
         if not service_appliances:
-            self.logger.log_error("Can't find service appliances")
+            self.logger.error("Can't find service appliances")
             return
 
         service_appliances = list(service_appliances)
@@ -52,7 +52,7 @@ class PhysicalServiceManager(InstanceManager):
             pt_list[i] = pts[i]
 
         if si.max_instances > len(service_appliances):
-            self.logger.log_info(
+            self.logger.info(
                 "There are not enough Service appliance \
                     for that Service instance "+si.uuid)
             return
