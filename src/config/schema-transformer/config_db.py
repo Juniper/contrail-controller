@@ -262,9 +262,9 @@ class VirtualNetworkST(DBBaseST):
         else:
             default_ri_fq_name = self.obj.fq_name + [self.obj.name]
         self._default_ri_name = ':'.join(default_ri_fq_name)
+        self.multi_policy_service_chains_status_changed = False
         self.update(self.obj)
         self.update_multiple_refs('virtual_machine_interface', self.obj)
-        self.multi_policy_service_chains_status_changed = False
         self.init_static_ip_routes()
     # end __init__
 
@@ -314,9 +314,18 @@ class VirtualNetworkST(DBBaseST):
             if (multi_policy_enabled and
                     service_ri_name in primary_ri.connections):
                 primary_ri.delete_connection(service_ri)
+                # add primary ri's route target to service ri
+                rt_obj = RouteTargetST.get(self.get_route_target())
+                service_ri.obj.add_route_target(rt_obj.obj,
+                                                InstanceTargetType('import'))
+                self._vnc_lib.routing_instance_update(service_ri.obj)
             elif (not multi_policy_enabled and
                     service_ri_name not in primary_ri.connections):
                 primary_ri.add_connection(service_ri)
+                # delete primary ri's route target from service ri
+                rt_obj = RouteTargetST.get(self.get_route_target())
+                service_ri.obj.del_route_target(rt_obj.obj)
+                self._vnc_lib.routing_instance_update(service_ri.obj)
     # end _update_primary_ri_to_service_ri_connection
 
     def check_multi_policy_service_chain_status(self):
@@ -1958,6 +1967,31 @@ class RoutingInstanceST(DBBaseST):
             self.route_aggregates = ra_set
     # end update_routing_policy_and_aggregates
 
+    def locate_imported_service_chain_route_target(self):
+        if not self.service_chain:
+            return
+        sc = ServiceChain.get(self.service_chain)
+        left_vn = VirtualNetworkST.get(sc.left_vn)
+        right_vn = VirtualNetworkST.get(sc.right_vn)
+        multi_policy_enabled = (
+            left_vn.multi_policy_service_chains_enabled and
+            right_vn.multi_policy_service_chains_enabled)
+        if not multi_policy_enabled:
+            return
+        vn = VirtualNetworkST.get(self.virtual_network)
+        if sc.left_vn == vn.name:
+            si_name = sc.service_list[0]
+        elif sc.right_vn == vn.name:
+            si_name = sc.service_list[-1]
+        else:
+            return
+        service_ri_name = vn.get_service_name(sc.name, si_name)
+        if service_ri_name == self.name:
+            rt_obj = RouteTargetST.get(vn.get_route_target())
+            self.obj.add_route_target(rt_obj.obj,
+                                      InstanceTargetType('import'))
+    # end locate_imported_service_chain_route_target
+
     def locate_route_target(self):
         old_rtgt = self._cassandra.get_route_target(self.name)
         rtgt_num = self._cassandra.alloc_route_target(self.name)
@@ -2500,6 +2534,12 @@ class ServiceChain(DBBaseST):
                 return
             if service_ri2 is not None:
                 service_ri2.add_connection(service_ri1)
+            else:
+                # add primary ri's target to service ri
+                rt_obj = RouteTargetST.get(vn1_obj.get_route_target())
+                service_ri1.obj.add_route_target(rt_obj.obj,
+                                                 InstanceTargetType('import'))
+                self._vnc_lib.routing_instance_update(service_ri1.obj)
             ri_obj = RoutingInstanceST.create(service_name2, vn2_obj, has_pnf)
             service_ri2 = RoutingInstanceST.locate(service_name2, ri_obj)
             if service_ri2 is None:
@@ -2553,6 +2593,12 @@ class ServiceChain(DBBaseST):
 
         if not multi_policy_enabled:
             service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
+        else:
+            # add primary ri's target to service ri
+            rt_obj = RouteTargetST.get(vn2_obj.get_route_target())
+            service_ri2.obj.add_route_target(rt_obj.obj,
+                                             InstanceTargetType('import'))
+            self._vnc_lib.routing_instance_update(service_ri2.obj)
 
         if not transparent and len(self.service_list) == 1:
             for vn in VirtualNetworkST.values():
