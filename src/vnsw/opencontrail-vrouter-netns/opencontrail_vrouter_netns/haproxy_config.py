@@ -123,7 +123,7 @@ def _set_frontend(config, conf_dir, keystone_auth_conf_file):
 
     if 'tls_container' in vip_custom_attributes:
         data = vip_custom_attributes.pop('tls_container', None)
-        crt_file = _populate_pem_file(data, conf_dir)
+        crt_file = _populate_pem_file(data, conf_dir, config['pool']['id'])
     else:
         crt_file = config['ssl-crt']
 
@@ -220,8 +220,8 @@ def _get_codes(codes):
             response.add(code)
     return response
 
-def _populate_pem_file(data, conf_dir):
-    crt_filename = conf_dir + '/crtbundle.pem'
+def _populate_pem_file(data, conf_dir, pool_id):
+    crt_filename = conf_dir + '/' + pool_id + '.crtbundle.pem'
     with open(crt_filename, 'w+') as outfile:
         outfile.write(data)
 
