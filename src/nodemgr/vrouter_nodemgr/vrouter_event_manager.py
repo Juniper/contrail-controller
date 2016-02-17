@@ -36,6 +36,7 @@ from StringIO import StringIO
 
 from vrouter.vrouter.ttypes import \
     NodeStatusUVE, NodeStatus
+from pysandesh.connection_info import ConnectionState
 from vrouter.vrouter.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from vrouter.vrouter.process_info.constants import \
@@ -64,6 +65,10 @@ class VrouterEventManager(EventManager):
         sandesh_global.set_logging_params(enable_local_log=True)
         self.supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
         self.add_current_process()
+        ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
+            self.instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
 
         self.lb_stats = LoadbalancerStats()
     # end __init__

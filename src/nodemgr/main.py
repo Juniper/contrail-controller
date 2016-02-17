@@ -36,6 +36,7 @@ Rules files looks like following:
 from gevent import monkey
 monkey.patch_all()
 import os
+import os.path
 import sys
 import argparse
 import socket
@@ -87,6 +88,9 @@ def main(args_str=' '.join(sys.argv[1:])):
         config_file = '/etc/contrail/contrail-database-nodemgr.conf'
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
+        return
+    if (os.path.exists(config_file) == False):
+        sys.stderr.write("config file " + config_file + " is not present" + "\n")
         return
     config = ConfigParser.SafeConfigParser()
     config.read([config_file])

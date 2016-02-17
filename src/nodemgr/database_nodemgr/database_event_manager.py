@@ -38,6 +38,7 @@ from StringIO import StringIO
 from database.sandesh.database.ttypes import \
     NodeStatusUVE, NodeStatus, DatabaseUsageStats,\
     DatabaseUsageInfo, DatabaseUsage
+from pysandesh.connection_info import ConnectionState
 from database.sandesh.database.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from database.sandesh.database.process_info.constants import \
@@ -78,6 +79,10 @@ class DatabaseEventManager(EventManager):
             self.instance_id, self.collector_addr, self.module_id, 8103,
             ['database.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
+        ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
+            self.instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
     # end __init__
 
     def _get_cassandra_config_option(self, config):
