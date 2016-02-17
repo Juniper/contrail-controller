@@ -1784,7 +1784,7 @@ class OpServer(object):
 
         self._logger.error("start times:" + str(start_times))
 
-        analytics_ttls = self._analytics_db._get_analytics_ttls()
+        analytics_ttls = self._analytics_db.get_analytics_ttls()
         analytics_time_range = min(
                 (current_time - start_times[SYSTEM_OBJECT_START_TIME]),
                 60*60*1000000*analytics_ttls[SYSTEM_OBJECT_GLOBAL_DATA_TTL])
@@ -1822,7 +1822,7 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        start_times = self._analytics_db._get_analytics_start_time()
+        start_times = self._analytics_db.get_analytics_start_time()
         if (start_times == None):
             self._logger.info("Failed to get the analytics start time")
             response = {'status': 'failed',
@@ -1979,7 +1979,7 @@ class OpServer(object):
 
             if (trigger_purge):
             # trigger purge
-                start_times = self._analytics_db._get_analytics_start_time()
+                start_times = self._analytics_db.get_analytics_start_time()
                 purge_cutoff = self.get_purge_cutoff(
                         (100.0 - float(self._args.db_purge_level)),
                         start_times)
@@ -1993,7 +1993,7 @@ class OpServer(object):
 
 
     def _get_analytics_data_start_time(self):
-        analytics_start_time = (self._analytics_db._get_analytics_start_time())[SYSTEM_OBJECT_START_TIME]
+        analytics_start_time = (self._analytics_db.get_analytics_start_time())[SYSTEM_OBJECT_START_TIME]
         response = {'analytics_data_start_time': analytics_start_time}
         return bottle.HTTPResponse(
             json.dumps(response), 200, {'Content-type': 'application/json'})

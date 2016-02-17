@@ -67,7 +67,7 @@ class AnalyticsDb(object):
         if not AnalyticsDb.use_cql():
             self.connect_db_thrift()
         else:
-            self.get_cql_session(COLLECTOR_KEYSPACE_CQL)
+            self.get_cql_session()
 
     def connect_db_thrift(self):
         try:
@@ -105,18 +105,17 @@ class AnalyticsDb(object):
     # end _get_sysm
 
     def _get_analytics_ttls_cql(self):
-        ret_row = {}
-        if (self._session is None) :
-            self._logger.error("Session to %s not initialized" % \
-                COLLECTOR_KEYSPACE_CQL)
+        session = self.get_cql_session()
+        if not session:
             return None
+        ret_row = {}
         try:
             ttl_query = "SELECT * FROM %s" % SYSTEM_OBJECT_TABLE.lower()
-            self._session.row_factory = dict_factory
-            rs = self._session.execute(ttl_query)
+            session.row_factory = dict_factory
+            rs = session.execute(ttl_query)
             for r in rs:
                 row = r
-            self._session.row_factory = named_tuple_factory
+            session.row_factory = named_tuple_factory
             return (row, 0)
         except Exception as e:
             self._logger.error("Exception: analytics_start_time Failure ")
@@ -141,7 +140,7 @@ class AnalyticsDb(object):
             return (ret_row, -1)
         return (row, 0)
 
-    def _get_analytics_ttls(self):
+    def get_analytics_ttls(self):
         ret_row = {}
         if (AnalyticsDb.use_cql):
             (row, status) = self._get_analytics_ttls_cql()
@@ -169,23 +168,27 @@ class AnalyticsDb(object):
             ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = row[SYSTEM_OBJECT_GLOBAL_DATA_TTL]
 
         return ret_row
-    # end _get_analytics_ttls
+    # end get_analytics_ttls
 
     def _get_analytics_start_time_cql(self):
+        session = self.get_cql_session()
+        if not session:
+            return None
         # old_row_factory is usually named_tuple_factory
-        old_row_factory = self._session.row_factory
-        self._session.row_factory = dict_factory
+        old_row_factory = session.row_factory
+        session.row_factory = dict_factory
         try:
             start_time_query = "SELECT * FROM %s" % \
                 (SYSTEM_OBJECT_TABLE)
-            rs = self._session.execute(start_time_query)
+            rs = session.execute(start_time_query)
             for r in rs:
                 row = r
-            self._session.row_factory = old_row_factory
+            session.row_factory = old_row_factory
             return row
         except Exception as e:
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
             return None
+    # end _get_analytics_start_time_cql
 
     def _get_analytics_start_time_thrift(self):
         try:
@@ -196,7 +199,7 @@ class AnalyticsDb(object):
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
             return None
 
-    def _get_analytics_start_time(self):
+    def get_analytics_start_time(self):
         if AnalyticsDb.use_cql() is True:
             row = self._get_analytics_start_time_cql()
         else:
@@ -223,9 +226,11 @@ class AnalyticsDb(object):
             ret_row[SYSTEM_OBJECT_MSG_START_TIME] = row[SYSTEM_OBJECT_MSG_START_TIME]
 
         return ret_row
-    # end _get_analytics_start_time
+    # end get_analytics_start_time
 
-    def get_cql_session(self, keyspace):
+    def get_cql_session(self):
+        if self._session:
+            return self._session
         creds=None
         try:
             if self._cassandra_user is not None and \
@@ -239,12 +244,14 @@ class AnalyticsDb(object):
                 cql_port = '9042'
             cluster = Cluster(contact_points = server_list,
                 auth_provider = creds, port = cql_port)
-            self._session=cluster.connect(keyspace)
+            self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)
             self._session.connection_class = GeventConnection
             self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
+            return self._session
         except Exception as e:
             self._logger.error("Exception: get_cql_session Failure %s" % e)
             return None
+        # end get_cql_session
 
     def _update_analytics_start_time_cql(self, start_times):
         # The column names in SYSTEM_OBJECT_TABLE have to be encoded in ""
