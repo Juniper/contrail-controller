@@ -35,8 +35,7 @@ class SNATAgent(Agent):
 
     def pre_create_service_vm(self, instance_index, si, st, vm):
         for nic in si.vn_info:
-            if nic['type'] == svc_info.get_left_if_str():
-                nic['user-visible'] = False
+            nic['user-visible'] = False
         return True
 
     def _create_snat_vn(self, si_obj, vn_name):
