@@ -60,8 +60,8 @@ class DBBase(object):
                 cls._dict[key] = cls(key, *args)
             except NoIdError as e:
                 cls._logger.debug(
-                    "Exception %s while creating %s for %s",
-                    e, cls.__name__, key)
+                    "Exception %s while creating %s for %s" %
+                    (e, cls.__name__, key))
                 return None
         return cls._dict[key]
     # end locate
