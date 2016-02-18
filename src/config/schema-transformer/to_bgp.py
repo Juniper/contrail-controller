@@ -3151,7 +3151,7 @@ class SchemaTransformer(object):
             if result_type != 'searchResult' and not self.ifmap_search_done:
                 self.ifmap_search_done = True
                 self.process_stale_objects()
-                self.current_network_set = VirtualNetworkST.keys()
+                self.current_network_set = set(VirtualNetworkST.keys())
                 something_done = True
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
@@ -3467,7 +3467,7 @@ def set_ifmap_search_done(transformer):
     gevent.sleep(60)
     transformer.ifmap_search_done = True
     transformer.process_stale_objects()
-    transformer.current_network_set = list(VirtualNetworkST.keys())
+    transformer.current_network_set = set(VirtualNetworkST.keys())
     transformer.process_networks()
 # end set_ifmap_search_done
 
