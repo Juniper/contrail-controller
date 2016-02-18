@@ -1,9 +1,11 @@
+import gevent
 import sys
 import uuid
+import socket
 import inspect
 import requests
 sys.path.append("../config/common/tests")
-from test_utils import *
+import test_utils
 import test_common
 from testtools import content, content_type
 
@@ -29,34 +31,14 @@ class DsTestCase(test_common.TestCase):
         ]
         super(DsTestCase, self).__init__(*args, **kwargs)
 
-        self.mocks = [
-            (cfgm_common.vnc_cpu_info.CpuInfo, '__init__',stub),
-            (novaclient.client, 'Client',FakeNovaClient.initialize),
+    @classmethod
+    def setUpClass(cls):
+        # unstub discovery client
+        cls.mocks = [mock for mock in cls.mocks if mock[0].__name__ != 'DiscoveryClient']
+        super(DsTestCase, cls).setUpClass()
 
-            (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
-            (ifmap_client.client, 'call_async_result', FakeIfmapClient.call_async_result),
-            (ifmap_client.client, 'call', FakeIfmapClient.call),
-
-            (pycassa.system_manager.Connection, '__init__',stub),
-            (pycassa.system_manager.SystemManager, '__new__',FakeSystemManager),
-            (pycassa.ConnectionPool, '__init__',stub),
-            (pycassa.ColumnFamily, '__new__',FakeCF),
-            (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
-
-            (kazoo.client.KazooClient, '__new__',FakeKazooClient),
-            (kazoo.handlers.gevent.SequentialGeventHandler, '__init__',stub),
-
-            (kombu.Connection, '__new__',FakeKombu.Connection),
-            (kombu.Exchange, '__new__',FakeKombu.Exchange),
-            (kombu.Queue, '__new__',FakeKombu.Queue),
-            (kombu.Consumer, '__new__',FakeKombu.Consumer),
-            (kombu.Producer, '__new__',FakeKombu.Producer),
-
-            (VncApiConfigLog, '__new__',FakeApiConfigLog),
-            #(VncApiStatsLog, '__new__',FakeVncApiStatsLog)
-        ]
-
-    def setUp(self, extra_disc_server_config_knobs = None):
+    def setUp(self, extra_disc_server_config_knobs = None,
+                    extra_disc_server_mocks = None):
         extra_api_server_config_knobs = [
             ('DEFAULTS', 'disc_server_dsa_api', '/api/dsa'),
             ('DEFAULTS', 'log_level', 'SYS_DEBUG'),
@@ -64,18 +46,20 @@ class DsTestCase(test_common.TestCase):
         super(DsTestCase, self).setUp(extra_config_knobs = extra_api_server_config_knobs)
 
         self._disc_server_ip = socket.gethostbyname(socket.gethostname())
-        self._disc_server_port = get_free_port()
-        http_server_port = get_free_port()
+        self._disc_server_port = test_utils.get_free_port()
+        http_server_port = test_utils.get_free_port()
         if extra_disc_server_config_knobs:
             self._disc_server_config_knobs.extend(extra_disc_server_config_knobs)
 
+        if extra_disc_server_mocks:
+            self.mocks.extend(extra_disc_server_mocks)
         test_common.setup_mocks(self.mocks)
 
         self._disc_server_greenlet = gevent.spawn(test_common.launch_disc_server,
             self.id(), self._disc_server_ip, self._disc_server_port,
             http_server_port, self._disc_server_config_knobs)
 
-        block_till_port_listened(self._disc_server_ip, self._disc_server_port)
+        test_utils.block_till_port_listened(self._disc_server_ip, self._disc_server_port)
         self._disc_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
         self._disc_server_session.mount("http://", adapter)
@@ -83,6 +67,7 @@ class DsTestCase(test_common.TestCase):
 
 
     def tearDown(self):
+        test_utils.CassandraCFs.reset()
         test_common.kill_disc_server(self._disc_server_greenlet)
         super(DsTestCase, self).tearDown()
 
@@ -115,11 +100,12 @@ class DsTestCase(test_common.TestCase):
         return (response.status_code, response.text)
     #end _http_get
 
-    def _http_post(self, uri, body):
+    def _http_post(self, uri, body, http_headers={}):
+        http_headers.update(self._http_headers)
         url = "http://%s:%s%s" % (self._disc_server_ip, self._disc_server_port, uri)
-        self._add_request_detail('POST', url, headers=self._http_headers, body=body)
+        self._add_request_detail('POST', url, headers=http_headers, body=body)
         response = self._disc_server_session.post(url, data=body,
-                                                 headers=self._http_headers)
+                                                 headers=http_headers)
         self._add_detail('Received Response: ' +
                          pformat(response.status_code) +
                          pformat(response.text))
@@ -137,11 +123,12 @@ class DsTestCase(test_common.TestCase):
         return (response.status_code, response.text)
     #end _http_delete
 
-    def _http_put(self, uri, body):
+    def _http_put(self, uri, body, http_headers={}):
+        http_headers.update(self._http_headers)
         url = "http://%s:%s%s" % (self._disc_server_ip, self._disc_server_port, uri)
-        self._add_request_detail('PUT', url, headers=self._http_headers, body=body)
+        self._add_request_detail('PUT', url, headers=http_headers, body=body)
         response = self._disc_server_session.put(url, data=body,
-                                                headers=self._http_headers)
+                                                headers=http_headers)
         self._add_detail('Received Response: ' +
                          pformat(response.status_code) +
                          pformat(response.text))
