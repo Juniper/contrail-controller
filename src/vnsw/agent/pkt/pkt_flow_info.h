@@ -96,7 +96,7 @@ public:
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
-
+    void SetPktInfo(boost::shared_ptr<PktInfo> info);
     bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
