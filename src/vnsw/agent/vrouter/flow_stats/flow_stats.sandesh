@@ -104,6 +104,7 @@ struct SandeshFlowExportInfo {
    19: string fip_vmi;
    20: string fip;
    21: u16 underlay_source_port;
+   22: bool delete_enqueued;
 }
 
 /**

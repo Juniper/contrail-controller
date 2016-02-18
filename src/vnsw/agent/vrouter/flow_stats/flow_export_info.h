@@ -61,6 +61,8 @@ public:
     }
     bool IsEqual(const FlowExportInfo &rhs) const;
     void Copy(const FlowExportInfo &rhs);
+    void set_delete_enqueued(bool value) { delete_enqueued_ = value; }
+    bool delete_enqueued() const { return delete_enqueued_; }
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -91,6 +93,7 @@ private:
     boost::uuids::uuid interface_uuid_;
     std::string drop_reason_;
     uint16_t tcp_flags_;
+    bool delete_enqueued_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

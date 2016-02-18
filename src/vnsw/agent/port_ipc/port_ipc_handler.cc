@@ -203,10 +203,13 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
         intf_type = CfgIntEntry::CfgIntNameSpacePort;
     }
     boost::system::error_code ec, ec6;
+    /* from_string returns default constructor IP (all zeroes) when there is
+     * error in passed IP for both v4 and v6 */
     Ip4Address ip(Ip4Address::from_string(r.ip_address, ec));
     Ip6Address ip6 = Ip6Address::from_string(r.ip6_address, ec6);
-    if (((ec != 0) && (ec6 != 0)) ||
-        (ip.is_unspecified() && ip6.is_unspecified())) {
+    /* We permit port-add with all zeroes IP address but not with
+     * invalid IP */
+    if ((ec != 0) && (ec6 != 0)) {
         resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
         err = true;
     }

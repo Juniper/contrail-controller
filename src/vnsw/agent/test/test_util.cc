@@ -784,9 +784,15 @@ InetInterface *InetInterfaceGet(const char *ifname) {
     return static_cast<InetInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
+CfgIntEntry *CfgPortGet(boost::uuids::uuid u) {
+    CfgIntKey key(u);
+    return static_cast<CfgIntEntry *>(Agent::GetInstance()->
+        interface_config_table()->Find(&key));
+}
+
 Interface *VmPortGet(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    return static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+    return static_cast<Interface *>(Agent::GetInstance()->interface_table()->Find(&key, false));
 }
 
 bool VmPortFloatingIpCount(int id, unsigned int count) {

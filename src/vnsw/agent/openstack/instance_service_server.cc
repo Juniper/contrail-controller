@@ -562,8 +562,9 @@ void AddPortReq::HandleRequest() const {
     boost::system::error_code ec, ec6;
     Ip4Address ip(Ip4Address::from_string(get_ip_address(), ec));
     Ip6Address ip6 = Ip6Address::from_string(get_ip6_address(), ec6);
-    if (((ec != 0) && (ec6 != 0)) ||
-        (ip.is_unspecified() && ip6.is_unspecified())) {
+    /* Return only if wrong IP address is passed in both IPv4 and IPv6 fields.
+     * An IP address of all zeroes is not considered wrong/invalid */
+    if ((ec != 0) && (ec6 != 0)) {
         resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
         err = true;
     }
