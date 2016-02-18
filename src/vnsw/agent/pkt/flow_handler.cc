@@ -26,7 +26,18 @@ bool FlowHandler::Run() {
     PktFlowInfo info(pkt_info_, agent_->pkt()->flow_table());
     std::auto_ptr<FlowTaskMsg> ipc;
 
-    if (pkt_info_->type == PktType::MESSAGE) {
+    if (pkt_info_->type == PktType::INVALID) {
+        // packet parsing is not done, invoke the same here
+        uint8_t *pkt = pkt_info_->packet_buffer()->data();
+        PktHandler::PktModuleName mod = agent_->pkt()->pkt_handler()->
+                                        ParseFlowPacket(pkt_info_, pkt);
+        // if packet wasnt for flow module, it would've got enqueued to the
+        // correct module in the above call. Nothing else to do.
+        if (mod != PktHandler::FLOW) {
+            return true;
+        }
+        info.SetPktInfo(pkt_info_);
+    } else if (pkt_info_->type == PktType::MESSAGE) {
         ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
@@ -54,7 +65,7 @@ bool FlowHandler::Run() {
         pkt_info_->vrf = fe->data().vrf;
         pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
-    }
+    } 
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {
         info.short_flow = true;

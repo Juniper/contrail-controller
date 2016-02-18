@@ -1638,3 +1638,8 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
             pkt->agent_hdr.cmd_param_3, pkt->agent_hdr.cmd_param_4, flow_table);
     }
 }
+void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
+    l3_flow = pkt_info->l3_forwarding;
+    family = pkt_info->family;
+    pkt = pkt_info;
+}

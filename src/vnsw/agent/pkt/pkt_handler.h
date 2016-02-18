@@ -118,6 +118,7 @@ struct AgentHdr {
         TRAP_TOR_CONTROL_PKT = AGENT_TRAP_TOR_CONTROL_PKT,
         TRAP_ZERO_TTL = AGENT_TRAP_ZERO_TTL,
         TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
+        TRAP_FLOW_ACTION_HOLD = AGENT_TRAP_FLOW_ACTION_HOLD,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -219,6 +220,7 @@ struct PktInfo {
 
     PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
     PktInfo(const PacketBufferPtr &buff);
+    PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 
@@ -276,6 +278,14 @@ public:
         void PktQThresholdExceeded(PktModuleName mod);
     };
 
+    struct PacketBufferEnqueueItem {
+        const AgentHdr hdr;
+        const PacketBufferPtr buff;
+
+        PacketBufferEnqueueItem(const AgentHdr &h, const PacketBufferPtr &b)
+            : hdr(h), buff(b) {}
+    };
+
     PktHandler(Agent *, PktModule *pkt_module);
     virtual ~PktHandler();
 
@@ -285,9 +295,12 @@ public:
 
     PktModuleName ParsePacket(const AgentHdr &hdr, PktInfo *pkt_info,
                               uint8_t *pkt);
+    PktModuleName ParseFlowPacket(boost::shared_ptr<PktInfo> pkt_info,
+                                  uint8_t *pkt);
     int ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                      PktType::Type &pkt_type, uint8_t *pkt);
     // identify pkt type and send to the registered handler
+    bool ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
@@ -312,6 +325,8 @@ public:
     PktModule *pkt_module() const { return pkt_module_; }
 
 private:
+    void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
+                          boost::shared_ptr<PktInfo> pkt_info);
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt);
     int ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
@@ -331,6 +346,7 @@ private:
     bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
     bool IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
                             PktType::Type &pkt_type, uint8_t *pkt);
+    bool IsFlowPacket(const AgentHdr &agent_hdr);
     bool IsDiagPacket(PktInfo *pkt_info);
 
     // handlers for each module type
@@ -342,6 +358,7 @@ private:
 
     Agent *agent_;
     PktModule *pkt_module_;
+    WorkQueue<boost::shared_ptr<PacketBufferEnqueueItem> > work_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };
