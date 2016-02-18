@@ -65,7 +65,7 @@ public:
     void EnqueueEvent(FlowEvent *event, FlowTable *table);
     void EnqueueFlowEvent(FlowEvent *event);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow);
-    void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle);
+    void EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle);
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle);
     bool FlowEventHandler(FlowEvent *req, FlowTable *table);

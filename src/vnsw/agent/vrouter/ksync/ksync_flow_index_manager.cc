@@ -11,7 +11,8 @@
 //////////////////////////////////////////////////////////////////////////////
 KSyncFlowIndexEntry::KSyncFlowIndexEntry() :
     state_(INIT), index_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-    index_owner_(NULL), evict_count_(0), delete_in_progress_(false) {
+    index_owner_(NULL), evicted_(false), skip_delete_(false), evict_count_(0),
+    delete_in_progress_(false) {
 }
 
 KSyncFlowIndexEntry::~KSyncFlowIndexEntry() {
@@ -19,15 +20,628 @@ KSyncFlowIndexEntry::~KSyncFlowIndexEntry() {
     assert(ksync_entry_ == NULL);
 }
 
-bool KSyncFlowIndexEntry::IsEvicted() const {
-    return (state_ == INDEX_EVICT || state_ == INDEX_CHANGE);
-}
-
 void KSyncFlowIndexEntry::Reset() {
     index_ = FlowEntry::kInvalidFlowHandle;
     state_ = INIT;
     ksync_entry_ = NULL;
     delete_in_progress_ = false;
+}
+
+static const char *kStateDescription[] = {
+    "INIT",
+    "SET",
+    "CHANGE",
+    "EVICT",
+    "UNASSIGNED",
+    "FAILED",
+    "INVALID"
+};
+static const char *StateToString(KSyncFlowIndexEntry::State state) {
+    assert(state <= KSyncFlowIndexEntry::INVALID);
+    return kStateDescription[(int)state];
+}
+
+static const char *kEventDescription[] = {
+    "ADD",
+    "CHANGE",
+    "DELETE",
+    "EVICT",
+    "INDEX_ASSIGN",
+    "VROUTER_ERROR",
+    "KSYNC_FREE",
+    "INVALID"
+};
+static const char *EventToString(KSyncFlowIndexEntry::Event event) {
+    assert(event <= KSyncFlowIndexEntry::INVALID_EVENT);
+    return kEventDescription[(int)event];
+}
+
+void KSyncFlowIndexEntry::Log(KSyncFlowIndexManager *manager, FlowEntry *flow,
+                              Event event, uint32_t index) {
+    int idx1 = (index_ == FlowEntry::kInvalidFlowHandle) ? -1 : index_;
+    int idx2 = (index == FlowEntry::kInvalidFlowHandle) ? -1 : index;
+    LOG(DEBUG, "FlowIndexMgmt :"
+        << " Flow : " << (void *)flow
+        << " State : " << StateToString(state_)
+        << " Handle : " << flow->flow_handle()
+        << " Event : " << EventToString(event)
+        << " Index : " << idx1
+        << " NewIndex : " << idx2
+        << " Evicted : " << (evicted_ ? "true" : "false")
+        << " SkipDel : " << (skip_delete_ ? "true" : "false")
+        << " Key < " << flow->KeyString() << " >");
+}
+
+void KSyncFlowIndexEntry::EvictLog(KSyncFlowIndexManager *manager,
+                                   FlowEntry *flow, uint32_t index) {
+    int idx1 = (index_ == FlowEntry::kInvalidFlowHandle) ? -1 : index_;
+    int idx2 = (index == FlowEntry::kInvalidFlowHandle) ? -1 : index;
+    LOG(DEBUG, "FlowIndexMgmt EvictRequest :"
+        << " Flow : " << (void *)flow
+        << " State : " << StateToString(state_)
+        << " Handle : " << flow->flow_handle()
+        << " Index : " << idx1
+        << " NewIndex : " << idx2
+        << " Evicted : " << (evicted_ ? "true" : "false")
+        << " SkipDel : " << (skip_delete_ ? "true" : "false")
+        << " Key < " << flow->KeyString() << " >");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// KSyncFlowIndexEntry State Machine routines
+//////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::KSyncAddChange(KSyncFlowIndexManager *manager,
+                                         FlowEntry *flow) {
+    FlowTableKSyncObject *object = flow->flow_table()->ksync_object();
+    if (ksync_entry_ == NULL) {
+        FlowTableKSyncEntry key(object, flow, index_);
+        ksync_entry_ = (static_cast<FlowTableKSyncEntry *>
+                        (object->Create(&key, true)));
+        // Add called for deleted flow. This happens when Reverse flow is
+        // deleted before getting ACK from vrouter.
+        // Create and delete KSync Entry
+        if (flow->deleted()) {
+            KSyncDelete(manager, flow);
+        }
+    } else {
+        // Add called for deleted flow. This happens when Reverse flow is
+        // deleted before getting ACK from vrouter.
+        // Create and delete KSync Entry
+        if (flow->deleted()) {
+            KSyncDelete(manager, flow);
+        } else {
+            object->Change(ksync_entry_);
+        }
+    }
+}
+
+void KSyncFlowIndexEntry::KSyncDelete(KSyncFlowIndexManager *manager,
+                                      FlowEntry *flow) {
+    if (ksync_entry_ == NULL) {
+        assert(index_ == FlowEntry::kInvalidFlowHandle);
+        // Nothing to do if KSync entry not allocated
+        // Invoke Release to move the state machine
+        manager->Release(flow);
+        return;
+    }
+
+    if (delete_in_progress_) {
+        // Delete already issued
+        return;
+    }
+    delete_in_progress_ = true;
+    FlowTableKSyncObject *object = flow->flow_table()->ksync_object();
+    object->Delete(ksync_entry_);
+}
+
+void KSyncFlowIndexEntry::KSyncUpdateFlowHandle(KSyncFlowIndexManager *manager,
+                                                FlowEntry *flow) {
+    FlowTableKSyncObject *object = flow->flow_table()->ksync_object();
+    object->UpdateFlowHandle(ksync_entry_, index_);
+    if (flow->deleted()) {
+        KSyncDelete(manager, flow);
+    }
+}
+
+void KSyncFlowIndexEntry::HandleEvent(KSyncFlowIndexManager *manager,
+                                      FlowEntry *flow, Event event,
+                                      uint32_t index) {
+    Log(manager, flow, event, index);
+    switch (state_) {
+    case INIT:
+        InitSm(manager, flow, event, index);
+        break;
+
+    case INDEX_UNASSIGNED:
+        IndexUnassignedSm(manager, flow, event, index);
+        break;
+
+    case INDEX_SET:
+        IndexSetSm(manager, flow, event, index);
+        break;
+
+    case INDEX_CHANGE:
+        IndexChangeSm(manager, flow, event, index);
+        break;
+
+    case INDEX_EVICT:
+        IndexEvictSm(manager, flow, event, index);
+        break;
+
+    case INDEX_FAILED:
+        IndexFailedSm(manager, flow, event, index);
+        break;
+
+    default:
+        assert(0);
+        break;
+    }
+}
+
+void KSyncFlowIndexEntry::EvictFlow(KSyncFlowIndexManager *manager,
+                                    FlowEntry *flow, State next_state,
+                                    bool skip_del) {
+    if (index_ == FlowEntry::kInvalidFlowHandle) {
+        KSyncDelete(manager, flow);
+        return;
+    }
+
+    evict_count_++;
+    manager->EvictIndex(flow, index_, skip_del);
+    state_ = next_state;
+    // KSyncDelete below will release ksync entry for old handle.
+    // Its possible that old ksync-entry has pending request and hence not
+    // released immediately. Further processing on flow will happen after
+    // current KSync entry is released
+    KSyncDelete(manager, flow);
+}
+
+void KSyncFlowIndexEntry::AcquireIndex(KSyncFlowIndexManager *manager,
+                                       FlowEntry *flow, uint32_t index) {
+    manager->AcquireIndex(flow, index);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  ADD :
+//      Assert(index == -1)
+//      If flow_handle in flow is -1
+//          Set state to INDEX_UNASSIGN
+//          Do KSyncAdd
+//      Else (flow_handle != -1)
+//          If index not available
+//              Evict flow holding index
+//          Acquire index
+//          set state to INDEX_SET
+//          Do KSyncAdd
+//  CHANGE, DELETE, EVICT, INDEX_ASSIGN, KSYNC_FREE, VROUTER_ERROR : Assert
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::InitSm(KSyncFlowIndexManager *manager,
+                                 FlowEntry *flow, Event event, uint32_t index) {
+    // Sanity checks
+    assert(index_ == FlowEntry::kInvalidFlowHandle);
+    assert(event == ADD);
+    assert(ksync_entry_ == NULL);
+
+    // Index not assigned. Allocate KSync entry
+    if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+        KSyncAddChange(manager, flow);
+        state_ = INDEX_UNASSIGNED;
+        return;
+    }
+
+    AcquireIndex(manager, flow, flow->flow_handle());
+    state_ = INDEX_SET;
+    KSyncAddChange(manager, flow);
+    return;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  INDEX_UNASSIGNED : A reverse flow waiting for VRouter to allocate index
+//
+//  ADD          :
+//      /* VRouter gave flow-add when we are waiting for allocation of index
+//         Can happen when VRouter traps both forward and reverse flow.
+//         flow_handle is updated with value in flow-add. When VRouter
+//         responds back, we will delete the new index and keep index given
+//         in flow-add
+//       */
+//       Ignore state
+//  CHANGE       : Flow changed when waiting for index allocation.
+//                 Ignore the change.
+//
+//  DELETE       : Flow deleted when waiting for index allocation
+//                 Flow is already marked deleted_. It will be deleted after
+//                 index is allocated
+//
+//  INDEX_ASSIGN :
+//      If flow_handle == -1
+//          /* Flow not changed since we asked for index allocation */
+//          Acquire index given by vrouter
+//          set state to INDEX_SET
+//          UpdateKSync handle. There is no need to send VRouter message
+//      Else If (flow_handle == index from VRouter)
+//          /* flow_handle modified after VRouter message
+//             i.e Add message received from vrouter after message
+//             flow_handle in flow-add same as value in VRouter response
+//             */
+//          Acquire index
+//          set state to INDEX_SET
+//          Do KSyncAdd
+//      Else
+//          /* flow_handle modified after VRouter message
+//             i.e Add message received from vrouter after message
+//             flow_handle in flow-add different than value in VRouter response
+//             Retain index given by flow-add since vrouter is holding packet
+//             for it
+//             */
+//          Delete VRouter assigned Index
+//          Set state to INDEX_CHANGE
+//          flow_handle will be acquired after VRouter index is released
+//
+//  KSYNC_FREE    :
+//      /* Flow can get KSYNC_FREE in INDEX_UNASSIGNED change in following case,
+//         - Flow is in EVICT state, vrouter send flow-add
+//         - Current flow is a reverse flow now
+//         In such case, try allocating new handle for the flow
+//  VROUTER_ERROR :
+//      If flow_handle == -1
+//          Set state to INDEX_FAILED
+//      Else // Flow add received in INDEX_UNASSIGN state
+//          Acquire index
+//          set state to INDEX_SET
+//          Do KSyncAdd
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::IndexUnassignedSm(KSyncFlowIndexManager *manager,
+                                            FlowEntry *flow, Event event,
+                                            uint32_t index) {
+    switch (event) {
+    case ADD:
+        // Flow-handle in flow already modified.
+        // Index manager will act on it on receiving VRouter response
+        break;
+
+    case CHANGE:
+        // FIXME : The changes is not triggered after index is assigned
+        // Ignore change.
+        // The flow will be updated after index is allocated
+        break;
+
+    case DELETE:
+        // deleted_ flag is set in flow. It will be acted on receiving
+        // VRouter response
+        assert(flow->deleted() == true);
+        break;
+
+    case INDEX_ASSIGN:
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            flow->set_flow_handle(index);
+            AcquireIndex(manager, flow, flow->flow_handle());
+            state_ = INDEX_SET;
+            KSyncUpdateFlowHandle(manager, flow);
+            break;
+        }
+
+        // Flow-handle modified before VRouter responded for flow-add request
+        // Can happen when there is race between agent trying to add reverse
+        // flow and VRouter seeing packet from reverse flow (most likely
+        // when agent restarts)
+        //
+        // We will honour the flow-index in flow-add since VRouter is holding
+        // a packet for the flow to complete
+        if (index == flow->flow_handle()) {
+            AcquireIndex(manager, flow, flow->flow_handle());
+            state_ = INDEX_SET;
+            KSyncUpdateFlowHandle(manager, flow);
+            break;
+        }
+
+        // Delete the index given by vrouter
+        index_ = index;
+        AcquireIndex(manager, flow, index_);
+        KSyncUpdateFlowHandle(manager, flow);
+
+        // Need to ensure delete message is sent to VRouter
+        // We have acquired index above, it ensures evicted_ is false
+        // and the flow-delete is generated
+        KSyncDelete(manager, flow);
+        // Set state to INDEX_CHANGE so that on release of this KSync entry
+        // we will try to acquire the new index
+        state_ = INDEX_CHANGE;
+        break;
+
+    case KSYNC_FREE:
+        KSyncAddChange(manager, flow);
+        break;
+
+    case VROUTER_ERROR:
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            state_ = INDEX_FAILED;
+            break;
+        }
+
+        // Flow-handle modified before VRouter responded for flow-add request
+        // Can happen when there is race between agent trying to add reverse
+        // flow and VRouter seeing packet from reverse flow (most likely
+        // when agent restarts)
+        AcquireIndex(manager, flow, flow->flow_handle());
+        state_ = INDEX_SET;
+        KSyncUpdateFlowHandle(manager, flow);
+        break;
+
+    default:
+        assert(0);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  INDEX_SET : Flow assigned an index
+//  ADD :
+//      /* flow-add got for existing flow. Flow is evicted and re-added
+//         by vrouter. Evict the current flow. After current flow is evicted
+//         add new flow */
+//      Evict current flow
+//      If new flow_handle is -1
+//          Set new state as INDEX_UNASSIGNED
+//      Else
+//          Set new state os INDEX_CHANGE
+//      Delete the KSyncEntry
+//  CHANGE : Invoke KSync Change
+//  DELETE : Invoke KSync Delete
+//  EVICT  : Invoke KSync Delete (No KSync message)
+//  INDEX_ASSIGN : Assert
+//  KSYNC_FREE :
+//      Release the index
+//      Enqueue INDEX_ASSIGN on flow waiting for release
+//  VROUTER_ERROR : Make short-flow
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::IndexSetSm(KSyncFlowIndexManager *manager,
+                                     FlowEntry *flow, Event event,
+                                     uint32_t index) {
+    switch (event) {
+    case ADD: {
+        bool skip_del = true;
+        if (index_ != flow->flow_handle() &&
+            flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+            skip_del = false;
+        }
+
+        // Release old index. It will delete current KSync entry. After
+        // deleting ksync entry, we need to assign the new index
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle)
+            EvictFlow(manager, flow, INDEX_UNASSIGNED, skip_del);
+        else
+            EvictFlow(manager, flow, INDEX_CHANGE, skip_del);
+        break;
+    }
+
+    case CHANGE:
+        assert(flow->deleted() == false);
+        KSyncAddChange(manager, flow);
+        break;
+
+    case DELETE:
+        KSyncDelete(manager, flow);
+        break;
+
+    case INDEX_ASSIGN:
+        assert(0);
+        break;
+
+    case KSYNC_FREE:
+        state_ = INIT;
+        break;
+
+    case VROUTER_ERROR:
+        // Flow already set as Short-Flow. Dont move to INDEX_FAILED state
+        break;
+
+    default:
+        assert(0);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  INDEX_CHANGE :
+//      /* Index for the flow changed. Waiting to release old index
+//         If there are no KSync operation pending for flow, this is
+//         only a temporary state and state changes within context of
+//         the function.
+//         However, if the KSync operation is pending, object can
+//         be in this state till KSync operation is complete
+//       */
+//      ADD          : Assert  /* VRouter allocating duplicate flow for index)
+//      CHANGE       : Ignore
+//      DELETE       : Ignore  /* Set delted flag in flow */
+//      INDEX_ASSIGN : Assert
+//      KSYNC_FREE   :
+//          Free old Index
+//          If index not available
+//              Evict flow holding index
+//          Acquire index
+//          set state to INDEX_SET
+//          Do KSyncAdd
+//
+//      VROUTER_ERROR: Ignore
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::IndexChangeSm(KSyncFlowIndexManager *manager,
+                                        FlowEntry *flow, Event event,
+                                        uint32_t index) {
+    switch (event) {
+    case ADD:
+        assert(0);
+        break;
+
+    case CHANGE:
+        break;
+
+    case DELETE:
+        break;
+
+    case INDEX_ASSIGN:
+        assert(0);
+        break;
+
+    case KSYNC_FREE:
+        // Old index freed. Acquire the new index
+        AcquireIndex(manager, flow, flow->flow_handle());
+        state_ = INDEX_SET;
+        KSyncAddChange(manager, flow);
+        break;
+
+    case VROUTER_ERROR:
+        // Flow already set as Short-Flow
+        break;
+
+    default:
+        assert(0);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  INDEX_EVICT : Flow was evicted from another partition context. The index
+//                has already been freed. Waiting for KSync entry to be deleted
+//      ADD         :
+//          /* Got flow-add for a flow in process of eviction.
+//             Since the flow is being evicted, the old index is used by
+//             another flow. So, this flow must be getting a new flow-handle
+//             Treat similar to flow-add in INDEX_SET state
+//           */
+//          Change state to INDEX_CHANGE
+//      CHANGE      :
+//          Ignore
+//      DELETE      :
+//          If index assigned
+//              Release the index
+//          Invoke KSync Delete
+//      INDEX_ASSIGN :
+//          If index_ already owned by flow
+//              Evict the flow
+//              Set state_ to INDEX_CHANGE
+//          Else
+//              If index not available
+//                  Evict flow holding index
+//              Acquire index
+//              set state to INDEX_SET
+//              Do KSyncAdd
+//      VROUTER_ERROR: Ignore
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::IndexEvictSm(KSyncFlowIndexManager *manager,
+                                       FlowEntry *flow, Event event,
+                                       uint32_t index) {
+    switch (event) {
+    case ADD:
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            state_ = INDEX_UNASSIGNED;
+        } else {
+            state_ = INDEX_CHANGE;
+        }
+        // Delete the KSync entry, the new index will be acquired after KSync
+        // entry is freed
+        KSyncDelete(manager, flow);
+        break;
+
+    case CHANGE:
+        // Change for evicted flow. Ignore the operation
+        break;
+
+    case DELETE:
+        // Delete can be got due to EVICT request or actual flow delete.
+        // Handle both cases same
+        KSyncDelete(manager, flow);
+        break;
+
+    case INDEX_ASSIGN:
+        assert(0);
+        break;
+
+    case KSYNC_FREE:
+        // KSYNC_FREE in current state means, flow was evicted and there was no
+        // change for flow in-between. Flow should be in deleted state
+        assert(flow->deleted());
+        state_ = INIT;
+        break;
+
+    case VROUTER_ERROR:
+        // Flow already set as Short-Flow
+        break;
+
+    default:
+        assert(0);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  INDEX_FAILED :
+//      /*
+//         Failed in VRouter operation by VRouter
+//         Flow is marked Short-Flow
+//       */
+//      ADD         :
+//          Release Index
+//          If index not available
+//              Evict flow holding index
+//          Acquire index
+//          set state to INDEX_SET
+//          Do KSyncAdd
+//      CHANGE      :
+//          Ignore
+//      DELETE      :
+//          If index assigned
+//              Release the index
+//          Invoke KSync Delete
+//      INDEX_ASSIGN :
+//          If index_ already owned by flow
+//              Evict the flow
+//              Set state_ to INDEX_CHANGE
+//          Else
+//              If index not available
+//                  Evict flow holding index
+//              Acquire index
+//              set state to INDEX_SET
+//              Do KSyncAdd
+//      VROUTER_ERROR: Ignore
+/////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexEntry::IndexFailedSm(KSyncFlowIndexManager *manager,
+                                        FlowEntry *flow, Event event,
+                                        uint32_t index) {
+    assert(index_ == FlowEntry::kInvalidFlowHandle);
+    switch (event) {
+    case ADD:
+        if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+            // Release old index. It will also set state to INDEX_CHANGED and
+            // the new index will be acquired after destruction of current
+            // KSyncEntry
+            AcquireIndex(manager, flow, flow->flow_handle());
+            state_ = INDEX_SET;
+        } else {
+            state_ = INDEX_UNASSIGNED;
+        }
+        KSyncAddChange(manager, flow);
+        break;
+
+    case CHANGE:
+        break;
+
+    case DELETE:
+        KSyncDelete(manager, flow);
+        break;
+
+    case INDEX_ASSIGN:
+        assert(0);
+        break;
+
+    case KSYNC_FREE:
+        state_ = INIT;
+        break;
+
+    case VROUTER_ERROR:
+        // Flow already set as Short-Flow
+        assert(0);
+        break;
+
+    default:
+        assert(0);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -47,206 +661,101 @@ void KSyncFlowIndexManager::InitDone(uint32_t count) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// KSyncFlowIndexManager APIs
+// KSyncFlowIndexManager State Machine APIs
 //////////////////////////////////////////////////////////////////////////////
-void KSyncFlowIndexManager::RetryIndexAcquireRequest(FlowEntry *flow,
-                                                     uint32_t flow_handle) {
-    if (flow == NULL)
-        return;
-    proto_->RetryIndexAcquireRequest(flow, flow_handle);
+void KSyncFlowIndexManager::HandleEvent(FlowEntry *flow,
+                                        KSyncFlowIndexEntry::Event event,
+                                        uint32_t index) {
+    flow->ksync_index_entry()->HandleEvent(this, flow, event, index);
 }
 
-void KSyncFlowIndexManager::ReleaseRequest(FlowEntry *flow) {
-    Release(flow);
+void KSyncFlowIndexManager::HandleEvent(FlowEntry *flow,
+                                        KSyncFlowIndexEntry::Event event) {
+    flow->ksync_index_entry()->HandleEvent(this, flow, event,
+                                           FlowEntry::kInvalidFlowHandle);
 }
 
-// Handle add of a flow
 void KSyncFlowIndexManager::Add(FlowEntry *flow) {
-    FlowTableKSyncObject *object = GetKSyncObject(flow);
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-
-    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED) {
-        UpdateFlowHandle(flow);
-        return;
-    }
-
-    // If flow already has a KSync entry, it means old flow was evicted.
-    // Delete the old KSync entry. Once the KSync entry is freed, we will
-    // get callback to "Release". New KSync entry will be allocated from
-    // "Release" method
-    if (index_entry->ksync_entry()) {
-        EvictFlow(flow);
-        return;
-    }
-
-    FlowEntryPtr old_flow = SafeAcquireIndex(flow);
-    if (old_flow.get() != NULL) {
-        // If index cannot be acquired, put flow into wait list of old_flow
-        // (flow holding the index)
-        EvictFlow(old_flow.get(), flow);
-        return;
-    }
-
-    assert(index_entry->ksync_entry_ == NULL);
-    if (index_entry->index_ == FlowEntry::kInvalidFlowHandle &&
-        flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-        index_entry->state_ = KSyncFlowIndexEntry::INDEX_UNASSIGNED;
-    } else {
-        index_entry->state_ = KSyncFlowIndexEntry::INDEX_SET;
-    }
-    FlowTableKSyncEntry key(object, flow, flow->flow_handle());
-    index_entry->ksync_entry_ =
-        (static_cast<FlowTableKSyncEntry *>(object->Create(&key, true)));
-
-    // Add called for deleted flow. This happens when Reverse flow is
-    // deleted before getting ACK from vrouter.
-    // Create and delete KSync Entry
-    if (flow->deleted()) {
-        Delete(flow);
-    }
+    HandleEvent(flow, KSyncFlowIndexEntry::ADD);
 }
 
 void KSyncFlowIndexManager::Change(FlowEntry *flow) {
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-    // Ignore Change operation if a flow entry is marked deleted
-    // or if it doesnot have state INDEX_SET
-    if (flow->deleted() ||
-        index_entry->state_ != KSyncFlowIndexEntry::INDEX_SET) {
-        return;
-    }
-
-    FlowTableKSyncObject *object = GetKSyncObject(flow);
-    object->Change(index_entry->ksync_entry_);
+    HandleEvent(flow, KSyncFlowIndexEntry::CHANGE);
 }
 
-bool KSyncFlowIndexManager::Delete(FlowEntry *flow) {
-    FlowTableKSyncObject *object = GetKSyncObject(flow);
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-    if (index_entry->delete_in_progress_) {
-        return false;
-    }
-
-    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED)
-        return false;
-
-    if (index_entry->ksync_entry_ == NULL) {
-        assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
-        return false;
-    }
-
-    index_entry->delete_in_progress_ = true;
-    // Hold reference to ksync-entry till this function call is over
-    KSyncEntry::KSyncEntryPtr ksync_ptr = index_entry->ksync_entry_;
-    object->Delete(index_entry->ksync_entry_);
-    return true;
+void KSyncFlowIndexManager::Delete(FlowEntry *flow) {
+    HandleEvent(flow, KSyncFlowIndexEntry::DELETE);
 }
 
-// Flow was written with -1 as index and vrouter allocated an index.
-void KSyncFlowIndexManager::UpdateFlowHandle(FlowEntry *flow) {
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-
-    if (index_entry->index_ == flow->flow_handle())
-        return;
-
-    // Ensure that flow is not evicted
-    // A flow with index -1 will always have a flow with HOLD state as reverse
-    // flow. VRouter does not evict flows in HOLD state. As a result, we dont
-    // expect the flow to be evicted.
-    assert(index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED);
-    assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
-
-    assert(index_entry->ksync_entry());
-    FlowEntryPtr old_flow = SafeAcquireIndex(flow);
-    if (old_flow.get() != NULL) {
-        // If index cannot be acquired, put flow into wait list of old_flow
-        // (flow holding the index)
-        EvictFlow(old_flow.get(), flow);
-        return;
-    }
-
-    flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_SET;
-    FlowTableKSyncObject *object = GetKSyncObject(flow);
-    object->UpdateFlowHandle(index_entry->ksync_entry_, index_entry->index_);
-
-    // If flow is deleted in the meanwhile, delete the flow entry
-    if (flow->deleted()) {
-        Delete(flow);
-    }
+void KSyncFlowIndexManager::UpdateFlowHandle(FlowEntry *flow, uint32_t index) {
+    HandleEvent(flow, KSyncFlowIndexEntry::INDEX_ASSIGN, index);
 }
 
 void KSyncFlowIndexManager::UpdateKSyncError(FlowEntry *flow) {
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-    if (index_entry->state_ != KSyncFlowIndexEntry::INDEX_UNASSIGNED) {
-        // currently we only deal with index allocation failures
-        // from vrouter
-        return;
-    }
-
-    index_entry->state_ = KSyncFlowIndexEntry::INDEX_FAILED;
+    HandleEvent(flow, KSyncFlowIndexEntry::VROUTER_ERROR);
 }
 
-void KSyncFlowIndexManager::Release(FlowEntry *flow) {
-    FlowEntryPtr wait_flow = ReleaseIndex(flow);
+void KSyncFlowIndexManager::KSyncFree(FlowEntry *flow) {
+    HandleEvent(flow, KSyncFlowIndexEntry::KSYNC_FREE);
+}
 
-    // Make a copy of values needed for subsequent processing before reset
-    KSyncFlowIndexEntry::State state = flow->ksync_index_entry()->state_;
-    FlowEntryPtr owner_entry = flow->ksync_index_entry()->index_owner_;
-    uint32_t evict_index = flow->ksync_index_entry()->index_;
+//////////////////////////////////////////////////////////////////////////////
+// KSyncFlowIndexManager Utility methods
+//////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexManager::AcquireIndex(FlowEntry *flow, uint32_t index) {
+    // Sanity check
+    assert(index != FlowEntry::kInvalidFlowHandle);
 
-    // Reset the old index entry
-    flow->ksync_index_entry()->Reset();
-
-    switch (state) {
-
-    // Entry has index set and no further transitions necessary
-    case KSyncFlowIndexEntry::INDEX_SET:
-        break;
-
-    // Entry deleted when waiting for index.
-    // Invoke Add() again so that the HOLD entry entry is deleted from VRouter
-    case KSyncFlowIndexEntry::INDEX_WAIT: {
-        RemoveWaitList(owner_entry.get(), flow);
-        Add(flow);
-        break;
+    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
+    FlowEntryPtr owner = index_list_[index].owner_.get();
+    if (owner.get() != NULL) {
+        EvictIndexUnlocked(owner.get(), index, true);
+        if (owner.get() != flow) {
+            EvictRequest(owner, index);
+        }
     }
 
-    // Index changed for flow and old index freed. Try acquring new index
-    case KSyncFlowIndexEntry::INDEX_CHANGE: {
-        RetryIndexAcquireRequest(wait_flow.get(), evict_index);
-        Add(flow);
-        break;
-    }
-
-    // Flow evicted. Now activate entry waiting for on the index
-    case KSyncFlowIndexEntry::INDEX_EVICT: {
-        RetryIndexAcquireRequest(wait_flow.get(), evict_index);
-        break;
-    }
-
-    // Entry has index failure and no further transitions necessary
-    case KSyncFlowIndexEntry::INDEX_FAILED:
-        break;
-
-    default:
-        assert(0);
-    }
+    flow->ksync_index_entry()->index_ = index;
+    flow->ksync_index_entry()->evicted_ = false;
+    flow->ksync_index_entry()->skip_delete_ = false;
+    index_list_[index].owner_ = flow;
     return;
 }
 
-// Release the index and return flow in wait list
-FlowEntryPtr KSyncFlowIndexManager::ReleaseIndex(FlowEntry *flow) {
-    FlowEntryPtr wait_flow = NULL;
-    uint32_t index = flow->ksync_index_entry()->index_;
-    if (index == FlowEntry::kInvalidFlowHandle) {
-        return wait_flow;
-    }
-
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
+void KSyncFlowIndexManager::EvictIndexUnlocked(FlowEntry *flow,
+                                               uint32_t index,
+                                               bool skip_del) {
     assert(index_list_[index].owner_.get() == flow);
     // Release the index_list_ entry
     index_list_[index].owner_ = NULL;
-    wait_flow.swap(index_list_[index].wait_entry_);
-    return wait_flow;
+    flow->ksync_index_entry()->evicted_ = true;
+    flow->ksync_index_entry()->skip_delete_ = skip_del;
+}
+
+void KSyncFlowIndexManager::EvictIndex(FlowEntry *flow, uint32_t index,
+                                       bool skip_del) {
+    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
+    EvictIndexUnlocked(flow, index, skip_del);
+    return;
+}
+
+void KSyncFlowIndexManager::Release(FlowEntry *flow) {
+    {
+        uint32_t index = flow->ksync_index_entry()->index_;
+        if (index != FlowEntry::kInvalidFlowHandle) {
+            tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
+            if (flow->ksync_index_entry()->evicted_ == false) {
+                EvictIndexUnlocked(flow, index, true);
+            }
+            flow->ksync_index_entry()->index_ =
+                FlowEntry::kInvalidFlowHandle;
+            flow->ksync_index_entry()->ksync_entry_ = NULL;
+            flow->ksync_index_entry()->delete_in_progress_ = false;
+            flow->ksync_index_entry()->evicted_ = false;
+            flow->ksync_index_entry()->skip_delete_ = false;
+        }
+    }
+    HandleEvent(flow, KSyncFlowIndexEntry::KSYNC_FREE);
 }
 
 FlowEntryPtr KSyncFlowIndexManager::FindByIndex(uint32_t idx) {
@@ -256,70 +765,8 @@ FlowEntryPtr KSyncFlowIndexManager::FindByIndex(uint32_t idx) {
     return FlowEntryPtr(NULL);
 }
 
-FlowEntryPtr KSyncFlowIndexManager::AcquireIndex(FlowEntry *flow) {
-    FlowEntryPtr ret(NULL);
-    // Sanity checks for a new flow
-    assert(flow->ksync_index_entry()->index_ == FlowEntry::kInvalidFlowHandle);
-
-    // Ignore entries with invalid index
-    uint32_t index = flow->flow_handle();
-    if (index == FlowEntry::kInvalidFlowHandle) {
-        return ret;
-    }
-
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
-    if (index_list_[index].owner_.get() != NULL)
-        return index_list_[index].owner_;
-
-    flow->ksync_index_entry()->index_ = index;
-    index_list_[index].owner_ = flow;
-    return ret;
-}
-
-FlowEntryPtr KSyncFlowIndexManager::SafeAcquireIndex(FlowEntry *flow) {
-    if (flow->ksync_index_entry()->ksync_entry_ != NULL) {
-        assert(flow->ksync_index_entry()->index_ ==
-               FlowEntry::kInvalidFlowHandle);
-    }
-    return AcquireIndex(flow);
-}
-
-void KSyncFlowIndexManager::AddWaitList(FlowEntry *old_flow, FlowEntry *flow) {
-    uint32_t index = old_flow->ksync_index_entry()->index_;
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
-    assert((index_list_[index].wait_entry_.get() == NULL) ||
-           (index_list_[index].wait_entry_.get() == flow));
-    index_list_[index].wait_entry_ = flow;
-}
-
-void KSyncFlowIndexManager::RemoveWaitList(FlowEntry *old_flow,
-                                           FlowEntry *flow) {
-    uint32_t index = old_flow->ksync_index_entry()->index_;
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
-    assert(index_list_[index].wait_entry_.get() == flow);
-    index_list_[index].wait_entry_ = NULL;
-}
-
-void KSyncFlowIndexManager::EvictFlow(FlowEntry *flow) {
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-    index_entry->evict_count_++;
-    index_entry->state_ = KSyncFlowIndexEntry::INDEX_CHANGE;
-    Delete(flow);
-}
-
-void KSyncFlowIndexManager::EvictFlow(FlowEntry *old_flow, FlowEntry *flow) {
-    old_flow->ksync_index_entry()->evict_count_++;
-    old_flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_EVICT;
-    KSyncFlowIndexEntry *index_entry = flow->ksync_index_entry();
-    if (index_entry->state_ == KSyncFlowIndexEntry::INDEX_UNASSIGNED) {
-        assert(index_entry->index_ == FlowEntry::kInvalidFlowHandle);
-    } else {
-        flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_WAIT;
-    }
-    AddWaitList(old_flow, flow);
-    proto_->EvictFlowRequest(old_flow, flow->flow_handle());
-}
-
-FlowTableKSyncObject *KSyncFlowIndexManager::GetKSyncObject(FlowEntry *flow) {
-    return flow->flow_table()->ksync_object();
+void KSyncFlowIndexManager::EvictRequest(FlowEntryPtr &flow, uint32_t index) {
+    flow->ksync_index_entry()->EvictLog(this, flow.get(), index);
+    flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_EVICT;
+    proto_->EvictFlowRequest(flow, index);
 }

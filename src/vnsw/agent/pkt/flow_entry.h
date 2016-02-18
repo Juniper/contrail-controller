@@ -484,6 +484,7 @@ class FlowEntry {
         fsc_ = fsc;
     }
     static std::string DropReasonStr(uint16_t reason);
+    std::string KeyString() const;
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
