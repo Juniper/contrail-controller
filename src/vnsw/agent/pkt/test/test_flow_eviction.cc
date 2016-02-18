@@ -252,7 +252,7 @@ TEST_F(FlowEvictionTest, Evict_Recreate_Before_Write_1) {
 
 // Flow evicted. Flow created again with new index before first add is
 // completed
-TEST_F(FlowEvictionTest, Evict_Recreate_Before_Write_2) {
+TEST_F(FlowEvictionTest, DISABLED_Evict_Recreate_Before_Write_2) {
     TxIpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
                    remote_vm1_ip, vm1_ip, 1, 1);
     TxIpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
