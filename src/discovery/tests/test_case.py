@@ -115,11 +115,12 @@ class DsTestCase(test_common.TestCase):
         return (response.status_code, response.text)
     #end _http_get
 
-    def _http_post(self, uri, body):
+    def _http_post(self, uri, body, http_headers={}):
+        http_headers.update(self._http_headers)
         url = "http://%s:%s%s" % (self._disc_server_ip, self._disc_server_port, uri)
-        self._add_request_detail('POST', url, headers=self._http_headers, body=body)
+        self._add_request_detail('POST', url, headers=http_headers, body=body)
         response = self._disc_server_session.post(url, data=body,
-                                                 headers=self._http_headers)
+                                                 headers=http_headers)
         self._add_detail('Received Response: ' +
                          pformat(response.status_code) +
                          pformat(response.text))
@@ -137,11 +138,12 @@ class DsTestCase(test_common.TestCase):
         return (response.status_code, response.text)
     #end _http_delete
 
-    def _http_put(self, uri, body):
+    def _http_put(self, uri, body, http_headers={}):
+        http_headers.update(self._http_headers)
         url = "http://%s:%s%s" % (self._disc_server_ip, self._disc_server_port, uri)
-        self._add_request_detail('PUT', url, headers=self._http_headers, body=body)
+        self._add_request_detail('PUT', url, headers=http_headers, body=body)
         response = self._disc_server_session.put(url, data=body,
-                                                headers=self._http_headers)
+                                                headers=http_headers)
         self._add_detail('Received Response: ' +
                          pformat(response.status_code) +
                          pformat(response.text))
