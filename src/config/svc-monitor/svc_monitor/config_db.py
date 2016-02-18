@@ -488,6 +488,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_health_checks = set()
         self.instance_ips = set()
         self.virtual_machines = set()
+        self.logical_router = None
         self.params = None
         self.state = 'init'
         self.launch_count = 0
@@ -522,6 +523,7 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
+        self.update_single_ref('logical_router', obj)
         self.update_multiple_refs('interface_route_table', obj)
         self.update_multiple_refs('service_health_check', obj)
         self.update_multiple_refs('instance_ip', obj)
@@ -571,6 +573,7 @@ class ServiceInstanceSM(DBBaseSM):
         obj.update_single_ref('service_template', {})
         obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
+        obj.update_single_ref('logical_router', {})
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('instance_ip', {})
