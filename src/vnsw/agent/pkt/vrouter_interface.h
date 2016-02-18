@@ -43,6 +43,8 @@ public:
         vr_cmd_list_[AGENT_TRAP_HANDLE_DF] = AgentHdr::TRAP_HANDLE_DF;
         vr_cmd_list_[AGENT_TRAP_ZERO_TTL] = AgentHdr::TRAP_ZERO_TTL;
         vr_cmd_list_[AGENT_TRAP_ICMP_ERROR] = AgentHdr::TRAP_ICMP_ERROR;
+        vr_cmd_list_[AGENT_TRAP_TOR_CONTROL_PKT] = AgentHdr::TRAP_TOR_CONTROL_PKT;
+        vr_cmd_list_[AGENT_TRAP_FLOW_ACTION_HOLD] = AgentHdr::TRAP_FLOW_ACTION_HOLD;
 
         // Init and populate vector for translating command params from vrouter
         // to agent
