@@ -52,6 +52,7 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeN
 from gevent.coros import BoundedSemaphore
 from cfgm_common.rest import LinkObject
 
+import disc_auth_keystone
 
 def obj_to_json(obj):
     # Non-null fields in object get converted to json fields
@@ -82,10 +83,15 @@ class DiscoveryServer():
             'auto_lb': 0,
             'db_exc_unknown': 0,
             'db_exc_info': '',
+            'wl_rejects_pub': 0,
+            'wl_rejects_sub': 0,
+            'auth_failures': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
         self._sem = BoundedSemaphore(1)
+        self._pub_wl = None
+        self._sub_wl = None
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -225,6 +231,28 @@ class DiscoveryServer():
         self._sub_data = {}
         for (client_id, service_type) in self._db_conn.subscriber_entries():
             self.create_sub_data(client_id, service_type)
+
+        # build white list
+        if self._args.white_list_publish:
+            self._pub_wl = IPSet()
+            for prefix in self._args.white_list_publish.split(" "):
+                self._pub_wl.add(prefix)
+        if self._args.white_list_subscribe:
+            self._sub_wl = IPSet()
+            for prefix in self._args.white_list_subscribe.split(" "):
+                self._sub_wl.add(prefix)
+
+        self._auth_svc = None
+        if self._args.auth == 'keystone':
+            ks_conf = {
+                'auth_host': self._args.auth_host,
+                'auth_port': self._args.auth_port,
+                'auth_protocol': self._args.auth_protocol,
+                'admin_user': self._args.admin_user,
+                'admin_password': self._args.admin_password,
+                'admin_tenant_name': self._args.admin_tenant_name,
+            }
+            self._auth_svc = disc_auth_keystone.AuthServiceKeystone(ks_conf)
     # end __init__
 
     def config_log(self, msg, level):
@@ -374,6 +402,15 @@ class DiscoveryServer():
                 raise
         return error_handler
 
+    # decorator to authenticate request
+    def authenticate(func):
+        def wrapper(self, *args, **kwargs):
+            if self._auth_svc and not self._auth_svc.is_admin(bottle.request):
+                self._debug['auth_failures'] += 1
+                bottle.abort(401, 'Unauthorized')
+            return func(self, *args, **kwargs)
+        return wrapper
+
     # 404 forces republish
     def heartbeat(self, sig):
         # self.syslog('heartbeat from "%s"' % sig)
@@ -425,6 +462,12 @@ class DiscoveryServer():
     @db_error_handler
     def api_publish(self, end_point = None):
         self._debug['msg_pubs'] += 1
+
+        source = bottle.request.headers.get('X-Forwarded-For', None)
+        if source and self._pub_wl and source not in self._pub_wl:
+            self._debug['wl_rejects_pub'] += 1
+            bottle.abort(401, 'Unauthorized request')
+
         ctype = bottle.request.headers['content-type']
         json_req = {}
         try:
@@ -670,6 +713,12 @@ class DiscoveryServer():
     @db_error_handler
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
+
+        source = bottle.request.headers.get('X-Forwarded-For', None)
+        if source and self._sub_wl and source not in self._sub_wl:
+            self._debug['wl_rejects_sub'] += 1
+            bottle.abort(401, 'Unauthorized request')
+
         ctype = bottle.request.headers['content-type']
         if 'application/json' in ctype:
             json_req = bottle.request.json
@@ -846,6 +895,7 @@ class DiscoveryServer():
 
     # on-demand API to load-balance existing subscribers across all currently available
     # publishers. Needed if publisher gets added or taken down
+    @authenticate
     def api_lb_service(self, service_type):
         if service_type is None:
             bottle.abort(405, "Missing service")
@@ -998,6 +1048,7 @@ class DiscoveryServer():
         return {'services': rsp}
     # end services_json
 
+    @authenticate
     def service_http_put(self, id):
         self.syslog('Update service %s' % (id))
         try:
@@ -1270,6 +1321,8 @@ def parse_args(args_str):
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'cluster_id': None,
+        'white_list_publish': None,
+        'white_list_subscribe': None,
     }
 
     # per service options
@@ -1281,6 +1334,14 @@ def parse_args(args_str):
     cassandra_opts = {
         'cassandra_user'     : None,
         'cassandra_password' : None,
+    }
+    keystone_opts = {
+        'auth_host': '127.0.0.1',
+        'auth_port': '35357',
+        'auth_protocol': 'http',
+        'admin_user': '',
+        'admin_password': '',
+        'admin_tenant_name': '',
     }
 
     service_config = {}
@@ -1299,11 +1360,15 @@ def parse_args(args_str):
             if section == "DEFAULTS":
                 defaults.update(dict(config.items("DEFAULTS")))
                 continue
+            if 'KEYSTONE' in config.sections():
+                keystone_opts.update(dict(config.items("KEYSTONE")))
+                continue
             service_config[
                 section.lower()] = default_service_opts.copy()
             service_config[section.lower()].update(
                 dict(config.items(section)))
 
+    defaults.update(keystone_opts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -1384,6 +1449,9 @@ def parse_args(args_str):
             help="Sandesh send rate limit in messages/sec")
     parser.add_argument("--cluster_id",
             help="Used for database keyspace separation")
+    parser.add_argument(
+        "--auth", choices=['keystone'],
+        help="Type of authentication for user-requests")
  
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file

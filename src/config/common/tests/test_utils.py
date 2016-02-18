@@ -991,6 +991,7 @@ class FakeAuthProtocol(object):
         auth_protocol = conf['auth_protocol']
         auth_host = conf['auth_host']
         auth_port = conf['auth_port']
+        self.delay_auth_decision = conf['delay_auth_decision']
         self.request_uri = '%s://%s:%s' % (auth_protocol, auth_host, auth_port)
         self.auth_uri = self.request_uri
         # print 'FakeAuthProtocol init: auth-uri %s, conf %s' % (self.auth_uri, self.conf)
@@ -1077,6 +1078,9 @@ class FakeAuthProtocol(object):
         if user_token:
             # print '****** user token %s ***** ' % user_token
             pass
+        elif self.delay_auth_decision:
+            self._add_headers(env, {'X-Identity-Status': 'Invalid'})
+            return self.app(env, start_response)
         else:
             # print 'Missing token or Unable to authenticate token'
             return self._reject_request(env, start_response)
