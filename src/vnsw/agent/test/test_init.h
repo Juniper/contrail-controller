@@ -127,7 +127,7 @@ struct FlowIp {
 
 class FlowFlush : public Task {
 public:
-    FlowFlush() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowFlush")), 0) {
+    FlowFlush() : Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent)), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->pkt()->get_flow_proto()->FlushFlows();

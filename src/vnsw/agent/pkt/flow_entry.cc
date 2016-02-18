@@ -368,7 +368,7 @@ FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
 }
 
 // selectively copy fields from RHS
-void FlowEntry::Copy(const FlowEntry *rhs) {
+void FlowEntry::Copy(const FlowEntry *rhs, bool update) {
     data_ = rhs->data_;
     flags_ = rhs->flags_;
     short_flow_reason_ = rhs->short_flow_reason_;
@@ -378,7 +378,8 @@ void FlowEntry::Copy(const FlowEntry *rhs) {
     tunnel_type_ = rhs->tunnel_type_;
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
-    flow_handle_ = rhs->flow_handle_;
+    if (update == false)
+        flow_handle_ = rhs->flow_handle_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1980,4 +1981,18 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_l3_flow(l3_flow_);
     fe_sandesh_data.set_smac(data_.smac.ToString());
     fe_sandesh_data.set_dmac(data_.dmac.ToString());
+}
+
+string FlowEntry::KeyString() const {
+    std::ostringstream str;
+    int idx = flow_handle_ == FlowEntry::kInvalidFlowHandle ? -1 : flow_handle_;
+    str << " Idx : " << idx
+        << " Key : "
+        << key_.nh << " "
+        << key_.src_addr.to_string() << ":"
+        << key_.src_port << " "
+        << key_.dst_addr.to_string() << ":"
+        << key_.dst_port << " "
+        << (uint16_t)key_.protocol;
+    return str.str();
 }
