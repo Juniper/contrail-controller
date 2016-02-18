@@ -253,32 +253,61 @@ static void Setup() {
         ret = false;
     }
 
-    // Configure Floating-IP
-    AddFloatingIpPool("fip-pool1", 1);
+    // Configure Floating-IP-1
+    AddInstanceIp("instance_fixed_ip", 8, "1.1.1.10");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip",
+            "instance_fixed_ip");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
     AddFloatingIp("fip1", 1, "2.1.1.100");
+    client->WaitForIdle();
+
+    AddFloatingIpPool("fip-pool1", 1);
+    client->WaitForIdle();
+
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddFloatingIp("fip_2", 2, "2.1.1.99");
-    AddLink("floating-ip", "fip_2", "floating-ip-pool", "fip-pool1");
+    client->WaitForIdle();
+
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    // Configure Floating-IP-2
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
+            "fip_fixed_ip");
+    client->WaitForIdle();
+
+    AddFloatingIp("fip_2", 2, "2.1.1.99");
+    client->WaitForIdle();
+
     AddFloatingIpPool("fip-pool2", 2);
+    client->WaitForIdle();
+
+    AddLink("floating-ip", "fip_2", "floating-ip-pool", "fip-pool1");
+    client->WaitForIdle();
+
     AddFloatingIp("fip_3", 3, "3.1.1.100");
+    client->WaitForIdle();
+
     AddLink("floating-ip", "fip_3", "floating-ip-pool", "fip-pool2");
+    client->WaitForIdle();
+
     AddLink("floating-ip-pool", "fip-pool2", "virtual-network",
             "default-project:vn3");
     client->WaitForIdle();
 
+
     AddInstanceIp("instance_fixed_ip", 8, "1.1.1.10");
-    AddLink("virtual-machine-interface", "vnet1", "instance-ip",
-            "instance_fixed_ip");
+    client->WaitForIdle();
     AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
     AddLink("floating-ip", "fip_fixed_ip", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip",
-            "fip_fixed_ip");
-    client->WaitForIdle();
 
     EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
     if (vnet[1]->HasFloatingIp(Address::INET) == false) {
