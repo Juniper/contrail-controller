@@ -384,9 +384,12 @@ void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
     return;
 }
 
-void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::EVICT_FLOW, flow, flow_handle));
-    return;
+void FlowProto::EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle) {
+    FlowEvent *event = new FlowEvent(FlowEvent::EVICT_FLOW, flow.get(),
+                                     flow_handle);
+    flow.reset();
+    EnqueueFlowEvent(event);
+   return;
 }
 
 void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){

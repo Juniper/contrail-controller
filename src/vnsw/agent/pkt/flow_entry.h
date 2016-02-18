@@ -352,7 +352,7 @@ class FlowEntry {
     void Reset();
 
     // Copy data fields from rhs
-    void Copy(const FlowEntry *rhs);
+    void Copy(const FlowEntry *rhs, bool update);
 
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
@@ -488,7 +488,7 @@ class FlowEntry {
         fsc_ = fsc;
     }
     static std::string DropReasonStr(uint16_t reason);
-
+    std::string KeyString() const;
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
