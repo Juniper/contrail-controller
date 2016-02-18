@@ -115,6 +115,7 @@ struct HealthCheckInstance {
     // OnExit Callback for Task
     void OnExit(InstanceTask *task, const boost::system::error_code &ec);
     bool active() {return active_;}
+    bool IsRunning() const;
 
     // reference to health check service under
     // which this instance is running
@@ -162,6 +163,7 @@ public:
     void DeleteInstances();
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
+    const std::string &name() const { return name_; }
 
 private:
     friend class HealthCheckInstance;

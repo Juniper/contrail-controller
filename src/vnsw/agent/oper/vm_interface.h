@@ -567,6 +567,7 @@ public:
 
     void InsertHealthCheckInstance(HealthCheckInstance *hc_inst);
     void DeleteHealthCheckInstance(HealthCheckInstance *hc_inst);
+    const HealthCheckInstanceSet &hc_instance_set() const;
 
     size_t GetFloatingIpCount() const { return floating_ip_list_.list_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.list_.size() != 0; }
