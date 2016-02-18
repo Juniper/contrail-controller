@@ -14,6 +14,7 @@ from cfgm_common.exceptions import *
 
 EP_DELIM=','
 PUBSUB_DELIM=' '
+DEFAULT_HEADERS = {'Content-type': 'application/json; charset="UTF-8"'}
 
 def show_usage():
     print 'A rule string must be specified for this operation'
@@ -225,46 +226,11 @@ if len(server) != 2:
 server_ip = server[0]
 server_port = server[1]
 
-
-if args.oper_state or args.admin_state or args.oper_state_reason:
-    if not args.service_id or not args.service_type:
-        print 'Please specify service type and ID'
-        sys.exit(1)
-    print 'Service type %s, id %s' % (args.service_type, args.service_id)
-    data = {
-        "service-type": args.service_type,
-    }
-    if args.oper_state:
-        data['oper-state'] = args.oper_state
-    if args.oper_state_reason:
-        data['oper-state-reason'] = args.oper_state_reason
-    if args.admin_state:
-        data['admin-state'] = args.admin_state
-    headers = {
-        'Content-type': 'application/json',
-    }
-    url = "http://%s:%s/service/%s" % (server_ip, server_port, args.service_id)
-    r = requests.put(url, data=json.dumps(data), headers=headers)
-    if r.status_code != 200:
-        print "Operation status %d" % r.status_code
-    sys.exit(0)
-elif args.load_balance or args.op == 'load-balance':
-    if not args.service_type:
-        print 'Please specify service type'
-        sys.exit(1)
-    if args.service_id:
-        print 'Specific service id %s ignored for this operation' % args.service_id
-    url = "http://%s:%s/load-balance/%s" % (server_ip, server_port, args.service_type)
-    r = requests.post(url)
-    if r.status_code != 200:
-        print "Operation status %d" % r.status_code
-    sys.exit(0)
-
 # Validate API server information
 api_server = args.api_server.split(':')
 if len(api_server) != 2:
-    print 'Discovery server address must be of the form ip:port, '\
-          'for example 127.0.0.1:5998'
+    print 'API server address must be of the form ip:port, '\
+          'for example 127.0.0.1:8082'
     sys.exit(1)
 api_server_ip = api_server[0]
 api_server_port = api_server[1]
@@ -282,8 +248,53 @@ username = conf['username']
 password = conf['password']
 tenant_name = conf['tenant_name']
 
-vnc = VncApi(username, password, tenant_name,
+print 'API Server = ', args.api_server
+print 'Discovery Server = ', args.server
+print 'Username = ', username
+print 'Tenant = ', tenant_name
+print ''
+
+try:
+    vnc = VncApi(username, password, tenant_name,
              api_server[0], api_server[1])
+except Exception as e:
+     print '*** %s' % str(e)
+     sys.exit(1)
+
+headers = DEFAULT_HEADERS.copy()
+headers['X-AUTH-TOKEN'] = vnc.get_auth_token()
+
+if args.oper_state or args.admin_state or args.oper_state_reason:
+    if not args.service_id or not args.service_type:
+        print 'Please specify service type and ID'
+        sys.exit(1)
+    print 'Service type %s, id %s' % (args.service_type, args.service_id)
+    data = {
+        "service-type": args.service_type,
+    }
+    if args.oper_state:
+        data['oper-state'] = args.oper_state
+    if args.oper_state_reason:
+        data['oper-state-reason'] = args.oper_state_reason
+    if args.admin_state:
+        data['admin-state'] = args.admin_state
+    url = "http://%s:%s/service/%s" % (server_ip, server_port, args.service_id)
+    r = requests.put(url, data=json.dumps(data), headers=headers)
+    if r.status_code != 200:
+        print "Operation status %d" % r.status_code
+    sys.exit(0)
+elif args.load_balance or args.op == 'load-balance':
+    if not args.service_type:
+        print 'Please specify service type'
+        sys.exit(1)
+    if args.service_id:
+        print 'Specific service id %s ignored for this operation' % args.service_id
+    url = "http://%s:%s/load-balance/%s" % (server_ip, server_port, args.service_type)
+    r = requests.post(url, headers=headers)
+    if r.status_code != 200:
+        print "Operation status %d" % r.status_code
+    sys.exit(0)
+
 
 uuid = args.uuid
 # transform uuid if needed
@@ -295,9 +306,6 @@ print ''
 print 'Oper       = ', args.op
 print 'Name       = %s' % fq_name
 print 'UUID       = %s' % uuid
-print 'API Server = ', args.server
-print 'Discovery Server = ', args.server
-print ''
 
 if args.op == 'add-rule':
     if not args.rule:
