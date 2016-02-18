@@ -797,13 +797,11 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     if (flow->flow_handle() == flow_handle) {
         return;
     }
-    assert(flow->flow_handle() == FlowEntry::kInvalidFlowHandle);
-    flow->set_flow_handle(flow_handle);
 
     // flow-handle changed. We will need to update ksync-entry for flow with
     // new flow-handle
     KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
-    mgr->UpdateFlowHandle(flow);
+    mgr->UpdateFlowHandle(flow, flow_handle);
     NotifyFlowStatsCollector(flow);
     if (rflow) {
         UpdateKSync(rflow, true);

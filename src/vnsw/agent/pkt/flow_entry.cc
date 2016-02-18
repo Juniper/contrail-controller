@@ -1979,3 +1979,17 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_smac(data_.smac.ToString());
     fe_sandesh_data.set_dmac(data_.dmac.ToString());
 }
+
+string FlowEntry::KeyString() const {
+    std::ostringstream str;
+    int idx = flow_handle_ == FlowEntry::kInvalidFlowHandle ? -1 : flow_handle_;
+    str << " Idx : " << idx
+        << " Key : "
+        << key_.nh << " "
+        << key_.src_addr.to_string() << ":"
+        << key_.src_port << " "
+        << key_.dst_addr.to_string() << ":"
+        << key_.dst_port << " "
+        << (uint16_t)key_.protocol;
+    return str.str();
+}
