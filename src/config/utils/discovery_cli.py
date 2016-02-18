@@ -225,6 +225,39 @@ if len(server) != 2:
 server_ip = server[0]
 server_port = server[1]
 
+# Validate API server information
+api_server = args.api_server.split(':')
+if len(api_server) != 2:
+    print 'API server address must be of the form ip:port, '\
+          'for example 127.0.0.1:8082'
+    sys.exit(1)
+api_server_ip = api_server[0]
+api_server_port = api_server[1]
+
+# Validate keystone credentials
+conf = {}
+for name in ['username', 'password', 'tenant_name']:
+    val, rsp = get_ks_var(args, name)
+    if val is None:
+        print rsp
+        sys.exit(1)
+    conf[name] = val
+
+username = conf['username']
+password = conf['password']
+tenant_name = conf['tenant_name']
+
+print 'API Server = ', args.api_server
+print 'Discovery Server = ', args.server
+print ''
+
+try:
+    vnc = VncApi(username, password, tenant_name,
+             api_server[0], api_server[1])
+except Exception as e:
+     print '*** %s' % str(e)
+     sys.exit(1)
+
 
 if args.oper_state or args.admin_state or args.oper_state_reason:
     if not args.service_id or not args.service_type:
@@ -260,30 +293,6 @@ elif args.load_balance or args.op == 'load-balance':
         print "Operation status %d" % r.status_code
     sys.exit(0)
 
-# Validate API server information
-api_server = args.api_server.split(':')
-if len(api_server) != 2:
-    print 'Discovery server address must be of the form ip:port, '\
-          'for example 127.0.0.1:5998'
-    sys.exit(1)
-api_server_ip = api_server[0]
-api_server_port = api_server[1]
-
-# Validate keystone credentials
-conf = {}
-for name in ['username', 'password', 'tenant_name']:
-    val, rsp = get_ks_var(args, name)
-    if val is None:
-        print rsp
-        sys.exit(1)
-    conf[name] = val
-
-username = conf['username']
-password = conf['password']
-tenant_name = conf['tenant_name']
-
-vnc = VncApi(username, password, tenant_name,
-             api_server[0], api_server[1])
 
 uuid = args.uuid
 # transform uuid if needed
@@ -295,9 +304,6 @@ print ''
 print 'Oper       = ', args.op
 print 'Name       = %s' % fq_name
 print 'UUID       = %s' % uuid
-print 'API Server = ', args.server
-print 'Discovery Server = ', args.server
-print ''
 
 if args.op == 'add-rule':
     if not args.rule:

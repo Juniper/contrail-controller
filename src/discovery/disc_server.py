@@ -82,10 +82,14 @@ class DiscoveryServer():
             'auto_lb': 0,
             'db_exc_unknown': 0,
             'db_exc_info': '',
+            'wl_rejects_pub': 0,
+            'wl_rejects_sub': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
         self._sem = BoundedSemaphore(1)
+        self._pub_wl = None
+        self._sub_wl = None
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -224,6 +228,16 @@ class DiscoveryServer():
         self._sub_data = {}
         for (client_id, service_type) in self._db_conn.subscriber_entries():
             self.create_sub_data(client_id, service_type)
+
+        # build white list
+        if self._args.white_list_publish:
+            self._pub_wl = IPSet()
+            for prefix in self._args.white_list_publish.split(" "):
+                self._pub_wl.add(prefix)
+        if self._args.white_list_subscribe:
+            self._sub_wl = IPSet()
+            for prefix in self._args.white_list_subscribe.split(" "):
+                self._sub_wl.add(prefix)
     # end __init__
 
     def config_log(self, msg, level):
@@ -424,6 +438,12 @@ class DiscoveryServer():
     @db_error_handler
     def api_publish(self, end_point = None):
         self._debug['msg_pubs'] += 1
+
+        source = bottle.request.headers.get('X-Forwarded-For', None)
+        if source and self._pub_wl and source not in self._pub_wl:
+            self._debug['wl_rejects_pub'] += 1
+            bottle.abort(401, 'Unauthorized request')
+
         ctype = bottle.request.headers['content-type']
         json_req = {}
         try:
@@ -669,6 +689,12 @@ class DiscoveryServer():
     @db_error_handler
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
+
+        source = bottle.request.headers.get('X-Forwarded-For', None)
+        if source and self._sub_wl and source not in self._sub_wl:
+            self._debug['wl_rejects_sub'] += 1
+            bottle.abort(401, 'Unauthorized request')
+
         ctype = bottle.request.headers['content-type']
         if 'application/json' in ctype:
             json_req = bottle.request.json
@@ -1268,6 +1294,8 @@ def parse_args(args_str):
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'cluster_id': None,
+        'white_list_publish': None,
+        'white_list_subscribe': None,
     }
 
     # per service options
