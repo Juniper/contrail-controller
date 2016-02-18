@@ -1024,6 +1024,7 @@ def parse_args(args_str):
         'analytics_server_port': '8081',
         'availability_zone': None,
         'netns_availability_zone': None,
+        'minimal_vrouter_version': None,
     }
 
     config = ConfigParser.SafeConfigParser()

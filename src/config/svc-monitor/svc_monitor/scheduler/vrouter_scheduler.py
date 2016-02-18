@@ -41,6 +41,12 @@ class VRouterScheduler(object):
                                      self._args.analytics_server_port)
         self._analytics = analytics_client.Client(endpoint)
 
+        if (self._args.minimal_vrouter_version and
+            V(self._args.minimal_vrouter_version) < V(svc_info._VROUTER_NETNS_SUPPORTED_VERSION)):
+            raise AssertionError("Vrouter minimal version %s is too low. Must be upper than %s" %
+                                 (self._args.minimal_vrouter_version,
+                                  svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+
     @abc.abstractmethod
     def schedule(self, plugin, context, router_id, candidates=None):
         """Schedule the virtual machine to an active vrouter agent.
@@ -50,6 +56,12 @@ class VRouterScheduler(object):
         scheduled on the vrouter.
         """
         pass
+
+    def _is_vrouter_version_is_sufficient(self, vrouter_version):
+        minimal_version = V(self._args.minimal_vrouter_version or
+                            svc_info._VROUTER_NETNS_SUPPORTED_VERSION)
+        vrouter_version = V(vrouter_version)
+        return vrouter_version >= minimal_version
 
     def _get_candidates(self, si_uuid, vm_uuid):
         """Return vrouter agents where a service instance virtual machine
@@ -77,10 +89,6 @@ class VRouterScheduler(object):
         # check if vrouters are functional and support service instance
         vrs_fq_name = [vr['fq_name'] for vr in vr_list
                        if self.vrouter_running(vr['fq_name'][-1])]
-        vrs_fq_name = [vr_fq_name for vr_fq_name in vrs_fq_name
-                       if self.vrouter_check_version(
-                           vr_fq_name[-1],
-                           svc_info._VROUTER_NETNS_SUPPORTED_VERSION)]
 
         for vr_fq_name in vrs_fq_name:
             try:
@@ -103,7 +111,8 @@ class VRouterScheduler(object):
         return vrs_fq_name
 
     def vrouter_running(self, vrouter_name):
-        """Check if a vrouter agent is up and running."""
+        """Check if a vrouter agent is up and running and the version is
+        sufficient."""
         path = "/analytics/uves/vrouter/"
 
         fqdn_uuid = "%s?cfilt=VrouterAgent" % vrouter_name
@@ -133,31 +142,14 @@ class VRouterScheduler(object):
             if (process['module_id'] == constants.MODULE_VROUTER_AGENT_NAME and
                 int(process['instance_id']) == 0 and
                 process['state'] == 'Functional'):
-                return True
+                try:
+                    build_info = ast.literal_eval(
+                        vrouter_agent['VrouterAgent']['build_info'])
+                    return self._is_vrouter_version_is_sufficient(
+                        build_info['build-info'][0]['build-version'])
+                except KeyError, ValueError:
+                    return False
         return False
-
-    def vrouter_check_version(self, vrouter_name, version):
-        """Check the vrouter version is upper or equal to a desired version."""
-        path = "/analytics/uves/vrouter/"
-        fqdn_uuid = "%s?cfilt=VrouterAgent" % vrouter_name
-
-        try:
-            vrouter_agent = self._analytics.request(path, fqdn_uuid)
-        except analytics_client.OpenContrailAPIFailed:
-            return False
-
-        if not vrouter_agent:
-            return False
-
-        try:
-            build_info = ast.literal_eval(
-                vrouter_agent['VrouterAgent']['build_info'])
-            vrouter_version = V(build_info['build-info'][0]['build-version'])
-            requested_version = V(version)
-        except KeyError, ValueError:
-            return False
-
-        return vrouter_version >= requested_version
 
     def _bind_vrouter(self, vm_uuid, vr_fq_name):
         """Bind the virtual machine to the vrouter which has been chosen."""
