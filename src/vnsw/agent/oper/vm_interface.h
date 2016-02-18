@@ -612,7 +612,7 @@ public:
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
     IpAddress GetServiceIp(const IpAddress &ip) const;
-    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+    void UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
                                 const Ip6Address &old_v6_addr,
@@ -684,7 +684,7 @@ private:
                      const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                      bool old_dhcp_enable, bool old_layer3_forwarding,
                      bool force_update, const Ip4Address &old_dhcp_addr,
-                     bool old_metadata_ip_active);
+                     bool old_metadata_ip_active, bool old_bridging);
     void UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
                             bool policy_change, bool old_metadata_ip_active);
     void DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
@@ -701,13 +701,16 @@ private:
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                   int old_ethernet_tag, const Ip4Address &old_dhcp_addr);
-    void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
-                  bool force_update, bool policy_change,
-                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
-                  bool old_layer3_forwarding);
-    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
-                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
-                  bool old_layer3_forwarding);
+    void UpdateL2Bridging(bool old_bridging, VrfEntry *old_vrf,
+                          int old_ethernet_tag, bool force_update,
+                          bool policy_change, const Ip4Address &old_addr,
+                          const Ip6Address &old_v6_addr,
+                          bool old_layer3_forwarding);
+    void DeleteL2Bridging(bool old_bridging, VrfEntry *old_vrf, int old_ethernet_tag,
+                          const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
+                          bool old_layer3_forwarding);
+    void UpdateL2(bool old_l2_active, bool policy_change);
+    void DeleteL2(bool old_l2_active);
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
     void DeleteL3MplsLabel();
@@ -721,9 +724,11 @@ private:
     void DeleteL2NextHop(bool old_l2_active);
     void DeleteMacVmBinding(const VrfEntry *old_vrf);
     bool L2Activated(bool old_l2_active);
+    bool BridgingActivated(bool old_bridging);
     bool Ipv4Activated(bool old_ipv4_active);
     bool Ipv6Activated(bool old_ipv6_active);
     bool L2Deactivated(bool old_l2_active);
+    bool BridgingDeactivated(bool old_bridging);
     bool Ipv4Deactivated(bool old_ipv4_active);
     bool Ipv6Deactivated(bool old_ipv6_active);
     void UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_update,
@@ -759,7 +764,7 @@ private:
     void DeleteFatFlow();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
+    void DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
                                 const Ip6Address &old_v6_addr,
                                 int old_ethernet_tag,
@@ -778,8 +783,8 @@ private:
     void DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
                               VrfEntry *old_vrf);
 
-    void AddL2ReceiveRoute(bool old_l2_active);
-    void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
+    void AddL2ReceiveRoute(bool old_bridging);
+    void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_briding);
 
     bool UpdateIsHealthCheckActive();
     void CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance);
