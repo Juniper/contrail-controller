@@ -119,7 +119,7 @@ protected:
     }
 
     virtual void TearDown() {
-        bx_channel_->set_peer_deleted();
+        bx_channel_->set_peer_closed(true);
     }
 
     bool ProcessItem(const xml_node &item) {
