@@ -3,11 +3,17 @@
  */
 
 #include <uve/stats_manager.h>
+#include <uve/agent_uve_stats.h>
+#include <uve/vn_uve_table.h>
+#include <uve/interface_uve_stats_table.h>
 #include <oper/vm_interface.h>
 
 StatsManager::StatsManager(Agent* agent)
     : vrf_listener_id_(DBTableBase::kInvalidId),
-    intf_listener_id_(DBTableBase::kInvalidId), agent_(agent) {
+      intf_listener_id_(DBTableBase::kInvalidId), agent_(agent),
+      request_queue_(agent->task_scheduler()->GetTaskId("Agent::Uve"), 0,
+                     boost::bind(&StatsManager::RequestHandler, this, _1)) {
+
     AddNamelessVrfStatsEntry();
 }
 
@@ -186,6 +192,7 @@ void StatsManager::RegisterDBClients() {
 void StatsManager::Shutdown(void) {
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     agent_->interface_table()->Unregister(intf_listener_id_);
+    request_queue_.Shutdown();
 }
 
 StatsManager::InterfaceStats::InterfaceStats()
@@ -243,4 +250,62 @@ StatsManager::VrfStats::VrfStats()
     k_arp_virtual_proxy(0), k_arp_virtual_stitch(0), k_arp_virtual_flood(0),
     k_arp_physical_stitch(0), k_arp_tor_proxy(0), k_arp_physical_flood(0),
     k_l2_receives(0), k_uuc_floods(0) {
+}
+
+void StatsManager::AddFlow(const FlowAceStatsRequest *req) {
+    FlowAceTree::iterator it = flow_ace_tree_.find(req->uuid());
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
+    InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
+        (uve->interface_uve_table());
+    VnUveTable *vtable = static_cast<VnUveTable *>(uve->vn_uve_table());
+    if (it == flow_ace_tree_.end()) {
+        InterfaceStats stats;
+        FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(), req->vn(),
+                               req->nw_ace_uuid());
+        flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
+        itable->IncrInterfaceAceStats(req->interface(), req->sg_rule_uuid());
+        vtable->IncrVnAceStats(req->vn(), req->nw_ace_uuid());
+    } else {
+        FlowRuleMatchInfo &info = it->second;
+        if ((req->interface() != info.interface) ||
+            (req->sg_rule_uuid() != info.sg_rule_uuid)) {
+            itable->IncrInterfaceAceStats(req->interface(),
+                                          req->sg_rule_uuid());
+            info.interface = req->interface();
+            info.sg_rule_uuid = req->sg_rule_uuid();
+        }
+        if ((req->vn() != info.vn) ||
+            (req->nw_ace_uuid() != info.nw_ace_uuid)) {
+            vtable->IncrVnAceStats(req->vn(), req->nw_ace_uuid());
+            info.vn = req->vn();
+            info.nw_ace_uuid = req->nw_ace_uuid();
+        }
+    }
+}
+
+void StatsManager::DeleteFlow(const FlowAceStatsRequest *req) {
+    FlowAceTree::iterator it = flow_ace_tree_.find(req->uuid());
+    if (it == flow_ace_tree_.end()) {
+        return;
+    }
+    flow_ace_tree_.erase(it);
+}
+
+void StatsManager::EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest>
+                                &req) {
+    request_queue_.Enqueue(req);
+}
+
+bool StatsManager::RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req) {
+    switch (req->event()) {
+    case FlowAceStatsRequest::ADD_FLOW:
+        AddFlow(req.get());
+        break;
+    case FlowAceStatsRequest::DELETE_FLOW:
+        DeleteFlow(req.get());
+        break;
+    default:
+        assert(0);
+    }
+    return true;
 }
