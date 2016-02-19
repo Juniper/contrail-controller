@@ -1219,17 +1219,23 @@ class VirtualNetworkST(DBBaseST):
             acl_list.append(acl)
 
             for rule in static_acl_entries.get_acl_rule():
-                match = MatchConditionType(
-                    "any", rule.match_condition.src_address, PortType(),
-                    rule.match_condition.dst_address, PortType())
+                src_address = copy.deepcopy(rule.match_condition.src_address)
+                dst_address = copy.deepcopy(rule.match_condition.dst_address)
+                if src_address.virtual_network:
+                    src_address.subnet = None
+                    src_address.subnet_list = []
+                if dst_address.virtual_network:
+                    dst_address.subnet = None
+                    dst_address.subnet_list = []
+                match = MatchConditionType("any", src_address, PortType(),
+                                           dst_address, PortType())
 
                 acl = AclRuleType(match, ActionListType("deny"),
                                   rule.get_rule_uuid())
                 acl_list.append(acl)
 
-                match = MatchConditionType(
-                    "any", rule.match_condition.dst_address, PortType(),
-                    rule.match_condition.src_address, PortType())
+                match = MatchConditionType("any", dst_address, PortType(),
+                                           src_address, PortType())
 
                 acl = AclRuleType(match, ActionListType("deny"),
                                   rule.get_rule_uuid())
@@ -2704,14 +2710,29 @@ class AclRuleListST(object):
         return (lhs.start_port >= rhs.start_port and
                 (rhs.end_port == -1 or lhs.end_port <= rhs.end_port))
 
+
     @staticmethod
     def _address_is_subset(lhs, rhs):
-        if rhs.subnet is None and lhs.subnet is None:
-            return rhs.virtual_network in [lhs.virtual_network, 'any']
-        if rhs.subnet is not None and lhs.subnet is not None:
-            return (rhs.subnet.ip_prefix == lhs.subnet.ip_prefix and
-                    rhs.subnet.ip_prefix_len <= lhs.subnet.ip_prefix_len)
-        return False
+        if not(rhs.subnet or lhs.subnet or lhs.subnet_list or rhs.subnet_list):
+             return rhs.virtual_network in [lhs.virtual_network, 'any']
+        l_subnets = lhs.subnet_list or []
+        if lhs.subnet:
+            l_subnets.append(lhs.subnet)
+        l_subnets = [IPNetwork('%s/%d'%(s.ip_prefix, s.ip_prefix_len))
+                     for s in l_subnets]
+        r_subnets = rhs.subnet_list or []
+        if rhs.subnet:
+            r_subnets.append(rhs.subnet)
+        r_subnets = [IPNetwork('%s/%d'%(s.ip_prefix, s.ip_prefix_len))
+                     for s in r_subnets]
+        for l_subnet in l_subnets:
+            for r_subnet in r_subnets:
+                if l_subnet in r_subnet:
+                    return True
+        else:
+            return False
+        return True
+
 
     def _rule_is_subset(self, rule):
         for elem in self._list:
