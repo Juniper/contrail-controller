@@ -289,8 +289,10 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(key, info, 0, 0);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev) {
-    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
+void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev,
+                                           uint32_t partition) {
+    agent_uve_->agent()->pkt()->get_flow_proto()->
+        DeleteFlowRequest(key, rev, partition);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -395,7 +397,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, rev_info != NULL? true : false);
+            FlowDeleteEnqueue(key, rev_info != NULL? true : false,
+                              info->flow_partition());
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -438,7 +441,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowDeleteEnqueue(key, true);
+            FlowDeleteEnqueue(key, true, info->flow_partition());
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {

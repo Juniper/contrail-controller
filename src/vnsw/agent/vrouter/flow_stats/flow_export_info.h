@@ -61,6 +61,9 @@ public:
     }
     bool IsEqual(const FlowExportInfo &rhs) const;
     void Copy(const FlowExportInfo &rhs);
+    uint32_t flow_partition() const {
+        return flow_partition_;
+    }
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -91,6 +94,7 @@ private:
     boost::uuids::uuid interface_uuid_;
     std::string drop_reason_;
     uint16_t tcp_flags_;
+    uint32_t flow_partition_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

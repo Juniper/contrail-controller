@@ -8,7 +8,8 @@ FlowExportInfo::FlowExportInfo() :
     flow_handle_(FlowEntry::kInvalidFlowHandle), action_info_(),
     vm_cfg_name_(), peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0), changed_(false),
-    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), tcp_flags_(0) {
+    fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), tcp_flags_(0),
+    flow_partition_(0) {
     drop_reason_ = FlowEntry::DropReasonStr(FlowEntry::DROP_UNKNOWN);
     rev_flow_key_.Reset();
     interface_uuid_ = boost::uuids::nil_uuid();
@@ -37,6 +38,11 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
         interface_uuid_ = boost::uuids::nil_uuid();
     }
     drop_reason_ = FlowEntry::DropReasonStr(fe->data().drop_reason);
+    if (fe->flow_table()) {
+        flow_partition_ = fe->flow_table()->table_index();
+    } else {
+        flow_partition_ = 0;
+    }
 }
 
 /* This API compares only fields which are copied from FlowEntry. Fields which
