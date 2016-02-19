@@ -41,7 +41,9 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
-    stats_(), agent_(agent), pkt_module_(pkt_module) {
+    stats_(), agent_(agent), pkt_module_(pkt_module),
+    work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::PktHandler"), 0,
+                boost::bind(&PktHandler::ProcessPacket, this, _1)) {
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)
@@ -52,6 +54,7 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
 }
 
 PktHandler::~PktHandler() {
+    work_queue_.Shutdown();
 }
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
@@ -189,23 +192,57 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 }
 
 void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
+    // Enqueue Flow packets directly to the flow module and avoid additional
+    // work queue hop.
+    if (IsFlowPacket(hdr)) {
+        boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff, hdr));
+       // uint8_t *pkt = buff->data();
+       // ParsePacket(hdr, pkt_info.get(), pkt);
+        PktModuleEnqueue(FLOW, hdr, pkt_info);
+        return;
+    }
+
+    // Other packets are enqueued to a workqueue to decouple from ASIO and
+    // run in exclusion with DB.
+    boost::shared_ptr<PacketBufferEnqueueItem>
+        info(new PacketBufferEnqueueItem(hdr, buff));
+    work_queue_.Enqueue(info);
+}
+
+bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
+    const AgentHdr &hdr = item->hdr;
+    const PacketBufferPtr &buff = item->buff;
     boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
     uint8_t *pkt = buff->data();
 
     PktModuleName mod = ParsePacket(hdr, pkt_info.get(), pkt);
+    PktModuleEnqueue(mod, hdr, pkt_info);
+    return true;
+}
+
+void PktHandler::PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
+                                  boost::shared_ptr<PktInfo> pkt_info) {
     pkt_info->packet_buffer()->set_module(mod);
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt_info->pkt,
-                                   &pkt_info->agent_hdr);
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len,
+                                   pkt_info->pkt, &hdr);
     if (mod == INVALID) {
         agent_->stats()->incr_pkt_dropped();
         return;
     }
-
     if (!(enqueue_cb_.at(mod))(pkt_info)) {
         stats_.PktQThresholdExceeded(mod);
     }
-    return;
+}
+
+PktHandler::PktModuleName PktHandler::ParseFlowPacket(
+                          boost::shared_ptr<PktInfo> pkt_info, uint8_t *pkt) {
+    PktModuleName mod = ParsePacket(pkt_info->agent_hdr, pkt_info.get(), pkt);
+    // In case it is not a flow packet, enqueue it back to the right module
+    if (mod != FLOW) {
+        PktModuleEnqueue(mod, pkt_info->agent_hdr, pkt_info);
+    }
+    return mod;
 }
 
 // Compute L2/L3 forwarding mode for pacekt.
@@ -764,6 +801,15 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     return true;
 }
 
+bool PktHandler::IsFlowPacket(const AgentHdr &agent_hdr) {
+    if (agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
+        agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
+        agent_hdr.cmd == AgentHdr::TRAP_FLOW_ACTION_HOLD) {
+        return true;
+    }
+    return false;
+}
+
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
         pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR)
@@ -859,6 +905,15 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false), eth(),
     arp(), ip(), ip6(), packet_buffer_(buff) {
+    transp.tcp = 0;
+}
+
+PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
+    pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
+    data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
+    agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
+    dport(), tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false),
+    eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
