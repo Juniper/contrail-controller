@@ -74,6 +74,64 @@ void PktHandler::Send(const AgentHdr &hdr, const PacketBufferPtr &buff) {
     return;
 }
 
+void PktHandler::CalculatePort(PktInfo *pkt) {
+    const Interface *in = NULL;
+    const VmInterface *intf = NULL;
+
+    const NextHop *nh =
+        agent()->nexthop_table()->FindNextHop(pkt->agent_hdr.nh);
+    if (!nh) {
+        return;
+    }
+
+    if (nh->GetType() == NextHop::INTERFACE) {
+        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
+        in = intf_nh->GetInterface();
+    } else if (nh->GetType() == NextHop::VLAN) {
+        const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
+        in = vlan_nh->GetInterface();
+    }
+
+    if (in) {
+        intf = dynamic_cast<const VmInterface *>(in);
+    }
+
+    if (!intf) {
+        return;
+    }
+
+    if (intf->fat_flow_list().list_.size() == 0) {
+        return;
+    }
+
+    uint16_t sport = pkt->sport;
+    if (pkt->ip_proto == IPPROTO_ICMP) {
+        sport = 0;
+    }
+    if (pkt->sport < pkt->dport) {
+        if (intf->IsFatFlow(pkt->ip_proto, sport)) {
+            pkt->dport = 0;
+            return;
+        }
+
+        if (intf->IsFatFlow(pkt->ip_proto, pkt->dport)) {
+            pkt->sport = 0;
+            return;
+        }
+        return;
+    }
+
+    if (intf->IsFatFlow(pkt->ip_proto, pkt->dport)) {
+        pkt->sport = 0;
+        return;
+    }
+
+    if (intf->IsFatFlow(pkt->ip_proto, sport)) {
+        pkt->dport = 0;
+        return;
+    }
+}
+
 // Process the packet received from tap interface
 PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
                                                   PktInfo *pkt_info,
@@ -125,6 +183,10 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     // Handle ARP packet
     if (pkt_type == PktType::ARP) {
         return ARP;
+    }
+
+    if (IsFlowPacket(pkt_info)) {
+        CalculatePort(pkt_info);
     }
 
     // Packets needing flow
