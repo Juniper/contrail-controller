@@ -35,7 +35,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bnr->set_peer_address(bx_channel->remote_endpoint().address().to_string());
     bnr->set_transport_address(bx_channel->transport_address_string());
     bnr->set_deleted(bx_channel->peer_deleted());
-    bnr->set_deleted_at(UTCUsecToString(bx_channel->peer_deleted_at()));
+    bnr->set_closed_at(UTCUsecToString(bx_channel->peer_closed_at()));
     bnr->set_local_address(bx_channel->local_endpoint().address().to_string());
     bnr->set_peer_type("internal");
     bnr->set_encoding("XMPP");
@@ -55,6 +55,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     mgr->FillPeerMembershipInfo(bx_channel->Peer(), bnr);
     bx_channel->FillTableMembershipInfo(bnr);
     bx_channel->FillInstanceMembershipInfo(bnr);
+    bx_channel->FillCloseInfo(bnr);
 
     BgpPeer::FillBgpNeighborDebugState(bnr, bx_channel->Peer()->peer_stats());
 }
