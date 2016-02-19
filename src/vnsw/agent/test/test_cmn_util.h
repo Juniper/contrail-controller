@@ -75,6 +75,7 @@ void AddNode(Agent *agent, const char *node_name, const char *name, int id,
 void DelNode(const char *node_name, const char *name);
 void DelNode(Agent *agent, const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
+CfgIntEntry *CfgPortGet(boost::uuids::uuid u);
 void IntfCfgAddThrift(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
