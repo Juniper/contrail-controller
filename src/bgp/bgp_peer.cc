@@ -49,67 +49,45 @@ class BgpPeer::PeerClose : public IPeerClose {
         return peer_->ToString();
     }
 
+    // If the peer is deleted or administratively held down, do not attempt
+    // graceful restart
     virtual bool IsCloseGraceful() {
-
-        //
-        // If the peer is deleted or administratively held down, do not attempt
-        // graceful restart
-        //
-        if (peer_->IsDeleted() || peer_->IsAdminDown()) return false;
-
+        if (peer_->IsDeleted() || peer_->IsAdminDown())
+            return false;
         return peer_->server()->IsPeerCloseGraceful();
     }
 
-    virtual void CustomClose() {
-        return peer_->CustomClose();
-    }
+    virtual void CustomClose() { return peer_->CustomClose(); }
+    virtual void GracefulRestartStale() { }
+    virtual void GracefulRestartSweep() { }
 
     // CloseComplete
     //
     // Close process for this peer is complete. Restart the state machine and
     // attempt to bring up session with the neighbor
     //
-    virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
+    virtual void CloseComplete() {
         peer_->server()->decrement_closing_count();
+        if (!peer_->IsAdminDown())
+            peer_->state_machine_->Initialize();
+    }
+    virtual void Delete() {
         if (!peer_->IsDeleted()) {
-
-            //
-            // If this closure is off graceful restart timer, nothing else to
-            // do as we retain the peer based on the configuration
-            //
-            if (from_timer) return false;
-
-            //
-            // Reset peer's state machine
-            //
-            if (!peer_->IsAdminDown()) peer_->state_machine_->Initialize();
-
-            return false;
+            CloseComplete();
+            return;
         }
-
-        //
-        // This peer is deleted. Timer should have already been cancelled
-        //
-        assert(!from_timer);
-
+        peer_->server()->decrement_closing_count();
         peer_->deleter()->RetryDelete();
         is_closed_ = true;
-        return true;
     }
 
-    bool IsClosed() const {
-        return is_closed_;
-    }
-
-    virtual PeerCloseManager *close_manager() {
-        return manager_.get();
-    }
+    bool IsClosed() const { return is_closed_; }
+    virtual PeerCloseManager *close_manager() { return manager_.get(); }
 
     void Close() {
-        if (!is_closed_ && !manager_->IsCloseInProgress()) {
-            manager_->Close();
+        if (!manager_->IsCloseInProgress())
             peer_->server()->increment_closing_count();
-        }
+        manager_->Close();
     }
 
 private:
@@ -1659,6 +1637,10 @@ static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
     }
 }
 
+void BgpPeer::FillCloseInfo(BgpNeighborResp *resp) const {
+    peer_close_->close_manager()->FillCloseInfo(resp);
+}
+
 void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp *bnr,
                                         const IPeerDebugStats *peer_state) {
     bnr->set_last_state(peer_state->last_state());
@@ -1722,7 +1704,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_instance_name(rtinstance_->name());
     bnr->set_peer(peer_basename_);
     bnr->set_deleted(IsDeleted());
-    bnr->set_deleted_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
+    bnr->set_closed_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
     bnr->set_peer_address(peer_address_string());

@@ -59,8 +59,8 @@ do {                                                                           \
 #define TASK_UTIL_WAIT_MSG(cnt, expected, actual, wait, type, msg)             \
     do {                                                                       \
         ostream << __FILE__ << ":" <<  __FUNCTION__ << "():" << __LINE__;      \
-        ostream << ": " << msg << ": Waiting for " << actual << type;          \
-        ostream << expected << "\n";                                           \
+        ostream << ": " << msg << ": Waiting for " << (actual) << type;        \
+        ostream << (expected) << "\n";                                         \
         log4cplus::Logger logger = log4cplus::Logger::getRoot();               \
         LOG4CPLUS_DEBUG(logger,  ostream.str());                               \
     } while (false)

@@ -23,6 +23,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db.h"
 #include "db/db_graph.h"
+#include "io/tcp_session.h"
 #include "xmpp/xmpp_lifetime.h"
 #include "xmpp/xmpp_server.h"
 
@@ -90,6 +91,8 @@ public:
     bool XmppServerIsPeerCloseGraceful() {
         return XmppServer::IsPeerCloseGraceful();
     }
+
+    const ConnectionMap &connection_map() const { return connection_map_; }
 
     // Protect connection db with mutex as it is queried from main thread which
     // does not adhere to control-node scheduler policy.
@@ -339,8 +342,20 @@ public:
         hold_time_msecs_ = hold_time_msecs;
     }
 
+    static TcpSession::Event get_skip_tcp_event() { return skip_tcp_event_; }
+    static void set_skip_tcp_event(TcpSession::Event event) {
+        skip_tcp_event_ = event;
+    }
+    virtual void OnSessionEvent(TcpSession *session, TcpSession::Event event) {
+        if (skip_tcp_event_ != event)
+            XmppStateMachine::OnSessionEvent(session, event);
+        else
+            skip_tcp_event_ = TcpSession::EVENT_NONE;
+    }
+
 private:
     static int hold_time_msecs_;
+    static TcpSession::Event skip_tcp_event_;
 };
 
 class XmppLifetimeManagerTest : public XmppLifetimeManager {
