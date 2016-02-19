@@ -266,6 +266,7 @@ public:
     PktModule *pkt_module() const { return pkt_module_; }
     void Enqueue(PktModuleName module, boost::shared_ptr<PktInfo> pkt_info);
     bool IsFlowPacket(PktInfo *pkt_info);
+    void CalculatePort(PktInfo *pkt_info);
 
 private:
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
