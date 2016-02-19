@@ -123,7 +123,10 @@ public:
     virtual PeerCloseManager *close_manager() = 0;
     virtual bool IsCloseGraceful() = 0;
     virtual void CustomClose() = 0;
-    virtual bool CloseComplete(bool from_timer, bool gr_cancelled) = 0;
+    virtual void CloseComplete() = 0;
+    virtual void Delete() = 0;
+    virtual void GracefulRestartStale() = 0;
+    virtual void GracefulRestartSweep() = 0;
 };
 
 class IPeer : public IPeerUpdate {

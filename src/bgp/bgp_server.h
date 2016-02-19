@@ -176,7 +176,10 @@ public:
 
     uint32_t num_closing_bgp_peer() const { return closing_count_; }
     void increment_closing_count() { closing_count_++; }
-    void decrement_closing_count() { closing_count_--; }
+    void decrement_closing_count() {
+        assert(closing_count_ > 0);
+        closing_count_--;
+    }
 
     uint32_t get_output_queue_depth() const;
 

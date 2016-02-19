@@ -348,6 +348,19 @@ pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(
     return xdoc_.get();
 }
 
+/*
+ * Empty publish and collection nodes constitute eor marker.
+ */
+pugi::xml_document *XmppDocumentMock::AddEorMarker() {
+    xdoc_->reset();
+    xml_node pubsub = PubSubHeader(kNetworkServiceJID);
+    pubsub.append_child("publish");
+
+    pubsub = PubSubHeader(kNetworkServiceJID);
+    pubsub.append_child("collection");
+    return xdoc_.get();
+}
+
 pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
         const std::string &network, const std::string &prefix, bool add,
         const NextHops &nexthops, const RouteAttributes &attributes) {
@@ -766,7 +779,7 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                 boost::bind(&NetworkAgentMock::ProcessRequest, this, _1)),
       server_address_(server_address), local_address_(local_address),
       server_port_(server_port), skip_updates_processing_(false), down_(false),
-      xmpp_auth_enabled_(xmpp_auth_enabled) {
+      xmpp_auth_enabled_(xmpp_auth_enabled), id_(0) {
 
     // Static initialization of NetworkAgentMock class.
     Initialize();
@@ -943,11 +956,12 @@ bool NetworkAgentMock::ProcessRequest(Request *request) {
         case IS_ESTABLISHED:
             request->result = IsSessionEstablished();
             break;
+        case IS_CHANNEL_READY:
+            request->result = IsReady();
+            break;
     }
 
-    //
     // Notify waiting caller with the result
-    //
     tbb::mutex::scoped_lock lock(work_mutex_);
     cond_var_.notify_all();
     return true;
@@ -966,12 +980,34 @@ bool NetworkAgentMock::IsEstablished() {
     request.type = IS_ESTABLISHED;
     work_queue_.Enqueue(&request);
 
-    //
     // Wait for the request to get processed.
-    //
     cond_var_.wait(lock);
 
     return request.result;
+}
+
+bool NetworkAgentMock::IsChannelReady() {
+    AgentPeer *peer = GetAgent();
+    return (peer != NULL && peer->channel() != NULL &&
+            peer->channel()->GetPeerState() == xmps::READY);
+}
+
+bool NetworkAgentMock::IsReady() {
+    tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
+
+    Request request;
+    request.type = IS_CHANNEL_READY;
+    work_queue_.Enqueue(&request);
+
+    // Wait for the request to get processed.
+    cond_var_.wait(lock);
+
+    return request.result;
+}
+
+void NetworkAgentMock::SendEorMarker() {
+    AgentPeer *peer = GetAgent();
+    peer->SendDocument(impl_->AddEorMarker());
 }
 
 void NetworkAgentMock::AddRoute(const string &network_name,
@@ -1406,6 +1442,10 @@ int NetworkAgentMock::RouteCount(const std::string &network) const {
 
 int NetworkAgentMock::RouteCount() const {
     return route_mgr_->Count();
+}
+
+bool NetworkAgentMock::HasSubscribed(const std::string &network) const {
+    return route_mgr_->HasSubscribed(network);
 }
 
 // Return number of nexthops associated with a given route

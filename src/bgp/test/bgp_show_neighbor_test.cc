@@ -19,7 +19,6 @@
 #include "schema/vnc_cfg_types.h"
 #include "xmpp/xmpp_factory.h"
 
-using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
@@ -111,12 +110,11 @@ public:
     void ValidateResponse(Sandesh *sandesh,
             vector<string> &result, const string &next_batch) {
         typename T::RespT *resp = dynamic_cast<typename T::RespT *>(sandesh);
-        TASK_UTIL_EXPECT_TRUE(resp != NULL);
-        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_neighbors().size());
-        TASK_UTIL_EXPECT_EQ(next_batch, resp->get_next_batch());
+        EXPECT_TRUE(resp != NULL);
+        EXPECT_EQ(result.size(), resp->get_neighbors().size());
+        EXPECT_EQ(next_batch, resp->get_next_batch());
         for (size_t i = 0; i < resp->get_neighbors().size(); ++i) {
-            TASK_UTIL_EXPECT_EQ(result[i], resp->get_neighbors()[i].get_peer());
-            cout << resp->get_neighbors()[i].log() << endl;
+            EXPECT_EQ(result[i], resp->get_neighbors()[i].get_peer());
         }
         validate_done_ = true;
     }
