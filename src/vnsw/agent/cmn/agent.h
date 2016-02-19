@@ -631,6 +631,9 @@ public:
         fabric_vrf_name_ = name;
     }
 
+    VrfEntry *fabric_vrf() const { return fabric_vrf_; }
+    void set_fabric_vrf(VrfEntry *vrf) { fabric_vrf_ = vrf; }
+
     const std::string &linklocal_vn_name() {return link_local_vn_name_;}
     const std::string &linklocal_vrf_name() {return link_local_vrf_name_;}
 
@@ -973,6 +976,7 @@ private:
     DB *db_;
     TaskScheduler *task_scheduler_;
     AgentInit *agent_init_;
+    VrfEntry *fabric_vrf_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
