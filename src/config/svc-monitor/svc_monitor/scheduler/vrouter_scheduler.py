@@ -57,7 +57,8 @@ class VRouterScheduler(object):
         if not self._args.netns_availability_zone:
             return None
         az_list = self._nc.oper('availability_zones', 'list',
-            'admin', detailed=True)
+                                self._args.admin_tenant_name,
+                                detailed=True)
         az_vr_list = []
         for az in az_list:
             if self._args.netns_availability_zone not in str(az):
