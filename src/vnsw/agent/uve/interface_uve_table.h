@@ -91,6 +91,18 @@ public:
     };
     typedef std::set<FloatingIpPtr, FloatingIpCmp> FloatingIpSet;
 
+    struct AceStats {
+        const std::string ace_uuid;
+        mutable uint64_t count;
+        mutable uint64_t prev_count;
+        AceStats(const std::string &ace) : ace_uuid(ace), count(0),
+            prev_count(0) {
+        }
+        bool operator<(const AceStats &rhs) const {
+            return ace_uuid < rhs.ace_uuid;
+        }
+    };
+    typedef std::set<AceStats> AceStatsSet;
     struct UveInterfaceEntry {
         const VmInterface *intf_;
         boost::uuids::uuid uuid_;
@@ -100,7 +112,9 @@ public:
         bool changed_;
         bool deleted_;
         bool renewed_;
+        bool ace_stats_changed_;
         UveVMInterfaceAgent uve_info_;
+        AceStatsSet ace_set_;
         /* For exclusion between Agent::StatsCollector and Agent::Uve tasks */
         tbb::mutex mutex_;
 
@@ -124,6 +138,8 @@ public:
                                                 const std::string &vn);
         bool FrameInterfaceMsg(const std::string &name,
                                UveVMInterfaceAgent *s_intf) const;
+        bool FrameInterfaceAceStatsMsg(const std::string &name,
+                                       UveVMInterfaceAgent *s_intf);
         bool GetVmInterfaceGateway(const VmInterface *vm_intf,
                                    std::string &gw) const;
         bool FipAggStatsChanged(const vector<VmFloatingIPStats>  &list) const;
@@ -131,6 +147,7 @@ public:
         bool InBandChanged(uint64_t in_band) const;
         bool OutBandChanged(uint64_t out_band) const;
         void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
+        void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
@@ -144,6 +161,9 @@ public:
     void Shutdown(void);
     virtual void DispatchInterfaceMsg(const UveVMInterfaceAgent &uve);
     bool TimerExpiry();
+    virtual void SendInterfaceAceStats(const string &name,
+                                       UveInterfaceEntry *entry) {
+    }
 
 protected:
     void SendInterfaceDeleteMsg(const std::string &config_name);

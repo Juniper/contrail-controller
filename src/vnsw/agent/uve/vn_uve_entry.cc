@@ -453,7 +453,55 @@ void VnUveEntry::Reset() {
     VnUveEntryBase::Reset();
     port_bitmap_.Reset();
     inter_vn_stats_.clear();
+    ace_stats_.clear();
+    ace_stats_changed_ = false;
     prev_stats_update_time_ = 0;
     prev_in_bytes_ = 0;
     prev_out_bytes_ = 0;
+}
+
+void VnUveEntry::UpdateVnAceStats(const std::string &ace_uuid) {
+    VnAceStats key(ace_uuid);
+    ace_stats_changed_ = true;
+    VnAceStatsSet::const_iterator it = ace_stats_.find(key);
+    if (it != ace_stats_.end()) {
+        it->count++;
+        return;
+    }
+    key.count = 1;
+    ace_stats_.insert(key);
+}
+
+bool VnUveEntry::FrameVnAceStatsMsg(const VnEntry *vn,
+                                    UveVirtualNetworkAgent &uve) {
+    if (!ace_stats_changed_) {
+        return false;
+    }
+    std::vector<NetworkPolicyRuleStats> list;
+    bool changed = false;
+    VnAceStatsSet::iterator it = ace_stats_.begin();
+    while (it != ace_stats_.end()) {
+        NetworkPolicyRuleStats item;
+        item.set_rule(it->ace_uuid);
+        uint64_t diff_count = it->count - it->prev_count;
+        item.set_count(diff_count);
+        //Update prev_count
+        it->prev_count = it->count;
+        list.push_back(item);
+        ++it;
+        /* If diff_count is non-zero for any rule entry, we send the entire
+         * list */
+        if (diff_count) {
+            changed = true;
+        }
+    }
+    /* If all the entries in the list has 0 diff_stats, then UVE won't be
+     * sent */
+    if (changed) {
+        uve.set_name(vn->GetName());
+        uve.set_policy_rule_stats(list);
+        ace_stats_changed_ = false;
+        return true;
+    }
+    return false;
 }
