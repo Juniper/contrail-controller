@@ -53,6 +53,9 @@
             {
                 "tuples" : [
                     "NO_HEAPCHECK=TRUE",
+                    "TASK_UTIL_DEFAULT_RETRY_COUNT=6000",
+                    "TASK_UTIL_WAIT_TIME=10000",
+                    "WAIT_FOR_IDLE=60",
                     "LOG_DISABLE=TRUE"
                 ],
                 "tests" : [
@@ -71,6 +74,7 @@
                     ".*/bgp/test/bgp_xmpp_inet6vpn_test$",
                     ".*/bgp/test/bgp_xmpp_mcast_test$",
                     ".*/bgp/test/bgp_xmpp_rtarget_test$",
+                    ".*/bgp/test/graceful_restart_test$",
                     ".*/bgp/test/service_chain_test",
                     ".*/bgp/test/svc_static_route_intergration_test",
                     ".*/bgp/test/xmpp_ecmp_test$"
