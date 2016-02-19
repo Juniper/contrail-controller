@@ -43,7 +43,7 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
     if (-response_code_ == EEXIST) {
-        return 0;
+        return -response_code_;
     }
 
     if (response_code_ < 0) {
@@ -111,7 +111,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 
     tbb::mutex::scoped_lock lock(flow->mutex());
     FlowProto *proto = flow->flow_table()->agent()->pkt()->get_flow_proto();
-    if (err == EBADF || err == ENOSPC) {
+    // for any error report KSync Error
+    if (err != 0) {
         if ((err = EBADF) && (((int)flow->flow_handle() != r->get_fr_index())))
             return;
 

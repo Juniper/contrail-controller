@@ -72,7 +72,7 @@ public:
     void GrowFreeListRequest(const FlowKey &key);
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);
-    void KSyncFlowErrorRequest(KSyncEntry *ksync_entry);
+    void KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error);
     void MessageRequest(InterTaskMsg *msg);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
