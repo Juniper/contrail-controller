@@ -353,14 +353,19 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         // Mark the flow entry as short flow and update ksync error event
         // to ksync index manager
         FlowEntry *flow = ksync_entry->flow_entry().get();
-        flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+        // For EEXIST error donot mark the flow as ShortFlow since Vrouter
+        // generates EEXIST only for cases where another add should be
+        // coming from the pkt trap from Vrouter
+        if (req->ksync_error() != EEXIST) {
+            flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+            // Enqueue Add request to flow-stats-collector
+            // to update flow flags in stats collector
+            FlowEntryPtr flow_ptr(flow);
+            agent()->flow_stats_manager()->AddEvent(flow_ptr);
+        }
         KSyncFlowIndexManager *mgr =
             agent()->ksync()->ksync_flow_index_manager();
         mgr->UpdateKSyncError(flow);
-        // Enqueue Add request to flow-stats-collector
-        // to update flow flags in stats collector
-        FlowEntryPtr flow_ptr(flow);
-        agent()->flow_stats_manager()->AddEvent(flow_ptr);
         break;
     }
 
@@ -413,8 +418,10 @@ void FlowProto::KSyncFlowHandleRequest(KSyncEntry *ksync_entry,
     return;
 }
 
-void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry) {
-    EnqueueFlowEvent(new FlowEvent(ksync_entry));
+void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error) {
+    FlowEvent *event = new FlowEvent(ksync_entry);
+    event->set_ksync_error(error);
+    EnqueueFlowEvent(event);
     return;
 }
 
