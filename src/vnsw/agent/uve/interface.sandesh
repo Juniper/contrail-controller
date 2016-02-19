@@ -38,6 +38,13 @@ struct VmInterfaceStats {
     4: u64 out_bytes;
 }
 
+struct VmHealthCheckInstance {
+    1: string name;
+    2: string uuid;
+    3: bool is_running;
+    4: string status;
+}
+
 /**
  * Sandesh definition for vm interface in agent
  */
@@ -65,6 +72,8 @@ struct UveVMInterfaceAgent {
    20: optional u64 in_bw_usage;
    21: optional u64 out_bw_usage;
    22: optional bool ip4_active;
+   23: optional bool is_health_check_active;
+   24: optional list<VmHealthCheckInstance> health_check_instance_list;
 }
 
 /**

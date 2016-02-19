@@ -4387,6 +4387,11 @@ void VmInterface::DeleteHealthCheckInstance(HealthCheckInstance *hc_inst) {
     assert(ret != 0);
 }
 
+const VmInterface::HealthCheckInstanceSet &
+VmInterface::hc_instance_set() const {
+    return hc_instance_set_;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // VRF assign rule routines
 ////////////////////////////////////////////////////////////////////////////
