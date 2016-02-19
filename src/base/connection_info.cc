@@ -71,6 +71,13 @@ void ConnectionState::UpdateInternal(ConnectionType::type ctype,
     ConnectionInfoMap::iterator it = connection_map_.find(key);
     if (it != connection_map_.end()) {
         // Update
+        if (it->second.server_addrs == info.server_addrs &&
+            it->second.status == info.status &&
+            it->second.description == info.description) {
+            // Do not send UVE if there is no change in the server_addrs,
+            // status or description
+            return;
+        }
         it->second = info;
     } else {
         // Add
