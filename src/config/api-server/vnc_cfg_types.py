@@ -378,19 +378,31 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _kvp_to_dict
 
     @classmethod
-    def _check_vrouter_link(cls, kvp_dict, obj_dict, db_conn):
+    def _check_vrouter_link(cls, vmi_data, kvp_dict, obj_dict, db_conn):
         host_id = kvp_dict.get('host_id')
-        vm_refs = obj_dict.get('virtual_machine_refs')
-
-        if (not host_id or not vm_refs or
-            kvp_dict.get('vif_type') != cls.portbindings['VIF_TYPE_HW_VEB']):
+        if not host_id:
             return
+
+        vm_refs = vmi_data.get('virtual_machine_refs')
+        if not vm_refs:
+            vm_refs = obj_dict.get('virtual_machine_refs')
+            if not vm_refs:
+                return
+
         vrouter_fq_name = ['default-global-system-config', host_id]
         vrouter_id = db_conn.fq_name_to_uuid('virtual-router', vrouter_fq_name)
-        cls.server.internal_request_ref_update(
-            'virtual-router', vrouter_id, 'ADD', 'virtual_machine',
-            vm_refs[0]['uuid'])
-        return
+
+        #if virtual_machine_refs is an empty list delete vrouter link
+        if 'virtual_machine_refs' in obj_dict and not obj_dict['virtual_machine_refs']:
+            cls.server.internal_request_ref_update('virtual-router',
+                                    vrouter_id, 'DELETE',
+                                    'virtual_machine',vm_refs[0]['uuid'])
+            return
+
+        cls.server.internal_request_ref_update('virtual-router',
+                               vrouter_id, 'ADD',
+                               'virtual_machine', vm_refs[0]['uuid'])
+
     # end _check_vrouter_link
 
     @classmethod
@@ -482,7 +494,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                              'value': cls.portbindings['VNIC_TYPE_NORMAL']}
                 kvps.append(vnic_type)
 
-            cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
         return True, ""
     # end pre_dbe_create
 
@@ -544,7 +555,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         bindings = read_result.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
         kvp_dict = cls._kvp_to_dict(kvps)
-        old_vnic_type = kvp_dict.get('vnic_type', 'normal')
+        old_vnic_type = kvp_dict.get('vnic_type', cls.portbindings['VNIC_TYPE_NORMAL'])
 
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
@@ -559,7 +570,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
             if (old_vnic_type  != new_vnic_type):
                 return (False, (409, "Vnic_type can not be modified"))
-            cls._check_vrouter_link(kvp_dict, obj_dict, db_conn)
+
+        if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
+            cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
         return True, ""
     # end pre_dbe_update
@@ -573,8 +586,16 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 msg = "Cannot delete vmi with existing ref to sub interface"
                 return (False, (409, msg))
 
+        bindings = obj_dict.get('virtual_machine_interface_bindings')
+        if bindings:
+            kvps = bindings.get('key_value_pair', [])
+            kvp_dict = cls._kvp_to_dict(kvps)
+            delete_dict = {'virtual_machine_refs' : []}
+            cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
+
         return True, ""
     # end pre_dbe_delete
+
 # end class VirtualMachineInterfaceServer
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
