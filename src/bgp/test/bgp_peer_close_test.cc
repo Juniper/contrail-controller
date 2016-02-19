@@ -353,7 +353,6 @@ protected:
     void DeleteAllRoutingInstances();
     void VerifyRoutingInstances();
     void XmppPeerClose();
-    void CallStaleTimer(bool);
     void InitParams();
     void VerifyPeer(BgpServerTest *server, RoutingInstance *rtinstance,
                     BgpNullPeer *npeer, BgpPeerTest *peer);
@@ -818,23 +817,6 @@ void BgpPeerCloseTest::AddPeersWithRoutes(
     VerifyXmppRouteNextHops();
 }
 
-void BgpPeerCloseTest::CallStaleTimer(bool bgp_peers_ready) {
-
-
-    // Invoke stale timer callbacks as evm is not running in this unit test
-    BOOST_FOREACH(BgpNullPeer *peer, peers_) {
-        peer->peer()->IsReady_fnc_ =
-            boost::bind(&BgpPeerCloseTest::IsReady, this, bgp_peers_ready);
-        peer->peer()->peer_close()->close_manager()->StaleTimerCallback();
-    }
-
-    BOOST_FOREACH(BgpXmppChannel *peer, xmpp_peers_) {
-        peer->Peer()->peer_close()->close_manager()->StaleTimerCallback();
-    }
-
-    WaitForIdle();
-}
-
 void BgpPeerCloseTest::XmppPeerClose() {
 
     if (xmpp_close_from_control_node_) {
@@ -987,104 +969,6 @@ TEST_P(BgpPeerCloseTest, DeleteRoutingInstances) {
 
     TASK_UTIL_EXPECT_EQ_MSG(1, server_->routing_instance_mgr()->count(),
         "Waiting for the completion of routing-instances' deletion");
-}
-
-TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStalingAndDelete) {
-    SCOPED_TRACE(__FUNCTION__);
-    InitParams();
-    AddPeersWithRoutes(master_cfg_.get());
-    WaitForIdle();
-    VerifyPeers();
-    VerifyRoutes(n_routes_);
-    VerifyRibOutCreationCompletion();
-
-    SetPeerCloseGraceful(true);
-
-    // Trigger ribin deletes
-    BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-        npeer->peer()->SetAdminState(true);
-    }
-
-    XmppPeerClose();
-
-    //
-    // Wait for xmpp sessions to go down in the server
-    //
-    BOOST_FOREACH(BgpXmppChannel *peer, xmpp_peers_) {
-        TASK_UTIL_EXPECT_FALSE(peer->Peer()->IsReady());
-    }
-
-    CallStaleTimer(false);
-
-    // Assert that all ribins have been deleted correctly
-    WaitForIdle();
-    VerifyPeers();
-    VerifyRoutes(0);
-}
-
-TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStaling) {
-    SCOPED_TRACE(__FUNCTION__);
-    InitParams();
-
-    //
-    // Graceful restart is not supported yet from xmpp agents
-    //
-    AddPeersWithRoutes(master_cfg_.get());
-    WaitForIdle();
-    VerifyPeers();
-    VerifyRoutes(n_routes_);
-    VerifyRibOutCreationCompletion();
-
-    SetPeerCloseGraceful(true);
-
-    // Trigger ribin deletes
-    BOOST_FOREACH(BgpNullPeer *npeer, peers_) { npeer->peer()->Close(); }
-    XmppPeerClose();
-
-    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
-    }
-
-    // Verify that routes are still there (staled)
-    VerifyRoutes(n_routes_);
-    // VerifyXmppRoutes(n_instances_ * n_routes_);
-
-    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        agent->SessionUp();
-    }
-
-    WaitForIdle();
-
-    BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-        TASK_UTIL_EXPECT_TRUE(npeer->peer()->IsReady());
-    }
-
-    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
-    }
-
-    // Feed the routes again - stale flag should be reset now
-    AddAllRoutes();
-
-    WaitForIdle();
-    Subscribe();
-    AddXmppRoutes();
-    WaitForIdle();
-    // VerifyXmppRoutes(n_instances_ * n_routes_);
-
-    // Invoke stale timer callbacks as evm is not running in this unit test
-    CallStaleTimer(true);
-
-    WaitForIdle();
-    VerifyPeers();
-    VerifyRoutes(n_routes_);
-    // VerifyXmppRoutes(n_instances_ * n_routes_);
-
-    SetPeerCloseGraceful(false);
-    UnSubscribe();
-    WaitForIdle();
-    XmppPeerClose();
-    WaitForIdle();
 }
 
 #define COMBINE_PARAMS \

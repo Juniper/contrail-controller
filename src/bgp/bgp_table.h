@@ -114,7 +114,7 @@ public:
 
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
-    void InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
+    bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
                      uint32_t path_id, uint32_t flags, uint32_t label);

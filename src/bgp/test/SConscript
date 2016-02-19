@@ -329,6 +329,10 @@ bgp_xmpp_wready_test = env.UnitTest('bgp_xmpp_wready_test',
                              ['bgp_xmpp_wready_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_wready_test', bgp_xmpp_wready_test)
 
+graceful_restart_test = except_env.UnitTest('graceful_restart_test',
+                                          ['graceful_restart_test.cc'])
+env.Alias('src/bgp:graceful_restart_test', graceful_restart_test)
+
 path_resolver_test = env.UnitTest('path_resolver_test',
                                   ['path_resolver_test.cc'])
 env.Alias('src/bgp:path_resolver_test', path_resolver_test)
@@ -572,6 +576,7 @@ test_suite = [
     bgp_xmpp_rtarget_test,
     bgp_xmpp_test,
     bgp_xmpp_wready_test,
+    graceful_restart_test,
     path_resolver_test1,
     path_resolver_test2,
     ribout_attributes_test,

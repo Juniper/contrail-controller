@@ -91,7 +91,7 @@ public:
     void TimerErrorHandler(std::string name, std::string error);
 
     // Feed session events into the state machine.
-    void OnSessionEvent(TcpSession *session, TcpSession::Event event);
+    virtual void OnSessionEvent(TcpSession *session, TcpSession::Event event);
 
     // Receive Passive Open.
     bool PassiveOpen(XmppSession *session);
@@ -125,6 +125,14 @@ public:
 
     // getters and setters
     XmppConnection *connection() { return connection_; }
+    void set_connection(const XmppConnection *connection) {
+        connection_ = const_cast<XmppConnection *>(connection);
+    }
+    void SwapXmppConnection(XmppStateMachine *other) {
+        XmppConnection *tmp = connection_;
+        connection_ = other->connection_;
+        other->connection_ = tmp;
+    }
     bool IsActiveChannel();
     bool logUVE();
     const char *ChannelType();
@@ -158,6 +166,8 @@ public:
 
     void SendConnectionInfo(XmppConnectionInfo *info, const std::string &event, 
                             const std::string &nextstate = ""); 
+    void ResurrectOldConnection(XmppConnection *connection,
+                                XmppSession *session);
 
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
@@ -166,15 +176,17 @@ public:
     bool OpenTimerCancelled() { return open_timer_->cancelled(); }
     bool HoldTimerCancelled() { return hold_timer_->cancelled(); }
     void AssertOnHoldTimeout();
+    bool HoldTimerExpired();
 
 private:
     friend class XmppStateMachineTest;
 
     bool ConnectTimerExpired();
     bool OpenTimerExpired();
-    bool HoldTimerExpired();
     bool Enqueue(const sc::event_base &ev);
     bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
+    bool ProcessStreamHeaderMessage(XmppSession *session,
+                                    const XmppStanza::XmppMessage *msg);
 
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
     XmppConnection *connection_;
