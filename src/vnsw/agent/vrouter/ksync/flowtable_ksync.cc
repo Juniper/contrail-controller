@@ -28,8 +28,6 @@
 #include <ksync/ksync_types.h>
 #include <vrouter/ksync/agent_ksync_types.h>
 #include <vrouter/ksync/interface_ksync.h>
-#include <vrouter/ksync/nexthop_ksync.h>
-#include <vrouter/ksync/mirror_ksync.h>
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <filter/traffic_action.h>
 #include <vr_types.h>
@@ -124,7 +122,7 @@ void FlowTableKSyncEntry::Reset() {
     trap_flow_ = false;
     old_drop_reason_ = 0;
     ecmp_ = false;
-    nh_ = NULL;
+    src_nh_id_ = NextHopTable::kRpfDiscardIndex;
 }
 
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
@@ -321,13 +319,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (enable_rpf_) {
-            if (nh_) {
-                const NHKSyncEntry *ksync_nh =
-                    static_cast<const NHKSyncEntry *>(nh_.get());
-                req.set_fr_src_nh_index(ksync_nh->nh_id());
-            } else {
-                req.set_fr_src_nh_index(NextHopTable::kRpfDiscardIndex);
-            }
+            req.set_fr_src_nh_index(src_nh_id_);
         } else {
             //Set to discard, vrouter ignores RPF check if
             //nexthop is set to discard
@@ -409,69 +401,23 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
+    uint32_t nh_id = NextHopTable::kRpfDiscardIndex;
     if (flow_entry_->data().nh.get()) {
-        NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-        DBTableBase *table = nh_object->GetDBTable();
-        NHKSyncEntry *nh;
-        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh.get()->
-                GetState(table, nh_object->GetListenerId(table)));
-        if (nh == NULL) {
-            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh.get());
-            nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
-        }
-        if (nh_ != nh) {
-            nh_ = nh;
-            changed = true;
-        }
+        nh_id = flow_entry_->data().nh.get()->id();
+    }
+    if (src_nh_id_ != nh_id) {
+        src_nh_id_ = nh_id;
+        changed = true;
     }
 
     return changed;
 }
 
 KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
-    //Pick NH from flow entry
-    //We should ideally pick it up from ksync entry once
-    //Sync() api gets called before event notify, similar to
-    //netlink DB entry
-    if (flow_entry_->data().nh.get()) {
-        NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-        DBTableBase *table = nh_object->GetDBTable();
-        NHKSyncEntry *nh;
-        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh.get()->
-                GetState(table, nh_object->GetListenerId(table)));
-        if (nh == NULL) {
-            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh.get());
-            nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
-        }
-        if (nh && !nh->IsResolved()) {
-            return nh;
-        }
-    }
-    if (flow_entry_->match_p().action_info.mirror_l.size()) {
-        MirrorKSyncObject *mirror_object =
-            ksync_obj_->ksync()->mirror_ksync_obj();
-        std::vector<MirrorActionSpec>::const_iterator it;
-        it = flow_entry_->match_p().action_info.mirror_l.begin();
-        std::string analyzer1 = (*it).analyzer_name;
-        MirrorKSyncEntry mksync1(mirror_object, analyzer1);
-        MirrorKSyncEntry *mirror1 =
-        static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync1));
-        if (mirror1 && !mirror1->IsResolved()) {
-            return mirror1;
-        }
-        ++it;
-        if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
-            std::string analyzer2 = (*it).analyzer_name;
-            if (analyzer1 != analyzer2) {
-                MirrorKSyncEntry mksync2(mirror_object, analyzer2);
-                MirrorKSyncEntry *mirror2 = static_cast<MirrorKSyncEntry *>
-                    (mirror_object->GetReference(&mksync2));
-                if (mirror2 && !mirror2->IsResolved()) {
-                    return mirror2;
-                }
-            }
-        }
-    }
+    // KSync Flow being triggered from parallel threads due to
+    // table partition doesnot allow safe usage of
+    // UnresolvedReference. Please avoid any dependency handling
+    // for KSync Flow
     return NULL;
 }
 

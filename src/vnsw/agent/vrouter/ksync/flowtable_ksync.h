@@ -21,7 +21,6 @@
 #include <vr_types.h>
 #include <vr_flow.h>
 
-class NHKSyncEntry;
 class FlowTableKSyncObject;
 
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
@@ -68,7 +67,7 @@ private:
     uint16_t old_drop_reason_;
     bool ecmp_;
     bool enable_rpf_;
-    KSyncEntryPtr nh_;
+    uint32_t src_nh_id_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
