@@ -822,6 +822,9 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
                 table, ":ModuleId", header.get_Module(), ttl);
         FieldNamesTableInsert(timestamp,
                 table, ":Source", header.get_Source(), ttl);
+
+        FieldNamesTableInsert(timestamp,
+                "OBJECT:", table, table, ttl);
     }
 }
 
@@ -1067,10 +1070,12 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
     string jsonline(sb.GetString());
 
     uint32_t t1;
+    t1 = (uint32_t)(temp_u64& g_viz_constants.RowTimeInMask);
+
     if ( statName.compare("FieldNames") != 0) {
-	t1 = (uint32_t)(temp_u64& g_viz_constants.RowTimeInMask);
-    } else {
-	t1 = 0;
+        std::string tablename(std::string("StatTable.") + statName + "." + statAttr);
+        FieldNamesTableInsert(ts,
+                    "STAT:", tablename, tablename, ttl);
     }
 
     for (TagMap::const_iterator it = attribs_tag.begin();

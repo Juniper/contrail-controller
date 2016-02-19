@@ -1482,6 +1482,8 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'phy_if_band.out_bandwidth_usage', 'datatype' : 'int', 'index' : false }
         ]
     },
+
+#ifdef BROADVIEW_RECEIVER_SUPPORT
     {
       'display_name' : 'Broadview ingress-port-priority-group',
       'stat_type' : 'PRouterBroadViewInfo',
@@ -1612,6 +1614,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'egressRqeQueue.rqeBufferCount', 'datatype' : 'int','index' : false},
         ]
     },
+#endif //BROADVIEW_RECEIVER_SUPPORT
 ]
 
 const list<query_table> _TABLES = [
