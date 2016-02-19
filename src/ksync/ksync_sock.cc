@@ -341,7 +341,7 @@ bool KSyncSock::BlockingRecv() {
         // BlockingRecv used only during Init and doesnt support bulk messages
         // Use non-bulk version of decoder
         Decoder(data, ctxt);
-        if (ctxt->GetErrno() != 0) {
+        if (ctxt->GetErrno() != 0 && ctxt->GetErrno() != EEXIST) {
             KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", 
                         ctxt->GetErrno(), ":",
                         KSyncEntry::VrouterErrorToString(ctxt->GetErrno()),
@@ -918,7 +918,8 @@ void KSyncBulkSandeshContext::IoContextDone() {
     AgentSandeshContext *sandesh_context = io_context->GetSandeshContext();
 
     sandesh_context->set_ksync_io_ctx(NULL);
-    if (sandesh_context->GetErrno() != 0) {
+    if (sandesh_context->GetErrno() != 0 &&
+        sandesh_context->GetErrno() != EEXIST) {
         io_context->ErrorHandler(sandesh_context->GetErrno());
     }
     io_context->Handler();
