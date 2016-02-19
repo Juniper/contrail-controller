@@ -1012,7 +1012,7 @@ def parse_args(args_str):
         'auth_insecure': True,
         'admin_user': 'user1',
         'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain',
+        'admin_tenant_name': 'admin',
         'certfile': '',
         'keyfile': '',
         'cafile': ''

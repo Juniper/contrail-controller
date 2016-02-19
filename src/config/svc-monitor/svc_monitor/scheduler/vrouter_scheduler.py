@@ -65,7 +65,8 @@ class VRouterScheduler(object):
         vr_list = []
         if self._args.netns_availability_zone:
             az_list = self._nc.oper('availability_zones', 'list',
-                                    'admin', detailed=True)
+                                    self._args.admin_tenant_name,
+                                    detailed=True)
             for az in az_list:
                 if self._args.netns_availability_zone in str(az):
                     for host in az.hosts:
