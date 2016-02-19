@@ -45,7 +45,7 @@ class ConfigEventManager(EventManager):
         self.node_type = "contrail-config"
         self.module = Module.CONFIG_NODE_MGR
         self.module_id = ModuleNames[self.module]
-        self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
+        self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]

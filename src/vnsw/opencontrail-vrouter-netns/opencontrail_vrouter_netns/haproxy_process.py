@@ -83,14 +83,14 @@ def _get_pool_suffix(pool_id):
     return pool_id.split('-')[0]
 
 def _update_supervisor():
-    cmd = "supervisorctl -s unix:///tmp/supervisord_vrouter.sock update"
+    cmd = "supervisorctl -s unix:///var/run/supervisord_vrouter.sock update"
     cmd_list = shlex.split(cmd)
     subprocess.Popen(cmd_list)
 
 def _set_config(pool_id, netns, conf_file):
     pool_suffix = _get_pool_suffix(pool_id)
     program_name = 'lbaas-haproxy-%s' % pool_suffix
-    cmd = "supervisorctl -s unix:///tmp/supervisord_vrouter.sock pid "
+    cmd = "supervisorctl -s unix:///var/run/supervisord_vrouter.sock pid "
     cmd += program_name
     cmd_list = shlex.split(cmd)
     p = subprocess.Popen(cmd_list, stdout=subprocess.PIPE)

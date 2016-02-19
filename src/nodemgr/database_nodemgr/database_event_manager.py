@@ -58,7 +58,7 @@ class DatabaseEventManager(EventManager):
         self.contrail_databases = contrail_databases
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
-        self.supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
+        self.supervisor_serverurl = "unix:///var/run/supervisord_database.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]

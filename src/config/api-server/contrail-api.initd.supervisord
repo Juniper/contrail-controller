@@ -4,8 +4,8 @@
 # description: Juniper Network Virtualization API
 
 processname=`basename ${0}`
-for prs in `supervisorctl -s unix:///tmp/supervisord_config.sock status | grep $processname | awk '{ print $1}'`
+for prs in `supervisorctl -s unix:///var/run/supervisord_config.sock status | grep $processname | awk '{ print $1}'`
 do
- supervisorctl -s unix:///tmp/supervisord_config.sock ${1} $prs
+ supervisorctl -s unix:///var/run/supervisord_config.sock ${1} $prs
 done
 

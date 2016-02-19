@@ -3,4 +3,4 @@
 # chkconfig: 2345 11 01
 # description: Juniper Network Virtualization Vrouter Nodemgr
 
-supervisorctl -s unix:///tmp/supervisord_vrouter.sock ${1} `basename ${0}`
+supervisorctl -s unix:///var/run/supervisord_vrouter.sock ${1} `basename ${0}`

@@ -45,7 +45,7 @@ class ControlEventManager(EventManager):
         self.node_type = "contrail-control"
         self.module = Module.CONTROL_NODE_MGR
         self.module_id = ModuleNames[self.module]
-        self.supervisor_serverurl = "unix:///tmp/supervisord_control.sock"
+        self.supervisor_serverurl = "unix:///var/run/supervisord_control.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]

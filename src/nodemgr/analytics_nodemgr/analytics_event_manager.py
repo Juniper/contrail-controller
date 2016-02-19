@@ -40,7 +40,7 @@ class AnalyticsEventManager(EventManager):
         self.node_type = 'contrail-analytics'
         self.module = Module.ANALYTICS_NODE_MGR
         self.module_id = ModuleNames[self.module]
-        self.supervisor_serverurl = "unix:///tmp/supervisord_analytics.sock"
+        self.supervisor_serverurl = "unix:///var/run/supervisord_analytics.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]
