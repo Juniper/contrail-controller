@@ -62,79 +62,82 @@ public:
         event_(INVALID), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), del_rev_flow_(false), ksync_entry_(NULL), ksync_event_() {
+        gen_id_(0), del_rev_flow_(false), ksync_entry_(NULL), ksync_event_(),
+        ksync_error_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
         gen_id_(0), del_rev_flow_(false), flow_handle_(flow_handle),
-        ksync_entry_(NULL), ksync_event_() {
+        ksync_entry_(NULL), ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, const DBEntry *db_entry) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(db_entry),
         gen_id_(0), del_rev_flow_(false),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(db_entry),
         gen_id_(gen_id), del_rev_flow_(false),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event, const FlowKey &key, bool del_rev_flow) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), flow_key_(key), del_rev_flow_(del_rev_flow),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(Event event, const FlowKey &key, uint32_t flow_handle) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), flow_key_(key), del_rev_flow_(false),
-        flow_handle_(flow_handle), ksync_entry_(NULL), ksync_event_() {
+        flow_handle_(flow_handle), ksync_entry_(NULL), ksync_event_(),
+        ksync_error_(0) {
     }
 
     FlowEvent(Event event, PktInfoPtr pkt_info) :
         event_(event), flow_(NULL), pkt_info_(pkt_info), db_entry_(NULL),
         gen_id_(0), flow_key_(), del_rev_flow_(),
         flow_handle_(FlowEntry::kInvalidFlowHandle),
-        ksync_entry_(NULL), ksync_event_() {
+        ksync_entry_(NULL), ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) :
         event_(KSYNC_EVENT), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), flow_key_(), del_rev_flow_(),
         flow_handle_(FlowEntry::kInvalidFlowHandle),
-        ksync_entry_(entry), ksync_event_(event) {
+        ksync_entry_(entry), ksync_event_(event), ksync_error_(0) {
     }
 
     FlowEvent(KSyncEntry *entry, uint32_t flow_handle) :
         event_(FLOW_HANDLE_UPDATE), flow_(NULL), pkt_info_(),
         db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
-        flow_handle_(flow_handle), ksync_entry_(entry), ksync_event_() {
+        flow_handle_(flow_handle), ksync_entry_(entry), ksync_event_(),
+        ksync_error_(0) {
     }
 
     FlowEvent(KSyncEntry *entry) :
         event_(KSYNC_VROUTER_ERROR), flow_(NULL), pkt_info_(),
         db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
         flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(entry),
-        ksync_event_() {
+        ksync_event_(), ksync_error_(0) {
     }
 
     FlowEvent(const FlowEvent &rhs) :
@@ -142,7 +145,8 @@ public:
         db_entry_(rhs.db_entry_), gen_id_(rhs.gen_id_),
         flow_key_(rhs.flow_key_), del_rev_flow_(rhs.del_rev_flow_),
         flow_handle_(rhs.flow_handle_),
-        ksync_entry_(rhs.ksync_entry_), ksync_event_(rhs.ksync_event_) {
+        ksync_entry_(rhs.ksync_entry_), ksync_event_(rhs.ksync_event_),
+        ksync_error_(0) {
     }
 
     virtual ~FlowEvent() { }
@@ -160,6 +164,9 @@ public:
 
     KSyncEntry *ksync_entry() const { return ksync_entry_.get(); }
     KSyncEntry::KSyncEvent ksync_event() const { return ksync_event_; }
+
+    void set_ksync_error(int error) { ksync_error_ = error; }
+
 private:
     Event event_;
     FlowEntryPtr flow_;
@@ -171,6 +178,7 @@ private:
     uint32_t flow_handle_;
     KSyncEntry::KSyncEntryPtr ksync_entry_;
     KSyncEntry::KSyncEvent ksync_event_;
+    int ksync_error_;
 };
 
 #endif //  __AGENT_FLOW_EVENT_H__
