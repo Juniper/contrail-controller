@@ -57,6 +57,19 @@ public:
 
     typedef std::set<VnStatsPtr, VnStatsCmp> VnStatsSet;
 
+    struct VnAceStats {
+        const std::string ace_uuid;
+        mutable uint64_t count;
+        mutable uint64_t prev_count;
+        VnAceStats(const std::string &ace) : ace_uuid(ace), count(0),
+            prev_count(0) {
+        }
+        bool operator<(const VnAceStats &rhs) const {
+            return ace_uuid < rhs.ace_uuid;
+        }
+    };
+    typedef std::set<VnAceStats> VnAceStatsSet;
+
     VnUveEntry(Agent *agent, const VnEntry *vn);
     VnUveEntry(Agent *agent);
     virtual ~VnUveEntry();
@@ -68,14 +81,17 @@ public:
                          bool only_vrf_stats);
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
                             uint64_t pkts, bool outgoing);
+    void UpdateVnAceStats(const std::string &ace_uuid);
     void ClearInterVnStats();
     virtual void Reset();
     void set_prev_stats_update_time(uint64_t t) { prev_stats_update_time_ = t; }
     uint64_t in_bytes() const { return in_bytes_; }
     uint64_t out_bytes() const { return out_bytes_; }
+    bool FrameVnAceStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
 protected:
     L4PortBitmap port_bitmap_;
     VnStatsSet inter_vn_stats_;
+    VnAceStatsSet ace_stats_;
 
 private:
     bool SetVnPortBitmap(UveVirtualNetworkAgent &uve);
@@ -103,6 +119,7 @@ private:
     uint64_t prev_stats_update_time_;
     uint64_t prev_in_bytes_;
     uint64_t prev_out_bytes_;
+    bool ace_stats_changed_;
     DISALLOW_COPY_AND_ASSIGN(VnUveEntry);
 };
 
