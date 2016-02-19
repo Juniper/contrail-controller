@@ -291,7 +291,8 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
 
 void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev,
                                            FlowExportInfo *info) {
-    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev);
+    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev,
+                                                        info->flow_partition());
     info->set_delete_enqueued(true);
 }
 
