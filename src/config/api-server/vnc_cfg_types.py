@@ -377,6 +377,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return dict((kvp['key'], kvp['value']) for kvp in kvps)
     # end _kvp_to_dict
 
+    @staticmethod
+    def _kvps_to_json(kvps):
+        for kvp in kvps:
+            kvp['value'] = json.dumps(kvp['value'])
+    #end _kvps_to_json
+
+    @staticmethod
+    def _kvps_from_json(kvps):
+        for kvp in kvps:
+            kvp['value'] = json.loads(kvp['value'])
+    #end _kvps_from_json
+
     @classmethod
     def _check_vrouter_link(cls, vmi_data, kvp_dict, obj_dict, db_conn):
         host_id = kvp_dict.get('host_id')
@@ -494,6 +506,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                              'value': cls.portbindings['VNIC_TYPE_NORMAL']}
                 kvps.append(vnic_type)
 
+            cls._kvps_to_json(kvps)
+
         return True, ""
     # end pre_dbe_create
 
@@ -554,6 +568,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         bindings = read_result.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
+        cls._kvps_from_json(kvps)
         kvp_dict = cls._kvp_to_dict(kvps)
         old_vnic_type = kvp_dict.get('vnic_type', cls.portbindings['VNIC_TYPE_NORMAL'])
 
@@ -571,8 +586,14 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             if (old_vnic_type  != new_vnic_type):
                 return (False, (409, "Vnic_type can not be modified"))
 
+
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
+
+        for oper_param in prop_collection_updates or []:
+            if (oper_param['field'] == 'virtual_machine_interface_bindings' and
+                    oper_param['operation'] == 'set'):
+                oper_param['value']['value'] = json.dumps(oper_param['value']['value'])
 
         return True, ""
     # end pre_dbe_update
@@ -589,6 +610,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings')
         if bindings:
             kvps = bindings.get('key_value_pair', [])
+            cls._kvps_from_json(kvps)
             kvp_dict = cls._kvp_to_dict(kvps)
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)

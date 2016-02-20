@@ -2004,7 +2004,9 @@ class DBInterface(object):
         if bindings:
             kvps = bindings.get_key_value_pair()
             for kvp in kvps:
-                port_q_dict['binding:'+kvp.key] = kvp.value
+                port_q_dict['binding:'+kvp.key] = json.loads(kvp.value)
+
+
 
         # 1. upgrade case, port created before bindings prop was
         #    defined on vmi OR
