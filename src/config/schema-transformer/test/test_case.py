@@ -53,28 +53,32 @@ class STTestCase(test_common.TestCase):
         self.vmi_clean(vm_instance)
         self._vnc_lib.virtual_machine_delete(id = vm_instance.uuid)
 
+    def frame_rule_addresses(self, addr):
+        addrs = [addr] if isinstance(addr, dict) else addr
+        rule_kwargs = {}
+        for addr in addrs:
+            if addr["type"] == "vn":
+                vn = addr["value"]
+                rule_kwargs.update({'virtual_network' : vn.get_fq_name_str()})
+            elif addr["type"] == "cidr_list":
+                subnets = []
+                for cidr in addr["value"]:
+                    pfx, pfx_len = cidr.split('/')
+                    subnets.append(SubnetType(pfx, int(pfx_len)))
+                rule_kwargs.update({'subnet_list' : subnets})
+            else:
+                cidr = addr["value"].split('/')
+                pfx = cidr[0]
+                pfx_len = int(cidr[1])
+                rule_kwargs.update({'subnet' : SubnetType(pfx, pfx_len)})
+        rule_addr = AddressType(**rule_kwargs)
+        return rule_addr
+
     def create_network_policy_with_multiple_rules(self, rules):
         pentrys = []
         for rule in rules:
-            src_addr = rule["src"]
-            if src_addr["type"] == "vn":
-                vn = src_addr["value"]
-                addr1 = AddressType(virtual_network=vn.get_fq_name_str())
-            else:
-                cidr = src_addr["value"].split('/')
-                pfx = cidr[0]
-                pfx_len = int(cidr[1])
-                addr1 = AddressType(subnet=SubnetType(pfx, pfx_len))
-
-            dst_addr = rule["dst"]
-            if dst_addr["type"] == "vn":
-                vn = dst_addr["value"]
-                addr2 = AddressType(virtual_network=vn.get_fq_name_str())
-            else:
-                cidr = dst_addr["value"].split('/')
-                pfx = cidr[0]
-                pfx_len = int(cidr[1])
-                addr2 = AddressType(subnet=SubnetType(pfx, pfx_len))
+            addr1 = self.frame_rule_addresses(rule["src"])
+            addr2 = self.frame_rule_addresses(rule["dst"])
             #src_port = rule["src-port"]
             src_port = PortType(-1, 0)
             #dst_port = rule["dst-port"]
