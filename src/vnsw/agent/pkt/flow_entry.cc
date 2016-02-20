@@ -1008,7 +1008,8 @@ void FlowEntry::GetVrfAssignAcl() {
     }
 
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
-        is_flags_set(FlowEntry::Multicast)) {
+        is_flags_set(FlowEntry::Multicast) ||
+        is_flags_set(FlowEntry::BgpRouterService)) {
         return;
     }
 
@@ -1037,7 +1038,8 @@ void FlowEntry::GetVrfAssignAcl() {
 void FlowEntry::GetSgList(const Interface *intf) {
     // Dont apply network-policy for linklocal and multicast flows
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
-        is_flags_set(FlowEntry::Multicast)) {
+        is_flags_set(FlowEntry::Multicast) ||
+        is_flags_set(FlowEntry::BgpRouterService)) {
         return;
     }
 
