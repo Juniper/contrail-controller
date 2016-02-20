@@ -1184,9 +1184,11 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
          //case of remote route add from CN), mpls label ahs been re-used for
          //some other purpose. If it is so then ignore the request and wait for
          //another update.
-         if (component_nh_key->nh_key() !=
-             static_cast<const NextHopKey *>(mpls->nexthop()->
-                                             GetDBRequestKey().release())) {
+         const NextHopKey *nh_key_1 = component_nh_key->nh_key();
+         const NextHopKey *nh_key_2 =
+             static_cast<const NextHopKey*>(mpls->nexthop()->
+                                      GetDBRequestKey().release());
+         if (nh_key_1->IsEqual(*nh_key_2) == false) {
              return false;
          }
          break;
