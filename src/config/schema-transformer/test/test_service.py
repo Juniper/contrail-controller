@@ -178,6 +178,27 @@ class TestPolicy(test_case.STTestCase):
                 raise Exception('ri_ref found from %s to %s' % (fq_name, to_fq_name))
 
     @retries(5)
+    def check_default_ri_rtgt_imported(self, fq_name, service_ri_fq_name):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        service_ri = self._vnc_lib.routing_instance_read(service_ri_fq_name)
+        to_fq_names = [rt_ref['to'] for rt_ref in service_ri.get_route_target_refs()]
+        for rt_ref in ri.get_route_target_refs() or []:
+            if rt_ref['to'] in to_fq_names:
+                return
+        raise Exception('%s not imported to service_ri:%s ' % (rt_ref['to'],
+                    service_ri_fq_name))
+
+    @retries(5)
+    def check_default_ri_rtgt_not_imported(self, fq_name, service_ri_fq_name):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        service_ri = self._vnc_lib.routing_instance_read(service_ri_fq_name)
+        to_fq_names = [rt_ref['to'] for rt_ref in service_ri.get_route_target_refs()]
+        for rt_ref in ri.get_route_target_refs() or []:
+            if rt_ref['to'] in to_fq_names:
+                raise Exception('%s imported to service_ri:%s ' % (rt_ref['to'],
+                    service_ri_fq_name))
+
+    @retries(5)
     def check_ri_refs_are_deleted(self, fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         ri_refs = ri.get_routing_instance_refs()
@@ -655,8 +676,12 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
         self.check_ri_ref_not_present(self.get_ri_name(vn1_obj),
                                       self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_default_ri_rtgt_imported(self.get_ri_name(vn1_obj),
+                self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_not_present(self.get_ri_name(vn2_obj),
                                   self.get_ri_name(vn2_obj, sc_ri_name))
+        self.check_default_ri_rtgt_imported(self.get_ri_name(vn2_obj),
+                self.get_ri_name(vn2_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
 
@@ -664,8 +689,12 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_default_ri_rtgt_not_imported(self.get_ri_name(vn1_obj),
+                self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj),
                                   self.get_ri_name(vn2_obj, sc_ri_name))
+        self.check_default_ri_rtgt_not_imported(self.get_ri_name(vn2_obj),
+                self.get_ri_name(vn2_obj, sc_ri_name))
         self.check_ri_ref_not_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
 
@@ -1031,8 +1060,12 @@ class TestPolicy(test_case.STTestCase):
             sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
             self.check_ri_ref_not_present(self.get_ri_name(vn1_obj),
                                           self.get_ri_name(vn1_obj, sc_ri_name))
+            self.check_default_ri_rtgt_imported(self.get_ri_name(vn1_obj),
+                                    self.get_ri_name(vn1_obj, sc_ri_name))
             self.check_ri_ref_not_present(self.get_ri_name(vn2_obj),
                                           self.get_ri_name(vn2_obj, sc_ri_name))
+            self.check_default_ri_rtgt_imported(self.get_ri_name(vn2_obj),
+                                    self.get_ri_name(vn2_obj, sc_ri_name))
             self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                       self.get_ri_name(vn2_obj))
 
