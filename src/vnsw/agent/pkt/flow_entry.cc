@@ -113,7 +113,7 @@ VmFlowRef:: ~VmFlowRef() {
 
 void VmFlowRef::operator=(const VmFlowRef &rhs) {
     // When flow is evicted by vrouter, reuse the older fd and port
-    FreeFd();
+    Reset();
     fd_ = rhs.fd_;
     port_ = rhs.port_;
     SetVm(rhs.vm_.get());
