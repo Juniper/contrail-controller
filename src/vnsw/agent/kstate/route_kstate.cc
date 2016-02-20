@@ -19,6 +19,7 @@ void RouteKState::InitEncoder(vr_route_req &req, int id) const {
     req.set_rtr_family(AF_INET);
     req.set_rtr_vrf_id(id);
     req.set_rtr_rid(0);
+    req.set_rtr_prefix_len(0);
     /* Only dump is supported */
     req.set_h_op(sandesh_op::DUMP);
 }
@@ -51,6 +52,10 @@ void RouteKState::SendNextRequest() {
     InitEncoder(req, rctx->vrf_id);
     req.set_rtr_marker(rctx->marker);
     req.set_rtr_marker_plen(rctx->marker_plen);
+    // rtr_prefix needs to be initialized
+    int arr_prefix[4] = {0, 0, 0, 0};
+    std::vector<int8_t> prefix(arr_prefix, arr_prefix + sizeof(arr_prefix) / sizeof(arr_prefix[0]));
+    req.set_rtr_prefix(prefix);
     EncodeAndSend(req);
 }
 
