@@ -14,7 +14,7 @@ public:
     virtual void SendNextRequest();
     const std::string TypeToString(int type) const;
     const std::string FamilyToString(int family) const;
-    const std::string FlagsToString(short flags) const;
+    const std::string FlagsToString(uint32_t flags) const;
     const std::string EncapFamilyToString(int family) const;
     const std::string EncapToString(const std::vector<signed char> &encap) const;
     void SetComponentNH(vr_nexthop_req *req, KNHInfo &info);

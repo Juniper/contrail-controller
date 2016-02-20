@@ -649,6 +649,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint32_t intf_id = kInvalidIndex;
     std::vector<int8_t> encap;
     InterfaceKSyncEntry *if_ksync = NULL;
+    Agent *agent = ksync_obj_->ksync()->agent();
 
     encoder.set_h_op(op);
     encoder.set_nhr_id(nh_id());
@@ -746,6 +747,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             SetEncap(NULL,encap);
             encoder.set_nhr_encap(encap);
             flags |= NH_FLAG_TUNNEL_UDP;
+            if (vrf_id_ != agent->fabric_vrf()->vrf_id()) {
+                flags |= NH_FLAG_TUNNEL_SIP_COPY;
+            }
             break;
 
         case NextHop::L2_RECEIVE:
