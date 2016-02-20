@@ -29,7 +29,8 @@ class VrouterProvisioner(object):
                     self._args.admin_tenant_name,
                     self._args.api_server_ip,
                     self._args.api_server_port, '/',
-                    auth_host=self._args.openstack_ip)
+                    auth_host=self._args.openstack_ip,
+                    api_server_use_ssl=self._args.api_server_use_ssl)
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
                 if tries < 10:
@@ -63,6 +64,7 @@ class VrouterProvisioner(object):
                                         --host_ip 10.1.1.1
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
+                                        --api_server_use_ssl False
                                         --oper <add | del>
                                         [--dpdk-enabled]
         '''
@@ -78,6 +80,7 @@ class VrouterProvisioner(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
             'control_names': [],
             'router_type': None,
@@ -118,6 +121,8 @@ class VrouterProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument("--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
