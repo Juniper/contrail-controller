@@ -228,7 +228,7 @@ VnswInterfaceListenerLinux::HandleNetlinkRouteMsg(struct nlmsghdr *nlh) {
             << (uint32_t)rtm->rtm_family
             << " table " << (uint32_t)rtm->rtm_table
             << " type " << (uint32_t)rtm->rtm_type
-            << " scope " << (uint32_t)rtm->rtm_family);
+            << " scope " << (uint32_t)rtm->rtm_scope);
         return NULL;
     }
 
@@ -264,7 +264,8 @@ VnswInterfaceListenerLinux::HandleNetlinkRouteMsg(struct nlmsghdr *nlh) {
     Ip4Address gw_addr((unsigned long)ntohl(gw_ip));
     LOG(DEBUG, "Handle netlink route message "
         << NetlinkTypeToString(nlh->nlmsg_type)
-        << " : " << dst_addr.to_string() << "/" << rtm->rtm_dst_len
+        << " : " << dst_addr.to_string() << "/"
+        << (unsigned short)rtm->rtm_dst_len
         << " Interface " << name << " GW " << gw_addr.to_string());
 
     Event::Type type;
