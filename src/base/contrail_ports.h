@@ -54,6 +54,10 @@ public:
     static const uint16_t AnalyzerUdpPort();
     static const uint16_t NovaVifVrouterAgentPort();
     static const uint16_t PortIpcVrouterAgentPort();
+    static const uint16_t MetadataProxyVrouterAgentPort();
+    static const uint16_t VrouterAgentMirrorClientUdpPort();
+    static const uint16_t VrouterAgentDnsClientUdpPort();
+    static const uint16_t ContrailDnsClientUdpPort();
 
 private:
     ContrailPorts() {}

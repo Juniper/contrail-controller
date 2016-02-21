@@ -40,6 +40,7 @@ void DnsProto::ConfigInit() {
                                   server, agent()->dns_server_port(i)));
     }
     BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
+                       ContrailPorts::VrouterAgentDnsClientUdpPort(),
                        boost::bind(&DnsProto::SendDnsIpc, this, _1));
 }
 

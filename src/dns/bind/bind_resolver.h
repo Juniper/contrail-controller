@@ -26,13 +26,15 @@ public:
     };
 
     BindResolver(boost::asio::io_service &io, 
-                 const std::vector<DnsServer> &dns_servers, Callback cb);
+                 const std::vector<DnsServer> &dns_servers,
+                 uint16_t client_port, Callback cb);
     virtual ~BindResolver();
     void SetupResolver(const DnsServer &server, uint8_t idx);
     bool DnsSend(uint8_t *pkt, unsigned int dns_srv_index, std::size_t len);
 
     static void Init(boost::asio::io_service &io,
-                     const std::vector<DnsServer> &dns_servers, Callback cb);
+                     const std::vector<DnsServer> &dns_servers,
+                     uint16_t client_port, Callback cb);
     static void Shutdown();
     static BindResolver *Resolver() { return resolver_; }
 

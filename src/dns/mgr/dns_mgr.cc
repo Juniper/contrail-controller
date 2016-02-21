@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <base/contrail_ports.h>
 #include <cmn/dns.h>
 #include <bind/bind_util.h>
 #include <mgr/dns_mgr.h>
@@ -20,6 +21,7 @@ DnsManager::DnsManager()
     bind_servers.push_back(BindResolver::DnsServer("127.0.0.1",
                                                    Dns::GetDnsPort()));
     BindResolver::Init(*Dns::GetEventManager()->io_service(), bind_servers,
+                       ContrailPorts::ContrailDnsClientUdpPort(),
                        boost::bind(&DnsManager::HandleUpdateResponse,
                                    this, _1));
 
