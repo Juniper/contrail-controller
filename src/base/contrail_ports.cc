@@ -163,3 +163,19 @@ const uint16_t ContrailPorts::NovaVifVrouterAgentPort() {
 const uint16_t ContrailPorts::PortIpcVrouterAgentPort() {
     return VnsPorts().PortIpcVrouterAgentPort;
 }
+
+const uint16_t ContrailPorts::MetadataProxyVrouterAgentPort() {
+    return VnsPorts().MetadataProxyVrouterAgentPort;
+}
+
+const uint16_t ContrailPorts::VrouterAgentMirrorClientUdpPort() {
+    return VnsPorts().VrouterAgentMirrorClientUdpPort;
+}
+
+const uint16_t ContrailPorts::VrouterAgentDnsClientUdpPort() {
+    return VnsPorts().VrouterAgentDnsClientUdpPort;
+}
+
+const uint16_t ContrailPorts::ContrailDnsClientUdpPort() {
+    return VnsPorts().ContrailDnsClientUdpPort;
+}

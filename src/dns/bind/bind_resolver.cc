@@ -10,9 +10,9 @@ BindResolver *BindResolver::resolver_;
 
 void BindResolver::Init(boost::asio::io_service &io,
                         const std::vector<DnsServer> &dns_servers,
-                        Callback cb) {
+                        uint16_t client_port, Callback cb) {
     assert(resolver_ == NULL);
-    resolver_ = new BindResolver(io, dns_servers, cb);
+    resolver_ = new BindResolver(io, dns_servers, client_port, cb);
 }
 
 void BindResolver::Shutdown() {
@@ -24,7 +24,7 @@ void BindResolver::Shutdown() {
 
 BindResolver::BindResolver(boost::asio::io_service &io,
                            const std::vector<DnsServer> &dns_servers,
-                           Callback cb)
+                           uint16_t client_port, Callback cb)
                : pkt_buf_(NULL), cb_(cb), sock_(io) {
 
     boost::system::error_code ec;
@@ -41,7 +41,8 @@ BindResolver::BindResolver(boost::asio::io_service &io,
     }
 
     boost::asio::ip::udp::endpoint local_ep(boost::asio::ip::address::
-                                            from_string("0.0.0.0", ec), 0);
+                                            from_string("0.0.0.0", ec),
+                                            client_port);
     sock_.open(boost::asio::ip::udp::v4(), ec);
     assert(ec.value() == 0);
     sock_.bind(local_ep, ec);
@@ -53,8 +54,10 @@ BindResolver::~BindResolver() {
     boost::system::error_code ec;
     sock_.cancel(ec);
     sock_.close(ec);
-    for (unsigned int i = 0; i < dns_ep_.size(); ++i)
+    for (unsigned int i = 0; i < dns_ep_.size(); ++i) {
         delete dns_ep_[i];
+        dns_ep_[i] = NULL;
+    }
     resolver_ = NULL;
     if (pkt_buf_) delete [] pkt_buf_;
 }
