@@ -90,7 +90,7 @@ class SchemaTransformer(object):
             'service_instance': ['virtual_machine_interface']
         },
         'service_instance': {
-            'self': ['network_policy'],
+            'self': ['network_policy', 'virtual_machine', 'port_tuple'],
             'routing_policy': ['network_policy'],
             'route_aggregate': ['network_policy'],
             'virtual_machine': ['network_policy'],
