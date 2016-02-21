@@ -524,8 +524,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     EXPECT_TRUE(f2 != NULL);
     FlowEntry *f2_rev = f2->reverse_flow_entry();
     EXPECT_TRUE(f2_rev != NULL);
-    FlowExportInfo *info = col_->FindFlowExportInfo(f2->key());
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(f2_rev->key());
+    FlowExportInfo *info = col_->FindFlowExportInfo(f2->uuid());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -546,8 +546,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2->key());
-    rinfo = col_->FindFlowExportInfo(f2_rev->key());
+    info = col_->FindFlowExportInfo(f2->uuid());
+    rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify flow TCP flags
@@ -562,8 +562,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2->key());
-    rinfo = col_->FindFlowExportInfo(f2_rev->key());
+    info = col_->FindFlowExportInfo(f2->uuid());
+    rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify the updated flow TCP flags
@@ -893,8 +893,8 @@ TEST_F(StatsTestMock, Underlay_1) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->uuid());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -936,8 +936,8 @@ TEST_F(StatsTestMock, Underlay_2) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->uuid());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -980,8 +980,8 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe->key());
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->key());
+    FlowExportInfo *info = col_->FindFlowExportInfo(fe->uuid());
+    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     client->WaitForIdle();

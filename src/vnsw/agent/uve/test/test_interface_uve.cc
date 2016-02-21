@@ -697,8 +697,8 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -758,8 +758,8 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -823,8 +823,8 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -909,8 +909,8 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     EXPECT_TRUE(FlowGet(VrfGet("vrf7")->vrf_id(), vm_b_ip, vm_c_fip1, 1, 0, 0,
                         rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -995,8 +995,8 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm_fip, vm1_fip, 1, 0, 0,
                         rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->key());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->key());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
