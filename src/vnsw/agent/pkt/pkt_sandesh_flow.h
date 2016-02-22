@@ -15,14 +15,13 @@ public:
     static const int kMaxFlowResponse = 100;
     static const char kDelimiter = '-';
     static const std::string start_key;
-
     PktSandeshFlow(Agent *agent, FlowRecordsResp *obj, std::string resp_ctx,
                    std::string key);
     virtual ~PktSandeshFlow();
 
     void SendResponse(SandeshResponse *resp);
     bool SetFlowKey(std::string key);
-    static std::string GetFlowKey(const FlowKey &key);
+    static std::string GetFlowKey(const FlowKey &key, uint16_t task_id);
     
     virtual bool Run();
     std::string Description() const { return "PktSandeshFlow"; }
@@ -37,6 +36,7 @@ protected:
     bool key_valid_;
     bool delete_op_;
     Agent *agent_;
+    uint16_t task_id_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(PktSandeshFlow);

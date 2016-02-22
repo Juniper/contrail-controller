@@ -95,7 +95,7 @@ using boost::system::error_code;
        data.set_aging_port(fe->fsc()->flow_aging_key().port);\
     }\
 
-const std::string PktSandeshFlow::start_key = "0-0-0-0-0.0.0.0-0.0.0.0";
+const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -223,10 +223,11 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
 ////////////////////////////////////////////////////////////////////////////////
 
 PktSandeshFlow::PktSandeshFlow(Agent *agent, FlowRecordsResp *obj,
-                               std::string resp_ctx, std::string key) :
+                               std::string resp_ctx, std::string key):
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::PktFlowResponder")),
           0), resp_obj_(obj), resp_data_(resp_ctx), 
-    flow_iteration_key_(), key_valid_(false), delete_op_(false), agent_(agent) {
+    flow_iteration_key_(), key_valid_(false), delete_op_(false), agent_(agent),
+    task_id_(0) {
     if (key != agent_->NullString()) {
         if (SetFlowKey(key)) {
             key_valid_ = true;
@@ -250,12 +251,13 @@ void PktSandeshFlow::SendResponse(SandeshResponse *resp) {
     resp->Response();
 }
 
-string PktSandeshFlow::GetFlowKey(const FlowKey &key) {
+string PktSandeshFlow::GetFlowKey(const FlowKey &key, uint16_t task_id) {
     stringstream ss;
     ss << key.nh << kDelimiter;
     ss << key.src_port << kDelimiter;
     ss << key.dst_port << kDelimiter;
     ss << (uint16_t)key.protocol << kDelimiter;
+    ss << task_id << kDelimiter;
     ss << key.src_addr.to_string() << kDelimiter;
     ss << key.dst_addr.to_string();
     return ss.str();
@@ -264,7 +266,7 @@ string PktSandeshFlow::GetFlowKey(const FlowKey &key) {
 bool PktSandeshFlow::SetFlowKey(string key) {
     const char ch = kDelimiter;
     size_t n = std::count(key.begin(), key.end(), ch);
-    if (n != 5) {
+    if (n != 6) {
         return false;
     }
     stringstream ss(key);
@@ -283,12 +285,14 @@ bool PktSandeshFlow::SetFlowKey(string key) {
         istringstream(item) >> proto;
     }
     if (getline(ss, item, ch)) {
+        istringstream(item) >> task_id_;
+    }
+    if (getline(ss, item, ch)) {
         sip = item;
     }
     if (getline(ss, item, ch)) {
         dip = item;
     }
-
     error_code ec;
     flow_iteration_key_.src_addr = IpAddress::from_string(sip.c_str(), ec);
     flow_iteration_key_.dst_addr = IpAddress::from_string(dip.c_str(), ec);
@@ -308,21 +312,26 @@ bool PktSandeshFlow::Run() {
         const_cast<std::vector<SandeshFlowData>&>(resp_obj_->get_flow_list());
     int count = 0;
     bool flow_key_set = false;
-    FlowTable *flow_obj = agent_->pkt()->flow_table(0);
+    
+    if (task_id_ >= agent_->flow_thread_count()) {
+        FlowErrorResp *resp = new FlowErrorResp();
+        SendResponse(resp);
+        return true;
+    } 
+
+    FlowTable *flow_obj = agent_->pkt()->flow_table(task_id_);
 
     if (delete_op_) {
-        flow_obj->DeleteAll();
+        for (int i =0; i < agent_->flow_thread_count(); i++){
+            flow_obj = agent_->pkt()->flow_table(i);
+            flow_obj->DeleteAll();
+        }
         SendResponse(resp_obj_);
         return true;
     }
 
-    if (key_valid_) {
-        it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
-    } else {
-        FlowErrorResp *resp = new FlowErrorResp();
-        SendResponse(resp);
-        return true;
-    }
+    it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
+
     FlowStatsCollector *fec =
         agent_->flow_stats_manager()->default_flow_stats_collector();
     while (it != flow_obj->flow_entry_map_.end()) {
@@ -333,15 +342,24 @@ bool PktSandeshFlow::Run() {
         count++;
         if (count == kMaxFlowResponse) {
             if (it != flow_obj->flow_entry_map_.end()) {
-                resp_obj_->set_flow_key(GetFlowKey(fe->key()));
+                resp_obj_->set_flow_key(GetFlowKey(fe->key(), task_id_));
                 flow_key_set = true;
-            }
+
+            } 
             break;
         }
     }
+
     if (!flow_key_set) {
-        resp_obj_->set_flow_key(PktSandeshFlow::start_key);
-    }
+        if (++task_id_ < agent_->flow_thread_count()) {
+            FlowKey key;
+            memset (&key, 0, sizeof(FlowKey));
+            resp_obj_->set_flow_key(GetFlowKey(key, task_id_));
+        } else { 
+            resp_obj_->set_flow_key(PktSandeshFlow::start_key);
+        }
+    } 
+
     SendResponse(resp_obj_);
     return true;
 }
@@ -380,6 +398,8 @@ void DeleteAllFlowRecords::HandleRequest() const {
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     Agent *agent = Agent::GetInstance();
+    FlowTable *flow_obj;
+    
     key.nh = get_nh();
     error_code ec;
     key.src_addr = IpAddress::from_string(get_sip(), ec);
@@ -394,12 +414,16 @@ void FetchFlowRecord::HandleRequest() const {
     key.protocol = get_protocol();
 
     FlowTable::FlowEntryMap::iterator it;
-    FlowTable *flow_obj = agent->pkt()->flow_table(0);
-    FlowStatsCollector *fec =
-        agent->flow_stats_manager()->default_flow_stats_collector();
-    it = flow_obj->flow_entry_map_.find(key);
-    SandeshResponse *resp;
-    if (it != flow_obj->flow_entry_map_.end()) {
+    for (int i = 0; i < agent->flow_thread_count(); i++) {
+        flow_obj = agent->pkt()->flow_table(i);
+        it = flow_obj->flow_entry_map_.find(key);
+        if (it != flow_obj->flow_entry_map_.end())
+            break;
+    }   
+       FlowStatsCollector *fec = 
+           agent->flow_stats_manager()->default_flow_stats_collector();
+     SandeshResponse *resp;
+     if (it != flow_obj->flow_entry_map_.end()) {
         FlowRecordResp *flow_resp = new FlowRecordResp();
         FlowEntry *fe = it->second;
         FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
@@ -407,9 +431,9 @@ void FetchFlowRecord::HandleRequest() const {
         SET_SANDESH_FLOW_DATA(agent, data, fe, info);
         flow_resp->set_record(data);
         resp = flow_resp;
-    } else {
+        } else {
         resp = new FlowErrorResp();
-    }
+        }         
     resp->set_context(context());
     resp->set_more(false);
     resp->Response();
@@ -476,7 +500,13 @@ bool PktSandeshFlowStats::Run() {
     int count = 0;
     bool flow_key_set = false;
 
-    FlowTable *flow_obj = agent_->pkt()->flow_table(0);
+    if (task_id_ > agent_->flow_thread_count()) {
+        FlowErrorResp *resp = new FlowErrorResp();
+        SendResponse(resp);
+        return true;
+    } 
+
+    FlowTable *flow_obj = agent_->pkt()->flow_table(task_id_);
     FlowStatsManager *fm = agent_->flow_stats_manager();
     const FlowStatsCollector *fsc = fm->Find(proto_, port_);
     if (!fsc) {
@@ -486,14 +516,8 @@ bool PktSandeshFlowStats::Run() {
     }
 
     FlowTable::FlowEntryMap::iterator it;
-    if (key_valid_) {
-        it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
-    } else {
-        FlowErrorResp *resp = new FlowErrorResp();
-        SendResponse(resp);
-        return true;
-    }
- 
+    it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
+    
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
         const FlowExportInfo *info = fsc->FindFlowExportInfo(fe->key());
@@ -504,18 +528,27 @@ bool PktSandeshFlowStats::Run() {
             if (it != flow_obj->flow_entry_map_.end()) {
                 ostringstream ostr;
                 ostr << proto_ << ":" << port_ << ":"
-                    << GetFlowKey(fe->key());
+                    << GetFlowKey(fe->key(), task_id_);
                 resp_->set_flow_key(ostr.str());
                 flow_key_set = true;
-            }
+            } 
             break;
         }
     }
 
     if (!flow_key_set) {
-        ostringstream ostr;
-        ostr << proto_ << ":" << port_ << ":" << "0x0";
-        resp_->set_flow_key(ostr.str());
+        if ( ++task_id_ < agent_->flow_thread_count()) {
+             FlowKey key;
+             ostringstream ostr;
+             memset (&key, 0, sizeof(FlowKey));
+             ostr << proto_ << ":" << port_ << ":"
+                  << GetFlowKey(key, task_id_);
+            resp_->set_flow_key(ostr.str());
+        } else {
+            ostringstream ostr;
+            ostr << proto_ << ":" << port_ << ":" << "0x0";
+            resp_->set_flow_key(ostr.str());
+        } 
     }
     SendResponse(resp_);
     return true;
