@@ -401,8 +401,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.logical_interface = None
         self.instance_ips = set()
         self.floating_ips = set()
-        self.interface_route_table = None
-        self.service_health_check = None
+        self.interface_route_tables = set()
+        self.service_health_checks = set()
         self.security_groups = set()
         self.service_instance = None
         self.instance_id = None
@@ -432,8 +432,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('virtual_machine', obj)
         self.update_single_ref('logical_interface', obj)
-        self.update_single_ref('interface_route_table', obj)
-        self.update_single_ref('service_health_check', obj)
+        self.update_multiple_refs('interface_route_table', obj)
+        self.update_multiple_refs('service_health_check', obj)
         self.update_single_ref('physical_interface',obj)
         self.update_multiple_refs('security_group', obj)
         self.update_single_ref('port_tuple', obj)
@@ -457,8 +457,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('virtual_machine', {})
         obj.update_single_ref('logical_interface', {})
-        obj.update_single_ref('interface_route_table', {})
-        obj.update_single_ref('service_health_check', {})
+        obj.update_multiple_refs('interface_route_table', {})
+        obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('security_group', {})
         obj.update_single_ref('port_tuple', {})
         obj.remove_from_parent()
@@ -540,10 +540,6 @@ class ServiceInstanceSM(DBBaseSM):
         return obj
     # end update
 
-    def evaluate(self):
-        self.state = 'launch'
-        self._manager.create_service_instance(self)
-
     def check_vn_changes(self, obj):
         self.vn_changed = False
         if not self.params or not obj.get('service_instance_properties'):
@@ -581,6 +577,14 @@ class ServiceInstanceSM(DBBaseSM):
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
+
+    def evaluate(self):
+        self.state = 'launch'
+        self._manager.create_service_instance(self)
+
+        for pt_id in self.port_tuples:
+            self._manager.port_tuple_agent.update_port_tuple(pt_id=pt_id)
+
 # end class ServiceInstanceSM
 
 
@@ -963,6 +967,8 @@ class InterfaceRouteTableSM(DBBaseSM):
         self.virtual_machine_interfaces = set()
         self.service_instance = None
         self.service_interface_tag = None
+        self.si_uuid = None
+        self.if_type = None
         self.update(obj_dict)
     # end __init__
 
@@ -976,6 +982,10 @@ class InterfaceRouteTableSM(DBBaseSM):
         ref_attr = self.get_single_ref_attr('service_instance', obj)
         if ref_attr:
             self.service_interface_tag = ref_attr['interface_type']
+        name_split = self.name.split(' ')
+        if len(name_split) == 2:
+            self.si_uuid = name_split[0]
+            self.if_type = name_split[1]
     # end update
 
     @classmethod
@@ -989,8 +999,9 @@ class InterfaceRouteTableSM(DBBaseSM):
     # end delete
 
     def evaluate(self):
-        if not len(self.virtual_machine_interfaces):
+        if self.si_uuid and not len(self.virtual_machine_interfaces):
             self._manager.delete_interface_route_table(self.uuid)
+
 # end InterfaceRouteTableSM
 
 
@@ -1158,6 +1169,9 @@ class PortTupleSM(DBBaseSM):
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
+
+    def evaluate(self):
+        self._manager.port_tuple_agent.update_port_tuple(pt_id=self.uuid)
 # end PortTupleSM
 
 class ServiceHealthCheckSM(DBBaseSM):
@@ -1166,6 +1180,7 @@ class ServiceHealthCheckSM(DBBaseSM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.virtual_machine_interfaces = set()
         self.service_instance = None
         self.service_interface_tag = None
         self.update(obj_dict)
@@ -1176,6 +1191,7 @@ class ServiceHealthCheckSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.parent_uuid = obj['parent_uuid']
         self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_single_ref('service_instance', obj)
         ref_attr = self.get_single_ref_attr('service_instance', obj)
         if ref_attr:
@@ -1188,6 +1204,7 @@ class ServiceHealthCheckSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('service_instance', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 # end ServiceHealthCheckSM

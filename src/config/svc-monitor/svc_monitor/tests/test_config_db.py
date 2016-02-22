@@ -430,7 +430,7 @@ class ConfigDBTest(unittest.TestCase):
         self.assertIsNotNone(vmi)
         self.assertIsNotNone(irt)
         self.assertEqual(len(irt.virtual_machine_interfaces), 1)
-        self.assertEqual(vmi.interface_route_table, 'irt')
+        self.assertEqual(vmi.interface_route_tables, set(['irt']))
 
         config_db.InterfaceRouteTableSM.delete('irt')
         config_db.VirtualMachineInterfaceSM.delete('vmi')
