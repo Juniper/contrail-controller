@@ -101,7 +101,6 @@ public:
 
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
-
                 //Delete the complete directory
                 std::stringstream cfg_path;
                 cfg_path <<

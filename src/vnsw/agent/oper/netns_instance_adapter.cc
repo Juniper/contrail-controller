@@ -39,9 +39,9 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
         cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
             << "/conf.json";
         cmd_str << props.IdToCmdLineStr();
-        if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
-            cmd_str << " --keystone-auth-cfg-file " <<
-                agent_->params()->si_lb_keystone_auth_conf_path();
+        if (!agent_->params()->si_lb_custom_attr_conf_path().empty()) {
+            cmd_str << " --custom-attr-cfg-file " <<
+                agent_->params()->si_lb_custom_attr_conf_path();
         }
     }
 
