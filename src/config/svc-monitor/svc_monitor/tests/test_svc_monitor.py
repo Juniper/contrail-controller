@@ -1034,7 +1034,7 @@ class SvcMonitorTest(unittest.TestCase):
         project = self.add_project('fake-project', 'fake-project')
         net_obj = self.add_vn('left-vn', 'left-vn', project)
         vmi_obj = self.add_vmi('left-vmi', 'left-vmi', project, net_obj)
-        irt_obj = self.add_irt('fake-irt', 'fake-irt')
+        irt_obj = self.add_irt('fake-si-uuid left', 'fake-irt')
         vmi = config_db.VirtualMachineInterfaceSM.get('left-vmi')
         vmi.interface_route_table = 'fake-irt'
 

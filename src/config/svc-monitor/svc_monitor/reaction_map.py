@@ -41,7 +41,9 @@ REACTION_MAP = {
         'loadbalancer_pool': [],
         'virtual_machine': [],
         'port_tuple': [],
-        'virtual_machine_interface' : []
+        'virtual_machine_interface' : [],
+        'service_health_check': [],
+        'interface_route_table': [],
     },
     "instance_ip": {
         'self': [],
@@ -81,20 +83,29 @@ REACTION_MAP = {
         'self': ['virtual_machine_interface'],
         'service_instance': [],
         'virtual_machine_interface': [],
+        'service_health_check': [],
+        'interface_route_table': [],
     },
     "virtual_machine_interface": {
         'self': ['interface_route_table', 'virtual_machine',
                  'port_tuple', 'security_group',
-                 'instance_ip'],
+                 'instance_ip', 'service_health_check'],
         'interface_route_table': [],
+        'service_health_check': [],
         'security_group': [],
         'virtual_machine': [],
         'port_tuple': ['physical_interface', 'instance_ip'],
         'physical_interface': ['service_instance']
     },
     "interface_route_table": {
-        'self': [],
+        'self': ['service_instance'],
         'virtual_machine_interface': [],
+        'service_instance': [],
+    },
+    "service_health_check": {
+        'self': ['service_instance'],
+        'virtual_machine_interface': [],
+        'service_instance': [],
     },
     "project": {
         'self': [],
