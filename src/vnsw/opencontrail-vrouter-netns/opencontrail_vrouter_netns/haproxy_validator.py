@@ -1,8 +1,14 @@
 import logging
 import inspect
-from haproxy_cert import Barbican_Cert_Manager
+import ConfigParser
+import keystone_auth
 import os
+import sys
+import haproxy_cert
+import six
+import abc
 
+@six.add_metaclass(abc.ABCMeta)
 class CustomAttr(object):
     """This type handles non-flat data-types like
        int, str, bool.
@@ -11,16 +17,46 @@ class CustomAttr(object):
         self._value = value
         self._key =  key
 
-    def validate(self, conf_list):
-        return
+    @abc.abstractmethod
+    def validate(self):
+        pass
 
-    def post_validation(self, conf_list):
-        return
+    @abc.abstractmethod
+    def post_validation(self):
+        pass
 
 class CustomAttrTlsContainer(CustomAttr):
-    def __init__(self, keystone_auth_conf_file, key, value):
+    def __init__(self, key, value, custom_attr_conf_file=None):
         super(CustomAttrTlsContainer, self).__init__(key, value)
-        self.cert_manager = Barbican_Cert_Manager(keystone_auth_conf_file)
+        if not custom_attr_conf_file:
+            logging.error("Missing custom attr conf file name in vrouter-agent.conf")
+            raise Exception()
+
+        if not self._read_config(custom_attr_conf_file):
+            logging.error("Error reading %s" % custom_attr_conf_file)
+            raise Exception()
+
+        cert_dict = self._parse_args(self._config, 'CERT')
+        if cert_dict['cert_manager'] == 'BarbicanCertManager':
+            # Make sure keystone credentials are present
+            auth_dict = self._parse_args(self._config, 'KEYSTONE')
+            identity = keystone_auth.Identity(auth_dict)
+        else:
+            identity = None
+
+        self.cert_manager = getattr(haproxy_cert,
+                                cert_dict['cert_manager'])(identity=identity)
+
+    def _read_config(self, conf_file):
+        config = ConfigParser.ConfigParser()
+        if not len(config.read(conf_file)):
+            return False
+        else:
+            self._config = config
+            return True
+
+    def _parse_args(self, config, section):
+        return dict(config.items(section))
 
     def validate(self):
         if self._key != 'tls_container':
@@ -118,7 +154,7 @@ custom_attributes_dict = {
     'pool': {},
 }
 
-def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
+def validate_custom_attributes(config, section, custom_attr_conf_file=None):
     section_dict = {}
     if 'custom-attributes' in config and section in custom_attributes_dict:
         custom_attributes = config['custom-attributes']
@@ -152,8 +188,8 @@ def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
                             logging.info("Skipping key: %s, value: %s due to" \
                                "validation failure" % (key, value))
                     elif inspect.isclass(type_attr):
-                        new_custom_attr = type_attr(keystone_auth_conf_file, \
-                                                    key, value)
+                        new_custom_attr = type_attr(key, value,
+                                                    custom_attr_conf_file)
                         if new_custom_attr.validate():
                             value = new_custom_attr.post_validation()
                             section_dict.update({key:value})
