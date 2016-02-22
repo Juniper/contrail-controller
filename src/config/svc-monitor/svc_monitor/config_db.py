@@ -470,6 +470,10 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
 
+        irt = InterfaceRouteTableSM.get(self.interface_route_table)
+        if irt and not irt.service_instance and not len(irt.virtual_machine_interfaces):
+            self._manager.delete_interface_route_table(self.interface_route_table)
+
         self._manager.port_tuple_agent.update_port_tuple(self)
 
 # end VirtualMachineInterfaceSM
@@ -988,9 +992,6 @@ class InterfaceRouteTableSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 
-    def evaluate(self):
-        if not len(self.virtual_machine_interfaces):
-            self._manager.delete_interface_route_table(self.uuid)
 # end InterfaceRouteTableSM
 
 
