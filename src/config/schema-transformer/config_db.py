@@ -3907,7 +3907,7 @@ class RouteAggregateST(DBBaseST):
                 return
             next_hop = ri.service_chain_info.get_service_chain_address()
         elif ip_version == 6:
-            if ri.v6service_chain_info is None:
+            if ri.v6_service_chain_info is None:
                 self._logger.error("No ipv6 service chain info found for %s"
                                    % ri.name)
                 return
