@@ -51,10 +51,19 @@ class InstanceTask {
         on_exit_cb_ = cb;
     }
 
+    int incr_reattempts() {
+        return ++reattempts_;
+    }
+
+    int reattempts() {
+        return reattempts_;
+    }
+
  protected:
     bool is_running_;
     time_t start_time_;
     OnErrorCallback on_error_cb_;
+    int reattempts_;
     OnExitCallback on_exit_cb_;
 };
 
@@ -81,13 +90,14 @@ class InstanceTaskExecvp : public InstanceTask {
             return cmd_type_;
     }
 
+
  private:
     void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
     const std::string cmd_;
     boost::asio::posix::stream_descriptor errors_;
     std::stringstream errors_data_;
     char rx_buff_[kBufLen];
-    AgentSignal::SignalChildHandler sig_handler_;
+
     pid_t pid_;
     int cmd_type_;
 };
