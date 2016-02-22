@@ -100,6 +100,10 @@ public:
         return cfg_intf_mirror_table_.get();
     }
 
+    IFMapAgentTable *cfg_fat_flow_table() const {
+        return cfg_fat_flow_table_;
+    }
+
     void CreateDBTables(DB *db);
     void RegisterDBClients(DB *db);
     void Register(const char *node_name, AgentDBTable *table,
@@ -141,6 +145,7 @@ private:
     IFMapAgentTable *cfg_service_instance_table_;
     IFMapAgentTable *cfg_security_group_table_;
     IFMapAgentTable *cfg_physical_device_table_;
+    IFMapAgentTable *cfg_fat_flow_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };
