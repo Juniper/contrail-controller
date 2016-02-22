@@ -101,7 +101,6 @@ public:
 
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
-
                 //Delete the complete directory
                 std::stringstream cfg_path;
                 cfg_path <<
@@ -115,6 +114,14 @@ public:
                         ss << "Stale loadbalancer cfg directory delete error ";
                         ss << error.message();
                         INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+                    }
+                }
+
+                if (fs::exists(crt_path.str())) {
+                    fs::remove_all(crt_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale loadbalancer certificate file delete error"
+                                    << error.message());
                     }
                 }
             }
@@ -915,6 +922,11 @@ void InstanceManager::LoadbalancerPoolObserver(
         if (!state) {
             state = new LBPoolState(LoadbalancerPool::LBAAS_V1);
             entry->SetState(db_part->parent(), lb_pool_listener_, state);
+        }
+
+        boost::filesystem::path crt_file(crt_path.str());
+        if (boost::filesystem::exists(crt_file, error)) {
+            boost::filesystem::remove_all(crt_path.str(), error);
         }
     }
 }

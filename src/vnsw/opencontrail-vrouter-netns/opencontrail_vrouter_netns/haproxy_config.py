@@ -2,19 +2,20 @@ import json
 import os
 import logging
 
-def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
+def validate_custom_attributes(config, section, custom_attr_conf_file=None):
     return {}
 
 try:
     from haproxy_validator import validate_custom_attributes as validator
     from haproxy_validator import custom_attributes_dict
-    from haproxy_cert import Barbican_Cert_Manager
 except ImportError:
     validator = validate_custom_attributes
     custom_attributes_dict = {}
 
 # Setup logger
-logging.basicConfig(filename='/var/log/contrail/haproxy_parse.log', level=logging.WARNING)
+FORMAT="[%(filename)s:%(lineno)s] %(message)s"
+logging.basicConfig(filename='/var/log/contrail/haproxy_parse.log',
+                    level=logging.WARNING, format=FORMAT)
 
 # Setup global definitions
 PROTO_TCP = 'TCP'
@@ -44,7 +45,7 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 HTTPS_PORT = 443
 
-def build_config(conf_file, keystone_auth_conf_file):
+def build_config(conf_file, custom_attr_conf_file=None):
     with open(conf_file) as data_file:
         config = json.load(data_file)
     conf_dir = os.path.dirname(conf_file)
@@ -53,14 +54,15 @@ def build_config(conf_file, keystone_auth_conf_file):
     sock_path = conf_dir + '/haproxy.sock'
     conf = _set_global_config(config, sock_path) + '\n\n'
     conf += _set_defaults(config) + '\n\n'
-    conf += _set_frontend(config, conf_dir, keystone_auth_conf_file) + '\n\n'
+    conf += _set_frontend(config, conf_dir, custom_attr_conf_file) + '\n\n'
     conf += _set_backend(config) + '\n'
     filename = conf_dir + '/haproxy.conf'
     conf_file = open(filename, 'w')
     conf_file.write(conf)
     return filename
 
-def _construct_config_block(lb_config, conf, custom_attr_section, custom_attributes):
+def _construct_config_block(lb_config, conf, custom_attr_section,
+                            custom_attributes):
     for key, value in custom_attributes.iteritems():
         cmd = custom_attributes_dict[custom_attr_section][key]['cmd']
         conf.append(cmd % value)
@@ -92,7 +94,8 @@ def _set_global_config(config, sock_path):
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
 
-    return _construct_config_block(config, conf, "global", global_custom_attributes)
+    return _construct_config_block(config, conf, "global",
+                                   global_custom_attributes)
 
 
 def _set_defaults(config):
@@ -114,9 +117,10 @@ def _set_defaults(config):
         'timeout server %d' % server_timeout,
     ]
 
-    return _construct_config_block(config, conf, "default", default_custom_attributes)
+    return _construct_config_block(config, conf, "default",
+                                   default_custom_attributes)
 
-def _set_frontend_v2(config, conf_dir, keystone_auth_conf_file):
+def _set_frontend_v2(config, conf_dir, custom_attr_conf_file=None):
     conf = []
     for listener in config['listeners']:
         if not listener['admin-state']:
@@ -135,12 +139,12 @@ def _set_frontend_v2(config, conf_dir, keystone_auth_conf_file):
         conf.append(res)
     return "\n".join(conf)
 
-def _set_frontend(config, conf_dir, keystone_auth_conf_file):
+def _set_frontend(config, conf_dir, custom_attr_conf_file=None):
     if 'loadbalancer' in config:
-        return _set_frontend_v2(config, conf_dir, keystone_auth_conf_file)
+        return _set_frontend_v2(config, conf_dir, custom_attr_conf_file)
 
     port = config['vip']['port']
-    vip_custom_attributes = validator(config, 'vip', keystone_auth_conf_file)
+    vip_custom_attributes = validator(config, 'vip', custom_attr_conf_file)
     ssl = ''
 
     if 'tls_container' in vip_custom_attributes:
