@@ -1270,3 +1270,12 @@ request sandesh VrouterObjectLimitsReq {
 response sandesh VrouterObjectLimitsResp {
     1: VrouterObjectLimits vrouter_object_limit;
 }
+
+/**
+ * @description: Trace message for InstanceManager
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh InstanceManagerTrace {
+    1: string message;
+}
