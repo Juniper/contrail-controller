@@ -566,7 +566,7 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
-        changed = true;
+        new_route = true;
     }
 
     if (HandleTrackingIpChange(route, state)) {
@@ -574,9 +574,7 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         //i.e in case of NAT new reverse flow might be
         //created, hence enqueue a ADD event so that flow will
         //be reevaluated.
-        if (new_route == false) {
-            AddEvent(route, state);
-        }
+        new_route = true;
     }
 
     if (state->ecmp_load_balance_ != path->ecmp_load_balance()) {
@@ -584,7 +582,9 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         changed = true;
     }
 
-    if (changed == true && new_route == false) {
+    if (new_route == true) {
+        AddEvent(route, state);
+    } else if (changed == true) {
         ChangeEvent(route, state);
     }
 }

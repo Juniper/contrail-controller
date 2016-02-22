@@ -262,6 +262,8 @@ struct FlowData {
     bool enable_rpf;
     uint8_t l2_rpf_plen;
     std::string vm_cfg_name;
+    uint32_t ecmp_rpf_nh_;
+    uint32_t acl_assigned_vrf_index_;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -401,6 +403,7 @@ class FlowEntry {
     int linklocal_src_port() const { return data_.in_vm_entry.port(); }
     int linklocal_src_port_fd() const { return data_.in_vm_entry.fd(); }
     const std::string& acl_assigned_vrf() const;
+    void set_acl_assigned_vrf_index();
     uint32_t acl_assigned_vrf_index() const;
     uint32_t fip() const { return fip_; }
     VmInterfaceKey fip_vmi() const { return fip_vmi_; }
@@ -485,6 +488,7 @@ class FlowEntry {
         fsc_ = fsc;
     }
     static std::string DropReasonStr(uint16_t reason);
+
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -492,6 +496,8 @@ private:
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
+    bool SetEcmpRpfNH(FlowTable*, uint32_t);
+    bool SetRpfNHState(FlowTable*, const NextHop*);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl, FlowEntry *rflow);
     void GetSourceRouteInfo(const AgentRoute *rt);
@@ -499,6 +505,14 @@ private:
     void UpdateRpf();
     VmInterfaceKey InterfaceIdToKey(Agent *agent, uint32_t id);
     const std::string InterfaceIdToVmCfgName(Agent *agent, uint32_t id);
+    void SetComponentIndex(const NextHopKey *nh_key,
+                           uint32_t label, bool mpls_path);
+    const VrfEntry *GetDestinationVrf();
+    void set_ecmp_rpf_nh(uint32_t id);
+    void UpdateEcmpInfo();
+    void SetRemoteFlowEcmpIndex();
+    void SetLocalFlowEcmpIndex();
+    void set_ecmp_rpf_nh() const;
 
     FlowKey key_;
     FlowTable *flow_table_;
