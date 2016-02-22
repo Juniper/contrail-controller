@@ -62,6 +62,7 @@ class InstanceManager {
 
     static const int kTimeoutDefault = 30;
     static const int kWorkersDefault = 1;
+    static const int kReattemptsDefault = 2;
 
     InstanceManager(Agent *);
     ~InstanceManager();
@@ -145,6 +146,7 @@ class InstanceManager {
     DBTableBase::ListenerId lb_pool_listener_;
     std::string netns_cmd_;
     int netns_timeout_;
+    int netns_reattempts_;
     WorkQueue<InstanceManagerChildEvent> work_queue_;
 
     std::vector<InstanceTaskQueue *> task_queues_;
@@ -173,7 +175,8 @@ class InstanceState : public DBState {
         Stopping,
         Stopped,
         Error,
-        Timeout
+        Timeout,
+        Reattempt
     };
 
     InstanceState();
