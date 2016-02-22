@@ -288,7 +288,8 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
 
 void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info) {
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(info->key(),
-                                                                    true);
+                                                      true,
+                                                      info->flow_partition());
     info->set_delete_enqueued(true);
     FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (rev_info) {
