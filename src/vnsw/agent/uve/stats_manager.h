@@ -12,6 +12,7 @@
 #include <string>
 #include <map>
 #include <utility>
+#include <uve/flow_ace_stats_request.h>
 
 // The container class for storing stats queried from vrouter
 // Defines routines for storing and managing (add, delete and query)
@@ -130,6 +131,21 @@ class StatsManager {
     typedef std::map<int, VrfStats> VrfIdToVrfStatsTree;
     typedef std::pair<int, VrfStats> VrfStatsPair;
 
+    struct FlowRuleMatchInfo {
+        std::string interface;
+        std::string sg_rule_uuid;
+        std::string vn;
+        std::string nw_ace_uuid;
+        FlowRuleMatchInfo(const std::string &itf, const std::string &sg_rule,
+                          const std::string &net, const std::string &nw_ace)
+            : interface(itf), sg_rule_uuid(sg_rule), vn(net),
+              nw_ace_uuid(nw_ace) {
+        }
+    };
+
+    typedef std::map<const boost::uuids::uuid, FlowRuleMatchInfo> FlowAceTree;
+    typedef std::pair<const boost::uuids::uuid, FlowRuleMatchInfo> FlowAcePair;
+
     explicit StatsManager(Agent *agent);
     virtual ~StatsManager();
 
@@ -141,6 +157,8 @@ class StatsManager {
     int GetNamelessVrfId() { return -1; }
     void Shutdown(void);
     void RegisterDBClients();
+    bool RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req);
+    void EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest> &req);
     friend class AgentStatsCollectorTest;
 
  private:
@@ -151,13 +169,17 @@ class StatsManager {
     void DelInterfaceStatsEntry(const Interface *intf);
     void AddUpdateVrfStatsEntry(const VrfEntry *intf);
     void DelVrfStatsEntry(const VrfEntry *intf);
+    void AddFlow(const FlowAceStatsRequest *req);
+    void DeleteFlow(const FlowAceStatsRequest *req);
 
     VrfIdToVrfStatsTree vrf_stats_tree_;
     InterfaceStatsTree if_stats_tree_;
+    FlowAceTree flow_ace_tree_;
     AgentDropStats drop_stats_;
     DBTableBase::ListenerId vrf_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     Agent *agent_;
+    WorkQueue<boost::shared_ptr<FlowAceStatsRequest> > request_queue_;
     DISALLOW_COPY_AND_ASSIGN(StatsManager);
 };
 #endif  // _ROOT_STATS_MANAGER_H_
