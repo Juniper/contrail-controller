@@ -159,6 +159,7 @@ static void BuildLinkToMetadata() {
 
     AddLinkToMetadata("subnet", "virtual-machine-interface");
     AddLinkToMetadata("virtual-router", "virtual-machine");
+    AddLinkToMetadata("virtual-machine-interface", "fat-flow");
 
 }
 
