@@ -100,6 +100,9 @@ class ServiceMonitorLogger(object):
     def log_debug(self, log_msg):
         self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
 
+    def debug(self, log_msg):
+        self.log_debug(log_msg)
+
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(conn_type=ConnectionType.APISERVER,
             name='ApiServer', status=status, message=msg,
