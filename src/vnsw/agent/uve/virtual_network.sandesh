@@ -116,6 +116,14 @@ struct UveInterVnStats {
 }
 
 /**
+ * Number of flow hits for a given Network Policy ACL Rule
+ */
+struct NetworkPolicyRuleStats {
+    1: string rule;
+    2: u64 count;
+}
+
+/**
  *  This is the structure sent by an application to the Collector to represent
  *  all or part of the Data Plane state of the UVE on this app instance.
  */
@@ -141,6 +149,7 @@ struct UveVirtualNetworkAgent {
     23: optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter")
     24: optional u32                       ingress_flow_count (aggtype="sum")
     25: optional u32                       egress_flow_count (aggtype="sum")
+    26: optional list<NetworkPolicyRuleStats> policy_rule_stats (tags=".rule",aggtype="union")
 }
 
 /**
