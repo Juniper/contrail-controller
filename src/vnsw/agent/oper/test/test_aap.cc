@@ -269,6 +269,23 @@ TEST_F(TestAap, EvpnRoute_1) {
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
 }
 
+TEST_F(TestAap, EvpnRoute_with_mac_change) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+    MacAddress mac1("0a:0b:0c:0d:0e:0e");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    AddAap("intf1", 1, ip, mac1.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac1, ip, 0));
+}
+
 #if 0
 TEST_F(TestAap, EvpnRoute_3) {
     struct PortInfo input[] = {
@@ -1074,7 +1091,7 @@ TEST_F(TestAap, StateMachine_18) {
     client->WaitForIdle();
 }
 
-TEST_F(TestAap, StateMachine_16) {
+TEST_F(TestAap, StateMachine_19) {
     Ip4Address ip = Ip4Address::from_string("10.10.10.10");
     MacAddress mac("0a:0b:0c:0d:0e:0f");
 
