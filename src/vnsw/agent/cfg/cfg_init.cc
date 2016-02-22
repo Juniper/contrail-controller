@@ -193,6 +193,9 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                                        "physical-router")));
     assert(cfg_physical_device_table_);
 
+    cfg_fat_flow_table_ = (static_cast<IFMapAgentTable *>
+            (IFMapTable::FindTable(agent_->db(), "fat-flow")));
+    assert(cfg_fat_flow_table_);
 
     cfg_interface_client_->Init();
 }

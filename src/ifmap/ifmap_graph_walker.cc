@@ -372,6 +372,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("subnet");
     traversal_white_list_->include_vertex.insert("service-health-check");
     traversal_white_list_->include_vertex.insert("bgp-as-a-service");
+    traversal_white_list_->include_vetrex.insert("fat-flow");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -483,5 +484,7 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=bgp-as-a-service,target=bgp-router");
     traversal_white_list_->include_edge.insert(
         "source=bgp-router,target=routing-instance");
+    traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface, target=fat-flow");
 }
 

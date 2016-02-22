@@ -419,6 +419,17 @@ static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
+static void BuildFatFlowPortTable(Agent *agent, VmInterfaceConfigData *data,
+                                  IFMapNode *node) {
+    FatFlow *fat_flow = static_cast<FatFlow *>(node->GetObject());
+    for (std::vector<ProtocolType>::const_iterator it = fat_flow->properties().begin();
+         it != fat_flow->properties().end(); it++) {
+        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
+        data->fat_flow_list_.list_.insert(VmInterface::FatFlowEntry(protocol,
+                                          it->port));
+    }
+}
+
 static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
                             IFMapNode *node) {
     InstanceIp *ip = static_cast<InstanceIp *>(node->GetObject());
@@ -985,6 +996,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
             parent_vmi_node = adj_node;
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_fat_flow_table()) {
+            BuildFatFlowPortTable(agent_, data, adj_node);
         }
 
         if (strcmp(adj_node->table()->Typename(), BGP_AS_SERVICE_CONFIG_NAME) == 0) {
