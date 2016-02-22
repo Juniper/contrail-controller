@@ -35,7 +35,7 @@ class LoadbalancerAgent(Agent):
 
     def pre_create_service_vm(self, instance_index, si, st, vm):
         for nic in si.vn_info:
-           if nic['type'] == svc_info.get_right_if_str():
+            if nic['type'] == svc_info.get_right_if_str():
                 vmi = self._get_vip_vmi(si)
                 if not vmi:
                     return False
@@ -49,6 +49,9 @@ class LoadbalancerAgent(Agent):
                     nic['sg-list'] = vmi.security_groups
                     break
                 nic['user-visible'] = False
+            elif nic['type'] == svc_info.get_left_if_str():
+                nic['user-visible'] = False
+
         return True
 
     def _get_vip_vmi(self, si):
