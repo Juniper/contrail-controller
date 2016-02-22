@@ -1742,6 +1742,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('service-port-health-check',
           'virtual-machine-interface', 'service-health-check', ['ref']) -->
 
+<xsd:element name="fat-flow" type="ifmap:IdentityType"/>
+<xsd:element name="fat-flow-properties" type="FatFlowProtocols"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('fat-flow-properties', 'fat-flow') -->
+
+<xsd:element name="project-fat-flow"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-fat-flow',
+          'project', 'fat-flow', ['has']) -->
+<xsd:element name="port-fat-flow"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-fat-flow',
+          'virtual-machine-interface', 'fat-flow', ['ref']) -->
+
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
