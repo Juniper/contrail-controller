@@ -12,6 +12,7 @@
 #include <cassandra.h>
 
 #include <base/logging.h>
+#include <base/task.h>
 #include <base/timer.h>
 #include <io/event_manager.h>
 #include <database/gendb_if.h>
@@ -826,7 +827,9 @@ class CqlIf::CqlIfImpl {
             kTaskInstance)),
         connect_cb_(NULL),
         disconnect_cb_(NULL),
-        keyspace_() {
+        keyspace_(),
+        io_thread_count_(TaskScheduler::GetInstance()->HardwareThreadCount()
+            /2) {
         // Set session state to INIT
         session_state_ = SessionState::INIT;
         // Set contact points and port
@@ -846,6 +849,8 @@ class CqlIf::CqlIfImpl {
             cass_cluster_set_credentials(cluster_.get(), cassandra_user.c_str(),
                 cassandra_password.c_str());
         }
+        // Set number of IO threads to half the number of cores
+        cass_cluster_set_num_threads_io(cluster_.get(), io_thread_count_);
     }
 
     virtual ~CqlIfImpl() {
@@ -1163,6 +1168,7 @@ class CqlIf::CqlIfImpl {
     ConnectCbFn connect_cb_;
     DisconnectCbFn disconnect_cb_;
     std::string keyspace_;
+    int io_thread_count_;
 };
 
 const char * CqlIf::CqlIfImpl::kQCreateKeyspaceIfNotExists(
