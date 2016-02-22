@@ -63,7 +63,6 @@ void InstanceTaskExecvp::Terminate() {
 // instance manager has to rely on TaskTimeout delete the task. 
 bool InstanceTaskExecvp::Run() {
     std::vector<std::string> argv;
-    LOG(DEBUG, "NetNS run command: " << cmd_);
 
     is_running_ = true;
 
@@ -131,6 +130,7 @@ bool InstanceTaskExecvp::Run() {
                         this, boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     return true;
+
 }
 
 InstanceTaskQueue::InstanceTaskQueue(EventManager *evm) : evm_(evm),

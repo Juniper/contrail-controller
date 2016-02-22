@@ -19,6 +19,12 @@ class InstanceState;
 class InstanceTask;
 class InstanceTaskQueue;
 
+extern SandeshTraceBufferPtr InstanceManagerTraceBuf;
+#define INSTANCE_MANAGER_TRACE(obj, ...)                                                     \
+do {                                                                                     \
+    InstanceManager##obj::TraceMsg(InstanceManagerTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);
+
 /*
  * Starts and stops network namespaces corresponding to service-instances.
  *
