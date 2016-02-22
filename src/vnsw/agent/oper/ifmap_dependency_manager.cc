@@ -73,6 +73,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "access-control-list",
         "bgp-as-a-service",
         "bgp-router",
+        "fat-flow",
         "floating-ip",
         "floating-ip-pool",
         "instance-ip",
@@ -679,6 +680,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "bgp-router", true,
                                "instance-bgp-router",
                                "routing-instance", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-fat-flow",
+                               "fat-flow", true));
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
     ////////////////////////////////////////////////////////////////////////
