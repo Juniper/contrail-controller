@@ -88,8 +88,9 @@ MetadataProxy::MetadataProxy(ServicesModule *module,
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
-    http_server_->Initialize(0);
-    services_->agent()->set_metadata_server_port(http_server_->GetPort());
+    http_server_->Initialize(ContrailPorts::MetadataProxyVrouterAgentPort());
+    services_->agent()->set_metadata_server_port(
+                        ContrailPorts::MetadataProxyVrouterAgentPort());
 
     http_client_->Init();
 }

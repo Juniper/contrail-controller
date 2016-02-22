@@ -276,7 +276,7 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
                               size_t bytes_transferred) {
 
     if (ec) {
-        LOG(ERROR, "Error reading from Mirroor sock. Error : " << 
+        LOG(ERROR, "Error reading from Mirror sock. Error : " << 
             boost::system::system_error(ec).what());
         return;
     }
@@ -292,7 +292,8 @@ void MirrorTable::MirrorSockInit(void) {
 
     event_mgr = agent()->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
-    ip::udp::endpoint ep(ip::udp::v4(), 0);
+    ip::udp::endpoint ep(ip::udp::v4(),
+                         ContrailPorts::VrouterAgentMirrorClientUdpPort());
 
     udp_sock_.reset(new ip::udp::socket(io));
 
