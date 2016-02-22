@@ -976,6 +976,10 @@ class InterfaceRouteTableSM(DBBaseSM):
         ref_attr = self.get_single_ref_attr('service_instance', obj)
         if ref_attr:
             self.service_interface_tag = ref_attr['interface_type']
+        name_split = self.name.split(' ')
+        if len(name_split) == 2:
+            self.si_uuid = name_split[0]
+            self.if_type = name_split[1]
     # end update
 
     @classmethod
@@ -989,8 +993,9 @@ class InterfaceRouteTableSM(DBBaseSM):
     # end delete
 
     def evaluate(self):
-        if not len(self.virtual_machine_interfaces):
+        if self.si_uuid and not len(self.virtual_machine_interfaces):
             self._manager.delete_interface_route_table(self.uuid)
+
 # end InterfaceRouteTableSM
 
 
