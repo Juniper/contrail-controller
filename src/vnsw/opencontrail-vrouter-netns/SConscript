@@ -33,7 +33,8 @@ sources = [
     'opencontrail_vrouter_netns/linux/utils.py',
     'opencontrail_vrouter_netns/tests/__init__.py',
     'opencontrail_vrouter_netns/tests/test_vrouter_netns.py',
-    'opencontrail_vrouter_netns/tests/test_vrouter_docker.py'
+    'opencontrail_vrouter_netns/tests/test_vrouter_docker.py',
+    'opencontrail_vrouter_netns/tests/test_lbaas_custom_attributes.py'
 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
