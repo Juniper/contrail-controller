@@ -33,7 +33,7 @@ AgentProfile::AgentProfile(Agent *agent, bool enable) :
     TaskScheduler *task = TaskScheduler::GetInstance();
     timer_ = TimerManager::CreateTimer
         (*(agent_->event_manager())->io_service(), "Agent Profile",
-         task->GetTaskId("agent_profile"), 0);
+         task->GetTaskId("Agent::Profile"), 0);
     if (enable) {
         timer_->Start(kProfileTimeout, boost::bind(&AgentProfile::TimerRun,
                                                    this));
