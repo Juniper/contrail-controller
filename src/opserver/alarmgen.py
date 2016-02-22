@@ -817,6 +817,14 @@ class Controller(object):
                 del self.ptab_info[part][tab][uve_name]
                 output[uv] = None
                 
+                if tab in self.tab_alarms:
+                    if uv in self.tab_alarms[tab]:
+                        del self.tab_alarms[tab][uv]
+                        ustruct = UVEAlarms(name = uve_name, deleted = True)
+                        alarm_msg = AlarmTrace(data=ustruct, table=tab, \
+                                sandesh=self._sandesh)
+                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
+                        alarm_msg.send(sandesh=self._sandesh)
                 # Both alarm and non-alarm contents are gone.
                 # We do not need to do alarm evaluation
                 continue
