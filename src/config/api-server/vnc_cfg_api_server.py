@@ -1224,6 +1224,8 @@ class VncApiServer(object):
         # service appliance set
         self.set_resource_class('service-appliance-set',
             vnc_cfg_types.ServiceApplianceSetServer)
+        self.set_resource_class('route-aggregate',
+                                vnc_cfg_types.RouteAggregateServer)
         # TODO default-generation-setting can be from ini file
         self.get_resource_class('bgp-router').generate_default_instance = False
         self.get_resource_class(
