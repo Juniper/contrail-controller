@@ -8,7 +8,7 @@
 #include "io/event_manager.h"
 
 InstanceTask::InstanceTask()
-: is_running_(false), start_time_(0)
+: is_running_(false), start_time_(0), reattempts_(0)
 {}
 
 InstanceTaskExecvp::InstanceTaskExecvp(const std::string &name,
@@ -28,8 +28,6 @@ void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
     if (ec) {
         boost::system::error_code close_ec;
         input_.close(close_ec);
-
-        LOG(ERROR, "error value " << ec.value() << " for pid " << pid_ << "\n");
 
         if (!on_exit_cb_.empty()) {
             on_exit_cb_(this, ec);
@@ -54,6 +52,15 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+
+// If there is an error before the fork, task is set to "not running"
+// and "false" is returned to caller so that caller can take appropriate
+// action on task. If an error is encounted after  fork, it is very
+// likely that child process is running so we keep the task status as
+// "running" and return "true" to caller, so that caller does not
+// attempt to run the same task again. In this case, the child process
+// exit notification can not be received by instance manager, hence
+// instance manager has to rely on TaskTimeout delete the task. 
 bool InstanceTaskExecvp::Run() {
     std::vector<std::string> argv;
     LOG(DEBUG, "NetNS run command: " << cmd_);
@@ -68,17 +75,7 @@ bool InstanceTaskExecvp::Run() {
 
     int err[2];
     if (pipe(err) < 0) {
-        return false;
-    }
-    /*
-     * temporarily block SIGCHLD signals
-     */
-    sigset_t mask;
-    sigset_t orig_mask;
-    sigemptyset (&mask);
-    sigaddset (&mask, SIGCHLD);
-    if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) {
-        LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
+        return is_running_ = false;
     }
 
     pid_ = vfork();
@@ -103,9 +100,7 @@ bool InstanceTaskExecvp::Run() {
 
         _exit(127);
     }
-    if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
-        LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
-    }
+
     close(err[1]);
 
     start_time_ = time(NULL);
@@ -113,13 +108,21 @@ bool InstanceTaskExecvp::Run() {
     int fd = ::dup(err[0]);
     close(err[0]);
     if (fd == -1) {
-        return is_running_ = false;
+        // We still return true as we have a child process which is
+        // running, though dup fails. The difference is that we will
+        // wait for task timeout time rather depending on event to
+        // remove the task from queue
+        return true;
     }
     boost::system::error_code ec;
     input_.assign(fd, ec);
     if (ec) {
         close(fd);
-        return is_running_ = false;
+
+        //Even here we can let the child process run though we cant
+        //track it. We will wait for timeout time to remvoe the task
+        //from queue
+        return true;
     }
 
     bzero(rx_buff_, sizeof(rx_buff_));

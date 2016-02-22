@@ -187,6 +187,8 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
         netns_timeout_ = netns_timeout;
     }
 
+    netns_reattempts_ = kReattemptsDefault;
+
     int workers = kWorkersDefault;
     if (netns_workers > 0) {
        workers = netns_workers;
@@ -430,8 +432,18 @@ InstanceTaskQueue *InstanceManager::GetTaskQueue(const std::string &str) {
     return task_queues_[index];
 }
 
+//If Run() returns success it means child process is running and we will
+//keep the task status as "Starting" or "Stopping". We start a timer to
+//track TaskTimeout time. If Run() returns a failure, it means no child
+//process is runnning, and we verify how many times we already attempted
+//to run. If netns_reattempts_ are already crossed, we return false, so
+//that caller deletes the task without running any further. If required
+//reattempts are not done, we start a timer and return true so that same
+//task is run again after the timeout. The task status is set to
+//"reattempt" to track reattempt case
 bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
                                 InstanceTask *task) {
+
 
     InstanceState *state = GetState(task);
     if (state) {
@@ -439,39 +451,46 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
     }
 
     pid_t pid;
-    if (task->Run())
+    bool status = task->Run();
+    if (status) {
         pid = task->pid();
-    else
-        return false;
-
-    if (state != NULL) {
-        state->set_pid(pid);
-        state->set_cmd(task->cmd());
-        if (task->cmd_type() == Start) {
-            state->set_status_type(InstanceState::Starting);
-        } else {
-            state->set_status_type(InstanceState::Stopping);
+        if (state != NULL) {
+            state->set_pid(pid);
+            state->set_cmd(task->cmd());
+            if (task->cmd_type() == Start) {
+                state->set_status_type(InstanceState::Starting);
+            } else {
+                state->set_status_type(InstanceState::Stopping);
+            }
+        }
+    } else {
+        LOG(ERROR, "Instance task " << task << " attempt " << task->reattempts());
+        if (state) {
+            state->set_status_type(InstanceState::Reattempt);
+            state->set_cmd(task->cmd());
+        }
+        if (task->incr_reattempts() > netns_reattempts_) {
+            LOG(ERROR, "Instance task " << task << " reattempts exceeded");
+            return false;
         }
     }
 
-    if (pid > 0) {
-        task_queue->StartTimer(netns_timeout_ * 1000);
-        return true;
-    }
+    task_queue->StartTimer(netns_timeout_ * 1000);
 
-    task_queue->Pop();
-    UnregisterSvcInstance(task);
-    delete task;
-
-    return false;
+    return true;
 }
 
+//If Starting the task succeds we wait for another event on that task.
+//If not the task is removed from the front of the queue and is delted.
 void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
     while (!task_queue->Empty()) {
+
         InstanceTask *task = task_queue->Front();
+        InstanceState *state = GetState(task);
+
         if (!task->is_running()) {
-            bool starting = StartTask(task_queue, task);
-            if (starting) {
+            bool status = StartTask(task_queue, task);
+            if (status) {
                 return;
             }
         } else {
@@ -479,7 +498,6 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
             if (delay < netns_timeout_) {
                return;
             }
-            InstanceState *state = GetState(task);
             if (state) {
                 state->set_status_type(InstanceState::Timeout);
             }
@@ -487,25 +505,30 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
             LOG(ERROR, "NetNS error timeout " << delay << " > " <<
                 netns_timeout_ << ", " << task->cmd());
 
-            if (delay > (netns_timeout_ * 2)) {
+            LOG(ERROR, " Delay " << delay << "Timeout " <<
+                    (netns_timeout_ * 2));
+
+            if (delay >= (netns_timeout_ * 2)) {
                task->Terminate();
-               task_queue->StopTimer();
-               task_queue->Pop();
-
-               ServiceInstance* svc_instance = GetSvcInstance(task);
-               if (state && svc_instance)
-                   state->decr_tasks_running();
-
-               task_svc_instances_.erase(task);
-
-               DeleteState(svc_instance);
-
-               delete task;
             } else {
                task->Stop();
                return;
             }
         }
+
+        task_queue->StopTimer();
+        task_queue->Pop();
+
+        ServiceInstance* svc_instance = GetSvcInstance(task);
+        if (state && svc_instance)
+            state->decr_tasks_running();
+
+        task_svc_instances_.erase(task);
+
+        LOG(ERROR, "Delete task " << task);
+        DeleteState(svc_instance);
+
+        delete task;
     }
 }
 
@@ -665,13 +688,24 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
         cmd_str << props.IdToCmdLineStr();
     }
 
-    InstanceTask *task = new InstanceTaskExecvp("NetNS", cmd_str.str(), Stop,
-                                                agent_->event_manager());
-    std::stringstream info;
-    info << "NetNS stale run command queued: " << task->cmd();
-    Enqueue(task, props.instance_id);
+    std::string cmd = cmd_str.str();
+    std::vector<std::string> argv;
+    boost::split(argv, cmd, boost::is_any_of(" "), boost::token_compress_on);
+    std::vector<const char *> c_argv(argv.size() + 1);
+    for (std::size_t i = 0; i != argv.size(); ++i) {
+        c_argv[i] = argv[i].c_str();
+    }
 
-    LOG(DEBUG, info.str().c_str());
+    LOG(ERROR, "Stale NetNS " << cmd);
+
+    pid_t pid = vfork();
+    if (pid == 0) {
+        CloseTaskFds();
+        execvp(c_argv[0], (char **) c_argv.data());
+        perror("execvp");
+
+        _exit(127);
+    }
 }
 
 void InstanceManager::SetLastCmdType(ServiceInstance *svc_instance,
