@@ -1546,6 +1546,103 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
 }
 
 //
+// With multiple route aggregate config object linked to the routing instance,
+// update the config to remove longer prefix
+// RA-1:
+//   9.0.1.0/24
+// RA-2:
+//   9.0.0.0/8
+//   21.1.1.0/24
+//   21.1.0.0/16
+//   21.0.0.0/8
+// Step 1: Attach RA-1 to routing instance
+// Step 2: Attach RA-2 to routing instance. Now routing instance has both 9.0/16
+// and 9/8 route aggregate prefix
+// Step 3: Remove RA-1. Routing instance is only left with 9/8.
+// Ensure valid route aggregate objects after config update
+//
+TEST_F(RouteAggregatorTest, ConfigUpdate_OverlappingPrefixes_1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/route_aggregate_4c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "9.0.1.1/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "9.0.1.10/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.3/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.4/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.5/32", 100);
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.0/24", 100);
+    task_util::WaitForIdle();
+
+    // Link the route aggregate config vn_subnet_1 to test
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_1", "route-aggregate-routing-instance");
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(8, RouteCount("test.inet.0"));
+    BgpRoute *rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.1.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    VerifyRouteAggregateSandesh("test");
+
+    // Link the route aggregate config vn_subnet_2 to test
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_2", "route-aggregate-routing-instance");
+    task_util::WaitForIdle();
+
+
+    VERIFY_EQ(11, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.1.0/24");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.0.0/8");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
+
+    // Unlink the route aggregate config vn_subnet_1 from test
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
+        "route-aggregate", "vn_subnet_1", "route-aggregate-routing-instance");
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(10, RouteCount("test.inet.0"));
+    rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.1.0/24");
+    ASSERT_TRUE(rt == NULL);
+    rt = RouteLookup<InetDefinition>("test.inet.0", "9.0.0.0/8");
+    ASSERT_TRUE(rt != NULL);
+    TASK_UTIL_EXPECT_EQ(rt->count(), 2);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
+    // Verify the sandesh
+    VerifyRouteAggregateSandesh("test");
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "2.2.2.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "9.0.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "9.0.1.10/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.3/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.4/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.5/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "21.1.1.0/24");
+    task_util::WaitForIdle();
+}
+
+//
 // Update the config to update the prefix len of route-aggregate
 // Higher prefix len to lower
 //
