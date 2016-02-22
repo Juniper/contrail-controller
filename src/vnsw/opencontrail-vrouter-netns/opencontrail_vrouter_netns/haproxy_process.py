@@ -17,10 +17,10 @@ def stop_haproxy(conf_file, daemon_mode=False):
         pass
 
 def start_update_haproxy(conf_file, netns, daemon_mode=False,
-                         keystone_auth_conf_file=None):
+                         custom_attr_conf_file=None):
     pool_id = conf_file.split('.')[0].split('/')[-1]
     haproxy_cfg_file = haproxy_config.build_config(pool_id, conf_file, \
-                                      keystone_auth_conf_file)
+                                      custom_attr_conf_file)
     try:
         if daemon_mode:
             _start_haproxy_daemon(netns, haproxy_cfg_file)

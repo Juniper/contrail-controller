@@ -1,7 +1,10 @@
 import logging
 import inspect
-from haproxy_cert import Barbican_Cert_Manager
+import ConfigParser
+import keystone_auth
 import os
+import sys
+import haproxy_cert
 
 class CustomAttr(object):
     """This type handles non-flat data-types like
@@ -18,9 +21,41 @@ class CustomAttr(object):
         return
 
 class CustomAttrTlsContainer(CustomAttr):
-    def __init__(self, keystone_auth_conf_file, key, value):
+    def __init__(self, custom_attr_conf_file, key, value):
         super(CustomAttrTlsContainer, self).__init__(key, value)
-        self.cert_manager = Barbican_Cert_Manager(keystone_auth_conf_file)
+        if not custom_attr_conf_file:
+            logging.error("Custom Attribute conf file missing")
+            raise Exception()
+
+        self._read_config(custom_attr_conf_file)
+        cert_dict = self._parse_args(self._config, 'CERT')
+        if not cert_dict or not 'cert_manager' in cert_dict:
+            logging.error("Missing CERT section")
+            raise Exception()
+
+        if cert_dict['cert_manager'] == 'Barbican_Cert_Manager':
+            # Make sure keystone credentials are present
+            auth_dict = self._parse_args(self._config, 'KEYSTONE')
+            if not auth_dict:
+                logging.error("Missing KEYSTONE section")
+                raise Exception()
+            identity = keystone_auth.Identity(auth_dict)
+        else:
+            identity = None
+
+        self.cert_manager = getattr(haproxy_cert, cert_dict['cert_manager'])(identity=identity)
+
+    def _read_config(self, conf_file):
+        config = ConfigParser.ConfigParser()
+        config.read(conf_file)
+        self._config = config
+
+    def _parse_args(self, config, section):
+        try:
+            return dict(config.items(section))
+        except Exception as e:
+            logging.error(str(e))
+            return None
 
     def validate(self):
         if self._key != 'tls_container':
@@ -118,7 +153,7 @@ custom_attributes_dict = {
     'pool': {},
 }
 
-def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
+def validate_custom_attributes(config, section, custom_attr_conf_file=None):
     section_dict = {}
     if 'custom-attributes' in config and section in custom_attributes_dict:
         custom_attributes = config['custom-attributes']
@@ -152,7 +187,7 @@ def validate_custom_attributes(config, section, keystone_auth_conf_file=None):
                             logging.info("Skipping key: %s, value: %s due to" \
                                "validation failure" % (key, value))
                     elif inspect.isclass(type_attr):
-                        new_custom_attr = type_attr(keystone_auth_conf_file, \
+                        new_custom_attr = type_attr(custom_attr_conf_file, \
                                                     key, value)
                         if new_custom_attr.validate():
                             value = new_custom_attr.post_validation()

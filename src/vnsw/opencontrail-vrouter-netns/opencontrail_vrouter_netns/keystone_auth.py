@@ -1,44 +1,33 @@
-import requests
 import json
 import os
-import ConfigParser
 import logging
-
-def _request(url, headers=None, body=None, request_type=None):
-    try:
-        if request_type == 'PUT':
-            encoded_body = json.dumps(body)
-            return requests.put(url, headers=headers, data=encoded_body)
-        elif request_type == 'POST':
-            encoded_body = json.dumps(body)
-            return requests.post(url, headers=headers, data=encoded_body)
-        else:
-            return requests.get(url, headers=headers)
-
-    except Exception as e:
-        logging.error("Failed sending request to keystone")
-        return None
+import requests
 
 class Identity():
     '''Identity class to get project-scoped
        tokens for user'''
-    def __init__(self, conf_file):
-        config = ConfigParser.RawConfigParser()
-        config.read(conf_file)
-        if not self._parse_config(config):
+    def __init__(self, args_dict):
+        if not self._parse_args(args_dict):
             raise Exception()
 
-    def _parse_config(self, config):
+    def _parse_args(self, args_dict):
+        if 'keystone_version' not in args_dict:
+            args_dict['keystone_version'] = 'v2.0'
+
+        if 'barbican_endpoint' not in args_dict:
+            args_dict['barbican_endpoint'] = ''
+
+        if 'domain_name' not in args_dict:
+            args_dict['domain_name'] = 'default'
+
         try:
-            self.keystone_ep = config.get('DEFAULT', 'keystone_endpoint')
-            self.barbican_ep = config.get('DEFAULT', 'barbican_endpoint')
-            self.domain_name = config.get('DEFAULT', 'domain_name')
-            self.os_username = config.get('DEFAULT', 'username')
-            self.os_password = config.get('DEFAULT', 'password')
-            self.os_project_name = \
-                config.get('DEFAULT', 'project_name')
-            self.identity_version = \
-                config.get('DEFAULT', 'keystone_version')
+            self.keystone_ep = args_dict['keystone_endpoint']
+            self.barbican_ep = args_dict['barbican_endpoint']
+            self.domain_name = args_dict['domain_name']
+            self.os_username = args_dict['username']
+            self.os_password = args_dict['password']
+            self.os_project_name = args_dict['project_name']
+            self.identity_version = args_dict['keystone_version']
             self.auth_token = None
 
             if not self.keystone_ep:
@@ -81,6 +70,21 @@ class Identity():
             logging.error(str(e))
             return False
 
+    def _request(self, url, headers=None, body=None, request_type=None):
+        try:
+            if request_type == 'PUT':
+                encoded_body = json.dumps(body)
+                return requests.put(url, headers=headers, data=encoded_body)
+            elif request_type == 'POST':
+                encoded_body = json.dumps(body)
+                return requests.post(url, headers=headers, data=encoded_body)
+            else:
+                return requests.get(url, headers=headers)
+
+        except Exception as e:
+            logging.error("Failed sending request to keystone")
+            return None
+
     def _get_v3_project_scoped_auth_token(self):
         try:
             headers = {
@@ -108,7 +112,7 @@ class Identity():
             }
 
             url = self.keystone_ep + "/auth/tokens"
-            resp = _request(url, headers, body, 'POST')
+            resp = self._request(url, headers, body, 'POST')
             if resp and resp.status_code in range(200, 299):
                 headers = resp.headers
                 if headers and 'x-subject-token' in headers:
@@ -136,7 +140,7 @@ class Identity():
             }
 
             url = self.keystone_ep + "/tokens"
-            resp = _request(url, headers, body, 'POST')
+            resp = self._request(url, headers, body, 'POST')
             if resp and resp.status_code in range(200, 299):
                 json_data = json.loads(resp.text)
                 self.auth_token = json_data['access']['token']['id']
