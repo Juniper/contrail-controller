@@ -113,8 +113,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
     FlowProto *proto = flow->flow_table()->agent()->pkt()->get_flow_proto();
     // for any error report KSync Error
     if (err != 0) {
-        if ((err = EBADF) && (((int)flow->flow_handle() != r->get_fr_index())))
+        if ((err == EBADF || err == ENOENT) &&
+            (((int)flow->flow_handle() != r->get_fr_index()))) {
+            // ignore EBADF and ENOENT error, if flow handle change
+            // was observed before gettign the response, thus avoid
+            // marking the flow as short flow
             return;
+        }
 
         proto->KSyncFlowErrorRequest(ksync_entry, err);
         return;
