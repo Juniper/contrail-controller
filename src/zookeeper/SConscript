@@ -1,0 +1,14 @@
+#
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+ZooEnv = BuildEnv.Clone()
+
+ZooEnv.Append(CPPPATH = ['/usr/include'])
+sources = ['zookeeper_client.cc']
+
+libzoo = ZooEnv.Library('zookeeper_client', source = sources)
+ZooEnv.Install(ZooEnv['TOP_LIB'], libzoo)
+
+ZooEnv.SConscript('test/SConscript', exports='ZooEnv', duplicate=0)

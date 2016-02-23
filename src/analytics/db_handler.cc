@@ -25,6 +25,7 @@
 #else // USE_CASSANDRA_CQL
 #include <database/cassandra/thrift/thrift_if.h>
 #endif // !USE_CASSANDRA_CQL
+#include <zookeeper/zookeeper_client.h>
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
@@ -65,14 +66,18 @@ DbHandler::DbHandler(EventManager *evm,
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql) :
+        bool use_cql,
+        const std::string &zookeeper_server_list,
+        bool use_zookeeper) :
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
     use_cql_(use_cql),
     tablespace_(),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
-        (uint8_t)g_viz_constants.PARTITION_MAX) {
+        (uint8_t)g_viz_constants.PARTITION_MAX),
+    zookeeper_server_list_(zookeeper_server_list),
+    use_zookeeper_(use_zookeeper) {
 #ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
@@ -299,7 +304,7 @@ bool DbHandler::Init(bool initial, int instance) {
     }
 }
 
-bool DbHandler::Initialize(int instance) {
+bool DbHandler::InitializeInternal(int instance) {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
@@ -324,6 +329,25 @@ bool DbHandler::Initialize(int instance) {
     DB_LOG(DEBUG, "Initializing Done");
 
     return true;
+}
+
+bool DbHandler::InitializeInternalLocked(int instance) {
+    // Synchronize creation across nodes using zookeeper
+    zookeeper::client::ZookeeperClient client(name_.c_str(),
+        zookeeper_server_list_.c_str());
+    zookeeper::client::ZookeeperLock dmutex(&client, "/collector");
+    assert(dmutex.Lock());
+    bool success(InitializeInternal(instance));
+    assert(dmutex.Release());
+    return success;
+}
+
+bool DbHandler::Initialize(int instance) {
+    if (use_zookeeper_) {
+        return InitializeInternalLocked(instance);
+    } else {
+        return InitializeInternal(instance);
+    }
 }
 
 bool DbHandler::Setup(int instance) {
@@ -1674,13 +1698,15 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string& cassandra_user, const std::string& cassandra_password,
-    bool use_cql) :
+    bool use_cql, const std::string &zookeeper_server_list,
+    bool use_zookeeper) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
-        cassandra_user, cassandra_password, use_cql)),
+        cassandra_user, cassandra_password, use_cql,
+        zookeeper_server_list, use_zookeeper)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
