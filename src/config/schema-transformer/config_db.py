@@ -1112,19 +1112,32 @@ class VirtualNetworkST(DBBaseST):
 
                 for sp, dp, sa, da in itertools.product(sp_list, dp_list,
                                                         sa_list, da_list):
-                    acl = self.add_acl_rule(
-                        sa, sp, da, dp, arule_proto, rule_uuid,
-                        prule.action_list, prule.direction,
-                        service_ris.get(da.virtual_network, [None])[0])
-                    result_acl_rule_list.append(acl)
-                    if ((prule.direction == "<>") and
-                        (sa != da or sp != dp)):
+                    if self.me(sa.virtual_network):
                         acl = self.add_acl_rule(
-                            da, dp, sa, sp, arule_proto, rule_uuid,
+                            sa, sp, da, dp, arule_proto, rule_uuid,
                             prule.action_list, prule.direction,
-                            service_ris.get(sa.virtual_network, [None, None])[1])
-
+                            service_ris.get(da.virtual_network, [None])[0])
                         result_acl_rule_list.append(acl)
+                    if self.me(da.virtual_network):
+                        acl = self.add_acl_rule(
+                                sa, sp, da, dp, arule_proto, rule_uuid,
+                                prule.action_list, prule.direction,
+                                service_ris.get(sa.virtual_network, [None, None])[1])
+                        result_acl_rule_list.append(acl)
+                    if ((prule.direction == "<>") and (sa != da or sp != dp)):
+                        if self.me(sa.virtual_network):
+                            acl = self.add_acl_rule(
+                                da, dp, sa, sp, arule_proto, rule_uuid,
+                                prule.action_list, prule.direction,
+                                service_ris.get(da.virtual_network, [None])[0])
+                            result_acl_rule_list.append(acl)
+                        if self.me(da.virtual_network):
+                            acl = self.add_acl_rule(
+                                da, dp, sa, sp, arule_proto, rule_uuid,
+                                prule.action_list, prule.direction,
+                                service_ris.get(sa.virtual_network, [None, None])[1])
+                            result_acl_rule_list.append(acl)
+
                 # end for sp, dp
             # end for daddr
         # end for saddr
