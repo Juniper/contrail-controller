@@ -2,6 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 #include <pkt/flow_proto.h>
+#include <init/agent_param.h>
 #include "ksync_flow_index_manager.h"
 #include "flowtable_ksync.h"
 #include "ksync_init.h"
@@ -12,12 +13,15 @@
 KSyncFlowIndexEntry::KSyncFlowIndexEntry() :
     state_(INIT), index_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
     index_owner_(NULL), evicted_(false), skip_delete_(false), evict_count_(0),
-    delete_in_progress_(false) {
+    delete_in_progress_(false),  event_log_index_(0), event_logs_(NULL) {
 }
 
 KSyncFlowIndexEntry::~KSyncFlowIndexEntry() {
     assert(index_owner_.get() == NULL);
     assert(ksync_entry_ == NULL);
+    if (event_logs_ != NULL) {
+        delete [] event_logs_;
+    }
 }
 
 static const char *kStateDescription[] = {
@@ -48,11 +52,14 @@ static const char *EventToString(KSyncFlowIndexEntry::Event event) {
     return kEventDescription[(int)event];
 }
 
-void KSyncFlowIndexEntry::Log(KSyncFlowIndexManager *manager, FlowEntry *flow,
-                              Event event, uint32_t index) {
+void KSyncFlowIndexEntry::LogInternal(KSyncFlowIndexManager *manager,
+                                      const std::string &description,
+                                      FlowEntry *flow,
+                                      Event event, uint32_t index,
+                                      FlowEntry *evict_flow) {
     int idx1 = (index_ == FlowEntry::kInvalidFlowHandle) ? -1 : index_;
     int idx2 = (index == FlowEntry::kInvalidFlowHandle) ? -1 : index;
-    LOG(DEBUG, "FlowIndexMgmt :"
+    LOG(DEBUG, description
         << " Flow : " << (void *)flow
         << " State : " << StateToString(state_)
         << " Handle : " << flow->flow_handle()
@@ -62,21 +69,44 @@ void KSyncFlowIndexEntry::Log(KSyncFlowIndexManager *manager, FlowEntry *flow,
         << " Evicted : " << (evicted_ ? "true" : "false")
         << " SkipDel : " << (skip_delete_ ? "true" : "false")
         << " Key < " << flow->KeyString() << " >");
+
+    if (manager->sm_log_count() == 0)
+        return;
+
+    if (event_logs_ == NULL) {
+        event_log_index_ = 0;
+        event_logs_ = new EventLog[manager->sm_log_count()];
+    }
+
+    EventLog *log = &event_logs_[(event_log_index_ % manager->sm_log_count())];
+    event_log_index_++;
+
+    log->time_ = ClockMonotonicUsec();
+    log->state_ = state_;
+    log->event_ = event;
+    if (flow)
+        log->flow_handle_ = flow->flow_handle();
+    else
+        log->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+    log->index_ = index_;
+    log->ksync_entry_ = ksync_entry_;
+    log->evicted_ = evicted_;
+    log->skip_delete_ = skip_delete_;
+    log->evict_count_ = evict_count_;
+    log->delete_in_progress_ = delete_in_progress_;
+    log->evict_flow_ = evict_flow;
+    log->vrouter_flow_handle_ = index;
+}
+
+void KSyncFlowIndexEntry::Log(KSyncFlowIndexManager *manager, FlowEntry *flow,
+                              Event event, uint32_t index) {
+    LogInternal(manager, "FlowIndexSm", flow, event, index, NULL);
 }
 
 void KSyncFlowIndexEntry::EvictLog(KSyncFlowIndexManager *manager,
-                                   FlowEntry *flow, uint32_t index) {
-    int idx1 = (index_ == FlowEntry::kInvalidFlowHandle) ? -1 : index_;
-    int idx2 = (index == FlowEntry::kInvalidFlowHandle) ? -1 : index;
-    LOG(DEBUG, "FlowIndexMgmt EvictRequest :"
-        << " Flow : " << (void *)flow
-        << " State : " << StateToString(state_)
-        << " Handle : " << flow->flow_handle()
-        << " Index : " << idx1
-        << " NewIndex : " << idx2
-        << " Evicted : " << (evicted_ ? "true" : "false")
-        << " SkipDel : " << (skip_delete_ ? "true" : "false")
-        << " Key < " << flow->KeyString() << " >");
+                                   FlowEntry *flow, uint32_t index,
+                                   FlowEntry *evict_flow) {
+    LogInternal(manager, "FlowIndexSm", flow, INVALID_EVENT, index, evict_flow);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -630,7 +660,7 @@ void KSyncFlowIndexEntry::IndexFailedSm(KSyncFlowIndexManager *manager,
 // KSyncFlowIndexManager routines
 //////////////////////////////////////////////////////////////////////////////
 KSyncFlowIndexManager::KSyncFlowIndexManager(KSync *ksync) :
-    ksync_(ksync), proto_(NULL), count_(0), index_list_() {
+    ksync_(ksync), proto_(NULL), count_(0), index_list_(), sm_log_count_(0) {
 }
 
 KSyncFlowIndexManager::~KSyncFlowIndexManager() {
@@ -640,6 +670,7 @@ void KSyncFlowIndexManager::InitDone(uint32_t count) {
     proto_ = ksync_->agent()->pkt()->get_flow_proto();
     count_ = count;
     index_list_.resize(count);
+    sm_log_count_ = ksync_->agent()->params()->flow_index_sm_log_count();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -693,7 +724,7 @@ void KSyncFlowIndexManager::AcquireIndex(FlowEntry *flow, uint32_t index) {
     if (owner.get() != NULL) {
         EvictIndexUnlocked(owner.get(), index, true);
         if (owner.get() != flow) {
-            EvictRequest(owner, index);
+            EvictRequest(flow, owner, index);
         }
     }
 
@@ -744,8 +775,11 @@ FlowEntryPtr KSyncFlowIndexManager::FindByIndex(uint32_t idx) {
     return FlowEntryPtr(NULL);
 }
 
-void KSyncFlowIndexManager::EvictRequest(FlowEntryPtr &flow, uint32_t index) {
-    flow->ksync_index_entry()->EvictLog(this, flow.get(), index);
-    flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_EVICT;
-    proto_->EvictFlowRequest(flow, index);
+void KSyncFlowIndexManager::EvictRequest(FlowEntry *flow,
+                                         FlowEntryPtr &evict_flow,
+                                         uint32_t index) {
+    evict_flow->ksync_index_entry()->EvictLog(this, flow, index,
+                                              evict_flow.get());
+    evict_flow->ksync_index_entry()->state_ = KSyncFlowIndexEntry::INDEX_EVICT;
+    proto_->EvictFlowRequest(evict_flow, index);
 }
