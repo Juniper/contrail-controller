@@ -181,13 +181,13 @@ void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
     if (!bind_status_.IsUp())
         return;
 
-    bool reverse_resolution = vdns->IsReverseResolutionEnabled();
     std::string dns_domain = vdns->GetDomainName();
-    if (dns_domain.empty() || !reverse_resolution) {
+    if (dns_domain.empty()) {
         DNS_BIND_TRACE(DnsBindTrace, "Ptr Zone <" << vdns->GetName() <<
                        "> ; ignoring event: " << DnsConfig::ToEventString(ev) <<
                        " Domain: " << dns_domain << " Reverse Resolution: " <<
-                       (reverse_resolution ? "enabled" : "disabled"));
+                       (vdns->IsReverseResolutionEnabled()? "enabled" : 
+                       "disabled"));
         return;
     }
 
