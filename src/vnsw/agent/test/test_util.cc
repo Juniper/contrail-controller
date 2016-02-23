@@ -2351,7 +2351,7 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     }
     FlowStatsCollector *fec =
         agent->flow_stats_manager()->default_flow_stats_collector();
-    FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
+    FlowExportInfo *info = fec->FindFlowExportInfo(fe->uuid());
 
     if (info) {
         LOG(DEBUG, " bytes " << info->bytes() << " pkts " << info->packets());
@@ -3222,7 +3222,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     }
     FlowStatsCollector *fec = 
         agent->flow_stats_manager()->default_flow_stats_collector();
-    FlowExportInfo *info = fec->FindFlowExportInfo(key);
+    FlowExportInfo *info = fec->FindFlowExportInfo(fe->uuid());
     if (info) {
         LOG(DEBUG, " bytes " << info->bytes() << " pkts " << info->packets());
         if (info->bytes() == bytes && info->packets() == pkts) {
