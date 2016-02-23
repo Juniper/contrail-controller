@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>2000</network-id>
+    </virtual-network>
+    <virtual-network name="red-vn">
+        <network-id>1000</network-id>
+    </virtual-network>
+    <route-aggregate name='vn_subnet'>
+        <aggregate-route-entries>
+            <route>0/0</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.254</nexthop>
+    </route-aggregate>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <route-aggregate to="vn_subnet"/>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+    <routing-instance name="blue">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>
