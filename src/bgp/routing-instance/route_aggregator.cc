@@ -142,7 +142,8 @@ public:
         return false;
     }
 
-    bool IsBestMatch(BgpRoute *route);
+    bool IsOriginVnMatch(BgpRoute *route) const;
+    bool IsBestMatch(BgpRoute *route) const;
 
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
@@ -274,6 +275,31 @@ typename AggregateRoute<T>::CompareResult AggregateRoute<T>::CompareConfig(
     return NoChange;
 }
 
+template <typename T>
+bool AggregateRoute<T>::IsOriginVnMatch(BgpRoute *route) const {
+    const BgpPath *path = route->BestPath();
+    const BgpAttr *attr = path->GetAttr();
+    const ExtCommunity *ext_community = attr->ext_community();
+    int vni = 0;
+    if (ext_community) {
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_community->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm)) continue;
+            OriginVn origin_vn(comm);
+            vni = origin_vn.vn_index();
+            break;
+        }
+    }
+
+    if (!vni && path->IsVrfOriginated())
+        vni = routing_instance()->virtual_network_index();
+
+    if (vni == routing_instance()->GetOriginVnForAggregateRoute(GetFamily()))
+        return true;
+
+    return false;
+}
+
 //
 // Calculate all aggregate prefixes to which the route can be contributing.
 // We need to calculate the longest prefix to which this route belongs.
@@ -282,7 +308,7 @@ typename AggregateRoute<T>::CompareResult AggregateRoute<T>::CompareConfig(
 // as so on
 //
 template <typename T>
-bool AggregateRoute<T>::IsBestMatch(BgpRoute *route) {
+bool AggregateRoute<T>::IsBestMatch(BgpRoute *route) const {
     const RouteT *ip_route = static_cast<RouteT *>(route);
     const PrefixT &ip_prefix = ip_route->GetPrefix();
     typename RouteAggregator<T>::AggregateRouteMap::const_iterator it;
@@ -312,8 +338,14 @@ bool AggregateRoute<T>::Match(BgpServer *server, BgpTable *table,
                    BgpRoute *route, bool deleted) {
     CHECK_CONCURRENCY("db::DBTable");
 
+    //
     // Only interested routes
-    if (!IsMoreSpecific(route)) return false;
+    // Should satisfy following conditions
+    //   1. Origin VN should match origin VN of aggregated route
+    //   2. Route should be more specific
+    //
+    if ((!deleted && !IsOriginVnMatch(route)) || !IsMoreSpecific(route))
+        return false;
 
     if (!deleted) {
         //

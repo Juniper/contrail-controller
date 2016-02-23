@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>2000</network-id>
+    </virtual-network>
+    <virtual-network name="red-vn">
+        <network-id>1000</network-id>
+    </virtual-network>
+    <route-aggregate name='red_subnet'>
+        <aggregate-route-entries>
+            <route>0/0</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.3</nexthop>
+    </route-aggregate>
+    <route-aggregate name='blue_subnet'>
+        <aggregate-route-entries>
+            <route>0/0</route>
+        </aggregate-route-entries>
+        <nexthop>1.1.1.3</nexthop>
+    </route-aggregate>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <service-chain-info>
+            <routing-instance>blue</routing-instance>
+            <source-routing-instance>red</source-routing-instance>
+            <prefix>1.1.1.0/24</prefix>
+            <service-chain-address>1.1.1.3</service-chain-address>
+        </service-chain-info>
+        <vrf-target>target:1:103</vrf-target>
+        <route-aggregate to="blue_subnet"/>
+    </routing-instance>
+    <routing-instance name="blue">
+        <virtual-network>blue-vn</virtual-network>
+        <service-chain-info>
+            <routing-instance>red</routing-instance>
+            <source-routing-instance>blue</source-routing-instance>
+            <prefix>2.2.2.0/24</prefix>
+            <service-chain-address>1.1.1.3</service-chain-address>
+        </service-chain-info>
+        <vrf-target>target:1:104</vrf-target>
+        <route-aggregate to="red_subnet"/>
+    </routing-instance>
+</config>
