@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/map_util.h"
 #include "base/task_annotations.h"
 #include "base/task_trigger.h"
 #include "bgp/bgp_config.h"
@@ -797,42 +798,16 @@ bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
 template <typename T>
 void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    typedef BgpInstanceConfig::StaticRouteList StaticRouteList;
-    StaticRouteList static_route_list =
+    StaticRouteConfigList config_list =
         routing_instance()->config()->static_routes(GetFamily());
+    sort(config_list.begin(), config_list.end(), CompareStaticRouteConfig);
 
-    sort(static_route_list.begin(), static_route_list.end(),
-              CompareStaticRouteConfig);
-
-    StaticRouteList::const_iterator static_route_cfg_it =
-            static_route_list.begin();
-    typename StaticRouteMap::iterator oper_it = static_route_map_.begin();
-
-    while ((static_route_cfg_it != static_route_list.end()) &&
-           (oper_it != static_route_map_.end())) {
-        AddressT address = this->GetAddress(static_route_cfg_it->address);
-        PrefixT static_route_prefix(
-            address, static_route_cfg_it->prefix_length);
-        if (static_route_prefix < oper_it->first) {
-            LocateStaticRoutePrefix(*static_route_cfg_it);
-            static_route_cfg_it++;
-        } else if (static_route_prefix > oper_it->first) {
-            RemoveStaticRoutePrefix(oper_it->first);
-            oper_it++;
-        } else {
-            LocateStaticRoutePrefix(*static_route_cfg_it);
-            static_route_cfg_it++;
-            oper_it++;
-        }
-    }
-
-    for (; oper_it != static_route_map_.end(); oper_it++) {
-        RemoveStaticRoutePrefix(oper_it->first);
-    }
-    for (; static_route_cfg_it != static_route_list.end();
-         static_route_cfg_it++) {
-        LocateStaticRoutePrefix(*static_route_cfg_it);
-    }
+    map_difference(&static_route_map_,
+        config_list.begin(), config_list.end(),
+        boost::bind(&StaticRouteMgr<T>::CompareStaticRoute, this, _1, _2),
+        boost::bind(&StaticRouteMgr<T>::AddStaticRoute, this, _1),
+        boost::bind(&StaticRouteMgr<T>::DelStaticRoute, this, _1),
+        boost::bind(&StaticRouteMgr<T>::UpdateStaticRoute, this, _1, _2));
 }
 
 template <typename T>
@@ -842,6 +817,32 @@ void StaticRouteMgr<T>::FlushStaticRouteConfig() {
          it != static_route_map_.end(); it++) {
         RemoveStaticRoutePrefix(it->first);
     }
+}
+
+template <typename T>
+int StaticRouteMgr<T>::CompareStaticRoute(
+    typename StaticRouteMap::iterator loc,
+    StaticRouteConfigList::iterator it) {
+    AddressT address = this->GetAddress(it->address);
+    PrefixT prefix(address, it->prefix_length);
+    KEY_COMPARE(loc->first, prefix);
+    return 0;
+}
+
+template <typename T>
+void StaticRouteMgr<T>::AddStaticRoute(StaticRouteConfigList::iterator it) {
+    LocateStaticRoutePrefix(*it);
+}
+
+template <typename T>
+void StaticRouteMgr<T>::DelStaticRoute(typename StaticRouteMap::iterator loc) {
+    RemoveStaticRoutePrefix(loc->first);
+}
+
+template <typename T>
+void StaticRouteMgr<T>::UpdateStaticRoute(typename StaticRouteMap::iterator loc,
+    StaticRouteConfigList::iterator it) {
+    LocateStaticRoutePrefix(*it);
 }
 
 template <typename T>

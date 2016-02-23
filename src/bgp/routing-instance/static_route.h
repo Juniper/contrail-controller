@@ -12,6 +12,7 @@
 
 #include "base/queue_task.h"
 #include "bgp/bgp_condition_listener.h"
+#include "bgp/bgp_config.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
 
@@ -95,10 +96,18 @@ public:
 
 private:
     template <typename U> friend class StaticRouteTest;
+    typedef BgpInstanceConfig::StaticRouteList StaticRouteConfigList;
 
     // All static route related actions are performed in the context
     // of this task. This task has exclusion with db::DBTable task.
     static int static_route_task_id_;
+
+    int CompareStaticRoute(typename StaticRouteMap::iterator loc,
+        StaticRouteConfigList::iterator it);
+    void AddStaticRoute(StaticRouteConfigList::iterator it);
+    void DelStaticRoute(typename StaticRouteMap::iterator loc);
+    void UpdateStaticRoute(typename StaticRouteMap::iterator loc,
+        StaticRouteConfigList::iterator it);
 
     void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
     void RemoveStaticRoutePrefix(const PrefixT &static_route);
