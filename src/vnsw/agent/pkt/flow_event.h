@@ -155,6 +155,7 @@ public:
 
     Event event() const { return event_; }
     FlowEntry *flow() const { return flow_.get(); }
+    FlowEntryPtr &flow_ref() { return flow_; }
     void set_flow(FlowEntry *flow) { flow_ = flow; }
     const DBEntry *db_entry() const { return db_entry_; }
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
