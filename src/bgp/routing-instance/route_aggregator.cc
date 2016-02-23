@@ -315,7 +315,7 @@ bool AggregateRoute<T>::IsBestMatch(BgpRoute *route) const {
     std::set<PrefixT> prefix_list;
     for (it = manager_->aggregate_route_map().begin();
          it != manager_->aggregate_route_map().end(); ++it) {
-        if (ip_prefix != it->first &&
+        if (!it->second->deleted() && ip_prefix != it->first &&
             ip_prefix.IsMoreSpecific(it->first)) {
             prefix_list.insert(it->first);
         }
