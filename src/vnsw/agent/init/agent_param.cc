@@ -513,6 +513,11 @@ void AgentParam::ParseFlows() {
         "FLOWS.max_vm_linklocal_flows")) {
         linklocal_vm_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
     }
+    if (!GetValueFromTree<uint16_t>(flow_index_sm_log_count_,
+                                    "FLOWS.index_sm_log_count")) {
+        flow_index_sm_log_count_ = Agent::kDefaultFlowIndexSmLogCount;
+    }
+
 }
 
 void AgentParam::ParseHeadlessMode() {
@@ -741,6 +746,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_system_linklocal_flows");
     GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
                           "FLOWS.max_vm_linklocal_flows");
+    GetOptValue<uint16_t>(var_map, flow_index_sm_log_count_,
+                          "FLOWS.index_sm_log_count");
 }
 
 void AgentParam::ParseHeadlessModeArguments
@@ -1092,6 +1099,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     LOG(DEBUG, "Flow thread count           : " << flow_thread_count_);
+    LOG(DEBUG, "Flow index-mgr sm log count : " << flow_index_sm_log_count_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1184,7 +1192,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         dss_server_(), dss_port_(0), mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
-        flow_cache_timeout_(), config_file_(), program_name_(),
+        flow_cache_timeout_(), flow_index_sm_log_count_(),
+        config_file_(), program_name_(),
         log_file_(), log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
         http_server_port_(), host_name_(),

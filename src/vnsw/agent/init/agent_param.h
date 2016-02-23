@@ -108,6 +108,7 @@ public:
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
     uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
+    uint16_t flow_index_sm_log_count() const {return flow_index_sm_log_count_;}
     bool headless_mode() const {return headless_mode_;}
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
@@ -378,6 +379,7 @@ private:
     uint16_t linklocal_system_flows_;
     uint16_t linklocal_vm_flows_;
     uint16_t flow_cache_timeout_;
+    uint16_t flow_index_sm_log_count_;
 
     // Parameters configured from command line arguments only (for now)
     std::string config_file_;
