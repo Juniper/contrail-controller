@@ -240,6 +240,8 @@ public:
     static const uint32_t kMaxOtherOpenFds = 64;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
+    // default number of flow index-manager events logged per flow
+    static const uint32_t kDefaultFlowIndexSmLogCount = 0;
     // default number of threads for flow setup
     static const uint32_t kDefaultFlowThreadCount = 1;
     // Max number of threads
