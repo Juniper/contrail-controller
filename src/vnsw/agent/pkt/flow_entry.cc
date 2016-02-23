@@ -326,7 +326,8 @@ FlowEntry::~FlowEntry() {
 }
 
 void FlowEntry::Reset() {
-    uuid_ = FlowTable::rand_gen_();
+    uuid_ = flow_table_->rand_gen();
+    egress_uuid_ = flow_table_->rand_gen();
     data_.Reset();
     l3_flow_ = true;
     flow_handle_ = kInvalidFlowHandle;
