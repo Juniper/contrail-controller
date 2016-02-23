@@ -275,7 +275,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(req->get_flow_key());
+        FlowTable *table = GetTable(req->table_index());
         table->Delete(req->get_flow_key(), req->get_del_rev_flow());
         break;
     }
@@ -378,9 +378,10 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     return true;
 }
 
-void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key,
-                                   del_rev_flow));
+void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
+                                  uint32_t table_index) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow,
+                                   table_index));
     return;
 }
 
