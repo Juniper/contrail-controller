@@ -9,6 +9,7 @@
 #include <db/db_table.h>
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 #include "oper/route_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
@@ -293,7 +294,7 @@ void MirrorTable::MirrorSockInit(void) {
     event_mgr = agent()->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
     ip::udp::endpoint ep(ip::udp::v4(),
-                         ContrailPorts::VrouterAgentMirrorClientUdpPort());
+                         agent()->params()->mirror_client_port());
 
     udp_sock_.reset(new ip::udp::socket(io));
 

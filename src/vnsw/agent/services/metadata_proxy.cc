@@ -19,6 +19,7 @@
 #include "http/client/http_curl.h"
 #include "io/event_manager.h"
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "oper/operdb_init.h"
 #include "oper/mirror_table.h"
 #include "oper/interface_common.h"
@@ -88,9 +89,8 @@ MetadataProxy::MetadataProxy(ServicesModule *module,
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
-    http_server_->Initialize(ContrailPorts::MetadataProxyVrouterAgentPort());
-    services_->agent()->set_metadata_server_port(
-                        ContrailPorts::MetadataProxyVrouterAgentPort());
+    http_server_->Initialize(services_->agent()->params()->metadata_proxy_port());
+    services_->agent()->set_metadata_server_port(http_server_->GetPort());
 
     http_client_->Init();
 }

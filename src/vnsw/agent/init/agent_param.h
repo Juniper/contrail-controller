@@ -99,11 +99,26 @@ public:
     const Ip4Address &dns_server_2() const { return dns_server_2_; }
     const uint16_t dns_port_1() const { return dns_port_1_; }
     const uint16_t dns_port_2() const { return dns_port_2_; }
+    const uint16_t dns_client_port() const {
+        if (test_mode_)
+            return 0;
+        return dns_client_port_;
+    }
+    const uint16_t mirror_client_port() const {
+        if (test_mode_)
+            return 0;
+        return mirror_client_port_;
+    }
     const std::string &discovery_server() const { return dss_server_; }
     const Ip4Address &mgmt_ip() const { return mgmt_ip_; }
     const int xmpp_instance_count() const { return xmpp_instance_count_; }
     const std::string &tunnel_type() const { return tunnel_type_; }
     const std::string &metadata_shared_secret() const { return metadata_shared_secret_; }
+    uint16_t metadata_proxy_port() const {
+        if (test_mode_)
+            return 0;
+        return metadata_proxy_port_;
+    }
     float max_vm_flows() const { return max_vm_flows_; }
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
@@ -296,6 +311,7 @@ private:
     void ComputeFlowLimits();
     void ParseCollector();
     void ParseVirtualHost();
+    void ParseDns();
     void ParseDiscovery();
     void ParseNetworks();
     void ParseHypervisor();
@@ -316,6 +332,8 @@ private:
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
     void ParseVirtualHostArguments
+        (const boost::program_options::variables_map &v);
+    void ParseDnsArguments
         (const boost::program_options::variables_map &v);
     void ParseDiscoveryArguments
         (const boost::program_options::variables_map &v);
@@ -367,6 +385,8 @@ private:
     Ip4Address dns_server_2_;
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
+    uint16_t dns_client_port_;
+    uint16_t mirror_client_port_;
     std::string dss_server_;
     uint16_t dss_port_;
     Ip4Address mgmt_ip_;
@@ -374,6 +394,7 @@ private:
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
+    uint16_t metadata_proxy_port_;
     float max_vm_flows_;
     uint16_t linklocal_system_flows_;
     uint16_t linklocal_vm_flows_;
