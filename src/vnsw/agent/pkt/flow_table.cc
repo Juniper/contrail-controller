@@ -157,6 +157,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
+
     FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, false);
 }
@@ -210,6 +211,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             // for flow entry
             if (rflow->deleted()) {
                 rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+                // rflow was delete marked skip force update
+                force_update_rflow = false;
             }
             rflow->set_deleted(false);
         } else {

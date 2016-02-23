@@ -209,7 +209,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     }
 
     case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetFlowTable(event->get_flow_key());
+        FlowTable *table = GetTable(event->table_index());
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
     }
@@ -248,6 +248,12 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
+    case FlowEvent::REENTRANT: {
+        uint32_t index = event->table_index();
+        flow_event_queue_[index]->Enqueue(event);
+        break;
+    }
+
     default:
         assert(0);
         break;
@@ -268,6 +274,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
+    case FlowEvent::REENTRANT:
     case FlowEvent::FLOW_MESSAGE: {
         FlowHandler *handler = new FlowHandler(agent(), req->pkt_info(), io_,
                                                this, table->table_index());
@@ -414,6 +421,13 @@ void FlowProto::EnqueueFreeFlowReference(FlowEntryPtr &flow) {
         flow.reset();
         EnqueueFlowEvent(event);
     }
+}
+
+bool FlowProto::EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
+                                 uint8_t table_index) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::REENTRANT,
+                                   msg, table_index));
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
