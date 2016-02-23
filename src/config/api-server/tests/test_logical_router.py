@@ -43,28 +43,33 @@ logger.setLevel(logging.DEBUG)
 
 
 class TestLogicalRouter(test_case.ApiServerTestCase):
+    def __init__(self, *args, **kwargs):
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        logger.addHandler(ch)
+        super(TestLogicalRouter, self).__init__(*args, **kwargs)
 
     def test_lr_v4_subnets(self):
-        print '*** test logical router creation and interface-add of v4 subnets ***'
+        logger.debug('*** test logical router creation and interface-add of v4 subnets ***')
 
         # Create Domain
         domain = Domain('my-lr-domain')
         self._vnc_lib.domain_create(domain)
-        print 'Created domain '
+        logger.debug('Created domain ')
 
         # Create Project
         project = Project('my-lr-proj', domain)
         self._vnc_lib.project_create(project)
-        print 'Created Project'
+        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        print 'Created network ipam'
+        logger.debug('Created network ipam')
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-lr-domain', 'my-lr-proj',
                                                         'default-network-ipam'])
-        print 'Read network ipam'
+        logger.debug('Read network ipam')
 
         # Create subnets
         ipam_sn_v4_vn1 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -76,20 +81,20 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         vn1 = VirtualNetwork('my-vn-1', project)
         vn1.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn1, ipam_sn_v6_vn1]))
         self._vnc_lib.virtual_network_create(vn1)
-        print 'Created Virtual Network object for my-vn-1 ', vn1.uuid
+        logger.debug('Created Virtual Network object for my-vn-1 ', vn1.uuid)
         net_obj1 = self._vnc_lib.virtual_network_read(id = vn1.uuid)
 
         # Create VN my-vn-2
         vn2 = VirtualNetwork('my-vn-2', project)
         vn2.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn2, ipam_sn_v6_vn2]))
         self._vnc_lib.virtual_network_create(vn2)
-        print 'Created Virtual Network object for my-vn-2 ', vn2.uuid
+        logger.debug('Created Virtual Network object for my-vn-2 ', vn2.uuid)
         net_obj2 = self._vnc_lib.virtual_network_read(id = vn2.uuid)
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4', project)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
-        print 'Created Logical Router ' 
+        logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
         id_perms = IdPermsType(enable=True) 
@@ -107,9 +112,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
-        print 'Created Virtual Machine Interface'
+        logger.debug('Created Virtual Machine Interface')
 
         # Create v4 Ip object
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address=gateway_ip,
@@ -122,7 +127,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj1)
         self._vnc_lib.logical_router_update(lr)
-        print 'Linked VMI object (VN1) and LR object'
+        logger.debug('Linked VMI object (VN1) and LR object')
 
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
@@ -139,9 +144,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
-        print 'Created Virtual Machine Interface'
+        logger.debug('Created Virtual Machine Interface')
 
         # Create v4 Ip object
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address=gateway_ip,
@@ -154,7 +159,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj2)
         self._vnc_lib.logical_router_update(lr)
-        print 'Linked VMI object (VN2) and LR object'
+        logger.debug('Linked VMI object (VN2) and LR object')
         
         # Verify logical-router dumps
         lr.dump()
@@ -164,22 +169,22 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Verify Route Target Creation
         rt_refs = lr.get_route_target_refs()
         if not rt_refs:
-            print ' !!! Schema Transformer not integrated in test yet !!!'
-            print ' !!! route-target not associated to Logical Router'
+            logger.debug(' !!! Schema Transformer not integrated in test yet !!!')
+            logger.debug(' !!! route-target not associated to Logical Router')
         else:
             for rt_ref in rt_refs:
-                print ' Route Target (%s)' %(rt_ref['to'])
+                logger.debug(' Route Target (%s)' %(rt_ref['to']))
                 rt_obj = self._vnc_lib.route_target_read(id=rt_ref['uuid'])
                 ri_refs = rt_obj.get_routing_instance_back_refs()
                 for ri_ref in ri_refs:
                     ri_obj = self.vnc_lib.routing_instance_read(id=ri_ref['uuid'])
                     ri_name = ri_obj.get_display_name()
-                    print ' Routing Instance (%s)' %(ri_name)
+                    logger.debug(' Routing Instance (%s)' %(ri_name))
                     if ((ri_name != 'my-vn-1') and  (ri_name != 'my-vn-2')):
-                        print ' Failure, Logical-Router not associated to expected VN'
+                        logger.debug(' Failure, Logical-Router not associated to expected VN')
 
         #cleanup
-        print 'Cleaning up'
+        logger.debug('Cleaning up')
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.logical_router_delete(id=lr_uuid)
@@ -193,26 +198,26 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     #end
     
     def test_lr_v6_subnets(self):
-        print '*** test logical router creation and interface-add of v6 subnets ***'
+        logger.debug('*** test logical router creation and interface-add of v6 subnets ***')
 
         # Create Domain
         domain = Domain('my-lr-domain')
         self._vnc_lib.domain_create(domain)
-        print 'Created domain '
+        logger.debug('Created domain ')
 
         # Create Project
         project = Project('my-lr-proj', domain)
         self._vnc_lib.project_create(project)
-        print 'Created Project'
+        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        print 'Created network ipam'
+        logger.debug('Created network ipam')
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-lr-domain', 'my-lr-proj',
                                                         'default-network-ipam'])
-        print 'Read network ipam'
+        logger.debug('Read network ipam')
 
         # Create subnets
         ipam_sn_v4_vn1 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -224,20 +229,20 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         vn1 = VirtualNetwork('my-vn-1', project)
         vn1.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn1, ipam_sn_v6_vn1]))
         self._vnc_lib.virtual_network_create(vn1)
-        print 'Created Virtual Network object for my-vn-1 ', vn1.uuid
+        logger.debug('Created Virtual Network object for my-vn-1 ', vn1.uuid)
         net_obj1 = self._vnc_lib.virtual_network_read(id = vn1.uuid)
 
         # Create VN my-vn-2
         vn2 = VirtualNetwork('my-vn-2', project)
         vn2.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn2, ipam_sn_v6_vn2]))
         self._vnc_lib.virtual_network_create(vn2)
-        print 'Created Virtual Network object for my-vn-2 ', vn2.uuid
+        logger.debug('Created Virtual Network object for my-vn-2 ', vn2.uuid)
         net_obj2 = self._vnc_lib.virtual_network_read(id = vn2.uuid)
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v6', project)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
-        print 'Created Logical Router ' 
+        logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
         id_perms = IdPermsType(enable=True) 
@@ -255,9 +260,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
-        print 'Created Virtual Machine Interface'
+        logger.debug('Created Virtual Machine Interface')
 
         # Create v6 Ip object
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address=gateway_ip,
@@ -271,7 +276,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_machine_interface(port_obj1)
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
-        print 'Linked VMI object (VN1) and LR object'
+        logger.debug('Linked VMI object (VN1) and LR object')
 
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
@@ -288,9 +293,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
-        print 'Created Virtual Machine Interface'
+        logger.debug('Created Virtual Machine Interface')
 
         # Create v6 Ip object
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address=gateway_ip,
@@ -304,7 +309,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_machine_interface(port_obj2)
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
-        print 'Linked VMI object (VN2) and LR object'
+        logger.debug('Linked VMI object (VN2) and LR object')
 
         # Verify logical-router dumps
         lr.dump()
@@ -314,23 +319,23 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Verify Route Target Creation
         rt_refs = lr.get_route_target_refs()
         if not rt_refs:
-            print ' !!! Schema Transformer not integrated in test yet !!!'
-            print ' !!! route-target not associated to Logical Router'
+            logger.debug(' !!! Schema Transformer not integrated in test yet !!!')
+            logger.debug(' !!! route-target not associated to Logical Router')
         else:
             for rt_ref in rt_refs:
-                print ' Route Target (%s)' %(rt_ref['to'])
+                logger.debug(' Route Target (%s)' %(rt_ref['to']))
                 rt_obj = self._vnc_lib.route_target_read(id=rt_ref['uuid'])
                 ri_refs = rt_obj.get_routing_instance_back_refs()
                 for ri_ref in ri_refs:
                     ri_obj = self.vnc_lib.routing_instance_read(id=ri_ref['uuid'])
                     ri_name = ri_obj.get_display_name()
-                    print ' Routing Instance (%s)' %(ri_name)
+                    logger.debug(' Routing Instance (%s)' %(ri_name))
                     if ((ri_name() != 'my-vn-1') and (ri_name() != 'my-vn-2')):
-                        print ' Failure, Logical-Router not associated to expected VN'
+                        logger.debug(' Failure, Logical-Router not associated to expected VN')
 
 
         #cleanup
-        print 'Cleaning up'
+        logger.debug('Cleaning up')
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
