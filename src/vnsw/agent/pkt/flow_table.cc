@@ -221,6 +221,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             // for flow entry
             if (rflow->deleted()) {
                 rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+                // rflow was delete marked skip force update
+                force_update_rflow = false;
             }
             rflow->set_deleted(false);
         } else {
