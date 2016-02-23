@@ -128,6 +128,8 @@ struct Inet4FlowKeyCmp {
 
 class FlowTable {
 public:
+    static const uint32_t kPortNatFlowTableInstance = 0;
+    static const uint32_t kInvalidFlowTableInstance = 0xFF;
 
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
     typedef std::pair<FlowKey, FlowEntry *> FlowEntryMapPair;
@@ -253,6 +255,8 @@ private:
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
 
     void UpdateUnLocked(FlowEntry *flow, FlowEntry *rflow);
+    void AddInternal(FlowEntry *flow, FlowEntry *new_flow,
+                     FlowEntry *rflow, FlowEntry *new_rflow);
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
                      FlowEntry *new_rflow, bool update);
     void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
