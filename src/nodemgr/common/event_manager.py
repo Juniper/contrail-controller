@@ -289,17 +289,16 @@ class EventManager(object):
             fail_status_bits = self.fail_status_bits
             state, description = self.get_process_state(fail_status_bits)
             process_status = ProcessStatus(
-                module_id=self.module_id, instance_id=self.instance_id,
-                state=state, description=description)
+                    module_id=self.module_id, instance_id=self.instance_id,
+                    state=state, description=description)
             process_status_list = []
             process_status_list.append(process_status)
-            node_status = NodeStatus(
-                name=socket.gethostname(),
-                process_status=process_status_list)
+            node_status = NodeStatus(name=socket.gethostname(),
+                            process_status=process_status_list)
             node_status_uve = NodeStatusUVE(data=node_status)
-	    msg = 'Sending UVE:' + str(node_status_uve)
-	    self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
-			    SandeshLevel.SYS_INFO), msg)
+            msg = 'Sending UVE:' + str(node_status_uve)
+            self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                                    SandeshLevel.SYS_INFO), msg)
             node_status_uve.send()
 
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,

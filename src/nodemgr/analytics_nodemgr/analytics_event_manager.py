@@ -25,6 +25,7 @@ from subprocess import Popen, PIPE
 
 from analytics.ttypes import \
     NodeStatusUVE, NodeStatus
+from pysandesh.connection_info import ConnectionState
 from analytics.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
 from analytics.process_info.constants import \
@@ -50,6 +51,10 @@ class AnalyticsEventManager(EventManager):
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8104, ['analytics'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
+        ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
+            self.instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
     # end __init__
 
     def process(self):
