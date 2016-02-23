@@ -95,7 +95,7 @@ private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
-    tbb::atomic<uint32_t> linklocal_flow_count_;
+    tbb::atomic<int> linklocal_flow_count_;
     FlowStats stats_;
 };
 
