@@ -244,9 +244,11 @@ private:
         Task(TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent), -1),
         key_(key) {}
         virtual bool Run() {
-            FlowTable *table =
-                Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key_);
-            table->Delete(key_, true);
+            Agent::GetInstance()->pkt()->get_flow_proto()->
+                DeleteFlowRequest(key_, true,
+                                  Agent::GetInstance()->pkt()->
+                                  get_flow_proto()->GetFlowTable(key_)->
+                                  table_index());
             return true;
         }
         std::string Description() const { return "FlowDeleteTask"; }
