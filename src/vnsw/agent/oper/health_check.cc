@@ -430,7 +430,8 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         boost::system::error_code ec;
         dest_ip = Ip4Address::from_string(p.url_path, ec);
         url_path = p.url_path;
-    } else {
+    } else if (!p.url_path.empty()) {
+        // parse url if available
         struct http_parser_url urldata;
         int ret = http_parser_parse_url(p.url_path.c_str(), p.url_path.size(),
                                         false, &urldata);
