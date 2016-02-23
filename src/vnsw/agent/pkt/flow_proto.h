@@ -87,6 +87,9 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
+    bool EnqueueTableChange(boost::shared_ptr<PktInfo> msg,
+                            uint8_t table_index);
+
 private:
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowTable *> flow_table_list_;
