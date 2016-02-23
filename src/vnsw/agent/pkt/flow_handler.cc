@@ -111,6 +111,19 @@ bool FlowHandler::Run() {
         info.short_flow = true;
     }
 
+    //Identify port nat and enqueue port nat to specific flow table
+    if (((pkt_info_->sport != info.nat_sport) ||
+        (pkt_info_->dport != info.nat_dport)) &&
+        (info.nat_sport != 0) && (info.nat_dport != 0) &&
+        (flow_table_index_ != FlowTable::kPortNatFlowTableInstance)) {
+        //Enqueue flow evaluation to
+        //FlowTable::kPortNatFlowTableInstance instance.
+        assert(pkt_info_->table_index == FlowTable::kInvalidFlowTableInstance);
+        flow_proto_->EnqueuePartitionChange(pkt_info_,
+                                            FlowTable::kPortNatFlowTableInstance);
+        return true;
+    }
+
     if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
                      (in.intf_->type() != Interface::INET))) {
         in.intf_ = NULL;

@@ -344,6 +344,7 @@ struct PktInfo {
         struct icmp6_hdr *icmp6;
         struct sctphdr *sctp;
     } transp;
+    uint8_t             table_index;
 
     PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName module,
             uint32_t mdata);

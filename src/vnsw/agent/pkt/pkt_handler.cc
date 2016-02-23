@@ -917,7 +917,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
     tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false), eth(),
-    arp(), ip(), ip6(), packet_buffer_(buff) {
+    arp(), ip(), ip6(), table_index(FlowTable::kInvalidFlowTableInstance),
+    packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -927,7 +928,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
-    l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6() {
+    l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(),
+    table_index(FlowTable::kInvalidFlowTableInstance) {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
         (module, buff_len, mdata);
@@ -944,7 +946,7 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
     l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(),
-    packet_buffer_() {
+    table_index(FlowTable::kInvalidFlowTableInstance), packet_buffer_() {
     transp.tcp = 0;
 }
 
