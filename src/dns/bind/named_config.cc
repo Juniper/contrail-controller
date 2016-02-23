@@ -74,13 +74,6 @@ void NamedConfig::ChangeView(const VirtualDnsConfig *vdns) {
         zones.push_back(old_domain);
         RemoveZoneFiles(vdns, zones);
     }
-    // If reverse resolution is disabled now, remove the reverse zone files
-    bool reverse_resolution = vdns->IsReverseResolutionEnabled();
-    if (!reverse_resolution && vdns->HasReverseResolutionChanged()) {
-        ZoneList zones;
-        MakeReverseZoneList(vdns, zones);
-        RemoveZoneFiles(vdns, zones);
-    }
 }
 
 void NamedConfig::DelView(const VirtualDnsConfig *vdns) {
@@ -262,11 +255,13 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
             file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
         }
 
+        bool reverse_resolution = curr_vdns->IsReverseResolutionEnabled();
         for (unsigned int i = 0; i < zones.size(); i++) {
-            WriteZone(view_name, zones[i], true);
+            WriteZone(view_name, zones[i], true, reverse_resolution, next_dns);
             // update the zone view map, to be used to generate default view
             if (curr_vdns->IsExternalVisible())
                 zone_view_map.insert(ZoneViewPair(zones[i], view_name));
+
         }
 
         file_ << "};" << endl << endl;
@@ -290,18 +285,25 @@ void NamedConfig::WriteDefaultView(ZoneViewMap &zone_view_map) {
     }
     for (ZoneViewMap::iterator it = zone_view_map.begin(); 
          it != zone_view_map.end(); ++it) {
-        WriteZone(it->second, it->first, false);
+        WriteZone(it->second, it->first, false, false, "");
     }
     file_ << "};" << endl << endl;
 }
 
 void NamedConfig::WriteZone(const string &vdns, const string &name,
-                            bool is_master) {
+                            bool is_master, bool is_rr, const string &next_dns) {
     file_ << "    zone \"" << name << "\" IN \{" << endl;
     if (is_master) {
         file_ << "        type master;" << endl;
         file_ << "        file \"" << GetZoneFilePath(vdns, name) << "\";" << endl;
         file_ << "        allow-update {127.0.0.1;};" << endl;
+        if (!next_dns.empty()) {
+            if (!is_rr && (name.find("in-addr.arpa") != std::string::npos)) {
+                file_ << "        forwarders { };" << endl;
+            }
+        } else {
+            file_ << "        forwarders { };" << endl;
+        }
     } else {
         file_ << "        type static-stub;" << endl;
         file_ << "        virtual-server-name \"" << vdns << "\";" << endl;
@@ -404,9 +406,6 @@ void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config,
     zones.push_back(dns_domain);
 
     // Reverse zones
-    if (!vdns_config->IsReverseResolutionEnabled()) {
-        return;
-    }
     MakeReverseZoneList(vdns_config, zones);
 }
 
