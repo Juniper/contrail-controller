@@ -157,6 +157,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
+
     FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, false);
 }
