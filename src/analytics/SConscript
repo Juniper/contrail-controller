@@ -53,6 +53,10 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'pugixml',
         'hiredis',
         'protobuf',
+        'rdkafka++',
+        'rdkafka',
+        'zookeeper_client',
+        'zookeeper_mt',
         'boost_filesystem',
         'boost_program_options'])
 
@@ -76,7 +80,6 @@ libs = MapBuildDir(['sandesh',
         'base',
         'io',
 	'net'])
-libs.extend('/usr/lib/')
 AnalyticsEnv.Append(LIBPATH=libs)
 
 includes = MapBuildDir(['http/client', 'discovery/client', 'analytics'])

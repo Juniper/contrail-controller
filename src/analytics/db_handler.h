@@ -88,7 +88,8 @@ public:
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql);
+        bool use_cql, const std::string &zookeeper_server_list,
+        bool use_zookeeper);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -156,6 +157,8 @@ private:
         boost::function<void (void)> cb);
     bool Setup(int instance);
     bool Initialize(int instance);
+    bool InitializeInternal(int instance);
+    bool InitializeInternalLocked(int instance);
     bool StatTableWrite(uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,
@@ -185,6 +188,8 @@ private:
     bool use_cql_;
     std::string tablespace_;
     UniformInt8RandomGenerator gen_partition_no_;
+    std::string zookeeper_server_list_;
+    bool use_zookeeper_;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
@@ -222,7 +227,9 @@ class DbHandlerInitializer {
         const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql);
+        bool use_cql,
+        const std::string &zookeeper_server_list,
+        bool use_zookeeper);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
