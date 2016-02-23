@@ -117,10 +117,8 @@ BgpRoute *Inet6VpnTable::RouteReplicate(BgpServer *server, BgpTable *src_table,
     replicated_path->SetReplicateInfo(src_table, source_rt);
     dest_route->InsertPath(replicated_path);
 
-    // Trigger notification only if the inserted path is selected
-    if (replicated_path == dest_route->front()) {
-        partition->Notify(dest_route);
-    }
+    // Always trigger notification.
+    partition->Notify(dest_route);
 
     return dest_route;
 }
