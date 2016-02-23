@@ -5,7 +5,8 @@
             "controller/src/bfd",
             "controller/src/database",
             "controller/src/opserver",
-            "controller/src/query_engine"
+            "controller/src/query_engine",
+            "controller/src/zookeeper"
         ],
         "scons_test_targets" : [
             "controller/src/analytics:test",
@@ -13,7 +14,9 @@
             "controller/src/bfd:test",
             "controller/src/query_engine:test",
             "controller/src/database/gendb:test",
-            "controller/src/database/cassandra/thrift:test"
+            "controller/src/database/cassandra/thrift:test",
+            "controller/src/database/cassandra/cql:test",
+            "controller/src/zookeeper:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -93,6 +96,7 @@
             "controller/src/db",
             "controller/src/discovery",
             "controller/src/database",
+            "controller/src/zookeeper",
             "controller/src/http",
             "controller/src/io",
             "controller/src/net",
@@ -111,6 +115,8 @@
             "controller/src/discovery:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/thrift:test",
+            "controller/src/database/cassandra/cql:test",
+            "controller/src/zookeeper:test",
             "controller/src/io:test",
             "controller/src/net:test",
             "controller/src/schema:test",
