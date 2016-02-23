@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic'>
+        <term>
+            <term-match-condition>
+                <prefix>
+                    <prefix>10.0.1.5/32</prefix>
+                    <prefix-type> exact </prefix-type>
+                </prefix>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <local-pref>102</local-pref>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+        <term>
+            <term-match-condition>
+                <community>11:13</community>
+            </term-match-condition>
+            <term-action-list>
+                <action>reject</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="basic">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

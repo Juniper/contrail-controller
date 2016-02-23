@@ -117,9 +117,8 @@ template <typename T>
 bool MatchPrefix<T>::IsEqual(const RoutingPolicyMatch &prefix) const {
     const MatchPrefix in_prefix =
         static_cast<const MatchPrefix&>(prefix);
-    std::equal(in_prefix.match_list_.begin(), in_prefix.match_list_.end(),
-               match_list_.begin());
-    return true;
+    return std::equal(in_prefix.match_list_.begin(),
+                      in_prefix.match_list_.end(), match_list_.begin());
 }
 
 template <typename T>
