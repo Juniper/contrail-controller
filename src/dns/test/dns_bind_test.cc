@@ -271,16 +271,13 @@ TEST_F(DnsBindTest, Reordered) {
     boost::replace_all(content, "true", "false");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    for (int i = 0; i < 4; i++) {
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled"));
+    // Now we create all zones irrespective of reverse_resolution
+    for (int i = 0; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
     }
-    for (int i = 4; i < 17; i++) {
-        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
-    }
-    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
 
     // change external-visible and reverse_resolution fields to true
     boost::replace_all(content, "false", "true");
@@ -547,20 +544,21 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
     };
 
     EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled"));
     for (int i = 0; i < 4; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
     }
     for (int i = 4; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
+        EXPECT_TRUE(FileExists(s1.c_str()));
     }
 
     EXPECT_TRUE(FileExists("rndc.conf"));
     EXPECT_TRUE(FilesEqual("rndc.conf",
                            "controller/src/dns/testdata/rndc.conf"));
 
+    // Case1 : Add subnet to an ipam
     const char config_change[] = "\
 <config>\
     <virtual-network-network-ipam ipam='ipam2' vn='vn3'> \
@@ -589,14 +587,16 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
     }
     for (int i = 4; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
+        EXPECT_TRUE(FileExists(s1.c_str()));
     }
+
     string zone = "3.2.25.in-addr.arpa";
     string s1 = cfg->GetZoneFilePath(zone);
-    EXPECT_FALSE(FileExists(s1.c_str()));
-    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
+    EXPECT_TRUE(FileExists(s1.c_str()));
+    EXPECT_FALSE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled.2"));
 
+    // Case 2: Add and Delete a subnet from an ipam
     const char config_change_1[] = "\
 <config>\
     <virtual-network-network-ipam ipam='ipam1' vn='vn1'> \
@@ -648,24 +648,25 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
     string new_dns_domains[] = {
         "3.2.129.in-addr.arpa",
         "3.2.130.in-addr.arpa",
-        "3.2.25.in-addr.arpa",
     };
+
 
     EXPECT_TRUE(parser_.Parse(config_change_1));
     task_util::WaitForIdle();
-    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
-    for (int i = 0; i < 4; i++) {
+    EXPECT_FALSE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled"));
+
+    for (int i = 0; i < 12; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
     }
-    for (int i = 4; i < 17; i++) {
+    for (int i = 12; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_FALSE(FileExists(s1.c_str()));
     }
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 2; i++) {
         string s1 = cfg->GetZoneFilePath(new_dns_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
+        EXPECT_TRUE(FileExists(s1.c_str()));
     }
 
     const char config_change_2[] = "\
@@ -707,8 +708,19 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
 
     EXPECT_TRUE(parser_.Parse(config_change_2));
     task_util::WaitForIdle();
-    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
+
+    string deleted_dns_subnets[] = {
+        "3.2.129.in-addr.arpa",
+        "3.2.130.in-addr.arpa",
+        "13.2.12.in-addr.arpa",
+    };
+
+    for (int i = 0; i < 3; i++) {
+        string s1 = cfg->GetZoneFilePath(deleted_dns_subnets[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+    EXPECT_FALSE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled"));
 
     const char config_change_3[] = "\
 <delete>\
@@ -735,31 +747,31 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
     string deleted_domains[] = {
         "3.2.129.in-addr.arpa",
         "3.2.130.in-addr.arpa",
-        "13.2.12.in-addr.arpa",
         "0.3.13.in-addr.arpa",
+        "13.2.12.in-addr.arpa",
         "1.3.13.in-addr.arpa",
         "2.3.13.in-addr.arpa",
         "3.3.13.in-addr.arpa",
     };
 
     string remaining_domains[] = {
-        "3.2.25.in-addr.arpa",
         "192.1.1.in-addr.arpa",
         "193.1.1.in-addr.arpa",
         "3.2.1.in-addr.arpa",
+        "3.2.25.in-addr.arpa",
     };
 
     EXPECT_TRUE(parser_.Parse(config_change_3));
     task_util::WaitForIdle();
-    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
-                "controller/src/dns/testdata/named.conf.9"));
+    EXPECT_FALSE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.rr_ext_disabled"));
     for (int i = 0; i < 7; i++) {
         string s1 = cfg->GetZoneFilePath(deleted_domains[i]);
         EXPECT_FALSE(FileExists(s1.c_str()));
     }
     for (int i = 0; i < 4; i++) {
         string s1 = cfg->GetZoneFilePath(remaining_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
+        EXPECT_TRUE(FileExists(s1.c_str()));
     }
 
     const char config_change_4[] = "\
@@ -784,10 +796,6 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
 
     for (int i = 0; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
-        EXPECT_FALSE(FileExists(s1.c_str()));
-    }
-    for (int i = 0; i < 3; i++) {
-        string s1 = cfg->GetZoneFilePath(new_dns_domains[i]);
         EXPECT_FALSE(FileExists(s1.c_str()));
     }
 }
