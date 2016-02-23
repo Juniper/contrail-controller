@@ -667,7 +667,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(4)
+            .Times(5)
             .WillRepeatedly(Return(true));
       }
 
@@ -683,7 +683,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(4)
+            .Times(5)
             .WillRepeatedly(Return(true));
       }
 
