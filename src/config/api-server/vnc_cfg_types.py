@@ -1647,15 +1647,16 @@ class RouteAggregateServer(Resource, RouteAggregate):
                 return (False, (400, 'All prefixes in a route aggregate '
                                 'object must be of same ip family'))
             family = route_family
+        return True, ""
     # end _check
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return _check(cls, obj_dict, db_conn)
+        return cls._check(obj_dict, db_conn)
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return _check(cls, obj_dict, db_conn)
+        return cls._check(obj_dict, db_conn)
 
 # end class RouteAggregateServer
 
