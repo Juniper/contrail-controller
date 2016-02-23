@@ -153,10 +153,26 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
     return ret.first->second;
 }
 
+void FlowTable::AddBgpAsServiceFlow(FlowEntry *flow,
+                                    FlowEntry *new_flow,
+                                    FlowEntry *rflow,
+                                    FlowEntry *new_rflow) {
+    FlowEntry *new_rflow_rev = (new_rflow != NULL) ?
+        new_rflow->reverse_flow_entry() : NULL;
+    FLOW_LOCK(new_rflow, new_rflow_rev);
+    tbb::mutex::scoped_lock lock3(new_flow->mutex());
+    AddInternal(flow, new_flow, rflow, new_rflow, false);
+}
+
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
+
+    if (new_flow->is_flags_set(FlowEntry::BgpRouterService) && new_rflow &&
+        (new_rflow->reverse_flow_entry() != new_flow)) {
+        return AddBgpAsServiceFlow(flow, new_flow, rflow, new_rflow);
+    }
     FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, false);
 }
@@ -237,7 +253,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         rflow = tmp;
     }
 
-    UpdateReverseFlow(flow, rflow);
+    force_update_rflow |= UpdateReverseFlow(flow, rflow);
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -392,7 +408,8 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
     return false;
 }
 
-void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
+bool FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
+    bool ret = false;
     FlowEntry *flow_rev = flow->reverse_flow_entry();
     FlowEntry *rflow_rev = NULL;
 
@@ -429,6 +446,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         //same reverse flow as its is nat'd with fabric sip/dip.
         //To avoid this delete old flow and dont let new flow to be short flow.
         if (rflow_rev) {
+            ret = true;
             DeleteUnLocked(rflow_rev->key(), false);
             rflow_rev = NULL;
         }
@@ -458,6 +476,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
             rflow->set_flags(FlowEntry::Multicast);
         }
     }
+    return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////
