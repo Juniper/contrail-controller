@@ -1950,7 +1950,8 @@ class VncApiServer(object):
                         %(obj_type, obj_uuid, ref_type, operation)
             raise cfgm_common.exceptions.HttpError(400, err_msg)
 
-        if operation.upper() not in ['ADD', 'DELETE']:
+        operation = operation.upper()
+        if operation not in ['ADD', 'DELETE']:
             err_msg = 'Bad Request: operation should be add or delete: %s' \
                       %(operation)
             raise cfgm_common.exceptions.HttpError(400, err_msg)
@@ -1966,6 +1967,18 @@ class VncApiServer(object):
             except NoIdError:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'Name ' + pformat(ref_fq_name) + ' not found')
+
+        # To verify existence of the reference being added
+        if operation == 'ADD':
+            try:
+                (read_ok, read_result) = self._db_conn.dbe_read(
+                                             obj_type, {'uuid': ref_uuid})
+            except NoIdError:
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'Object Not Found: ' + ref_uuid)
+            except Exception as e:
+                read_ok = False
+                read_result = cfgm_common.utils.detailed_traceback()
 
         # To invoke type specific hook and extension manager
         try:
