@@ -358,6 +358,17 @@ class TestPolicy(test_case.STTestCase):
                         (vn1_fq_name, vn2_fq_name, fq_name))
 
     @retries(5)
+    def check_acl_action_assign_rules(self, fq_name, vn1_fq_name, vn2_fq_name, sc_ri_fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
+                rule.match_condition.dst_address.virtual_network == vn2_fq_name):
+                    if rule.action_list.assign_routing_instance == sc_ri_fq_name:
+                        return
+        raise Exception('vrf assign for  nets %s/%s not matched in ACL rules for %s; sc: %s' %
+                        (vn1_fq_name, vn2_fq_name, fq_name, sc_ri_fq_name))
+
+    @retries(5)
     def check_acl_match_sg(self, fq_name, acl_name, sg_id, is_all_rules = False):
         sg_obj = self._vnc_lib.security_group_read(fq_name)
         acls = sg_obj.get_access_control_lists()
@@ -667,6 +678,15 @@ class TestPolicy(test_case.STTestCase):
                                   self.get_ri_name(vn1_obj, sc_ri_name))
         self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
                                   self.get_ri_name(vn2_obj))
+
+        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
+                                  vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
+                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
+                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
+                                  vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
 
         si_name = 'default-domain:default-project:' + service_name
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
