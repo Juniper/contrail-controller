@@ -153,10 +153,26 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
     return ret.first->second;
 }
 
+void FlowTable::AddInternal(FlowEntry *flow,
+                            FlowEntry *new_flow,
+                            FlowEntry *rflow,
+                            FlowEntry *new_rflow) {
+    FlowEntry *new_rflow_rev = (new_rflow != NULL) ?
+        new_rflow->reverse_flow_entry() : NULL;
+    FLOW_LOCK(new_rflow, new_rflow_rev);
+    tbb::mutex::scoped_lock lock3(new_flow->mutex());
+    AddInternal(flow, new_flow, rflow, new_rflow, false);
+}
+
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
+
+    if (new_rflow && (rflow != new_rflow) &&
+        (new_rflow->reverse_flow_entry() != new_flow)) {
+        return AddInternal(flow, new_flow, rflow, new_rflow);
+    }
     FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, false);
 }
@@ -210,6 +226,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             // for flow entry
             if (rflow->deleted()) {
                 rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+                // Since rflow is getting deleted no update needed.
+                force_update_rflow = false;
             }
             rflow->set_deleted(false);
         } else {

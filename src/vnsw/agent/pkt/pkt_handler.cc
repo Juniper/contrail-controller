@@ -943,8 +943,7 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
     ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
-    l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(),
-    packet_buffer_() {
+    l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 
