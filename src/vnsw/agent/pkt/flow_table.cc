@@ -224,7 +224,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         rflow = tmp;
     }
 
-    UpdateReverseFlow(flow, rflow);
+    bool rflow_update = update;
+    UpdateReverseFlow(flow, rflow, &rflow_update);
 
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -239,7 +240,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        UpdateKSync(rflow, update);
+        UpdateKSync(rflow, rflow_update);
         AddFlowInfo(rflow);
     }
 
@@ -379,7 +380,8 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
     return false;
 }
 
-void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
+void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow,
+                                  bool *update) {
     FlowEntry *flow_rev = flow->reverse_flow_entry();
     FlowEntry *rflow_rev = NULL;
 
@@ -416,6 +418,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         //same reverse flow as its is nat'd with fabric sip/dip.
         //To avoid this delete old flow and dont let new flow to be short flow.
         if (rflow_rev) {
+            *update = true;
             DeleteUnLocked(rflow_rev->key(), false);
             rflow_rev = NULL;
         }

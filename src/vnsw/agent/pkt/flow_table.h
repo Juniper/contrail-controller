@@ -129,6 +129,8 @@ struct Inet4FlowKeyCmp {
 class FlowTable {
 public:
     static boost::uuids::random_generator rand_gen_;
+    static const uint32_t kPortNatFlowTableInstance = 0;
+    static const uint32_t kInvalidFlowTableInstance = 0xFF;
 
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
     typedef std::pair<FlowKey, FlowEntry *> FlowEntryMapPair;
@@ -250,7 +252,7 @@ private:
     void DeleteFlowInfo(FlowEntry *fe);
 
     void AddFlowInfo(FlowEntry *fe);
-    void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
+    void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow, bool *update);
 
     void UpdateUnLocked(FlowEntry *flow, FlowEntry *rflow);
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
