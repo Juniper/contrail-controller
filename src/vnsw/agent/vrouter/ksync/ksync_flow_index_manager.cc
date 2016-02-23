@@ -429,8 +429,10 @@ void KSyncFlowIndexEntry::IndexSetSm(KSyncFlowIndexManager *manager,
     switch (event) {
     case ADD: {
         bool skip_del = true;
-        if (index_ != flow->flow_handle() &&
-            flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+        if (index_ != flow->flow_handle()) {
+            // for any change of index from X to Y, always send delete
+            // message to vrouter for X, to asure that there is no dangling
+            // flow entry at X
             skip_del = false;
         }
 
