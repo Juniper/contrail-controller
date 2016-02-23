@@ -16,6 +16,7 @@ from cfgm_common import vnc_cpu_info
 from cfgm_common.uve.service_instance.ttypes import *
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_base_logger import SandeshBaseLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -74,6 +75,8 @@ class ServiceMonitorLogger(object):
     def log(self, log_msg, level=SandeshLevel.SYS_DEBUG):
         vn_log = sandesh.SvcMonitorLog(level=level,
             log_msg=log_msg, sandesh=self._sandesh)
+        self._sandesh.logger().log(
+            SandeshBaseLogger.get_py_logger_level(level), log_msg)
         vn_log.send(sandesh=self._sandesh)
 
     def emergency(self, log_msg):
