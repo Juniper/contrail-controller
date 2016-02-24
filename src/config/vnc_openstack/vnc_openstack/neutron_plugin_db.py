@@ -407,6 +407,7 @@ class DBInterface(object):
                                                    fields=fields)
         return vm_objs
     #end _virtual_machine_list
+
     def _instance_ip_list(self, back_ref_id=None, obj_uuids=None, fields=None):
         iip_objs = self._vnc_lib.instance_ips_list(detail=True,
                                                    back_ref_id=back_ref_id,
@@ -653,7 +654,8 @@ class DBInterface(object):
         memo_req = {'networks': {},
                     'subnets': {},
                     'virtual-machines': {},
-                    'instance-ips': {}}
+                    'instance-ips': {},
+                    'service-instances': {}}
 
         # Read only the nets associated to port_objs
         net_refs = [port_obj.get_virtual_network_refs() for port_obj in port_objs]
@@ -669,9 +671,7 @@ class DBInterface(object):
         # Read only the instance-ips associated to port_objs
         iip_objs = self._instance_ip_list(back_ref_id=
                                   [port_obj.uuid for port_obj in port_objs])
-        for iip_obj in iip_objs:
-            # dictionary of iip_uuid to iip_obj
-            memo_req['instance-ips'][iip_obj.uuid] = iip_obj
+        memo_req['instance-ips'] = dict((iip_obj.uuid, iip_obj) for iip_obj in iip_objs)
 
         # Read only the VMs associated to port_objs
         vm_ids = []
@@ -686,9 +686,15 @@ class DBInterface(object):
                 vm_ids.extend([ref['uuid'] for ref in vm_refs if ref])
 
         vm_objs = self._virtual_machine_list(obj_uuids=vm_ids)
-        for vm_obj in vm_objs:
-            # dictionary of vm_uuid to vm_obj
-            memo_req['virtual-machines'][vm_obj.uuid] = vm_obj
+        memo_req['virtual-machines'] = dict((vm_obj.uuid, vm_obj) for vm_obj in vm_objs)
+
+        # Read only SIs associated with vm_objs
+        si_ids = [si_ref['uuid'] 
+                    for vm_obj in vm_objs
+                    for si_ref in vm_obj.get_service_instance_refs() or []]
+        si_objs = self._vnc_lib.service_instances_list(
+            obj_uuids=si_ids, fields=['logical_router_back_refs'], detail=True)
+        memo_req['service-instances'] = dict((si_obj.uuid, si_obj) for si_obj in si_objs)
 
         # Convert port from contrail to neutron repr with the memo cache
         for port_obj in port_objs:
@@ -1923,9 +1929,6 @@ class DBInterface(object):
         try:
             vm_obj = port_req_memo['virtual-machines'][vm_uuid]
         except KeyError:
-            pass
-
-        if vm_obj is None:
             try:
                 vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
             except NoIdError:
@@ -1937,10 +1940,13 @@ class DBInterface(object):
             return None
 
         try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'],
-                    fields=["logical_router_back_refs"])
-        except NoIdError:
-            return None
+            si_obj = port_req_memo['service-instances'][si_refs[0]['uuid']]
+        except KeyError:
+            try:
+                si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'],
+                        fields=["logical_router_back_refs"])
+            except NoIdError:
+                return None
 
         rtr_back_refs = getattr(si_obj, "logical_router_back_refs", None)
         if not rtr_back_refs:
@@ -1977,6 +1983,8 @@ class DBInterface(object):
             port_req_memo['subnets'] = {}
         if 'virtual-machines' not in port_req_memo:
             port_req_memo['virtual-machines'] = {}
+        if 'service-instances' not in port_req_memo:
+            port_req_memo['service-instances'] = {}
 
         try:
             net_obj = port_req_memo['networks'][net_id]
