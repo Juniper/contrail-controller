@@ -2044,3 +2044,12 @@ response sandesh BgpAsAServiceSandeshResp {
 trace sandesh BgpAsAServiceTrace {
     1: string message;
 }
+
+/**
+ * @description: Trace message for InstanceManager
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh InstanceManagerTrace {
+    1: string message;
+}
