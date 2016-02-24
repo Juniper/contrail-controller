@@ -27,8 +27,8 @@ public:
 private:
     template <typename U> friend class StaticRouteTest;
 
-    virtual void DisableResolveTrigger() = 0;
-    virtual void EnableResolveTrigger() = 0;
+    virtual void DisableUnregisterTrigger() = 0;
+    virtual void EnableUnregisterTrigger() = 0;
 
     virtual void DisableQueue() = 0;
     virtual void EnableQueue() = 0;
