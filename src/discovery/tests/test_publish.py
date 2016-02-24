@@ -156,22 +156,6 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         self.assertEqual(entry['oper_state'], 'down')
         self.assertEqual(entry['admin_state'], 'up')
 
-        # republish without oper-state - should still be down
-        payload = {
-            '%s' % service_type: { "ip-addr" : "1.1.1.1", "port"    : "1234" },
-            'service-type' : '%s' % service_type,
-        }
-        (code, msg) = self._http_post(puburl, json.dumps(payload))
-        self.assertEqual(code, 200)
-
-        (code, msg) = self._http_get('/services.json')
-        self.assertEqual(code, 200)
-        response = json.loads(msg)
-        self.assertEqual(len(response['services']), 1)
-        entry = response['services'][0]
-        self.assertEqual(entry['oper_state'], 'down')
-        self.assertEqual(entry['admin_state'], 'up')
-
         service_count = 1
         tasks = []
         disc = client.DiscoveryClient(self._disc_server_ip,
@@ -262,6 +246,7 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
             'service-type' : '%s' % service_type,
         }
         puburl = '/publish/test_discovery'
+        ooburl = '/service/test_discovery'
         (code, msg) = self._http_post(puburl, json.dumps(payload))
         self.assertEqual(code, 200)
 
@@ -275,8 +260,9 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         self.assertEqual(entry['admin_state'], 'up')
         self.assertEqual(entry['oper_state'], 'up')
 
+        # mark admin state down (using out of band API)
         payload['admin-state'] = 'down'
-        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        (code, msg) = self._http_put(ooburl, json.dumps(payload))
         self.assertEqual(code, 200)
 
         (code, msg) = self._http_get('/services.json')

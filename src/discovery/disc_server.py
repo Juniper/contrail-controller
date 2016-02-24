@@ -219,6 +219,7 @@ class DiscoveryServer():
         # DB interface initialization
         self._db_connect(self._args.reset_config)
         self._db_conn.db_update_service_entry_oper_state()
+        self._db_conn.db_update_service_entry_admin_state()
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -459,7 +460,16 @@ class DiscoveryServer():
         sig = json_req.get('service-id', end_point) or \
             publisher_id(remote, json.dumps(json_req))
 
-        entry = self._db_conn.lookup_service(service_type, service_id=sig)
+        # Avoid reading from db unless service policy is fixed
+        # Fixed policy is anchored on time of entry creation
+        policy = self.get_service_config(service_type, 'policy')
+        if policy == 'fixed':
+            entry = self._db_conn.lookup_service(service_type, service_id=sig)
+            if entry and self.service_expired(entry):
+                entry = None
+        else:
+            entry = None
+
         if not entry:
             entry = {
                 'service_type': service_type,
@@ -468,19 +478,10 @@ class DiscoveryServer():
                 'ts_use': 0,
                 'ts_created': int(time.time()),
                 'oper_state': 'up',
-                'admin_state': 'up',
                 'oper_state_msg': '',
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
-        elif 'sequence' not in entry or self.service_expired(entry):
-            # handle upgrade or republish after expiry
-            entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
-        if 'admin-state' in json_req:
-            admin_state = json_req['admin-state']
-            if admin_state not in ['up', 'down']:
-                bottle.abort(400, "Invalid admin state")
-            entry['admin_state'] = admin_state
         if 'oper-state' in json_req:
             oper_state = json_req['oper-state']
             if oper_state not in ['up', 'down']:
@@ -716,7 +717,7 @@ class DiscoveryServer():
             sdata['ttl_expires'] += 1
 
         # send short ttl if no publishers
-        pubs = self._db_conn.lookup_service(service_type) or []
+        pubs = self._db_conn.lookup_service(service_type, include_count=True) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
         pubs_active = self.apply_dsa_config(pubs_active, cl_entry)
         pubs_active = self.service_list(service_type, pubs_active)
@@ -849,7 +850,7 @@ class DiscoveryServer():
         if service_type is None:
             bottle.abort(405, "Missing service")
 
-        pubs = self._db_conn.lookup_service(service_type)
+        pubs = self._db_conn.lookup_service(service_type, include_count=True) or []
         if pubs is None:
             bottle.abort(405, 'Unknown service')
         pubs_active = [item for item in pubs if not self.service_expired(item)]
@@ -948,7 +949,7 @@ class DiscoveryServer():
         rsp += '        <td>Time since last Heartbeat</td>\n'
         rsp += '    </tr>\n'
 
-        for pub in self._db_conn.service_entries(service_type):
+        for pub in self._db_conn.lookup_service(service_type, include_count=True):
             info = pub['info']
             service_type = pub['service_type']
             service_id   = pub['service_id']
@@ -985,7 +986,7 @@ class DiscoveryServer():
     def services_json(self, service_type=None):
         rsp = []
 
-        for pub in self._db_conn.service_entries(service_type):
+        for pub in self._db_conn.lookup_service(service_type, include_count=True):
             entry = pub.copy()
             entry['status'] = "down" if self.service_expired(entry) else "up"
             # keep sanity happy - get rid of prov_state in the future
@@ -1006,26 +1007,27 @@ class DiscoveryServer():
         except (ValueError, KeyError, TypeError) as e:
             bottle.abort(400, e)
 
-        entry = self._db_conn.lookup_service(service_type, service_id=id)
-        if not entry:
-            bottle.abort(405, 'Unknown service')
-
+        # admin state is kept seperately and can be set before publish
         if 'admin-state' in json_req:
             admin_state = json_req['admin-state']
             if admin_state not in ['up', 'down']:
                 bottle.abort(400, "Invalid admin state")
-            entry['admin_state'] = admin_state
-        if 'oper-state' in json_req:
-            oper_state = json_req['oper-state']
-            if oper_state not in ['up', 'down']:
-                bottle.abort(400, "Invalid operational state")
-            entry['oper_state'] = oper_state
-        if 'oper-state-reason' in json_req:
-            entry['oper_state_msg'] = json_req['oper-state-reason']
+            self._db_conn.set_admin_state(service_type, id, admin_state)
 
-        self._db_conn.update_service(service_type, id, entry)
-
-        self.syslog('update service=%s, sid=%s, info=%s'
+        # oper state is kept in main db entry for publisher
+        if 'oper-state' in json_req or 'oper-state-reason' in json_req:
+            entry = self._db_conn.lookup_service(service_type, service_id=id)
+            if not entry:
+                bottle.abort(405, 'Unknown service')
+            if 'oper-state' in json_req:
+                oper_state = json_req['oper-state']
+                if oper_state not in ['up', 'down']:
+                    bottle.abort(400, "Invalid operational state")
+                entry['oper_state'] = oper_state
+            if 'oper-state-reason' in json_req:
+                entry['oper_state_msg'] = json_req['oper-state-reason']
+            self._db_conn.update_service(service_type, id, entry)
+            self.syslog('update service=%s, sid=%s, info=%s'
                     % (service_type, id, entry))
 
         return {}
@@ -1078,7 +1080,7 @@ class DiscoveryServer():
 
     # purge expired publishers
     def cleanup_http_get(self):
-        for entry in self._db_conn.service_entries():
+        for entry in self._db_conn.lookup_service():
             if self.service_expired(entry):
                 self._db_conn.delete_service(entry)
         return self.show_all_services()

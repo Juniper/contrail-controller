@@ -128,8 +128,12 @@ class FakeCF(object):
         include_timestamp = kwargs.get('include_timestamp', False)
 
         for key in self._rows:
-            yield (key, self.get(key, columns, column_start, column_finish,
-                     column_count, include_timestamp))
+            try:
+                col_dict = self.get(key, columns, column_start, column_finish,
+                                    column_count, include_timestamp)
+                yield (key, col_dict)
+            except pycassa.NotFoundException:
+                pass
     # end get_range
 
     def _column_within_range(self, column_name, column_start, column_finish):
@@ -195,6 +199,8 @@ class FakeCF(object):
                 else:
                     col_dict[col_name] = col_value
 
+        if len(col_dict) == 0:
+            raise pycassa.NotFoundException
         sorted_col_dict = OrderedDict(
             (k, col_dict[k]) for k in sorted(col_dict))
         return sorted_col_dict
