@@ -6,7 +6,7 @@
 # contains code/hooks at different point during processing a request, specific
 # to type of resource. For eg. allocation of mac/ip-addr for a port during its
 # creation.
-
+import copy
 from cfgm_common import jsonutils as json
 import re
 import itertools
@@ -681,9 +681,41 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         return (True, '')
 
+    @classmethod
+    def _is_multi_policy_service_chain_supported(cls, obj_dict, read_result=None):
+        if not ('multi_policy_service_chains_enabled' in obj_dict or
+                'route_target_list' in obj_dict or
+                'import_route_target_list' in obj_dict or
+                'export_route_target_list' in obj_dict):
+            return (True, '')
+
+        # Create Request
+        if not read_result:
+            read_result = {}
+
+        result_obj_dict = copy.deepcopy(read_result)
+        result_obj_dict.update(obj_dict)
+        if result_obj_dict.get('multi_policy_service_chains_enabled'):
+            import_export_targets = result_obj_dict.get('route_target_list', {})
+            import_targets = result_obj_dict.get('import_route_target_list', {})
+            export_targets = result_obj_dict.get('export_route_target_list', {})
+            import_targets_set = set(import_targets.get('route_target', []))
+            export_targets_set = set(export_targets.get('route_target', []))
+            targets_in_both_import_and_export = \
+                    import_targets_set.intersection(export_targets_set)
+            if (import_export_targets.get('route_target', []) or
+                    targets_in_both_import_and_export):
+                msg = "Multi policy service chains are not supported, "
+                msg += "with both import export external route targets"
+                return (False, (409, msg))
+
+        return (True, '')
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
+        if not ok:
+            return (ok, response)
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
@@ -770,6 +802,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not read_ok:
             return (False, (500, read_result))
 
+        (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict,
+                                                                      read_result)
+        if not ok:
+            return (ok, response)
 
         (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
         if not ok:
