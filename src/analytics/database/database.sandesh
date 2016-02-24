@@ -52,6 +52,7 @@ struct NodeStatus {
     6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info (tags="")
     7: optional string description
     8: optional list<string> all_core_file_list
+    9: optional string build_info
 }
 
 /**
