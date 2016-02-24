@@ -95,20 +95,16 @@ OriginVn OriginVn::FromString(const string &str,
 }
 
 as_t OriginVn::as_number() const {
-    uint8_t data[OriginVn::kSize];
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == 0x80 && data[1] == 0x71) {
-        as_t as_number = get_value(data + 2, 2);
+    if (data_[0] == 0x80 && data_[1] == 0x71) {
+        as_t as_number = get_value(data_.data() + 2, 2);
         return as_number;
     }
     return 0;
 }
 
 int OriginVn::vn_index() const {
-    uint8_t data[OriginVn::kSize];
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == 0x80 && data[1] == 0x71) {
-        int vn_index = get_value(data + 4, 4);
+    if (data_[0] == 0x80 && data_[1] == 0x71) {
+        int vn_index = get_value(data_.data() + 4, 4);
         return vn_index;
     }
     return 0;
