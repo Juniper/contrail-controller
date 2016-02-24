@@ -720,7 +720,7 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
 // Handle deletion of a Route. Flow management module has identified that route
 // must be deleted
 void FlowTable::DeleteMessage(FlowEntry *flow) {
-    DeleteUnLocked(flow->key(), true);
+    DeleteUnLocked(true, flow, flow->reverse_flow_entry());
     DeleteFlowInfo(flow);
 }
 
