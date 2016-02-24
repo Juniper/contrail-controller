@@ -284,6 +284,7 @@
         <xsd:element name='prefix' type='xsd:string'/>
         <xsd:element name='next-hop' type='xsd:string'/>
         <xsd:element name='route-target' type='xsd:string' maxOccurs="unbounded"/>
+        <xsd:element name='community' type='xsd:string' maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 

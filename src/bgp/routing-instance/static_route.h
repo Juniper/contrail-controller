@@ -109,7 +109,7 @@ private:
     void UpdateStaticRoute(typename StaticRouteMap::iterator loc,
         StaticRouteConfigList::iterator it);
 
-    void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
+    void LocateStaticRoutePrefix(const StaticRouteConfig &config);
     void RemoveStaticRoutePrefix(const PrefixT &static_route);
     void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
     void UnregisterAndResolveStaticRoute(StaticRoutePtr entry);

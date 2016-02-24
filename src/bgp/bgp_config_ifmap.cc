@@ -855,7 +855,8 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
         if (ec != 0)
             continue;
 
-        item.route_target = route.route_target;
+        item.route_targets = route.route_target;
+        item.communities = route.community;
         if (item.nexthop.is_v4()) {
             Ip4Address address;
             ec = Ip4SubnetParse(route.prefix, &address, &item.prefix_length);

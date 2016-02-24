@@ -294,7 +294,8 @@ struct StaticRouteConfig {
     IpAddress address;
     int prefix_length;
     IpAddress nexthop;
-    std::vector<std::string> route_target;
+    std::vector<std::string> route_targets;
+    std::vector<std::string> communities;
 };
 
 typedef std::vector<std::string> CommunityList;

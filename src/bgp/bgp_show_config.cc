@@ -61,8 +61,9 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
             string prefix = static_rt_config.address.to_string() + "/";
             prefix += integerToString(static_rt_config.prefix_length);
             sbsrc.set_prefix(prefix);
-            sbsrc.set_targets(static_rt_config.route_target);
             sbsrc.set_nexthop(static_rt_config.nexthop.to_string());
+            sbsrc.set_targets(static_rt_config.communities);
+            sbsrc.set_targets(static_rt_config.route_targets);
             static_route_list.push_back(sbsrc);
         }
     }
