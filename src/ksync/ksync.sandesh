@@ -20,3 +20,12 @@ systemlog sandesh VRouterError {
     9: string str5;
     10: u64 msg_no;
 }
+
+/**
+ * @description: Trace message for KSync Error
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh KSyncErrorTrace {
+    1: string message;
+}
