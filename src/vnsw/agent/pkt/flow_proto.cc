@@ -307,8 +307,12 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     case FlowEvent::DELETE_FLOW: {
         table = GetTable(req->table_index());
-        //Fallthrough below for process flowevent
+        table->ProcessFlowEvent(req);
+        //In case flow is deleted enqueue a free flow reference event.
+        EnqueueFreeFlowReference(req->flow_ref());
+        break;
     }
+
     // Check if flow-handle changed. This can happen if vrouter tries to
     // setup the flow which was evicted earlier
     case FlowEvent::EVICT_FLOW:
