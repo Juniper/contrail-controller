@@ -1739,7 +1739,7 @@ void FlowEntry::set_ecmp_rpf_nh(uint32_t id) {
         update_ksync = SetEcmpRpfNH(flow_table(), id);
     }
 
-    if (ksync_index_entry() && update_ksync) {
+    if (ksync_index_entry()->ksync_entry() && update_ksync) {
         flow_table()->UpdateKSync(this, true);
     }
 }
