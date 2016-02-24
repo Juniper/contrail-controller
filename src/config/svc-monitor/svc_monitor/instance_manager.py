@@ -461,6 +461,7 @@ class InstanceManager(object):
                 vmi_updated = True
 
         if (st.params.get('service_mode') in ['in-network', 'in-network-nat'] and
+            st.params.get('service_type') not in ['source-nat', 'loadbalancer'] and
             proj_obj.name != 'default-project'):
             if not vmi_sg:
                 sg_obj = self._get_default_security_group(vn_obj)
