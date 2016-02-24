@@ -65,7 +65,7 @@ class DatabaseEventManager(EventManager):
         self.sandesh_global = sandesh_global
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global, send_build_info = True)
         self.sandesh_global = sandesh_global
         if self.rule_file is '':
             self.rule_file = "/etc/contrail/" + \
