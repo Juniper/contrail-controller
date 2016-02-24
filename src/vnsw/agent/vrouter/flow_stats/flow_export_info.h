@@ -15,7 +15,8 @@ public:
 
     const boost::uuids::uuid &flow_uuid() const { return flow_uuid_; }
     const boost::uuids::uuid &egress_uuid() const { return egress_uuid_; }
-    const FlowKey &rev_flow_key() const { return rev_flow_key_; }
+    const FlowKey &key() const { return key_; }
+    const boost::uuids::uuid &rev_flow_uuid() const { return rev_flow_uuid_; }
     const std::string &source_vn() const { return source_vn_; }
     const std::string &dest_vn() const { return dest_vn_; }
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
@@ -69,7 +70,8 @@ public:
 private:
     boost::uuids::uuid flow_uuid_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
-    FlowKey rev_flow_key_;
+    FlowKey key_;
+    boost::uuids::uuid rev_flow_uuid_;
     std::string source_vn_;
     std::string dest_vn_;
     std::string sg_rule_uuid_;

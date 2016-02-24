@@ -2137,7 +2137,7 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     if (!fsc_) {
         return;
     }
-    const FlowExportInfo *info = fsc_->FindFlowExportInfo(key_);
+    const FlowExportInfo *info = fsc_->FindFlowExportInfo(uuid_);
     if (!info) {
         return;
     }
