@@ -296,6 +296,15 @@ void AgentParam::ParseVirtualHost() {
     }
 }
 
+void AgentParam::ParseDns() {
+    ParseServerList("DNS.server", &dns_server_1_, &dns_port_1_,
+                    &dns_server_2_, &dns_port_2_);
+    if (!GetValueFromTree<uint16_t>(dns_client_port_,
+                                    "DNS.dns_client_port")) {
+        dns_client_port_ = ContrailPorts::VrouterAgentDnsClientUdpPort();
+    }
+}
+
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
     GetValueFromTree<uint16_t>(dss_port_, "DISCOVERY.port");
@@ -478,6 +487,11 @@ void AgentParam::ParseDefaultSection() {
     } else {
         subnet_hosts_resolvable_ = true;
     }
+
+    if (!GetValueFromTree<uint16_t>(mirror_client_port_,
+                                    "DEFAULT.mirror_client_port")) {
+        mirror_client_port_ = ContrailPorts::VrouterAgentMirrorClientUdpPort();
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -494,6 +508,10 @@ void AgentParam::ParseTaskSection() {
 void AgentParam::ParseMetadataProxy() {
     GetValueFromTree<string>(metadata_shared_secret_,
                              "METADATA.metadata_proxy_secret");
+    if (!GetValueFromTree<uint16_t>(metadata_proxy_port_,
+                                    "METADATA.metadata_proxy_port")) {
+        metadata_proxy_port_ = ContrailPorts::MetadataProxyVrouterAgentPort();
+    }
 }
 
 void AgentParam::ParseFlows() {
@@ -615,6 +633,13 @@ void AgentParam::ParseVirtualHostArguments
                         "VIRTUAL-HOST-INTERFACE.physical_interface");
 }
 
+void AgentParam::ParseDnsArguments
+    (const boost::program_options::variables_map &var_map) {
+    ParseServerListArguments(var_map_, &dns_server_1_, &dns_port_1_,
+                             &dns_server_2_, &dns_port_2_, "DNS.server");
+    GetOptValue<uint16_t>(var_map, dns_client_port_, "DNS.dns_client_port");
+}
+
 void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
@@ -713,6 +738,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.sandesh_send_rate_limit");
     GetOptValue<bool>(var_map, subnet_hosts_resolvable_,
                       "DEFAULT.subnet_hosts_resolvable");
+    GetOptValue<uint16_t>(var_map, mirror_client_port_,
+                          "DEFAULT.mirror_client_port");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -731,6 +758,8 @@ void AgentParam::ParseMetadataProxyArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, metadata_shared_secret_,
                         "METADATA.metadata_proxy_secret");
+    GetOptValue<uint16_t>(var_map, metadata_proxy_port_,
+                        "METADATA.metadata_proxy_port");
 }
 
 void AgentParam::ParseFlowArguments
@@ -853,8 +882,7 @@ void AgentParam::InitFromConfig() {
     ParseCollector();
     ParseVirtualHost();
     ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
-    ParseServerList("DNS.server", &dns_server_1_, &dns_port_1_,
-                    &dns_server_2_, &dns_port_2_);
+    ParseDns();
     ParseDiscovery();
     ParseNetworks();
     ParseHypervisor();
@@ -879,8 +907,7 @@ void AgentParam::InitFromArguments() {
     ParseVirtualHostArguments(var_map_);
     ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_,
                              "CONTROL-NODE.server");
-    ParseServerListArguments(var_map_, &dns_server_1_, &dns_port_1_,
-                             &dns_server_2_, &dns_port_2_, "DNS.server");
+    ParseDnsArguments(var_map_);
     ParseDiscoveryArguments(var_map_);
     ParseNetworksArguments(var_map_);
     ParseHypervisorArguments(var_map_);
@@ -1083,6 +1110,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "DNS Port-1                  : " << dns_port_1_);
     LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
     LOG(DEBUG, "DNS Port-2                  : " << dns_port_2_);
+    LOG(DEBUG, "DNS client port             : " << dns_client_port_);
     LOG(DEBUG, "Xmpp Dns Authentication     : " << xmpp_dns_auth_enable_);
     if (xmpp_dns_auth_enable_) {
         LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
@@ -1094,6 +1122,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
+    LOG(DEBUG, "Metadata-Proxy Port         : " << metadata_proxy_port_);
     LOG(DEBUG, "Max Vm Flows                : " << max_vm_flows_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
@@ -1189,8 +1218,10 @@ AgentParam::AgentParam(bool enable_flow_options,
         xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
+        dns_client_port_(0), mirror_client_port_(0),
         dss_server_(), dss_port_(0), mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
-        xen_ll_(), tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
+        xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
+        metadata_proxy_port_(0), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), flow_index_sm_log_count_(),
         config_file_(), program_name_(),

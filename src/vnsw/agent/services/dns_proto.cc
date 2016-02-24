@@ -8,6 +8,7 @@
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
 #include "pkt/pkt_init.h"
@@ -40,7 +41,7 @@ void DnsProto::ConfigInit() {
                                   server, agent()->dns_server_port(i)));
     }
     BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
-                       ContrailPorts::VrouterAgentDnsClientUdpPort(),
+                       agent()->params()->dns_client_port(),
                        boost::bind(&DnsProto::SendDnsIpc, this, _1));
 }
 
