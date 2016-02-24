@@ -144,7 +144,9 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(db_exclude_list) / sizeof(char *));
 
     const char *flow_table_exclude_list[] = {
-        AGENT_SHUTDOWN_TASKNAME,
+         "Agent::PktFlowResponder",
+         "sandesh::RecvQueue",
+         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskFlowEvent, flow_table_exclude_list,
