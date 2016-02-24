@@ -214,17 +214,17 @@ protected:
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
-    void DisableResolveTrigger(const string &instance_name) {
+    void DisableUnregisterTrigger(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr(family_)->DisableResolveTrigger();
+        rtinstance->static_route_mgr(family_)->DisableUnregisterTrigger();
     }
 
-    void EnableResolveTrigger(const string &instance_name) {
+    void EnableUnregisterTrigger(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
         if (rtinstance)
-            rtinstance->static_route_mgr(family_)->EnableResolveTrigger();
+            rtinstance->static_route_mgr(family_)->EnableUnregisterTrigger();
     }
 
     void DisableStaticRouteQ(const string &instance_name) {
@@ -1203,6 +1203,340 @@ TYPED_TEST(StaticRouteTest, MultiplePrefixSameNexthopAndUpdateNexthop) {
     task_util::WaitForIdle();
 }
 
+//
+// Test static route config on multiple routing instance
+//
+TYPED_TEST(StaticRouteTest, MultipleRoutingInstance) {
+    vector<string> instance_names = list_of("nat-1")("nat-2");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_1 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_14.xml");
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_2 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-1", "static-route-entries", params_1.release(), 0);
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-2", "static-route-entries", params_2.release(), 0);
+    task_util::WaitForIdle();
+
+
+    // Add Nexthop Route
+    this->AddRoute(NULL, "nat-1",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    this->AddRoute(NULL, "nat-2",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    task_util::WaitForIdle();
+
+     // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-2",
+                             this->BuildPrefix("192.168.1.0", 24)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    BgpRoute *static_rt =
+        this->RouteLookup("nat-2", this->BuildPrefix("192.168.1.0", 24));
+    const BgpPath *static_path = static_rt->BestPath();
+    set<string> list = this->GetRTargetFromPath(static_path);
+    set<string> config_list =
+        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-1",
+                             this->BuildPrefix("1.1.0.0", 16)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    static_rt =
+        this->RouteLookup("nat-1", this->BuildPrefix("1.1.0.0", 16));
+    static_path = static_rt->BestPath();
+    list = this->GetRTargetFromPath(static_path);
+    config_list = list_of("target:1:1")("target:1:2");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    this->VerifyStaticRouteSandesh("nat-1");
+    this->VerifyStaticRouteSandesh("nat-2");
+
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-1", "static-route-entries");
+
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-2", "static-route-entries");
+    task_util::WaitForIdle();
+
+    // Delete nexthop route
+    this->DeleteRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat-2", this->BuildPrefix("192.168.1.254", 32));
+    task_util::WaitForIdle();
+}
+
+//
+// Test static route config on multiple routing instance
+// Test with unregister trigger disabled
+//
+TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger) {
+    vector<string> instance_names = list_of("nat-1")("nat-2");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_1 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_14.xml");
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_2 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-1", "static-route-entries", params_1.release(), 0);
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-2", "static-route-entries", params_2.release(), 0);
+    task_util::WaitForIdle();
+
+
+    // Add Nexthop Route
+    this->AddRoute(NULL, "nat-1",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    this->AddRoute(NULL, "nat-2",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    task_util::WaitForIdle();
+
+     // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-2",
+                             this->BuildPrefix("192.168.1.0", 24)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    BgpRoute *static_rt =
+        this->RouteLookup("nat-2", this->BuildPrefix("192.168.1.0", 24));
+    const BgpPath *static_path = static_rt->BestPath();
+    set<string> list = this->GetRTargetFromPath(static_path);
+    set<string> config_list =
+        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-1",
+                             this->BuildPrefix("1.1.0.0", 16)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    static_rt =
+        this->RouteLookup("nat-1", this->BuildPrefix("1.1.0.0", 16));
+    static_path = static_rt->BestPath();
+    list = this->GetRTargetFromPath(static_path);
+    config_list = list_of("target:1:1")("target:1:2");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    this->VerifyStaticRouteSandesh("nat-1");
+    this->VerifyStaticRouteSandesh("nat-2");
+
+    // Disable unregister trigger
+    this->DisableUnregisterTrigger("nat-1");
+    this->DisableUnregisterTrigger("nat-2");
+
+    // Delete the static route config
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-1", "static-route-entries");
+
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-2", "static-route-entries");
+    task_util::WaitForIdle();
+
+    // Delete nexthop route
+    this->DeleteRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat-2", this->BuildPrefix("192.168.1.254", 32));
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("nat-1", this->BuildPrefix("1.1.0.0", 16)),
+            NULL, 1000, 10000, "Wait for Static route in nat..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("nat-2", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in nat..");
+
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat-1",
+            "virtual-network", "nat-1", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat-1", "route-target", "target:64496:1", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat-1");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat-1");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:1");
+
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat-2",
+            "virtual-network", "nat-2", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat-2", "route-target", "target:64496:2", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat-2");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat-2");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:2");
+    task_util::WaitForIdle();
+
+    this->EnableUnregisterTrigger("nat-1");
+    this->EnableUnregisterTrigger("nat-2");
+}
+
+//
+// Test static route config on multiple routing instance
+// Test with unregister trigger disabled
+// In this test, routing instance destroy is delayed by holding a route
+//
+TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger_1) {
+    vector<string> instance_names = list_of("nat-1")("nat-2");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_1 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_14.xml");
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_2 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-1", "static-route-entries", params_1.release(), 0);
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-2", "static-route-entries", params_2.release(), 0);
+    task_util::WaitForIdle();
+
+
+    // Add Nexthop Route
+    this->AddRoute(NULL, "nat-1",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    this->AddRoute(NULL, "nat-2",
+                       this->BuildPrefix("192.168.1.254", 32), 100,
+                       this->BuildNextHopAddress("2.3.4.5"));
+    task_util::WaitForIdle();
+
+     // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-2",
+                             this->BuildPrefix("192.168.1.0", 24)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+
+    BgpRoute *static_rt =
+        this->RouteLookup("nat-2", this->BuildPrefix("192.168.1.0", 24));
+    const BgpPath *static_path = static_rt->BestPath();
+    set<string> list = this->GetRTargetFromPath(static_path);
+    set<string> config_list =
+        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    TASK_UTIL_WAIT_NE_NO_MSG(this->RouteLookup("nat-1",
+                             this->BuildPrefix("1.1.0.0", 16)),
+                             NULL, 1000, 10000,
+                             "Wait for Static route in nat instance..");
+    static_rt =
+        this->RouteLookup("nat-1", this->BuildPrefix("1.1.0.0", 16));
+    static_path = static_rt->BestPath();
+    list = this->GetRTargetFromPath(static_path);
+    config_list = list_of("target:1:1")("target:1:2");
+    EXPECT_EQ(list, config_list);
+    EXPECT_EQ(this->GetOriginVnFromRoute(static_path), "unresolved");
+
+    this->VerifyStaticRouteSandesh("nat-1");
+    this->VerifyStaticRouteSandesh("nat-2");
+
+    // Disable unregister trigger
+    this->DisableUnregisterTrigger("nat-1");
+    this->DisableUnregisterTrigger("nat-2");
+
+    // Delete the static route config
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-1", "static-route-entries");
+
+    ifmap_test_util::IFMapMsgPropertyDelete(
+            &this->config_db_, "routing-instance",
+            "nat-2", "static-route-entries");
+    task_util::WaitForIdle();
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("nat-1", this->BuildPrefix("1.1.0.0", 16)),
+            NULL, 1000, 10000, "Wait for Static route in nat..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("nat-2", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in nat..");
+
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat-1",
+            "virtual-network", "nat-1", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat-1", "route-target", "target:64496:1", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat-1");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat-1");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:1");
+
+    ifmap_test_util::IFMapMsgUnlink(
+            &this->config_db_, "routing-instance", "nat-2",
+            "virtual-network", "nat-2", "virtual-network-routing-instance");
+    ifmap_test_util::IFMapMsgUnlink(&this->config_db_, "routing-instance",
+            "nat-2", "route-target", "target:64496:2", "instance-target");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "virtual-network", "nat-2");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "routing-instance", "nat-2");
+    ifmap_test_util::IFMapMsgNodeDelete(
+        &this->config_db_, "route-target", "target:64496:2");
+    task_util::WaitForIdle();
+
+    RoutingInstance *nat_inst_1 = this->ri_mgr_->GetRoutingInstance("nat-1");
+    TASK_UTIL_WAIT_EQ_NO_MSG(nat_inst_1->deleted(),
+            true, 1000, 10000, "Wait for nat instance to be marked deleted");
+    RoutingInstance *nat_inst_2 = this->ri_mgr_->GetRoutingInstance("nat-2");
+    TASK_UTIL_WAIT_EQ_NO_MSG(nat_inst_2->deleted(),
+            true, 1000, 10000, "Wait for nat instance to be marked deleted");
+
+    //
+    // Since the nexthop route is not yet deleted, routing instance is
+    // not destroyed
+    //
+    this->EnableUnregisterTrigger("nat-1");
+    this->EnableUnregisterTrigger("nat-2");
+
+    // Delete nexthop route
+    this->DeleteRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat-2", this->BuildPrefix("192.168.1.254", 32));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->ri_mgr_->GetRoutingInstance("nat-1"),
+            NULL, 1000, 10000, "Wait for nat instance to get destroyed");
+    TASK_UTIL_WAIT_EQ_NO_MSG(this->ri_mgr_->GetRoutingInstance("nat-2"),
+            NULL, 1000, 10000, "Wait for nat instance to get destroyed");
+}
 
 TYPED_TEST(StaticRouteTest, ConfigUpdate) {
     vector<string> instance_names = list_of("blue")("nat")("red");
@@ -2021,10 +2355,10 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance) {
 }
 
 //
-// Delete the static route config and instance with resolve_trigger disabled
-// Allow the routing instance to get deleted with Resolve trigger
+// Delete the static route config and instance with unregister_trigger disabled
+// Allow the routing instance to get deleted with unregister trigger
 //
-TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger) {
+TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger) {
     vector<string> instance_names = list_of("blue")("nat");
     multimap<string, string> connections;
     this->NetworkConfig(instance_names, connections);
@@ -2048,8 +2382,8 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger) {
             this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
             NULL, 1000, 10000, "Wait for Static route in blue..");
 
-    // Disable resolve trigger
-    this->DisableResolveTrigger("nat");
+    // Disable unregister processing
+    this->DisableUnregisterTrigger("nat");
 
     // Delete the configuration for the nat instance.
     ifmap_test_util::IFMapMsgPropertyDelete(
@@ -2078,15 +2412,15 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger) {
         &this->config_db_, "route-target", "target:64496:2");
     task_util::WaitForIdle();
 
-    this->EnableResolveTrigger("nat");
+    this->EnableUnregisterTrigger("nat");
 }
 
 //
-// Delete the static route config and instance with resolve_trigger disabled
+// Delete the static route config and instance with unregister_trigger disabled
 // Routing instance is not destroyed when the task trigger is enabled.
 // Verify that enabling the task trigger ignores the deleted routing instance
 //
-TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger_1) {
+TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger_1) {
     vector<string> instance_names = list_of("blue")("nat");
     multimap<string, string> connections;
     this->NetworkConfig(instance_names, connections);
@@ -2110,8 +2444,8 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger_1) {
             this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
             NULL, 1000, 10000, "Wait for Static route in blue..");
 
-    // Disable resolve trigger
-    this->DisableResolveTrigger("nat");
+    // Disable unregister processing
+    this->DisableUnregisterTrigger("nat");
 
     // Delete the configuration for the nat instance.
     ifmap_test_util::IFMapMsgPropertyDelete(
@@ -2144,7 +2478,7 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledResolveTrigger_1) {
     // Since the nexthop route is not yet deleted, routing instance is
     // not destroyed
     //
-    this->EnableResolveTrigger("nat");
+    this->EnableUnregisterTrigger("nat");
 
     // Delete nexthop route
     this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));
