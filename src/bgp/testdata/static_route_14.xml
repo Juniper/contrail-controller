@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<static-route-entries>
+    <route>
+        <prefix>1.1.0.0/16</prefix>
+        <next-hop>192.168.1.254</next-hop>
+        <route-target>target:1:1</route-target>
+        <route-target>target:1:2</route-target>
+    </route>
+</static-route-entries>

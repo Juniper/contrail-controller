@@ -42,8 +42,7 @@ typedef ConditionMatchPtr StaticRoutePtr;
 struct StaticRouteRequest {
     enum RequestType {
         NEXTHOP_ADD_CHG,
-        NEXTHOP_DELETE,
-        DELETE_STATIC_ROUTE_DONE
+        NEXTHOP_DELETE
     };
 
     StaticRouteRequest(RequestType type, BgpTable *table, BgpRoute *route,
@@ -95,6 +94,7 @@ public:
 
 private:
     template <typename U> friend class StaticRouteTest;
+    typedef std::set<StaticRoutePtr> StaticRouteProcessList;
 
     // All static route related actions are performed in the context
     // of this task. This task has exclusion with db::DBTable task.
@@ -103,11 +103,13 @@ private:
     void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
     void RemoveStaticRoutePrefix(const PrefixT &static_route);
     void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
-    bool ResolvePendingStaticRouteConfig();
+    void UnregisterAndResolveStaticRoute(StaticRoutePtr entry);
     bool StaticRouteEventCallback(StaticRouteRequest *req);
 
-    virtual void DisableResolveTrigger();
-    virtual void EnableResolveTrigger();
+    bool ProcessUnregisterList();
+
+    virtual void DisableUnregisterTrigger();
+    virtual void EnableUnregisterTrigger();
 
     virtual void DisableQueue() { static_route_queue_->set_disable(true); }
     virtual void EnableQueue() { static_route_queue_->set_disable(false); }
@@ -118,7 +120,9 @@ private:
     BgpConditionListener *listener_;
     StaticRouteMap  static_route_map_;
     WorkQueue<StaticRouteRequest *> *static_route_queue_;
-    boost::scoped_ptr<TaskTrigger> resolve_trigger_;
+    tbb::mutex mutex_;
+    StaticRouteProcessList unregister_static_route_list_;
+    boost::scoped_ptr<TaskTrigger> unregister_list_trigger_;
 
     DISALLOW_COPY_AND_ASSIGN(StaticRouteMgr);
 };

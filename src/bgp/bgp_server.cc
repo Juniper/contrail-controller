@@ -639,7 +639,7 @@ void BgpServer::InsertStaticRouteMgr(IStaticRouteMgr *srt_manager) {
 }
 
 void BgpServer::RemoveStaticRouteMgr(IStaticRouteMgr *srt_manager) {
-    CHECK_CONCURRENCY("bgp::StaticRoute");
+    CHECK_CONCURRENCY("bgp::Config");
     srt_manager_list_.erase(srt_manager);
 }
 
