@@ -609,21 +609,6 @@ bool PktFlowInfo::EgressRouteAllowNatLookup(const AgentRoute *in_rt,
     return true;
 }
 
-void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
-                                  const PktControlInfo *out) {
-    nat_ip_daddr = pkt->ip_daddr;
-    nat_ip_saddr = pkt->ip_saddr;
-    nat_dport = pkt->dport;
-    nat_sport = pkt->sport;
-    if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
-        dest_vrf = out->vrf_->vrf_id();
-    } else {
-        dest_vrf = pkt->vrf;
-    }
-    nat_vrf = dest_vrf;
-    nat_dest_vrf = pkt->vrf;
-}
-
 void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
     if (!l3_flow && pkt->ip_daddr.is_v4()) {
         uint16_t nat_port;
@@ -1464,10 +1449,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (out->rt_ && out->rt_->GetActiveNextHop() &&
             out->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
         ecmp = true;
-    }
-
-    if (ecmp == true && nat_done == false) {
-        SetEcmpFlowInfo(pkt, in, out);
     }
 
     return true;
