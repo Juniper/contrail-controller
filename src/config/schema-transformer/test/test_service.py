@@ -1231,8 +1231,7 @@ class TestPolicy(test_case.STTestCase):
         imp_rtgt_list.add_route_target('target:3:2')
         vn.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target() +
-                           imp_rtgt_list.get_route_target())
+        _match_route_table(rtgt_list.get_route_target())
        
         rtgt_list.delete_route_target('target:1:1')
         vn.set_route_target_list(rtgt_list)
@@ -1241,8 +1240,7 @@ class TestPolicy(test_case.STTestCase):
         imp_rtgt_list.delete_route_target('target:3:1')
         vn.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target() +
-                           imp_rtgt_list.get_route_target())
+        _match_route_table(rtgt_list.get_route_target())
 
         routes.set_route([])
         rt.set_routes(routes)
@@ -2508,7 +2506,7 @@ class TestPolicy(test_case.STTestCase):
         vn_props.allow_transit = True
         vn1_obj.set_virtual_network_properties(vn_props)
         self._vnc_lib.virtual_network_update(vn1_obj)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj, sc_ri_name),
                             rt_vn1, True, 'export')
 
         #unset transit and check vn1 rt is not in sc ri
@@ -2559,7 +2557,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:1', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:2:1', True, 'export')
+                            'target:2:1', False)
 
         #modify external rt
         rtgt_list = RouteTargetList(route_target=['target:1:2'])
@@ -2572,7 +2570,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:2', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:2:2', True, 'export')
+                            'target:2:2', False)
 
         #have more than one external rt
         rtgt_list = RouteTargetList(route_target=['target:1:1', 'target:1:2'])
@@ -2587,9 +2585,9 @@ class TestPolicy(test_case.STTestCase):
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             'target:1:2', True, 'export')
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:2:1', True, 'export')
+                            'target:2:1', False)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
-                            'target:2:2', True, 'export')
+                            'target:2:2', False)
 
         #unset external rt
         vn1_obj.set_route_target_list(RouteTargetList())
