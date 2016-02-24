@@ -51,7 +51,6 @@ const uint32_t FlowEntryFreeList::kGrowSize;
 const uint32_t FlowEntryFreeList::kMinThreshold;
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
-boost::uuids::random_generator FlowTable::rand_gen_;
 
 #define FLOW_LOCK(flow, rflow) \
     tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2; \
@@ -65,6 +64,7 @@ boost::uuids::random_generator FlowTable::rand_gen_;
 /////////////////////////////////////////////////////////////////////////////
 FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     agent_(agent),
+    rand_gen_(boost::uuids::random_generator()),
     table_index_(table_index),
     ksync_object_(NULL),
     flow_entry_map_(),
@@ -79,7 +79,6 @@ FlowTable::~FlowTable() {
 void FlowTable::Init() {
     flow_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowEvent);
     FlowEntry::Init();
-    rand_gen_ = boost::uuids::random_generator();
     return;
 }
 
@@ -638,6 +637,10 @@ bool FlowTable::RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt) {
     }
 
     return false;
+}
+
+boost::uuids::uuid FlowTable::rand_gen() {
+    return rand_gen_();
 }
 
 // Handle flow revaluation on a route change
