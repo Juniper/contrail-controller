@@ -558,9 +558,9 @@ template <typename T>
 StaticRouteMgr<T>::StaticRouteMgr(RoutingInstance *rtinstance)
     : rtinstance_(rtinstance),
       listener_(rtinstance_->server()->condition_listener(GetFamily())),
-      resolve_trigger_(new TaskTrigger(
-          boost::bind(&StaticRouteMgr::ResolvePendingStaticRouteConfig, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
+      unregister_list_trigger_(new TaskTrigger(
+        boost::bind(&StaticRouteMgr::ProcessUnregisterList, this),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
     if (static_route_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         static_route_task_id_ = scheduler->GetTaskId("bgp::StaticRoute");
@@ -639,20 +639,6 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
             info->set_nexthop_route(NULL);
             break;
         }
-        case StaticRouteRequest::DELETE_STATIC_ROUTE_DONE: {
-            info->set_unregistered();
-            if (!info->num_matchstate()) {
-                listener_->UnregisterMatchCondition(table, info);
-                static_route_map_.erase(info->static_route_prefix());
-                if (static_route_map_.empty())
-                    rtinstance_->server()->RemoveStaticRouteMgr(this);
-                if (!routing_instance()->deleted() &&
-                    routing_instance()->config()) {
-                    resolve_trigger_->Set();
-                }
-            }
-            break;
-        }
         default: {
             assert(0);
             break;
@@ -665,20 +651,45 @@ bool StaticRouteMgr<T>::StaticRouteEventCallback(StaticRouteRequest *req) {
             listener_->RemoveMatchState(table, route, info);
             delete state;
             if (!info->num_matchstate() && info->unregistered()) {
-                listener_->UnregisterMatchCondition(table, info);
-                static_route_map_.erase(info->static_route_prefix());
-                if (static_route_map_.empty())
-                    rtinstance_->server()->RemoveStaticRouteMgr(this);
-                if (!routing_instance()->deleted() &&
-                    routing_instance()->config()) {
-                    resolve_trigger_->Set();
-                }
+                UnregisterAndResolveStaticRoute(info);
             }
         }
     }
 
     delete req;
     return true;
+}
+
+template <typename T>
+bool StaticRouteMgr<T>::ProcessUnregisterList() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    for (StaticRouteProcessList::iterator
+         it = unregister_static_route_list_.begin();
+         it != unregister_static_route_list_.end(); ++it) {
+        StaticRouteT *info = static_cast<StaticRouteT *>(it->get());
+        listener_->UnregisterMatchCondition(info->bgp_table(), info);
+        static_route_map_.erase(info->static_route_prefix());
+    }
+
+    unregister_static_route_list_.clear();
+
+    if (static_route_map_.empty()) {
+        rtinstance_->server()->RemoveStaticRouteMgr(this);
+    }
+
+    if (!routing_instance()->deleted() &&
+        routing_instance()->config()) {
+        ProcessStaticRouteConfig();
+    }
+    return true;
+}
+
+template <typename T>
+void StaticRouteMgr<T>::UnregisterAndResolveStaticRoute(StaticRoutePtr entry) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    unregister_static_route_list_.insert(entry);
+    unregister_list_trigger_->Set();
 }
 
 template <typename T>
@@ -738,12 +749,12 @@ void StaticRouteMgr<T>::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
 template <typename T>
 void StaticRouteMgr<T>::StopStaticRouteDone(BgpTable *table,
                                              ConditionMatch *info) {
-    // Post the RequestDone event to StaticRoute task to take Action
-    StaticRouteRequest *req =
-        new StaticRouteRequest(StaticRouteRequest::DELETE_STATIC_ROUTE_DONE,
-                           table, NULL, StaticRoutePtr(info));
-
-    EnqueueStaticRouteReq(req);
+    CHECK_CONCURRENCY("db::DBTable");
+    StaticRoute<T> *match = static_cast<StaticRoute<T> *>(info);
+    match->set_unregistered();
+    if (!match->num_matchstate() && match->unregistered()) {
+        UnregisterAndResolveStaticRoute(match);
+    }
     return;
 }
 
@@ -775,14 +786,7 @@ void StaticRouteMgr<T>::ProcessStaticRouteConfig() {
 }
 
 template <typename T>
-bool StaticRouteMgr<T>::ResolvePendingStaticRouteConfig() {
-    ProcessStaticRouteConfig();
-    return true;
-}
-
-template <typename T>
 StaticRouteMgr<T>::~StaticRouteMgr() {
-    resolve_trigger_->Reset();
     if (static_route_queue_)
         delete static_route_queue_;
 }
@@ -793,7 +797,6 @@ bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
     BOOL_KEY_COMPARE(lhs.prefix_length, rhs.prefix_length);
     return false;
 }
-
 
 template <typename T>
 void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
@@ -868,13 +871,13 @@ void StaticRouteMgr<T>::UpdateAllRoutes() {
 }
 
 template <typename T>
-void StaticRouteMgr<T>::DisableResolveTrigger() {
-    resolve_trigger_->set_disable();
+void StaticRouteMgr<T>::DisableUnregisterTrigger() {
+    unregister_list_trigger_->set_disable();
 }
 
 template <typename T>
-void StaticRouteMgr<T>::EnableResolveTrigger() {
-    resolve_trigger_->set_enable();
+void StaticRouteMgr<T>::EnableUnregisterTrigger() {
+    unregister_list_trigger_->set_enable();
 }
 
 template <typename T>
