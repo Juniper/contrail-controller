@@ -177,6 +177,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     if (rflow_req)
         rflow_req->set_reverse_flow_entry(NULL);
 
+    bool evict_rflow = true;
     if (update) {
         if (flow == NULL)
             return;
@@ -187,12 +188,16 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     if (flow_req != flow) {
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle &&
+            !flow->deleted()) {
+            evict_rflow = false;
+        }
         Copy(flow, flow_req, update);
         flow->set_deleted(false);
     }
 
     if (rflow && rflow_req != rflow) {
-        Copy(rflow, rflow_req, update);
+        Copy(rflow, rflow_req, (update || !evict_rflow));
         // if the reverse flow was marked delete, reset its flow handle
         // to invalid index to assure it is attempted to reprogram using
         // kInvalidFlowHandle, this also ensures that flow entry wont
@@ -203,6 +208,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
         }
         rflow->set_deleted(false);
+    } else {
+        evict_rflow = true;
     }
 
     // If the flows are already present, we want to retain the Forward and
@@ -238,7 +245,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        UpdateKSync(rflow, update);
+        UpdateKSync(rflow, (update || !evict_rflow));
         AddFlowInfo(rflow);
     }
 
@@ -833,7 +840,10 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     FlowEntry *rflow = flow->reverse_flow_entry();
     assert(flow_handle != FlowEntry::kInvalidFlowHandle);
 
-    if (flow->flow_handle() == flow_handle) {
+    // compare update of flow_handle against the ksync index entry, since
+    // flow handle in flow can change while before we process the response
+    // from KSync and cause invalid state transition
+    if (flow->ksync_index_entry()->index() == flow_handle) {
         return;
     }
 
