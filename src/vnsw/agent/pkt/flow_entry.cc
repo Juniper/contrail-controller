@@ -93,7 +93,8 @@ SecurityGroupList FlowEntry::default_sg_list_;
 // VmFlowRef
 /////////////////////////////////////////////////////////////////////////////
 const int VmFlowRef::kInvalidFd;
-VmFlowRef::VmFlowRef() : vm_(NULL), fd_(kInvalidFd), port_(0) {
+VmFlowRef::VmFlowRef() :
+    vm_(NULL), fd_(kInvalidFd), port_(0), flow_(NULL) {
 }
 
 VmFlowRef::VmFlowRef(const VmFlowRef &rhs) {
@@ -104,21 +105,46 @@ VmFlowRef::VmFlowRef(const VmFlowRef &rhs) {
 }
 
 VmFlowRef:: ~VmFlowRef() {
-    Reset();
+    Reset(true);
+}
+
+void VmFlowRef::Init(FlowEntry *flow) {
+    flow_ = flow;
 }
 
 void VmFlowRef::operator=(const VmFlowRef &rhs) {
-    // When flow is evicted by vrouter, reuse the older fd and port
-    Reset();
-    fd_ = rhs.fd_;
-    port_ = rhs.port_;
-    SetVm(rhs.vm_.get());
+    assert(rhs.fd_ == VmFlowRef::kInvalidFd);
+    assert(rhs.port_ == 0);
+    // For linklocal flows, we should have called Move already. It would
+    // reset vm_. Validate it
+    if (fd_ != VmFlowRef::kInvalidFd)
+        assert(rhs.vm_.get() == NULL);
 }
 
-void VmFlowRef::Reset() {
+// Move is called from Copy() routine when flow is evicted by vrouter and a
+// new flow-add is received by agent. Use the fd_ and port_ from new flow
+// since reverse flow will be setup based on these
+void VmFlowRef::Move(VmFlowRef *rhs) {
+    // Release the old values
+    Reset(false);
+
+    fd_ = rhs->fd_;
+    port_ = rhs->port_;
+    SetVm(rhs->vm_.get());
+
+    // Ownership for fd_ is transferred. Reset RHS fields
+    // Reset VM first before resetting fd_
+    rhs->SetVm(NULL);
+    rhs->fd_ = VmFlowRef::kInvalidFd;
+    rhs->port_ = 0;
+}
+
+void VmFlowRef::Reset(bool reset_flow) {
     FreeRef();
     FreeFd();
     vm_.reset(NULL);
+    if (reset_flow)
+        flow_ = NULL;
 }
 
 void VmFlowRef::FreeRef() {
@@ -128,8 +154,6 @@ void VmFlowRef::FreeRef() {
     vm_->update_flow_count(-1);
     if (fd_ != kInvalidFd) {
         vm_->update_linklocal_flow_count(-1);
-        Agent *agent = static_cast<VmTable *>(vm_->get_table())->agent();
-        agent->pkt()->get_flow_proto()->update_linklocal_flow_count(-1);
     }
 }
 
@@ -139,6 +163,9 @@ void VmFlowRef::FreeFd() {
         return;
     }
 
+    FlowProto *proto = flow_->flow_table()->agent()->pkt()->get_flow_proto();
+    proto->update_linklocal_flow_count(-1);
+    flow_->flow_table()->DelLinkLocalFlowInfo(fd_);
     close(fd_);
     fd_ = kInvalidFd;
     port_ = 0;
@@ -153,24 +180,22 @@ void VmFlowRef::SetVm(const VmEntry *vm) {
     if (vm == NULL)
         return;
 
-    // Add flow-ref-count for both forward and reverse flow
+    // update per-vm flow accounting
     vm->update_flow_count(1);
     if (fd_ != kInvalidFd) {
         vm_->update_linklocal_flow_count(1);
-        Agent *agent = static_cast<VmTable *>(vm->get_table())->agent();
-        agent->pkt()->get_flow_proto()->update_linklocal_flow_count(1);
     }
 
     return;
 }
 
-bool VmFlowRef::AllocateFd(Agent *agent, FlowEntry *flow, uint8_t l3_proto) {
+bool VmFlowRef::AllocateFd(Agent *agent, uint8_t l3_proto) {
     if (fd_ != kInvalidFd)
         return true;
 
     port_ = 0;
     // Short flows are always dropped. Dont allocate FD for short flow
-    if (flow->IsShortFlow())
+    if (flow_->IsShortFlow())
         return false;
 
     if (l3_proto == IPPROTO_TCP) {
@@ -182,6 +207,11 @@ bool VmFlowRef::AllocateFd(Agent *agent, FlowEntry *flow, uint8_t l3_proto) {
     if (fd_ == kInvalidFd) {
         return false;
     }
+
+    // Update agent accounting info
+    agent->pkt()->get_flow_proto()->update_linklocal_flow_count(1);
+    flow_->flow_table()->AddLinkLocalFlowInfo(fd_, flow_->flow_handle(),
+                                              flow_->key(), UTCTimestampUsec());
 
     // allow the socket to be reused upon close
     int optval = 1;
@@ -230,8 +260,8 @@ void FlowData::Reset() {
     match_p.Reset();
     vn_entry.reset(NULL);
     intf_entry.reset(NULL);
-    in_vm_entry.Reset();
-    out_vm_entry.Reset();
+    in_vm_entry.Reset(true);
+    out_vm_entry.Reset(true);
     nh.reset(NULL);
     vrf = VrfEntry::kInvalidIndex;
     mirror_vrf = VrfEntry::kInvalidIndex;
@@ -357,17 +387,31 @@ void FlowEntry::Init() {
 
 FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
     // flow_table will be NULL for some UT cases
+    FlowEntry *flow;
     if (flow_table == NULL) {
         FlowEntry *flow = new FlowEntry(flow_table);
         flow->Reset(key);
-        return flow;
+    } else {
+        flow = flow_table->free_list()->Allocate(key);
     }
 
-    return flow_table->free_list()->Allocate(key);
+    flow->data_.in_vm_entry.Init(flow);
+    flow->data_.out_vm_entry.Init(flow);
+    return flow;
 }
 
 // selectively copy fields from RHS
-void FlowEntry::Copy(const FlowEntry *rhs, bool update) {
+void FlowEntry::Copy(FlowEntry *rhs, bool update) {
+    if (update) {
+        rhs->data_.in_vm_entry.FreeFd();
+        rhs->data_.out_vm_entry.FreeFd();
+    } else {
+        // The operator= below will call VmFlowRef operator=. In case of flow
+        // eviction, we want to move ownership from rhs to lhs. However rhs is
+        // const ref in operator so, invode Move API to transfer ownership
+        data_.in_vm_entry.Move(&rhs->data_.in_vm_entry);
+        data_.out_vm_entry.Move(&rhs->data_.out_vm_entry);
+    }
     data_ = rhs->data_;
     flags_ = rhs->flags_;
     short_flow_reason_ = rhs->short_flow_reason_;
@@ -469,9 +513,6 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         return;
     }
     if (info->linklocal_bind_local_port) {
-        flow_table_->AddLinkLocalFlowInfo(data_.in_vm_entry.fd(),
-                                          flow_handle_,
-                                          key_, UTCTimestampUsec());
         set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
