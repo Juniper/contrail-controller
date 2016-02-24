@@ -37,13 +37,7 @@ void vrouter_ops::Process(SandeshContext *context) {
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
-    if (-response_code_ == EEXIST) {
-        return 0;
-    }
-
     if (response_code_ < 0) {
-        LOG(ERROR, "VrResponseMsg Error: " <<
-            KSyncEntry::VrouterErrorToString(-response_code_));
         return -response_code_;
     }
 

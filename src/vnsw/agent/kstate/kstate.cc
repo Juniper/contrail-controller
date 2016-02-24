@@ -47,7 +47,8 @@ int KState::VrResponseMsgHandler(vr_response *r) {
         resp->Response();
 
         st->Release();
-        LOG(ERROR, "Error: " << strerror(-code) << " :code: " << -code);
+        LOG(ERROR, "Error reading kstate: " << strerror(-code) <<
+                   " :code: " << -code);
         return -code;
     }
 

@@ -37,7 +37,8 @@ int AgentStatsSandeshContext::VrResponseMsgHandler(vr_response *r) {
     }
 
     if (code < 0) {
-        LOG(ERROR, "Error: " << KSyncEntry::VrouterErrorToString(-code));
+        LOG(ERROR, "Error in reading Statistics from vrouter: " <<
+            KSyncEntry::VrouterErrorToString(-code));
         return -code;
     }
 
