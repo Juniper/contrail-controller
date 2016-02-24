@@ -379,7 +379,8 @@ class FakeNovaClient(object):
 
     @staticmethod
     def delete_vm(vm):
-        for if_ref in vm.get_virtual_machine_interfaces() or vm.get_virtual_machine_interface_back_refs():
+        for if_ref in (vm.get_virtual_machine_interfaces() or
+                       vm.get_virtual_machine_interface_back_refs() or []):
             intf = FakeNovaClient.vnc_lib.virtual_machine_interface_read(
                 id=if_ref['uuid'])
             for ip_ref in intf.get_instance_ip_back_refs() or []:
@@ -688,6 +689,14 @@ class FakeIfmapClient(object):
 
 class FakeKombu(object):
     _queues = {}
+
+    @classmethod
+    def is_empty(cls, qname):
+        for name, q in FakeKombu._queues.items():
+            if name.startswith(qname) and q.qsize() > 0:
+                return False
+        return True
+    # end is_empty
 
     class Exchange(object):
         def __init__(self, *args, **kwargs):
@@ -1211,7 +1220,6 @@ class ZnodeStat(object):
 # end ZnodeStat
 
 class FakeKazooClient(object):
-    # database values same across client instances
     _values = {}
     class Election(object):
         __init__ = stub

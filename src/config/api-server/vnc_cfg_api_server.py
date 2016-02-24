@@ -2315,7 +2315,6 @@ class VncApiServer(object):
     # end sigchld_handler
 
     def sigterm_handler(self):
-        self.cleanup()
         exit()
 
     def _load_extensions(self):
@@ -2976,10 +2975,11 @@ class VncApiServer(object):
         return (True, uuid_in_req)
     # end _http_post_common
 
-    def cleanup(self):
-        # TODO cleanup sandesh context
-        pass
-    # end cleanup
+    def reset(self):
+        # cleanup internal state/in-flight operations
+        if self._db_conn:
+            self._db_conn.reset()
+    # end reset
 
     # allocate block of IP addresses from VN. Subnet info expected in request
     # body
@@ -3181,7 +3181,7 @@ def main(args_str=None):
         raise
     finally:
         # always cleanup gracefully
-        vnc_api_server.cleanup()
+        vnc_api_server.reset()
 
 # end main
 
