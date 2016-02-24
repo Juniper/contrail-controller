@@ -43,7 +43,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        ("Agent::StatsCollector"), instance_id,
                        io, intvl, "Flow stats collector"),
-        agent_uve_(uve), flow_iteration_key_(boost::uuids::nil_uuid()),
+        agent_uve_(uve), rand_gen_(boost::uuids::random_generator()),
+        flow_iteration_key_(boost::uuids::nil_uuid()),
         flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId("Agent::StatsCollector"),
@@ -68,6 +69,10 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
 
 FlowStatsCollector::~FlowStatsCollector() {
     flow_stats_manager_->FreeIndex(instance_id_);
+}
+
+boost::uuids::uuid FlowStatsCollector::rand_gen() {
+    return rand_gen_();
 }
 
 void FlowStatsCollector::Shutdown() {
@@ -911,6 +916,8 @@ void FlowStatsCollector::AddFlow(const boost::uuids::uuid &uuid,
 
     /* Invoke NewFlow only if the entry is not present in our tree */
     NewFlow(info);
+    /* Generate egress UUID only while adding into our tree */
+    info.set_egress_uuid(rand_gen());
     flow_tree_.insert(make_pair(uuid, info));
 }
 

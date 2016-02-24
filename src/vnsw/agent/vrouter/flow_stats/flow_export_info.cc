@@ -18,8 +18,9 @@ FlowExportInfo::FlowExportInfo() :
 }
 
 FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
-    flow_uuid_(fe->uuid()), egress_uuid_(fe->egress_uuid()), key_(fe->key()),
-    source_vn_(fe->data().source_vn_match), dest_vn_(fe->data().dest_vn_match),
+    flow_uuid_(fe->uuid()), egress_uuid_(boost::uuids::nil_uuid()),
+    key_(fe->key()), source_vn_(fe->data().source_vn_match),
+    dest_vn_(fe->data().dest_vn_match),
     sg_rule_uuid_(fe->sg_rule_uuid()), nw_ace_uuid_(fe->nw_ace_uuid()),
     setup_time_(setup_time), teardown_time_(0), last_modified_time_(setup_time),
     bytes_(0), packets_(0), flags_(fe->flags()),
@@ -95,9 +96,6 @@ bool FlowExportInfo::IsEqual(const FlowExportInfo &rhs) const {
     if (drop_reason_ != rhs.drop_reason()) {
         return false;
     }
-    if (egress_uuid_ != rhs.egress_uuid()) {
-        return false;
-    }
     return true;
 }
 
@@ -117,7 +115,6 @@ void FlowExportInfo::Copy(const FlowExportInfo &rhs) {
     rev_flow_uuid_ = rhs.rev_flow_uuid();
     interface_uuid_ = rhs.interface_uuid();
     drop_reason_ = rhs.drop_reason();
-    egress_uuid_ = rhs.egress_uuid();
     changed_ = true;
 }
 
