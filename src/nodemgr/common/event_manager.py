@@ -22,6 +22,7 @@ from nodemgr.common.event_listener_protocol_nodemgr import \
 from nodemgr.common.process_stat import ProcessStat
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
+from buildinfo import build_info
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
@@ -37,7 +38,8 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr, sandesh_global):
+                 discovery_port, collector_addr, sandesh_global,
+                 send_build_info = False):
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -57,6 +59,9 @@ class EventManager(object):
         self.collector_addr = collector_addr
         self.listener_nodemgr = EventListenerProtocolNodeMgr()
         self.sandesh_global = sandesh_global
+        self.curr_build_info = None
+        self.new_build_info = None
+        self.send_build_info = send_build_info
 
     # Get all the current processes in the node
     def get_current_process(self):
@@ -132,6 +137,19 @@ class EventManager(object):
             self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
+    def _add_build_info(self, node_status):
+        # Retrieve build_info from package/rpm and cache it
+        if self.curr_build_info is None:
+            command = "contrail-version contrail-config | grep contrail-config"
+            version = os.popen(command).read()
+            _, rpm_version, build_num = version.split()
+            self.new_build_info = build_info + '"build-id" : "' + \
+                rpm_version + '", "build-number" : "' + \
+                build_num + '"}]}'
+            if (self.new_build_info != self.curr_build_info):
+                self.curr_build_info = self.new_build_info
+                node_status.build_info = self.curr_build_info
+
     def send_process_state_db_base(self, group_names, ProcessInfo,
                                    NodeStatus, NodeStatusUVE):
         name = socket.gethostname()
@@ -166,6 +184,8 @@ class EventManager(object):
             node_status.deleted = delete_status
             node_status.process_info = process_infos
             node_status.all_core_file_list = self.all_core_file_list
+            if (self.send_build_info):
+                self._add_build_info(node_status)
             node_status_uve = NodeStatusUVE(data=node_status)
 	    msg = 'Sending UVE:' + str(node_status_uve) 
             self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
@@ -295,6 +315,8 @@ class EventManager(object):
             process_status_list.append(process_status)
             node_status = NodeStatus(name=socket.gethostname(),
                             process_status=process_status_list)
+            if (self.send_build_info):
+                self._add_build_info(node_status)
             node_status_uve = NodeStatusUVE(data=node_status)
             msg = 'Sending UVE:' + str(node_status_uve)
             self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
@@ -330,6 +352,8 @@ class EventManager(object):
         # send node UVE
         node_status = NodeStatus(
             name=socket.gethostname(), disk_usage_info=disk_usage_infos)
+        if (self.send_build_info):
+            self._add_build_info(node_status)
         node_status_uve = NodeStatusUVE(data=node_status)
 	msg = 'Sending UVE:' + str(node_status_uve)
 	self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
