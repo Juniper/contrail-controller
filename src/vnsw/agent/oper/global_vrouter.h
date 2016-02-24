@@ -6,6 +6,7 @@
 #define vnsw_agent_global_router_h_
 
 #include <cmn/agent_cmn.h>
+#include <oper/ecmp_load_balance.h>
 
 class OperDB;
 class VnEntry;

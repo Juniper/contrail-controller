@@ -54,12 +54,14 @@ public:
     VmFlowRef(const VmFlowRef &rhs);
     ~VmFlowRef();
 
+    void Init(FlowEntry *flow);
     void operator=(const VmFlowRef &rhs);
-    void Reset();
+    void Reset(bool reset_flow);
     void FreeRef();
     void FreeFd();
     void SetVm(const VmEntry *vm);
-    bool AllocateFd(Agent *agent, FlowEntry *flow, uint8_t l3_proto);
+    bool AllocateFd(Agent *agent, uint8_t l3_proto);
+    void Move(VmFlowRef *rhs);
 
     int fd() const { return fd_; }
     uint16_t port() const { return port_; }
@@ -70,6 +72,7 @@ private:
     VmEntryConstRef vm_;
     int fd_;
     uint16_t port_;
+    FlowEntry *flow_;
 };
 
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
@@ -352,7 +355,7 @@ class FlowEntry {
     void Reset();
 
     // Copy data fields from rhs
-    void Copy(const FlowEntry *rhs, bool update);
+    void Copy(FlowEntry *rhs, bool update);
 
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,

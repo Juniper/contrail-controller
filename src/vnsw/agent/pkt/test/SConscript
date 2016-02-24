@@ -26,6 +26,7 @@ test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
                                           pkt_flaky_test_suite)
 
 test_pkt_flow_limits = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_limits', pkt_test_suite)
+test_pkt_linklocal = AgentEnv.MakeTestCmd(env, 'test_pkt_linklocal', pkt_test_suite)
 test_flow_adit = AgentEnv.MakeTestCmd(env, 'test_flow_audit', pkt_test_suite)
 test_pkt_flow = AgentEnv.MakeTestCmd(env, 'test_pkt_flow', pkt_flaky_test_suite)
 test_pkt_flowv6 = AgentEnv.MakeTestCmd(env, 'test_pkt_flowv6', pkt_test_suite)

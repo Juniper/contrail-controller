@@ -772,7 +772,11 @@ Agent::ForwardingMode Agent::TranslateForwardingMode
 
 void Agent::set_flow_table_size(uint32_t count) {
     flow_table_size_ = count;
-    max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
+    if (params_->max_vm_flows() >= 100) {
+        max_vm_flows_ = 0;
+    } else {
+        max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
+    }
 }
 
 void Agent::set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
