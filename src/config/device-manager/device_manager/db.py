@@ -628,8 +628,10 @@ class PhysicalRouterDM(DBBaseDM):
                             vn_obj.vn_network_id)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
-                        interfaces = [
-                            JunosInterface(
+                        interfaces = []
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
+                            interfaces = [
+                                 JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
                         self.config_manager.add_routing_instance(
