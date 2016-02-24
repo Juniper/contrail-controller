@@ -28,6 +28,9 @@
 #include "ksync_object.h"
 #include "ksync_types.h"
 
+SandeshTraceBufferPtr KSyncErrorTraceBuf(
+                      SandeshTraceBufferCreate("KSync Error", 5000));
+
 KSyncObject::FwdRefTree  KSyncObject::fwd_ref_tree_;
 KSyncObject::BackRefTree  KSyncObject::back_ref_tree_;
 KSyncObjectManager *KSyncObjectManager::singleton_ = NULL;
@@ -498,10 +501,13 @@ void KSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
                 ":", error_msg, ">. Object <", ToString(),
                 ">. Operation <", OperationString(), ">. Message number :",
                 seq_no);
-    LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
-            error_msg << ">. Object <" << ToString() <<
-            ">. Operation <" << OperationString() << ">. Message number :"
-            << seq_no);
+
+    std::stringstream sstr;
+    sstr << "VRouter operation failed. Error <" << err << ":" << error_msg <<
+            ">. Object <" << ToString() << ">. Operation <" <<
+            OperationString() << ">. Message number :" << seq_no;
+    KSYNC_ERROR_TRACE(Trace, sstr.str().c_str());
+    LOG(ERROR, sstr.str().c_str());
     KSYNC_ASSERT(err == 0);
 }
 

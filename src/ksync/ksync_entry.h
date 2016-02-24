@@ -10,6 +10,7 @@
 #include <tbb/atomic.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
+#include <sandesh/sandesh_trace.h>
 #include <db/db_entry.h>
 
 #define KSYNC_ERROR(obj, ...)\
@@ -18,6 +19,13 @@ do {\
     obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
               SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
+
+extern SandeshTraceBufferPtr KSyncErrorTraceBuf;
+#define KSYNC_ERROR_TRACE(obj, ...)                                           \
+do {                                                                          \
+    KSyncError##obj::TraceMsg(KSyncErrorTraceBuf,                             \
+                              __FILE__, __LINE__, __VA_ARGS__);               \
+} while (false);
 
 class KSyncObject;
 class KSyncDBObject;
