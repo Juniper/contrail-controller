@@ -32,6 +32,7 @@ public:
     }
     void RegisterReceive(xmps::PeerId id, ReceiveCb callback) { }
     void UnRegisterReceive(xmps::PeerId id) { }
+    void UnRegisterWriteReady(xmps::PeerId id) { }
     string ToString() const { return string("fake"); }
     string StateName() const { return string("Established"); }
 

@@ -51,6 +51,7 @@ public:
     }
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
+    MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
     std::string ToString() const { return string("fake"); }
     std::string StateName() const { return string("Established"); }
 
