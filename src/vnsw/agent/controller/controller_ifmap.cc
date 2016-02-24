@@ -36,6 +36,7 @@ AgentIfMapXmppChannel::AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
 
 AgentIfMapXmppChannel::~AgentIfMapXmppChannel() {
     channel_->UnRegisterReceive(xmps::CONFIG);
+    channel_->UnRegisterWriteReady(xmps::CONFIG);
 }
 
 uint64_t AgentIfMapXmppChannel::NewSeqNumber() {
