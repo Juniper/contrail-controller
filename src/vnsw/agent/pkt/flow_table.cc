@@ -177,6 +177,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     if (rflow_req)
         rflow_req->set_reverse_flow_entry(NULL);
 
+    bool force_update_rflow = false;
     if (update) {
         if (flow == NULL)
             return;
@@ -187,22 +188,35 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     }
 
     if (flow_req != flow) {
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle &&
+            !flow->deleted()) {
+            // In this scenario packet trap for forward flow should
+            // not cause eviction of the reverse flow due to add event
+            // so trigger a force update instead of add for reverse flow
+            force_update_rflow = true;
+        }
         Copy(flow, flow_req, update);
         flow->set_deleted(false);
     }
 
-    if (rflow && rflow_req != rflow) {
-        Copy(rflow, rflow_req, update);
-        // if the reverse flow was marked delete, reset its flow handle
-        // to invalid index to assure it is attempted to reprogram using
-        // kInvalidFlowHandle, this also ensures that flow entry wont
-        // give fake notion of being available in the flow index tree
-        // delete for which has already happend while triggering delete
-        // for flow entry
-        if (rflow->deleted()) {
-            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+    if (rflow) {
+        if (rflow_req != rflow) {
+            Copy(rflow, rflow_req, (update || force_update_rflow));
+            // if the reverse flow was marked delete, reset its flow handle
+            // to invalid index to assure it is attempted to reprogram using
+            // kInvalidFlowHandle, this also ensures that flow entry wont
+            // give fake notion of being available in the flow index tree
+            // delete for which has already happend while triggering delete
+            // for flow entry
+            if (rflow->deleted()) {
+                rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
+            }
+            rflow->set_deleted(false);
+        } else {
+            // we are creating a new reverse flow, so avoid triggering
+            // force update in this case
+            force_update_rflow = false;
         }
-        rflow->set_deleted(false);
     }
 
     // If the flows are already present, we want to retain the Forward and
@@ -238,7 +252,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        UpdateKSync(rflow, update);
+        UpdateKSync(rflow, (update || force_update_rflow));
         AddFlowInfo(rflow);
     }
 
@@ -833,7 +847,10 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     FlowEntry *rflow = flow->reverse_flow_entry();
     assert(flow_handle != FlowEntry::kInvalidFlowHandle);
 
-    if (flow->flow_handle() == flow_handle) {
+    // compare update of flow_handle against the ksync index entry, since
+    // flow handle in flow can change while before we process the response
+    // from KSync and cause invalid state transition
+    if (flow->ksync_index_entry()->index() == flow_handle) {
         return;
     }
 
