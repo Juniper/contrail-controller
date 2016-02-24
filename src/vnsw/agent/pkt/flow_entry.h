@@ -411,7 +411,6 @@ class FlowEntry {
     VmInterfaceKey reverse_flow_vmi() const;
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id, Agent *agent);
     const boost::uuids::uuid &uuid() const { return uuid_; }
-    const boost::uuids::uuid &egress_uuid() const { return egress_uuid_; }
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
     const std::string &peer_vrouter() const { return peer_vrouter_; }
@@ -526,7 +525,6 @@ private:
     uint32_t flags_;
     uint16_t short_flow_reason_;
     boost::uuids::uuid uuid_;
-    boost::uuids::uuid egress_uuid_;
     std::string sg_rule_uuid_;
     std::string nw_ace_uuid_;
     //IP address of the src vrouter for egress flows and dst vrouter for
