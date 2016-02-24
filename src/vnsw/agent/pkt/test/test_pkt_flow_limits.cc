@@ -192,6 +192,11 @@ protected:
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
         EXPECT_EQ(1U, agent()->vrf_table()->Size());
+
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
+        EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
+        FlowTable *table = flow_proto_->GetTable(0);
+        EXPECT_EQ(table->linklocal_flow_info_map().size(), 0);
     }
 
     Agent *agent() {return agent_;}
@@ -242,12 +247,6 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
                         GetFlowKeyNH(input[0].intf_id)) != NULL);
 
     EXPECT_EQ(2U, get_flow_proto()->FlowCount());
-    EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
-                        fabric_port, linklocal_src_port,
-                        vhost->flow_key_nh()->id()) != NULL);
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, linklocal_ip,
-                        IPPROTO_TCP, 3000, linklocal_port,
-                        GetFlowKeyNH(input[0].intf_id)) != NULL);
 
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
