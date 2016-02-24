@@ -3705,7 +3705,9 @@ class DBInterface(object):
                 # TODO optimize
                 for port_id in filters['id']:
                     try:
-                        port_info = self.port_read(port_id)
+                        port_obj = self._virtual_machine_interface_read(
+                                       port_id=port_id)
+                        port_info = self._port_vnc_to_neutron(port_obj)
                     except NoIdError:
                         continue
                     ret_q_ports.append(port_info)
