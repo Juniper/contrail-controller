@@ -74,9 +74,38 @@ public:
         INVALID_EVENT
     };
 
+    struct EventLog {
+        uint64_t time_;
+        State state_;
+        Event event_;
+        uint32_t flow_handle_;
+        uint32_t index_;
+        FlowTableKSyncEntry *ksync_entry_;
+        bool evicted_;
+        bool skip_delete_;
+        uint32_t evict_count_;
+        bool delete_in_progress_;
+        FlowEntry *evict_flow_;
+        uint32_t vrouter_flow_handle_;
+
+        EventLog() :
+            time_(0),
+            state_(INVALID),
+            event_(INVALID_EVENT),
+            flow_handle_(FlowEntry::kInvalidFlowHandle),
+            ksync_entry_(NULL),
+            evicted_(false),
+            skip_delete_(false),
+            evict_count_(0),
+            delete_in_progress_(false),
+            evict_flow_(NULL),
+            vrouter_flow_handle_(FlowEntry::kInvalidFlowHandle) {
+        }
+    };
+
     KSyncFlowIndexEntry();
     virtual ~KSyncFlowIndexEntry();
-    void Reset();
+    void Reset(Agent *agent);
 
     uint32_t index() const { return index_; }
     FlowEntry *index_owner() const { return index_owner_.get(); }
@@ -108,10 +137,13 @@ public:
     void Log(KSyncFlowIndexManager *manager, FlowEntry *flow, Event event,
              uint32_t index);
     void EvictLog(KSyncFlowIndexManager *manager, FlowEntry *flow,
-                  uint32_t index);
+                  uint32_t index, FlowEntry *evict_flow);
 private:
     void AcquireIndex(KSyncFlowIndexManager *manager, FlowEntry *flow,
                       uint32_t index);
+    void LogInternal(KSyncFlowIndexManager *manager,
+                     const std::string &description, FlowEntry *flow,
+                     Event event, uint32_t index, FlowEntry *evict_flow);
     friend class KSyncFlowIndexManager;
 
     State state_;
@@ -128,6 +160,8 @@ private:
     uint32_t evict_count_;
     // Delete initiated for the flow
     bool delete_in_progress_;
+    int event_log_index_;
+    EventLog *event_logs_;
 };
 
 class KSyncFlowIndexManager {
@@ -161,18 +195,21 @@ public:
 
     void AcquireIndex(FlowEntry *flow, uint32_t index);
     void EvictIndex(FlowEntry *flow, uint32_t index, bool skip_del);
+    uint16_t sm_log_count() const { return sm_log_count_; }
 private:
     void HandleEvent(FlowEntry *flow, KSyncFlowIndexEntry::Event event);
     void HandleEvent(FlowEntry *flow, KSyncFlowIndexEntry::Event event,
                      uint32_t index);
     void EvictIndexUnlocked(FlowEntry *flow, uint32_t index, bool skip_del);
-    void EvictRequest(FlowEntryPtr &flow, uint32_t index);
+    void EvictRequest(FlowEntry *flow, FlowEntryPtr &evict_flow,
+                      uint32_t index);
 
 private:
     KSync *ksync_;
     FlowProto *proto_;
     uint32_t count_;
     IndexList index_list_;
+    uint16_t sm_log_count_;
 };
 
 #endif //  __VNSW_AGENT_VROUTER_KSYNC_KSYNC_FLOW_INDEX_MANAGER_H__
