@@ -380,14 +380,17 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
 void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
                                   uint32_t table_index) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key, del_rev_flow,
-                                   table_index));
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key,
+                                   del_rev_flow, table_index));
     return;
 }
 
-void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::EVICT_FLOW, flow, flow_handle));
-    return;
+void FlowProto::EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle) {
+    FlowEvent *event = new FlowEvent(FlowEvent::EVICT_FLOW, flow.get(),
+                                     flow_handle);
+    flow.reset();
+    EnqueueFlowEvent(event);
+   return;
 }
 
 void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){

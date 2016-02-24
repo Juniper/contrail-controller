@@ -191,7 +191,7 @@ public:
 
     static const char *TaskName() { return kTaskFlowEvent; }
     // Sandesh routines
-    void Copy(FlowEntry *lhs, const FlowEntry *rhs);
+    void Copy(FlowEntry *lhs, const FlowEntry *rhs, bool update);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
                                const int last_count);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
