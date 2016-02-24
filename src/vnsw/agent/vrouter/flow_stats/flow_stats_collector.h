@@ -66,6 +66,7 @@ public:
     uint32_t flow_export_rate()  const { return flow_export_rate_; }
     uint32_t threshold()  const;
     uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
+    boost::uuids::uuid rand_gen();
     void UpdateFlowMultiplier();
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) {
@@ -168,6 +169,7 @@ private:
     uint8_t GetFlowMsgIdx();
 
     AgentUveBase *agent_uve_;
+    boost::uuids::random_generator rand_gen_;
     boost::uuids::uuid flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;
