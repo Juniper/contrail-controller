@@ -85,6 +85,7 @@ AgentXmppChannel::~AgentXmppChannel() {
     BgpPeer *bgp_peer = bgp_peer_id_.get();
     assert(bgp_peer == NULL);
     channel_->UnRegisterReceive(xmps::BGP);
+    channel_->UnRegisterWriteReady(xmps::BGP);
 }
 
 InetUnicastAgentRouteTable *AgentXmppChannel::PrefixToRouteTable
