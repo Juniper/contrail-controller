@@ -448,6 +448,16 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
         return parent_.get();
     }
 
+    if (!analyzer_name_.empty()) {
+        MirrorKSyncObject *mirror_object =
+                         ksync_obj_->ksync()->mirror_ksync_obj();
+        MirrorKSyncEntry mksync1(mirror_object, analyzer_name_);
+        MirrorKSyncEntry *mirror =
+            static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync1));
+        if (mirror && !mirror->IsResolved()) {
+            return mirror;
+        }
+    }
     return NULL;
 }
 
