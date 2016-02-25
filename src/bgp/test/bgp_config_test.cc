@@ -490,6 +490,170 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
 }
 
+//
+// Negative test to attempt peering between bgpaas-server and control node.
+//
+TEST_F(BgpConfigTest, BGPaaSNeighbors4) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_37.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    string master_instance(BgpConfigManager::kMasterInstance);
+    string test_instance("test");
+    string router1;
+    string router2;
+
+    // Create peering between local and remote - this is good.
+    router1 = master_instance + ":" + string("local");
+    router2 = master_instance + ":" + string("remote");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    // Create peering between server and remote - this is bad.
+    router1 = test_instance + ":" + string("server");
+    router2 = master_instance + ":" + string("remote");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+
+    // Remove peering between local and remote.
+    router1 = master_instance + ":" + string("local");
+    router2 = master_instance + ":" + string("remote");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    // Remove peering between server and remote.
+    router1 = test_instance + ":" + string("server");
+    router2 = master_instance + ":" + string("remote");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Negative test to attempt peering between bgpaas-client and control node.
+//
+TEST_F(BgpConfigTest, BGPaaSNeighbors5) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_38.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    string master_instance(BgpConfigManager::kMasterInstance);
+    string test_instance("test");
+    string router1;
+    string router2;
+
+    // Create peering between server and client - this is good.
+    router1 = test_instance + ":" + string("server");
+    router2 = test_instance + ":" + string("client");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    // Create peering between control node and client - this is bad.
+    router1 = master_instance + ":" + string("local");
+    router2 = test_instance + ":" + string("client");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+
+    // Remove peering between server and client.
+    router1 = test_instance + ":" + string("server");
+    router2 = test_instance + ":" + string("client");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    // Remove peering between control node and client.
+    router1 = master_instance + ":" + string("local");
+    router2 = test_instance + ":" + string("client");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
+//
+// Negative test to attempt peering between bgpaas-server and bgpaas-client
+// in different instances.
+//
+TEST_F(BgpConfigTest, BGPaaSNeighbors6) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_39.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    string router1;
+    string router2;
+
+    // Create peering between server and client in same instance - good.
+    router1 = string("test1") + ":" + string("server");
+    router2 = string("test1") + ":" + string("client");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    // Create peering between server and client in different instances - bad.
+    router1 = string("test2") + ":" + string("server");
+    router2 = string("test1") + ":" + string("client");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering", 0,
+        new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+
+    // Remove peering between server and client in same instance.
+    router1 = string("test1") + ":" + string("server");
+    router2 = string("test1") + ":" + string("client");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    // Remove peering between server and client in different instance.
+    router1 = string("test2") + ":" + string("server");
+    router2 = string("test1") + ":" + string("client");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+}
+
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
     string content_a = FileRead("controller/src/bgp/testdata/config_test_35a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));

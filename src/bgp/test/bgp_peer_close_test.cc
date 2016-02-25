@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 #include <list>
 
+#include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_factory.h"
@@ -791,6 +792,7 @@ void BgpPeerCloseTest::AddPeersWithRoutes(
     AddXmppPeersWithRoutes();
 
     for (int p = 1; p <= n_peers_; p++) {
+        ConcurrencyScope scope("bgp::Config");
         ostringstream oss;
 
         oss << "NullPeer" << p;

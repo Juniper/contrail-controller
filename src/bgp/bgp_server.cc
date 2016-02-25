@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_server.h"
 
+#include <boost/tuple/tuple.hpp>
 
 #include "base/connection_info.h"
 #include "base/task_annotations.h"
@@ -24,6 +25,7 @@
 #include "bgp/routing-policy/routing_policy.h"
 
 using boost::system::error_code;
+using boost::tie;
 using process::ConnectionState;
 using std::boolalpha;
 using std::make_pair;
@@ -354,7 +356,12 @@ bool BgpServer::HasSelfConfiguration() const {
 }
 
 int BgpServer::RegisterPeer(BgpPeer *peer) {
-    peer_list_.insert(make_pair(peer->peer_name(), peer));
+    CHECK_CONCURRENCY("bgp::Config");
+    BgpPeerList::iterator loc;
+    bool result;
+    tie(loc, result) = peer_list_.insert(make_pair(peer->peer_name(), peer));
+    assert(result);
+    assert(loc->second == peer);
 
     size_t bit = peer_bmap_.find_first();
     if (bit == peer_bmap_.npos) {
@@ -366,8 +373,10 @@ int BgpServer::RegisterPeer(BgpPeer *peer) {
 }
 
 void BgpServer::UnregisterPeer(BgpPeer *peer) {
-    size_t count = peer_list_.erase(peer->peer_name());
-    assert(count == 1);
+    CHECK_CONCURRENCY("bgp::Config");
+    BgpPeerList::iterator loc = peer_list_.find(peer->peer_name());
+    assert(loc != peer_list_.end());
+    peer_list_.erase(loc);
 
     peer_bmap_.set(peer->GetIndex());
     for (size_t i = peer_bmap_.size(); i != 0; i--) {
