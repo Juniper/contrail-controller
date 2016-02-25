@@ -42,13 +42,7 @@ void vr_mem_stats_req::Process(SandeshContext *context) {
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
-    if (-response_code_ == EEXIST) {
-        return -response_code_;
-    }
-
     if (response_code_ < 0) {
-        LOG(ERROR, "VrResponseMsg Error: " <<
-            KSyncEntry::VrouterErrorToString(-response_code_));
         return -response_code_;
     }
 
