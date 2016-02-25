@@ -22,7 +22,7 @@ class Controller(object):
         self.uve = LinkUve(self._config)
         self.sleep_time()
         self._keep_running = True
-        self._vnc = self._config.vnc_api()
+        self._vnc = None
 
     def stop(self):
         self._keep_running = False
@@ -106,7 +106,10 @@ class Controller(object):
 
     def bms_links(self, prouter, ifm):
         if not self._vnc:
-            self._vnc = self._config.vnc_api()
+            try:
+                self._vnc = self._config.vnc_api()
+            except:
+                print 'Proceeding without any api-server'
         if self._vnc:
             try:
                 for li in self._vnc.logical_interfaces_list()[
