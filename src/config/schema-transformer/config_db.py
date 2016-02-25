@@ -1114,19 +1114,23 @@ class VirtualNetworkST(DBBaseST):
 
                 for sp, dp, sa, da in itertools.product(sp_list, dp_list,
                                                         sa_list, da_list):
+                    service_ri = None
+                    if self.me(sa.virtual_network):
+                        service_ri = service_ris.get(da.virtual_network, [None])[0]
+                    elif self.me(da.virtual_network):
+                        service_ri = service_ris.get(sa.virtual_network, [None, None])[1]
                     acl = self.add_acl_rule(
-                        sa, sp, da, dp, arule_proto, rule_uuid,
-                        prule.action_list, prule.direction,
-                        service_ris.get(da.virtual_network, [None])[0])
-                    result_acl_rule_list.append(acl)
-                    if ((prule.direction == "<>") and
-                        (sa != da or sp != dp)):
-                        acl = self.add_acl_rule(
-                            da, dp, sa, sp, arule_proto, rule_uuid,
+                            sa, sp, da, dp, arule_proto, rule_uuid,
                             prule.action_list, prule.direction,
-                            service_ris.get(sa.virtual_network, [None, None])[1])
-
+                            service_ri)
+                    result_acl_rule_list.append(acl)
+                    if ((prule.direction == "<>") and (sa != da or sp != dp)):
+                        acl = self.add_acl_rule(
+                                da, dp, sa, sp, arule_proto, rule_uuid,
+                                prule.action_list, prule.direction,
+                                service_ri)
                         result_acl_rule_list.append(acl)
+
                 # end for sp, dp
             # end for daddr
         # end for saddr
@@ -2951,9 +2955,8 @@ class BgpRouterST(DBBaseST):
         for router in self._dict.values():
             if router.name == self.name:
                 continue
-            if not self.router_type:
-                if router.router_type in ('bgpaas-server', 'bgpaas-client'):
-                    continue
+            if router.router_type in ('bgpaas-server', 'bgpaas-client'):
+                continue
             if router.asn != global_asn:
                 continue
             router_fq_name = router.name.split(':')
