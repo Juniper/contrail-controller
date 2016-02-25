@@ -10,7 +10,6 @@ flexmock==0.9.7
 kafka-python==0.9.2
 kazoo
 stevedore
-distribute>=0.7.3
 cassandra-driver
 ../../../controller/src/analytics/test/utils/mockredis
 ../../../controller/src/analytics/test/utils/mockcassandra
