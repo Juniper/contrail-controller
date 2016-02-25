@@ -426,7 +426,7 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     IpAddress addr = IpAddress::from_string(ip->address(), err);
     bool is_primary = false;
 
-    if (ip->secondary() != true) {
+    if (ip->secondary() != true && ip->service_instance_ip() != true) {
         is_primary = true;
         if (addr.is_v4()) {
             if (addr == Ip4Address(0)) {
