@@ -324,7 +324,7 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
     EXPECT_EQ(param.http_server_port(), http_server_port);
-    EXPECT_STREQ(param.log_category().c_str(), "*");
+    EXPECT_STREQ(param.log_category().c_str(), "");
     EXPECT_STREQ(param.log_file().c_str(),
                  Agent::GetInstance()->log_file().c_str());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");

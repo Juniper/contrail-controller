@@ -417,7 +417,7 @@ void AgentParam::ParseDefaultSection() {
     }
 
     if (!GetValueFromTree<string>(log_category_, "DEFAULT.log_category")) {
-        log_category_ = "*";
+        log_category_ = "";
     }
 
     if (optional<bool> log_local_opt =
