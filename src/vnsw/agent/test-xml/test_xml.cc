@@ -30,12 +30,12 @@ public:
     virtual bool Run() {
         FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_manager()->
                                       default_flow_stats_collector();
-        FlowExportInfo *info = fec->FindFlowExportInfo(fe_->key());
+        FlowExportInfo *info = fec->FindFlowExportInfo(fe_->uuid());
         if (!info) {
             return true;
         }
 
-        fec->ExportFlow(fe_->key(), info, bytes_, pkts_);
+        fec->ExportFlow(info, bytes_, pkts_);
         return true;
     }
     std::string Description() const { return "FlowExportTask"; }

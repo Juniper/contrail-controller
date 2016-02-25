@@ -8,6 +8,7 @@
 
 #include <db/db.h>
 #include <base/util.h>
+#include <base/string_util.h>
 
 #include <cmn/agent_cmn.h>
 #include <boost/functional/factory.hpp>
@@ -42,7 +43,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        ("Agent::StatsCollector"), instance_id,
                        io, intvl, "Flow stats collector"),
-        agent_uve_(uve),
+        agent_uve_(uve), flow_iteration_key_(boost::uuids::nil_uuid()),
         flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId("Agent::StatsCollector"),
@@ -52,7 +53,6 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
         flow_stats_manager_(aging_module) {
-        flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
             // Convert to usec
@@ -88,9 +88,8 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
 
 bool FlowStatsCollector::TcpFlowShouldBeAged(FlowExportInfo *stats,
                                              const vr_flow_entry *k_flow,
-                                             uint64_t curr_time,
-                                             const FlowKey &key) {
-    if (key.protocol != IPPROTO_TCP) {
+                                             uint64_t curr_time) {
+    if (stats->key().protocol != IPPROTO_TCP) {
         return false;
     }
 
@@ -118,9 +117,7 @@ bool FlowStatsCollector::TcpFlowShouldBeAged(FlowExportInfo *stats,
 
 bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
                                       const vr_flow_entry *k_flow,
-                                      uint64_t curr_time,
-                                      const FlowKey &key) {
-
+                                      uint64_t curr_time) {
     //If both forward and reverse flow are marked
     //as TCP closed then immediately remote the flow
     if (k_flow != NULL) {
@@ -219,7 +216,7 @@ InterfaceUveTable::FloatingIp *FlowStatsCollector::ReverseFlowFipEntry
 }
 
 uint32_t FlowStatsCollector::ReverseFlowFip(const FlowExportInfo *info) {
-    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_key());
+    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (!rev_info) {
         return 0;
     }
@@ -229,7 +226,7 @@ uint32_t FlowStatsCollector::ReverseFlowFip(const FlowExportInfo *info) {
 
 VmInterfaceKey FlowStatsCollector::ReverseFlowFipVmi(const FlowExportInfo *info)
 {
-    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_key());
+    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (!rev_info) {
         return VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "");
     }
@@ -267,17 +264,17 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
-                                                  const FlowKey &key,
                                                   uint64_t teardown_time) {
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
                                          ksync_flow_memory();
     if (!info) {
         return;
     }
-    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(key, info->
+    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(info->key(),
+                                                                info->
                                                                 flow_handle());
     if (k_flow) {
-        UpdateAndExportInternal(info, key, k_flow->fe_stats.flow_bytes,
+        UpdateAndExportInternal(info, k_flow->fe_stats.flow_bytes,
                                 k_flow->fe_stats.flow_bytes_oflow,
                                 k_flow->fe_stats.flow_packets,
                                 k_flow->fe_stats.flow_packets_oflow,
@@ -286,14 +283,17 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     }
     /* If reading of stats fails, send a message with just teardown time */
     info->set_teardown_time(teardown_time);
-    ExportFlow(key, info, 0, 0);
+    ExportFlow(info, 0, 0);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(const FlowKey &key, bool rev,
-                                           FlowExportInfo *info) {
-    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(key, rev,
-                                                        info->flow_partition());
+void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info) {
+    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest
+        (info->key(), true, info->flow_partition());
     info->set_delete_enqueued(true);
+    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
+    if (rev_info) {
+        rev_info->set_delete_enqueued(true);
+    }
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -328,7 +328,6 @@ void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
-                                                 const FlowKey &key,
                                                  uint32_t bytes,
                                                  uint16_t oflow_bytes,
                                                  uint32_t pkts,
@@ -338,7 +337,7 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
     uint64_t diff_bytes, diff_pkts;
     UpdateFlowStatsInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
                             teardown_time, &diff_bytes, &diff_pkts);
-    ExportFlow(key, info, diff_bytes, diff_pkts);
+    ExportFlow(info, diff_bytes, diff_pkts);
 }
 
 bool FlowStatsCollector::Run() {
@@ -347,7 +346,6 @@ bool FlowStatsCollector::Run() {
     FlowExportInfo *info = NULL;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
-    FlowKey key;
 
     run_counter_++;
     if (!flow_tree_.size()) {
@@ -362,24 +360,26 @@ bool FlowStatsCollector::Run() {
                                          ksync_flow_memory();
 
     while (it != flow_tree_.end()) {
-        key = it->first;
         info = &it->second;
         it++;
+
+        if (info->delete_enqueued()) {
+            continue;
+        }
         deleted = false;
 
         flow_iteration_key_ = it->first;
         const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
-            (key, info->flow_handle());
+            (info->key(), info->flow_handle());
         // Can the flow be aged?
-        if (ShouldBeAged(info, k_flow, curr_time, key)) {
-            rev_info = FindFlowExportInfo(info->rev_flow_key());
+        if (ShouldBeAged(info, k_flow, curr_time)) {
+            rev_info = FindFlowExportInfo(info->rev_flow_uuid());
             // If reverse_flow is present, wait till both are aged
             if (rev_info) {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetValidKFlowEntry
-                    (info->rev_flow_key(), rev_info->flow_handle());
-                if (ShouldBeAged(rev_info, k_flow_rev, curr_time,
-                                 info->rev_flow_key())) {
+                    (rev_info->key(), rev_info->flow_handle());
+                if (ShouldBeAged(rev_info, k_flow_rev, curr_time)) {
                     deleted = true;
                 }
             } else {
@@ -388,14 +388,7 @@ bool FlowStatsCollector::Run() {
         }
 
         if (deleted == true) {
-            if (it != flow_tree_.end()) {
-                FlowKey next_flow_key = it->first;
-                FlowKey del_flow_key = info->rev_flow_key();
-                if (next_flow_key.IsEqual(del_flow_key)) {
-                    it++;
-                }
-            }
-            FlowDeleteEnqueue(key, rev_info != NULL? true : false, info);
+            FlowDeleteEnqueue(info);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -418,27 +411,20 @@ bool FlowStatsCollector::Run() {
             /* Don't account for agent overflow bits while comparing change in
              * stats */
             if (bytes != k_bytes) {
-                UpdateAndExportInternal(info, key, k_flow->fe_stats.flow_bytes,
+                UpdateAndExportInternal(info, k_flow->fe_stats.flow_bytes,
                                         k_flow->fe_stats.flow_bytes_oflow,
                                         k_flow->fe_stats.flow_packets,
                                         k_flow->fe_stats.flow_packets_oflow,
                                         curr_time, false);
             } else if (info->changed()) {
                 /* export flow (reverse) for which traffic is not seen yet. */
-                ExportFlow(key, info, 0, 0);
+                ExportFlow(info, 0, 0);
             }
         }
 
         if ((!deleted) && (flow_stats_manager_->delete_short_flow() == true) &&
             info->is_flags_set(FlowEntry::ShortFlow)) {
-            if (it != flow_tree_.end()) {
-                FlowKey next_flow_key =  it->first;
-                FlowKey del_flow_key = info->rev_flow_key();
-                if (next_flow_key.IsEqual(del_flow_key)) {
-                    it++;
-                }
-            }
-            FlowDeleteEnqueue(key, true, info);
+            FlowDeleteEnqueue(info);
             if (rev_info) {
                 count++;
                 if (count == flow_count_per_pass_) {
@@ -464,7 +450,7 @@ bool FlowStatsCollector::Run() {
 
     /* Reset the iteration key if we are done with all the elements */
     if (key_updation_reqd) {
-        flow_iteration_key_.Reset();
+        flow_iteration_key_ = boost::uuids::nil_uuid();
     }
 
     /* Update the flow_timer_interval and flow_count_per_pass_ based on
@@ -502,29 +488,30 @@ void FlowStatsCollector::AddEvent(FlowEntryPtr &flow) {
     FlowEntry *fe = flow.get();
     FlowExportInfo info(fe, UTCTimestampUsec());
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::ADD_FLOW, fe->key(), info));
+        req(new FlowExportReq(FlowExportReq::ADD_FLOW, fe->uuid(), info));
     request_queue_.Enqueue(req);
 }
 
-void FlowStatsCollector::DeleteEvent(const FlowKey &key) {
+void FlowStatsCollector::DeleteEvent(const boost::uuids::uuid &u) {
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::DELETE_FLOW, key,
+        req(new FlowExportReq(FlowExportReq::DELETE_FLOW, u,
                               UTCTimestampUsec()));
     request_queue_.Enqueue(req);
 }
 
-void FlowStatsCollector::FlowIndexUpdateEvent(const FlowKey &key,
+void FlowStatsCollector::FlowIndexUpdateEvent(const boost::uuids::uuid &u,
                                               uint32_t idx) {
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_INDEX, key, 0, idx));
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_INDEX, u, 0, idx));
     request_queue_.Enqueue(req);
 }
 
-void FlowStatsCollector::UpdateStatsEvent(const FlowKey &key, uint32_t bytes,
+void FlowStatsCollector::UpdateStatsEvent(const boost::uuids::uuid &u,
+                                          uint32_t bytes,
                                           uint32_t packets,
                                           uint32_t oflow_bytes) {
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, key, bytes,
+        req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, u, bytes,
                               packets, oflow_bytes));
     request_queue_.Enqueue(req);
 }
@@ -553,14 +540,13 @@ void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
 }
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
-void FlowStatsCollector::SourceIpOverride(const FlowKey &key,
-                                          FlowExportInfo *info,
+void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
                                           FlowLogData &s_flow) {
-    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_key());
+    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (info->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rev_info) {
-        const FlowKey *nat_key = &info->rev_flow_key();
-        if (key.src_addr != nat_key->dst_addr) {
+        const FlowKey *nat_key = &rev_info->key();
+        if (info->key().src_addr != nat_key->dst_addr) {
             s_flow.set_sourceip(nat_key->dst_addr);
         }
     }
@@ -623,8 +609,7 @@ uint8_t FlowStatsCollector::GetFlowMsgIdx() {
  * packets. The normalization is done by dividing diff_bytes and diff_pkts with
  * probability. This normalization is used as heuristictic to account for stats
  * of dropped flows */
-void FlowStatsCollector::ExportFlow(const FlowKey &key,
-                                    FlowExportInfo *info,
+void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
                                     uint64_t diff_bytes,
                                     uint64_t diff_pkts) {
     uint32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
@@ -674,11 +659,11 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     s_flow.set_diff_packets(diff_pkts);
     s_flow.set_tcp_flags(info->tcp_flags());
 
-    s_flow.set_sourceip(key.src_addr);
-    s_flow.set_destip(key.dst_addr);
-    s_flow.set_protocol(key.protocol);
-    s_flow.set_sport(key.src_port);
-    s_flow.set_dport(key.dst_port);
+    s_flow.set_sourceip(info->key().src_addr);
+    s_flow.set_destip(info->key().dst_addr);
+    s_flow.set_protocol(info->key().protocol);
+    s_flow.set_sport(info->key().src_port);
+    s_flow.set_dport(info->key().dst_port);
     s_flow.set_sourcevn(info->source_vn());
     s_flow.set_destvn(info->dest_vn());
     s_flow.set_vm(info->vm_cfg_name());
@@ -690,7 +675,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
         s_flow.set_vmi_uuid(UuidToString(info->interface_uuid()));
     }
 
-    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_key());
+    FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (rev_info) {
         s_flow.set_reverse_uuid(to_string(rev_info->flow_uuid()));
     }
@@ -712,7 +697,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
          * direction as egress.
          */
         s_flow.set_direction_ing(1);
-        SourceIpOverride(key, info, s_flow);
+        SourceIpOverride(info, s_flow);
         EnqueueFlowMsg();
         FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
         s_flow2 = s_flow;
@@ -726,7 +711,7 @@ void FlowStatsCollector::ExportFlow(const FlowKey &key,
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
-            SourceIpOverride(key, info, s_flow);
+            SourceIpOverride(info, s_flow);
         } else {
             s_flow.set_direction_ing(0);
         }
@@ -792,13 +777,13 @@ uint32_t FlowStatsCollector::threshold() const {
 bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     switch (req->event()) {
     case FlowExportReq::ADD_FLOW: {
-        AddFlow(req->key(), req->info());
+        AddFlow(req->uuid(), req->info());
         break;
     }
 
     case FlowExportReq::DELETE_FLOW: {
         /* Fetch the update stats and export the flow with teardown_time */
-        FlowExportInfo *info = FindFlowExportInfo(req->key());
+        FlowExportInfo *info = FindFlowExportInfo(req->uuid());
         if (!info) {
             /* Ignore duplicate deletes for NOW. When two flow-entries point
              * to same flow-key (because entries are in different partition),
@@ -811,7 +796,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
          * and export the flow. So delete handling for evicted flows need not
          * update stats and export flow */
         if (!info->teardown_time()) {
-            UpdateStatsAndExportFlow(info, req->key(), req->time());
+            UpdateStatsAndExportFlow(info, req->time());
         }
         /* ExportFlow will enqueue FlowLog message for send. If we have not hit
          * max messages to be sent, it will not dispatch. Invoke
@@ -819,18 +804,18 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
          * even if we don't have max messages to be sent */
         DispatchPendingFlowMsg();
         /* Remove the entry from our tree */
-        DeleteFlow(req->key());
+        DeleteFlow(req->uuid());
         break;
     }
 
     case FlowExportReq::UPDATE_FLOW_INDEX: {
-        UpdateFlowIndex(req->key(), req->index());
+        UpdateFlowIndex(req->uuid(), req->index());
         break;
     }
 
     case FlowExportReq::UPDATE_FLOW_STATS: {
-        EvictedFlowStatsUpdate(req->key(), req->bytes(), req->packets(),
-                              req->oflow_bytes());
+        EvictedFlowStatsUpdate(req->uuid(), req->bytes(), req->packets(),
+                               req->oflow_bytes());
         /* ExportFlow will enqueue FlowLog message for send. If we have not hit
          * max messages to be sent, it will not dispatch. Invoke
          * DispatchPendingFlowMsg to send any enqueued messages in the queue
@@ -852,8 +837,8 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
 }
 
 FlowExportInfo *
-FlowStatsCollector::FindFlowExportInfo(const FlowKey &flow) {
-    FlowEntryTree::iterator it = flow_tree_.find(flow);
+FlowStatsCollector::FindFlowExportInfo(const boost::uuids::uuid &u) {
+    FlowEntryTree::iterator it = flow_tree_.find(u);
     if (it == flow_tree_.end()) {
         return NULL;
     }
@@ -862,8 +847,8 @@ FlowStatsCollector::FindFlowExportInfo(const FlowKey &flow) {
 }
 
 const FlowExportInfo *
-FlowStatsCollector::FindFlowExportInfo(const FlowKey &flow) const {
-    FlowEntryTree::const_iterator it = flow_tree_.find(flow);
+FlowStatsCollector::FindFlowExportInfo(const boost::uuids::uuid &u) const {
+    FlowEntryTree::const_iterator it = flow_tree_.find(u);
     if (it == flow_tree_.end()) {
         return NULL;
     }
@@ -872,8 +857,8 @@ FlowStatsCollector::FindFlowExportInfo(const FlowKey &flow) const {
 }
 
 
-void FlowStatsCollector::NewFlow(const FlowKey &key,
-                                 const FlowExportInfo &info) {
+void FlowStatsCollector::NewFlow(const FlowExportInfo &info) {
+    const FlowKey &key = info.key();
     uint8_t proto = key.protocol;
     uint16_t sport = key.src_port;
     uint16_t dport = key.dst_port;
@@ -909,8 +894,9 @@ void FlowStatsCollector::NewFlow(const FlowKey &key,
     vmt->UpdateBitmap(vm, proto, sport, dport);
 }
 
-void FlowStatsCollector::AddFlow(const FlowKey &key, FlowExportInfo info) {
-    FlowEntryTree::iterator it = flow_tree_.find(key);
+void FlowStatsCollector::AddFlow(const boost::uuids::uuid &uuid,
+                                 FlowExportInfo info) {
+    FlowEntryTree::iterator it = flow_tree_.find(uuid);
     if (it != flow_tree_.end()) {
         /* If entry is already present, copy only those fields which are
          * inherited from FlowEntry to existing entry. Copy this only if there
@@ -918,39 +904,41 @@ void FlowStatsCollector::AddFlow(const FlowKey &key, FlowExportInfo info) {
         if (!it->second.IsEqual(info)) {
             it->second.Copy(info);
         }
+        it->second.set_delete_enqueued(false);
         return;
     }
 
     /* Invoke NewFlow only if the entry is not present in our tree */
-    NewFlow(key, info);
-    flow_tree_.insert(make_pair(key, info));
+    NewFlow(info);
+    flow_tree_.insert(make_pair(uuid, info));
 }
 
-void FlowStatsCollector::DeleteFlow(const FlowKey &key) {
-    FlowEntryTree::iterator it = flow_tree_.find(key);
+void FlowStatsCollector::DeleteFlow(const boost::uuids::uuid &uuid) {
+    FlowEntryTree::iterator it = flow_tree_.find(uuid);
     if (it == flow_tree_.end())
         return;
 
     flow_tree_.erase(it);
 }
 
-void FlowStatsCollector::UpdateFlowIndex(const FlowKey &key, uint32_t idx) {
-    FlowExportInfo *info = FindFlowExportInfo(key);
+void FlowStatsCollector::UpdateFlowIndex(const boost::uuids::uuid &uuid,
+                                         uint32_t idx) {
+    FlowExportInfo *info = FindFlowExportInfo(uuid);
     if (info) {
         info->set_flow_handle(idx);
     }
 }
 
-void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowKey &key,
+void FlowStatsCollector::EvictedFlowStatsUpdate(const boost::uuids::uuid &uuid,
                                                 uint32_t bytes,
                                                 uint32_t packets,
                                                 uint32_t oflow_bytes) {
-    FlowExportInfo *info = FindFlowExportInfo(key);
+    FlowExportInfo *info = FindFlowExportInfo(uuid);
     if (info) {
         /* We are updating stats of evicted flow. Set teardown_time here.
          * When delete event is being handled we don't export flow if
          * teardown time is set */
-        UpdateAndExportInternal(info, key, bytes, oflow_bytes & 0xFFFF,
+        UpdateAndExportInternal(info, bytes, oflow_bytes & 0xFFFF,
                                 packets, oflow_bytes & 0xFFFF0000,
                                 UTCTimestampUsec(), true);
     }
@@ -971,7 +959,8 @@ void FlowStatsCollectionParamsReq::HandleRequest() const {
     return;
 }
 
-static void KeyToSandeshFlowKey(const FlowKey &key, SandeshFlowKey &skey) {
+static void KeyToSandeshFlowKey(const FlowKey &key,
+                                SandeshFlowKey &skey) {
     skey.set_nh(key.nh);
     skey.set_sip(key.src_addr.to_string());
     skey.set_dip(key.dst_addr.to_string());
@@ -982,11 +971,12 @@ static void KeyToSandeshFlowKey(const FlowKey &key, SandeshFlowKey &skey) {
 
 static void FlowExportInfoToSandesh(const FlowExportInfo &value,
                                     SandeshFlowExportInfo &info) {
-    SandeshFlowKey rev_skey;
-    KeyToSandeshFlowKey(value.rev_flow_key(), rev_skey);
+    SandeshFlowKey skey;
+    KeyToSandeshFlowKey(value.key(), skey);
+    info.set_key(skey);
     info.set_uuid(to_string(value.flow_uuid()));
     info.set_egress_uuid(to_string(value.egress_uuid()));
-    info.set_rev_key(rev_skey);
+    info.set_rev_flow_uuid(to_string(value.rev_flow_uuid()));
     info.set_source_vn(value.source_vn());
     info.set_dest_vn(value.dest_vn());
     info.set_sg_rule_uuid(value.sg_rule_uuid());
@@ -1021,18 +1011,16 @@ void FlowStatsRecordsReq::HandleRequest() const {
     FlowStatsRecordsResp *resp = new FlowStatsRecordsResp();
     it = col->flow_tree_.begin();
     while (it != col->flow_tree_.end()) {
-        const FlowKey &key = it->first;
         const FlowExportInfo &value = it->second;
         ++it;
 
         SandeshFlowKey skey;
-        KeyToSandeshFlowKey(key, skey);
+        KeyToSandeshFlowKey(value.key(), skey);
 
         SandeshFlowExportInfo info;
         FlowExportInfoToSandesh(value, info);
 
         FlowStatsRecord rec;
-        rec.set_key(skey);
         rec.set_info(info);
         list.push_back(rec);
     }
@@ -1050,20 +1038,10 @@ void FetchFlowStatsRecord::HandleRequest() const {
         default_flow_stats_collector();
     FlowStatsRecordResp *resp = new FlowStatsRecordResp();
     resp->set_context(context());
-    boost::system::error_code ec;
-    IpAddress sip = IpAddress::from_string(get_sip(), ec);
-    if (ec) {
-        resp->Response();
-        return;
-    }
-    IpAddress dip = IpAddress::from_string(get_dip(), ec);
-    if (ec) {
-        resp->Response();
-        return;
-    }
-    FlowKey key(get_nh(), sip, dip, get_protocol(), get_src_port(),
-                get_dst_port());
-    it = col->flow_tree_.find(key);
+
+    boost::uuids::uuid u = StringToUuid(get_uuid());
+
+    it = col->flow_tree_.find(u);
     if (it != col->flow_tree_.end()) {
         const FlowExportInfo &info = it->second;
         SandeshFlowExportInfo sinfo;

@@ -342,7 +342,7 @@ bool PktSandeshFlow::Run() {
         FlowEntry *fe = it->second;
         FlowStatsCollector *fec =
             agent_->flow_stats_manager()->GetFlowStatsCollector(fe->key());
-        const FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
+        const FlowExportInfo *info = fec->FindFlowExportInfo(fe->uuid());
         SetSandeshFlowData(list, fe, info);
         ++it;
         count++;
@@ -432,7 +432,7 @@ void FetchFlowRecord::HandleRequest() const {
        FlowEntry *fe = it->second;
        FlowStatsCollector *fec =
             agent->flow_stats_manager()->GetFlowStatsCollector(fe->key());
-       FlowExportInfo *info = fec->FindFlowExportInfo(fe->key());
+       FlowExportInfo *info = fec->FindFlowExportInfo(fe->uuid());
        SandeshFlowData data;
        SET_SANDESH_FLOW_DATA(agent, data, fe, info);
        flow_resp->set_record(data);
@@ -533,7 +533,7 @@ bool PktSandeshFlowStats::Run() {
 
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe->key());
+        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe->uuid());
         SetSandeshFlowData(list, fe, info);
         ++it;
         count++;
