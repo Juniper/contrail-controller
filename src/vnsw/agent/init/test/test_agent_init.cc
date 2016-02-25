@@ -50,6 +50,9 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
+    EXPECT_EQ(param.metadata_proxy_port(), 8998);
+    EXPECT_EQ(param.dns_client_port(), 8997);
+    EXPECT_EQ(param.mirror_client_port(), 8999);
     EXPECT_EQ(param.max_vm_flows(), 50);
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
@@ -82,6 +85,9 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
     EXPECT_EQ(param.subnet_hosts_resolvable(), false);
+    EXPECT_EQ(param.metadata_proxy_port(), 8097);
+    EXPECT_EQ(param.dns_client_port(), 8098);
+    EXPECT_EQ(param.mirror_client_port(), 8097);
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_1) {
