@@ -17,6 +17,8 @@ import base64
 
 try:
     from keystoneclient.middleware import auth_token
+except ImportError:
+    from keystonemiddleware import auth_token
 except Exception:
     pass
 
@@ -119,9 +121,9 @@ class AuthPostKeystone(object):
         if 'HTTP_X_ROLE' in env:
             roles = env['HTTP_X_ROLE'].split(',')
         if not 'admin' in [x.lower() for x in roles]:
-            resp = auth_token.MiniResp('Permission Denied', env)
-            start_response('403 Permission Denied', resp.headers)
-            return resp.body
+            start_response('403 Permission Denied',
+                [('Content-type', 'text/plain')])
+            return ['403 Permission Denied']
 
         return self.app(env, start_response)
 

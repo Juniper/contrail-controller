@@ -17,7 +17,6 @@ kombu
 netifaces
 stevedore
 testscenarios
-distribute>=0.7.3
 kazoo
 ../../../../third_party/ifmap-python-client
 ../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
