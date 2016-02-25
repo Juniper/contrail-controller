@@ -81,6 +81,7 @@ public:
                                uint32_t label, bool local_ecmp_nh,
                                const string &vrf_name,
                                SecurityGroupList sg_list,
+                               const CommunityList &communities,
                                const PathPreference &path_preference,
                                TunnelType::TypeBmap tunnel_bmap,
                                const EcmpLoadBalance &ecmp_ecmp_load_balance,
