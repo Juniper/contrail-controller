@@ -207,6 +207,7 @@ public:
                     VxLanTable::kInvalidvxlan_id, false, vn_list,
                     InterfaceNHFlags::INET4, SecurityGroupList(),
                     PathPreference(), ControllerPeerPath::kInvalidPeerIdentifier,
+                    EcmpLoadBalance(),
                     NULL);
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
@@ -549,7 +550,6 @@ TEST_F(EcmpTest, EcmpTest_10) {
 
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
             "2.1.1.1", "9.1.1.1", 1, 0, 0, GetFlowKeyNH(2));
-    FlowEntry *old_entry = entry;
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
@@ -573,10 +573,6 @@ TEST_F(EcmpTest, EcmpTest_10) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
-    //Old flow and new flow have same key, hence old flow should become
-    //short flow
-    EXPECT_TRUE(old_entry->is_flags_set(FlowEntry::ShortFlow) == true);
-    old_entry = entry;
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
@@ -596,9 +592,6 @@ TEST_F(EcmpTest, EcmpTest_10) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
-    //Old flow and new flow have same key, hence old flow should become
-    //short flow
-    EXPECT_TRUE(old_entry->is_flags_set(FlowEntry::ShortFlow) == true);
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
@@ -667,7 +660,6 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(nh->GetInterface()->name() == "vnet2");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
-    FlowEntry *old_entry = entry;
     TxIpPacket(VmPortGetId(3), "2.1.1.1", "9.1.1.1", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(),
@@ -676,9 +668,6 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
-    //Old entry becomes short flow since key are same
-    EXPECT_TRUE(old_entry->is_flags_set(FlowEntry::ShortFlow) == true);
-    old_entry = entry;
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
@@ -698,8 +687,6 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
-    //Old entry becomes short flow since key are same
-    EXPECT_TRUE(old_entry->is_flags_set(FlowEntry::ShortFlow) == true);
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
@@ -1219,7 +1206,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(),
             "1.1.1.1", "3.1.1.10", 1, 0, 0, GetFlowKeyNH(1));
@@ -1269,7 +1256,7 @@ TEST_F(EcmpTest, EcmpReEval_3) {
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(), "1.1.1.1", "3.1.1.10", 1, 0, 0,
                     GetFlowKeyNH(1));
@@ -1476,7 +1463,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         std::string vn_name_10("vn10");
         std::string vn_name_11("vn11");
         EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
-        EXPECT_TRUE(VnMatch(entry->data().dest_vn _list, vn_name_11));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         //Reverse flow is no ECMP
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1493,7 +1480,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         }
         EXPECT_TRUE(rev_entry->data().dest_vrf == vrf_id);
         EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
-        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn _list, vn_name_10));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }
@@ -1617,7 +1604,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         std::string vn_name_10("vn10");
         std::string vn_name_11("vn11");
         EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
-        EXPECT_TRUE(VnMatch(entry->data().dest_vn _list, vn_name_11));
+        EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         //Reverse flow is no ECMP
         FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1628,7 +1615,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == vrf_id);
         EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_11));
-        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn _list, vn_name_10));
+        EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name_10));
         sport++;
         dport++;
     }

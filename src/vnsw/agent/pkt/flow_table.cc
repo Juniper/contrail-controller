@@ -157,20 +157,50 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
+
+    bool rev_flow_update = false;
+    if (rflow && rflow != new_rflow) {
+        if (new_rflow->reverse_flow_entry() &&
+                new_rflow->reverse_flow_entry() != flow) {
+            //In case of ECMP flow, reverse flow could be reused,
+            //when flow transition happens from one SI to other SI.
+            //For example take a case where traffic is flowing from
+            //remote SI to local destination VM, if remote SI is deleted
+            //and flow swictes to local SI, reverese flow would be reused.
+            rev_flow_update = true;
+        }
+    }
+
     FLOW_LOCK(new_flow, new_rflow);
-    AddInternal(flow, new_flow, rflow, new_rflow, false);
+    AddInternal(flow, new_flow, rflow, new_rflow, false, rev_flow_update);
 }
 
 void FlowTable::Update(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *new_flow = Find(flow->key());
+
+    bool fwd_flow_update = true;
+    if (new_flow == NULL) {
+        uint64_t time = UTCTimestampUsec();
+        new_flow = Locate(flow, time);
+        fwd_flow_update = false;
+    }
+
     FlowEntry *new_rflow = (rflow != NULL) ? Find(rflow->key()) : NULL;
+    bool rev_flow_update = true;
+    if (rflow && new_rflow == NULL) {
+        uint64_t time = UTCTimestampUsec();
+        new_rflow = Locate(rflow, time);
+        rev_flow_update = false;
+    }
+
     FLOW_LOCK(new_flow, new_rflow);
-    AddInternal(flow, new_flow, rflow, new_rflow, true);
+    AddInternal(flow, new_flow, rflow, new_rflow, fwd_flow_update,
+                rev_flow_update);
 }
 
 void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
                             FlowEntry *rflow_req, FlowEntry *rflow,
-                            bool update) {
+                            bool fwd_flow_update, bool rev_flow_update) {
     // The forward and reverse flow in request are linked. Unlink the flows
     // first. Flow table processing will link them if necessary
     flow_req->set_reverse_flow_entry(NULL);
@@ -178,7 +208,7 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         rflow_req->set_reverse_flow_entry(NULL);
 
     bool force_update_rflow = false;
-    if (update) {
+    if (fwd_flow_update) {
         if (flow == NULL)
             return;
 
@@ -195,13 +225,13 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             // so trigger a force update instead of add for reverse flow
             force_update_rflow = true;
         }
-        Copy(flow, flow_req, update);
+        Copy(flow, flow_req, fwd_flow_update);
         flow->set_deleted(false);
     }
 
     if (rflow) {
         if (rflow_req != rflow) {
-            Copy(rflow, rflow_req, (update || force_update_rflow));
+            Copy(rflow, rflow_req, (rev_flow_update || force_update_rflow));
             // if the reverse flow was marked delete, reset its flow handle
             // to invalid index to assure it is attempted to reprogram using
             // kInvalidFlowHandle, this also ensures that flow entry wont
@@ -252,11 +282,11 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
-        UpdateKSync(rflow, (update || force_update_rflow));
+        UpdateKSync(rflow, (rev_flow_update || force_update_rflow));
         AddFlowInfo(rflow);
     }
 
-    UpdateKSync(flow, update);
+    UpdateKSync(flow, fwd_flow_update);
     AddFlowInfo(flow);
 }
 

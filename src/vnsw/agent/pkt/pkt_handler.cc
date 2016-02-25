@@ -454,6 +454,21 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
             icmp->icmp6_type == ICMP6_ECHO_REPLY) {
             pkt_info->dport = ICMP6_ECHO_REPLY;
             pkt_info->sport = htons(icmp->icmp6_id);
+        } else if (IsFlowPacket(pkt_info) &&
+                   icmp->icmp6_type == ICMP_DEST_UNREACH) {
+            //Agent has to look at inner payload
+            //and recalculate the parameter
+            //Handle this only for packets requiring flow miss
+            ParseIpPacket(pkt_info, pkt_type, pkt + len + sizeof(icmp));
+            //Swap the key parameter, which would be used as key
+            IpAddress src_ip = pkt_info->ip_saddr;
+            pkt_info->ip_saddr = pkt_info->ip_daddr;
+            pkt_info->ip_daddr = src_ip;
+            if (pkt_info->ip_proto != IPPROTO_ICMPV6) {
+                uint16_t port = pkt_info->sport;
+                pkt_info->sport = pkt_info->dport;
+                pkt_info->dport = port;
+            }
         } else {
             pkt_info->sport = 0;
         }
