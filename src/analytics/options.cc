@@ -76,6 +76,8 @@ void Options::Initialize(EventManager &evm,
 #endif // !USE_CASSANDRA_CQL
     default_cassandra_server_list.push_back(default_cassandra_server);
 
+    string default_zookeeper_server("127.0.0.1:2181");
+
     vector<string> default_kafka_broker_list;
     default_kafka_broker_list.push_back("");
 
@@ -117,6 +119,9 @@ void Options::Initialize(EventManager &evm,
            opt::value<vector<string> >()->default_value(
                default_cassandra_server_list, default_cassandra_server),
              "Cassandra server list")
+        ("DEFAULT.zookeeper_server_list",
+            opt::value<string>()->default_value(""),
+            "Zookeeper server list")
         ("DEFAULT.kafka_broker_list",
            opt::value<vector<string> >()->default_value(
                default_kafka_broker_list, ""),
@@ -316,6 +321,8 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue< vector<string> >(var_map, cassandra_server_list_,
                                   "DEFAULT.cassandra_server_list");
+    GetOptValue<string>(var_map, zookeeper_server_list_,
+                        "DEFAULT.zookeeper_server_list");
     GetOptValue< vector<string> >(var_map, kafka_broker_list_,
                                   "DEFAULT.kafka_broker_list");
     GetOptValue<uint16_t>(var_map, partitions_, "DEFAULT.partitions");

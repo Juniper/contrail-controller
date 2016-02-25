@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('ZooEnv')
+
+env = ZooEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: env['TOP'] + '/' + x, list)
+
+libs = ['zookeeper_client', 'base', 'zookeeper_mt', 'gunit']
+env.Prepend(LIBS=libs)
+libpaths=['base']
+env.Append(LIBPATH = [MapBuildDir(libpaths)])
+
+zookeeper_client_test = env.UnitTest('zookeeper_client_test',
+                                     ['zookeeper_client_test.cc'])
+
+test_suite = [ zookeeper_client_test ]
+test = env.TestSuite('zookeeper_test_suite', test_suite)
+env.Alias('controller/src/zookeeper:test', test)
+
+flaky_test_suite = []
+flaky_test = env.TestSuite('zookeeper_flaky_test_suite', flaky_test_suite)
+env.Alias('controller/src/zookeeper:flaky-test', flaky_test)
