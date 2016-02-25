@@ -334,6 +334,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             uint32_t label, bool local_ecmp_nh,
                                             const string &vrf_name,
                                             SecurityGroupList sg_list,
+                                            const CommunityList &communities,
                                             const PathPreference &path_preference,
                                             TunnelType::TypeBmap tunnel_bmap,
                                             const EcmpLoadBalance &ecmp_load_balance,
@@ -363,6 +364,13 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list) {
         path->set_sg_list(sg_list);
+        ret = true;
+    }
+
+    CommunityList path_communities;
+    path_communities = path->communities();
+    if (path_communities != communities) {
+        path->set_communities(communities);
         ret = true;
     }
 
@@ -428,6 +436,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_list(),
                                            label, true, vrf()->GetName(),
                                            path2->sg_list(),
+                                           path2->communities(),
                                            path2->path_preference(),
                                            path2->tunnel_bmap(),
                                            path2->ecmp_load_balance(),
@@ -651,7 +660,8 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
-                               path->sg_list(), path->path_preference(),
+                               path->sg_list(), path->communities(),
+                               path->path_preference(),
                                path->tunnel_bmap(),
                                path->ecmp_load_balance(),
                                nh_req, agent, ecmp_path);
@@ -694,7 +704,8 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
                                ecmp_path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
-                               ecmp_path->sg_list(), ecmp_path->path_preference(),
+                               ecmp_path->sg_list(), ecmp_path->communities(),
+                               ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
                                nh_req, agent, ecmp_path);
