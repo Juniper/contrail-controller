@@ -254,7 +254,10 @@ private:
 
     void UpdateUnLocked(FlowEntry *flow, FlowEntry *rflow);
     void AddInternal(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
-                     FlowEntry *new_rflow, bool update);
+                     FlowEntry *new_rflow, bool fwd_flow_update,
+                     bool rev_flow_update);
+    void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
+             FlowEntry *new_rflow, bool fwd_flow_update, bool rev_flow_update);
     void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
                      tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
     void EvictFlow(FlowEntry *flow, FlowEntry *rflow);

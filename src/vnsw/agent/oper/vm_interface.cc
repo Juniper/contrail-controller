@@ -3257,6 +3257,7 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
                                     const IpAddress &dependent_ip) const {
     pref->set_ecmp(ecmp);
+
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
     }

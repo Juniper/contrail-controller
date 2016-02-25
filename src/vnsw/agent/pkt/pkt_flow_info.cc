@@ -212,6 +212,12 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             info->ecmp = true;
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
 
+            if (pkt->type == PktType::MESSAGE &&
+                info->out_component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx) {
+                info->out_component_nh_idx = 0;
+            }
+
             // Compute out_component_nh_idx if,
             // 1. out_compoenent_nh_idx was set, but points to a deleted NH
             //    This can happen if flow is trapped for ECMP resolution from
@@ -1588,8 +1594,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         UpdateEvictedFlowStats(pkt);
     }
 
-    if (pkt->type == PktType::MESSAGE &&
-        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
+    if ((pkt->type == PktType::MESSAGE &&
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) ||
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
         update = true;
     }
 
@@ -1641,7 +1648,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     bool swap_flows = false;
     // If this is message processing, then retain forward and reverse flows
-    if (pkt->type == PktType::MESSAGE &&
+    if (pkt->type == PktType::MESSAGE && !short_flow &&
         flow_entry->is_flags_set(FlowEntry::ReverseFlow)) {
         // for cases where we need to swap flows rflow should always
         // be Non-NULL

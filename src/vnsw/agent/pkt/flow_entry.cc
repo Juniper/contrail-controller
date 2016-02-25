@@ -1678,7 +1678,7 @@ void FlowEntry::SetRemoteFlowEcmpIndex() {
     label = 0;
     boost::system::error_code ec;
     Ip4Address dest_ip = Ip4Address::from_string(peer_vrouter_, ec);
-    if (ec.value() == 0) {
+    if (ec.value() != 0) {
         return;
     }
 
