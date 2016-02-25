@@ -2013,7 +2013,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
     _rbac_role = 'admin'
     @classmethod
     def setUpClass(cls):
-        from keystoneclient.middleware import auth_token
+        from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             _test_case = cls
             def __init__(self, app, *args, **kwargs):

@@ -22,7 +22,9 @@ class RunTestsCommand(Command):
         if self.coverage:
             logfname = 'coveragetest.log'
             args += ' -c'
-        os.system('./run_tests.sh %s' % args)
+        rc_sig = os.system('./run_tests.sh %s' % args)
+        if rc_sig >> 8:
+            os._exit(rc_sig>>8)
         with open(logfname) as f:
             if not re.search('\nOK', ''.join(f.readlines())):
                 os._exit(1)
