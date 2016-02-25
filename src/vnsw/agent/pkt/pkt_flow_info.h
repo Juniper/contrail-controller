@@ -79,8 +79,6 @@ public:
     void Add(const PktInfo *pkt, PktControlInfo *in,
              PktControlInfo *out);
     bool Process(const PktInfo *pkt, PktControlInfo *in, PktControlInfo *out);
-    void SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
-                         const PktControlInfo *out);
     static bool GetIngressNwPolicyAclList(const Interface *intf,
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
