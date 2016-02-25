@@ -584,7 +584,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         teardown_mocks(cls.orig_mocked_values)
     # end tearDownClass
 
-    def setUp(self, extra_mocks=None, extra_config_knobs=None):
+    def setUp(self):
         self._logger.info("Running %s" %(self.id()))
         super(TestCase, self).setUp()
     # end setUp
