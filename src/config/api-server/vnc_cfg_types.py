@@ -462,7 +462,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         aap_config = obj_dict.get(
             'virtual_machine_interface_allowed_address_pairs', {})
         for aap in aap_config.get('allowed_address_pair', []):
-            if aap['mac'] == "":
+            if not aap.get('mac', None):
                 aap['mac'] = mac_addrs_dict['mac_address'][0]
 
         if 'virtual_machine_interface_bindings' in obj_dict:
@@ -548,7 +548,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         aap_config = obj_dict.get(
             'virtual_machine_interface_allowed_address_pairs', {})
         for aap in aap_config.get('allowed_address_pair', []):
-            if aap['mac'] == "":
+            if not aap.get('mac', None):
                 aap['mac'] = read_result[
                     'virtual_machine_interface_mac_addresses']['mac_address'][0]
 
