@@ -108,7 +108,10 @@ class NeutronPluginInterface(object):
         if not self._multi_tenancy:
             return self._cfgdb
         user_id = context['user_id']
-        role = string.join(context['roles'], ",")
+        if 'roles' not in context and context['is_admin']:
+            role = 'admin'
+        else:
+            role = string.join(context['roles'], ",")
         if not user_id in self._cfgdb_map:
             self._cfgdb_map[user_id] = DBInterface(
                 self, self._auth_user, self._auth_passwd, self._auth_tenant,
