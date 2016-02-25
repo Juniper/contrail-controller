@@ -589,6 +589,17 @@ class VirtualNetworkST(DictST):
         return rinst
     # end locate_routing_instance_no_target
 
+    def _backup_user_defined_rt(self, route_target_list):
+        rt_list = []
+        for rt in route_target_list or []:
+            if rt['to'][0] in self.rt_list:
+                continue
+            elif rt['to'][0].split(':')[1] != str(self.get_autonomous_system()):
+                rt_list.append((rt['to'][0], rt['attr']))
+            elif int(rt['to'][0].split(':')[-1]) < common.BGP_RTGT_MIN_ID:
+                rt_list.append((rt['to'][0], rt['attr']))
+        return rt_list
+
     def locate_routing_instance(self, rinst_name, service_chain=None,
                                 ri_dict=None):
         if rinst_name in self.rinst:
@@ -635,6 +646,7 @@ class VirtualNetworkST(DictST):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
+                    user_defined_rt = self._backup_user_defined_rt(rinst_obj.get_route_target_refs())
                     rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
                     rinst_obj.set_routing_instance_is_default(is_default)
                     if inst_tgt_data:
@@ -644,6 +656,9 @@ class VirtualNetworkST(DictST):
                         if not is_default and self.allow_transit:
                             rtgt_obj = RouteTarget(self.get_route_target())
                             rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                    for rt_key, inst_tgt_data in user_defined_rt:
+                        rtgt_obj = RouteTargetST.locate(rt_key).obj
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except (NoIdError, KeyError):
                 rinst_obj = None
