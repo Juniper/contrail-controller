@@ -32,38 +32,35 @@ class DsTestCase(test_common.TestCase):
         super(DsTestCase, self).__init__(*args, **kwargs)
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls, extra_disc_server_config_knobs=None,
+                   extra_disc_server_mocks=None):
         # unstub discovery client
         cls.mocks = [mock for mock in cls.mocks if mock[0].__name__ != 'DiscoveryClient']
-        super(DsTestCase, cls).setUpClass()
-
-    def setUp(self, extra_disc_server_config_knobs = None,
-                    extra_disc_server_mocks = None):
         extra_api_server_config_knobs = [
             ('DEFAULTS', 'disc_server_dsa_api', '/api/dsa'),
             ('DEFAULTS', 'log_level', 'SYS_DEBUG'),
         ]
-        super(DsTestCase, self).setUp(extra_config_knobs = extra_api_server_config_knobs)
+        super(DsTestCase, cls).setUpClass(extra_config_knobs=extra_api_server_config_knobs)
 
-        self._disc_server_ip = socket.gethostbyname(socket.gethostname())
-        self._disc_server_port = test_utils.get_free_port()
+        cls._disc_server_ip = socket.gethostbyname(socket.gethostname())
+        cls._disc_server_port = test_utils.get_free_port()
         http_server_port = test_utils.get_free_port()
         if extra_disc_server_config_knobs:
-            self._disc_server_config_knobs.extend(extra_disc_server_config_knobs)
+            cls._disc_server_config_knobs.extend(extra_disc_server_config_knobs)
 
         if extra_disc_server_mocks:
-            self.mocks.extend(extra_disc_server_mocks)
-        test_common.setup_mocks(self.mocks)
+            cls.mocks.extend(extra_disc_server_mocks)
+        test_common.setup_mocks(cls.mocks)
 
-        self._disc_server_greenlet = gevent.spawn(test_common.launch_disc_server,
-            self.id(), self._disc_server_ip, self._disc_server_port,
-            http_server_port, self._disc_server_config_knobs)
+        cls._disc_server_greenlet = gevent.spawn(test_common.launch_disc_server,
+            cls.id(), cls._disc_server_ip, cls._disc_server_port,
+            http_server_port, cls._disc_server_config_knobs)
 
-        test_utils.block_till_port_listened(self._disc_server_ip, self._disc_server_port)
-        self._disc_server_session = requests.Session()
+        test_utils.block_till_port_listened(cls._disc_server_ip, cls._disc_server_port)
+        cls._disc_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
-        self._disc_server_session.mount("http://", adapter)
-        self._disc_server_session.mount("https://", adapter)
+        cls._disc_server_session.mount("http://", adapter)
+        cls._disc_server_session.mount("https://", adapter)
 
 
     def tearDown(self):

@@ -15,12 +15,13 @@ def info_callback(info, client_id):
     pass
 
 class DiscoveryServerTestCase(test_case.DsTestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         extra_config_knobs = [
             ('DEFAULTS', 'white_list_publish', '127.0.0.1'),
             ('DEFAULTS', 'white_list_subscribe', '127.0.0.1'),
         ]
-        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
+        super(DiscoveryServerTestCase, cls).setUpClass(extra_disc_server_config_knobs=extra_config_knobs)
 
     # simple publish - for sanity
     def test_publish_basic(self):

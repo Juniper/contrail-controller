@@ -51,13 +51,14 @@ def ks_admin_authenticate(self, response=None, headers=None):
     return new_headers
 
 class DiscoveryServerTestCase(test_case.DsTestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         extra_config_knobs = [
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         extra_mocks = [(auth_token, 'AuthProtocol',
                             test_utils.FakeAuthProtocol)]
-        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_mocks=extra_mocks,
+        super(DiscoveryServerTestCase, cls).setUpClass(extra_disc_server_mocks=extra_mocks,
             extra_disc_server_config_knobs=extra_config_knobs)
 
     def test_service_admin_state(self):

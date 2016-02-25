@@ -35,11 +35,12 @@ def validate_assignment_count(response, context):
     return True in [e['in_use'] > int(1.1*avg) for e in pubs_active]
 
 class DiscoveryServerTestCase(test_case.DsTestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         extra_config_knobs = [
             ('SvcActiveLoadBalance', 'load-balance', 'True'),
         ]
-        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
+        super(DiscoveryServerTestCase, cls).setUpClass(extra_disc_server_config_knobs=extra_config_knobs)
 
     def test_load_balance(self):
         # publish 3 instances

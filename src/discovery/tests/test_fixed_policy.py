@@ -12,11 +12,12 @@ import discoveryclient.client as client
 server_list = {}
 
 class DiscoveryServerTestCase(test_case.DsTestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         extra_config_knobs = [
             ('foobar', 'policy', 'fixed'),
         ]
-        super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
+        super(DiscoveryServerTestCase, cls).setUpClass(extra_disc_server_config_knobs=extra_config_knobs)
 
     def info_callback(self, info, client_id):
         global server_list
