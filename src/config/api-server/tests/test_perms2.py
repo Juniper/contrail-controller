@@ -27,9 +27,9 @@ import requests
 import stevedore
 
 from vnc_api.vnc_api import *
-import keystoneclient.apiclient.exceptions as kc_exceptions
+import keystoneclient.exceptions as kc_exceptions
 import keystoneclient.v2_0.client as keystone
-from keystoneclient.middleware import auth_token
+from keystonemiddleware import auth_token
 from cfgm_common import rest, utils
 import cfgm_common
 
