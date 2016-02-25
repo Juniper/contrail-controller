@@ -83,9 +83,9 @@ struct SandeshFlowKey {
  * Flow entry as sandesh data type to be send to collector
  */
 struct SandeshFlowExportInfo {
-    1: string uuid;
+    1: SandeshFlowKey key;
     2: string egress_uuid;
-    3: SandeshFlowKey rev_key;
+    3: string rev_flow_uuid;
     4: string source_vn;
     5: string dest_vn;
     6: string sg_rule_uuid;
@@ -105,14 +105,14 @@ struct SandeshFlowExportInfo {
    20: string fip;
    21: u16 underlay_source_port;
    22: bool delete_enqueued;
+   23: string uuid;
 }
 
 /**
  * Statistics for flow record
  */
 struct FlowStatsRecord {
-    1: SandeshFlowKey key;
-    2: SandeshFlowExportInfo info;
+    1: SandeshFlowExportInfo info;
 }
 
 /**
@@ -132,12 +132,7 @@ response sandesh FlowStatsRecordsResp {
  * Request message to get flow stats based on flow key
  */
 request sandesh FetchFlowStatsRecord {
-    1: u32 nh;
-    2: string sip;
-    3: string dip;
-    4: u32 src_port;
-    5: u32 dst_port;
-    6: byte protocol;
+    1: string uuid;
 }
 
 /**
