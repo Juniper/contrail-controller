@@ -116,22 +116,24 @@ class PortTupleAgent(Agent):
             iip = InstanceIpSM.get(iip_id)
             if not iip or not iip.instance_ip_secondary:
                 continue
-            if iip.secondary_tracking_ip == vmi.aaps[0]['ip']:
-                continue
-            iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
             if vmi.aaps and len(vmi.aaps):
-                iip_obj.set_secondary_ip_tracking_ip(vmi.aaps[0]['ip'])
+                if iip.secondary_tracking_ip != vmi.aaps[0]['ip']:
+                    iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
+                    iip_obj.set_secondary_ip_tracking_ip(vmi.aaps[0]['ip'])
+                    self._vnc_lib.instance_ip_update(iip_obj)
+                    iip.update(iip_obj.serialize_to_json())
             else:
-                iip_obj.set_secondary_ip_tracking_ip(None)
-            self._vnc_lib.instance_ip_update(iip_obj)
-            iip.update(iip_obj.serialize_to_json())
+                if iip.secondary_tracking_ip:
+                    iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
+                    iip_obj.set_secondary_ip_tracking_ip(None)
+                    self._vnc_lib.instance_ip_update(iip_obj)
+                    iip.update(iip_obj.serialize_to_json())
 
     def set_port_allowed_address_pairs(self, port, vmi, vmi_obj):
         if not port['allowed-address-pairs'] or \
                 not port['allowed-address-pairs'].get('allowed_address_pair', None):
             if vmi.aaps and len(vmi.aaps):
-                import pdb; pdb.set_trace()
-                vmi_obj.set_virtual_machine_interface_allowed_address_pairs({})
+                vmi_obj.set_virtual_machine_interface_allowed_address_pairs(AllowedAddressPairs())
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
                 vmi.update()
                 self.set_secondary_ip_tracking_ip(vmi)
