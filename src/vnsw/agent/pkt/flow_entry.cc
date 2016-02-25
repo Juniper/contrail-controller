@@ -61,30 +61,30 @@ const std::map<uint16_t, const char*>
     FlowEntry::FlowDropReasonStr = boost::assign::map_list_of
         ((uint16_t)DROP_UNKNOWN,                 "UNKNOWN")
         ((uint16_t)SHORT_UNAVIALABLE_INTERFACE,
-         "SHORT_UNAVIALABLE_INTERFACE")
-        ((uint16_t)SHORT_IPV4_FWD_DIS,       "SHORT_IPV4_FWD_DIS")
+         "Interface unavialable")
+        ((uint16_t)SHORT_IPV4_FWD_DIS,       "Ipv4 forwarding disabled")
         ((uint16_t)SHORT_UNAVIALABLE_VRF,
-         "SHORT_UNAVIALABLE_VRF")
-        ((uint16_t)SHORT_NO_SRC_ROUTE,       "SHORT_NO_SRC_ROUTE")
-        ((uint16_t)SHORT_NO_DST_ROUTE,       "SHORT_NO_DST_ROUTE")
-        ((uint16_t)SHORT_AUDIT_ENTRY,        "SHORT_AUDIT_ENTRY")
-        ((uint16_t)SHORT_VRF_CHANGE,         "SHORT_VRF_CHANGE")
-        ((uint16_t)SHORT_NO_REVERSE_FLOW,    "SHORT_NO_REVERSE_FLOW")
+         "VRF unavailable")
+        ((uint16_t)SHORT_NO_SRC_ROUTE,       "No Source route")
+        ((uint16_t)SHORT_NO_DST_ROUTE,       "No Destination route")
+        ((uint16_t)SHORT_AUDIT_ENTRY,        "Audit Entry")
+        ((uint16_t)SHORT_VRF_CHANGE,         "VRF CHANGE")
+        ((uint16_t)SHORT_NO_REVERSE_FLOW,    "No Reverse flow")
         ((uint16_t)SHORT_REVERSE_FLOW_CHANGE,
-         "SHORT_REVERSE_FLOW_CHANGE")
-        ((uint16_t)SHORT_NAT_CHANGE,         "SHORT_NAT_CHANGE")
-        ((uint16_t)SHORT_FLOW_LIMIT,         "SHORT_FLOW_LIMIT")
+         "Reverse flow change")
+        ((uint16_t)SHORT_NAT_CHANGE,         "NAT Changed")
+        ((uint16_t)SHORT_FLOW_LIMIT,         "Flow Limit Reached")
         ((uint16_t)SHORT_LINKLOCAL_SRC_NAT,
-         "SHORT_LINKLOCAL_SRC_NAT")
+         "Linklocal source NAT failed")
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "SHORT_FAILED_VROUTER_INST")
         ((uint16_t)SHORT_INVALID_L2_FLOW,    "SHORT_INVALID_L2_FLOW")
-        ((uint16_t)DROP_POLICY,              "DROP_POLICY")
-        ((uint16_t)DROP_OUT_POLICY,          "DROP_OUT_POLICY")
-        ((uint16_t)DROP_SG,                  "DROP_SG")
-        ((uint16_t)DROP_OUT_SG,              "DROP_OUT_SG")
-        ((uint16_t)DROP_REVERSE_SG,          "DROP_REVERSE_SG")
-        ((uint16_t)DROP_REVERSE_OUT_SG,      "DROP_REVERSE_OUT_SG");
+        ((uint16_t)DROP_POLICY,              "Policy")
+        ((uint16_t)DROP_OUT_POLICY,          "Out Policy")
+        ((uint16_t)DROP_SG,                  "SG")
+        ((uint16_t)DROP_OUT_SG,              "OUT SG")
+        ((uint16_t)DROP_REVERSE_SG,          "REVERSE SG")
+        ((uint16_t)DROP_REVERSE_OUT_SG,      "REVERSE OUT SG");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowEntry::default_sg_list_;
