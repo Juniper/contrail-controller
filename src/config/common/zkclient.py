@@ -175,14 +175,13 @@ class IndexAllocator(object):
         except ResourceExistsError:
             self.set_in_use(idx)
             existing_value = self.read(idx)
-            if (value == existing_value or
-                existing_value is None): # upgrade case
+            if (value == existing_value):
                 # idempotent reserve
                 return idx
             msg = 'For index %s reserve conflicts with existing value %s.' \
                   %(idx, existing_value)
             self._zookeeper_client.syslog(msg, level='notice')
-            return None
+            raise
     # end reserve
 
     def delete(self, idx):
