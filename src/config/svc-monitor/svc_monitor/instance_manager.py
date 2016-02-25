@@ -523,7 +523,10 @@ class InstanceManager(object):
                 if_properties = VirtualMachineInterfacePropertiesType(
                     **vmi.params)
                 vmi_network = vmi.virtual_network
-                vmi_irt = vmi.interface_route_table
+                if len(vmi.interface_route_tables):
+                    vmi_irt = list(vmi.interface_route_tables)[0]
+                else:
+                    vmi_irt = None
                 vmi_sg = vmi.security_groups
                 vmi_vm = vmi.virtual_machine
                 break
