@@ -1023,7 +1023,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=IfmapTraceBuf' %(introspect_port))
         self.assertThat(traces.status_code, Equals(200))
         top_elem = etree.fromstring(traces.text)
-        print top_elem[0][0][-1].text
+        logger.info("Top Elem: %s" % top_elem[0][0][-1].text)
         self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
         self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
 
@@ -1933,7 +1933,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         super(TestVncCfgApiServerRequests, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'max_requests', 10)])
 
-    def api_requests(self, orig_vn_read, count):
+    def api_requests(self, orig_vn_read, count, vn_name):
         api_server = test_common.vnc_cfg_api_server.server
         self.blocked = True
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
@@ -1945,7 +1945,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         api_server._db_conn._cassandra_db.object_read = slow_response_on_vn_read
 
         logger.info("Creating a test VN object.")
-        test_obj = self._create_test_object()
+        test_obj = self.create_virtual_network(vn_name, '1.1.1.0/24')
         logger.info("Making max_requests(%s) to api server" % (count - 1))
         def vn_read():
             self._vnc_lib.virtual_network_read(id=test_obj.uuid)
@@ -1955,7 +1955,8 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             gevent.spawn(vn_read)
         gevent.sleep(1)
 
-    def test_within_max_api_requests(self):
+    def test_max_api_requests(self):
+        # Test to make sure api-server accepts requests within max_api_requests
         self.wait_till_api_server_idle()
 
         # when there are pipe-lined requests, responses have content-length
@@ -1971,9 +1972,10 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         api_server = test_common.vnc_cfg_api_server.server
         orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
-            self.api_requests(orig_vn_read, 5)
+            vn_name = self.id() + '5testvn1'
+            self.api_requests(orig_vn_read, 5, vn_name)
             logger.info("Making one more requests well within the max_requests to api server")
-            vn_name = self.id() + 'testvn'
+            vn_name = self.id() + 'testvn1'
             try:
                 greenlet = gevent.spawn(self.create_virtual_network, vn_name, '10.1.1.0/24')
                 gevent.sleep(0)
@@ -1986,15 +1988,17 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             api_server._db_conn._cassandra_db.object_read = orig_vn_read
             self.blocked = False
 
-    def test_err_on_max_api_requests(self):
+        # Test to make sure api-server rejects requests over max_api_requests
         self.wait_till_api_server_idle()
         api_server = test_common.vnc_cfg_api_server.server
         orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
-            self.api_requests(orig_vn_read, 11)
+            vn_name = self.id() + '11testvn2'
+            self.api_requests(orig_vn_read, 11, vn_name)
             logger.info("Making one more requests (max_requests + 1) to api server")
             try:
-                greenlet = gevent.spawn(self.create_virtual_network, 'testvn', '10.1.1.0/24')
+                vn_name = self.id() + 'testvn2'
+                greenlet = gevent.spawn(self.create_virtual_network, vn_name, '10.1.1.0/24')
                 gevent.sleep(0)
                 greenlet.get(timeout=3)
             except gevent.timeout.Timeout as e:
@@ -2013,7 +2017,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
     _rbac_role = 'admin'
     @classmethod
     def setUpClass(cls):
-        from keystoneclient.middleware import auth_token
+        from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             _test_case = cls
             def __init__(self, app, *args, **kwargs):
