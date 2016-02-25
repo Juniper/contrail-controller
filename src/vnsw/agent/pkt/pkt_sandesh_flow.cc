@@ -25,7 +25,7 @@ using boost::system::error_code;
     std::vector<ActionStr> action_str_l;                                    \
     SetActionStr(fe->match_p().action_info, action_str_l);                  \
     if ((fe->match_p().action_info.action & TrafficAction::DROP_FLAGS) != 0) {\
-        data.set_drop_reason(GetFlowDropReason(fe));                        \
+        data.set_drop_reason(fe->DropReasonStr(fe->data().drop_reason));                        \
     }                                                                       \
     data.set_action_str(action_str_l);                                      \
     std::vector<MirrorActionSpec>::const_iterator mait;                     \
@@ -66,7 +66,7 @@ using boost::system::error_code;
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
     data.set_short_flow(                                                    \
             fe->is_flags_set(FlowEntry::ShortFlow) ?                        \
-            string("yes (") + GetShortFlowReason(fe->short_flow_reason()) + \
+            string("yes (") + fe->DropReasonStr(fe->data().drop_reason) + \
             ")": "no");                                                     \
     data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
     data.set_src_vn_list(fe->data().SourceVnList());                        \
@@ -98,58 +98,6 @@ using boost::system::error_code;
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 
 ////////////////////////////////////////////////////////////////////////////////
-
-static const char * GetShortFlowReason(uint16_t reason) {
-    switch (reason) {
-    case FlowEntry::SHORT_UNAVIALABLE_INTERFACE:
-        return "Interface unavialable";
-    case FlowEntry::SHORT_IPV4_FWD_DIS:
-        return "Ipv4 forwarding disabled";
-    case FlowEntry::SHORT_UNAVIALABLE_VRF:
-        return "VRF unavailable";
-    case FlowEntry::SHORT_NO_SRC_ROUTE:
-        return "No Source route";
-    case FlowEntry::SHORT_NO_DST_ROUTE:
-        return "No Destination route";
-    case FlowEntry::SHORT_AUDIT_ENTRY:
-        return "Audit Entry";
-    case FlowEntry::SHORT_VRF_CHANGE:
-        return "VRF Change";
-    case FlowEntry::SHORT_NO_REVERSE_FLOW:
-        return "No Reverse flow";
-    case FlowEntry::SHORT_REVERSE_FLOW_CHANGE:
-        return "Reverse flow change";
-    case FlowEntry::SHORT_NAT_CHANGE:
-        return "NAT Changed";
-    case FlowEntry::SHORT_FLOW_LIMIT:
-        return "Flow Limit Reached";
-    case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
-        return "Linklocal source NAT failed";
-    default:
-        break;
-    }
-    return "Unknown";
-}
-
-static const char * GetFlowDropReason(FlowEntry *fe) {
-    switch (fe->data().drop_reason) {
-    case FlowEntry::DROP_POLICY:
-        return "Policy";
-    case FlowEntry::DROP_OUT_POLICY:
-        return "Out Policy";
-    case FlowEntry::DROP_SG:
-        return "SG";
-    case FlowEntry::DROP_OUT_SG:
-        return "Out SG";
-    case FlowEntry::DROP_REVERSE_SG:
-        return "Reverse SG";
-    case FlowEntry::DROP_REVERSE_OUT_SG:
-        return "Reverse Out SG";
-    default:
-        break;
-    }
-    return GetShortFlowReason(fe->data().drop_reason);;
-}
 
 static void SetOneAclInfo(FlowAclInfo *policy, uint32_t action,
                           const MatchAclParamsList &acl_list)  {
