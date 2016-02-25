@@ -5,7 +5,7 @@ from keystoneclient.v2_0 import client
 from vnc_api.vnc_api import *
 import uuid
 import argparse
-import keystoneclient.apiclient.exceptions as kc_exceptions
+import keystoneclient.exceptions as kc_exceptions
 import cfgm_common
 import pprint
 
