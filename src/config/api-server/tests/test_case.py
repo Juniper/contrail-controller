@@ -4,8 +4,8 @@ from test_utils import *
 import test_common
 
 class ApiServerTestCase(test_common.TestCase):
-    def setUp(self, extra_mocks = None, extra_config_knobs = None):
-        super(ApiServerTestCase, self).setUp(extra_mocks, extra_config_knobs)
+    def setUp(self):
+        super(ApiServerTestCase, self).setUp()
         self.ignore_err_in_log = False
 
     def tearDown(self):

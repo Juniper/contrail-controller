@@ -27,9 +27,9 @@ import requests
 import stevedore
 
 from vnc_api.vnc_api import *
-import keystoneclient.apiclient.exceptions as kc_exceptions
+import keystoneclient.exceptions as kc_exceptions
 import keystoneclient.v2_0.client as keystone
-from keystoneclient.middleware import auth_token
+from keystonemiddleware import auth_token
 from cfgm_common import rest, utils
 import cfgm_common
 
@@ -322,7 +322,8 @@ class TestPermissions(test_case.ApiServerTestCase):
     fqdn = [domain_name]
     vn_name='alice-vn'
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         extra_mocks = [(keystone.Client,
                             '__new__', test_utils.FakeKeystoneClient),
                        (vnc_api.vnc_api.VncApi,
@@ -333,9 +334,11 @@ class TestPermissions(test_case.ApiServerTestCase):
             ('DEFAULTS', 'multi_tenancy_with_rbac', 'True'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
-        super(TestPermissions, self).setUp(extra_mocks=extra_mocks,
+        super(TestPermissions, cls).setUpClass(extra_mocks=extra_mocks,
             extra_config_knobs=extra_config_knobs)
 
+    def setUp(self):
+        super(TestPermissions, self).setUp()
         ip = self._api_server_ip
         port = self._api_server_port
         # kc = test_utils.get_keystone_client()
