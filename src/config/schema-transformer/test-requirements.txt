@@ -7,7 +7,6 @@ python-keystoneclient
 webtest
 kazoo
 jsonpickle
-distribute>=0.7.3
 cfgm_common
 vnc_api
 discoveryclient
