@@ -15,6 +15,7 @@ public:
 
     const boost::uuids::uuid &flow_uuid() const { return flow_uuid_; }
     const boost::uuids::uuid &egress_uuid() const { return egress_uuid_; }
+    void set_egress_uuid(const boost::uuids::uuid &u) { egress_uuid_ = u; }
     const FlowKey &key() const { return key_; }
     const boost::uuids::uuid &rev_flow_uuid() const { return rev_flow_uuid_; }
     const std::string &source_vn() const { return source_vn_; }

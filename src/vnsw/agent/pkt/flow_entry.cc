@@ -327,7 +327,6 @@ FlowEntry::~FlowEntry() {
 
 void FlowEntry::Reset() {
     uuid_ = flow_table_->rand_gen();
-    egress_uuid_ = flow_table_->rand_gen();
     data_.Reset();
     l3_flow_ = true;
     flow_handle_ = kInvalidFlowHandle;
@@ -378,8 +377,11 @@ void FlowEntry::Copy(const FlowEntry *rhs, bool update) {
     tunnel_type_ = rhs->tunnel_type_;
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
-    if (update == false)
+    if (update == false) {
         flow_handle_ = rhs->flow_handle_;
+        /* Flow Entry is being re-used. Generate a new UUID for it. */
+        uuid_ = flow_table_->rand_gen();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
