@@ -279,14 +279,17 @@ class SNATAgent(Agent):
             return
 
         # Get route table for default route it it exists
-        rt_name = 'rt_' + lr_id
-        rt_fq_name = si_obj.get_fq_name()[0:2] + [rt_name]
-        try:
-            rt_obj = self._vnc_lib.route_table_read(
-                         fq_name=rt_fq_name,
-                         fields=['virtual_network_back_refs'])
-        except vnc_exc.NoIdError:
+        if lr_id is None:
             rt_obj = None
+        else:
+            rt_name = 'rt_' + lr_id
+            rt_fq_name = si_obj.get_fq_name()[0:2] + [rt_name]
+            try:
+                rt_obj = self._vnc_lib.route_table_read(
+                             fq_name=rt_fq_name,
+                             fields=['virtual_network_back_refs'])
+            except vnc_exc.NoIdError:
+                rt_obj = None
 
         # Delete route table
         if rt_obj:
