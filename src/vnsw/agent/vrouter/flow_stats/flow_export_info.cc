@@ -18,7 +18,7 @@ FlowExportInfo::FlowExportInfo() :
 }
 
 FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
-    flow_uuid_(fe->uuid()), key_(fe->key()),
+    flow_uuid_(fe->uuid()), egress_uuid_(fe->egress_uuid()), key_(fe->key()),
     source_vn_(fe->data().source_vn_match), dest_vn_(fe->data().dest_vn_match),
     sg_rule_uuid_(fe->sg_rule_uuid()), nw_ace_uuid_(fe->nw_ace_uuid()),
     setup_time_(setup_time), teardown_time_(0), last_modified_time_(setup_time),
@@ -28,7 +28,6 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     tunnel_type_(fe->tunnel_type()), underlay_source_port_(0),
     changed_(true), fip_(fe->fip()), fip_vmi_(fe->fip_vmi()), tcp_flags_(0),
     delete_enqueued_(false) {
-    egress_uuid_ = FlowTable::rand_gen_();
     FlowEntry *rflow = fe->reverse_flow_entry();
     if (rflow) {
         rev_flow_uuid_ = rflow->uuid();
@@ -96,6 +95,9 @@ bool FlowExportInfo::IsEqual(const FlowExportInfo &rhs) const {
     if (drop_reason_ != rhs.drop_reason()) {
         return false;
     }
+    if (egress_uuid_ != rhs.egress_uuid()) {
+        return false;
+    }
     return true;
 }
 
@@ -115,6 +117,7 @@ void FlowExportInfo::Copy(const FlowExportInfo &rhs) {
     rev_flow_uuid_ = rhs.rev_flow_uuid();
     interface_uuid_ = rhs.interface_uuid();
     drop_reason_ = rhs.drop_reason();
+    egress_uuid_ = rhs.egress_uuid();
     changed_ = true;
 }
 
