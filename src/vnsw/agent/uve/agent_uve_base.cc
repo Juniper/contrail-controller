@@ -114,11 +114,6 @@ uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,
         count++;
     }
 
-    // for TOR agent add physical device count to the count
-    if (agent_->tor_agent_enabled()) {
-        count += agent_->physical_device_table()->Size();
-    }
-
     return count;
 }
 
@@ -138,7 +133,7 @@ void AgentUveBase::UpdateMessage(const ConnectionInfo &cinfo,
 void AgentUveBase::VrouterAgentProcessState
     (const std::vector<ConnectionInfo> &cinfos,
      ProcessState::type &pstate, std::string &message) {
-    size_t num_conns(cinfos.size());
+    size_t num_conns = 0;
     uint8_t num_control_nodes = 0, num_dns_servers = 0;
     uint8_t down_control_nodes = 0;
     uint8_t expected_conns = ExpectedConnections(num_control_nodes,
@@ -146,7 +141,6 @@ void AgentUveBase::VrouterAgentProcessState
     std::string cup(g_process_info_constants.ConnectionStatusNames.
         find(ConnectionStatus::UP)->second);
     bool is_cup = true;
-    bool is_tor_cup = true;
     bool is_tor_connected = false;
     string tor_type(g_process_info_constants.ConnectionTypeNames.
             find(ConnectionType::TOR)->second);
@@ -157,11 +151,16 @@ void AgentUveBase::VrouterAgentProcessState
         const std::string &conn_status(cinfo.get_status());
         if (cinfo.get_type() == tor_type) {
             is_tor_connected = true;
+            continue;
         }
+        /* Don't consider ConnectionType::TOR type for counting connections.
+         * contrail-tor-agent is not supposed to report as Non-Functional when
+         * it is in backup mode, but contrail-tor-agent does not have a way to
+         * figure out that it is in backup mode. Hence for contrail-tor-agent
+         * (both active and backup modes) we don't consider connection to TOR
+         * for reporting Node Status */
+        num_conns++;
         if (conn_status != cup) {
-            if (cinfo.get_type() == tor_type) {
-                is_tor_cup = false;
-            }
             if (cinfo.get_name().compare(0, 13,
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
@@ -175,9 +174,6 @@ void AgentUveBase::VrouterAgentProcessState
         if ((num_control_nodes == 0) && message.empty()) {
             message = "No control-nodes configured";
         }
-    } else if (!is_tor_cup) {
-        // waiting for TOR to connect
-        pstate = ProcessState::NON_FUNCTIONAL;
     } else if (!is_tor_connected && agent_->tor_agent_enabled()) {
         // waiting for first TOR config to arrive
         pstate = ProcessState::NON_FUNCTIONAL;
