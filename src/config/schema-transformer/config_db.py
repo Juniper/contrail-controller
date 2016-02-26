@@ -2435,7 +2435,7 @@ class ServiceChain(DBBaseST):
                            vm_pt.name)
             return None
         return vm_info
-    # end _get_vm_info
+    # end _get_vm_pt_info
 
     def check_create(self):
         # Check if this service chain can be created:
@@ -2477,7 +2477,7 @@ class ServiceChain(DBBaseST):
                 if vm_info:
                     vm_info_list.append(vm_info)
             # end for service_vm
-            if not vm_info:
+            if not vm_info_list:
                 return None
             virtualization_type = si.get_virtualization_type()
             ret_dict[service] = {'mode': mode, 'vm_list': vm_info_list,
