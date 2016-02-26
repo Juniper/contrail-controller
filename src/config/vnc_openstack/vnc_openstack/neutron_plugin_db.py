@@ -1830,7 +1830,7 @@ class DBInterface(object):
                 aaps.set_allowed_address_pair(aap_array)
             port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
 
-        if 'fixed_ips' in port_q:
+        if 'fixed_ips' in port_q and port_q['fixed_ips'] is not None:
             net_id = (port_q.get('network_id') or
                       port_obj.get_virtual_network_refs()[0]['uuid'])
             port_obj_ips = None
