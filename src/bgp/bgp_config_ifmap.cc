@@ -501,6 +501,10 @@ bool BgpIfmapPeeringConfig::GetRouterPair(DBGraph *db_graph,
         pair<IFMapNode *, IFMapNode *> *pair) {
     IFMapNode *local = NULL;
     IFMapNode *remote = NULL;
+    string local_router_type;
+    string remote_router_type;
+    string local_instance;
+    string remote_instance;
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(db_graph);
          iter != node->end(db_graph); ++iter) {
@@ -516,14 +520,31 @@ bool BgpIfmapPeeringConfig::GetRouterPair(DBGraph *db_graph,
         string name = adj->name().substr(instance_name.size() + 1);
         if (name == localname && params.router_type != "bgpaas-client") {
             local = adj;
+            local_router_type = params.router_type;
+            local_instance = instance_name;
         } else if (instance_name != BgpConfigManager::kMasterInstance &&
             params.router_type == "bgpaas-server") {
             local = adj;
+            local_router_type = params.router_type;
+            local_instance = instance_name;
         } else {
             remote = adj;
+            remote_router_type = params.router_type;
+            remote_instance = instance_name;
         }
     }
     if (local == NULL || remote == NULL) {
+        return false;
+    }
+    if (local_router_type == "bgpaas-server" &&
+        remote_router_type != "bgpaas-client") {
+        return false;
+    }
+    if (local_router_type != "bgpaas-server" &&
+        remote_router_type == "bgpaas-client") {
+        return false;
+    }
+    if (local_instance != remote_instance) {
         return false;
     }
 

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp-router name='local'>
+        <address>192.168.1.1</address>
+        <autonomous-system>64512</autonomous-system>
+        <identifier>192.168.1.1</identifier>
+    </bgp-router>
+    <bgp-router name='remote'>
+        <address>192.168.1.101</address>
+        <autonomous-system>64512</autonomous-system>
+        <identifier>192.168.1.101</identifier>
+    </bgp-router>
+    <routing-instance name="test">
+        <vrf-target>target:64512:1</vrf-target>
+        <bgp-router name='server'>
+            <router-type>bgpaas-server</router-type>
+            <autonomous-system>64512</autonomous-system>
+        </bgp-router>
+    </routing-instance>
+</config>
