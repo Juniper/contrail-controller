@@ -1,16 +1,48 @@
 import json
-import keystone_auth
 import sys
 import logging
+import os
+import requests
+import abc
+import six
 
-class Barbican_Cert_Manager(object):
+@six.add_metaclass(abc.ABCMeta)
+class Cert_Manager(object):
+    """Class to download certs from specific
+       drivers mentioned in the conf_file"""
+    def __init__(self):
+        pass
+
+    def _request(self, url, headers=None, body=None, request_type=None):
+        try:
+            if request_type == 'PUT':
+                encoded_body = json.dumps(body)
+                return requests.put(url, headers=headers, data=encoded_body)
+            elif request_type == 'POST':
+                encoded_body = json.dumps(body)
+                return requests.post(url, headers=headers, data=encoded_body)
+            else:
+                return requests.get(url, headers=headers)
+
+        except Exception as e:
+            logging.error("Failed sending request to keystone")
+            return None
+
+    @abc.abstractmethod
+    def _validate_tls_secret(self, tls_container_ref):
+        pass
+
+    @abc.abstractmethod
+    def _populate_tls_pem(self, tls_container_ref):
+        pass
+
+class Barbican_Cert_Manager(Cert_Manager):
     """Class to download certs from barbican and
        populate the pem file as required by HAProxy
     """
-    def __init__(self, keystone_auth_conf_file):
-        self.identity = keystone_auth.Identity(keystone_auth_conf_file)
-        if not self.identity:
-            raise Exception()
+    def __init__(self, identity=None):
+        super(Barbican_Cert_Manager, self).__init__()
+        self.identity = identity
 
     def _get_barbican_entity(self, barbican_ep, auth_token,
                              entity_ref, metadata=True):
@@ -25,7 +57,7 @@ class Barbican_Cert_Manager(object):
                 "X-Auth-Token": "%s" % auth_token
             }
             url = entity_ref
-            resp = keystone_auth._request(url, headers, 'GET')
+            resp = self._request(url, headers, 'GET')
             if resp.status_code in range(200, 299):
                 if metadata:
                     return json.loads(resp.text)
@@ -102,3 +134,32 @@ class Barbican_Cert_Manager(object):
         except Exception as e:
             logging.error("%s while populating SSL Pem file" % str(e))
             return None
+
+
+class Generic_Cert_Manager(Cert_Manager):
+    """Class to download certs from Generic Cert Manager and
+       populate the pem file as required by HAProxy
+    """
+    def __init__(self, identity=None):
+        super(Generic_Cert_Manager, self).__init__()
+
+    def _validate_tls_secret(self, tls_container_ref):
+        if tls_container_ref is None:
+            return False
+
+        # Check if the file exists
+        if not os.path.isfile(tls_container_ref):
+            return False
+
+        # Check if file is readable
+        if not os.access(tls_container_ref, os.R_OK):
+            return False
+
+        return True
+
+    def _populate_tls_pem(self, tls_container_ref):
+        secret_text = ''
+        with open(tls_container_ref) as tls_container:
+            secret_text = tls_container.read()
+
+        return secret_text

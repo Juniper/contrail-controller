@@ -99,12 +99,13 @@ public:
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
                 std::stringstream pathgen;
-                std::stringstream conf_path, json_path, sock_path;
+                std::stringstream conf_path, json_path, sock_path, crt_path;
 
                 pathgen << manager_->loadbalancer_config_path_ << prop.pool_id;
                 conf_path << pathgen.str() << ".haproxy.conf";
                 json_path << pathgen.str() << ".conf.json";
                 sock_path << pathgen.str() << ".haproxy.sock";
+                crt_path << pathgen.str() << ".crtbundle.pem";
 
                 boost::system::error_code error;
                 if (fs::exists(conf_path.str())) {
@@ -127,6 +128,14 @@ public:
                     fs::remove_all(json_path.str(), error);
                     if (error) {
                         LOG(ERROR, "Stale loadbalancer json file delete error"
+                                    << error.message());
+                    }
+                }
+
+                if (fs::exists(crt_path.str())) {
+                    fs::remove_all(crt_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale loadbalancer certificate file delete error"
                                     << error.message());
                     }
                 }
@@ -764,10 +773,11 @@ void InstanceManager::LoadbalancerObserver(
         lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
                                    *loadbalancer->properties());
     } else {
-        std::stringstream conf_path, json_path, sock_path;
+        std::stringstream conf_path, json_path, sock_path, crt_path;
         conf_path << pathgen.str() << ".haproxy.conf";
         json_path << pathgen.str() << ".conf.json";
         sock_path << pathgen.str() << ".haproxy.sock";
+        crt_path << pathgen.str() << ".crtbundle.pem";
 
         boost::filesystem::path conf_file(conf_path.str());
         if (boost::filesystem::exists(conf_file, error)) {
@@ -782,6 +792,11 @@ void InstanceManager::LoadbalancerObserver(
         boost::filesystem::path json_file(json_path.str());
         if (boost::filesystem::exists(json_file, error)) {
             boost::filesystem::remove_all(json_path.str(), error);
+        }
+
+        boost::filesystem::path crt_file(crt_path.str());
+        if (boost::filesystem::exists(crt_file, error)) {
+            boost::filesystem::remove_all(crt_path.str(), error);
         }
     }
 }
