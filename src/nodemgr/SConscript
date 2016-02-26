@@ -81,9 +81,15 @@ common_sources_rules = []
 for file in common_sources:
     common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common"), file))
 
+rel_path = Dir('nodemgr/common').path
+def BuildInfoAction(target, source, env):
+    env.GenerateBuildInfoPyCode(path=rel_path)
+
+build_info_rules = [OpEnv.Command(target='buildinfo.py', source = None, action=BuildInfoAction)]
+
 sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
                  control_sources_rules, config_sources_rules, common_sources_rules,
-                 vrouter_sources_rules, database_sources_rules
+                 vrouter_sources_rules, database_sources_rules, build_info_rules
                 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
