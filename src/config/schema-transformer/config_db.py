@@ -3827,6 +3827,13 @@ class RoutingPolicyST(DBBaseST):
         self.service_instances = {}
         self.routing_instances = set()
         self.update(obj)
+        ri_refs = self.obj.get_routing_instance_refs() or []
+        for ref in ri_refs:
+            ri_name = ':'.join(ref['to'])
+            self.routing_instances.add(ri_name)
+            ri = RoutingInstanceST.get(ri_name)
+            if ri:
+                ri.routing_policys[self.name] = ref['attr']['sequence']
     # end __init__
 
     def update(self, obj=None):
