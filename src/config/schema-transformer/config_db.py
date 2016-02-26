@@ -1571,6 +1571,7 @@ class RouteTableST(DBBaseST):
 
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.routes = []
         routes = self.obj.get_routes()
         if routes:
             self.routes = routes.get_route() or []
