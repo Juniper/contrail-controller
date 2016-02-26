@@ -1366,7 +1366,6 @@ class TestPolicy(test_case.STTestCase):
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
-        gevent.sleep(10)
         _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", False)
         _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20", False)
 
@@ -1382,6 +1381,12 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2)
         _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10")
         _match_route_table_cleanup(vn2)
+
+        # delete first route and check vn ri sr entries
+        rt.set_routes(None)
+        self._vnc_lib.route_table_update(rt)
+
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", False)
 
         vn1.del_route_table(rt)
         self._vnc_lib.virtual_network_update(vn1)
