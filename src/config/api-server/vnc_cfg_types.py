@@ -390,7 +390,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 return
 
         vrouter_fq_name = ['default-global-system-config', host_id]
-        vrouter_id = db_conn.fq_name_to_uuid('virtual-router', vrouter_fq_name)
+        try:
+            vrouter_id = db_conn.fq_name_to_uuid('virtual-router', vrouter_fq_name)
+        except NoIdError:
+            return
 
         #if virtual_machine_refs is an empty list delete vrouter link
         if 'virtual_machine_refs' in obj_dict and not obj_dict['virtual_machine_refs']:
