@@ -650,21 +650,17 @@ class DiscoveryServer():
                 return True, match_len
         return False, 0
 
-    def match_publishers(self, dsa_rule, pubs):
+    def match_publishers(self, rule_list, pubs):
         result = []
-        rule_pub = dsa_rule['publisher']
 
         for pub in pubs:
-            # include publisher if rule not relevant
-            if rule_pub['ep_type'] != pub['ep_type']:
-                result.append(pub)
-                continue
-            match, mlen = self.match_dsa_rule_ep(rule_pub, pub)
-            if match:
-                result.append(pub)
+            for dsa_rule in rule_list:
+                ok, pfxlen = self.match_dsa_rule_ep(dsa_rule['publisher'], pub)
+                if ok:
+                    result.append(pub)
         return result
 
-    def apply_dsa_config(self, pubs, sub):
+    def apply_dsa_config(self, service_type, pubs, sub):
         if len(pubs) == 0:
             return pubs
 
@@ -675,7 +671,13 @@ class DiscoveryServer():
 
         lpm = -1
         matched_sub_rule = None
+        matched_rules = {}
         for rule in dsa_rules:
+            # ignore rule if publisher not relevant
+            if rule['publisher']['ep_type'] != service_type:
+                continue
+
+            # ignore rule if subscrobet doesn't match
             matched, matched_len = self.match_subscriber(rule, sub)
             if not matched:
                 continue
@@ -684,13 +686,17 @@ class DiscoveryServer():
             if matched_len > lpm:
                 lpm = matched_len
                 matched_sub_rule = rule
+
+            if not matched_len in matched_rules:
+                matched_rules[matched_len] = []
+            matched_rules[matched_len].append(rule)
         # end for
 
         # return original list if there is no sub match
         if not matched_sub_rule:
             return pubs
 
-        matched_pubs = self.match_publishers(matched_sub_rule, pubs)
+        matched_pubs = self.match_publishers(matched_rules[lpm], pubs)
         self.syslog('dsa: matched pubs %s' % matched_pubs)
 
         return matched_pubs
@@ -767,7 +773,7 @@ class DiscoveryServer():
         # send short ttl if no publishers
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
-        pubs_active = self.apply_dsa_config(pubs_active, cl_entry)
+        pubs_active = self.apply_dsa_config(service_type, pubs_active, cl_entry)
         pubs_active = self.service_list(service_type, pubs_active)
         plist = dict((entry['service_id'],entry) for entry in pubs_active)
         plist_all = dict((entry['service_id'],entry) for entry in pubs)
