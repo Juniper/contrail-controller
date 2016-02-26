@@ -70,7 +70,7 @@ request sandesh StObjectReq {
 }
 
 struct RefList {
-    1: string object_type;
+    1: string object_type (link="StObject");
     2: list<string> object_fq_name;
 }
 
