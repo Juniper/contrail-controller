@@ -5,6 +5,7 @@
 
 #include <fstream>
 
+#include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
@@ -122,6 +123,7 @@ protected:
     }
 
     void ConfigureBgpRouter() {
+        ConcurrencyScope scope("bgp::Config");
         SCOPED_TRACE(__FUNCTION__);
         string content = FileRead("controller/src/bgp/testdata/bgpc_a.xml");
         Replace(&content, "%(port_a)d", a_->session_manager()->GetPort());
@@ -282,6 +284,7 @@ protected:
     void SetupRoutingInstancePeers(RoutingInstance *a_red,
                                    RoutingInstance *a_blue,
                                    RoutingInstance *b_blue) {
+        ConcurrencyScope scope("bgp::Config");
         RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP, 1, 0);
 
         a_peer_red_config_.reset(new BgpNeighborConfig());
