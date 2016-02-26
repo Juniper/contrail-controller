@@ -6,15 +6,31 @@ import haproxy_config
 
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
 
+def get_pid_file_from_conf_file(conf_file):
+    dir_name = os.path.dirname(conf_file)
+    sout = os.path.split(dir_name)
+    pid_file = sout[0] + "/" + sout[1] + ".haproxy.pid"
+    return pid_file
+
+def delete_haproxy_pid_file(conf_file):
+    pid_file = get_pid_file_from_conf_file(conf_file)
+    if os.path.isfile(pid_file):
+        cmd = "rm " + pid_file
+        cmd_list = shlex.split(cmd)
+        subprocess.Popen(cmd_list)
+
 def stop_haproxy(conf_file, daemon_mode=False):
-    pool_id = os.path.split(os.path.dirname(conf_file))[1]
     try:
         if daemon_mode:
-            _stop_haproxy_daemon(pool_id)
+            _stop_haproxy_daemon(conf_file)
         else:
+            pool_id = os.path.split(os.path.dirname(conf_file))[1]
             _stop_supervisor_haproxy(pool_id)
     except Exception as e:
         pass
+
+    delete_haproxy_pid_file(conf_file)
+
 
 def start_update_haproxy(conf_file, netns, daemon_mode=False,
                          keystone_auth_conf_file=None):
@@ -29,34 +45,32 @@ def start_update_haproxy(conf_file, netns, daemon_mode=False,
     except Exception as e:
         pass
 
-def _get_lbaas_pid(pool_id):
-    cmd_list = shlex.split('ps aux')
-    p1 = subprocess.Popen(cmd_list, stdout=subprocess.PIPE)
-    cmd_list = shlex.split('grep haproxy')
-    p2 = subprocess.Popen(cmd_list, stdin=p1.stdout, stdout=subprocess.PIPE)
-    cmd_list = shlex.split('grep ' + pool_id)
-    p = subprocess.Popen(cmd_list, stdin=p2.stdout, stdout=subprocess.PIPE)
-    out, err = p.communicate()
-    try:
-        pid = out.split()[1]
-    except Exception:
-        pid = None
+def _get_lbaas_pid(conf_file):
+    pid_file = get_pid_file_from_conf_file(conf_file)
+    if not os.path.isfile(pid_file):
+        return None
+    cmd = 'cat %s' % pid_file
+    cmd_list = shlex.split(cmd)
+    p = subprocess.Popen(cmd_list, stdout=subprocess.PIPE)
+    pid, err = p.communicate()
+    if err:
+        return None
     return pid
 
-def _stop_haproxy_daemon(pool_id):
-    last_pid = _get_lbaas_pid(pool_id)
+def _stop_haproxy_daemon(conf_file):
+    last_pid = _get_lbaas_pid(conf_file)
     if last_pid:
         cmd_list = shlex.split('kill -9 ' + last_pid)
         subprocess.Popen(cmd_list)
 
 def _start_haproxy_daemon(pool_id, netns, conf_file):
-    last_pid = _get_lbaas_pid(pool_id)
+    last_pid = _get_lbaas_pid(conf_file)
     if last_pid:
         sf_opt = '-sf ' + last_pid
     else:
         sf_opt = ''
-    conf_dir = os.path.dirname(conf_file)
-    pid_file = conf_dir + '/haproxy.pid'
+
+    pid_file = get_pid_file_from_conf_file(conf_file)
 
     cmd = 'ip netns exec %s haproxy -f %s -p %s %s' % \
         (netns, conf_file, pid_file, sf_opt)
