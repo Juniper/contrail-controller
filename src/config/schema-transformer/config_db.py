@@ -1937,6 +1937,8 @@ class RoutingInstanceST(DBBaseST):
         if not self.service_chain:
             return
         sc = ServiceChain.get(self.service_chain)
+        if sc is None:
+            return
         for si_name in sc.service_list:
             if not self.name.endswith(si_name.replace(':', '_')):
                 continue
