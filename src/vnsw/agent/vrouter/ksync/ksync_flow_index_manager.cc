@@ -13,7 +13,8 @@
 KSyncFlowIndexEntry::KSyncFlowIndexEntry() :
     state_(INIT), index_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
     index_owner_(NULL), evicted_(false), skip_delete_(false), evict_count_(0),
-    delete_in_progress_(false),  event_log_index_(0), event_logs_(NULL) {
+    delete_in_progress_(false),  locked_(false), event_log_index_(0),
+    event_logs_(NULL) {
 }
 
 KSyncFlowIndexEntry::~KSyncFlowIndexEntry() {
@@ -380,7 +381,12 @@ void KSyncFlowIndexEntry::IndexUnassignedSm(KSyncFlowIndexManager *manager,
 
     case KSYNC_FREE:
         if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-            KSyncAddChange(manager, flow);
+            if (flow->deleted() == false) {
+                // FIXME : Dont add if deleted_ state
+                KSyncAddChange(manager, flow);
+            } else {
+                state_ = INIT;
+            }
         }
         break;
 
@@ -503,7 +509,9 @@ void KSyncFlowIndexEntry::IndexChangeSm(KSyncFlowIndexManager *manager,
                                         uint32_t index) {
     switch (event) {
     case ADD:
-        assert(0);
+        // FIXME : We are seeing cases of double eviction, that is two-add from
+        // vrouter with different indexes. Ignore the event
+        //assert(0);
         break;
 
     case CHANGE:
@@ -678,16 +686,94 @@ void KSyncFlowIndexManager::InitDone(uint32_t count) {
 //////////////////////////////////////////////////////////////////////////////
 // KSyncFlowIndexManager State Machine APIs
 //////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+// When a flow is added, it can potentially evict flow from another flow-table
+// This can result in concurrency issues w.r.t index manager states. The
+// concurrency is avoided by taking lock on the index used by the flows
+//
+// Take lock on flow_handle and the index owned by the flow. This handles
+// concurrency even if flow being evicted is from other table
+//////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexManager::GetIndexMutexSeq(FlowEntry *flow,
+                                             uint32_t index,
+                                             tbb::mutex &tmp_mutex1,
+                                             tbb::mutex &tmp_mutex2,
+                                             tbb::mutex &tmp_mutex3,
+                                             tbb::mutex **mutex_ptr_1,
+                                             tbb::mutex **mutex_ptr_2,
+                                             tbb::mutex **mutex_ptr_3) {
+    uint32_t index_array[3];
+    index_array[0] = flow->flow_handle();
+    index_array[1] = flow->ksync_index_entry()->index();
+    index_array[2] = index;
+    std::sort(index_array, index_array+3);
+    if (index_array[0] == index_array[1])
+        index_array[0] = FlowEntry::kInvalidFlowHandle;
+    if (index_array[1] == index_array[2])
+        index_array[1] = FlowEntry::kInvalidFlowHandle;
+
+    if (index_array[0] == FlowEntry::kInvalidFlowHandle)
+        *mutex_ptr_1 = &tmp_mutex1;
+    else
+        *mutex_ptr_1 = &index_list_[index_array[0]].mutex_;
+
+    if (index_array[1] == FlowEntry::kInvalidFlowHandle)
+        *mutex_ptr_2 = &tmp_mutex2;
+    else
+        *mutex_ptr_2 = &index_list_[index_array[1]].mutex_;
+
+    if (index_array[2] == FlowEntry::kInvalidFlowHandle)
+        *mutex_ptr_3 = &tmp_mutex3;
+    else
+        *mutex_ptr_3 = &index_list_[index_array[2]].mutex_;
+}
+
+#define FLOW_INDEX_LOCK(flow, index) \
+    tbb::mutex tmp1, tmp2, tmp3, *ptr1, *ptr2, *ptr3; \
+    GetIndexMutexSeq(flow, index, tmp1, tmp2, tmp3, &ptr1, &ptr2, &ptr3);\
+    tbb::mutex::scoped_lock lock1(*ptr1); \
+    tbb::mutex::scoped_lock lock2(*ptr2); \
+    tbb::mutex::scoped_lock lock3(*ptr3);
+
 void KSyncFlowIndexManager::HandleEvent(FlowEntry *flow,
                                         KSyncFlowIndexEntry::Event event,
                                         uint32_t index) {
+    FLOW_INDEX_LOCK(flow, index);
+    flow->ksync_index_entry()->set_locked(true);
     flow->ksync_index_entry()->HandleEvent(this, flow, event, index);
+    flow->ksync_index_entry()->set_locked(false);
 }
 
 void KSyncFlowIndexManager::HandleEvent(FlowEntry *flow,
                                         KSyncFlowIndexEntry::Event event) {
-    flow->ksync_index_entry()->HandleEvent(this, flow, event,
+    HandleEvent(flow, event, FlowEntry::kInvalidFlowHandle);
+}
+
+void KSyncFlowIndexManager::ReleaseUnlocked(FlowEntry *flow) {
+    uint32_t index = flow->ksync_index_entry()->index_;
+    if (index != FlowEntry::kInvalidFlowHandle) {
+        if (flow->ksync_index_entry()->evicted_ == false) {
+            EvictIndexUnlocked(flow, index, true);
+        }
+    }
+    flow->ksync_index_entry()->index_ = FlowEntry::kInvalidFlowHandle;
+    flow->ksync_index_entry()->ksync_entry_ = NULL;
+    flow->ksync_index_entry()->delete_in_progress_ = false;
+    flow->ksync_index_entry()->evicted_ = false;
+    flow->ksync_index_entry()->skip_delete_ = false;
+    flow->ksync_index_entry()->HandleEvent(this, flow,
+                                           KSyncFlowIndexEntry::KSYNC_FREE,
                                            FlowEntry::kInvalidFlowHandle);
+}
+
+void KSyncFlowIndexManager::Release(FlowEntry *flow) {
+    if (flow->ksync_index_entry()->locked()) {
+        ReleaseUnlocked(flow);
+    } else {
+        FLOW_INDEX_LOCK(flow, FlowEntry::kInvalidFlowHandle);
+        ReleaseUnlocked(flow);
+    }
 }
 
 void KSyncFlowIndexManager::Add(FlowEntry *flow) {
@@ -721,7 +807,6 @@ void KSyncFlowIndexManager::AcquireIndex(FlowEntry *flow, uint32_t index) {
     // Sanity check
     assert(index != FlowEntry::kInvalidFlowHandle);
 
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
     FlowEntryPtr owner = index_list_[index].owner_.get();
     if (owner.get() != NULL) {
         EvictIndexUnlocked(owner.get(), index, true);
@@ -749,29 +834,11 @@ void KSyncFlowIndexManager::EvictIndexUnlocked(FlowEntry *flow,
 
 void KSyncFlowIndexManager::EvictIndex(FlowEntry *flow, uint32_t index,
                                        bool skip_del) {
-    tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
     EvictIndexUnlocked(flow, index, skip_del);
     return;
 }
 
-void KSyncFlowIndexManager::Release(FlowEntry *flow) {
-    uint32_t index = flow->ksync_index_entry()->index_;
-    if (index != FlowEntry::kInvalidFlowHandle) {
-        tbb::mutex::scoped_lock lock(index_list_[index].mutex_);
-        if (flow->ksync_index_entry()->evicted_ == false) {
-            EvictIndexUnlocked(flow, index, true);
-        }
-    }
-    flow->ksync_index_entry()->index_ = FlowEntry::kInvalidFlowHandle;
-    flow->ksync_index_entry()->ksync_entry_ = NULL;
-    flow->ksync_index_entry()->delete_in_progress_ = false;
-    flow->ksync_index_entry()->evicted_ = false;
-    flow->ksync_index_entry()->skip_delete_ = false;
-    HandleEvent(flow, KSyncFlowIndexEntry::KSYNC_FREE);
-}
-
 FlowEntryPtr KSyncFlowIndexManager::FindByIndex(uint32_t idx) {
-    tbb::mutex::scoped_lock lock(index_list_[idx].mutex_);
     if (index_list_[idx].owner_.get() != NULL)
         return index_list_[idx].owner_;
     return FlowEntryPtr(NULL);

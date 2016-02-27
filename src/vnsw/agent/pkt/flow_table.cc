@@ -90,15 +90,18 @@ void FlowTable::Shutdown() {
 
 // Concurrency check to ensure all flow-table and free-list manipulations
 // are done from FlowEvent task context only
-void FlowTable::ConcurrencyCheck() {
+bool FlowTable::ConcurrencyCheck() {
     Task *current = Task::Running();
     // test code invokes FlowTable API from main thread. The running task
     // will be NULL in such cases
     if (current == NULL) {
-        return;
+        return true;
     }
-    assert(current->GetTaskId() == flow_task_id_);
-    assert(current->GetTaskInstance() == table_index_);
+    if (current->GetTaskId() != flow_task_id_)
+        return false;
+    if (current->GetTaskId() != flow_task_id_)
+        return false;
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -122,7 +125,7 @@ void FlowTable::GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
 }
 
 FlowEntry *FlowTable::Find(const FlowKey &key) {
-    ConcurrencyCheck();
+    assert(ConcurrencyCheck() == true);
     FlowEntryMap::iterator it;
 
     it = flow_entry_map_.find(key);
@@ -140,7 +143,7 @@ void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
 }
 
 FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
-    ConcurrencyCheck();
+    assert(ConcurrencyCheck() == true);
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
@@ -1082,7 +1085,7 @@ void FlowEntryFreeList::Grow() {
 }
 
 FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
-    table_->ConcurrencyCheck();
+    assert(table_->ConcurrencyCheck() == true);
     FlowEntry *flow = NULL;
     if (free_list_.size() == 0) {
         flow = new FlowEntry(table_);
@@ -1104,7 +1107,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
 }
 
 void FlowEntryFreeList::Free(FlowEntry *flow) {
-    table_->ConcurrencyCheck();
+    assert(table_->ConcurrencyCheck() == true);
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);

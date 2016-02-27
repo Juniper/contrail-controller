@@ -1596,8 +1596,11 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     bool update = false;
-    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
-        UpdateEvictedFlowStats(pkt);
+    if (pkt->type != PktType::MESSAGE &&
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) {
+        if (pkt->agent_hdr.cmd_param != FlowEntry::kInvalidFlowHandle) {
+            UpdateEvictedFlowStats(pkt);
+        }
     }
 
     if ((pkt->type == PktType::MESSAGE &&
