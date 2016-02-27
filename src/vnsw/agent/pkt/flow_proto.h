@@ -64,6 +64,7 @@ public:
 
     void EnqueueEvent(FlowEvent *event, FlowTable *table);
     void EnqueueFlowEvent(FlowEvent *event);
+    void ForceEnqueueFreeFlowReference(FlowEntryPtr &flow);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
                            uint32_t table_index);
     void EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle);

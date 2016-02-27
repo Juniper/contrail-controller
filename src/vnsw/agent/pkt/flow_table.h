@@ -236,7 +236,7 @@ public:
 
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only
-    void ConcurrencyCheck();
+    bool ConcurrencyCheck();
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
