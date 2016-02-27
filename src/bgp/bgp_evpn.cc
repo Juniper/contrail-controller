@@ -273,7 +273,8 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
     attr = attr_db->ReplaceLeafOListAndLocate(attr.get(), &leaf_olist_spec);
 
     UpdateInfo *uinfo = new UpdateInfo;
-    uinfo->roattr = RibOutAttr(partition_->table(), attr.get(), 0, false);
+    uinfo->roattr =
+        RibOutAttr(partition_->table(), route_, attr.get(), 0, false);
     return uinfo;
 }
 
