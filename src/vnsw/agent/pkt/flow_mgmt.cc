@@ -515,13 +515,13 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
 void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow) {
     LogFlow(flow.get(), "DEL");
 
+    //Enqueue Delete request to flow-stats-collector
+    agent_->flow_stats_manager()->DeleteEvent(flow.get());
+
     // Delete entries for flow from the tree
     FlowEntryInfo *old_info = FindFlowEntryInfo(flow);
     if (old_info == NULL)
         return;
-
-    //Enqueue Delete request to flow-stats-collector
-    agent_->flow_stats_manager()->DeleteEvent(flow.get());
 
     //Enqueue Add request to UVE module for ACE stats
     EnqueueUveDeleteEvent(flow.get());
