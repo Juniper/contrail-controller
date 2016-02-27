@@ -1536,8 +1536,13 @@ bool VrfFlowMgmtEntry::CanDelete() const {
 
 VrfFlowMgmtEntry::Data::Data(VrfFlowMgmtEntry *vrf_mgmt_entry,
                              const VrfEntry *vrf, AgentRouteTable *table) :
-    deleted_(false), table_ref_(this, table->deleter()),
+    deleted_(false), table_ref_(this, NULL),
     vrf_mgmt_entry_(vrf_mgmt_entry), vrf_(vrf) {
+    if (vrf->IsDeleted() == false) {
+        table_ref_.Reset(table->deleter());
+    } else {
+        deleted_ = true;
+    }
 }
 
 VrfFlowMgmtEntry::Data::~Data() {

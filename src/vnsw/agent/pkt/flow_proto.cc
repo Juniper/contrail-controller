@@ -265,7 +265,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     std::auto_ptr<FlowEvent> req_ptr(req);
     if (table) {
-        table->ConcurrencyCheck();
+        assert(table->ConcurrencyCheck() == true);
     }
 
     switch (req->event()) {
@@ -425,6 +425,13 @@ void FlowProto::EnqueueFreeFlowReference(FlowEntryPtr &flow) {
         flow.reset();
         EnqueueFlowEvent(event);
     }
+}
+
+void FlowProto::ForceEnqueueFreeFlowReference(FlowEntryPtr &flow) {
+    FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
+                                     flow.get());
+    flow.reset();
+    EnqueueFlowEvent(event);
 }
 
 bool FlowProto::EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
