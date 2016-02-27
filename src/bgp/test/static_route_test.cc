@@ -25,6 +25,8 @@
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
+#include "bgp/inet6vpn/inet6vpn_table.h"
+#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/static_route_types.h"
 #include "bgp/security_group/security_group.h"
@@ -32,6 +34,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
+#include "db/db_partition.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
@@ -106,16 +109,22 @@ private:
 // Template structure to pass to fixture class template. Needed because
 // gtest fixture class template can accept only one template parameter.
 //
-template <typename T1, typename T2, typename T3>
+template <typename T1, typename T2, typename T3,
+         typename T4, typename T5, typename T6>
 struct TypeDefinition {
   typedef T1 TableT;
   typedef T2 PrefixT;
   typedef T3 RouteT;
+  typedef T4 VpnTableT;
+  typedef T5 VpnPrefixT;
+  typedef T6 VpnRouteT;
 };
 
 // TypeDefinitions that we want to test.
-typedef TypeDefinition<InetTable, Ip4Prefix, InetRoute> InetDefinition;
-typedef TypeDefinition<Inet6Table, Inet6Prefix, Inet6Route> Inet6Definition;
+typedef TypeDefinition<InetTable, Ip4Prefix, InetRoute, InetVpnTable,
+                       InetVpnPrefix, InetVpnRoute> InetDefinition;
+typedef TypeDefinition<Inet6Table, Inet6Prefix, Inet6Route, Inet6VpnTable,
+                       Inet6VpnPrefix, Inet6VpnRoute> Inet6Definition;
 
 //
 // Fixture class template - instantiated later for each TypeDefinition.
@@ -126,6 +135,9 @@ protected:
     typedef typename T::TableT TableT;
     typedef typename T::PrefixT PrefixT;
     typedef typename T::RouteT RouteT;
+    typedef typename T::VpnTableT VpnTableT;
+    typedef typename T::VpnPrefixT VpnPrefixT;
+    typedef typename T::VpnRouteT VpnRouteT;
 
     StaticRouteTest()
         : bgp_server_(new BgpServer(&evm_)),
@@ -322,6 +334,90 @@ protected:
         table->Enqueue(&request);
     }
 
+    void AddVpnRoute(IPeer *peer, const vector<string> &instance_names,
+                         const string &prefix, int localpref,
+                         string nexthop_str = "",
+                         uint32_t flags = 0, int label = 0,
+                         const LoadBalance &lb = LoadBalance()) {
+        RoutingInstance *rtinstance =
+            ri_mgr_->GetRoutingInstance(instance_names[0]);
+        ASSERT_TRUE(rtinstance != NULL);
+        int rti_index = rtinstance->index();
+
+        string vpn_prefix;
+        string peer_str = peer ? peer->ToString() :
+                                 BuildNextHopAddress("7.7.7.7");
+        vpn_prefix = peer_str + ":" + integerToString(rti_index) + ":" + prefix;
+
+        boost::system::error_code error;
+        VpnPrefixT nlri = VpnPrefixT::FromString(vpn_prefix, &error);
+        EXPECT_FALSE(error);
+
+        DBRequest request;
+        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        request.key.reset(new typename VpnTableT::RequestKey(nlri, peer));
+
+        BgpAttrSpec attr_spec;
+        boost::scoped_ptr<BgpAttrLocalPref> local_pref(
+                new BgpAttrLocalPref(localpref));
+        attr_spec.push_back(local_pref.get());
+
+        if (nexthop_str.empty())
+            nexthop_str = this->BuildNextHopAddress("7.8.9.1");
+        IpAddress chain_addr = Ip4Address::from_string(nexthop_str, error);
+        boost::scoped_ptr<BgpAttrNextHop> nexthop_attr(
+                new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
+        attr_spec.push_back(nexthop_attr.get());
+
+        ExtCommunitySpec extcomm_spec;
+        BOOST_FOREACH(const string &instance_name, instance_names) {
+            RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
+            ASSERT_TRUE(rti != NULL);
+            ASSERT_EQ(1, rti->GetExportList().size());
+            RouteTarget rtarget = *(rti->GetExportList().begin());
+            extcomm_spec.communities.push_back(rtarget.GetExtCommunityValue());
+        }
+
+        if (!lb.IsDefault())
+            extcomm_spec.communities.push_back(lb.GetExtCommunityValue());
+
+        attr_spec.push_back(&extcomm_spec);
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
+
+        request.data.reset(new BgpTable::RequestData(attr, flags, label));
+        BgpTable *table = GetVpnTable();
+        ASSERT_TRUE(table != NULL);
+        table->Enqueue(&request);
+    }
+
+    void DeleteVpnRoute(IPeer *peer, const string &instance_name,
+                            const string &prefix) {
+        BgpTable *table = GetTable(instance_name);
+        ASSERT_TRUE(table != NULL);
+        const RoutingInstance *rtinstance = table->routing_instance();
+        ASSERT_TRUE(rtinstance != NULL);
+        int rti_index = rtinstance->index();
+
+        string vpn_prefix;
+        if (peer) {
+            vpn_prefix = peer->ToString() + ":" + integerToString(rti_index) +
+                ":" + prefix;
+        } else {
+            vpn_prefix = "7.7.7.7:" + integerToString(rti_index) + ":" + prefix;
+        }
+
+        boost::system::error_code error;
+        VpnPrefixT nlri = VpnPrefixT::FromString(vpn_prefix, &error);
+        EXPECT_FALSE(error);
+
+        DBRequest request;
+        request.oper = DBRequest::DB_ENTRY_DELETE;
+        request.key.reset(new typename VpnTableT::RequestKey(nlri, peer));
+
+        table = GetVpnTable();
+        ASSERT_TRUE(table != NULL);
+        table->Enqueue(&request);
+    }
 
     BgpRoute *RouteLookup(const string &instance_name,
                               const string &prefix) {
@@ -469,10 +565,26 @@ protected:
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
     }
 
+    string GetVpnTableName() const {
+        if (family_ == Address::INET) {
+            return "bgp.l3vpn.0";
+        }
+        if (family_ == Address::INET6) {
+            return "bgp.l3vpn-inet6.0";
+        }
+        assert(false);
+        return "";
+    }
+
     BgpTable *GetTable(std::string instance_name) {
         return static_cast<BgpTable *>(bgp_server_->database()->FindTable(
                     GetTableName(instance_name)));
 
+    }
+
+    BgpTable *GetVpnTable() {
+        return static_cast<BgpTable *>(bgp_server_->database()->FindTable(
+                    GetVpnTableName()));
     }
 
     void VerifyTableNoExists(const string &table_name) {
@@ -2485,6 +2597,152 @@ TYPED_TEST(StaticRouteTest, DeleteRoutingInstance_DisabledUnregisterTrigger_1) {
     task_util::WaitForIdle();
     TASK_UTIL_WAIT_EQ_NO_MSG(this->ri_mgr_->GetRoutingInstance("nat"),
             NULL, 1000, 10000, "Wait for nat instance to get destroyed");
+}
+
+//
+// Add multiple VPN routes in different db partition
+// With multiple routing instance having static route config, add nexthop routes
+// for static route such that static routes can be added
+// Above steps are done with
+//      1. DBPartition queue disabled
+//      2. Static route queue disabled
+// Enable both static route queue and DBPartition queue and verify
+//   1. static route is replicated to routing instance that import static route
+//   2. all VPN routes are replicated to VRF table from bgp.l3vpn.0 table
+// Repeat the above steps for delete of VPN routes and static routes
+//
+TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
+    vector<string> instance_names = list_of("blue")("nat-1")("nat-2");
+    multimap<string, string> connections;
+    this->NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_1 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_1.xml");
+
+    std::auto_ptr<autogen::StaticRouteEntriesType> params_2 =
+        this->GetStaticRouteConfig(
+                "controller/src/bgp/testdata/static_route_14.xml");
+
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-1", "static-route-entries", params_1.release(), 0);
+    ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_, "routing-instance",
+                         "nat-2", "static-route-entries", params_2.release(), 0);
+    task_util::WaitForIdle();
+
+
+    // Disable static route processing
+    this->DisableStaticRouteQ("nat-1");
+    this->DisableStaticRouteQ("nat-2");
+
+    // Disable DBPartition processing on all DBPartition
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        partition->SetQueueDisable(true);
+    }
+
+    // Add Nexthop Route
+    this->AddRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32),
+                       100, this->BuildNextHopAddress("2.3.4.5"));
+    this->AddRoute(NULL, "nat-2", this->BuildPrefix("192.168.1.254", 32),
+                       100, this->BuildNextHopAddress("2.3.4.5"));
+
+    // Add VPN routes to import to blue table
+    vector<string> instances = list_of("blue");
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i;
+        this->AddVpnRoute(NULL, instances, this->BuildPrefix(oss.str(), 32), 100);
+        oss.str("");
+    }
+
+    // Enable static route processing and DBPartition
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        partition->SetQueueDisable(false);
+    }
+
+    this->EnableStaticRouteQ("nat-1");
+    this->EnableStaticRouteQ("nat-2");
+
+    TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-1"));
+    TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-2"));
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        TASK_UTIL_EXPECT_FALSE(partition->IsDBQueueEmpty());
+    }
+
+    // Check for Static route
+    TASK_UTIL_WAIT_NE_NO_MSG(
+            this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for Static route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(
+            this->RouteLookup("nat-2", this->BuildPrefix("1.1.0.0", 16)),
+            NULL, 1000, 10000, "Wait for Static route in nat-2..");
+
+    // Verify that vpn routes are replicated to blue
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i;
+        TASK_UTIL_WAIT_NE_NO_MSG(
+                 this->RouteLookup("blue", this->BuildPrefix(oss.str(), 32)),
+                 NULL, 1000, 10000, "Wait for replicated route in blue..");
+        oss.str("");
+    }
+
+    // Disable static route processing for delete operation
+    this->DisableStaticRouteQ("nat-1");
+    this->DisableStaticRouteQ("nat-2");
+
+    // Disable DBPartition processing on all DBPartition
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        partition->SetQueueDisable(true);
+    }
+
+    // Delete nexthop route
+    this->DeleteRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat-2", this->BuildPrefix("192.168.1.254", 32));
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i;
+        this->DeleteVpnRoute(NULL, "blue", this->BuildPrefix(oss.str(), 32));
+        oss.str("");
+    }
+
+    // Enable static route processing and DBPartition
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        partition->SetQueueDisable(false);
+    }
+    this->EnableStaticRouteQ("nat-1");
+    this->EnableStaticRouteQ("nat-2");
+
+    TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-1"));
+    TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-2"));
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
+        TASK_UTIL_EXPECT_FALSE(partition->IsDBQueueEmpty());
+    }
+
+    // Check for Static route
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("blue", this->BuildPrefix("192.168.1.0", 24)),
+            NULL, 1000, 10000, "Wait for delete of Static route in blue..");
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(
+            this->RouteLookup("nat-2", this->BuildPrefix("1.1.0.0", 16)),
+            NULL, 1000, 10000, "Wait for delete Static route in nat-2..");
+    // Verify that vpn routes are no longer replicated to blue
+    for (int i = 0; i < 255; i++) {
+        ostringstream oss;
+        oss << "10.0.1." << i;
+        TASK_UTIL_WAIT_EQ_NO_MSG(
+                 this->RouteLookup("blue", this->BuildPrefix(oss.str(), 32)),
+                 NULL, 1000, 10000, "Wait for replicated route in blue..");
+        oss.str("");
+    }
 }
 
 //
