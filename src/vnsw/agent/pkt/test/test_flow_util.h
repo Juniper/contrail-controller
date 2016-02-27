@@ -178,7 +178,7 @@ public:
     };
 
     bool FlowStatus(bool active) {
-        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
+        FlowEntry * fe = FlowFetch();
         if (fe == NULL || fe->deleted()) {
             return !active;
         }
@@ -201,35 +201,31 @@ public:
         WAIT_FOR(1000, 3000, FlowStatus(true));
 
         //Get flow 
-        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_,
-                                nh_id_);
+        FlowEntry * fe = FlowFetch();
         EXPECT_TRUE(fe != NULL);
         return fe;
     };
 
     void Delete() {
-        FlowKey key;
-        key.nh = nh_id_;
-        key.src_addr = IpAddress::from_string(sip_);
-        key.dst_addr = IpAddress::from_string(dip_);
-        key.src_port = sport_;
-        key.dst_port = dport_;
-        key.protocol = proto_;
-        key.family = Address::INET;
-
-        if (Agent::GetInstance()->pkt()->get_flow_proto()->Find(key) == NULL) {
+        FlowEntry * fe = FlowFetch();
+        if (fe == NULL) {
             return;
         }
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        FlowDeleteTask * task = new FlowDeleteTask(key);
+        FlowDeleteTask * task = new FlowDeleteTask(fe->key());
         scheduler->Enqueue(task);
 
         WAIT_FOR(1000, 3000, FlowStatus(false));
     };
 
     FlowEntry *FlowFetch() {
-        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
+        uint16_t lookup_dport = dport_;
+        if (proto_ == IPPROTO_ICMPV6) {
+            lookup_dport = ICMP6_ECHO_REPLY;
+        }
+        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, lookup_dport,
+                                nh_id_);
         return fe;
     }
 

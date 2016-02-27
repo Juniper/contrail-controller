@@ -412,7 +412,11 @@ public:
 bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
                     int dport, int action, uint32_t nh_id) {
     bool ret = true;
-    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
+    uint16_t lookup_dport = dport;
+    if (proto == IPPROTO_ICMPV6) {
+        lookup_dport = ICMP6_ECHO_REPLY;
+    }
+    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, lookup_dport, nh_id);
     FlowEntry *rfe = fe->reverse_flow_entry();
 
     EXPECT_TRUE((fe->match_p().sg_action & (1 << action)) != 0);
