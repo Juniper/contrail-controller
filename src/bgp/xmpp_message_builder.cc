@@ -457,8 +457,7 @@ string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route,
     if (!is_reachable_) {
         return "unresolved";
     } else if (roattr->nexthop_list().empty()) {
-        const BgpPath *path = route->BestPath();
-        if (path && path->IsVrfOriginated()) {
+        if (roattr->vrf_originated()) {
             return table_->routing_instance()->GetVirtualNetworkName();
         } else {
             return "unresolved";

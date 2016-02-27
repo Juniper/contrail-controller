@@ -67,10 +67,8 @@ RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
         origin_vn_index_ = ext_community->GetOriginVnIndex();
     }
     if (origin_vn_index_ < 0 && vrf_originated) {
-        if (table)
-            origin_vn_index_ = table->routing_instance()->virtual_network_index();
-        else
-            origin_vn_index_ = 0;
+        origin_vn_index_ =
+            table ? table->routing_instance()->virtual_network_index() : 0;
     }
 }
 
@@ -99,14 +97,27 @@ bool RibOutAttr::NextHop::operator!=(const NextHop &rhs) const {
 }
 
 RibOutAttr::RibOutAttr(const BgpTable *table, const BgpAttr *attr,
-                       uint32_t label, bool include_nh) : attr_out_(attr) {
-    if (attr && include_nh) {
+    uint32_t label)
+    : attr_out_(attr),
+      vrf_originated_(false) {
+    if (attr) {
         nexthop_list_.push_back(NextHop(table, attr->nexthop(), label,
-                                        attr->ext_community(), false));
+            attr->ext_community(), false));
     }
 }
 
-RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
+RibOutAttr::RibOutAttr(const BgpTable *table, const BgpRoute *route,
+    const BgpAttr *attr, uint32_t label, bool include_nh)
+    : attr_out_(attr),
+      vrf_originated_(route->BestPath()->IsVrfOriginated()) {
+    if (attr && include_nh) {
+        nexthop_list_.push_back(NextHop(table, attr->nexthop(), label,
+            attr->ext_community(), vrf_originated_));
+    }
+}
+
+RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
+    bool is_xmpp) : vrf_originated_(false) {
     // Attribute should not be set already
     assert(!attr_out_);
 
@@ -123,9 +134,9 @@ RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
     set_attr(table, attr, route->BestPath()->GetLabel(),
              route->BestPath()->IsVrfOriginated());
 
-    for (Route::PathList::iterator it = route->GetPathList().begin();
-        it != route->GetPathList().end(); it++) {
-        const BgpPath *path = static_cast<BgpPath *>(it.operator->());
+    for (Route::PathList::const_iterator it = route->GetPathList().begin();
+        it != route->GetPathList().end(); ++it) {
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
 
         // Skip the best path.
         if (path == route->BestPath())
