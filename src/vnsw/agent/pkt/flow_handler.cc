@@ -103,6 +103,7 @@ bool FlowHandler::Run() {
         pkt_info_->vrf = fe->data().vrf;
         pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
+        info.out_component_nh_idx = fe->data().component_nh_idx;
     } else {
         info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
     }
