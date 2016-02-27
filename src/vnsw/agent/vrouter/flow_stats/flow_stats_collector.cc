@@ -126,6 +126,11 @@ bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
     //If both forward and reverse flow are marked
     //as TCP closed then immediately remote the flow
     if (k_flow != NULL) {
+        if (info->key().protocol == IPPROTO_TCP) {
+            if (k_flow->fe_tcp_flags & VR_FLOW_TCP_DEAD) {
+                return true;
+            }
+        }
         uint64_t k_flow_bytes, bytes;
         k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                     k_flow->fe_stats.flow_bytes);
@@ -369,6 +374,10 @@ bool FlowStatsCollector::Run() {
         it++;
 
         if (info->delete_enqueued()) {
+            // if we come across deleted entry, trigger explicit delete
+            // again and skip further processing.
+            // duplicate delete will be suppressed in flow_table
+            FlowDeleteEnqueue(info);
             continue;
         }
         deleted = false;
