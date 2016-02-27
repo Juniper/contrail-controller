@@ -555,8 +555,10 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         } else {
             dport = ContrailPorts::AnalyzerUdpPort();
         }
+        // not using the vrf coming in; by setting this to empty, -1 will be
+        // configured so that current VRF will be used (for leaked routes).
         agent->mirror_table()->AddMirrorEntry
-            (mirror_to.analyzer_name, mirror_to.routing_instance,
+            (mirror_to.analyzer_name, std::string(),
              agent->GetMirrorSourceIp(dip),
              agent->mirror_port(), dip, dport);
         data.analyzer_name_ =  mirror_to.analyzer_name;
