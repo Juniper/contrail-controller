@@ -244,7 +244,7 @@ void KSyncFlowIndexEntry::InitSm(KSyncFlowIndexManager *manager,
                                  FlowEntry *flow, Event event, uint32_t index) {
     // Sanity checks
     assert(index_ == FlowEntry::kInvalidFlowHandle);
-    assert(event == ADD);
+    assert(event == ADD || event == CHANGE);
     assert(ksync_entry_ == NULL);
 
     // Index not assigned. Allocate KSync entry
@@ -382,9 +382,9 @@ void KSyncFlowIndexEntry::IndexUnassignedSm(KSyncFlowIndexManager *manager,
     case KSYNC_FREE:
         if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
             if (flow->deleted() == false) {
-                // FIXME : Dont add if deleted_ state
                 KSyncAddChange(manager, flow);
             } else {
+                // flow is deleted already don't try add/delete
                 state_ = INIT;
             }
         }
@@ -433,12 +433,15 @@ void KSyncFlowIndexEntry::IndexSetSm(KSyncFlowIndexManager *manager,
                                      FlowEntry *flow, Event event,
                                      uint32_t index) {
     switch (event) {
-    case ADD: {
+    case ADD:
+    case CHANGE: {
         bool skip_del = true;
-        if (index_ != flow->flow_handle()) {
-            // for any change of index from X to Y, always send delete
-            // message to vrouter for X, to asure that there is no dangling
-            // flow entry at X
+        if (index_ == flow->flow_handle()) {
+            if (!delete_in_progress_) {
+                KSyncAddChange(manager, flow);
+                break;
+            }
+        } else {
             skip_del = false;
         }
 
@@ -450,11 +453,6 @@ void KSyncFlowIndexEntry::IndexSetSm(KSyncFlowIndexManager *manager,
             EvictFlow(manager, flow, INDEX_CHANGE, skip_del);
         break;
     }
-
-    case CHANGE:
-        assert(flow->deleted() == false);
-        KSyncAddChange(manager, flow);
-        break;
 
     case DELETE:
         KSyncDelete(manager, flow);
@@ -511,10 +509,10 @@ void KSyncFlowIndexEntry::IndexChangeSm(KSyncFlowIndexManager *manager,
     case ADD:
         // FIXME : We are seeing cases of double eviction, that is two-add from
         // vrouter with different indexes. Ignore the event
-        //assert(0);
-        break;
-
     case CHANGE:
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            state_ = INDEX_UNASSIGNED;
+        }
         break;
 
     case DELETE:
@@ -632,16 +630,24 @@ void KSyncFlowIndexEntry::IndexFailedSm(KSyncFlowIndexManager *manager,
     assert(index_ == FlowEntry::kInvalidFlowHandle);
     switch (event) {
     case ADD:
+    case CHANGE:
         if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
-            AcquireIndex(manager, flow, flow->flow_handle());
-            state_ = INDEX_SET;
+            if (delete_in_progress_) {
+                state_ = INDEX_CHANGE;
+                // add will be trigger on KSYNC_FREE
+                break;
+            } else {
+                AcquireIndex(manager, flow, flow->flow_handle());
+                state_ = INDEX_SET;
+            }
         } else {
             state_ = INDEX_UNASSIGNED;
+            if (delete_in_progress_) {
+                // add will be trigger on KSYNC_FREE
+                break;
+            }
         }
         KSyncAddChange(manager, flow);
-        break;
-
-    case CHANGE:
         break;
 
     case DELETE:
