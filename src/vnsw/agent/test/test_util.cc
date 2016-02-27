@@ -2837,6 +2837,9 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
     key.dst_addr = IpAddress::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
+    if (proto == IPPROTO_ICMPV6) {
+        key.dst_port = ICMP6_ECHO_REPLY;
+    }
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 

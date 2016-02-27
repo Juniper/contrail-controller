@@ -219,7 +219,7 @@ void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip, const char *dip,
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
     pkt->AddIp6Hdr(sip, dip, proto);
     if (proto == IPPROTO_ICMPV6) {
-        pkt->AddIcmpHdr();
+        pkt->AddIcmp6Hdr();
     }
 }
 
@@ -304,7 +304,7 @@ void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddMplsHdr(label, true);
     pkt->AddIp6Hdr(sip, dip, proto);
     if (proto == IPPROTO_ICMPV6) {
-        pkt->AddIcmpHdr();
+        pkt->AddIcmp6Hdr();
     }
 }
 
