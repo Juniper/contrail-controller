@@ -459,6 +459,12 @@ bool FlowStatsCollector::Run() {
         flow_iteration_key_ = boost::uuids::nil_uuid();
     }
 
+    /* If this is TCP flow-stats-collector don't update flow_timer_interval
+     * and flow_count_per_pass_. This needs agressive polling */
+    if (flow_aging_key_.proto == IPPROTO_TCP) {
+        return true;
+    }
+
     /* Update the flow_timer_interval and flow_count_per_pass_ based on
      * total flows that we have
      */
