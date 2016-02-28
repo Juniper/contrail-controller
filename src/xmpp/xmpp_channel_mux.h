@@ -49,6 +49,7 @@ public:
 
     virtual void ProcessXmppMessage(const XmppStanza::XmppMessage *msg);
     void WriteReady(const boost::system::error_code &ec);
+    virtual void UnRegisterWriteReady(xmps::PeerId id);
 
     void HandleStateEvent(xmsm::XmState state);
 
@@ -63,7 +64,6 @@ protected:
 
 private:
     void RegisterWriteReady(xmps::PeerId, SendReadyCb);
-    void UnRegisterWriteReady(xmps::PeerId id); 
 
     typedef std::map<xmps::PeerId, SendReadyCb> WriteReadyCbMap;
     typedef std::map<xmps::PeerId, ReceiveCb> ReceiveCbMap;
