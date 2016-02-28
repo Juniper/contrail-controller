@@ -395,6 +395,8 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
 void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *flow_rev = flow->reverse_flow_entry();
     FlowEntry *rflow_rev = NULL;
+    bool flow_rev_notify = false;
+    bool rflow_rev_notify = false;
 
     if (rflow) {
         rflow_rev = rflow->reverse_flow_entry();
@@ -419,6 +421,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         if (ValidFlowMove(rflow, flow_rev)== false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
         }
+        flow_rev_notify = true;
     }
 
     if (rflow && rflow->is_flags_set(FlowEntry::BgpRouterService)) {
@@ -439,6 +442,7 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         if (ValidFlowMove(flow, rflow_rev) == false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
         }
+        rflow_rev_notify = true;
     }
 
     if (flow->reverse_flow_entry() == NULL) {
@@ -457,6 +461,15 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         if (flow->is_flags_set(FlowEntry::Multicast)) {
             rflow->set_flags(FlowEntry::Multicast);
         }
+    }
+    //Has been marked for short flow, notify stats collector
+    if (flow_rev_notify) {
+        FlowEntryPtr flow_rev_ptr(flow_rev);
+        agent()->flow_stats_manager()->AddEvent(flow_rev_ptr);
+    }
+    if (rflow_rev_notify) {
+        FlowEntryPtr rflow_rev_ptr(rflow_rev);
+        agent()->flow_stats_manager()->AddEvent(rflow_rev_ptr);
     }
 }
 
@@ -748,6 +761,8 @@ void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
     // Reverse flow unlinked with forward flow. Make it short-flow
     if (reverse_flow && reverse_flow->deleted() == false) {
         reverse_flow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        FlowEntryPtr reverse_flow_ptr(reverse_flow);
+        agent()->flow_stats_manager()->AddEvent(reverse_flow_ptr);
         UpdateKSync(reverse_flow, true);
     }
 }
