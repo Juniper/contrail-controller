@@ -60,6 +60,7 @@ struct FlowStatsCollectorReq {
 class FlowStatsManager {
 public:
     static const uint8_t kCatchAllProto = 0x0;
+    static const uint32_t kTcpFlowPollInterval = 500; // time in milliseconds
     static const uint64_t FlowThresoldUpdateTime = 1000 * 2;
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
 
@@ -76,6 +77,9 @@ public:
     Agent* agent() { return agent_; }
     FlowStatsCollector* default_flow_stats_collector() {
         return default_flow_stats_collector_.get();
+    }
+    FlowStatsCollector* tcp_flow_stats_collector() {
+        return protocol_list_[IPPROTO_TCP];
     }
 
     //Add protocol + port based flow aging table
