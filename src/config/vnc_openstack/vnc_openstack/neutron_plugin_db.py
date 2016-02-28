@@ -1831,7 +1831,7 @@ class DBInterface(object):
                 for k,v in port_q.items() if k.startswith('binding:'))
             for k,v in vmi_binding_kvps.items():
                 port_obj.add_virtual_machine_interface_bindings(
-                    KeyValuePair(key=k, value=v))
+                    KeyValuePair(key=k, value=(v if k != 'profile' else json.dumps(v))))
 
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])
@@ -2013,6 +2013,8 @@ class DBInterface(object):
             kvps = bindings.get_key_value_pair()
             for kvp in kvps:
                 port_q_dict['binding:'+kvp.key] = kvp.value
+                if kvp.key in ('profile', 'vif_details'):
+                    port_q_dict['binding:'+kvp.key] = json.loads(kvp.value)
 
         # 1. upgrade case, port created before bindings prop was
         #    defined on vmi OR

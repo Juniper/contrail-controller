@@ -485,7 +485,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 vlan = vn_dict['provider_properties']['segmentation_id']
                 vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
                               'vlan': str(vlan)}
-                vif_details = {'key': 'vif_details', 'value': vif_params}
+                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
                 kvps.append(vif_details)
 
             if 'vif_type' not in kvp_dict:
