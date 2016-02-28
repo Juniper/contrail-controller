@@ -33,7 +33,6 @@ generated_files = [
                   'vnc_cfg_api_server/gen/__init__.py',
                   'vnc_cfg_api_server/gen/resource_xsd.py',
                   'vnc_cfg_api_server/gen/resource_common.py',
-                  'vnc_cfg_api_server/gen/resource_server.py',
                   'vnc_cfg_api_server/gen/resource_test.py',
                   'vnc_cfg_api_server/gen/vnc_api_server_gen.py',
                   'vnc_cfg_api_server/gen/vnc_ifmap_client_gen.py',

@@ -1,6 +1,5 @@
 from gen.resource_xsd import *
 from gen.resource_common import *
-from gen.resource_server import *
 from pprint import pformat
 import cfgm_common.exceptions
 

@@ -74,7 +74,6 @@ from provision_defaults import Provision
 from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
-from gen.resource_server import *
 import gen.vnc_api_server_gen
 import cfgm_common
 from cfgm_common.utils import cgitb_hook
