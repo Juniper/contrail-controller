@@ -16,7 +16,7 @@ using std::vector;
 
 string OriginVnPathSpec::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "OriginVnPath <code: %d, flags: %02x> : %lu",
+    snprintf(repr, sizeof(repr), "OriginVnPath <code: %d, flags: %02x> : %zu",
              code, flags, origin_vns.size());
     return string(repr);
 }

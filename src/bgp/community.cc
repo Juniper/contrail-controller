@@ -25,7 +25,7 @@ void CommunitySpec::ToCanonical(BgpAttr *attr) {
 string CommunitySpec::ToString() const {
     string repr;
     char start[32];
-    snprintf(start, sizeof(start), "Communities: %lu [", communities.size());
+    snprintf(start, sizeof(start), "Communities: %zu [", communities.size());
     repr += start;
 
     for (size_t i = 0; i < communities.size(); ++i) {
