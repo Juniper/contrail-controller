@@ -113,6 +113,7 @@ protected:
     virtual void DispatchFlowMsg(const std::vector<FlowLogData> &lst);
 
 private:
+    uint64_t GetScanTime();
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time);
     void EvictedFlowStatsUpdate(const boost::uuids::uuid &u,
                                 uint32_t bytes,
