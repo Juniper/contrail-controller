@@ -496,22 +496,24 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                            default_flow_stats_collector()->flow_age_time_intvl();
 
     //Set the flow age time to 1000 microsecond
-    agent->flow_stats_manager()->default_flow_stats_collector()->
+    agent->flow_stats_manager()->tcp_flow_stats_collector()->
         UpdateFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
-    client->EnqueueFlowAge();
+    util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (flow_proto_->FlowCount() == 0U));
 
     //Restore flow aging time
-    agent->flow_stats_manager()->default_flow_stats_collector()->
+    agent->flow_stats_manager()->tcp_flow_stats_collector()->
         UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     hash_id = 1;
 
+    FlowStatsCollector *fs = agent_->flow_stats_manager()->
+                                 tcp_flow_stats_collector();
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
@@ -524,8 +526,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     EXPECT_TRUE(f2 != NULL);
     FlowEntry *f2_rev = f2->reverse_flow_entry();
     EXPECT_TRUE(f2_rev != NULL);
-    FlowExportInfo *info = col_->FindFlowExportInfo(f2->uuid());
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
+    FlowExportInfo *info = fs->FindFlowExportInfo(f2->uuid());
+    FlowExportInfo *rinfo = fs->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -546,8 +548,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2->uuid());
-    rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
+    info = fs->FindFlowExportInfo(f2->uuid());
+    rinfo = fs->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify flow TCP flags
@@ -562,8 +564,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2->uuid());
-    rinfo = col_->FindFlowExportInfo(f2_rev->uuid());
+    info = fs->FindFlowExportInfo(f2->uuid());
+    rinfo = fs->FindFlowExportInfo(f2_rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify the updated flow TCP flags

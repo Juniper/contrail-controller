@@ -77,6 +77,9 @@ public:
     FlowStatsCollector* default_flow_stats_collector() {
         return default_flow_stats_collector_.get();
     }
+    FlowStatsCollector* tcp_flow_stats_collector() {
+        return protocol_list_[IPPROTO_TCP];
+    }
 
     //Add protocol + port based flow aging table
     void Add(const FlowAgingTableKey &key,
