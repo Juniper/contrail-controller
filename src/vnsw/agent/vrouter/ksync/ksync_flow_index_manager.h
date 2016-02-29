@@ -130,7 +130,9 @@ public:
     void KSyncUpdateFlowHandle(KSyncFlowIndexManager *manager, FlowEntry *flow);
     void Log(KSyncFlowIndexManager *manager, FlowEntry *flow, Event event,
              uint32_t index);
-
+    void SetSandeshData(KSyncFlowIndexManager *manager,
+                        SandeshFlowIndexInfo *info);
+    void SetSandeshFlowTrace(EventLog *log, SandeshFlowIndexTrace *info);
 private:
     void AcquireIndex(KSyncFlowIndexManager *manager, FlowEntry *flow,
                       uint32_t index);
