@@ -113,6 +113,8 @@ public:
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
+    void CalculatePort(const PktInfo *p, const Interface *intf);
+    void SetPktInfo(boost::shared_ptr<PktInfo> info);
     bool RouteAllowNatLookupCommon(const AgentRoute *rt,
                                    uint32_t sport,
                                    uint32_t dport,
