@@ -11,6 +11,7 @@
 #include <base/string_util.h>
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 #include <oper/interface_common.h>
@@ -80,15 +81,30 @@ void FlowStatsCollector::Shutdown() {
     request_queue_.Shutdown();
 }
 
-void FlowStatsCollector::UpdateFlowMultiplier() {
-    uint64_t age_time_millisec = flow_age_time_intvl_ / 1000;
-    if (age_time_millisec == 0) {
-        age_time_millisec = 1;
+uint64_t FlowStatsCollector::GetScanTime() {
+    uint64_t scan_time_millisec;
+    /* Use Age Time itself as scan-time for non-tcp flows */
+    if (flow_aging_key_.proto == IPPROTO_TCP) {
+        /* Convert from seconds to milliseconds */
+        scan_time_millisec = agent_uve_->agent()->params()->
+            tcp_flow_scan_interval() * 1000;
+    } else {
+        /* Convert from micro-seconds to milliseconds */
+        scan_time_millisec = flow_age_time_intvl_ / 1000;
     }
+
+    if (scan_time_millisec == 0) {
+        scan_time_millisec = 1;
+    }
+    return scan_time_millisec;
+}
+
+void FlowStatsCollector::UpdateFlowMultiplier() {
+    uint64_t scan_time_millisec = GetScanTime();
     uint64_t default_age_time_millisec = FlowAgeTime / 1000;
-    uint64_t max_flows = (MaxFlows * age_time_millisec) /
+    uint64_t max_flows = (MaxFlows * scan_time_millisec) /
                                             default_age_time_millisec;
-    flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
+    flow_multiplier_ = (max_flows * FlowStatsMinInterval)/scan_time_millisec;
 }
 
 bool FlowStatsCollector::TcpFlowShouldBeAged(FlowExportInfo *stats,
@@ -464,10 +480,10 @@ bool FlowStatsCollector::Run() {
     uint32_t total_flows = flow_tree_.size();
     uint32_t flow_timer_interval;
 
-    uint32_t age_time_millisec = flow_age_time_intvl() / 1000;
+    uint32_t scan_time_millisec = GetScanTime();
 
     if (total_flows > 0) {
-        flow_timer_interval = std::min((age_time_millisec * flow_multiplier_)/
+        flow_timer_interval = std::min((scan_time_millisec * flow_multiplier_)/
                                         total_flows, 1000U);
         if (flow_timer_interval < FlowStatsMinInterval) {
             flow_timer_interval = FlowStatsMinInterval;
@@ -476,9 +492,9 @@ bool FlowStatsCollector::Run() {
         flow_timer_interval = flow_default_interval_;
     }
 
-    if (age_time_millisec > 0) {
+    if (scan_time_millisec > 0) {
         flow_count_per_pass_ = std::max((flow_timer_interval * total_flows)/
-                                         age_time_millisec, 100U);
+                                         scan_time_millisec, 100U);
     } else {
         flow_count_per_pass_ = 100U;
     }

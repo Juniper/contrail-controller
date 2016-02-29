@@ -19,6 +19,7 @@ public:
     static const uint32_t kAgentStatsInterval = (30 * 1000); // time in millisecs
     static const uint32_t kFlowStatsInterval = (1000); // time in milliseconds
     static const uint32_t kVrouterStatsInterval = (30 * 1000); //time-millisecs
+    static const uint16_t kTcpFlowScanInterval = 15; // time in seconds
     typedef std::vector<Ip4Address> AddressList;
 
     // Agent mode we are running in
@@ -166,6 +167,7 @@ public:
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
     int vrouter_stats_interval() const { return vrouter_stats_interval_; }
+    uint16_t tcp_flow_scan_interval() const { return tcp_flow_scan_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
     void set_vrouter_stats_interval(int val) { vrouter_stats_interval_ = val; }
@@ -420,6 +422,7 @@ private:
     int agent_stats_interval_;
     int flow_stats_interval_;
     int vrouter_stats_interval_;
+    uint16_t tcp_flow_scan_interval_;
     std::string vmware_physical_port_;
     bool test_mode_;
     bool debug_;

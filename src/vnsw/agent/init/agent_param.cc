@@ -519,6 +519,10 @@ void AgentParam::ParseFlows() {
                                     "FLOWS.thread_count")) {
         flow_thread_count_ = Agent::kDefaultFlowThreadCount;
     }
+    if (!GetValueFromTree<uint16_t>(tcp_flow_scan_interval_,
+                                    "FLOWS.tcp_flow_scan_interval")) {
+        tcp_flow_scan_interval_ = kTcpFlowScanInterval;
+    }
 
     if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float) 100;
@@ -770,6 +774,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_system_linklocal_flows");
     GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
                           "FLOWS.max_vm_linklocal_flows");
+    GetOptValue<uint16_t>(var_map, tcp_flow_scan_interval_,
+                          "FLOWS.tcp_flow_scan_interval");
 }
 
 void AgentParam::ParseHeadlessModeArguments
@@ -1222,6 +1228,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
+        tcp_flow_scan_interval_(kTcpFlowScanInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         vgw_config_table_(new VirtualGatewayConfigTable() ),
         headless_mode_(false), dhcp_relay_mode_(false),
