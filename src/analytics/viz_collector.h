@@ -40,7 +40,9 @@ public:
             const std::string &kafka_prefix, const TtlMap &ttlmap,
             const std::string& cassandra_user,
             const std::string& cassandra_password,
-            bool use_cql);
+            bool use_cql,
+            const std::string &zookeeper_server_list,
+            bool use_zookeeper);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);

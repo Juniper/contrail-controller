@@ -62,8 +62,9 @@ class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
                  logger, ipfix_port = False, sflow_port = False,
                  syslog_port = False, protobuf_port = True,
-                 kafka = None, is_dup=False,
-                 cassandra_user= None, cassandra_password= None):
+                 kafka = None, is_dup = False,
+                 cassandra_user = None, cassandra_password = None,
+                 zookeeper = None):
         self.analytics_fixture = analytics_fixture
         if kafka is None:
             self.kafka_port = None
@@ -91,6 +92,7 @@ class Collector(object):
                             ':'+ModuleNames[Module.COLLECTOR]+':0'
         self.cassandra_user = analytics_fixture.cassandra_user
         self.cassandra_password = analytics_fixture.cassandra_password
+        self.zk_port = zookeeper.port
     # end __init__
 
     def get_addr(self):
@@ -166,6 +168,8 @@ class Collector(object):
             args.append('127.0.0.1:%d' % self.kafka_port)        
             args.append('--DEFAULT.partitions')
             args.append(str(4))
+        args.append('--DEFAULT.zookeeper_server_list')
+        args.append('127.0.0.1:%d' % self.zk_port)
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -511,9 +515,8 @@ class Redis(object):
 class Kafka(object):
     def __init__(self, zk_port):
         self.port = None
-        self.zk_port = zk_port
-        self.zk_start = False
         self.running = False
+        self.zk_port = zk_port
     # end __init__
 
     def start(self):
@@ -521,10 +524,6 @@ class Kafka(object):
         self.running = True
         if not self.port:
             self.port = AnalyticsFixture.get_free_port()
-        if not self.zk_port:
-            self.zk_port = AnalyticsFixture.get_free_port()
-            mockzoo.start_zoo(self.zk_port)
-            self.zk_start = True
         mockkafka.start_kafka(self.zk_port, self.port)
 
     # end start
@@ -532,18 +531,37 @@ class Kafka(object):
     def stop(self):
         if self.running:
             mockkafka.stop_kafka(self.port)
-            if self.zk_start:
-                mockzoo.stop_zoo(self.zk_port)
             self.running =  False
     #end stop
 # end class Kafka
+
+class Zookeeper(object):
+    def __init__(self, zk_port=None):
+        self.running = False;
+        self.port = zk_port
+    # end __init__
+
+    def start(self):
+        assert(self.running == False)
+        if not self.port:
+            self.port = AnalyticsFixture.get_free_port()
+        mockzoo.start_zoo(self.port)
+        self.running = True
+    # end start
+
+    def stop(self):
+        if self.running:
+            mockzoo.stop_zoo(self.port)
+        self.running = False
+    # end stop
+# end class Zookeeper
 
 class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, sflow_port = False, syslog_port = False,
                  protobuf_port = False, noqed=False, collector_ha_test=False,
-                 redis_password=None, kafka_zk=0,
+                 redis_password=None, start_kafka=False,
                  cassandra_user=None, cassandra_password=None):
 
         self.builddir = builddir
@@ -557,13 +575,14 @@ class AnalyticsFixture(fixtures.Fixture):
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
         self.redis_password = redis_password
-        self.kafka_zk = kafka_zk
+        self.start_kafka = start_kafka
         self.kafka = None
         self.opserver = None
         self.query_engine = None
         self.alarmgen = None
         self.cassandra_user = cassandra_user
         self.cassandra_password = cassandra_password
+        self.zookeeper = None
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -572,8 +591,11 @@ class AnalyticsFixture(fixtures.Fixture):
                                  self.redis_password)]
         self.redis_uves[0].start()
 
-        if self.kafka_zk:
-            self.kafka = Kafka(self.kafka_zk)
+        self.zookeeper = Zookeeper()
+        self.zookeeper.start()
+
+        if self.start_kafka:
+            self.kafka = Kafka(self.zookeeper.port)
             self.kafka.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
@@ -581,7 +603,8 @@ class AnalyticsFixture(fixtures.Fixture):
                            sflow_port = self.sflow_port,
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
-                           kafka = self.kafka)] 
+                           kafka = self.kafka,
+                           zookeeper = self.zookeeper)]
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
@@ -599,7 +622,8 @@ class AnalyticsFixture(fixtures.Fixture):
             self.collectors.append(Collector(self, self.redis_uves[1],
                                              self.logger,
                                              kafka = self.kafka,
-                                             is_dup=True))
+                                             is_dup = True,
+                                             zookeeper = self.zookeeper))
             if not self.collectors[1].start():
                 self.logger.error("Secondary Collector did NOT start")
             secondary_collector = self.collectors[1].get_addr()
