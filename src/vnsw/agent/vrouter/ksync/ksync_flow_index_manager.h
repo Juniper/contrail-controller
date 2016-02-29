@@ -81,9 +81,7 @@ public:
         uint32_t flow_handle_;
         uint32_t index_;
         FlowTableKSyncEntry *ksync_entry_;
-        bool evicted_;
         bool skip_delete_;
-        uint32_t evict_count_;
         bool delete_in_progress_;
         FlowEntry *evict_flow_;
         uint32_t vrouter_flow_handle_;
@@ -94,9 +92,7 @@ public:
             event_(INVALID_EVENT),
             flow_handle_(FlowEntry::kInvalidFlowHandle),
             ksync_entry_(NULL),
-            evicted_(false),
             skip_delete_(false),
-            evict_count_(0),
             delete_in_progress_(false),
             evict_flow_(NULL),
             vrouter_flow_handle_(FlowEntry::kInvalidFlowHandle) {
@@ -111,11 +107,7 @@ public:
     FlowEntry *index_owner() const { return index_owner_.get(); }
     FlowTableKSyncEntry *ksync_entry() const { return ksync_entry_; }
     State state() const { return state_; }
-    bool evicted() const { return evicted_; }
     bool skip_delete() const { return skip_delete_; }
-    uint32_t evict_count() const { return evict_count_; }
-    bool locked() const { return locked_; }
-    void set_locked(bool val) { assert(locked_ != val); locked_ = val; }
 
     void HandleEvent(KSyncFlowIndexManager *manager, FlowEntry *flow,
                      Event event, uint32_t index);
@@ -138,8 +130,7 @@ public:
     void KSyncUpdateFlowHandle(KSyncFlowIndexManager *manager, FlowEntry *flow);
     void Log(KSyncFlowIndexManager *manager, FlowEntry *flow, Event event,
              uint32_t index);
-    void EvictLog(KSyncFlowIndexManager *manager, FlowEntry *flow,
-                  uint32_t index, FlowEntry *evict_flow);
+
 private:
     void AcquireIndex(KSyncFlowIndexManager *manager, FlowEntry *flow,
                       uint32_t index);
@@ -154,15 +145,10 @@ private:
     FlowTableKSyncEntry *ksync_entry_;
     // Flow owning index_
     FlowEntryPtr index_owner_;
-    // Is flow evicted
-    bool evicted_;
     // Skip sending delete message
     bool skip_delete_;
-    // Number of times flow is evicted
-    uint32_t evict_count_;
     // Delete initiated for the flow
     bool delete_in_progress_;
-    bool locked_;
     int event_log_index_;
     EventLog *event_logs_;
 };
@@ -186,7 +172,6 @@ public:
     virtual ~KSyncFlowIndexManager();
     void InitDone(uint32_t count);
 
-    void ReleaseUnlocked(FlowEntry *flow);
     void Release(FlowEntry *flow);
     FlowEntryPtr FindByIndex(uint32_t idx);
 
@@ -198,22 +183,11 @@ public:
     void KSyncFree(FlowEntry *flow);
 
     void AcquireIndex(FlowEntry *flow, uint32_t index);
-    void EvictIndex(FlowEntry *flow, uint32_t index, bool skip_del);
     uint16_t sm_log_count() const { return sm_log_count_; }
 private:
-    void GetIndexMutexSeq(FlowEntry *flow, uint32_t index,
-                          tbb::mutex &tmp_mutex1,
-                          tbb::mutex &tmp_mutex2,
-                          tbb::mutex &tmp_mutex3,
-                          tbb::mutex **mutex_ptr_1,
-                          tbb::mutex **mutex_ptr_2,
-                          tbb::mutex **mutex_ptr_3);
     void HandleEvent(FlowEntry *flow, KSyncFlowIndexEntry::Event event);
     void HandleEvent(FlowEntry *flow, KSyncFlowIndexEntry::Event event,
                      uint32_t index);
-    void EvictIndexUnlocked(FlowEntry *flow, uint32_t index, bool skip_del);
-    void EvictRequest(FlowEntry *flow, FlowEntryPtr &evict_flow,
-                      uint32_t index);
 
 private:
     KSync *ksync_;
