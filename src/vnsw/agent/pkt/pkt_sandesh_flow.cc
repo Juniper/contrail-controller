@@ -10,6 +10,8 @@
 
 #include <uve/agent_uve.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include <vrouter/ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_flow_index_manager.h>
 
 using boost::system::error_code;
 
@@ -94,6 +96,14 @@ using boost::system::error_code;
        data.set_aging_protocol(fe->fsc()->flow_aging_key().proto);\
        data.set_aging_port(fe->fsc()->flow_aging_key().port);\
     }\
+    data.set_l3_flow(fe->l3_flow());\
+    uint16_t id = fe->flow_table()? fe->flow_table()->table_index() : 0xFFFF;\
+    data.set_table_id(id);\
+    data.set_deleted(fe->deleted());\
+    SandeshFlowIndexInfo flow_index_info;\
+    KSyncFlowIndexManager *mgr = agent->ksync()->ksync_flow_index_manager();\
+    fe->ksync_index_entry()->SetSandeshData(mgr, &flow_index_info);\
+    data.set_flow_index_info(flow_index_info);
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 

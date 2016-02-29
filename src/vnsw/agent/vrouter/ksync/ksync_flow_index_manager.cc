@@ -100,6 +100,42 @@ void KSyncFlowIndexEntry::Log(KSyncFlowIndexManager *manager, FlowEntry *flow,
     LogInternal(manager, "FlowIndexSm", flow, event, index, NULL);
 }
 
+void KSyncFlowIndexEntry::SetSandeshFlowTrace(EventLog *log,
+                                              SandeshFlowIndexTrace *info) {
+    info->set_timestamp(log->time_);
+    info->set_index(log->index_);
+    info->set_flow_handle(log->flow_handle_);
+    info->set_state(StateToString(log->state_));
+    info->set_event(EventToString(log->event_));
+    info->set_skip_delete(log->skip_delete_);
+    info->set_delete_in_progress(log->delete_in_progress_);
+    info->set_vrouter_flow_handle(log->vrouter_flow_handle_);
+}
+
+void KSyncFlowIndexEntry::SetSandeshData(KSyncFlowIndexManager *manager,
+                                         SandeshFlowIndexInfo *info) {
+    info->set_index(index_);
+    info->set_state(StateToString(state_));
+    info->set_delete_in_progress(delete_in_progress_);
+    info->set_trace_count(event_log_index_);
+    if (manager->sm_log_count() == 0)
+        return;
+    int start = 0;
+    if (event_log_index_ >= manager->sm_log_count())
+        start = event_log_index_ % manager->sm_log_count();
+    int count = event_log_index_;
+    if (count > manager->sm_log_count())
+        count = manager->sm_log_count();
+    std::vector<SandeshFlowIndexTrace> trace_list;
+    for (int i = 0; i < count; i++) {
+        SandeshFlowIndexTrace trace;
+        EventLog *log = &event_logs_[((start + i) % manager->sm_log_count())];
+        SetSandeshFlowTrace(log, &trace);
+        trace_list.push_back(trace);
+    }
+    info->set_flow_index_trace(trace_list);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // KSyncFlowIndexEntry State Machine routines
 //////////////////////////////////////////////////////////////////////////////
