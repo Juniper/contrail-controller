@@ -8,7 +8,10 @@
 try:
     from keystoneclient.middleware import auth_token
 except ImportError:
-    from keystonemiddleware import auth_token
+    try:
+        from keystonemiddleware import auth_token
+    except Exception:
+        pass
 except Exception:
     pass
 
