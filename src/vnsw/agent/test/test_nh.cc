@@ -2460,6 +2460,41 @@ TEST_F(CfgTest, EcmpNH_18) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
+TEST_F(CfgTest, EcmpNH_19) {
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+
+    //Update the SG for path
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().empty() == false);
+
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
+    DelAcl("acl1");
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().empty() == true);
+    DeleteVmportEnv(input, 1, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

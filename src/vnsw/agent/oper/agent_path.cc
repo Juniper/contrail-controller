@@ -1263,6 +1263,10 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
              local_ecmp_mpls_label_.reset(mpls);
              return false;
          }
+
+         if (mpls == local_ecmp_mpls_label_.get()) {
+             break;
+         }
          local_ecmp_mpls_label_.reset(mpls);
          //Check if MPLS is pointing to same NH as mentioned in key list.
          //It may so happen that by the time this request is serviced(say in
