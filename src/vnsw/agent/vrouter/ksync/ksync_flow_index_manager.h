@@ -140,6 +140,9 @@ public:
              uint32_t index);
     void EvictLog(KSyncFlowIndexManager *manager, FlowEntry *flow,
                   uint32_t index, FlowEntry *evict_flow);
+    void SetSandeshData(KSyncFlowIndexManager *manager,
+                        SandeshFlowIndexInfo *info);
+    void SetSandeshFlowTrace(EventLog *log, SandeshFlowIndexTrace *info);
 private:
     void AcquireIndex(KSyncFlowIndexManager *manager, FlowEntry *flow,
                       uint32_t index);
