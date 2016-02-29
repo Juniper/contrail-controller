@@ -2460,7 +2460,7 @@ TEST_F(CfgTest, EcmpNH_18) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
-TEST_F(CfgTest, EcmpNH_18) {
+TEST_F(CfgTest, EcmpNH_19) {
     //Add interface
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
