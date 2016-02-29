@@ -3835,7 +3835,7 @@ class RoutingPolicyST(DBBaseST):
             self.routing_instances.add(ri_name)
             ri = RoutingInstanceST.get(ri_name)
             if ri:
-                ri.routing_policys[self.name] = ref['attr']['sequence']
+                ri.routing_policys[self.name] = ref['attr'].sequence
     # end __init__
 
     def update(self, obj=None):
