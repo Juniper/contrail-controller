@@ -152,14 +152,27 @@ bool ZookeeperClientImpl::IsConnected() const {
     return connected_;
 }
 
+static inline bool IsZooErrorRecoverable(int zerror) {
+    return zerror == ZCONNECTIONLOSS ||
+        zerror == ZOPERATIONTIMEOUT;
+}
+
+static inline bool IsZooErrorUnrecoverable(int zerror) {
+    return zerror == ZINVALIDSTATE;
+}
+
 int ZookeeperClientImpl::CreateNodeSync(const char *path, const char *value,
     int *err) {
     int rc;
-    // Session expired state or auth failed state
-    while ((rc = zki_->ZooCreate(zk_handle_, path, value, strlen(value),
-        &ZOO_OPEN_ACL_UNSAFE, 0, NULL, -1)) == ZINVALIDSTATE) {
+ retry:
+    do {
+        rc = zki_->ZooCreate(zk_handle_, path, value, strlen(value),
+            &ZOO_OPEN_ACL_UNSAFE, 0, NULL, -1);
+    } while (IsZooErrorRecoverable(rc));
+    if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
         Reconnect();
+        goto retry;
     }
     if (rc != ZOK) {
         *err = errno;
@@ -170,11 +183,14 @@ int ZookeeperClientImpl::CreateNodeSync(const char *path, const char *value,
 int ZookeeperClientImpl::GetNodeDataSync(const char *path, char *buf,
     int *buf_len, int *err) {
     int rc;
-    // Session expired state or auth failed state
-    while ((rc = zki_->ZooGet(zk_handle_, path, 0, buf, buf_len, NULL)) ==
-        ZINVALIDSTATE) {
+ retry:
+    do {
+        rc = zki_->ZooGet(zk_handle_, path, 0, buf, buf_len, NULL);
+    } while (IsZooErrorRecoverable(rc));
+    if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
         Reconnect();
+        goto retry;
     }
     if (rc != ZOK) {
         *err = errno;
@@ -184,10 +200,14 @@ int ZookeeperClientImpl::GetNodeDataSync(const char *path, char *buf,
 
 int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
     int rc;
-    // Session expired state or auth failed state
-    while ((rc = zki_->ZooDelete(zk_handle_, path, -1)) == ZINVALIDSTATE) {
+ retry:
+    do {
+        rc = zki_->ZooDelete(zk_handle_, path, -1);
+    } while (IsZooErrorUnrecoverable(rc));
+    if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
         Reconnect();
+        goto retry;
     }
     if (rc != ZOK) {
         *err = errno;
