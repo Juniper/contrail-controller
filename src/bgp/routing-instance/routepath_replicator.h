@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "base/lifetime.h"
 #include "base/util.h"
@@ -311,7 +312,7 @@ private:
 
     BgpServer *server() { return server_; }
     Address::Family family() const { return family_; }
-    const BgpServer *server() const { return server_; };
+    const BgpServer *server() const { return server_; }
 
     // Mutex to protect bulk_sync_ from multiple DBTable tasks.
     tbb::mutex mutex_;

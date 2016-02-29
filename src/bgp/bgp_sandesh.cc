@@ -18,34 +18,37 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using namespace boost::assign;
-using namespace std;
+using boost::assign::list_of;
+using std::string;
+using std::vector;
 
 class ShowNeighborStatisticsHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
-                           const RequestPipeline::PipeSpec ps, int stage,
-                           int instNum, RequestPipeline::InstData * data);
-    static size_t FillBgpNeighborStatistics(const ShowNeighborStatisticsReq *req,
-                                   BgpServer *bgp_server);
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData * data);
+    static size_t FillBgpNeighborStatistics(
+        const ShowNeighborStatisticsReq *req, BgpServer *bgp_server);
 };
 
 size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
-           const ShowNeighborStatisticsReq *req, BgpServer *bgp_server) {
+    const ShowNeighborStatisticsReq *req, BgpServer *bgp_server) {
     size_t count = 0;
 
     if (req->get_bgp_or_xmpp().empty() ||
-            boost::iequals(req->get_bgp_or_xmpp(), "bgp")) {
+        boost::iequals(req->get_bgp_or_xmpp(), "bgp")) {
         RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
         if (!req->get_domain().empty()) {
             RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
             if (ri) {
-                count += ri->peer_manager()->GetNeighborCount(req->get_up_or_down());
+                count +=
+                    ri->peer_manager()->GetNeighborCount(req->get_up_or_down());
             }
         } else {
             RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-            for (;it != rim->end(); it++) {
-                count += it->peer_manager()->GetNeighborCount(req->get_up_or_down());
+            for (; it != rim->end(); it++) {
+                count +=
+                    it->peer_manager()->GetNeighborCount(req->get_up_or_down());
             }
         }
     }
@@ -56,12 +59,10 @@ size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
 bool ShowNeighborStatisticsHandler::CallbackS1(
         const Sandesh *sr, const RequestPipeline::PipeSpec ps,
         int stage, int instNum, RequestPipeline::InstData *data) {
-
     const ShowNeighborStatisticsReq *req;
     BgpSandeshContext *bsc;
 
-    req = static_cast<const ShowNeighborStatisticsReq *>(
-                                ps.snhRequest_.get());
+    req = static_cast<const ShowNeighborStatisticsReq *>(ps.snhRequest_.get());
     bsc = static_cast<BgpSandeshContext *>(req->client_context());
 
     // Retrieve number of BGP peers.
@@ -85,7 +86,6 @@ bool ShowNeighborStatisticsHandler::CallbackS1(
 }
 
 void ShowNeighborStatisticsReq::HandleRequest() const {
-
     // Use config task as we need to examine both bgp and xmpp data bases
     // to compute the number of neighbors. Both BGP and XMPP peers are
     // inserted/deleted under config task.
@@ -133,7 +133,6 @@ bool ClearBgpNeighborHandler::CallbackS1(
 
 // handler for 'clear bgp neighbor'
 void ClearBgpNeighborReq::HandleRequest() const {
-
     // Use config task since neighbors are added/deleted under that task.
     // to compute the number of neighbors.
     RequestPipeline::StageSpec s1;
@@ -221,10 +220,12 @@ public:
         MulticastManagerDetailData *mydata =
             static_cast<MulticastManagerDetailData *>(data);
         const ShowMulticastManagerDetailReq *req =
-            static_cast<const ShowMulticastManagerDetailReq *>(ps.snhRequest_.get());
+            static_cast<const ShowMulticastManagerDetailReq *>(
+                ps.snhRequest_.get());
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
-        DBTableBase *table = bsc->bgp_server->database()->FindTable(req->get_name());
+        DBTableBase *table =
+            bsc->bgp_server->database()->FindTable(req->get_name());
         ErmVpnTable *mcast_table = dynamic_cast<ErmVpnTable *>(table);
         if (mcast_table && !mcast_table->IsVpnTable())
             FillMulticastPartitionInfo(mydata, mcast_table, inst_id);
@@ -253,7 +254,8 @@ public:
         vector<ShowMulticastTree> tree_list;
         CombineMulticastPartitionInfo(sd, tree_list);
 
-        ShowMulticastManagerDetailResp *resp = new ShowMulticastManagerDetailResp;
+        ShowMulticastManagerDetailResp *resp =
+            new ShowMulticastManagerDetailResp;
         resp->set_trees(tree_list);
         resp->set_context(req->context());
         resp->Response();
@@ -321,8 +323,8 @@ public:
         show_route.set_last_modified(duration_usecs_to_string(
                        UTCTimestampUsec() - route->last_change_at()));
         vector<ShowRoutePath> show_route_paths;
-        for(Route::PathList::const_iterator it = route->GetPathList().begin();
-            it != route->GetPathList().end(); it++) {
+        for (Route::PathList::const_iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); it++) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
             ShowRoutePath srp;
             srp.set_protocol("BGP");
@@ -349,7 +351,8 @@ public:
         const RequestPipeline::StageData *sd = ps.GetStageData(0);
         ShowRoute route;
         for (size_t i = 0; i < sd->size(); i++) {
-            const SearchRouteInVrfData &data = static_cast<const SearchRouteInVrfData &>(sd->at(i));
+            const SearchRouteInVrfData &data =
+                static_cast<const SearchRouteInVrfData &>(sd->at(i));
             if (data.routes.size()) {
                 route = data.routes.front();
                 break;

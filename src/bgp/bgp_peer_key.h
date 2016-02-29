@@ -19,9 +19,7 @@ struct BgpPeerKey {
     bool operator==(const BgpPeerKey &rhs) const;
     bool operator!=(const BgpPeerKey &rhs) const;
 
-    unsigned long Address() const {
-        return endpoint.address().to_v4().to_ulong();
-    }
+    uint32_t address() const { return endpoint.address().to_v4().to_ulong(); }
 
     boost::asio::ip::tcp::endpoint endpoint;
     boost::uuids::uuid uuid;

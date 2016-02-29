@@ -3,6 +3,8 @@
  */
 #include "bgp/bgp_xmpp_sandesh.h"
 
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
@@ -126,7 +128,6 @@ static void ShowXmppNeighborStatistics(
         boost::bind(ShowXmppNeighborStatisticsVisitor, count,
                     bsc->bgp_server, req->get_domain(),
                     req->get_up_or_down(), _1));
-
 }
 
 void RegisterSandeshShowXmppExtensions(BgpSandeshContext *bsc) {

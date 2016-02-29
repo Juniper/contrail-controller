@@ -4,10 +4,10 @@
 
 #include "bgp/community.h"
 
+#include <boost/foreach.hpp>
+
 #include <algorithm>
 #include <string>
-
-#include <boost/foreach.hpp>
 
 #include "base/string_util.h"
 #include "bgp/bgp_proto.h"

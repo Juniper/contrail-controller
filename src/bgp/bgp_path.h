@@ -6,6 +6,7 @@
 #define SRC_BGP_BGP_PATH_H_
 
 #include <string>
+#include <vector>
 
 #include "base/util.h"
 #include "route/path.h"

@@ -124,7 +124,7 @@ public:
     RoutingInstanceInfo GetDataCollection(const char *operation);
 
     BgpServer *server() { return server_; }
-    const BgpServer *server() const { return server_; };
+    const BgpServer *server() const { return server_; }
 
     // Remove import and export route target
     // and Leave corresponding RtGroup

@@ -866,7 +866,8 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             delete state;
             if (!info->num_matchstate()) {
                 if (info->dest_table_unregistered()) {
-                    listener_->UnregisterMatchCondition(info->dest_table(), info);
+                    listener_->UnregisterMatchCondition(
+                        info->dest_table(), info);
                 }
                 if (info->connected_table_unregistered()) {
                     listener_->UnregisterMatchCondition(

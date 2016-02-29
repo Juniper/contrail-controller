@@ -78,7 +78,6 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     path_resolver_ = CreatePathResolver();
     if (IsRouteAggregationSupported())
         rtinstance->route_aggregator(family())->Initialize();
-
 }
 
 BgpServer *BgpTable::server() {

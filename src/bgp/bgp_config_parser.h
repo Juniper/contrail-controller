@@ -28,6 +28,7 @@ public:
     static std::string session_uuid(const std::string &left,
                                     const std::string &right,
                                     int index);
+
 private:
     bool ParseConfig(const pugi::xml_node &root, bool add_change,
                      RequestList *requests) const;

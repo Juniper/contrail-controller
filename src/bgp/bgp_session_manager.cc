@@ -29,7 +29,7 @@ BgpSessionManager::~BgpSessionManager() {
 //
 // Start listening at the given port.
 //
-bool BgpSessionManager::Initialize(short port) {
+bool BgpSessionManager::Initialize(unsigned short port) {
     return TcpServer::Initialize(port);
 }
 

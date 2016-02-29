@@ -10,7 +10,7 @@
 
 class BgpMessage : public Message {
 public:
-    BgpMessage(const BgpTable *table = NULL);
+    explicit BgpMessage(const BgpTable *table = NULL);
     virtual ~BgpMessage();
     bool Start(const RibOutAttr *roattr, const BgpRoute *route);
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);

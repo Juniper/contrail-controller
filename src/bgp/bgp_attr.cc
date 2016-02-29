@@ -154,8 +154,8 @@ void ClusterListSpec::ToCanonical(BgpAttr *attr) {
 
 std::string ClusterListSpec::ToString() const {
     std::stringstream repr;
-    repr << "CLUSTER_LIST <code: " << (int) code;
-    repr << ", flags: " << std::hex << (int) flags << "> :";
+    repr << "CLUSTER_LIST <code: " << std::dec << code;
+    repr << ", flags: 0x" << std::hex << flags << "> :";
     for (std::vector<uint32_t>::const_iterator iter = cluster_list.begin();
          iter != cluster_list.end(); ++iter) {
         repr << " " << Ip4Address(*iter).to_string();
