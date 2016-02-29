@@ -1780,3 +1780,8 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     }
     return;
 }
+void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
+     l3_flow = pkt_info->l3_forwarding;
+     family = pkt_info->family;
+     pkt = pkt_info;
+ }

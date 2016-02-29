@@ -123,7 +123,6 @@ bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
     if (Validate(msg.get()) == false) {
         return true;
     }
-    FreeBuffer(msg.get());
     EnqueueFlowEvent(new FlowEvent(FlowEvent::VROUTER_FLOW_MSG, msg));
     return true;
 }

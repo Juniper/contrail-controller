@@ -58,7 +58,6 @@ bool Proto::RunProtoHandler(ProtoHandler *handler) {
 // change based on packet decode
 bool Proto::ProcessProto(boost::shared_ptr<PktInfo> msg_info) {
     PktHandler *pkt_handler = agent_->pkt()->pkt_handler();
-    assert(msg_info->module != PktHandler::INVALID);
     if (trace_) {
         pkt_handler->AddPktTrace(module_, PktTrace::In, msg_info.get());
     }
