@@ -1894,6 +1894,123 @@ TEST_F(RoutingPolicyTest, PolicyUpdate_6) {
 }
 
 //
+// In this test routing policy match condition is updated for prefix match
+// Previously matching prefix [10.0.1.1/32] is updated to
+// [10.0.1.1/32, 20.1.1.0/24].
+// Subsequently the policy match is updated back to [10.0.1.1/32]
+//
+TEST_F(RoutingPolicyTest, PolicyUpdate_7) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32",
+                        100, list_of("22:13"));
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "20.1.1.1/32",
+                        100, list_of("22:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(2, RouteCount("test.inet.0"));
+    //
+    // Verify that the policy matched 10.0.1.1/32 and the local-pref is updated
+    // Policy doesn't match 20.1.1.1/32.
+    //
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "20.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == original_local_pref);
+
+    //
+    // Update the routing policy match to include 20.1.1.0/24 prefix along with
+    // 10.0.1.1/32
+    //
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    //
+    // Verify that both 10.0.1.1/32 and 20.1.1.1/32 matches the policy and
+    // action to update the local-pref is triggered
+    //
+    rt = RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "20.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    content = FileRead("controller/src/bgp/testdata/routing_policy_0.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    //
+    // Verify that the policy matched 10.0.1.1/32 ONLY and local-pref is updated
+    // Policy doesn't match 20.1.1.1/32.
+    //
+    rt = RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 102);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    rt = RouteLookup<InetDefinition>("test.inet.0", "20.1.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == original_local_pref);
+
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "20.1.1.1/32");
+}
+
+//
 // In this test, routing policy action is updated
 // With the update of the policy, the route is rejected by matching the newly
 // added term. Selected path or best path no longer points to it
