@@ -100,16 +100,16 @@ public:
             //If Loadbalncer, delete the config files as well
             if (prop.service_type == ServiceInstance::LoadBalancer) {
 
-                std::stringstream cfg_dir_path;
-                cfg_dir_path <<
+                //Delete the complete directory
+                std::stringstream cfg_path;
+                cfg_path <<
                     manager_->loadbalancer_config_path_ << prop.pool_id;
 
                 boost::system::error_code error;
-                if (fs::exists(cfg_dir_path.str())) {
-                    fs::remove_all(cfg_dir_path.str(), error);
+                if (fs::exists(cfg_path.str())) {
+                    fs::remove_all(cfg_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale loadbalancer cfg fle delete error"
-                                    << error.message());
+                        LOG(ERROR, "Stale loadbalancer cfg directory delete error ");
                     }
                 }
             }
