@@ -38,15 +38,14 @@ class BgpServer::ConfigUpdater {
 public:
     explicit ConfigUpdater(BgpServer *server) : server_(server) {
         BgpConfigManager::Observers obs;
-        obs.instance =
-            boost::bind(&ConfigUpdater::ProcessInstanceConfig, this, _1, _2);
-        obs.protocol =
-            boost::bind(&ConfigUpdater::ProcessProtocolConfig, this, _1, _2);
-        obs.neighbor =
-            boost::bind(&ConfigUpdater::ProcessNeighborConfig, this, _1, _2);
-        obs.policy =
-            boost::bind(&ConfigUpdater::ProcessRoutingPolicyConfig, this, _1, _2);
-
+        obs.instance = boost::bind(&ConfigUpdater::ProcessInstanceConfig,
+            this, _1, _2);
+        obs.protocol = boost::bind(&ConfigUpdater::ProcessProtocolConfig,
+            this, _1, _2);
+        obs.neighbor = boost::bind(&ConfigUpdater::ProcessNeighborConfig,
+            this, _1, _2);
+        obs.policy = boost::bind(&ConfigUpdater::ProcessRoutingPolicyConfig,
+            this, _1, _2);
         server->config_manager()->RegisterObservers(obs);
     }
 

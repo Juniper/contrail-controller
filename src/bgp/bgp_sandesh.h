@@ -2,11 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef BGP_SANDESH_H_
-#define BGP_SANDESH_H_
+#ifndef SRC_BGP_BGP_SANDESH_H_
+#define SRC_BGP_BGP_SANDESH_H_
 
 #include <boost/function.hpp>
 #include <sandesh/sandesh.h>
+
+#include <string>
+#include <vector>
 
 class BgpServer;
 class BgpXmppChannelManager;
@@ -72,4 +75,4 @@ private:
     PeeringReqIterateHandler show_peering_req_iterate_handler_;
 };
 
-#endif /* BGP_SANDESH_H_ */
+#endif  // SRC_BGP_BGP_SANDESH_H_

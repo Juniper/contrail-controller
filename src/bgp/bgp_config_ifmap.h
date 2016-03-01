@@ -2,15 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef BGP_BGP_CONFIG_IFMAP_H__
-#define BGP_BGP_CONFIG_IFMAP_H__
-
-#include <map>
-#include <set>
-#include <vector>
+#ifndef SRC_BGP_BGP_CONFIG_IFMAP_H__
+#define SRC_BGP_BGP_CONFIG_IFMAP_H__
 
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
+
+#include <map>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "base/task_trigger.h"
 #include "base/util.h"
@@ -180,10 +182,13 @@ private:
 //
 class BgpIfmapInstanceConfig {
 public:
-    typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
-    typedef std::map<std::string, BgpIfmapPeeringConfig *> PeeringMap;
-    typedef std::map<std::string, BgpIfmapRoutingPolicyConfig *> RouitngPolicyMap;
     typedef BgpInstanceConfig::RouteTargetList RouteTargetList;
+    typedef std::map<std::string,
+        BgpNeighborConfig *> NeighborMap;
+    typedef std::map<std::string,
+        BgpIfmapPeeringConfig *> PeeringMap;
+    typedef std::map<std::string,
+        BgpIfmapRoutingPolicyConfig *> RouitngPolicyMap;
 
     explicit BgpIfmapInstanceConfig(const std::string &name);
     ~BgpIfmapInstanceConfig();
@@ -255,7 +260,7 @@ private:
 class BgpIfmapRoutingPolicyLinkConfig {
 public:
     explicit BgpIfmapRoutingPolicyLinkConfig(BgpIfmapInstanceConfig *rti,
-                                             BgpIfmapRoutingPolicyConfig *rtp);
+        BgpIfmapRoutingPolicyConfig *rtp);
     ~BgpIfmapRoutingPolicyLinkConfig();
 
     void SetNodeProxy(IFMapNodeProxy *proxy);
@@ -265,8 +270,8 @@ public:
     const autogen::RoutingPolicyRoutingInstance *routing_policy_link() const {
         return ri_rp_link_.get();
     }
-    static bool GetRoutingInstanceRoutingPolicyPair(DBGraph *graph,
-                    IFMapNode *node, std::pair<IFMapNode *, IFMapNode *> *pair);
+    static bool GetInstancePolicyPair(DBGraph *graph, IFMapNode *node,
+        std::pair<IFMapNode *, IFMapNode *> *pair);
     BgpIfmapInstanceConfig *instance() { return instance_; }
     BgpIfmapRoutingPolicyConfig *policy() { return policy_; }
 
@@ -279,7 +284,8 @@ private:
     BgpIfmapRoutingPolicyConfig *policy_;
     std::string name_;
     IFMapNodeProxy node_proxy_;
-    boost::intrusive_ptr<const autogen::RoutingPolicyRoutingInstance> ri_rp_link_;
+    boost::intrusive_ptr<
+        const autogen::RoutingPolicyRoutingInstance> ri_rp_link_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapRoutingPolicyLinkConfig);
 };
@@ -304,7 +310,9 @@ public:
     const std::string &name() const { return name_; }
 
     BgpRoutingPolicyConfig *routing_policy_config() { return &data_; }
-    const BgpRoutingPolicyConfig *routing_policy_config() const { return &data_; }
+    const BgpRoutingPolicyConfig *routing_policy_config() const {
+        return &data_;
+    }
 
     void AddInstance(BgpIfmapInstanceConfig *rti);
     void RemoveInstance(BgpIfmapInstanceConfig *rti);
@@ -337,10 +345,14 @@ class BgpIfmapConfigData {
 public:
     typedef BgpConfigManager::InstanceMap BgpInstanceMap;
     typedef BgpConfigManager::RoutingPolicyMap BgpRoutingPolicyMap;
-    typedef std::map<std::string, BgpIfmapInstanceConfig *> IfmapInstanceMap;
-    typedef std::map<std::string, BgpIfmapRoutingPolicyConfig *> IfmapRoutingPolicyMap;
-    typedef std::map<std::string, BgpIfmapPeeringConfig *> IfmapPeeringMap;
-    typedef std::map<std::string, BgpIfmapRoutingPolicyLinkConfig *> IfmapRoutingPolicyLinkMap;
+    typedef std::map<std::string,
+        BgpIfmapInstanceConfig *> IfmapInstanceMap;
+    typedef std::map<std::string,
+        BgpIfmapRoutingPolicyConfig *> IfmapRoutingPolicyMap;
+    typedef std::map<std::string,
+        BgpIfmapPeeringConfig *> IfmapPeeringMap;
+    typedef std::map<std::string,
+        BgpIfmapRoutingPolicyLinkConfig *> IfmapRoutingPolicyLinkMap;
 
     BgpIfmapConfigData();
     ~BgpIfmapConfigData();
@@ -354,22 +366,24 @@ public:
     BgpIfmapRoutingPolicyConfig *LocateRoutingPolicy(const std::string &name);
     void DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
     BgpIfmapRoutingPolicyConfig *FindRoutingPolicy(const std::string &name);
-    const BgpIfmapRoutingPolicyConfig *FindRoutingPolicy(const std::string &name) const;
+    const BgpIfmapRoutingPolicyConfig *FindRoutingPolicy(
+        const std::string &name) const;
 
     BgpIfmapPeeringConfig *CreatePeering(BgpIfmapInstanceConfig *rti,
-                                         IFMapNodeProxy *proxy);
+        IFMapNodeProxy *proxy);
     void DeletePeering(BgpIfmapPeeringConfig *peer);
     BgpIfmapPeeringConfig *FindPeering(const std::string &name);
     const BgpIfmapPeeringConfig *FindPeering(const std::string &name) const;
     int PeeringCount() const { return peerings_.size(); }
 
-    BgpIfmapRoutingPolicyLinkConfig *
-        CreateRoutingPolicyLink(BgpIfmapInstanceConfig *rti,
-                                BgpIfmapRoutingPolicyConfig *rtp,
-                                IFMapNodeProxy *proxy);
+    BgpIfmapRoutingPolicyLinkConfig *CreateRoutingPolicyLink(
+        BgpIfmapInstanceConfig *rti, BgpIfmapRoutingPolicyConfig *rtp,
+        IFMapNodeProxy *proxy);
     void DeleteRoutingPolicyLink(BgpIfmapRoutingPolicyLinkConfig *ri_rp_link);
-    BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(const std::string &name);
-    const BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(const std::string &name) const;
+    BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(
+        const std::string &name);
+    const BgpIfmapRoutingPolicyLinkConfig *FindRoutingPolicyLink(
+        const std::string &name) const;
 
     BgpConfigManager::InstanceMapRange InstanceMapItems(
         const std::string &start_name = std::string()) const;
@@ -410,7 +424,7 @@ private:
 class BgpIfmapConfigManager : public BgpConfigManager,
     public IFMapConfigListener::ConfigManager {
 public:
-    BgpIfmapConfigManager(BgpServer *server);
+    explicit BgpIfmapConfigManager(BgpServer *server);
     virtual ~BgpIfmapConfigManager();
 
     void Initialize(DB *db, DBGraph *db_graph, const std::string &localname);
@@ -440,7 +454,7 @@ public:
         const std::string &instance_name, const std::string &name) const;
     // end: BgpConfigManager
 
-    void DefaultBgpRouterParams(autogen::BgpRouterParams &param);
+    void DefaultBgpRouterParams(autogen::BgpRouterParams *param);
     void OnChange();
 
     DB *database() { return db_; }
@@ -467,7 +481,6 @@ private:
 
     bool ConfigHandler();
 
-    static int config_task_id_;
     static const int kConfigTaskInstanceId;
 
     DB *db_;
@@ -482,4 +495,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapConfigManager);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_CONFIG_IFMAP_H_

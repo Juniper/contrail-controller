@@ -900,9 +900,8 @@ uint32_t StaticRouteMgr<T>::GetDownRouteCount() const {
     return count;
 }
 
-template <typename T>
-bool StaticRouteMgr<T>::FillStaticRouteInfo(RoutingInstance *ri,
-                                            StaticRouteEntriesInfo *info) const{
+template <typename T> bool StaticRouteMgr<T>::FillStaticRouteInfo(
+    RoutingInstance *ri, StaticRouteEntriesInfo *info) const {
     if (static_route_map_.empty())
         return false;
 

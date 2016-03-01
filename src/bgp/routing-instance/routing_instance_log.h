@@ -2,11 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#ifndef SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_LOG_H_
+#define SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_LOG_H_
+
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
+
+#include <string>
 
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
 
@@ -62,3 +67,5 @@ do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     ROUTING_INSTANCE_COLLECTOR_SEND(info);                                     \
 } while (false)
+
+#endif  // SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_LOG_H_

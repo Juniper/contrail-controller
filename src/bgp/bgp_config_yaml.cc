@@ -14,7 +14,7 @@ using boost::assign::map_list_of;
 
 // Container of per-instance data.
 class YamlInstanceData {
-  public:
+public:
     typedef BgpConfigManager::NeighborMap NeighborMap;
 
     explicit YamlInstanceData(const std::string &name) : protocol_(name) {
@@ -44,14 +44,14 @@ class YamlInstanceData {
 
     BgpProtocolConfig *GetProtocol() { return &protocol_; }
 
-  private:
+private:
     BgpProtocolConfig protocol_;
     NeighborMap neighbors_;
 };
 
 // Configuration data
 class BgpYamlConfigManager::Configuration {
-  public:
+public:
     typedef map<string, YamlInstanceData *> InstanceDataMap;
 
     Configuration() {
@@ -103,7 +103,8 @@ class BgpYamlConfigManager::Configuration {
     RoutingPolicyMap *RoutingPolicyMapMutable() {
         return &routing_policies_;
     }
-  private:
+
+private:
     BgpInstanceConfig *LocateInstance(const std::string &name) {
         InstanceMap::iterator loc = instances_.find(name);
         if (loc != instances_.end()) {
@@ -113,7 +114,6 @@ class BgpYamlConfigManager::Configuration {
                 instances_.insert(
                     make_pair(name, new BgpInstanceConfig(name)));
         return result.first->second;
-
     }
 
     BgpRoutingPolicyConfig *LocateRoutingPolicy(const std::string &name) {

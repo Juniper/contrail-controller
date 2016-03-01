@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <string>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
@@ -17,6 +18,7 @@ using std::auto_ptr;
 using std::make_pair;
 using std::map;
 using std::pair;
+using std::string;
 using std::swap;
 using std::vector;
 
@@ -428,7 +430,7 @@ public:
 
         return true;
     }
-    std::string Description() const { return "SchedulingGroup::Worker"; }
+    string Description() const { return "SchedulingGroup::Worker"; }
 
 private:
     SchedulingGroup *group_;
@@ -559,7 +561,8 @@ void SchedulingGroup::GetRibPeerList(RibOut *ribout, PeerList *plist) const {
 // Build the bitset of peers advertising at least one RibOut corresponding to
 // the RibState list.
 //
-void SchedulingGroup::GetSubsetPeers(const RibStateList &list, GroupPeerSet *pg) {
+void SchedulingGroup::GetSubsetPeers(const RibStateList &list,
+    GroupPeerSet *pg) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     pg->clear();

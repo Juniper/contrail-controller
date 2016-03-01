@@ -10,7 +10,9 @@
 
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
+#include <utility>
 
 #include "base/lifetime.h"
 #include "base/util.h"

@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef BGP__BGP_CONFIG_LISTENER__
-#define BGP__BGP_CONFIG_LISTENER__
+#ifndef SRC_BGP_BGP_CONFIG_LISTENER_H_
+#define SRC_BGP_BGP_CONFIG_LISTENER_H_
 
 #include "ifmap/ifmap_config_listener.h"
 
@@ -24,4 +24,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpConfigListener);
 };
 
-#endif  // BGP__BGP_CONFIG_LISTENER__
+#endif  // SRC_BGP_BGP_CONFIG_LISTENER_H_

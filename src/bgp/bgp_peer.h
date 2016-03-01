@@ -131,7 +131,7 @@ public:
     virtual BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
 
-    unsigned long PeerAddress() const { return peer_key_.Address(); }
+    unsigned long PeerAddress() const { return peer_key_.address(); }
     const std::string peer_address_string() const {
         return peer_key_.endpoint.address().to_string();
     }

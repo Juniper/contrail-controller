@@ -4,8 +4,9 @@
 
 #include "bgp/routing-instance/rtarget_group.h"
 
-#include <utility>
 #include <boost/foreach.hpp>
+
+#include <utility>
 
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"

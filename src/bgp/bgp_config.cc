@@ -12,9 +12,12 @@
 #include "base/util.h"
 
 using std::copy;
-using std::string;
+using std::endl;
 using std::ostringstream;
 using std::ostream_iterator;
+using std::string;
+using std::swap;
+using std::vector;
 
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
@@ -104,7 +107,7 @@ void AuthenticationData::Clear() {
     key_chain_.clear();
 }
 
-std::string AuthenticationData::KeyTypeToString() const {
+string AuthenticationData::KeyTypeToString() const {
     switch (key_type_) {
         case MD5:
             return "MD5";
@@ -113,7 +116,7 @@ std::string AuthenticationData::KeyTypeToString() const {
     }
 }
 
-std::string AuthenticationData::KeyTypeToString(KeyType key_type) {
+string AuthenticationData::KeyTypeToString(KeyType key_type) {
     switch (key_type) {
         case MD5:
             return "MD5";
@@ -122,9 +125,9 @@ std::string AuthenticationData::KeyTypeToString(KeyType key_type) {
     }
 }
 
-std::vector<std::string> AuthenticationData::KeysToString() const {
+vector<string> AuthenticationData::KeysToString() const {
     AuthenticationKeyChain::const_iterator iter;
-    std::vector<std::string> auth_keys;
+    vector<string> auth_keys;
     for (iter = key_chain_.begin(); iter != key_chain_.end(); ++iter) {
         AuthenticationKey key = *iter;
         auth_keys.push_back(integerToString(key.id));
@@ -133,9 +136,9 @@ std::vector<std::string> AuthenticationData::KeysToString() const {
 }
 
 // NOTE: This prints the actual key too. Use with care.
-std::vector<std::string> AuthenticationData::KeysToStringDetail() const {
+vector<string> AuthenticationData::KeysToStringDetail() const {
     AuthenticationKeyChain::const_iterator iter;
-    std::vector<std::string> auth_keys;
+    vector<string> auth_keys;
     for (iter = key_chain_.begin(); iter != key_chain_.end(); ++iter) {
         AuthenticationKey key = *iter;
         auth_keys.push_back(integerToString(key.id) + ":" + key.value);
@@ -200,8 +203,8 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
         BgpFamilyAttributesConfigCompare());
 }
 
-BgpNeighborConfig::AddressFamilyList BgpNeighborConfig::GetAddressFamilies(
-    ) const {
+BgpNeighborConfig::AddressFamilyList
+BgpNeighborConfig::GetAddressFamilies() const {
     BgpNeighborConfig::AddressFamilyList family_list;
     BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
         family_attributes_list_) {
@@ -210,24 +213,24 @@ BgpNeighborConfig::AddressFamilyList BgpNeighborConfig::GetAddressFamilies(
     return family_list;
 }
 
-std::string BgpNeighborConfig::AuthKeyTypeToString() const {
+string BgpNeighborConfig::AuthKeyTypeToString() const {
     return auth_data_.KeyTypeToString();
 }
 
 // Return the key's id concatenated with its type.
-std::vector<std::string> BgpNeighborConfig::AuthKeysToString() const {
+vector<string> BgpNeighborConfig::AuthKeysToString() const {
     return auth_data_.KeysToString();
 }
 
-BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
-        : instance_name_(instance_name),
-          admin_down_(false),
-          autonomous_system_(0), 
-          local_autonomous_system_(0),
-          identifier_(0), 
-          port_(0),
-          hold_time_(0),
-          last_change_at_(UTCTimestampUsec()) {
+BgpProtocolConfig::BgpProtocolConfig(const string &instance_name)
+    : instance_name_(instance_name),
+      admin_down_(false),
+      autonomous_system_(0),
+      local_autonomous_system_(0),
+      identifier_(0),
+      port_(0),
+      hold_time_(0),
+      last_change_at_(UTCTimestampUsec()) {
 }
 
 int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
@@ -240,13 +243,13 @@ int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
     return 0;
 }
 
-BgpInstanceConfig::BgpInstanceConfig(const std::string &name)
-        : name_(name),
-          has_pnf_(false),
-          virtual_network_index_(0), 
-          virtual_network_allow_transit_(false),
-          vxlan_id_(0),
-          last_change_at_(UTCTimestampUsec()) {
+BgpInstanceConfig::BgpInstanceConfig(const string &name)
+    : name_(name),
+      has_pnf_(false),
+      virtual_network_index_(0),
+      virtual_network_allow_transit_(false),
+      vxlan_id_(0),
+      last_change_at_(UTCTimestampUsec()) {
 }
 
 BgpInstanceConfig::~BgpInstanceConfig() {
@@ -279,9 +282,9 @@ void BgpInstanceConfig::swap_static_routes(Address::Family family,
     StaticRouteList *list) {
     assert(family == Address::INET || family == Address::INET6);
     if (family == Address::INET) {
-        std::swap(inet_static_routes_, *list);
+        swap(inet_static_routes_, *list);
     } else {
-        std::swap(inet6_static_routes_, *list);
+        swap(inet6_static_routes_, *list);
     }
 }
 
@@ -295,8 +298,8 @@ const ServiceChainConfig *BgpInstanceConfig::service_chain_info(
     return NULL;
 }
 
-const BgpInstanceConfig::AggregateRouteList &BgpInstanceConfig::aggregate_routes(
-                                              Address::Family family) const {
+const BgpInstanceConfig::AggregateRouteList &
+BgpInstanceConfig::aggregate_routes(Address::Family family) const {
     assert(family == Address::INET || family == Address::INET6);
     if (family == Address::INET) {
         return inet_aggregate_routes_;
@@ -309,13 +312,13 @@ void BgpInstanceConfig::swap_aggregate_routes(Address::Family family,
                                               AggregateRouteList *list) {
     assert(family == Address::INET || family == Address::INET6);
     if (family == Address::INET) {
-        std::swap(inet_aggregate_routes_, *list);
+        swap(inet_aggregate_routes_, *list);
     } else {
-        std::swap(inet6_aggregate_routes_, *list);
+        swap(inet6_aggregate_routes_, *list);
     }
 }
 
-BgpRoutingPolicyConfig::BgpRoutingPolicyConfig(const std::string &name)
+BgpRoutingPolicyConfig::BgpRoutingPolicyConfig(const string &name)
         : name_(name),
           last_change_at_(UTCTimestampUsec()) {
 }
@@ -327,9 +330,9 @@ void BgpRoutingPolicyConfig::Clear() {
     terms_.clear();
 }
 
-std::string RoutingPolicyMatchConfig::ToString() const {
+string RoutingPolicyMatchConfig::ToString() const {
     ostringstream oss;
-    oss << "from {" << std::endl;
+    oss << "from {" << endl;
     if (!protocols_match.empty()) {
         oss << "    protocol [ ";
         BOOST_FOREACH(const string &protocol, protocols_match) {
@@ -339,56 +342,56 @@ std::string RoutingPolicyMatchConfig::ToString() const {
         oss << " ]";
     }
     if (!community_match.empty()) {
-        oss << "    community " << community_match << std::endl;
+        oss << "    community " << community_match << endl;
     }
     if (!prefixes_to_match.empty()) {
         BOOST_FOREACH(const PrefixMatchConfig &match, prefixes_to_match) {
             oss << "    prefix " << match.prefix_to_match << " "
-                << match.prefix_match_type << std::endl;
+                << match.prefix_match_type << endl;
         }
     }
-    oss << "}" << std::endl;
+    oss << "}" << endl;
     return oss.str();
 }
 
 static void PutCommunityList(ostringstream &oss, const CommunityList &list) {
-    copy(list.begin(), list.end(), ostream_iterator<string>(oss,","));
+    copy(list.begin(), list.end(), ostream_iterator<string>(oss, ","));
     oss.seekp(-1, oss.cur);
 }
 
 string RoutingPolicyActionConfig::ToString() const {
     ostringstream oss;
-    oss << "then {" << std::endl;
+    oss << "then {" << endl;
     if (!update.community_set.empty()) {
         oss << "    community set [ ";
         PutCommunityList(oss, update.community_set);
-        oss << " ]" << std::endl;
+        oss << " ]" << endl;
     }
     if (!update.community_add.empty()) {
         oss << "    community add [ ";
         PutCommunityList(oss, update.community_add);
-        oss << " ]" << std::endl;
+        oss << " ]" << endl;
     }
     if (!update.community_remove.empty()) {
         oss << "    community remove [ ";
         PutCommunityList(oss, update.community_remove);
-        oss << " ]" << std::endl;
+        oss << " ]" << endl;
     }
     if (update.local_pref) {
-        oss << "    local-preference " << update.local_pref << std::endl;
+        oss << "    local-preference " << update.local_pref << endl;
     }
     if (update.med) {
-        oss << "    med " << update.med << std::endl;
+        oss << "    med " << update.med << endl;
     }
 
     if (action == ACCEPT) {
-        oss << "    accept" << std::endl;
+        oss << "    accept" << endl;
     } else if (action == REJECT) {
-        oss << "    reject" << std::endl;
+        oss << "    reject" << endl;
     } else if (action == NEXT_TERM) {
-        oss << "    next-term" << std::endl;
+        oss << "    next-term" << endl;
     }
-    oss << "}" << std::endl;
+    oss << "}" << endl;
     return oss.str();
 }
 

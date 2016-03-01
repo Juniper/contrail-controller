@@ -23,7 +23,7 @@ public:
     virtual ~BgpSessionManager();
 
     virtual TcpSession *CreateSession();
-    virtual bool Initialize(short port);
+    virtual bool Initialize(unsigned short port);
     void Shutdown();
     void Terminate();
     bool MayDelete() const;

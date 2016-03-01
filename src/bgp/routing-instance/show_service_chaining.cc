@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_show_handler.h"
-
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"

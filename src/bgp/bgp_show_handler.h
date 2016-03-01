@@ -2,13 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef BGP_BGP_SHOW_HANDLER_H__
-#define BGP_BGP_SHOW_HANDLER_H__
+#ifndef SRC_BGP_BGP_SHOW_HANDLER_H__
+#define SRC_BGP_BGP_SHOW_HANDLER_H__
+
+#include "bgp/bgp_sandesh.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
-#include "bgp/bgp_sandesh.h"
+
+#include <string>
+#include <vector>
 
 static char kIterSeparator[] = "||";
 
@@ -223,4 +227,4 @@ bool BgpShowHandler<ReqT, ReqIterateT, RespT, ShowT>::CallbackIterate(
     return true;
 }
 
-#endif  // BGP_BGP_SHOW_HANDLER_H__
+#endif  // SRC_BGP_BGP_SHOW_HANDLER_H__

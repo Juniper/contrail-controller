@@ -2,9 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <algorithm>
-
 #include <boost/bind.hpp>
+
+#include <algorithm>
 
 #include "base/string_util.h"
 #include "bgp/bgp_ribout.h"

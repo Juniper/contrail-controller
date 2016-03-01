@@ -48,7 +48,7 @@ do {                                                                           \
 
 class TableState::DeleteActor : public LifetimeActor {
 public:
-    DeleteActor(TableState *ts)
+    explicit DeleteActor(TableState *ts)
         : LifetimeActor(ts->replicator()->server()->lifetime_manager()),
           ts_(ts) {
     }
