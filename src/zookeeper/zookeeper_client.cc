@@ -3,8 +3,6 @@
 //
 
 #include <cerrno>
-#include <boost/uuid/random_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 #include <base/logging.h>
 
@@ -242,9 +240,7 @@ class ZookeeperLock::ZookeeperLockImpl {
         clientImpl_(clientImpl),
         path_(path),
         is_acquired_(false) {
-        // Generate unique ID for data
-        boost::uuids::uuid ruuid(rgen_());
-        id_ = clientImpl_->Name() + "-" + to_string(ruuid);
+        id_ = clientImpl_->Name();
     }
 
     std::string Id() const {
@@ -354,7 +350,6 @@ class ZookeeperLock::ZookeeperLockImpl {
     impl::ZookeeperClientImpl *clientImpl_;
     std::string path_;
     bool is_acquired_;
-    boost::uuids::random_generator rgen_;
     std::string id_;
 };
 
