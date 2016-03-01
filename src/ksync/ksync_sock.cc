@@ -53,6 +53,16 @@ tbb::atomic<bool> KSyncSock::shutdown_;
 const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] = 
                                                 {"Agent::KSync", "Agent::Uve"};
 
+static uint32_t IoVectorLength(KSyncBufferList *iovec) {
+    KSyncBufferList::iterator it = iovec->begin();
+    int offset = 0;
+    while (it != iovec->end()) {
+        offset +=  boost::asio::buffer_size(*it);
+        it++;
+    }
+    return offset;
+}
+
 // Copy data from io-vector to a buffer
 static uint32_t IoVectorToData(char *data, KSyncBufferList *iovec) {
     KSyncBufferList::iterator it = iovec->begin();
@@ -705,15 +715,19 @@ bool KSyncSockTcp::IsMoreData(char *data) {
 }
 
 size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
-    char msg[4096];
     ResetNetlink(nl_client_);
     int offset = nl_client_->cl_buf_offset;
     UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
     KSyncBufferList::iterator it = iovec->begin();
     iovec->insert(it, buffer((char *)nl_client_->cl_buf, offset));
-    uint32_t len = IoVectorToData(msg, iovec);
-    session_->Send((const uint8_t *)msg, len, NULL);
+
+    uint32_t alloc_len = IoVectorLength(iovec);
+    boost::scoped_array<char> msg(new char[alloc_len]());
+
+    uint32_t len = IoVectorToData(msg.get(), iovec);
+
+    session_->Send((const uint8_t *)(msg.get()), len, NULL);
     return nl_client_->cl_buf_offset;
 }
 
@@ -815,7 +829,6 @@ void KSyncSockTcp::OnSessionEvent(TcpSession *session,
     case TcpSession::CLOSE:
         LOG(ERROR, "Connection to dpdk-vrouter lost.");
         sleep(1);
-        exit(EXIT_FAILURE);
         break;
     case TcpSession::CONNECT_COMPLETE:
         connect_complete_ = true;
