@@ -123,6 +123,8 @@ public:
         // TODO, this is needed to ensure no two reader tasks on the
         // same session can run in parallel, use endpoint_.port()
         // return endpoint_.port();
+        //
+        // GR TODO: Use IP Address
         return 0;
     }
 
