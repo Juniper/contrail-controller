@@ -393,7 +393,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         vrouter_fq_name = ['default-global-system-config', host_id]
         try:
             vrouter_id = db_conn.fq_name_to_uuid('virtual-router', vrouter_fq_name)
-        except NoIdError:
+        except cfgm_common.exceptions.NoIdError:
             return
 
         #if virtual_machine_refs is an empty list delete vrouter link
