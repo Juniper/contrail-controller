@@ -597,14 +597,17 @@ void KSyncFlowIndexEntry::IndexFailedSm(KSyncFlowIndexManager *manager,
                 AcquireIndex(manager, flow, flow->flow_handle());
                 state_ = INDEX_SET;
             }
+            KSyncAddChange(manager, flow);
         } else {
             state_ = INDEX_UNASSIGNED;
-            if (delete_in_progress_) {
-                // add will be trigger on KSYNC_FREE
-                break;
+            if (!delete_in_progress_) {
+                // Delete is not done trigger delete for ksync entry
+                // with -1 to allow an add of same entry instead of
+                // change
+                KSyncDelete(manager, flow);
             }
+            // add will be trigger on KSYNC_FREE
         }
-        KSyncAddChange(manager, flow);
         break;
 
     case DELETE:
