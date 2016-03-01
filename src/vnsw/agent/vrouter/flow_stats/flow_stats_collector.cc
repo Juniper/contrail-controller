@@ -371,6 +371,11 @@ bool FlowStatsCollector::Run() {
         if (info->delete_enqueued()) {
             continue;
         }
+
+        if (info->is_flags_set(FlowEntry::BgpRouterService)) {
+            continue;
+        }
+
         deleted = false;
 
         flow_iteration_key_ = it->first;
