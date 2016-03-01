@@ -259,6 +259,7 @@ class ZookeeperClient(object):
         self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
         self._lost_cb = None
+        self._suspend_cb = None
 
         self.connect()
     # end __init__
@@ -307,6 +308,12 @@ class ZookeeperClient(object):
         self._lost_cb = lost_cb
     # end set_lost_cb
 
+    def set_suspend_cb(self, suspend_cb=None):
+        # set a callback to be called when kazoo state is suspend
+        # set to None for default action
+        self._suspend_cb = suspend_cb
+    # end set_suspend_cb
+
     def _zk_listener(self, state):
         if state == KazooState.CONNECTED:
             if self._election:
@@ -327,6 +334,8 @@ class ZookeeperClient(object):
             # Update connection info
             self._sandesh_connection_info_update(status='INIT',
                 message = 'Connection to zookeeper lost. Retrying')
+            if self._suspend_cb:
+                self._suspend_cb()
 
     # end
 
@@ -376,6 +385,14 @@ class ZookeeperClient(object):
         except Exception:
             return []
     # end read_node
+
+    def exists(self, path):
+        try:
+            retry = self._retry.copy()
+            return retry(self._zk_client.exists, path)
+        except Exception:
+            return []
+    # end exists
 
     def _sandesh_connection_info_update(self, status, message):
         from pysandesh.connection_info import ConnectionState
