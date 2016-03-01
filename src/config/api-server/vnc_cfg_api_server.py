@@ -74,7 +74,7 @@ from provision_defaults import Provision
 from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
-import gen.vnc_api_server_gen
+from gen.vnc_api_client_gen import all_resource_types
 import cfgm_common
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.rest import LinkObject, hdr_server_tenant
@@ -1055,7 +1055,7 @@ class VncApiServer(object):
 
     @classmethod
     def _generate_resource_crud_methods(cls, obj):
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+        for resource_type in all_resource_types:
             obj_type = resource_type.replace('-', '_')
             create_method = functools.partial(obj.http_resource_create,
                                               resource_type)
@@ -1099,7 +1099,7 @@ class VncApiServer(object):
 
     @classmethod
     def _generate_resource_crud_uri(cls, obj):
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+        for resource_type in all_resource_types:
             # CRUD + list URIs of the form
             # obj.route('/virtual-network/<id>', 'GET', obj.virtual_network_http_get)
             # obj.route('/virtual-network/<id>', 'PUT', obj.virtual_network_http_put)
@@ -1133,7 +1133,7 @@ class VncApiServer(object):
         self._post_common = None
 
         self._resource_classes = {}
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+        for resource_type in all_resource_types:
             camel_name = cfgm_common.utils.CamelCase(resource_type)
             r_class_name = '%sServer' %(camel_name)
             common_class = cfgm_common.utils.str_to_class(camel_name, __name__)
@@ -1162,13 +1162,13 @@ class VncApiServer(object):
         links.append(LinkObject('root', self._base_url , '/config-root',
                                 'config-root'))
 
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+        for resource_type in all_resource_types:
             link = LinkObject('collection',
                            self._base_url , '/%ss' %(resource_type),
                            '%s' %(resource_type))
             links.append(link)
 
-        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+        for resource_type in all_resource_types:
             link = LinkObject('resource-base',
                            self._base_url , '/%s' %(resource_type),
                            '%s' %(resource_type))
