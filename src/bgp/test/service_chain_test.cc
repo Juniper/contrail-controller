@@ -618,18 +618,24 @@ protected:
         return dynamic_cast<BgpRoute *>(db_entry);
     }
 
-    BgpRoute *VerifyRouteExists(const string &instance, const string &prefix) {
-        TASK_UTIL_EXPECT_TRUE(RouteLookup(instance, prefix) != NULL);
+    bool CheckRouteExists(const string &instance, const string &prefix) {
+        task_util::TaskSchedulerLock lock;
         BgpRoute *rt = RouteLookup(instance, prefix);
-        if (rt == NULL) {
-            return NULL;
-        }
-        TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
-        return rt;
+        return (rt && rt->BestPath() != NULL);
+    }
+
+    void VerifyRouteExists(const string &instance, const string &prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckRouteExists(instance, prefix));
+    }
+
+    bool CheckRouteNoExists(const string &instance, const string &prefix) {
+        task_util::TaskSchedulerLock lock;
+        BgpRoute *rt = RouteLookup(instance, prefix);
+        return !rt;
     }
 
     void VerifyRouteNoExists(const string &instance, const string &prefix) {
-        TASK_UTIL_EXPECT_TRUE(RouteLookup(instance, prefix) == NULL);
+        TASK_UTIL_EXPECT_TRUE(CheckRouteNoExists(instance, prefix));
     }
 
     void VerifyRouteIsDeleted(const string &instance, const string &prefix) {
