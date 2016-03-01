@@ -334,7 +334,9 @@ void VNController::DeleteAgentXmppChannel(uint8_t idx) {
     }
     //Every delete of channel should delete flow of bgp-as-a-service,
     //which is using this CN.
-    xmpp_channel_down_cb_(idx);
+    if (xmpp_channel_down_cb_.empty() == false) {
+        xmpp_channel_down_cb_(idx);
+    }
 }
 
 //Trigger shutdown and cleanup of routes for the client
