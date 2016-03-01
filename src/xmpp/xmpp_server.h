@@ -71,7 +71,6 @@ public:
 
     XmppConnectionEndpoint *FindConnectionEndpoint(
             const std::string &endpoint_name);
-    XmppConnectionEndpoint *FindConnectionEndpoint(XmppServerConnection *conn);
     XmppConnectionEndpoint *LocateConnectionEndpoint(
         XmppServerConnection *connection, bool &created);
     void ReleaseConnectionEndpoint(XmppServerConnection *connection);
