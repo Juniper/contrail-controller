@@ -296,3 +296,91 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         response = json.loads(msg)
         failure = validate_assignment_count(response, 'In-use count after clients with min_instances 2')
         self.assertEqual(failure, False)
+
+    def test_load_balance_siul(self):
+        # publish 2 instances
+        tasks = []
+        service_type = 'SvcLoadBalance'
+        pubcount = 2
+        for i in range(pubcount):
+            client_type = 'test-discovery'
+            pub_id = 'test_discovery-%d' % i
+            pub_data = {service_type : '%s-%d' % (service_type, i)}
+            disc = client.DiscoveryClient(
+                        self._disc_server_ip, self._disc_server_port,
+                        client_type, pub_id)
+            task = disc.publish(service_type, pub_data)
+            tasks.append(task)
+
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), pubcount)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+
+        # multiple subscribers for 2 instances each
+        subcount = 20
+        service_count = 2
+        suburl = "/subscribe"
+        payload = {
+            'service'      : '%s' % service_type,
+            'instances'    : service_count,
+            'client-type'  : 'Vrouter-Agent',
+            'service-in-use-list' : {'publisher-id': ["test_discovery-0", 'test_discovery-1'] }
+        }
+        for i in range(subcount):
+            payload['client'] = "ut-client-%d" % i
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), service_count)
+
+        # validate both publishers are assigned fairly
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        failure = validate_assignment_count(response, 'In-use count after clients with service-in-use-list')
+        self.assertEqual(failure, False)
+
+        # start one more publisher
+        pub_id = 'test_discovery-2'
+        pub_data = {service_type : '%s-2' % service_type}
+        disc = client.DiscoveryClient(
+                    self._disc_server_ip, self._disc_server_port,
+                    client_type, pub_id)
+        task = disc.publish(service_type, pub_data)
+        tasks.append(task)
+        pubcount += 1
+
+        # verify new publisher is up
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), pubcount)
+        subs = sum([item['in_use'] for item in response['services']])
+        self.assertEqual(subs, subcount*service_count)
+
+        # verify newly added in-use count is 0
+        data = [item for item in response['services'] if item['service_id'] == '%s:%s' % (pub_id, service_type)]
+        entry = data[0]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(entry['in_use'], 0)
+
+        # Issue load-balance command
+        (code, msg) = self._http_post('/load-balance/%s' % service_type, '')
+        self.assertEqual(code, 200)
+
+        for i in range(subcount):
+            payload['client'] = "ut-client-%d" % i
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        print response
+        failure = validate_assignment_count(response, 'In-use count after LB command')
+        self.assertEqual(failure, False)
