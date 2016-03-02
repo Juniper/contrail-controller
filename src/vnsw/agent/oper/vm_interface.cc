@@ -2725,20 +2725,23 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change
                                            bool l2, bool old_layer2_forwarding,
                                            bool old_layer3_forwarding) {
     AllowedAddressPairSet::iterator it =
-       allowed_address_pair_list_.list_.begin();
+        allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
         if (prev->del_pending_) {
             prev->L2DeActivate(this);
             prev->DeActivate(this);
             allowed_address_pair_list_.list_.erase(prev);
+        }
+    }
+
+    for (it = allowed_address_pair_list_.list_.begin();
+         it != allowed_address_pair_list_.list_.end(); it++) {
+        if (l2) {
+            it->L2Activate(this, force_update, policy_change,
+                    old_layer2_forwarding, old_layer3_forwarding);
         } else {
-            if (l2) {
-                prev->L2Activate(this, force_update, policy_change,
-                                 old_layer2_forwarding, old_layer3_forwarding);
-            } else {
-                prev->Activate(this, force_update, policy_change);
-            }
+           it->Activate(this, force_update, policy_change);
         }
     }
 }
