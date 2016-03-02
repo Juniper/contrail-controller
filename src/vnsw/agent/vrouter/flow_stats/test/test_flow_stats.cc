@@ -39,6 +39,25 @@ public:
             type_specific_response_count_++;
         }
     }
+    void FlowAgeTimeSet(uint64_t age_time_secs) {
+        FlowAgeTimeReq *req = new FlowAgeTimeReq();
+        req->set_new_age_time(age_time_secs);
+        Sandesh::set_response_callback(
+            boost::bind(&FlowStatsTest::FlowAgeTimeResponse, this, _1));
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+    }
+    void FlowAgeTimeResponse(Sandesh *sandesh) {
+        response_count_++;
+        FlowAgeTimeResp *resp =
+            dynamic_cast<FlowAgeTimeResp *>(sandesh);
+        if (resp != NULL) {
+            type_specific_response_count_++;
+            age_resp_.set_new_age_time(resp->get_new_age_time());
+            age_resp_.set_new_tcp_age_time(resp->get_new_tcp_age_time());
+        }
+    }
     void FlowParamsGet() {
         FlowStatsCollectionParamsReq *req = new FlowStatsCollectionParamsReq();
         Sandesh::set_response_callback(
@@ -105,6 +124,7 @@ public:
     uint32_t num_entries_;
     Agent *agent_;
     FlowProto *flow_proto_;
+    FlowAgeTimeResp age_resp_;
 };
 
 TEST_F(FlowStatsTest, SandeshFlowParams) {
@@ -193,6 +213,47 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
     EXPECT_EQ(0U, flow_proto_->FlowCount());
     WAIT_FOR(1000, 1000, (col->Size() == 0));
     FlowTeardown();
+}
+
+TEST_F(FlowStatsTest, FlowAgeIntrospect_1) {
+    ClearCount();
+    FlowAgeTimeSet(100);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_EQ(100U, age_resp_.get_new_age_time());
+    EXPECT_EQ(100U, age_resp_.get_new_tcp_age_time());
+
+    //cleanup
+    ClearCount();
+    uint64_t default_age_time = FlowStatsCollector::FlowAgeTime/(1000 * 1000);
+    FlowAgeTimeSet(default_age_time);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
+}
+
+TEST_F(FlowStatsTest, FlowAgeIntrospect_2) {
+    ClearCount();
+    /* Mark TCP flow-stats-collector as user_configured */
+    FlowStatsCollector *tcp_col =
+        agent_->flow_stats_manager()->tcp_flow_stats_collector();
+    tcp_col->set_user_configured(true);
+    uint64_t old_age_time = tcp_col->flow_age_time_intvl_in_secs();
+    FlowAgeTimeSet(100);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    EXPECT_EQ(1U, type_specific_response_count_);
+
+    //Verify that age is updated only for default collector.
+    EXPECT_EQ(100U, age_resp_.get_new_age_time());
+    EXPECT_EQ(old_age_time, age_resp_.get_new_tcp_age_time());
+
+    //cleanup
+    ClearCount();
+    uint64_t default_age_time = FlowStatsCollector::FlowAgeTime/(1000 * 1000);
+    FlowAgeTimeSet(default_age_time);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
 }
 
 int main(int argc, char *argv[]) {

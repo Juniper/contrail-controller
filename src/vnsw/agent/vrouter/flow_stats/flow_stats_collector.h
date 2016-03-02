@@ -101,6 +101,8 @@ public:
     bool deleted() const {
         return deleted_;
     }
+    bool user_configured() const { return user_configured_; }
+    void set_user_configured(bool value) { user_configured_ = value; }
     const FlowAgingTableKey& flow_aging_key() const {
         return flow_aging_key_;
     }
@@ -194,6 +196,7 @@ private:
     FlowAgingTableKey flow_aging_key_;
     uint32_t instance_id_;
     FlowStatsManager *flow_stats_manager_;
+    bool user_configured_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 #endif //vnsw_agent_flow_stats_collector_h

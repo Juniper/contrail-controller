@@ -464,20 +464,31 @@ void FlowAgeTimeReq::HandleRequest() const {
 
     FlowStatsCollector *collector =
         agent->flow_stats_manager()->default_flow_stats_collector();
+    FlowStatsCollector *tcp_col =
+        agent->flow_stats_manager()->tcp_flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
-    if (collector == NULL) {
-        goto done;
-    }
-    resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());
+    if (collector) {
+        resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());
 
-    if (age_time && age_time != resp->get_old_age_time()) {
-        collector->UpdateFlowAgeTimeInSecs(age_time);
-        resp->set_new_age_time(age_time);
-    } else {
-        resp->set_new_age_time(resp->get_old_age_time());
+        if (age_time && age_time != resp->get_old_age_time()) {
+            collector->UpdateFlowAgeTimeInSecs(age_time);
+            resp->set_new_age_time(age_time);
+        } else {
+            resp->set_new_age_time(resp->get_old_age_time());
+        }
     }
-done:
+    if (tcp_col) {
+        resp->set_old_tcp_age_time(tcp_col->flow_age_time_intvl_in_secs());
+
+        if (age_time && age_time != resp->get_old_age_time() &&
+            !tcp_col->user_configured()) {
+            tcp_col->UpdateFlowAgeTimeInSecs(age_time);
+            resp->set_new_tcp_age_time(age_time);
+        } else {
+            resp->set_new_tcp_age_time(resp->get_old_tcp_age_time());
+        }
+    }
     resp->set_context(context());
     resp->set_more(false);
     resp->Response();
