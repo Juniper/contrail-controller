@@ -166,6 +166,66 @@ TEST_F(ZookeeperClientTest, ZooCreateNodeExists) {
     EXPECT_FALSE(cImpl->IsConnected());
 }
 
+TEST_F(ZookeeperClientTest, ZooCreateRecoverableError) {
+    ZookeeperMockInterface *zmi(new ZookeeperMockInterface);
+    EXPECT_CALL(*zmi, ZooSetDebugLevel(_));
+    impl::ZookeeperClientImpl *cImpl(
+        new impl::ZookeeperClientImpl("Test", "127.0.0.1:2181", zmi));
+    std::auto_ptr<ZookeeperClient> client(CreateClient(cImpl));
+    std::string zk_lock_name("/test-lock");
+    ZookeeperLock zk_lock(client.get(), zk_lock_name.c_str());
+    std::string zk_lock_id(GetLockId(zk_lock));
+    int zkh(0xdeadbeef);
+    zhandle_t *zk_handle = (zhandle_t *)(&zkh);
+    EXPECT_CALL(*zmi, ZookeeperInit(StrEq("127.0.0.1:2181"), _, _, _, _, _))
+        .WillOnce(Return(zk_handle));
+    EXPECT_CALL(*zmi, ZooState(zk_handle))
+        .WillOnce(Return(ZOO_CONNECTED_STATE));
+    EXPECT_CALL(*zmi, ZooCreate(zk_handle, StrEq(zk_lock_name),
+        StrEq(zk_lock_id), zk_lock_id.length(), _, _, _, _))
+        .WillOnce(Return(ZCONNECTIONLOSS))
+        .WillOnce(Return(ZOPERATIONTIMEOUT))
+        .WillOnce(Return(ZOK));
+    EXPECT_TRUE(zk_lock.Lock());
+    EXPECT_TRUE(cImpl->IsConnected());
+    EXPECT_CALL(*zmi, ZooDelete(zk_handle, StrEq(zk_lock_name), _))
+        .WillOnce(Return(ZOK));
+    EXPECT_CALL(*zmi, ZookeeperClose(zk_handle));
+    EXPECT_TRUE(zk_lock.Release());
+    EXPECT_FALSE(cImpl->IsConnected());
+}
+
+TEST_F(ZookeeperClientTest, ZooCreateUnrecoverableError) {
+    ZookeeperMockInterface *zmi(new ZookeeperMockInterface);
+    EXPECT_CALL(*zmi, ZooSetDebugLevel(_));
+    impl::ZookeeperClientImpl *cImpl(
+        new impl::ZookeeperClientImpl("Test", "127.0.0.1:2181", zmi));
+    std::auto_ptr<ZookeeperClient> client(CreateClient(cImpl));
+    std::string zk_lock_name("/test-lock");
+    ZookeeperLock zk_lock(client.get(), zk_lock_name.c_str());
+    std::string zk_lock_id(GetLockId(zk_lock));
+    int zkh(0xdeadbeef);
+    zhandle_t *zk_handle = (zhandle_t *)(&zkh);
+    EXPECT_CALL(*zmi, ZookeeperInit(StrEq("127.0.0.1:2181"), _, _, _, _, _))
+        .WillOnce(Return(zk_handle))
+        .WillOnce(Return(zk_handle));
+    EXPECT_CALL(*zmi, ZooState(zk_handle))
+        .WillOnce(Return(ZOO_CONNECTED_STATE))
+        .WillOnce(Return(ZOO_CONNECTED_STATE));
+    EXPECT_CALL(*zmi, ZooCreate(zk_handle, StrEq(zk_lock_name),
+        StrEq(zk_lock_id), zk_lock_id.length(), _, _, _, _))
+        .WillOnce(Return(ZINVALIDSTATE))
+        .WillOnce(Return(ZOK));
+    EXPECT_CALL(*zmi, ZookeeperClose(zk_handle));
+    EXPECT_TRUE(zk_lock.Lock());
+    EXPECT_TRUE(cImpl->IsConnected());
+    EXPECT_CALL(*zmi, ZooDelete(zk_handle, StrEq(zk_lock_name), _))
+        .WillOnce(Return(ZOK));
+    EXPECT_CALL(*zmi, ZookeeperClose(zk_handle));
+    EXPECT_TRUE(zk_lock.Release());
+    EXPECT_FALSE(cImpl->IsConnected());
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);
