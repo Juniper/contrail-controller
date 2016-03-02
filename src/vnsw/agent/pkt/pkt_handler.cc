@@ -159,6 +159,19 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         }
     }
 
+    // Look for DHCP packets if corresponding service is enabled
+    // Service processing over-rides ACL/Flow and forwarding configuration
+    if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
+        if (pkt_info->dport == DHCP_SERVER_PORT ||
+            pkt_info->sport == DHCP_CLIENT_PORT) {
+            return DHCP;
+        }
+        if (pkt_info->dport == DHCPV6_SERVER_PORT ||
+            pkt_info->sport == DHCPV6_CLIENT_PORT) {
+            return DHCPV6;
+        }
+    }
+
     // Compute L2/L3 forwarding mode for packet
     pkt_info->l3_forwarding = ComputeForwardingMode(pkt_info);
 
@@ -185,12 +198,9 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         return ARP;
     }
 
-    if (IsFlowPacket(pkt_info)) {
-        CalculatePort(pkt_info);
-    }
-
     // Packets needing flow
     if (IsFlowPacket(pkt_info)) {
+        CalculatePort(pkt_info);
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
             return FLOW;
@@ -201,24 +211,8 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         }
     }
 
-    // Handle ARP packet
-    if (pkt_type == PktType::ARP) {
-        return ARP;
-    }
-
-    // Look for DHCP and DNS packets if corresponding service is enabled
+    // Look for DNS packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow
-    if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
-        if (pkt_info->dport == DHCP_SERVER_PORT ||
-            pkt_info->sport == DHCP_CLIENT_PORT) {
-            return DHCP;
-        }
-        if (pkt_info->dport == DHCPV6_SERVER_PORT ||
-            pkt_info->sport == DHCPV6_CLIENT_PORT) {
-            return DHCPV6;
-        }
-    } 
-    
     if (intf->dns_enabled() && (pkt_type == PktType::UDP)) {
         if (pkt_info->dport == DNS_SERVER_PORT) {
             return DNS;
