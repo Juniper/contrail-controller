@@ -88,6 +88,10 @@ class FakeSystemManager(object):
     def create_column_family(self, *args, **kwargs):
         pass
 
+    def drop_keyspace(self, ks_name):
+        if name in self._keyspaces:
+            self._keyspaces.remove(name)
+
 class CassandraCFs(object):
     _all_cfs = {}
 
@@ -102,7 +106,12 @@ class CassandraCFs(object):
     # end get_cf
 
     @classmethod
-    def reset(cls):
+    def reset(cls, cf_list=None):
+        if cf_list:
+            for name in cf_list:
+                if name in cls._all_cfs:
+                    del cls._all_cfs[name]
+            return
         cls._all_cfs = {}
 # end CassandraCFs
 

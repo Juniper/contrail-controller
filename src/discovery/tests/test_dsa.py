@@ -68,6 +68,113 @@ def info_callback(info):
 
 class TestDsa(test_case.DsTestCase):
 
+    def test_bug_1548771(self):
+        dsa = DiscoveryServiceAssignment()
+        rule_entry = build_dsa_rule_entry('77.77.3.0/24,xmpp-server 77.77.0.0/16,contrail-vrouter-agent:0')
+        rule_uuid = uuid.uuid4()
+        dsa_rule1 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule1.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule1)
+
+        rule_entry = build_dsa_rule_entry('77.77.3.0/24,dns-server 77.77.3.11/32,contrail-vrouter-agent:0')
+        rule_uuid = uuid.uuid4()
+        dsa_rule2 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule2.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule2)
+
+        puburl = '/publish'
+        suburl = "/subscribe"
+
+        # publish 3 control nodes and dns servers
+        for service_type in ['xmpp-server', 'dns-server']:
+          for ipaddr in ["77.77.1.10", "77.77.2.10", "77.77.3.10"]:
+            payload = {
+                service_type: { "ip-addr" : ipaddr, "port" : "1111" },
+                'service-type' : '%s' % service_type,
+                'service-id' : '%s-%s' % (service_type, ipaddr),
+                'remote-addr': ipaddr,
+            }
+            (code, msg) = self._http_post(puburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+
+        # Verify all services are published.
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 6)
+
+        # verify all agents see only 1 xmpp-server (rule #1)
+        service_type = 'xmpp-server'
+        expectedpub_set = set(["xmpp-server-77.77.3.10"])
+        for ipaddr in ["77.77.1.11", "77.77.2.11", "77.77.3.11"]:
+            payload = {
+                'service'     : '%s' % service_type,
+                'client'      : '%s-%s' % (service_type, ipaddr),
+                'instances'   : 2,
+                'client-type' : 'contrail-vrouter-agent:0',
+                'remote-addr' : ipaddr,
+            }
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), 1)
+            receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+            self.assertEqual(expectedpub_set == receivedpub_set, True)
+
+        self._vnc_lib.dsa_rule_delete(id = dsa_rule1.get_uuid())
+        self._vnc_lib.dsa_rule_delete(id = dsa_rule2.get_uuid())
+
+    def test_bug_1540777(self):
+        dsa = DiscoveryServiceAssignment()
+
+        rule_entry = build_dsa_rule_entry('77.77.3.10/32,pulkit-pub 77.77.3.11/32,pulkit-sub')
+        rule_uuid = uuid.uuid4()
+        dsa_rule1 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule1.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule1)
+
+        rule_entry = build_dsa_rule_entry('77.77.2.10/32,pulkit-pub 77.77.3.11/32,pulkit-sub')
+        rule_uuid = uuid.uuid4()
+        dsa_rule2 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule2.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule2)
+
+        puburl = '/publish'
+        suburl = "/subscribe"
+        service_type = 'pulkit-pub'
+
+        # publish 3 control nodes - 2 subject to rules above
+        for ipaddr in ["77.77.1.10", "77.77.2.10", "77.77.3.10"]:
+            payload = {
+                service_type: { "ip-addr" : ipaddr, "port" : "1111" },
+                'service-type' : '%s' % service_type,
+                'service-id' : 'pulkit-pub-%s' % ipaddr,
+                'remote-addr': ipaddr,
+            }
+            (code, msg) = self._http_post(puburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+
+        payload = {
+            'service'     : '%s' % service_type,
+            'client'      : 'discovery-ut',
+            'instances'   : 3,
+            'client-type' : 'pulkit-sub',
+            'remote-addr' : '77.77.3.11',
+        }
+
+        # should see 2 publishers due to two rules
+        (code, msg) = self._http_post(suburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response[service_type]), 2)
+
+        expectedpub_set = set(["pulkit-pub-77.77.2.10", "pulkit-pub-77.77.3.10"])
+        receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+        self.assertEqual(expectedpub_set == receivedpub_set, True)
+
+        self._vnc_lib.dsa_rule_delete(id = dsa_rule1.get_uuid())
+        self._vnc_lib.dsa_rule_delete(id = dsa_rule2.get_uuid())
+
     def test_dsa_config(self):
         # Assign DC1 control nodes to DC1 agents
         rule_entry = build_dsa_rule_entry('1.1.1.0/24,Control-Node 1.1.1.0/24,Vrouter-Agent')
@@ -167,11 +274,9 @@ class TestDsa(test_case.DsTestCase):
         for svc in response[service_type]:
             self.assertEqual("DC2-CN" in svc['@publisher-id'], True)
 
-        """
-        Subscribe to IfmapServer from DC1, DC2 and DC3. There are no
-        assignment rules applicable to IfmapServer. Thus clients from
-        all DC should be able to subscribe to singtleton IfmapServer
-        """
+        # Subscribe to IfmapServer from DC1, DC2 and DC3. There are no
+        # assignment rules applicable to IfmapServer. Thus clients from
+        # all DC should be able to subscribe to singtleton IfmapServer
         service_type = 'IfmapServer'
         payload = {
             service_type: { "ip-addr" : "4.4.4.4", "port" : "4444" },
@@ -195,10 +300,8 @@ class TestDsa(test_case.DsTestCase):
             response = json.loads(msg)
             self.assertEqual(len(response[service_type]), 1)
 
-        """
-        Delete service assignment rule. 
-        Subs from any DC should see all DC1+DC2 services
-        """
+        # Delete service assignment rule.
+        # Subs from any DC should see all DC1+DC2 services
         self._vnc_lib.dsa_rule_delete(id = dsa_rule1.uuid)
         self._vnc_lib.dsa_rule_delete(id = dsa_rule2.uuid)
 
