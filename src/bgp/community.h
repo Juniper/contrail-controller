@@ -119,7 +119,7 @@ public:
     CommunityPtr AppendAndLocate(const Community *src,
                                  const std::vector<uint32_t> &value);
     CommunityPtr SetAndLocate(const Community *src,
-                                 const std::vector<uint32_t> &value);
+                              const std::vector<uint32_t> &value);
     CommunityPtr RemoveAndLocate(const Community *src,
                                  const std::vector<uint32_t> &value);
 

@@ -452,8 +452,9 @@ struct ShowBgpServiceChainConfig {
 
 struct ShowBgpStaticRouteConfig {
     1: string prefix;
-    2: list<string> targets;
     3: string nexthop;
+    4: list<string> communities;
+    2: list<string> targets;
 }
 
 struct ShowBgpInstanceRoutingPolicyConfig {
