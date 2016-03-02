@@ -142,7 +142,7 @@ public:
         event_(FLOW_HANDLE_UPDATE), flow_(NULL), pkt_info_(),
         db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
         flow_handle_(flow_handle), ksync_entry_(entry), ksync_event_(),
-        ksync_error_(0) {
+        ksync_error_(0), table_index_(0) {
     }
 
     FlowEvent(KSyncEntry *entry) :
