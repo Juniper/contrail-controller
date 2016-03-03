@@ -164,6 +164,8 @@ public:
                                       boost::asio::ip::tcp::endpoint ep);
     void DeleteSubscribeInUseServiceList(std::string serviceName,
                                          boost::asio::ip::tcp::endpoint ep);
+    void GetSubscribeInUseServiceList(std::string serviceName,
+        std::vector<boost::asio::ip::tcp::endpoint> *list);
     void Unsubscribe(std::string serviceName);
     DSSubscribeResponse *GetSubscribeResponse(std::string serviceName);
 

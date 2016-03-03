@@ -1224,6 +1224,16 @@ void DiscoveryServiceClient::DeleteSubscribeInUseServiceList(
     }
 }
 
+void DiscoveryServiceClient::GetSubscribeInUseServiceList(
+    std::string serviceName, std::vector<boost::asio::ip::basic_endpoint> *list) {
+
+    DSSubscribeResponse *resp = GetSubscribeResponse(serviceName); 
+    std::vector<boost::asio::ip::tcp::endpoint> list;
+    if (resp) {
+        list = resp->inuse_service_list_;
+    }
+}
+
 DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
                                              std::string serviceName) {
 

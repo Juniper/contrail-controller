@@ -407,6 +407,8 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
 
     //cleanup AgentXmppChannel
     DeleteAgentXmppChannel(idx);
+    //Trigger removal from service inuse list for discovery
+    agent_->controller_xmpp_channel(idx)->UpdateConnectionInfo(xmps::TIMEDOUT);
     agent_->reset_controller_xmpp_channel(idx);
 
     //cleanup AgentIfmapXmppChannel
