@@ -626,8 +626,7 @@ public:
         }
 
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
-            server_->NotifyConnectionEvent(parent_->ChannelMux(),
-                    xmps::NOT_READY);
+            parent_->ChannelMux()->HandleStateEvent(xmsm::IDLE);
         }
 
         if (parent_->logUVE()) {

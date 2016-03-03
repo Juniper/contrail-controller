@@ -22,6 +22,8 @@ public:
     XmppChannelMock() { }
     virtual ~XmppChannelMock() { }
     void Close() { }
+    void CloseComplete() { }
+    bool IsCloseInProgress() const { return false; }
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }

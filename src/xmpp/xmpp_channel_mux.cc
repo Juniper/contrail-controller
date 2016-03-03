@@ -13,14 +13,53 @@ using namespace std;
 using namespace xmsm;
 
 XmppChannelMux::XmppChannelMux(XmppConnection *connection) 
-    : connection_(connection), rx_message_trace_cb_(NULL) {
+    : connection_(connection), rx_message_trace_cb_(NULL), closing_count_(0) {
 }
 
 XmppChannelMux::~XmppChannelMux() {
 }
 
 void XmppChannelMux::Close() {
+    if (closing_count_)
+        return;
+    InitializeClosingCount();
     connection_->Clear();
+}
+
+// Track clients who close gracefully. At the moment, only BGP cares about this.
+void XmppChannelMux::InitializeClosingCount() {
+
+    BOOST_FOREACH(const ReceiveCbMap::value_type &value, rxmap_) {
+        switch (value.first) {
+
+        // Currently, Only BgpXmppChannel client cares about GR.
+        case xmps::BGP:
+            closing_count_++;
+            break;
+
+        case xmps::CONFIG:
+        case xmps::DNS:
+        case xmps::OTHER:
+            break;
+        }
+    }
+}
+
+// Check if the channel is being closed (Graceful Restart)
+bool XmppChannelMux::IsCloseInProgress() const {
+    return closing_count_ != 0;
+}
+
+// API for the clients to indicate GR Closure is complete
+void XmppChannelMux::CloseComplete() {
+    assert(closing_count_);
+    closing_count_--;
+    if (closing_count_)
+        return;
+
+    // Restart state machine.
+    if (connection() && connection()->state_machine())
+        connection()->state_machine()->Initialize();
 }
 
 xmps::PeerState XmppChannelMux::GetPeerState() const {
@@ -158,6 +197,8 @@ void XmppChannelMux::HandleStateEvent(xmsm::XmState state) {
     } else {
         // Event to create the peer on server
         XmppServer *server = static_cast<XmppServer *>(connection_->server());
+        if (st == xmps::NOT_READY)
+            InitializeClosingCount();
         server->NotifyConnectionEvent(this, st);
     }
 }

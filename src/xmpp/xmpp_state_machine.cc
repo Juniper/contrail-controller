@@ -1367,23 +1367,25 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     // check if older connection is under graceful-restart.
     if (endpoint && endpoint->connection()) {
         if (connection_ != endpoint->connection()) {
-            XmppStateMachine *sm = endpoint->connection()->state_machine();
-            xmsm::XmState state = sm->get_state();
+            XmppChannel *channel = endpoint->connection()->ChannelMux();
 
             // If GR is not supported, then close all new connections until old
             // one is completely deleted. Even if GR is supported, new 
             // connection cannot be accepted until old one is fully cleaned up.
-            //
-            // GR TODO: Use XmppConnection API to figure out if GR is complete.
-            if (!xmpp_server->IsPeerCloseGraceful() || state != xmsm::ACTIVE) {
+            bool ready = channel->GetPeerState() == xmps::READY;
+            if (!xmpp_server->IsPeerCloseGraceful() || ready ||
+                    channel->IsCloseInProgress()) {
 
                 // Bring down old session if it is still in ESTABLISHED state.
                 // This is the scenario in which old session's TCP did not learn
                 // the session down event, possibly due to compute cold reboot.
                 // In that case, trigger closure (and possibly GR) process for
                 // the old session.
-                if (state == xmsm::ESTABLISHED)
+                if (ready) {
+                    XmppStateMachine *sm =
+                        endpoint->connection()->state_machine();
                     sm->Enqueue(xmsm::EvTcpClose(sm->session()));
+                }
                 Enqueue(xmsm::EvTcpClose(session));
                 return false;
             }
