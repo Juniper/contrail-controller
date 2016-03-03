@@ -297,7 +297,7 @@ public:
 
     XmppConnectionEndpoint *conn_endpoint() { return conn_endpoint_; }
     void set_conn_endpoint(XmppConnectionEndpoint *conn_endpoint) {
-        conn_endpoint = conn_endpoint;
+        conn_endpoint_ = conn_endpoint;
     }
     void FillShowInfo(ShowXmppConnection *show_connection) const;
 

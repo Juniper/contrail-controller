@@ -513,6 +513,7 @@ XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
         if (!conn_endpoint->connection()) {
             created = true;
             conn_endpoint->set_connection(connection);
+            connection->set_conn_endpoint(conn_endpoint);
         }
         return conn_endpoint;
     }
@@ -534,15 +535,13 @@ XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
 // simply have called XmppConnectionEndpoint::reset_connection directly.
 //
 void XmppServer::ReleaseConnectionEndpoint(XmppServerConnection *connection) {
-    XmppConnectionEndpoint *conn_endpoint = connection->conn_endpoint();
-    if (!conn_endpoint)
-        conn_endpoint = FindConnectionEndpoint(connection->ToString());
-    if (!conn_endpoint)
-        return;
-
     tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
-    if (conn_endpoint->connection() == connection)
-        conn_endpoint->reset_connection();
+
+    if (!connection->conn_endpoint())
+        return;
+    assert(connection->conn_endpoint()->connection() == connection);
+    connection->conn_endpoint()->reset_connection();
+    connection->set_conn_endpoint(NULL);
 }
 
 void XmppServer::FillShowConnections(
