@@ -198,6 +198,7 @@ public:
     static const char *kPubSubNS;
 
     XmppDocumentMock(const std::string &hostname);
+    pugi::xml_document *AddEorMarker();
     pugi::xml_document *RouteAddXmlDoc(const std::string &network,
         const std::string &prefix,
         const NextHops &nexthops = NextHops(),
@@ -382,6 +383,7 @@ public:
 
     int RouteCount(const std::string &network) const;
     int RouteCount() const;
+    bool HasSubscribed(const std::string &network) const;
     int RouteNextHopCount(const std::string &network,
                           const std::string &prefix);
     const RouteEntry *RouteLookup(const std::string &network,
@@ -404,6 +406,7 @@ public:
         return inet6_route_mgr_->Lookup(network, prefix);
     }
 
+    void SendEorMarker();
     void AddRoute(const std::string &network, const std::string &prefix,
                   const std::string nexthop = "",
                   int local_pref = 0, int med = 0);
@@ -484,6 +487,8 @@ public:
 
     bool IsEstablished();
     bool IsSessionEstablished();
+    bool IsReady();
+    bool IsChannelReady();
     void ClearInstances();
 
     const std::string &hostname() const { return impl_->hostname(); }
@@ -491,6 +496,8 @@ public:
     const std::string ToString() const;
     void set_localaddr(const std::string &addr) { impl_->set_localaddr(addr); }
     XmppDocumentMock *GetXmlHandler() { return impl_.get(); }
+    void set_id (int id) { id_ = id; }
+    const int id() const { return id_; }
 
     XmppClient *client() { return client_; }
     void Delete();
@@ -502,6 +509,7 @@ public:
 
     enum RequestType {
         IS_ESTABLISHED,
+        IS_CHANNEL_READY,
     };
     struct Request {
         RequestType type;
@@ -545,6 +553,7 @@ private:
     tbb::interface5::condition_variable cond_var_;
 
     bool xmpp_auth_enabled_;
+    int id_;
 };
 
 typedef boost::shared_ptr<NetworkAgentMock> NetworkAgentMockPtr;

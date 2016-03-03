@@ -14,6 +14,7 @@
 #include "bgp/ipeer.h"
 
 class IPeerRib;
+class BgpNeighborResp;
 class BgpRoute;
 class BgpTable;
 
@@ -34,39 +35,55 @@ class BgpTable;
 //
 class PeerCloseManager {
 public:
-    static const int kDefaultGracefulRestartTime = 60;  // Seconds
+    enum State { NONE, STALE, GR_TIMER, SWEEP, DELETE };
+
+    static const int kDefaultGracefulRestartTimeMsecs = 60*1000;
 
     // thread: bgp::StateMachine
     explicit PeerCloseManager(IPeer *peer);
     virtual ~PeerCloseManager();
 
     IPeer *peer() { return peer_; }
-    bool IsConfigDeleted() const { return config_deleted_; }
-    void SetConfigDeleted(bool deleted) { config_deleted_ = deleted; }
 
     void Close();
-    bool StaleTimerCallback();
-    void CloseComplete(IPeer *ipeer, BgpTable *table, bool from_timer,
-                       bool gr_cancelled);
-    void SweepComplete(IPeer *ipeer, BgpTable *table);
-    int GetCloseTypeForTimerCallback(IPeerRib *peer_rib);
-    int GetActionAtStart(IPeerRib *peer_rib);
+    bool RestartTimerCallback();
+    void UnregisterPeerComplete(IPeer *ipeer, BgpTable *table);
+    int GetCloseAction(IPeerRib *peer_rib, State state);
     void ProcessRibIn(DBTablePartBase *root, BgpRoute *rt, BgpTable *table,
                       int action_mask);
     bool IsCloseInProgress();
+    void StartRestartTimer(int time);
+    void FillCloseInfo(BgpNeighborResp *resp);
+    const State state() const { return state_; }
+
+    struct Stats {
+        Stats() { memset(this, 0, sizeof(Stats)); }
+
+        uint64_t init;
+        uint64_t close;
+        uint64_t nested;
+        uint64_t deletes;
+        uint64_t stale;
+        uint64_t sweep;
+        uint64_t gr_timer;
+        uint64_t deleted_state_paths;
+        uint64_t deleted_paths;
+        uint64_t marked_state_paths;
+    };
+    const Stats &stats() const { return stats_; }
 
 private:
     friend class PeerCloseManagerTest;
 
-    virtual void StartStaleTimer();
+    void ProcessClosure();
+    void CloseComplete();
+    const std::string GetStateName(State state) const;
 
     IPeer *peer_;
-    bool close_in_progress_;
-    bool close_request_pending_;
-    bool config_deleted_;
     Timer *stale_timer_;
-    bool stale_timer_running_;
-    bool start_stale_timer_;
+    State state_;
+    bool close_again_;
+    Stats stats_;
     tbb::recursive_mutex mutex_;
 };
 
