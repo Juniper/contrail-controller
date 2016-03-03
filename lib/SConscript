@@ -16,7 +16,9 @@ subdirs = [
 (distname, version, _) = platform.dist()
 if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
     pass
-elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
+elif (distname == 'debian' or distname == 'raspbian') and LooseVersion(version) >= LooseVersion('8'):
+    pass
+elif (distname == 'centos' or distname == 'redhat') and LooseVersion(version) >= LooseVersion('7.0'):
     subdirs += [
         'gperftools',
         'log4cplus',
