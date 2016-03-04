@@ -77,10 +77,13 @@ private:
 
     void ProcessClosure();
     void CloseComplete();
+    bool ProcessSweepStateActions();
+    void TriggerSweepStateActions();
     const std::string GetStateName(State state) const;
 
     IPeer *peer_;
     Timer *stale_timer_;
+    Timer *sweep_timer_;
     State state_;
     bool close_again_;
     Stats stats_;

@@ -196,12 +196,9 @@ public:
             return;
 
         parent_->set_peer_closed(false);
-        XmppConnection *connection =
-            const_cast<XmppConnection *>(parent_->channel_->connection());
 
-        // Restart state machine.
-        if (connection && connection->state_machine())
-            connection->state_machine()->Initialize();
+        // Indicate to Channel that GR Closure is now complete
+        parent_->channel_->CloseComplete();
     }
 
     virtual void Delete() {
@@ -217,6 +214,7 @@ public:
     void Close() {
         if (parent_) {
             assert(parent_->peer_deleted());
+            assert(parent_->channel_->IsCloseInProgress());
             manager_->Close();
         }
     }

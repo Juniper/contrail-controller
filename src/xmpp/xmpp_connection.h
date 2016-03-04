@@ -123,6 +123,8 @@ public:
         // TODO, this is needed to ensure no two reader tasks on the
         // same session can run in parallel, use endpoint_.port()
         // return endpoint_.port();
+        //
+        // GR TODO: Use IP Address
         return 0;
     }
 
@@ -295,7 +297,7 @@ public:
 
     XmppConnectionEndpoint *conn_endpoint() { return conn_endpoint_; }
     void set_conn_endpoint(XmppConnectionEndpoint *conn_endpoint) {
-        conn_endpoint = conn_endpoint;
+        conn_endpoint_ = conn_endpoint;
     }
     void FillShowInfo(ShowXmppConnection *show_connection) const;
 
