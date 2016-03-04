@@ -237,6 +237,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "test_mode=1\n"
         "log_property_file=log4cplus.prop\n"
         "sandesh_send_rate_limit=5\n"
+        "xmpp_dns_auth_enable=1\n"
+        "xmpp_server_cert=/etc/server.pem\n"
+        "xmpp_server_key=/etc/server-privkey.pem\n"
+        "xmpp_ca_cert=/etc/ca-cert.pem\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -296,6 +300,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.xmpp_auth_enabled(), true);
+    EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
+    EXPECT_EQ(options_.xmpp_server_key(), "/etc/server-privkey.pem");
+    EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
     std::remove("./dns_options_test_config_file.conf");
 }
 
