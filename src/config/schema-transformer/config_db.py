@@ -804,8 +804,8 @@ class VirtualNetworkST(DBBaseST):
         static_route_entries = primary_ri.obj.get_static_route_entries(
             ) or StaticRouteEntriesType()
         for sr in static_route_entries.get_route() or []:
-            self.ip_routes[sr.prefix] = sr.next_hop
-    #end init_static_ip_routes
+            self.ip_routes[sr.prefix] = (sr.next_hop, sr.community)
+    # end init_static_ip_routes
 
     def update_static_ip_routes(self, new_ip_routes):
         primary_ri = self.get_primary_routing_instance()
@@ -816,8 +816,10 @@ class VirtualNetworkST(DBBaseST):
             return
 
         static_route_entries = StaticRouteEntriesType()
-        for prefix, next_hop_ip in new_ip_routes.items():
-            static_route = StaticRouteType(prefix=prefix, next_hop=next_hop_ip)
+        for prefix, nh_comm in new_ip_routes.items():
+            static_route = StaticRouteType(prefix=prefix,
+                                           next_hop=nh_comm[0],
+                                           community=nh_comm[1])
             static_route_entries.add_route(static_route)
 
         primary_ri.obj.set_static_route_entries(static_route_entries)
@@ -908,7 +910,9 @@ class VirtualNetworkST(DBBaseST):
                     self.delete_route(route.prefix)
                 # end
                 if route.next_hop_type == "ip-address":
-                    new_ip_map[route.prefix] = route.next_hop
+                    cattr = route.get_community_attributes()
+                    communities = cattr.community_attribute if cattr else None
+                    new_ip_map[route.prefix] = (route.next_hop, communities)
                 else:
                     self.add_route(route.prefix, route.next_hop)
             # end for route
