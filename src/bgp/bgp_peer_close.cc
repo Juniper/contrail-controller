@@ -25,15 +25,20 @@
 
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeer *peer) :
-        peer_(peer), stale_timer_(NULL), state_(NONE), close_again_(false) {
+        peer_(peer), stale_timer_(NULL), sweep_timer_(NULL), state_(NONE),
+        close_again_(false) {
     stats_.init++;
-    if (peer->server())
+    if (peer->server()) {
         stale_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
                                                  "Graceful Restart StaleTimer");
+        sweep_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
+                                                 "Graceful Restart SweepTimer");
+    }
 }
 
 PeerCloseManager::~PeerCloseManager() {
     TimerManager::DeleteTimer(stale_timer_);
+    TimerManager::DeleteTimer(sweep_timer_);
 }
 
 const std::string PeerCloseManager::GetStateName(State state) const {
@@ -149,7 +154,6 @@ void PeerCloseManager::ProcessClosure() {
             if (peer_->IsReady()) {
                 MOVE_TO_STATE(SWEEP);
                 stats_.sweep++;
-                peer_->peer_close()->GracefulRestartSweep();
             } else {
                 MOVE_TO_STATE(DELETE);
                 stats_.deletes++;
@@ -178,6 +182,7 @@ bool PeerCloseManager::IsCloseInProgress() {
 void PeerCloseManager::CloseComplete() {
     MOVE_TO_STATE(NONE);
     stale_timer_->Cancel();
+    sweep_timer_->Cancel();
     stats_.init++;
 
     // Nested closures trigger fresh GR
@@ -185,6 +190,22 @@ void PeerCloseManager::CloseComplete() {
         close_again_ = false;
         Close();
     }
+}
+
+bool PeerCloseManager::ProcessSweepStateActions() {
+    assert(state_ == SWEEP);
+
+    // Notify clients to trigger sweep as appropriate.
+    peer_->peer_close()->GracefulRestartSweep();
+    CloseComplete();
+    return false;
+}
+
+void PeerCloseManager::TriggerSweepStateActions() {
+    PEER_CLOSE_MANAGER_LOG("Sweep Timer started to fire right away");
+    sweep_timer_->Cancel();
+    sweep_timer_->Start(0,
+        boost::bind(&PeerCloseManager::ProcessSweepStateActions, this));
 }
 
 // Concurrency: Runs in the context of the BGP peer rib membership task.
@@ -216,8 +237,7 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         return;
     }
 
-    // Handle SWEEP state and restart GR for nested closures.
-    CloseComplete();
+    TriggerSweepStateActions();
 }
 
 // Get the type of RibIn close action at start (Not during graceful restart
@@ -278,7 +298,7 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
     if (action == MembershipRequest::INVALID)
         return;
 
-    bool delete_rt = false;
+    bool notify_rt = false;
 
     // Process all paths sourced from this peer_. Multiple paths could exist
     // in ecmp cases.
@@ -334,17 +354,13 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
         }
 
         // Feed the route modify/delete request to the table input process.
-        delete_rt = table->InputCommon(root, rt, path, peer_, NULL, oper,
-                                       attrs, path->GetPathId(),
-                                       path->GetFlags() | stale,
-                                       path->GetLabel());
+        notify_rt |= table->InputCommon(root, rt, path, peer_, NULL, oper,
+                                        attrs, path->GetPathId(),
+                                        path->GetFlags() | stale,
+                                        path->GetLabel());
     }
 
-    // rt can be now deleted safely.
-    if (delete_rt)
-        root->Delete(rt);
-
-    return;
+    table->InputCommonPostProcess(root, rt, notify_rt);
 }
 
 void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) {

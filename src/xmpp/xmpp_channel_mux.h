@@ -19,6 +19,8 @@ public:
     virtual ~XmppChannelMux();
 
     virtual void Close();
+    virtual bool IsCloseInProgress() const;
+    virtual void CloseComplete();
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb);
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);
@@ -64,6 +66,7 @@ protected:
 
 private:
     void RegisterWriteReady(xmps::PeerId, SendReadyCb);
+    void InitializeClosingCount();
 
     typedef std::map<xmps::PeerId, SendReadyCb> WriteReadyCbMap;
     typedef std::map<xmps::PeerId, ReceiveCb> ReceiveCbMap;
@@ -74,6 +77,7 @@ private:
     XmppConnection *connection_;
     tbb::mutex mutex_;
     RxMessageTraceCb rx_message_trace_cb_;
+    int closing_count_;
 };
 
 #endif // __XMPP_CHANNEL_MUX_H__

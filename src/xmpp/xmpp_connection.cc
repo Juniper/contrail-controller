@@ -626,8 +626,7 @@ public:
         }
 
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
-            server_->NotifyConnectionEvent(parent_->ChannelMux(),
-                    xmps::NOT_READY);
+            parent_->ChannelMux()->HandleStateEvent(xmsm::IDLE);
         }
 
         if (parent_->logUVE()) {
@@ -727,7 +726,7 @@ uint32_t XmppServerConnection::flap_count() const {
 void XmppServerConnection::increment_flap_count() {
     XmppConnectionEndpoint *conn_endpoint = conn_endpoint_;
     if (!conn_endpoint)
-        conn_endpoint = server()->FindConnectionEndpoint(this);
+        conn_endpoint = server()->FindConnectionEndpoint(ToString());
     if (!conn_endpoint)
         return;
     conn_endpoint->increment_flap_count();
