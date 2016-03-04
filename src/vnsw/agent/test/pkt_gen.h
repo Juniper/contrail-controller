@@ -9,6 +9,7 @@
 #include <netinet/ip.h>
 #include <net/ethernet.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/icmp6.h>
 
 #include <pkt/pkt_handler.h>
 #include <vr_interface.h>
@@ -350,6 +351,13 @@ public:
         icmp->icmp_type = 0;
         icmp->icmp_id = 0;
         len += sizeof(struct icmp) + len;
+    };
+
+    void AddIcmp6Hdr(uint8_t type=ICMP6_ECHO_REQUEST) {
+        struct icmp6_hdr *icmp = (struct icmp6_hdr *)(buff + len);
+        icmp->icmp6_type = type;
+        icmp->icmp6_code = 0;
+        len += sizeof(struct icmp6_hdr) + len;
     };
 
     void AddGreHdr(uint16_t proto) {
