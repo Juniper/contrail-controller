@@ -1316,33 +1316,42 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.route_table_create(rt)
         vn1.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn1)
+        comm_attr = CommunityAttributes(community_attribute=['1:1'])
         routes = RouteTableType()
         route = RouteType(prefix="1.1.1.1/0",
-                          next_hop="10.10.10.10", next_hop_type="ip-address")
+                          next_hop="10.10.10.10", next_hop_type="ip-address",
+                          community_attributes=comm_attr)
         routes.add_route(route)
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
         @retries(5)
-        def _match_route_table(vn, prefix, next_hop, should_present=True):
+        def _match_route_table(vn, prefix, next_hop, communities,
+                               should_be_present=True):
             ri = self._vnc_lib.routing_instance_read(
                 fq_name=self.get_ri_name(vn))
             sr_list = ri.get_static_route_entries()
             if sr_list is None:
-                if should_present:
+                if should_be_present:
                     raise Exception("sr is None")
                 else:
                     return
             found = False
             for sr in sr_list.get_route() or []:
-                if sr.prefix == prefix and sr.next_hop == next_hop:
+                if (sr.prefix == prefix and sr.next_hop == next_hop and
+                    sr.community == communities):
                     found = True
                     break
-            if found != should_present:
+            if found != should_be_present:
                 raise Exception("route " + prefix + "" + next_hop + "not found")
             return
 
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10")
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1'])
+
+        route.community_attributes.community_attribute.append('1:2')
+        rt.set_routes(routes)
+        self._vnc_lib.route_table_update(rt)
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
 
         route = RouteType(prefix="2.2.2.2/0",
                           next_hop="20.20.20.20", next_hop_type="ip-address")
@@ -1350,24 +1359,24 @@ class TestPolicy(test_case.STTestCase):
         rt.set_routes(routes)
 
         self._vnc_lib.route_table_update(rt)
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10")
-        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20")
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", [])
 
         vn2.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn2)
 
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10")
-        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20")
-        _match_route_table(vn2, "1.1.1.1/0", "10.10.10.10")
-        _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20")
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", [])
+        _match_route_table(vn2, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
+        _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20", [])
 
         # delete second route and check vn ri sr entries
         routes.delete_route(route)
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
-        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", False)
-        _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20", False)
+        _match_route_table(vn1, "2.2.2.2/0", "20.20.20.20", [], False)
+        _match_route_table(vn2, "2.2.2.2/0", "20.20.20.20", [], False)
 
         @retries(5)
         def _match_route_table_cleanup(vn):
@@ -1379,14 +1388,14 @@ class TestPolicy(test_case.STTestCase):
 
         vn2.del_route_table(rt)
         self._vnc_lib.virtual_network_update(vn2)
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10")
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1', '1:2'])
         _match_route_table_cleanup(vn2)
 
         # delete first route and check vn ri sr entries
         rt.set_routes(None)
         self._vnc_lib.route_table_update(rt)
 
-        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", False)
+        _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", [], False)
 
         vn1.del_route_table(rt)
         self._vnc_lib.virtual_network_update(vn1)
