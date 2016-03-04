@@ -1213,6 +1213,8 @@ class VncApiServer(object):
             vnc_cfg_types.LogicalInterfaceServer)
         self.set_resource_class('physical-interface',
             vnc_cfg_types.PhysicalInterfaceServer)
+        self.set_resource_class('route-table',
+            vnc_cfg_types.RouteTableServer)
 
         self.set_resource_class('virtual-ip', vnc_cfg_types.VirtualIpServer)
         self.set_resource_class('loadbalancer-healthmonitor',
