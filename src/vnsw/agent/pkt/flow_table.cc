@@ -133,7 +133,7 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
     }
 }
 
-void FlowTable::Copy(FlowEntry *lhs, const FlowEntry *rhs, bool update) {
+void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
     DeleteFlowInfo(lhs);
     if (rhs)
         lhs->Copy(rhs, update);

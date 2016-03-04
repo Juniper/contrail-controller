@@ -1502,11 +1502,13 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
     }
 
     bool limit_exceeded = false;
-    if (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows())) {
+    if (agent->max_vm_flows() &&
+        (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;
     }
 
-    if (out->vm_ && ((out->vm_->flow_count() + 2) > agent->max_vm_flows())) {
+    if (agent->max_vm_flows() &&
+        (out->vm_ && ((out->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;
     }
 
@@ -1526,9 +1528,13 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
         limit_exceeded = true;
     }
 
-    if (in->vm_ && in->vm_->linklocal_flow_count() >=
-        agent->params()->linklocal_vm_flows()) {
-        limit_exceeded = true;
+    // Check per-vm linklocal flow-limits if specified
+    if ((agent->params()->linklocal_vm_flows() !=
+         agent->params()->linklocal_system_flows())) {
+        if (in->vm_ && in->vm_->linklocal_flow_count() >=
+            agent->params()->linklocal_vm_flows()) {
+            limit_exceeded = true;
+        }
     }
 
     if (limit_exceeded) {
@@ -1556,7 +1562,7 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
     if (short_flow)
         return;
 
-    if (flow->in_vm_flow_ref()->AllocateFd(agent, flow, pkt->ip_proto) == false) {
+    if (flow->in_vm_flow_ref()->AllocateFd(agent, pkt->ip_proto) == false) {
         // Could not allocate FD. Make it short flow
         agent->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
