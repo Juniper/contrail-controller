@@ -68,6 +68,7 @@ setup(
             'contrail-flows = opserver.flow:main',
             'contrail-logs-api-audit = opserver.api_log:main',
             'contrail-db = opserver.db:main',
+            'contrail-alarm-notify = opserver.alarm_notify:main'
         ],
     },
     cmdclass={
