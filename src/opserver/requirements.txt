@@ -6,4 +6,4 @@ xmltodict
 prettytable
 psutil>=0.6.0
 bottle==0.12.8
-
+sseclient
