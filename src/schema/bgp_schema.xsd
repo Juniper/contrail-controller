@@ -106,6 +106,17 @@
 </xsd:simpleType>
 
 <xsd:complexType name='BgpRouterParams'>
+    <xsd:annotation>
+        <xsd:documentation>
+            The gateway-address and ipv6-gateway-addreess fields are used only
+            for router-type bgpaas-client. They hold the ipv4 and ipv6 gateway
+            address for the ipv4 and ipv6 subnets from which the client has IP
+            addresses. The values are used as nexthops when advertising routes
+            to the client via bgp.
+            Note that the ipv6-gateway-address can be a regular ipv6 address or
+            a ipv4-mapped-ipv6 adddress.
+        </xsd:documentation>
+    </xsd:annotation>
     <xsd:element name="admin-down" type="xsd:boolean" default="false"/>
     <xsd:element name='vendor' type='xsd:string'/>
     <xsd:element name='autonomous-system' type='xsd:integer'/>
@@ -118,6 +129,8 @@
     <xsd:element name='auth-data' type='AuthenticationData'/>
     <xsd:element name='local-autonomous-system' type='xsd:integer'/>
     <xsd:element name='router-type' type='BgpRouterType'/>
+    <xsd:element name='gateway-address' type='smi:IpAddress'/>
+    <xsd:element name='ipv6-gateway-address' type='smi:IpAddress'/>
 </xsd:complexType>
 
 <xsd:element name='instance-bgp-router'/>

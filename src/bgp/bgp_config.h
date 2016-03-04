@@ -183,6 +183,9 @@ public:
         return Ip4Address(ntohl(identifier_)).to_string();
     }
 
+    const IpAddress &gateway_address(Address::Family family) const;
+    void set_gateway_address(Address::Family family, const IpAddress &address);
+
     uint16_t port() const { return port_; }
     void set_port(uint16_t port) { port_ = port; }
 
@@ -252,6 +255,8 @@ private:
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
+    IpAddress inet_gateway_address_;
+    IpAddress inet6_gateway_address_;
     uint16_t port_;
     uint16_t source_port_;
     TcpSession::Endpoint remote_endpoint_;
