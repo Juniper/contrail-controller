@@ -348,6 +348,39 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
+    def test_route_table_prefixes(self):
+        rt = RouteTable("rt1")
+        routes = RouteTableType()
+        route1 = RouteType(prefix="1.1.1.1/0", next_hop="10.10.10.10", next_hop_type="ip-address")
+        route2 = RouteType(prefix="1.1.1.1/0", next_hop="20.20.20.20", next_hop_type="ip-address")
+        routes.add_route(route1)
+        routes.add_route(route2)
+        rt.set_routes(routes)
+        try:
+            self._vnc_lib.route_table_create(rt)
+            self.assertTrue(False, 'Create succeeded unexpectedly - duplicate prefixe routes')
+        except cfgm_common.exceptions.RefsExistError as e:
+            pass
+
+        routes.delete_route(route2)
+        route2 = RouteType(prefix="1.1.1.2/0", next_hop="20.20.20.20", next_hop_type="ip-address")
+        routes.add_route(route2)
+        rt.set_routes(routes)
+        try:
+            self._vnc_lib.route_table_create(rt)
+        except:
+            self.assertTrue(False, 'Create failed')
+
+        routes.delete_route(route2)
+        route2 = RouteType(prefix="1.1.1.1/0", next_hop="20.20.20.20", next_hop_type="ip-address")
+        routes.add_route(route2)
+        rt.set_routes(routes)
+        try:
+            self._vnc_lib.route_table_update(rt)
+            self.assertTrue(False, 'Update succeeded unexpectedly - duplicate prefixe routes')
+        except cfgm_common.exceptions.RefsExistError as e:
+            pass
+    #end test_route_table_prefixes
 
 #end 
 
