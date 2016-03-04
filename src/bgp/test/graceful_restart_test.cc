@@ -692,7 +692,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
     for (int f = 0; f < flipping_count; f++) {
         BOOST_FOREACH(AgentTestParams agent_test_param, n_flipping_agents) {
             test::NetworkAgentMock *agent = agent_test_param.agent;
-            TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+            TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
             agent->SessionUp();
             WaitForAgentToBeEstablished(agent);
         }
@@ -745,7 +745,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
             XmppStateMachineTest::set_skip_tcp_event(
                     agent_test_param.skip_tcp_event);
             agent->SessionDown();
-            TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+            TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
             TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                                 XmppStateMachineTest::get_skip_tcp_event());
             for (size_t i = 0; i < agent_test_param.instance_ids.size(); i++) {
@@ -787,8 +787,8 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                     const_cast<XmppStateMachine *>(sm)->HoldTimerExpired();
                     TASK_UTIL_EXPECT_EQ(stale + 1, pc->stats().stale);
                 }
-                TASK_UTIL_EXPECT_EQ(false, xmpp_peers_[
-                                               agent->id()]->Peer()->IsReady());
+                TASK_UTIL_EXPECT_FALSE(
+                    xmpp_peers_[agent->id()]->Peer()->IsReady());
                 TASK_UTIL_EXPECT_EQ(PeerCloseManager::GR_TIMER, pc->state());
             }
             CallStaleTimer(xmpp_peers_[agent->id()]);
@@ -822,7 +822,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
         WaitForAgentToBeEstablished(agent);
         agent->SessionDown();
-        TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         total_routes -= remaining_instances * n_routes_;
     }
 
@@ -847,7 +847,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                 agent_test_param.skip_tcp_event);
         agent->SessionDown();
         dont_unsubscribe.push_back(agent);
-        TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                             XmppStateMachineTest::get_skip_tcp_event());
         total_routes -= remaining_instances * n_routes_;
@@ -861,7 +861,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                 agent_test_param.skip_tcp_event);
         agent->SessionDown();
         dont_unsubscribe.push_back(agent);
-        TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                             XmppStateMachineTest::get_skip_tcp_event());
         total_routes -= remaining_instances * n_routes_;
@@ -881,7 +881,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     BOOST_FOREACH(AgentTestParams agent_test_param, n_flipped_agents) {
         test::NetworkAgentMock *agent = agent_test_param.agent;
-        TASK_UTIL_EXPECT_EQ(false, agent->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         agent->SessionUp();
         WaitForAgentToBeEstablished(agent);
     }
