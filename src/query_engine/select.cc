@@ -443,7 +443,12 @@ query_status_t SelectQuery::process_query() {
 
             //uint64_t thenj = UTCTimestampUsec();
             rapidjson::Document d;
-            d.Parse<0>(const_cast<char *>(json_string.c_str()));
+            if (d.Parse<0>(const_cast<char *>(
+                    json_string.c_str())).HasParseError()) {
+                QE_LOG(ERROR, "Error parsing json document: " <<
+                       d.GetParseError() << " - " << json_string);
+                continue;
+            }
             //jsont += UTCTimestampUsec() - thenj;
 
             std::vector<StatsSelect::StatEntry> attribs;
