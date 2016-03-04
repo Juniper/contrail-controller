@@ -1669,8 +1669,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:annotation>
         <xsd:documentation>
           List of Community attributes
-          This list indicates the attributes with which routes are tagged while 
-          publishing. The attributes will be represented as bgp community in 
+          This list indicates the attributes with which routes are tagged while
+          publishing. The attributes will be represented as bgp community in
           the path attribute. Each attribute is indicated as string
             1. String with two integer seperated by  ':'. E.g. "64512:123"
             2. Wellknown community as string.  Possible values are
