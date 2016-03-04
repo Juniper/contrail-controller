@@ -3,17 +3,19 @@ import sys
 
 from haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
-    UveLoadbalancerTrace, UveLoadbalancer, UveLoadbalancerStats  
+    UveLoadbalancerTrace, UveLoadbalancer, UveLoadbalancerStats
 
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
 class LoadbalancerStats(object):
     def __init__(self):
-       self.driver = HaproxyStats()
-       try:
-           self.old_pool_uuids = os.listdir(LB_BASE_DIR)
-       except OSError:
-           self.old_pool_uuids = []
+        self.driver = HaproxyStats()
+        try:
+            haproxy_files = os.listdir(LB_BASE_DIR)
+            self.old_pool_uuids = [f.split('.')[0] for f in haproxy_files \
+                                   if f.endswith('conf')]
+        except OSError:
+            self.old_pool_uuids = []
 
     def _uve_get_stats(self, stats):
         obj_stats = UveLoadbalancerStats()
@@ -44,7 +46,9 @@ class LoadbalancerStats(object):
 
     def _send_loadbalancer_uve(self):
         try:
-            pool_uuids = os.listdir(LB_BASE_DIR)
+            haproxy_files = os.listdir(LB_BASE_DIR)
+            pool_uuids = [f.split('.')[0] for f in haproxy_files \
+                          if f.endswith('conf')]
         except OSError:
             return
 
