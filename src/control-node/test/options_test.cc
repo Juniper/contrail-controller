@@ -216,6 +216,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_local=false\n"
         "test_mode=0\n"
         "xmpp_auth_enable=true\n"
+        "xmpp_server_cert=/etc/contrail/ssl/certs/server.pem\n"
+        "xmpp_server_key=/etc/contrail/ssl/certs/server-privkey.pem\n"
+        "xmpp_ca_cert=/etc/contrail/ssl/certs/ca-cert.pem"
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
@@ -273,6 +276,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
+    EXPECT_EQ(options_.xmpp_server_cert(), "/etc/contrail/ssl/certs/server.pem");
+    EXPECT_EQ(options_.xmpp_server_key(), "/etc/contrail/ssl/certs/server-privkey.pem");
+    EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/contrail/ssl/certs/ca-cert.pem");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
