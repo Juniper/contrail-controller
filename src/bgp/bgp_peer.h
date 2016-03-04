@@ -2,14 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_PEER_H__
-#define __BGP_PEER_H__
+#ifndef SRC_BGP_BGP_PEER_H__
+#define SRC_BGP_BGP_PEER_H__
 
-#include <set>
-#include <memory>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <tbb/spin_mutex.h>
+
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
 
 #include "base/lifetime.h"
 #include "base/util.h"
@@ -131,7 +134,7 @@ public:
     virtual BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
 
-    unsigned long PeerAddress() const { return peer_key_.address(); }
+    uint32_t PeerAddress() const { return peer_key_.address(); }
     const std::string peer_address_string() const {
         return peer_key_.endpoint.address().to_string();
     }
@@ -209,7 +212,7 @@ public:
 
     void increment_flap_count();
     void reset_flap_count();
-    uint64_t flap_count() const { return flap_count_; };
+    uint64_t flap_count() const { return flap_count_; }
 
     std::string last_flap_at() const;
 
@@ -302,7 +305,7 @@ private:
     virtual void StartKeepaliveTimerUnlocked();
     void StopKeepaliveTimerUnlocked();
     bool KeepaliveTimerExpired();
- 
+
     void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
     void SendEndOfRIB(Address::Family family);
     void StartEndOfRibTimer();
@@ -413,4 +416,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_PEER_H__
