@@ -49,6 +49,7 @@ struct BgpPeerFamilyAttributes {
         const BgpFamilyAttributesConfig &family_config);
     uint8_t loop_count;
     uint32_t prefix_limit;
+    IpAddress gateway_address;
 };
 
 //
@@ -60,6 +61,7 @@ struct BgpPeerFamilyAttributesCompare {
         if (lhs && rhs) {
             KEY_COMPARE(lhs->loop_count, rhs->loop_count);
             KEY_COMPARE(lhs->prefix_limit, rhs->prefix_limit);
+            KEY_COMPARE(lhs->gateway_address, rhs->gateway_address);
         } else {
             KEY_COMPARE(lhs, rhs);
         }
@@ -141,6 +143,7 @@ public:
     const BgpPeerKey &peer_key() const { return peer_key_; }
     uint16_t peer_port() const { return peer_port_; }
     std::string transport_address_string() const;
+    std::string gateway_address_string(Address::Family family) const;
     const std::string &peer_name() const { return peer_name_; }
     const std::string &peer_basename() const { return peer_basename_; }
     std::string router_type() const { return router_type_; }
@@ -344,7 +347,6 @@ private:
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
     BgpServer *server_;
-    // Backpointer to routing instance
     RoutingInstance *rtinstance_;
     TcpSession::Endpoint endpoint_;
     BgpPeerKey peer_key_;

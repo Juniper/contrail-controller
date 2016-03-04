@@ -118,6 +118,8 @@
     <xsd:element name='auth-data' type='AuthenticationData'/>
     <xsd:element name='local-autonomous-system' type='xsd:integer'/>
     <xsd:element name='router-type' type='BgpRouterType'/>
+    <xsd:element name='gateway-address' type='smi:IpAddress'/>
+    <xsd:element name='ipv6-gateway-address' type='smi:IpAddress'/>
 </xsd:complexType>
 
 <xsd:element name='instance-bgp-router'/>

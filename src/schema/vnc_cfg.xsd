@@ -1414,6 +1414,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="bgpaas-session-attributes" type="BgpSessionAttributes"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgpaas-session-attributes', 'bgp-as-a-service') -->
+<xsd:element name='bgpaas-ipv4-mapped-ipv6-nexthop' type='xsd:boolean'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-ipv4-mapped-ipv6-nexthop', 'bgp-as-a-service') -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>

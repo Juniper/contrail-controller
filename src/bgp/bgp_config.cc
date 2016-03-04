@@ -170,6 +170,8 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     peer_as_ = rhs.peer_as_;
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
+    inet_gateway_address_ = rhs.inet_gateway_address_;
+    inet6_gateway_address_ = rhs.inet6_gateway_address_;
     port_ = rhs.port_;
     source_port_ = rhs.source_port_;
     hold_time_ = rhs.hold_time_;
@@ -190,6 +192,8 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);
+    KEY_COMPARE(inet_gateway_address_, rhs.inet_gateway_address_);
+    KEY_COMPARE(inet6_gateway_address_, rhs.inet6_gateway_address_);
     KEY_COMPARE(port_, rhs.port_);
     KEY_COMPARE(source_port_, rhs.source_port_);
     KEY_COMPARE(hold_time_, rhs.hold_time_);
@@ -201,6 +205,26 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
         family_attributes_list_.begin(), family_attributes_list_.end(),
         rhs.family_attributes_list_.begin(), rhs.family_attributes_list_.end(),
         BgpFamilyAttributesConfigCompare());
+}
+
+const IpAddress &BgpNeighborConfig::gateway_address(
+    Address::Family family) const {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        return inet_gateway_address_;
+    } else {
+        return inet6_gateway_address_;
+    }
+}
+
+void BgpNeighborConfig::set_gateway_address(Address::Family family,
+    const IpAddress &address) {
+    assert(family == Address::INET || family == Address::INET6);
+    if (family == Address::INET) {
+        inet_gateway_address_ = address;
+    } else {
+        inet6_gateway_address_ = address;
+    }
 }
 
 BgpNeighborConfig::AddressFamilyList
