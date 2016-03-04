@@ -213,8 +213,12 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_files_count=20\n"
         "log_file_size=1024\n"
         "log_level=SYS_DEBUG\n"
-        "log_local=1\n"
-        "test_mode=1\n"
+        "log_local=false\n"
+        "test_mode=0\n"
+        "xmpp_auth_enable=true\n"
+        "xmpp_server_cert=/etc/server.pem\n"
+        "xmpp_server_key=/etc/server.key\n"
+        "xmpp_ca_cert=/etc/ca-cert.pem\n"
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
@@ -264,13 +268,17 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_files_count(), 20);
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
-    EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "https://127.0.0.1:100");
     EXPECT_EQ(options_.ifmap_password(), "test-password");
     EXPECT_EQ(options_.ifmap_user(), "test-user");
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.xmpp_port(), 100);
-    EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.xmpp_auth_enabled(), true);
+    EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
+    EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
+    EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
