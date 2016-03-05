@@ -162,6 +162,11 @@ bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
     if (diff_time < flow_age_time_intvl()) {
         return false;
     }
+
+    if (info->is_flags_set(FlowEntry::BgpRouterService)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -397,6 +402,7 @@ bool FlowStatsCollector::Run() {
             FlowDeleteEnqueue(info);
             continue;
         }
+
         deleted = false;
 
         flow_iteration_key_ = it->first;
