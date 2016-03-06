@@ -963,6 +963,9 @@ void FlowTable::AddLinkLocalFlowInfo(int fd, uint32_t index, const FlowKey &key,
 }
 
 void FlowTable::DelLinkLocalFlowInfo(int fd) {
+    // Decrement the linklocal flow count here and not in DeleteVmFlowInfo,
+    // to avoid taking more local ports between then and the flow entry delete.
+    linklocal_flow_count_--;
     linklocal_flow_info_map_.erase(fd);
 }
 
@@ -2867,7 +2870,6 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
         if (vm_flow_info->fet.erase(fe)) {
             if (fe->linklocal_src_port()) {
                 vm_flow_info->linklocal_flow_count--;
-                linklocal_flow_count_--;
             }
             if (vm_flow_info->fet.empty()) {
                 delete vm_flow_info;
@@ -3103,7 +3105,6 @@ void FlowTable::AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
     if (update) {
         if (fe->linklocal_src_port()) {
             vm_flow_info->linklocal_flow_count++;
-            linklocal_flow_count_++;
         }
     }
 }
@@ -3622,7 +3623,7 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
 
 FlowTable::FlowTable(Agent *agent) : 
     agent_(agent), flow_entry_map_(), acl_flow_tree_(),
-    linklocal_flow_count_(), acl_listener_id_(),
+    linklocal_flow_count_(0), acl_listener_id_(),
     intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
     vrf_listener_id_(), nh_listener_(NULL),
     inet4_route_key_(NULL, Ip4Address(), 32, false),

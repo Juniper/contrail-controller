@@ -607,6 +607,9 @@ uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
         goto error;
     }
 
+    // increment the linklocal flow count whenever we successfully
+    // open a local port
+    flow_table->increment_linklocal_flow_count();
     return ntohs(bound_to.sin_port);
 
 error:
