@@ -326,7 +326,7 @@ public:
 
 private:
     void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
-                          boost::shared_ptr<PktInfo> pkt_info);
+                          boost::shared_ptr<PktInfo> pkt_info, uint8_t *pkt);
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt);
     int ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
