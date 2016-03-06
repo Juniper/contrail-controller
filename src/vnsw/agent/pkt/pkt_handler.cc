@@ -198,7 +198,7 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
         boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff, hdr));
        // uint8_t *pkt = buff->data();
        // ParsePacket(hdr, pkt_info.get(), pkt);
-        PktModuleEnqueue(FLOW, hdr, pkt_info);
+        PktModuleEnqueue(FLOW, hdr, pkt_info, pkt_info->pkt);
         return;
     }
 
@@ -216,16 +216,16 @@ bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) 
     uint8_t *pkt = buff->data();
 
     PktModuleName mod = ParsePacket(hdr, pkt_info.get(), pkt);
-    PktModuleEnqueue(mod, hdr, pkt_info);
+    PktModuleEnqueue(mod, hdr, pkt_info, pkt_info->pkt);
     return true;
 }
 
 void PktHandler::PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
-                                  boost::shared_ptr<PktInfo> pkt_info) {
+                                  boost::shared_ptr<PktInfo> pkt_info,
+                                  uint8_t *pkt) {
     pkt_info->packet_buffer()->set_module(mod);
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len,
-                                   pkt_info->pkt, &hdr);
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt, &hdr);
     if (mod == INVALID) {
         agent_->stats()->incr_pkt_dropped();
         return;
@@ -240,7 +240,7 @@ PktHandler::PktModuleName PktHandler::ParseFlowPacket(
     PktModuleName mod = ParsePacket(pkt_info->agent_hdr, pkt_info.get(), pkt);
     // In case it is not a flow packet, enqueue it back to the right module
     if (mod != FLOW) {
-        PktModuleEnqueue(mod, pkt_info->agent_hdr, pkt_info);
+        PktModuleEnqueue(mod, pkt_info->agent_hdr, pkt_info, pkt);
     }
     return mod;
 }
@@ -1009,6 +1009,9 @@ void PktTrace::Pkt::Copy(Direction d, std::size_t l, uint8_t *msg,
 
 void PktTrace::AddPktTrace(Direction dir, std::size_t len, uint8_t *msg,
                            const AgentHdr *hdr) {
+    if (msg == NULL)
+        return;
+
     if (num_buffers_) {
         end_ = (end_ + 1) % num_buffers_;
         pkt_buffer_[end_].Copy(dir, len, msg, pkt_trace_size_, hdr);
