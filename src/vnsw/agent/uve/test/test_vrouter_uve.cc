@@ -128,7 +128,8 @@ public:
         }
         return ret;
     }
-    bool BandwidthMatch(const vector<AgentIfBandwidth> &list, int in, int out) {
+    bool BandwidthMatch(const vector<AgentIfBandwidth> &list, uint64_t in,
+                        uint64_t out) {
         if (0 == list.size()) {
             if ((in == 0) && (out == 0)) {
                 return true;
@@ -664,7 +665,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 
     EXPECT_EQ(2, vr->bandwidth_count());
     EXPECT_EQ(1U, uve.get_phy_if_band().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 13, 100));
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 139810, 1048576));
     vr->clear_count();
 
     //cleanup
@@ -745,7 +746,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
     //Verify the 5-min bandwidth usage
     EXPECT_EQ(1U, uve.get_phy_if_5min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 2, 100));
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 27962, 1048576));
 
     //Run Vrouter stats collector
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -754,7 +755,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 9));
 
     //Verify the 5-min bandwidth usage has not changed
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 2, 100));
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 27962, 1048576));
 
     //Run Vrouter stats collector again
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -846,7 +847,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
     //Verify the 10-min bandwidth usage
     EXPECT_EQ(0, vr->bandwidth_count());
     WAIT_FOR(10000, 500, (uve.get_phy_if_10min_usage().size() == 1));
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 139810, 1048576));
 
     //Run Vrouter stats collector
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -856,7 +857,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 
     //Verify the 10-min bandwidth usage
     EXPECT_EQ(1U, uve.get_phy_if_10min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 139810, 1048576));
 
     //Run Vrouter stats collector again
     u->vrouter_stats_collector()->run_counter_ = 0;

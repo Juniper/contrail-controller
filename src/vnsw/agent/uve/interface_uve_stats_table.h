@@ -29,7 +29,7 @@ public:
 private:
     void SendInterfaceStatsMsg(UveInterfaceEntry* entry);
     uint64_t GetVmPortBandwidth
-        (StatsManager::InterfaceStats *s, bool dir_in) const;
+        (StatsManager::InterfaceStats *s, bool dir_in, uint64_t *pps) const;
     bool FrameFipStatsMsg(const VmInterface *vm_intf,
                           vector<VmFloatingIPStats> &fip_list,
                           vector<VmFloatingIPStats> &diff_list,
