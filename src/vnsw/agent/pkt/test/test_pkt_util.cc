@@ -89,16 +89,6 @@ void TxUdpPacket(int ifindex, const char *sip, const char *dip,
     delete pkt;
 }
 
-void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
-                   const char *dip, uint16_t sport, uint16_t dport,
-                   int hash_id, uint32_t vrf_id) {
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
-    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
-    pkt->AddIpHdr(sip, dip, IPPROTO_SCTP);
-    pkt->AddSctpHdr(sport, dport, 64);
-}
-
 void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   const char *dip, uint16_t sport, uint16_t dport, bool ack,
 		   int hash_id, uint32_t vrf_id) {
