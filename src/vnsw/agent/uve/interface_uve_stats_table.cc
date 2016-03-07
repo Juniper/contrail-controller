@@ -17,6 +17,7 @@ InterfaceUveStatsTable::~InterfaceUveStatsTable() {
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                             UveVMInterfaceAgent *uve) const {
     uint64_t in_band = 0, out_band = 0;
+    uint64_t in_pps = 0, out_pps = 0;
     bool changed = false, diff_fip_list_non_zero = false;
     VmInterfaceStats if_stats;
     vector<VmFloatingIPStats> agg_fip_list;
@@ -51,8 +52,8 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         uve->set_if_stats(if_stats);
         changed = true;
 
-        in_band = GetVmPortBandwidth(s, true);
-        out_band = GetVmPortBandwidth(s, false);
+        in_band = GetVmPortBandwidth(s, true, &in_pps);
+        out_band = GetVmPortBandwidth(s, false, &out_pps);
     }
 
     if (entry->InBandChanged(in_band)) {
@@ -63,6 +64,16 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     if (entry->OutBandChanged(out_band)) {
         uve->set_out_bw_usage(out_band);
         entry->uve_info_.set_out_bw_usage(out_band);
+        changed = true;
+    }
+    if (entry->InPpsChanged(in_pps)) {
+        uve->set_in_pps(in_pps);
+        entry->uve_info_.set_in_pps(in_pps);
+        changed = true;
+    }
+    if (entry->OutPpsChanged(out_pps)) {
+        uve->set_out_pps(out_pps);
+        entry->uve_info_.set_out_pps(out_pps);
         changed = true;
     }
     s->stats_time = UTCTimestampUsec();
@@ -121,15 +132,18 @@ void InterfaceUveStatsTable::SendInterfaceStats(void) {
 }
 
 uint64_t InterfaceUveStatsTable::GetVmPortBandwidth
-    (StatsManager::InterfaceStats *s, bool dir_in) const {
+    (StatsManager::InterfaceStats *s, bool dir_in, uint64_t *pps) const {
+    *pps = 0;
     if (s->stats_time == 0) {
         return 0;
     }
-    uint64_t bits;
+    uint64_t bits, pkts;
     if (dir_in) {
         bits = (s->in_bytes - s->prev_in_bytes) * 8;
+        pkts = s->in_pkts - s->prev_in_pkts;
     } else {
         bits = (s->out_bytes - s->prev_out_bytes) * 8;
+        pkts = s->out_pkts - s->prev_out_pkts;
     }
     uint64_t cur_time = UTCTimestampUsec();
     uint64_t b_intvl = agent_->uve()->bandwidth_intvl();
@@ -137,6 +151,7 @@ uint64_t InterfaceUveStatsTable::GetVmPortBandwidth
     if (diff_seconds == 0) {
         return 0;
     }
+    *pps = pkts/diff_seconds;
     return bits/diff_seconds;
 }
 

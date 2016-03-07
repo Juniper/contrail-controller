@@ -71,6 +71,9 @@ void VrouterUveEntryTest::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve)
     {
     vrouter_stats_msg_count_++;
     last_sent_vrouter_stats_ = uve;
+    if (uve.__isset.phy_if_band) {
+        prev_stats_.set_phy_if_band(uve.get_phy_if_band());
+    }
 }
 
 void VrouterUveEntryTest::WaitForWalkCompletion() {

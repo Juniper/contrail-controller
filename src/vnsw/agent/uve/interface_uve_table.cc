@@ -390,6 +390,28 @@ bool InterfaceUveTable::UveInterfaceEntry::OutBandChanged(uint64_t out_band)
     return false;
 }
 
+bool InterfaceUveTable::UveInterfaceEntry::InPpsChanged(uint64_t in_pps)
+    const {
+    if (!uve_info_.__isset.in_pps) {
+        return true;
+    }
+    if (in_pps != uve_info_.get_in_pps()) {
+        return true;
+    }
+    return false;
+}
+
+bool InterfaceUveTable::UveInterfaceEntry::OutPpsChanged(uint64_t out_pps)
+    const {
+    if (!uve_info_.__isset.out_pps) {
+        return true;
+    }
+    if (out_pps != uve_info_.get_out_pps()) {
+        return true;
+    }
+    return false;
+}
+
 void InterfaceUveTable::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
     tbb::mutex::scoped_lock lock(mutex_);

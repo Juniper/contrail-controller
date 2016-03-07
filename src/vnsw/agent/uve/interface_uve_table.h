@@ -146,6 +146,8 @@ public:
         bool PortBitmapChanged(const PortBucketBitmap &bmap) const;
         bool InBandChanged(uint64_t in_band) const;
         bool OutBandChanged(uint64_t out_band) const;
+        bool InPpsChanged(uint64_t in_pps) const;
+        bool OutPpsChanged(uint64_t out_pps) const;
         void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
         void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();

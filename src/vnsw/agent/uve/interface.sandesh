@@ -83,6 +83,8 @@ struct UveVMInterfaceAgent {
    23: optional bool is_health_check_active;
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
+   26: optional u64 in_pps;
+   27: optional u64 out_pps;
 }
 
 /**
