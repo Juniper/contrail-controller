@@ -125,6 +125,7 @@ request sandesh ShowBgpNeighborSummaryReq {
 struct ShowRoutePathBrief {
     1: string protocol;
     2: u32 local_preference;
+    6: u32 med;
     3: string source;
     4: string next_hop;
     5: u32 label;
@@ -152,6 +153,7 @@ struct ShowRoutePath {
     1: string protocol;
     3: string last_modified;
     5: u32 local_preference;
+    25: u32 med;
     6: u32 local_as;
     7: u32 peer_as;
     8: string peer_router_id;           // neighbor neighbor route id
