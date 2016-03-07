@@ -283,7 +283,7 @@ struct VrouterStatsAgent {  // Agent stats
     43: optional byte total_in_bandwidth_utilization;
     44: optional byte total_out_bandwidth_utilization;
     45: optional VrouterFlowRate flow_rate (tags="")
-    46: optional list<AgentIfBandwidth> phy_if_band (tags=".name")
+    46: optional list<AgentIfBandwidth> phy_if_band (tags="name:.name")
 }
 
 /**

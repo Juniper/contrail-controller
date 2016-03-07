@@ -61,7 +61,7 @@ class VncApiStatistics(object):
             project_name=project_name,
             response_time_in_usec=response_time_in_usec,
             response_size=self.response_size,
-            response_code=self.response_code,
+            resp_code=str(self.response_code),
         )
 
     def sendwith(self, sandesh):
