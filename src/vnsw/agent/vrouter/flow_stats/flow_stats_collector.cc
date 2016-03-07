@@ -137,6 +137,12 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
     if (k_flow != NULL) {
         uint64_t k_flow_bytes, bytes;
 
+        if (flow->key().protocol == IPPROTO_TCP) {
+            if (k_flow->fe_tcp_flags & VR_FLOW_TCP_DEAD) {
+                return true;
+            }
+        }
+
         k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                     k_flow->fe_stats.flow_bytes);
         bytes = 0x0000ffffffffffffULL & stats->bytes;
@@ -719,7 +725,7 @@ bool FlowStatsCollector::Run() {
     FlowEntry *entry = NULL, *reverse_flow;
     FlowStats *stats = NULL;
     uint32_t count = 0;
-    bool key_updation_reqd = true, deleted, vrouter_evicted;
+    bool key_updation_reqd = true, deleted;
 
     run_counter_++;
     if (!flow_tree_.size()) {
@@ -739,7 +745,6 @@ bool FlowStatsCollector::Run() {
         it++;
         assert(entry);
         deleted = false;
-        vrouter_evicted = false;
 
         if (entry->deleted()) {
             continue;
@@ -750,7 +755,6 @@ bool FlowStatsCollector::Run() {
         reverse_flow = entry->reverse_flow_entry();
         if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
             deleted = true;
-            vrouter_evicted = true;
         }
         // Can the flow be aged?
         if (!deleted && ShouldBeAged(stats, k_flow, curr_time, entry)) {
@@ -774,7 +778,7 @@ bool FlowStatsCollector::Run() {
                 }
             }
             Agent::GetInstance()->pkt()->flow_table()->
-                DeleteEnqueue(entry, vrouter_evicted);
+                DeleteEnqueue(entry);
             entry = NULL;
             if (reverse_flow) {
                 count++;
@@ -817,7 +821,7 @@ bool FlowStatsCollector::Run() {
                 }
             }
             Agent::GetInstance()->pkt()->flow_table()->
-                DeleteEnqueue(entry, vrouter_evicted);
+                DeleteEnqueue(entry);
             entry = NULL;
             if (reverse_flow) {
                 count++;
