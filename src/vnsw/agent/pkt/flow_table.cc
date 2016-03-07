@@ -903,7 +903,7 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
 void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
-    if (stats_.last_modified_time != stats_.setup_time) {
+    if (deleted_ == false && stats_.last_modified_time != stats_.setup_time) {
         /*
          * Export flow only if it has been modified after setup. Flow export
          * for setup happens during stats updation.
