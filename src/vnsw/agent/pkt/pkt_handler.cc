@@ -130,9 +130,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Packets needing flow
-    if ((hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-         hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE)) {
-        
+    if (IsFlowPacket(hdr)) {
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
             return FLOW;
