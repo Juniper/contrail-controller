@@ -75,6 +75,7 @@ libs = MapBuildDir(['sandesh',
         'discovery/client',
         'http/client',
         'xml',
+	'database',
         'base',
         'io',
 	'net'])
