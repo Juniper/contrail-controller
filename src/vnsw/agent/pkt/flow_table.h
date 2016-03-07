@@ -877,6 +877,7 @@ private:
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
     bool FlowDelete(const FlowDeleteReq &req);
     void DeleteEnqueue(FlowEntry *fe, bool vrouter_evicted);
+    void FreeReq(FlowEntry *fp);
     void SetComponentIndex(FlowEntry *fe, const NextHopKey *nh_key,
                            uint32_t label, bool mpls_path);
     void SetLocalFlowEcmpIndex(FlowEntry *fe);
@@ -1114,23 +1115,36 @@ extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 class FlowDeleteReq {
 public:
-    FlowDeleteReq() : flow_(NULL), vrouter_evicted_(false) {
+    enum Event {
+        INVALID,
+        DELETE_FLOW,
+        FREE_FLOW
+    };
+
+    FlowDeleteReq() : flow_(NULL), vrouter_evicted_(false),
+    event_(DELETE_FLOW) {
     }
     FlowDeleteReq(const FlowDeleteReq& req) :
-        flow_(req.flow()), vrouter_evicted_(req.vrouter_evicted()) {
+        flow_(req.flow()), vrouter_evicted_(req.vrouter_evicted()),
+        event_(req.event()) {
     }
     FlowDeleteReq(FlowEntry *ptr, bool evicted) :
-        flow_(ptr), vrouter_evicted_(evicted) {
+        flow_(ptr), vrouter_evicted_(evicted), event_(DELETE_FLOW) {
     }
+
+    FlowDeleteReq(FlowEntry *ptr, Event event):
+        flow_(ptr), vrouter_evicted_(false), event_(event) {}
 
     ~FlowDeleteReq() { }
 
     FlowEntry* flow() const { return flow_.get(); }
     bool vrouter_evicted() const { return vrouter_evicted_; }
+    Event event() const { return event_;}
 
 private:
     FlowEntryPtr flow_;
     bool vrouter_evicted_;
+    Event event_;
 };
 
 #define FLOW_TRACE(obj, ...)\

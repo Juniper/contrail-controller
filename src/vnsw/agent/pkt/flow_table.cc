@@ -914,22 +914,6 @@ void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    //In case of TCP flow eviction there is a chance
-    //that same flow with same flow key could be evicted
-    //and reused, in that case, we force programming of
-    //flow by deleting the entry in ksync and readding it
-    //Since flag vrouter flow evicted would be set
-    //Actual msg would not be sent to kernel
-    if (update == false) {
-        if (ksync_entry_ != NULL) {
-            bool vrouter_evicted_flow = data_.vrouter_evicted_flow_;
-            data_.vrouter_evicted_flow_ = true;
-            ksync_obj->Delete(ksync_entry_);
-            data_.vrouter_evicted_flow_ = vrouter_evicted_flow;
-            ksync_entry_ = NULL;
-        }
-    }
-
     if (ksync_entry_ == NULL) {
         FLOW_TRACE(Trace, "Add", flow_info);
         FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
@@ -1042,23 +1026,6 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
 
-    if (update == false) {
-        const FlowEntry *fe = FindByIndex(flow->flow_handle_);
-        if (fe == flow) {
-            bool vrouter_evicted_flow = rflow->data().vrouter_evicted_flow_;
-            rflow->data().vrouter_evicted_flow_ = true;
-            FlowTableKSyncObject *ksync_obj =
-                        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
-            if (rflow->ksync_entry_) {
-                ksync_obj->Delete(rflow->ksync_entry_);
-                rflow->ksync_entry_ = NULL;
-            }
-            DeleteByIndex(rflow);
-            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
-            rflow->data().vrouter_evicted_flow_ = vrouter_evicted_flow;
-        }
-    }
-
     if (rflow) {
         rflow->GetPolicyInfo();
         ResyncAFlow(rflow, update);
@@ -1078,8 +1045,6 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     if (flow->is_flags_set(FlowEntry::EcmpFlow) && update == false) {
         flow->UpdateKSync(this, true);
     }
-
-    AddIndexFlowInfo(flow, flow->flow_handle_);
 
     agent_->flow_stats_manager()->AddEvent(flow);
     agent_->flow_stats_manager()->AddEvent(rflow);
@@ -1753,7 +1718,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
-    DeleteByIndex(fe);
 
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
@@ -3957,14 +3921,19 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
 
 bool FlowTable::FlowDelete(const FlowDeleteReq &req) {
     FlowEntry *fe = req.flow();
-    if (req.vrouter_evicted()) {
-        fe->data().vrouter_evicted_flow_ = true;
-        FlowEntry *reverse_flow = fe->reverse_flow_entry();
-        if (reverse_flow) {
-            reverse_flow->data().vrouter_evicted_flow_ = true;
+    if (req.event() == FlowDeleteReq::DELETE_FLOW) {
+        if (req.vrouter_evicted()) {
+            fe->data().vrouter_evicted_flow_ = true;
+            FlowEntry *reverse_flow = fe->reverse_flow_entry();
+            if (reverse_flow) {
+                reverse_flow->data().vrouter_evicted_flow_ = true;
+            }
         }
+        Delete(fe->key(), true);
+    } else if (req.event() == FlowDeleteReq::FREE_FLOW) {
+        //Release reference to flow, hence triggering removal of
+        //flow entry in FlowHandler context
     }
-    Delete(fe->key(), true);
     return true;
 }
 
@@ -3973,6 +3942,10 @@ void FlowTable::DeleteEnqueue(FlowEntry *fp, bool vrouter_evicted) {
     delete_queue_->Enqueue(req);
 }
 
+void FlowTable::FreeReq(FlowEntry *fp) {
+    FlowDeleteReq req(fp, FlowDeleteReq::FREE_FLOW);
+    delete_queue_->Enqueue(req);
+}
 FlowTable::FlowTable(Agent *agent) : 
     agent_(agent), flow_entry_map_(), acl_flow_tree_(),
     linklocal_flow_count_(), acl_listener_id_(),

@@ -149,10 +149,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
 
-    if (flow_entry_->data().vrouter_evicted_flow_ == true) {
-        return 0;
-    }
-
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);

@@ -121,6 +121,12 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
     if (k_flow != NULL) {
         uint64_t k_flow_bytes, bytes;
 
+        if (flow->key().protocol == IPPROTO_TCP) {
+            if (k_flow->fe_tcp_flags & VR_FLOW_TCP_DEAD) {
+                return true;
+            }
+        }
+
         k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                     k_flow->fe_stats.flow_bytes);
         bytes = 0x0000ffffffffffffULL & stats->bytes;
@@ -624,6 +630,9 @@ void FlowStatsCollector::AddFlow(FlowEntryPtr ptr) {
 void FlowStatsCollector::DeleteFlow(boost::shared_ptr<FlowExportReq> &req) {
 
     FlowEntry *fe = req->flow();
+    if (req->flow()->deleted() == false) {
+        return;
+    }
     /* If teardown time is already set, flow-stats are already exported as part
      * of vrouter flow eviction stats update */
     if (!fe->stats_.teardown_time) {
@@ -637,6 +646,7 @@ void FlowStatsCollector::DeleteFlow(boost::shared_ptr<FlowExportReq> &req) {
     fe->stats_.teardown_time = 0;
     /* Remove the flow from our aging tree */
     flow_tree_.erase(fe);
+    flow_stats_manager()->agent()->pkt()->flow_table()->FreeReq(fe);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowEntry *flow,
@@ -758,7 +768,7 @@ bool FlowStatsCollector::Run() {
                 }
             }
             Agent::GetInstance()->pkt()->flow_table()->
-                DeleteEnqueue(entry, vrouter_evicted);
+                DeleteEnqueue(entry, false);
             entry = NULL;
             if (reverse_flow) {
                 count++;
