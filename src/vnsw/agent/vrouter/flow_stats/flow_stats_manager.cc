@@ -207,10 +207,20 @@ void FlowStatsManager::Delete(const FlowAgingTableKey &key) {
     if (key.proto == kCatchAllProto) {
         return;
     }
-    boost::shared_ptr<FlowStatsCollectorReq>
-        req(new FlowStatsCollectorReq(
-                    FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR,
-                    key));
+    boost::shared_ptr<FlowStatsCollectorReq> req;
+    if (key.proto == IPPROTO_TCP && key.port == 0) {
+        /* We should never delete flow-stats-collector with (IPPROTO_TCP, 0)
+         * key as it is implicitly added. If user has overwritten that and later
+         * sent delete request, we should only change the aging time back to
+         * default value. This is done by enqueuing ADD request */
+        req.reset(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::ADD_FLOW_STATS_COLLECTOR,
+                    key, agent_->params()->flow_stats_interval(),
+                    agent_->params()->flow_cache_timeout()));
+    } else {
+        req.reset(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR, key));
+    }
     request_queue_.Enqueue(req);
 }
 
@@ -347,6 +357,8 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
     Add(FlowAgingTableKey(kCatchAllProto, 0),
         flow_stats_interval,
         flow_cache_timeout);
+    Add(FlowAgingTableKey(IPPROTO_TCP, 0),flow_stats_interval,
+                          flow_cache_timeout);
     timer_->Start(FlowThresoldUpdateTime,
                   boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
 }

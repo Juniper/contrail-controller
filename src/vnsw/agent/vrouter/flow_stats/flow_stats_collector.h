@@ -125,6 +125,7 @@ private:
                                  uint16_t oflow_bytes, uint32_t pkts,
                                  uint16_t oflow_pkts, uint64_t time,
                                  bool teardown_time, RevFlowDepParams *params);
+    uint64_t GetScanTime();
     void UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
