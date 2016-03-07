@@ -689,21 +689,27 @@ class TestPolicy(test_case.STTestCase):
                                   vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
 
         si_name = 'default-domain:default-project:' + service_name
+        if version == 2:
+            v4_service_chain_address = '10.0.0.251'
+            v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffb'
+        else:
+            v4_service_chain_address = '10.0.0.252'
+            v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
-                               service_chain_address = '10.0.0.252',
+                               service_chain_address = v4_service_chain_address,
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
-        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        sci.service_chain_address = v6_service_chain_address
         self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                               service_chain_address = '10.0.0.252',
+                               service_chain_address = v4_service_chain_address,
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         sci.prefix = ['2000::/16']
-        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        sci.service_chain_address = v6_service_chain_address
         self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
         vn1_obj.set_multi_policy_service_chains_enabled(True)
@@ -758,7 +764,7 @@ class TestPolicy(test_case.STTestCase):
         self.wait_to_get_object(config_db.RouteAggregateST,
                                 ra.get_fq_name_str())
         ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
-        self.assertEqual(ra.get_aggregate_route_nexthop(), '10.0.0.252')
+        self.assertEqual(ra.get_aggregate_route_nexthop(), v4_service_chain_address)
         ident_name = self.get_obj_imid(ra)
         self.wait_to_get_link(ident_name, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
         ra.del_service_instance(si_obj)
@@ -781,9 +787,7 @@ class TestPolicy(test_case.STTestCase):
 
     def test_service_policy(self):
         self.service_policy_test_with_version()
-        # TODO: Remove comment after the cleanup issue is resolved
-        # Issue seen after port tuple commit in svc_monitor
-        #self.service_policy_test_with_version(2)
+        self.service_policy_test_with_version(2)
     # end test_service_policy
 
     def test_service_policy_with_any(self):
