@@ -29,12 +29,13 @@ private:
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
-    uint8_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
-                               int diff_seconds) const;
-    uint8_t GetBandwidthUsage(StatsManager::InterfaceStats *s,
-                              bool dir_in, int mins) const;
+    uint64_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
+                               int diff_seconds, double *utilization_bps) const;
+    uint64_t GetBandwidthUsage(StatsManager::InterfaceStats *s,
+                              bool dir_in, int mins, double *util) const;
     bool BuildPhysicalInterfaceBandwidth(std::vector<AgentIfBandwidth> &list,
-                                         uint8_t mins) const;
+                                         uint8_t mins, double *in_util,
+                                         double *out_util) const;
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
