@@ -338,13 +338,6 @@ public:
         len += sizeof(tcphdr) + plen;
     };
 
-    void AddSctpHdr(uint16_t sport, uint16_t dport, int plen) {
-        struct sctphdr *sctp = (struct sctphdr *)(buff + len);
-        sctp -> th_dport = htons(dport);
-        sctp -> th_sport = htons(sport);
-        len += sizeof(sctphdr) + plen;
-    };
-
     void AddIcmpHdr() {
         struct icmp *icmp = (struct icmp *)(buff + len);
         icmp->icmp_type = 0;

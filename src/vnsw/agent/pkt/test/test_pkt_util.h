@@ -33,10 +33,6 @@ extern void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 			  const char *dip, uint16_t sport, uint16_t dport,
 			  bool ack, int hash_id, uint32_t vrf_id);
 
-extern void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
-	         const char *dip, uint16_t sport, uint16_t dport,
-                 int hash_id, uint32_t vrf_id);
-
 extern void TxTcpPacket(int ifindex, const char *sip, const char *dip, 
 			   uint16_t sport, uint16_t dport, bool ack, int hash_id = 1, 
                uint32_t vrf_id = -1);

@@ -389,16 +389,6 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         break;
     }
 
-    case IPPROTO_SCTP : {
-        pkt_info->transp.sctp = (sctphdr *) (pkt + len);
-        len += sizeof(sctphdr);
-        pkt_info->data = (pkt + len);
-        pkt_info->dport = ntohs(pkt_info->transp.sctp->th_dport);
-        pkt_info->sport = ntohs(pkt_info->transp.sctp->th_sport);
-        pkt_type = PktType::SCTP;
-        break;
-    }
-
     case IPPROTO_ICMP: {
         pkt_info->transp.icmp = (struct icmp *) (pkt + len);
         pkt_type = PktType::ICMP;

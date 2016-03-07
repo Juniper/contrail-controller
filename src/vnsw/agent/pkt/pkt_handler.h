@@ -88,15 +88,8 @@ struct PktType {
         ICMP,
         ICMPV6,
         NON_IP,
-        MESSAGE,
-        SCTP
+        MESSAGE
     };
-};
-
-struct sctphdr {
-        u_int16_t th_sport;
-        u_int16_t th_dport;
-        u_int32_t vtag;
 };
 
 struct AgentHdr {
@@ -215,7 +208,6 @@ struct PktInfo {
         struct udphdr   *udp;
         struct icmp     *icmp;
         struct icmp6_hdr *icmp6;
-        struct sctphdr *sctp;
     } transp;
 
     PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
