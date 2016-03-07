@@ -1071,19 +1071,6 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     ResyncAFlow(flow, update);
     AddFlowInfo(flow);
 
-    //Incase of ECMP flow let both flow get re-evaluated
-    //then set the RPF nexthop for the flow based on the new
-    //index calculation then sync the flow to ksync
-    if (rflow && rflow->is_flags_set(FlowEntry::EcmpFlow) && update == false) {
-        rflow->UpdateKSync(this, true);
-    }
-
-    if (flow->is_flags_set(FlowEntry::EcmpFlow) && update == false) {
-        flow->UpdateKSync(this, true);
-    }
-
-    AddIndexFlowInfo(flow, flow->flow_handle_);
-
     agent_->flow_stats_manager()->AddEvent(flow);
     agent_->flow_stats_manager()->AddEvent(rflow);
 }
@@ -3609,9 +3596,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool update) {
     fe->DoPolicy();
     UpdateEcmpInfo(fe);
     fe->UpdateRpf();
-    if (update == false && !fe->is_flags_set(FlowEntry::EcmpFlow)) {
-        fe->UpdateKSync(this, update);
-    }
+    fe->UpdateKSync(this, update);
 
     // If this is forward flow, update the SG action for reflexive entry
     if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -3627,9 +3612,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool update) {
     // Check if there is change in action for reverse flow
     rflow->ActionRecompute();
 
-    if (update == false && !fe->is_flags_set(FlowEntry::EcmpFlow)) {
-        rflow->UpdateKSync(this, update);
-    }
+    rflow->UpdateKSync(this, update);
 }
 
 void FlowTable::DeleteVnFlows(const VnEntry *vn)
