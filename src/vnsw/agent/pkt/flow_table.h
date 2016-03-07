@@ -805,6 +805,7 @@ private:
     static SecurityGroupList default_sg_list_;
 
     Agent *agent_;
+    int flow_task_id_;
     FlowEntryMap flow_entry_map_;
 
     AclFlowTree acl_flow_tree_;
@@ -826,7 +827,7 @@ private:
     InetUnicastRouteEntry inet4_route_key_;
     InetUnicastRouteEntry inet6_route_key_;
     FlowIndexTree flow_index_tree_;
-    boost::scoped_ptr<WorkQueue<FlowDeleteReq> > delete_queue_;
+    boost::scoped_ptr<WorkQueue<FlowDeleteReq *> > delete_queue_;
 
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
@@ -877,8 +878,10 @@ private:
     void DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
                         const RevFlowDepParams &params);
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
-    bool FlowDelete(const FlowDeleteReq &req);
-    void DeleteEnqueue(FlowEntry *fe, bool vrouter_evicted);
+    bool FlowDelete(FlowDeleteReq *req);
+    void DeleteEnqueue(FlowEntry *fe);
+    void FreeReq(FlowEntryPtr &flow);
+    bool ConcurrencyCheck();
     void SetComponentIndex(FlowEntry *fe, const NextHopKey *nh_key,
                            uint32_t label, bool mpls_path);
     void SetLocalFlowEcmpIndex(FlowEntry *fe);
@@ -894,6 +897,11 @@ inline void intrusive_ptr_release(FlowEntry *fe) {
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
         FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+        if (table->ConcurrencyCheck() == false) {
+            FlowEntryPtr ref(fe);
+            table->FreeReq(ref);
+            return;
+        }
         FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key());
         assert(it != table->flow_entry_map_.end());
         table->flow_entry_map_.erase(it);
@@ -1116,23 +1124,29 @@ extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 class FlowDeleteReq {
 public:
-    FlowDeleteReq() : flow_(NULL), vrouter_evicted_(false) {
+    enum Event {
+        INVALID,
+        DELETE_FLOW,
+        FREE_FLOW
+    };
+
+    FlowDeleteReq() : flow_(NULL), event_(DELETE_FLOW) {
     }
     FlowDeleteReq(const FlowDeleteReq& req) :
-        flow_(req.flow()), vrouter_evicted_(req.vrouter_evicted()) {
+        flow_(req.flow()), event_(req.event()) {
     }
-    FlowDeleteReq(FlowEntry *ptr, bool evicted) :
-        flow_(ptr), vrouter_evicted_(evicted) {
-    }
+
+    FlowDeleteReq(FlowEntry *ptr, Event event):
+        flow_(ptr), event_(event) {}
 
     ~FlowDeleteReq() { }
 
     FlowEntry* flow() const { return flow_.get(); }
-    bool vrouter_evicted() const { return vrouter_evicted_; }
+    Event event() const { return event_;}
 
 private:
     FlowEntryPtr flow_;
-    bool vrouter_evicted_;
+    Event event_;
 };
 
 #define FLOW_TRACE(obj, ...)\
