@@ -447,6 +447,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
         log_property_file_ = "";
     }
+    if (!GetValueFromTree<uint16_t>(tcp_flow_scan_interval_,
+                                    "FLOWS.tcp_flow_scan_interval")) {
+        tcp_flow_scan_interval_ = kTcpFlowScanInterval;
+    }
 
     if (optional<bool> subnet_hosts_resolvable_opt =
             tree_.get_optional<bool>("DEFAULT.subnet_hosts_resolvable")) {
@@ -698,6 +702,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_system_linklocal_flows");
     GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
                           "FLOWS.max_vm_linklocal_flows");
+    GetOptValue<uint16_t>(var_map, tcp_flow_scan_interval_,
+                          "FLOWS.tcp_flow_scan_interval");
 }
 
 void AgentParam::ParseHeadlessModeArguments
@@ -1141,6 +1147,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
+        tcp_flow_scan_interval_(kTcpFlowScanInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), dhcp_relay_mode_(false),
         xmpp_auth_enable_(false), xmpp_server_cert_(""),
