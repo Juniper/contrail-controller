@@ -218,6 +218,10 @@ private:
 // practical deployment scenarios all eBGP peers will belong to the same
 // neighbor AS anyway.
 //
+// Including the nexthop as part of the policy results in creation of a
+// different RibOut for each set of BGPaaS clients that belong to the same
+// subnet. This allows us to rewrite the nexthop to the specified value.
+//
 // Including the CPU affinity as part of the RibExportPolicy allows us to
 // artificially create more RibOuts than otherwise necessary. This is used
 // to achieve higher concurrency at the expense of creating more state.
@@ -234,7 +238,7 @@ struct RibExportPolicy {
     }
 
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-            int affinity, u_int32_t cluster_id)
+        int affinity, u_int32_t cluster_id)
         : type(type), encoding(encoding), as_number(0),
           affinity(affinity), cluster_id(cluster_id) {
         if (encoding == XMPP)
@@ -244,7 +248,7 @@ struct RibExportPolicy {
     }
 
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-            as_t as_number, int affinity, u_int32_t cluster_id)
+        as_t as_number, int affinity, u_int32_t cluster_id)
         : type(type), encoding(encoding), as_number(as_number),
           affinity(affinity), cluster_id(cluster_id) {
         if (encoding == XMPP)
@@ -253,11 +257,20 @@ struct RibExportPolicy {
             assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
     }
 
+    RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
+        as_t as_number, IpAddress nexthop, int affinity, u_int32_t cluster_id)
+        : type(type), encoding(BGP), as_number(as_number),
+          nexthop(nexthop), affinity(affinity), cluster_id(cluster_id) {
+        assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
+        assert(encoding == BGP);
+    }
+
     bool operator<(const RibExportPolicy &rhs) const;
 
     BgpProto::BgpPeerType type;
     Encoding encoding;
     as_t as_number;
+    IpAddress nexthop;
     int affinity;
     uint32_t cluster_id;
 };
@@ -329,6 +342,7 @@ public:
 
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
     as_t peer_as() const { return policy_.as_number; }
+    const IpAddress &nexthop() const { return policy_.nexthop; }
     bool IsEncodingXmpp() const {
         return (policy_.encoding == RibExportPolicy::XMPP);
     }

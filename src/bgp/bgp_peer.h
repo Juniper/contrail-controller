@@ -309,6 +309,7 @@ private:
     void StopKeepaliveTimerUnlocked();
     bool KeepaliveTimerExpired();
 
+    RibExportPolicy BuildRibExportPolicy(Address::Family family) const;
     void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
     void SendEndOfRIB(Address::Family family);
     void StartEndOfRibTimer();
@@ -317,8 +318,6 @@ private:
                                    std::string error_message);
 
     virtual void BindLocalEndpoint(BgpSession *session);
-
-    void UnregisterAllTables();
 
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
@@ -401,7 +400,6 @@ private:
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
     BgpProto::BgpPeerType peer_type_;
-    RibExportPolicy policy_;
     boost::scoped_ptr<StateMachine> state_machine_;
     boost::scoped_ptr<PeerClose> peer_close_;
     boost::scoped_ptr<PeerStats> peer_stats_;

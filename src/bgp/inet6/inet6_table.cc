@@ -128,13 +128,19 @@ bool Inet6Table::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
         return false;
     }
 
-    // Strip BGP extended communities out by default.
     if (ribout->ExportPolicy().encoding == RibExportPolicy::BGP) {
-        if (uinfo->roattr.attr()->ext_community() != NULL) {
-            BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
-            BgpAttrPtr new_attr =
-                attr_db->ReplaceExtCommunityAndLocate(
-                    uinfo->roattr.attr(), NULL);
+        BgpAttrDB *attr_db = routing_instance()->server()->attr_db();
+        // Strip ExtCommunity.
+        if (uinfo->roattr.attr()->ext_community()) {
+            BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
+                uinfo->roattr.attr(), NULL);
+            uinfo->roattr.set_attr(this, new_attr);
+        }
+
+        // Strip OriginVnPath.
+        if (uinfo->roattr.attr()->origin_vn_path()) {
+            BgpAttrPtr new_attr = attr_db->ReplaceOriginVnPathAndLocate(
+                uinfo->roattr.attr(), NULL);
             uinfo->roattr.set_attr(this, new_attr);
         }
     }
