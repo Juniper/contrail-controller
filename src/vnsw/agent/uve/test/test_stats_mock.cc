@@ -445,7 +445,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                            default_flow_stats_collector()->flow_age_time_intvl();
 
     //Set the flow age time to 1000 microsecond
-    agent->flow_stats_manager()->default_flow_stats_collector()->
+    agent->flow_stats_manager()->tcp_flow_stats_collector()->
         UpdateFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
@@ -454,13 +454,13 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
-    agent->flow_stats_manager()->default_flow_stats_collector()->
+    agent->flow_stats_manager()->tcp_flow_stats_collector()->
         UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     hash_id = 1;
-
+ 
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
