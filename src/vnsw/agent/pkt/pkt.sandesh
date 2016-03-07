@@ -372,6 +372,8 @@ traceobject sandesh FlowRouteUpdate {
 response sandesh FlowAgeTimeResp {
    1: u32 old_age_time;
    2: u32 new_age_time;
+   3: u32 old_tcp_age_time;
+   4: u32 new_tcp_age_time;
 }
 
 /**
