@@ -205,7 +205,7 @@ class Agent {
 public:
     static const uint32_t kDefaultMaxLinkLocalOpenFds = 2048;
     // max open files in the agent, excluding the linklocal bind ports
-    static const uint32_t kMaxOtherOpenFds = 64;
+    static const uint32_t kMaxOtherOpenFds = 128;
     // default timeout zero means, this timeout is not used
     static const uint32_t kDefaultFlowCacheTimeout = 0;
     // Max number of threads

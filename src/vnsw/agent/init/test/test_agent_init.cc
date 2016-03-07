@@ -120,15 +120,15 @@ TEST_F(FlowTest, Agent_Tbb_Option_Arguments) {
 // Check that linklocal flows are updated when the system limits are lowered
 TEST_F(FlowTest, Agent_Conf_file_3) {
     struct rlimit rl;
-    rl.rlim_max = 128;
-    rl.rlim_cur = 64;
+    rl.rlim_max = 256;
+    rl.rlim_cur = 128;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
         AgentParam param(Agent::GetInstance());
         param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
-        EXPECT_EQ(param.linklocal_system_flows(), 63);
-        EXPECT_EQ(param.linklocal_vm_flows(), 63);
+        EXPECT_EQ(param.linklocal_system_flows(), 127);
+        EXPECT_EQ(param.linklocal_vm_flows(), 127);
     }
 }
 
