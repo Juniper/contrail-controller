@@ -94,7 +94,7 @@ class DatabaseEventManager(EventManager):
 
         cfg = yaml.safe_load(yamlstream)
         yamlstream.close()
-        return cfg[config][0]
+        return cfg[config]
 
     def msg_log(self, msg, level):
         self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
@@ -113,41 +113,40 @@ class DatabaseEventManager(EventManager):
 
     def process(self):
         try:
-            cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
-            if DatabaseEventManager.cassandra_old():
-                analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
-            else:
-                analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+            cassandra_data_dirs = self._get_cassandra_config_option("data_file_directories")
+            cassandra_data_dir_exists = False
+            total_disk_space_used = 0
+            total_disk_space_available = 0
+            for cassandra_data_dir in cassandra_data_dirs:
+                if DatabaseEventManager.cassandra_old():
+                    analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+                else:
+                    analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
 
-            if os.path.exists(analytics_dir):
-                msg = "analytics_dir is " + analytics_dir
-                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
-                msg = "popen_cmd is " + popen_cmd
-                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                (disk_space_used, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-                popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$4}END{print s}'` && echo $1"
-                msg = "popen_cmd is " + popen_cmd
-                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                (disk_space_available, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-                popen_cmd = "set `du -skL " + analytics_dir + " | awk '{s+=$1}END{print s}'` && echo $1"
-                msg = "popen_cmd is " + popen_cmd
-                self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
-                (analytics_db_size, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-                disk_space_total = int(disk_space_used) + int(disk_space_available)
-                if (disk_space_total / (1024 * 1024) < self.minimum_diskgb):
+                if os.path.exists(analytics_dir):
+                    cassandra_data_dir_exists = True
+                    msg = "analytics_dir is " + analytics_dir
+                    self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    df = subprocess.Popen(["df", analytics_dir],
+                            stdout=subprocess.PIPE)
+                    output = df.communicate()[0]
+                    device, size, disk_space_used, disk_space_available, \
+                       percent, mountpoint = output.split("\n")[1].split()
+                    total_disk_space_used += int(disk_space_used)
+                    total_disk_space_available += int(disk_space_available)
+            if cassandra_data_dir_exists == False:
+                if 'analytics' not in self.contrail_databases:
+                    self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+                else:
+                    self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
+            else:
+                disk_space_analytics = int(total_disk_space_used) + int(total_disk_space_available)
+                if (disk_space_analytics / (1024 * 1024) < self.minimum_diskgb):
                     cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
                     (ret_value, error_value) = Popen(
                         cmd_str, shell=True, stdout=PIPE).communicate()
                     self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
-            elif 'analytics' not in self.contrail_databases:
-                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
-            else:
-                self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
             msg = "Failed to get database usage"
             self.msg_log(msg, level=SandeshLevel.SYS_ERR)
@@ -181,39 +180,51 @@ class DatabaseEventManager(EventManager):
 
     def database_periodic(self):
         try:
-            cassandra_data_dir = self._get_cassandra_config_option("data_file_directories")
-            if DatabaseEventManager.cassandra_old():
-                analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
-            else:
-                analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+            cassandra_data_dirs = self._get_cassandra_config_option("data_file_directories")
+            cassandra_data_dir_exists = False
+            total_disk_space_used = 0
+            total_disk_space_available = 0
+            total_analytics_db_size = 0
+            for cassandra_data_dir in cassandra_data_dirs:
+                if DatabaseEventManager.cassandra_old():
+                    analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
+                else:
+                    analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
 
-            if os.path.exists(analytics_dir):
-                popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$3}END{print s}'` && echo $1"
-                (disk_space_used, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-                popen_cmd = "set `df -Pk " + analytics_dir + " | grep % | awk '{s+=$4}END{print s}'` && echo $1"
-                (disk_space_available, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
-                popen_cmd = "set `du -skL " + analytics_dir + " | awk '{s+=$1}END{print s}'` && echo $1"
-                (analytics_db_size, error_value) = \
-                    Popen(popen_cmd, shell=True, stdout=PIPE).communicate()
+                if os.path.exists(analytics_dir):
+                    cassandra_data_dir_exists = True
+                    msg = "analytics_dir is " + analytics_dir
+                    self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
+                    df = subprocess.Popen(["df", analytics_dir],
+                            stdout=subprocess.PIPE)
+                    output = df.communicate()[0]
+                    device, size, disk_space_used, disk_space_available, \
+                        percent, mountpoint =  output.split("\n")[1].split()
+                    total_disk_space_used += int(disk_space_used)
+                    total_disk_space_available += int(disk_space_available)
+                    du = subprocess.Popen(["du", "-skl", analytics_dir],
+                            stdout=subprocess.PIPE)
+                    analytics_db_size, directory = du.communicate()[0].split()
+                    total_analytics_db_size += int(analytics_db_size)
+            if cassandra_data_dir_exists == False:
+                if 'analytics' not in self.contrail_databases:
+                    self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
+                else:
+                    self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
+            else:
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
 
                 db_stat = DatabaseUsageStats()
                 db_info = DatabaseUsageInfo()
 
-                db_stat.disk_space_used_1k = int(disk_space_used)
-                db_stat.disk_space_available_1k = int(disk_space_available)
-                db_stat.analytics_db_size_1k = int(analytics_db_size)
+                db_stat.disk_space_used_1k = int(total_disk_space_used)
+                db_stat.disk_space_available_1k = int(total_disk_space_available)
+                db_stat.analytics_db_size_1k = int(total_analytics_db_size)
 
                 db_info.name = socket.gethostname()
                 db_info.database_usage = [db_stat]
                 usage_stat = DatabaseUsage(data=db_info)
                 usage_stat.send()
-            elif 'analytics' not in self.contrail_databases:
-                self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
-            else:
-                self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
         except:
             msg = "Failed to get database usage"
             self.msg_log(msg, level=SandeshLevel.SYS_ERR)
