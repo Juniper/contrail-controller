@@ -121,7 +121,6 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(db_exclude_list) / sizeof(char *));
 
     const char *flow_exclude_list[] = {
-        "Agent::StatsCollector",
         "io::ReaderTask",
         "Agent::PktFlowResponder",
         AGENT_INIT_TASKNAME
