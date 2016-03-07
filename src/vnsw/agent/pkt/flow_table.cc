@@ -914,22 +914,6 @@ void FlowEntry::UpdateKSync(FlowTable* table, bool update) {
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    //In case of TCP flow eviction there is a chance
-    //that same flow with same flow key could be evicted
-    //and reused, in that case, we force programming of
-    //flow by deleting the entry in ksync and readding it
-    //Since flag vrouter flow evicted would be set
-    //Actual msg would not be sent to kernel
-    if (update == false) {
-        if (ksync_entry_ != NULL) {
-            bool vrouter_evicted_flow = data_.vrouter_evicted_flow_;
-            data_.vrouter_evicted_flow_ = true;
-            ksync_obj->Delete(ksync_entry_);
-            data_.vrouter_evicted_flow_ = vrouter_evicted_flow;
-            ksync_entry_ = NULL;
-        }
-    }
-
     if (ksync_entry_ == NULL) {
         FLOW_TRACE(Trace, "Add", flow_info);
         FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
@@ -1044,23 +1028,6 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, bool update) {
     //
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
-
-    if (update == false) {
-        const FlowEntry *fe = FindByIndex(flow->flow_handle_);
-        if (fe == flow) {
-            bool vrouter_evicted_flow = rflow->data().vrouter_evicted_flow_;
-            rflow->data().vrouter_evicted_flow_ = true;
-            FlowTableKSyncObject *ksync_obj =
-                        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
-            if (rflow->ksync_entry_) {
-                ksync_obj->Delete(rflow->ksync_entry_);
-                rflow->ksync_entry_ = NULL;
-            }
-            DeleteByIndex(rflow);
-            rflow->flow_handle_ = FlowEntry::kInvalidFlowHandle;
-            rflow->data().vrouter_evicted_flow_ = vrouter_evicted_flow;
-        }
-    }
 
     if (rflow) {
         rflow->GetPolicyInfo();
@@ -1743,7 +1710,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it, uint64_t time,
     fe->set_reverse_flow_entry(NULL);
 
     DeleteFlowInfo(fe);
-    DeleteByIndex(fe);
 
     FlowTableKSyncEntry *ksync_entry = fe->ksync_entry_;
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
@@ -1885,6 +1851,7 @@ void FlowTable::Init() {
     agent_->acl_table()->set_acl_flow_sandesh_data_cb
         (boost::bind(&FlowTable::SetAclFlowSandeshData, this, _1, _2, _3));
 
+    flow_task_id_ = agent_->task_scheduler()->GetTaskId("Agent::FlowHandler");
     return;
 }
 
@@ -3939,32 +3906,31 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     }
 }
 
-bool FlowTable::FlowDelete(const FlowDeleteReq &req) {
-    FlowEntry *fe = req.flow();
-    if (req.vrouter_evicted()) {
-        fe->data().vrouter_evicted_flow_ = true;
-        FlowEntry *reverse_flow = fe->reverse_flow_entry();
-        if (reverse_flow) {
-            reverse_flow->data().vrouter_evicted_flow_ = true;
-        }
+bool FlowTable::FlowDelete(FlowDeleteReq *req) {
+    FlowEntry *fe = req->flow();
+    if (req->event() == FlowDeleteReq::DELETE_FLOW) {
+        Delete(fe->key(), true);
+    } else if (req->event() == FlowDeleteReq::FREE_FLOW) {
+        //Release reference to flow, hence triggering removal of
+        //flow entry in FlowHandler context
     }
-    Delete(fe->key(), true);
+    delete req;
     return true;
 }
 
-void FlowTable::DeleteEnqueue(FlowEntry *fp, bool vrouter_evicted) {
-    FlowDeleteReq req(fp, vrouter_evicted);
+void FlowTable::DeleteEnqueue(FlowEntry *fp) {
+    FlowDeleteReq *req = new FlowDeleteReq(fp, FlowDeleteReq::DELETE_FLOW);
     delete_queue_->Enqueue(req);
 }
 
 FlowTable::FlowTable(Agent *agent) : 
-    agent_(agent), flow_entry_map_(), acl_flow_tree_(),
+    agent_(agent), flow_task_id_(0), flow_entry_map_(), acl_flow_tree_(),
     linklocal_flow_count_(0), acl_listener_id_(),
     intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
     vrf_listener_id_(), nh_listener_(NULL),
     inet4_route_key_(NULL, Ip4Address(), 32, false),
     inet6_route_key_(NULL, Ip6Address(), 128, false),
-    delete_queue_(new WorkQueue<FlowDeleteReq >(
+    delete_queue_(new WorkQueue<FlowDeleteReq *>(
                   TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"),
                   PktHandler::FLOW,
                   boost::bind(&FlowTable::FlowDelete, this, _1))) {
@@ -3984,4 +3950,27 @@ void FlowTable::Shutdown() {
     agent_->vm_table()->Unregister(vm_listener_id_);
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     delete nh_listener_;
+}
+
+// Concurrency check to ensure all flow-table and free-list manipulations
+// are done from FlowEvent task context only
+bool FlowTable::ConcurrencyCheck() {
+    Task *current = Task::Running();
+    // test code invokes FlowTable API from main thread. The running task
+    // will be NULL in such cases
+    if (current == NULL) {
+        return true;
+    }
+    if (current->GetTaskId() != flow_task_id_)
+        return false;
+    if (current->GetTaskId() != flow_task_id_)
+        return false;
+    return true;
+}
+
+void FlowTable::FreeReq(FlowEntryPtr &flow) {
+    FlowDeleteReq *req = new FlowDeleteReq(flow.get(),
+                                           FlowDeleteReq::FREE_FLOW);
+    flow.reset();
+    delete_queue_->Enqueue(req);
 }

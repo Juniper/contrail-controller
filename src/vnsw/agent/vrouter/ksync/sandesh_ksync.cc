@@ -128,7 +128,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         flow_table);
             }
 
-            flow_table->AddIndexFlowInfo(entry, r->get_fr_index());
+            entry->set_flow_handle(r->get_fr_index(), flow_table);
             FlowEntry *rev_flow = entry->reverse_flow_entry();
             //Tie forward flow and reverse flow
             if (rev_flow && update_rev_flow) {
