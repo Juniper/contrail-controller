@@ -16,7 +16,6 @@ mock==1.0.1
 kafka-python==0.9.2
 kazoo
 stevedore
-distribute>=0.7.3
 ../opserver
 ../sandesh/common/dist/sandesh-common-0.1dev.tar.gz
 ../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz

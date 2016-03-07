@@ -81,14 +81,14 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         vn1 = VirtualNetwork('my-vn-1', project)
         vn1.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn1, ipam_sn_v6_vn1]))
         self._vnc_lib.virtual_network_create(vn1)
-        logger.debug('Created Virtual Network object for my-vn-1 ', vn1.uuid)
+        logger.debug('Created Virtual Network object for my-vn-1: %s', vn1.uuid)
         net_obj1 = self._vnc_lib.virtual_network_read(id = vn1.uuid)
 
         # Create VN my-vn-2
         vn2 = VirtualNetwork('my-vn-2', project)
         vn2.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn2, ipam_sn_v6_vn2]))
         self._vnc_lib.virtual_network_create(vn2)
-        logger.debug('Created Virtual Network object for my-vn-2 ', vn2.uuid)
+        logger.debug('Created Virtual Network object for my-vn-2: %s', vn2.uuid)
         net_obj2 = self._vnc_lib.virtual_network_read(id = vn2.uuid)
 
         # Create Logical Router
@@ -229,14 +229,14 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         vn1 = VirtualNetwork('my-vn-1', project)
         vn1.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn1, ipam_sn_v6_vn1]))
         self._vnc_lib.virtual_network_create(vn1)
-        logger.debug('Created Virtual Network object for my-vn-1 ', vn1.uuid)
+        logger.debug('Created Virtual Network object for my-vn-1: %s', vn1.uuid)
         net_obj1 = self._vnc_lib.virtual_network_read(id = vn1.uuid)
 
         # Create VN my-vn-2
         vn2 = VirtualNetwork('my-vn-2', project)
         vn2.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn2, ipam_sn_v6_vn2]))
         self._vnc_lib.virtual_network_create(vn2)
-        logger.debug('Created Virtual Network object for my-vn-2 ', vn2.uuid)
+        logger.debug('Created Virtual Network object for my-vn-2: %s', vn2.uuid)
         net_obj2 = self._vnc_lib.virtual_network_read(id = vn2.uuid)
 
         # Create Logical Router
