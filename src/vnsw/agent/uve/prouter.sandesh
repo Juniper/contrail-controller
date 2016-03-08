@@ -16,6 +16,11 @@ struct ProuterData {
     4: optional list<string> physical_interface_list
     5: optional list<string> logical_interface_list
     6: optional string agent_name
+    /* The following list can atmost have one element. It is defined as list
+       to support aggregation. Backup agent will send empty list for the
+       following field while master agent will send its name as the only
+       element in the list */
+    7: optional list<string>  connected_agent_list (aggtype="union")
 }
 
 /**
