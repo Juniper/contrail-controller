@@ -300,6 +300,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
 
         const BgpAttr *attr = path->GetAttr();
         srp.set_local_preference(attr->local_pref());
+        srp.set_med(attr->med());
         srp.set_next_hop(attr->nexthop().to_string());
         srp.set_label(path->GetLabel());
         show_route_paths.push_back(srp);
@@ -431,6 +432,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
         srp.set_local_preference(attr->local_pref());
+        srp.set_med(attr->med());
         srp.set_next_hop(attr->nexthop().to_string());
         srp.set_label(path->GetLabel());
         srp.set_flags(path->GetFlagsStringList());
