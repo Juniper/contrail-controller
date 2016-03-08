@@ -104,7 +104,7 @@ TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_1) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 }
 
 TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_2) {
@@ -155,7 +155,7 @@ TEST_F(UveProuterUveTest, PhysicalInterfaceAddDel_2) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 }
 
 //Verify PhysicalInterface UVE is send on PhysicalInterface Add/del
@@ -275,7 +275,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     //The following is required for cleanup of logical interface list
     util_.EnqueueSendLIUveTask();
@@ -345,7 +345,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_3) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     //The following is required for cleanup of logical interface list
     util_.EnqueueSendLIUveTask();
@@ -404,7 +404,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_4) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     //The following is required for cleanup of logical interface list
     util_.EnqueueSendLIUveTask();
@@ -569,7 +569,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_1) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     //The following is required for cleanup of logical interface list
     util_.EnqueueSendLIUveTask();
@@ -650,7 +650,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_2) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     //The following is required for cleanup of logical interface list
     util_.EnqueueSendLIUveTask();
@@ -748,7 +748,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_1) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     util_.EnqueueSendLIUveTask();
     client->WaitForIdle();
@@ -823,7 +823,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_2) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     util_.EnqueueSendLIUveTask();
     client->WaitForIdle();
@@ -905,7 +905,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_3) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     util_.EnqueueSendLIUveTask();
     client->WaitForIdle();
@@ -996,7 +996,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_4) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     util_.EnqueueSendLIUveTask();
     client->WaitForIdle();

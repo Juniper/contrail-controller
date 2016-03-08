@@ -421,7 +421,7 @@ bool VrouterUveEntryBase::StartInterfaceWalk() {
 }
 
 void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
-                                      DBEntryBase *e) {
+                                          DBEntryBase *e) {
     const Interface *intf = static_cast<const Interface *>(e);
     bool set_state = false, reset_state = false;
 
@@ -455,6 +455,13 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
                 phy_intf_set_.erase(intf);
             }
         } else {
+            const PhysicalInterface* phy_if =
+                static_cast<const PhysicalInterface*>(intf);
+            /* Ignore PhysicalInterface notifications if it is not of subtype
+             * FABRIC */
+            if (phy_if->subtype() != PhysicalInterface::FABRIC) {
+                return;
+            }
             if (!state) {
                 set_state = true;
                 phy_intf_set_.insert(intf);
