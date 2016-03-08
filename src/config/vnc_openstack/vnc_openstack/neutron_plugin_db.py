@@ -1367,6 +1367,7 @@ class DBInterface(object):
 
     def _subnet_vnc_to_neutron(self, subnet_vnc, net_obj, ipam_fq_name):
         sn_q_dict = {}
+        extra_dict = {}
         sn_name = subnet_vnc.get_subnet_name()
         if sn_name is not None:
             sn_q_dict['name'] = sn_name
@@ -1426,6 +1427,15 @@ class DBInterface(object):
                                             'subnet_id': sn_id}
                         nameserver_dict_list.append(nameserver_entry)
         sn_q_dict['dns_nameservers'] = nameserver_dict_list
+        # dhcp_option_list could have other options.
+        # Check explicitly if dns_nameservers are
+        # provided in the dhcp_options by the user.
+        # If it is NOT, then report the dns server
+        # allocated by contrail.
+        if not nameserver_dict_list:
+           extra_dict['contrail:dns_server_address'] = subnet_vnc.dns_server_address
+        if self._contrail_extensions_enabled:
+           sn_q_dict.update(extra_dict)
 
         host_route_dict_list = list()
         host_routes = subnet_vnc.get_host_routes()
