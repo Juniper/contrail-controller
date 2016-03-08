@@ -245,6 +245,7 @@ class NeutronPluginInterface(object):
                'ipv6_address_mode': subnet['ipv6_address_mode'],
                'dns_nameservers': [dns['address']
                                    for dns in subnet['dns_nameservers']],
+               'contrail:dns_server_address':subnet['contrail:dns_server_address'],
                'host_routes': [{'destination': route['destination'],
                                 'nexthop': route['nexthop']}
                                for route in subnet['routes']],
