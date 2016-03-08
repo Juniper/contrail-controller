@@ -524,13 +524,6 @@ class VirtualNetworkST(DBBaseST):
                 service_chain_ris[remote_vn] = (
                     self.get_service_name(service_chain.name, services[0]),
                     None)
-            if service_chain.service_list != services:
-                if service_chain.created:
-                    service_chain.destroy()
-                    service_chain.service_list = list(services)
-                    service_chain.create()
-                else:
-                    service_chain.service_list = list(services)
 
             if service_chain not in service_chain_list:
                 service_chain_list.append(service_chain)
@@ -762,7 +755,7 @@ class VirtualNetworkST(DBBaseST):
                                si.left_vn_str)
             return None
         sc = ServiceChain.find(si.left_vn_str, si.right_vn_str, '<>',
-                               [PortType()], [PortType()], 'any')
+                               [PortType()], [PortType()], 'any', [si.name])
         if sc is None:
             self._logger.error("Service chain between %s and %s not present",
                                si.left_vn_str, si.right_vn_str)
@@ -2342,18 +2335,22 @@ class ServiceChain(DBBaseST):
             return False
         if self.protocol != other.protocol:
             return False
+        if self.service_list != other.service_list:
+            return False
         return True
     # end __eq__
 
     @classmethod
-    def find(cls, left_vn, right_vn, direction, sp_list, dp_list, protocol):
+    def find(cls, left_vn, right_vn, direction, sp_list, dp_list, protocol,
+             service_list):
         for sc in ServiceChain.values():
             if (left_vn == sc.left_vn and
                 right_vn == sc.right_vn and
                 sp_list == sc.sp_list and
                 dp_list == sc.dp_list and
                 direction == sc.direction and
-                protocol == sc.protocol):
+                protocol == sc.protocol and
+                service_list == sc.service_list):
                     return sc
         # end for sc
         return None
@@ -2362,7 +2359,8 @@ class ServiceChain(DBBaseST):
     @classmethod
     def find_or_create(cls, left_vn, right_vn, direction, sp_list, dp_list,
                        protocol, service_list):
-        sc = cls.find(left_vn, right_vn, direction, sp_list, dp_list, protocol)
+        sc = cls.find(left_vn, right_vn, direction, sp_list, dp_list, protocol,
+                      service_list)
         if sc is not None:
             sc.present_stale = False
             return sc
