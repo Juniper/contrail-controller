@@ -4,12 +4,19 @@
 # The snapshot is created in <data_directory_location>/<keyspace_name>/snapshots/<snapshot_name>. 
 
 # Initialize variables
+set -x
 ss_dir=""
 base_db_dir=""
 ss_name=""
 ss="snapshots"
 declare -a dirs_to_be_restored=( )
 me=`basename $0`
+
+function join_path()
+{
+    parts=("${!1}")
+    printf '/%s' "${parts[@]%/}"
+}
 
 function print_usage()
 {
@@ -25,8 +32,10 @@ function print_usage()
 	echo "		Snapshot location of Cassandra database"
 	echo "	--snapshot_name, -n"
 	echo "		Snapshot name"
+	echo "	--skip_keyspaces, -k"
+	echo "		Comma seperated list of keyspaces to be skipped"
 	echo "EXAMPLE"
-	echo "	$me -b /var/lib/cassandra/data -s /root/data.ss -n 1403068337967"	
+	echo "	$me -b /var/lib/cassandra/data -s /root/data.ss -n 1403068337967 -k DISCOVERY_SERVER,ContrailAnalyticsCql"
 	exit
 }
 if [ $# -eq  0 ]
@@ -53,6 +62,9 @@ case $key in
 	;;
 	-n|--snapshot_name)	
 	ss_name="$1"
+	;;
+	-k|--skip_keyspaces)
+	skip_keyspaces="$1"
 	;;
 	--default)
 	DEFAULT=YES
@@ -82,6 +94,10 @@ else
     echo "Snapshot available...continuing.."
 fi
 
+# Split the comma seprated keyspaces to make a array
+IFS=,
+skip_keyspaces_list=($skip_keyspaces)
+
 data_dirs="`find $ss_dir -name $ss` "
 # Get directories with snapshots
 # expected format ss_dir/keyspace_dir/column_family_dir/snapshots/*.db
@@ -90,7 +106,33 @@ for i in $data_dirs
 do
 	#x="`echo $i | cut -d "/" -f 4- | sed 's/snapshots$//'`"
 	x="`echo $i | rev | cut -d '/' -f -3 | rev | sed 's/snapshots$//'`"
-	dirs_to_be_restored+=("$x")	
+    # Get the list of snapshots path by reading each line
+    snapshot_paths=()
+    while read -r line
+    do
+        snapshot_paths+=("$line")
+    done <<< "$x"
+    for snapshot_path in "${snapshot_paths[@]}" 
+    do
+        echo $snapshot_path
+        # Get this keyspace name by spliting the snapshot_path
+        this_keyspace=$(echo $snapshot_path | cut -d '/' -f 1)
+        # Check if this keyspace is asked to be skipped
+        skip=0
+        for keyspace in "${skip_keyspaces_list[@]}"
+        do
+            if [ $keyspace = $this_keyspace ]
+            then
+                skip=1
+                echo "Skipping keyspace $keyspace"
+                break
+            fi
+        done
+        if [ "$skip" -ne 1 ]
+        then
+            dirs_to_be_restored+=("$snapshot_path")
+        fi
+    done
 done
 
 # Print directories with snapshots without full path
@@ -110,9 +152,18 @@ find $base_db_dir  -name "*.db"  -delete
 echo "----------db files in snapshots--------------" 
 for i in ${dirs_to_be_restored[@]}
 do
-	src_path=$ss_dir/$i/$ss/$ss_name/
-	dest_path=$base_db_dir/$i/
+    src_path_parts=($ss_dir $i $ss $ss_name)
+    src_path=$( join_path src_path_parts[@] )
+    dest_path_parts=($base_db_dir $i)
+    dest_path=$( join_path dest_path_parts[@] )
+    # Create keyspace/table diectory if not exists
+    if [ ! -d "$dest_path" ]; then
+        mkdir -p $dest_path
+    fi
 	cp $src_path/*.db $dest_path
 	echo "=======check $dest_path ==============="
 	ls $dest_path
 done
+
+# Change the ownership of the cassandra data directory
+chown -R cassandra:cassandra $base_db_dir
