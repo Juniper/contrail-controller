@@ -1274,6 +1274,8 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'cpu_stats.rss', 'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_stats.virt_memory', 'datatype' : 'double', 'index' : false},
           { 'name' : 'cpu_stats.peak_virt_memory', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_stats.disk_allocated_bytes', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_stats.disk_used_bytes', 'datatype' : 'int',    'index' : false},
         ]
     },
     {
@@ -1956,7 +1958,6 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : VMI_TABLE,
       'attributes': [
           { 'name' : 'virtual_network', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'fip_diff_stats.other_vn', 'datatype' : 'string', 'index' : true },
           { 'name' : 'fip_diff_stats.ip_address', 'datatype' : 'string', 'index' : true },
           { 'name' : 'fip_diff_stats.in_pkts', 'datatype' : 'int', 'index' : false },
           { 'name' : 'fip_diff_stats.in_bytes', 'datatype' : 'int', 'index' : false },
@@ -1986,8 +1987,6 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'if_stats.in_bytes', 'datatype' : 'int', 'index' : false },
           { 'name' : 'if_stats.out_pkts', 'datatype' : 'int', 'index' : false },
           { 'name' : 'if_stats.out_bytes', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'if_stats.in_bw_usage', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'if_stats.out_bw_usage', 'datatype' : 'int', 'index' : false }
         ]
     },
     {
@@ -2009,7 +2008,7 @@ const list<stat_table> _STAT_TABLES  = [
       'display_name' : 'Analytics API Statistics',
       'stat_type' : 'AnalyticsApiStats',
       'stat_attr' : 'api_stats',
-      'obj_table' : 'NONE',
+      'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes' : [
           { 'name' : 'api_stats.operation_type', 'datatype' : 'string', 'index' : true },
           { 'name' : 'api_stats.remote_ip', 'datatype' : 'string', 'index' : true },
@@ -2030,12 +2029,12 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'api_stats.user', 'datatype' : 'string', 'index' : true },
           { 'name' : 'api_stats.useragent', 'datatype' : 'string', 'index' : true },
           { 'name' : 'api_stats.remote_ip', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'api_stats.domain_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'api_stats.project_name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'api_stats.domain_name', 'datatype' : 'string', 'index' : true, 'suffixes': ['api_stats.project_name'] },
+          { 'name' : 'api_stats.project_name', 'datatype' : 'string', 'index' : false },
           { 'name' : 'api_stats.object_type', 'datatype' : 'string', 'index' : true },
           { 'name' : 'api_stats.response_time_in_usec', 'datatype' : 'double', 'index' : true },
           { 'name' : 'api_stats.response_size', 'datatype' : 'int', 'index' : true },
-          { 'name' : 'api_stats.response_code', 'datatype' : 'int', 'index' : true }
+          { 'name' : 'api_stats.resp_code', 'datatype' : 'string', 'index' : true }
         ]
     },
     {
@@ -2044,8 +2043,8 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'phy_if_band',
       'obj_table' : VROUTER_TABLE,
       'attributes': [
-          { 'name' : 'name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'phy_if_band.name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'name', 'datatype' : 'string', 'index' : true, 'suffixes': ['phy_if_band.name'] },
+          { 'name' : 'phy_if_band.name', 'datatype' : 'string', 'index' : false },
           { 'name' : 'phy_if_band.in_bandwidth_usage', 'datatype' : 'int', 'index' : false },
           { 'name' : 'phy_if_band.out_bandwidth_usage', 'datatype' : 'int', 'index' : false }
         ]
