@@ -1367,6 +1367,7 @@ class DBInterface(object):
 
     def _subnet_vnc_to_neutron(self, subnet_vnc, net_obj, ipam_fq_name):
         sn_q_dict = {}
+        extra_dict = {}
         sn_name = subnet_vnc.get_subnet_name()
         if sn_name is not None:
             sn_q_dict['name'] = sn_name
@@ -1405,7 +1406,7 @@ class DBInterface(object):
         if allocation_pools is None or not allocation_pools:
             if (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
                 int(IPNetwork(cidr).network+1)):
-                first_ip = str(IPNetwork(cidr).network + 2)
+                first_ip = str(IPNetwork(cidr).network + 3)
             else:
                 first_ip = str(IPNetwork(cidr).network + 1)
             last_ip = str(IPNetwork(cidr).broadcast - 1)
@@ -1426,6 +1427,10 @@ class DBInterface(object):
                                             'subnet_id': sn_id}
                         nameserver_dict_list.append(nameserver_entry)
         sn_q_dict['dns_nameservers'] = nameserver_dict_list
+        if len(nameserver_dict_list) == 0:
+           extra_dict['contrail:dns_server_address'] = subnet_vnc.dns_server_address
+        if self._contrail_extensions_enabled:
+           sn_q_dict.update(extra_dict)
 
         host_route_dict_list = list()
         host_routes = subnet_vnc.get_host_routes()
