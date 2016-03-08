@@ -43,6 +43,11 @@ logger.setLevel(logging.DEBUG)
 
 
 class TestLogicalRouter(test_case.ApiServerTestCase):
+    def __init__(self, *args, **kwargs):
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        logger.addHandler(ch)
+        super(TestLogicalRouter, self).__init__(*args, **kwargs)
 
     def test_lr_v4_subnets(self):
         logger.debug('*** test logical router creation and interface-add of v4 subnets ***')
