@@ -203,7 +203,7 @@ void ProuterUveTable::PhyInterfaceUveEntry::Update(const Interface *pintf) {
 
 ProuterUveTable::ProuterUveEntry::ProuterUveEntry(const PhysicalDevice *p) :
     name_(p->name()), uuid_(p->uuid()), physical_interface_set_(),
-    changed_(true), deleted_(false), renewed_(false) {
+    changed_(true), deleted_(false), renewed_(false), mastership_(p->master()) {
 }
 
 ProuterUveTable::LogicalInterfaceUveEntry::LogicalInterfaceUveEntry
@@ -349,6 +349,7 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
                                       ProuterData *uve) const {
     vector<string> phy_if_list;
     vector<string> logical_list;
+    vector<string> connected_agent_list;
     /* We are using hostname instead of fq-name because Prouter UVE sent by
      * other modules to send topology information uses hostname and we want
      * both these information to be seen in same UVE */
@@ -371,6 +372,13 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
         ++lit;
     }
     uve->set_logical_interface_list(logical_list);
+    if (entry->mastership_) {
+        connected_agent_list.push_back(agent_->agent_name());
+        uve->set_connected_agent_list(connected_agent_list);
+    } else {
+        /* Send Empty list */
+        uve->set_connected_agent_list(connected_agent_list);
+    }
 }
 
 bool ProuterUveTable::SendProuterMsg(ProuterUveEntry *entry) {
@@ -424,6 +432,7 @@ ProuterUveTable::ProuterUveEntry* ProuterUveTable::AddHandler
     UveProuterMap::iterator it = ret.first;
     ProuterUveEntry *entry = it->second.get();
     entry->changed_ = true;
+    entry->mastership_ = p->master();
     if (entry->deleted_) {
         entry->renewed_ = true;
     }
@@ -560,6 +569,7 @@ void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
         } else {
             /* For Change notifications send only the msg */
             ProuterUveEntry *entry = PDEntryToProuterUveEntry(pr->uuid());
+            entry->mastership_ = pr->master();
             entry->changed_ = true;
         }
     }

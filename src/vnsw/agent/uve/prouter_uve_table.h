@@ -79,6 +79,7 @@ class ProuterUveTable {
         bool changed_;
         bool deleted_;
         bool renewed_;
+        bool mastership_;
     };
     typedef boost::shared_ptr<ProuterUveEntry> ProuterUveEntryPtr;
     typedef std::map<boost::uuids::uuid, ProuterUveEntryPtr> UveProuterMap;
