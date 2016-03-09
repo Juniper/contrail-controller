@@ -488,4 +488,11 @@ void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
 bool VnMatch(VnListType &vn_list, std::string &vn);
+void SendBgpServiceConfig(const std::string &ip,
+                          uint32_t source_port,
+                          uint32_t id,
+                          const std::string &vmi_name,
+                          const std::string &vrf_name,
+                          const std::string &bgp_router_type,
+                          bool deleted);
 #endif // vnsw_agent_test_cmn_util_h

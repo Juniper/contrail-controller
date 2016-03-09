@@ -125,6 +125,9 @@ service_instance_test = AgentEnv.MakeTestCmd(env, 'service_instance_test',
                                              flaky_agent_suite)
 test_ecmp6 = AgentEnv.MakeTestCmd(env, 'test_ecmp6', agent_suite)
 test_dpdk_mpls = AgentEnv.MakeTestCmd(env, 'test_dpdk_mpls', agent_suite)
+test_bgp_service_configuration = AgentEnv.MakeTestCmd(env,
+                                                      'test_bgp_service_configuration',
+                                                      agent_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
 env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)
