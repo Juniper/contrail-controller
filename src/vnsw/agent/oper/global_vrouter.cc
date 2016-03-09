@@ -108,6 +108,7 @@ void GlobalVrouter::DeleteFlowAging() {
                                                  old_list_it->first.protocol,
                                                  old_list_it->first.port,
                                                  0);
+        old_list_it++;
     }
     flow_aging_timeout_map_.clear();
 }
