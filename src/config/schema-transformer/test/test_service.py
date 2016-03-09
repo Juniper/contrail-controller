@@ -1038,7 +1038,13 @@ class TestPolicy(test_case.STTestCase):
         np.set_network_policy_entries(np.network_policy_entries)
         self._vnc_lib.network_policy_update(np)
 
+        sc_old = sc
         for i in range(0, 5):
+            sc = self.wait_to_get_sc()
+            if sc_old == sc:
+                gevent.sleep(1)
+                continue
+            sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
             try:
                 self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
                 gevent.sleep(1)
