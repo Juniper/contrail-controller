@@ -133,32 +133,26 @@ bool VrouterUveEntry::SendVrouterMsg() {
     // 1 minute bandwidth
     if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_1min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
-        BuildPhysicalInterfaceBandwidth(phy_if_blist, 1);
+        double in_util = 0, out_util = 0;
+        BuildPhysicalInterfaceBandwidth(phy_if_blist, 1, &in_util, &out_util);
         /* One minute bandwidth has 'tags' annotation and has to be sent
          * always regardless of change in bandwidth or not */
         stats.set_phy_if_band(phy_if_blist);
         change = true;
-        if (prev_stats_.get_phy_if_band() != phy_if_blist) {
-            prev_stats_.set_phy_if_band(phy_if_blist);
-
-            vector<AgentIfBandwidth>::iterator it = phy_if_blist.begin();
-            int num_intfs = 0, in_band = 0, out_band = 0;
-            while(it != phy_if_blist.end()) {
-                AgentIfBandwidth band = *it;
-                in_band += band.get_in_bandwidth_usage();
-                out_band += band.get_out_bandwidth_usage();
-                num_intfs++;
-                ++it;
-            }
-            stats.set_total_in_bandwidth_utilization((in_band/num_intfs));
-            stats.set_total_out_bandwidth_utilization((out_band/num_intfs));
+        if (in_util != prev_stats_.get_total_in_bandwidth_utilization()) {
+            stats.set_total_in_bandwidth_utilization(in_util);
+            prev_stats_.set_total_in_bandwidth_utilization(in_util);
+        }
+        if (out_util != prev_stats_.get_total_out_bandwidth_utilization()) {
+            stats.set_total_out_bandwidth_utilization(out_util);
+            prev_stats_.set_total_out_bandwidth_utilization(out_util);
         }
     }
 
     // 5 minute bandwidth
     if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_5min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
-        BuildPhysicalInterfaceBandwidth(phy_if_blist, 5);
+        BuildPhysicalInterfaceBandwidth(phy_if_blist, 5, NULL, NULL);
         if (prev_stats_.get_phy_if_5min_usage() != phy_if_blist) {
             stats.set_phy_if_5min_usage(phy_if_blist);
             prev_stats_.set_phy_if_5min_usage(phy_if_blist);
@@ -169,7 +163,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     // 10 minute bandwidth
     if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_10min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
-        BuildPhysicalInterfaceBandwidth(phy_if_blist, 10);
+        BuildPhysicalInterfaceBandwidth(phy_if_blist, 10, NULL, NULL);
         if (prev_stats_.get_phy_if_10min_usage() != phy_if_blist) {
             stats.set_phy_if_10min_usage(phy_if_blist);
             prev_stats_.set_phy_if_10min_usage(phy_if_blist);
@@ -260,8 +254,10 @@ bool VrouterUveEntry::SendVrouterMsg() {
     return true;
 }
 
-uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
-                                            int diff_seconds) const {
+uint64_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
+                                             int diff_seconds,
+                                             double *utilization_bps) const {
+    *utilization_bps = 0;
     if (bytes == 0 || speed_mbps == 0) {
         return 0;
     }
@@ -269,13 +265,19 @@ uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
     if (diff_seconds == 0) {
         return 0;
     }
-    uint64_t speed_bps = speed_mbps * 1024 * 1024;
+    /* Compute bandwidth in bps */
     uint64_t bps = bits/diff_seconds;
-    return (bps * 100)/speed_bps;
+
+    /* Compute network utilization in percentage */
+    uint64_t speed_bps = speed_mbps * 1024 * 1024;
+    double bps_double = bits/diff_seconds;
+    *utilization_bps = (bps_double * 100)/speed_bps;
+    return bps;
 }
 
-uint8_t VrouterUveEntry::GetBandwidthUsage
-    (StatsManager::InterfaceStats *s, bool dir_in, int mins) const {
+uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
+                                           bool dir_in, int mins,
+                                           double *util) const {
 
     uint64_t bytes;
     if (dir_in) {
@@ -309,7 +311,7 @@ uint8_t VrouterUveEntry::GetBandwidthUsage
                 break;
         }
     }
-    return CalculateBandwitdh(bytes, s->speed, (mins * 60));
+    return CalculateBandwitdh(bytes, s->speed, (mins * 60), util);
 }
 
 bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
@@ -340,9 +342,18 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
 }
 
 bool VrouterUveEntry::BuildPhysicalInterfaceBandwidth
-    (vector<AgentIfBandwidth> &phy_if_list, uint8_t mins) const {
-    uint8_t in_band, out_band;
+    (vector<AgentIfBandwidth> &phy_if_list, uint8_t mins, double *in_avg_util,
+     double *out_avg_util) const {
+    uint64_t in_band, out_band;
+    double in_util, out_util;
     bool changed = false;
+    int num_intfs = 0;
+    if (in_avg_util != NULL) {
+        *in_avg_util = 0;
+    }
+    if (out_avg_util != NULL) {
+        *out_avg_util = 0;
+    }
 
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
@@ -355,13 +366,26 @@ bool VrouterUveEntry::BuildPhysicalInterfaceBandwidth
         }
         AgentIfBandwidth phy_stat_entry;
         phy_stat_entry.set_name(intf->name());
-        in_band = GetBandwidthUsage(s, true, mins);
-        out_band = GetBandwidthUsage(s, false, mins);
+        in_band = GetBandwidthUsage(s, true, mins, &in_util);
+        out_band = GetBandwidthUsage(s, false, mins, &out_util);
         phy_stat_entry.set_in_bandwidth_usage(in_band);
         phy_stat_entry.set_out_bandwidth_usage(out_band);
         phy_if_list.push_back(phy_stat_entry);
         changed = true;
+        if (in_avg_util != NULL) {
+            *in_avg_util += in_util;
+        }
+        if (out_avg_util != NULL) {
+            *out_avg_util += out_util;
+        }
         ++it;
+        num_intfs++;
+    }
+    if ((in_avg_util != NULL) && num_intfs) {
+        *in_avg_util /= num_intfs;
+    }
+    if ((out_avg_util != NULL) && num_intfs) {
+        *out_avg_util /= num_intfs;
     }
     return changed;
 }
