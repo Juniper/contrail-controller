@@ -323,6 +323,7 @@ void BgpAsAServiceFlowMgmtTree::DeleteAll() {
         BgpAsAServiceFlowMgmtKey *key =
             static_cast<BgpAsAServiceFlowMgmtKey *>(it->first);
         mgr_->BgpAsAServiceNotify(key->uuid(), key->source_port());
+        it++;
     }
 }
 
