@@ -10,6 +10,7 @@ from cfgm_common import vnc_kombu
 from vnc_cfg_api_server import vnc_cfg_ifmap
 from distutils.version import LooseVersion
 
+
 if LooseVersion(kombu.__version__) >= LooseVersion("2.5.0"):
     is_kombu_client_v1 = False
 else:
@@ -60,7 +61,7 @@ class TestIfmapKombuClient(unittest.TestCase):
         check_value = []
         def Connection(self, urls):
             if set(urls) != set(check_value):
-                raise WrongValueException()
+                raise WrongValueException("expected %s - received %s", str(check_value), str(urls))
             else:
                 raise CorrectValueException()
 
