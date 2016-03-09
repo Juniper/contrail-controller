@@ -3,12 +3,18 @@ from gevent import monkey
 monkey.patch_all()
 import kombu
 import sys
+import logging
 
 import unittest
 from flexmock import flexmock
 from cfgm_common import vnc_kombu
 from vnc_cfg_api_server import vnc_cfg_ifmap
 from distutils.version import LooseVersion
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 if LooseVersion(kombu.__version__) >= LooseVersion("2.5.0"):
     is_kombu_client_v1 = False
@@ -38,7 +44,7 @@ class TestIfmapKombuClient(unittest.TestCase):
         self.db_client_mgr = flexmock(operational=True, _sandesh=None,
                        config_log=lambda *args, **kwargs: None,
                        get_server_port=lambda: 8082)
-        self._url_template = "pyamqp://%s:%s@%s:%d/%s/"
+        self._url_template = "pyamqp://%s:%s@%s:%d/%s"
         self.mock_producer = flexmock(operational = True)
         self.mock_consumer = flexmock(operational = True)
         flexmock(vnc_kombu.kombu.Connection, __new__ = lambda *args, **kwargs: self.mock_connect)
@@ -60,6 +66,8 @@ class TestIfmapKombuClient(unittest.TestCase):
         check_value = []
         def Connection(self, urls):
             if set(urls) != set(check_value):
+                logger.info("check_value: %s", check_value)
+                logger.info("urls: %s", urls)
                 raise WrongValueException()
             else:
                 raise CorrectValueException()
