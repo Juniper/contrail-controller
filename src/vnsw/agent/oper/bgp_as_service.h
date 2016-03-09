@@ -52,6 +52,7 @@
 
 #define BGP_ROUTER_CONFIG_NAME "bgp-router"
 #define BGP_AS_SERVICE_CONFIG_NAME "bgp-as-a-service"
+#define VALID_BGP_ROUTER_TYPE "bgpaas-client"
 
 extern SandeshTraceBufferPtr BgpAsAServiceTraceBuf;
 #define BGPASASERVICETRACE(obj, ...)                                                     \
