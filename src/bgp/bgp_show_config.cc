@@ -350,6 +350,15 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
         sbnfc.family = family_config.family;
         sbnfc.loop_count = family_config.loop_count;
         sbnfc.prefix_limit = family_config.prefix_limit;
+        if (family_config.family == "inet") {
+            IpAddress address = neighbor->gateway_address(Address::INET);
+            if (!address.is_unspecified())
+                sbnfc.gateway_address = address.to_string();
+        } else if (family_config.family == "inet6") {
+            IpAddress address = neighbor->gateway_address(Address::INET6);
+            if (!address.is_unspecified())
+                sbnfc.gateway_address = address.to_string();
+        }
         sbnfc_list.push_back(sbnfc);
     }
     sbnc->set_family_attributes_list(sbnfc_list);

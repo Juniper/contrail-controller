@@ -248,6 +248,11 @@ BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
         loop_count = config->loop_count();
     }
     prefix_limit = family_config.prefix_limit;
+    if (family_config.family == "inet") {
+        gateway_address = config->gateway_address(Address::INET);
+    } else if (family_config.family == "inet6") {
+        gateway_address = config->gateway_address(Address::INET6);
+    }
 }
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
@@ -742,6 +747,12 @@ string BgpPeer::transport_address_string() const {
         endpoint = session_->remote_endpoint();
     oss << endpoint;
     return oss.str();
+}
+
+string BgpPeer::gateway_address_string(Address::Family family) const {
+    if (!family_attributes_list_[family])
+        return string();
+    return family_attributes_list_[family]->gateway_address.to_string();
 }
 
 //
@@ -1702,6 +1713,10 @@ void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
             family_attributes_list_[idx]->loop_count;
         show_family_attributes.prefix_limit =
             family_attributes_list_[idx]->prefix_limit;
+        if (!family_attributes_list_[idx]->gateway_address.is_unspecified()) {
+            show_family_attributes.gateway_address =
+                family_attributes_list_[idx]->gateway_address.to_string();
+        }
         show_family_attributes_list.push_back(show_family_attributes);
     }
     nbr->set_family_attributes_list(show_family_attributes_list);

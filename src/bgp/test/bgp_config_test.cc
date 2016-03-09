@@ -654,6 +654,64 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors6) {
     task_util::WaitForIdle();
 }
 
+TEST_F(BgpConfigTest, BGPaaSNeighbors7) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_40a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_EQ("10.0.0.254",
+        peer1->gateway_address_string(Address::INET));
+    TASK_UTIL_EXPECT_EQ("::ffff:10.0.0.254",
+        peer1->gateway_address_string(Address::INET6));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+    TASK_UTIL_EXPECT_EQ("10.0.0.254",
+        peer2->gateway_address_string(Address::INET));
+    TASK_UTIL_EXPECT_EQ("::ffff:10.0.0.254",
+        peer2->gateway_address_string(Address::INET6));
+
+    // Update gateway addresses.
+    content = FileRead("controller/src/bgp/testdata/config_test_40b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that the v4 and v6 gateway addresses are updated for test:vm1.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_EQ("10.0.0.253",
+        peer1->gateway_address_string(Address::INET));
+    TASK_UTIL_EXPECT_EQ("::ffff:10.0.0.253",
+        peer1->gateway_address_string(Address::INET6));
+
+    // Verify that the v4 and v6 gateway addresses are updated for test:vm2.
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+    TASK_UTIL_EXPECT_EQ("10.0.0.253",
+        peer2->gateway_address_string(Address::INET));
+    TASK_UTIL_EXPECT_EQ("::ffff:10.0.0.253",
+        peer2->gateway_address_string(Address::INET6));
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+}
+
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
     string content_a = FileRead("controller/src/bgp/testdata/config_test_35a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
