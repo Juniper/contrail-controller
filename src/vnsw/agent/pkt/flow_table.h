@@ -688,6 +688,8 @@ public:
     uint32_t max_vm_flows() const { return max_vm_flows_; }
     void set_max_vm_flows(uint32_t num_flows) { max_vm_flows_ = num_flows; }
     uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
+    void increment_linklocal_flow_count() { linklocal_flow_count_++; }
+    void decrement_linklocal_flow_count() { linklocal_flow_count_--; }
     Agent *agent() const { return agent_; }
 
     // Test code only used method
@@ -1047,7 +1049,7 @@ struct IntfFlowInfo {
 };
 
 struct VmFlowInfo {
-    VmFlowInfo() : linklocal_flow_count() {}
+    VmFlowInfo() : linklocal_flow_count(0) {}
     ~VmFlowInfo() {}
 
     VmEntryConstRef vm_entry;
