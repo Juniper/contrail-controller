@@ -159,7 +159,9 @@ static void BuildLinkToMetadata() {
 
     AddLinkToMetadata("subnet", "virtual-machine-interface");
     AddLinkToMetadata("virtual-router", "virtual-machine");
-
+    AddLinkToMetadata("virtual-machine-interface", "bgp-as-a-service");
+    AddLinkToMetadata("bgp-router", "bgp-as-a-service");
+    AddLinkToMetadata("bgp-router", "routing-instance");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -3838,4 +3840,59 @@ bool VnMatch(VnListType &vn_list, std::string &vn) {
             return true;
     }
     return false;
+}
+
+void SendBgpServiceConfig(const std::string &ip,
+                          uint32_t source_port,
+                          uint32_t id,
+                          const std::string &vmi_name,
+                          const std::string &vrf_name,
+                          const std::string &bgp_router_type,
+                          bool deleted) {
+    std::stringstream bgp_router_name;
+    bgp_router_name << "bgp-router-" << source_port << "-" << ip;
+
+    std::stringstream str;
+    str << "<bgp-router-parameters><identifier>" << ip << "</identifier>"
+        "<address>" << ip << "</address>"
+        "<source-port>" << source_port << "</source-port>"
+        "<router-type>" << bgp_router_type << "</router-type>"
+        "</bgp-router-parameters>" << endl;
+
+    std::stringstream str1;
+    //Agent does not pick IP from bgpaas-ip-address. So dont populate.
+    str1 << "<bgpaas-ip-address></bgpaas-ip-address>" << endl;
+
+    if (deleted) {
+        DelLink("bgp-router", bgp_router_name.str().c_str(),
+                "bgp-as-a-service", bgp_router_name.str().c_str());
+        client->WaitForIdle();
+        DelLink("bgp-router", bgp_router_name.str().c_str(),
+                "routing-instance", vrf_name.c_str());
+        client->WaitForIdle();
+        DelLink("virtual-machine-interface", vmi_name.c_str(),
+                "bgp-as-a-service", bgp_router_name.str().c_str());
+        client->WaitForIdle();
+        DelNode("bgp-router", bgp_router_name.str().c_str());
+        client->WaitForIdle();
+        DelNode("bgp-as-a-service", bgp_router_name.str().c_str());
+        client->WaitForIdle();
+        return;
+    }
+
+    AddNode("bgp-router", bgp_router_name.str().c_str(), id,
+            str.str().c_str());
+    client->WaitForIdle();
+    AddNode("bgp-as-a-service", bgp_router_name.str().c_str(), id,
+            str1.str().c_str());
+    client->WaitForIdle();
+    AddLink("bgp-router", bgp_router_name.str().c_str(),
+            "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    AddLink("bgp-router", bgp_router_name.str().c_str(),
+            "routing-instance", vrf_name.c_str());
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", vmi_name.c_str(),
+            "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
 }
