@@ -1119,7 +1119,7 @@ TEST_F(UveVrouterUveTest, TSN_intf_list1) {
 
     util_.EnqueueSendPIUveTask();
     client->WaitForIdle();
-    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 1U));
+    WAIT_FOR(1000, 500, (pr->PhysicalIntfListCount() == 0U));
 
     util_.EnqueueSendLIUveTask();
     client->WaitForIdle();

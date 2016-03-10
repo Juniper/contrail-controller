@@ -693,6 +693,11 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
         pde = lintf->physical_device();
     } else if (intf->type() == Interface::PHYSICAL) {
         pintf = static_cast<const PhysicalInterface *>(intf);
+        /* Ignore PhysicalInterface notifications if it is not of subtype
+         * CONFIG */
+        if (pintf->subtype() != PhysicalInterface::CONFIG) {
+            return;
+        }
         pde = pintf->physical_device();
     } else if (intf->type() == Interface::VM_INTERFACE) {
         VmInterfaceHandler(partition, e);
