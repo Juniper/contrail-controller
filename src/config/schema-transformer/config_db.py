@@ -358,6 +358,35 @@ class VirtualNetworkST(DBBaseST):
                     sc, other_si_name, multi_policy_enabled)
     # end check_multi_policy_service_chain_status
 
+    def delete_inactive_service_chains(my_service_chains=None):
+        if my_service_chains is None:
+            my_service_chains = self.service_chains
+
+        # Delete the service chains that are no longer active
+        for remote_vn_name in my_service_chains:
+            # Get the Remote VNs in this VN's service chain and 
+            # get a list of the remote service chains in the remote
+            # VNs which has this VN name.
+            remote_vn = VirtualNetworkST.get(remote_vn_name)
+            if remote_vn is None:
+                remote_service_chain_list = []
+            else:
+                remote_service_chain_list = remote_vn.service_chains.get(self.name)
+
+            # Get a list of my service chains which has a
+            # remote VN name as one of its service endpoints.
+            # If the service chain is present in the remote_vn's
+            # service chain list with this VN as another end point, 
+            # then just destroy/mark it for deletion
+            # Otherwise, delete it permanently since there is only
+            # one reference.
+            service_chain_list = my_service_chains[remote_vn_name]
+            for service_chain in service_chain_list or []:
+                if service_chain in (remote_service_chain_list or []):
+                    service_chain.destroy()
+                else:
+                    service_chain.delete()
+
     def delete_obj(self):
         for policy_name in self.network_policys:
             policy = NetworkPolicyST.get(policy_name)
@@ -366,9 +395,7 @@ class VirtualNetworkST(DBBaseST):
             policy.virtual_networks.discard(self.name)
 
         self.update_multiple_refs('virtual_machine_interface', {})
-        for service_chain_list in self.service_chains.values():
-            for service_chain in service_chain_list:
-                service_chain.destroy()
+        self.delete_inactive_service_chains()
         for ri_name in self.routing_instances:
             RoutingInstanceST.delete(ri_name)
         if self.acl:
@@ -1324,22 +1351,7 @@ class VirtualNetworkST(DBBaseST):
             # end for service_chain
         # end for remote_vn_name
 
-        # Delete the service chains that are no longer active
-        for remote_vn_name in old_service_chains:
-            remote_vn = VirtualNetworkST.get(remote_vn_name)
-            if remote_vn is None:
-                continue
-            remote_service_chain_list = remote_vn.service_chains.get(self.name)
-            service_chain_list = old_service_chains[remote_vn_name]
-            for service_chain in service_chain_list or []:
-                if service_chain in (self.service_chains.get(remote_vn_name)
-                                     or []):
-                    continue
-                if service_chain in (remote_service_chain_list or []):
-                    service_chain.destroy()
-                else:
-                    service_chain.delete()
-        # for remote_vn_name
+        self.delete_inactive_service_chains(old_service_chains)
 
         self.update_route_table()
         self.update_pnf_presence()
