@@ -1001,6 +1001,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap1) {
 
 //
 // Agent flaps a route by adding and deleting it repeatedly.
+// Two agents in same VN on different CNs.
 //
 TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     Configure();
@@ -1034,6 +1035,92 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     // Verify that route is deleted at agents A and B.
     VerifyRouteNoExists(agent_a_, "blue", route_a.str());
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Agent flaps a route by adding and deleting it repeatedly.
+// Two agents in same VN on same CN.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap3) {
+    Configure(bs_x_, config_1_control_node_2_vns);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add and delete route from agent A repeatedly.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    for (int idx = 0; idx < 1024; ++idx) {
+        agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
+        usleep(5000);
+        agent_a_->DeleteRoute("blue", route_a.str());
+    }
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Agent flaps a route by adding and deleting it repeatedly.
+// Two agents in different VNs on same CN.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap4) {
+    // Configure and add connection between blue and pink on bgp server X.
+    Configure(bs_x_, config_1_control_node_2_vns);
+    AddConnection(bs_x_, "blue", "pink");
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("pink", 2);
+
+    // Add and delete route from agent A repeatedly.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    for (int idx = 0; idx < 1024; ++idx) {
+        agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
+        usleep(5000);
+        agent_a_->DeleteRoute("blue", route_a.str());
+    }
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "pink", route_a.str());
 
     // Close the sessions.
     agent_a_->SessionDown();
