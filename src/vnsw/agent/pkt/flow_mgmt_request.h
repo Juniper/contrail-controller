@@ -22,32 +22,40 @@ public:
         RETRY_DELETE_VRF,
         UPDATE_FLOW_INDEX,
         DELETE_BGP_AAS_FLOWS,
-        UPDATE_FLOW_STATS
+        UPDATE_FLOW_STATS,
+        DUMMY
+
     };
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
-        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0) {
+        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
+        bytes_(), packets_(), oflow_bytes_() {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
-        }
+    }
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint32_t bytes,
                     uint32_t packets, uint32_t oflow_bytes) :
-        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0),
+        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
         bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
-        }
+    }
 
     FlowMgmtRequest(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), db_entry_(db_entry), vrf_id_(0),
-        gen_id_(gen_id) {
+        gen_id_(gen_id), bytes_(), packets_(), oflow_bytes_() {
             if (event == RETRY_DELETE_VRF) {
                 const VrfEntry *vrf = dynamic_cast<const VrfEntry *>(db_entry);
                 assert(vrf);
                 vrf_id_ = vrf->vrf_id();
             }
-        }
+    }
+
+    FlowMgmtRequest(Event event) :
+        event_(event), flow_(NULL), db_entry_(NULL), vrf_id_(),
+        gen_id_(), bytes_(), packets_(), oflow_bytes_() {
+    }
 
     virtual ~FlowMgmtRequest() { }
 

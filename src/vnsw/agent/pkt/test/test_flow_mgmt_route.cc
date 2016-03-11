@@ -9,6 +9,7 @@
 #include "ksync/ksync_sock_user.h"
 #include "oper/tunnel_nh.h"
 #include "pkt/flow_mgmt.h"
+#include "pkt/flow_mgmt_dbclient.h"
 #include <algorithm>
 
 #define vm1_ip "1.1.1.1"
@@ -60,7 +61,7 @@ protected:
         FlushFlowTable();
         client->Reset();
 
-        DeleteVmportEnv(input, 3, true, 1);
+        DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle(3);
 
         EXPECT_FALSE(VmPortFind(input, 0));
@@ -70,6 +71,38 @@ protected:
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
         DeleteBgpPeer(peer_);
+    }
+
+    int CreateMpls(int tag) {
+        int label = agent_->mpls_table()->AllocLabel();
+        MplsLabel::CreateVlanNh(agent_, label, MakeUuid(100), tag);
+        return label;
+    }
+
+    void DeleteMpls(unsigned long label) {
+        MplsLabel::DeleteReq(agent_, label);
+    }
+
+    void CreateTunnelNH(unsigned long addr) {
+        TunnelType::TypeBmap bmap = TunnelType::AllType();
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new TunnelNHKey(agent_->fabric_vrf_name(),
+                                      agent_->router_id(),
+                                      Ip4Address(addr),
+                                      true, TunnelType::ComputeType(bmap)));
+        req.data.reset(new TunnelNHData());
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+    }
+
+    void DeleteTunnelNH(unsigned long addr) {
+        TunnelType::TypeBmap bmap = TunnelType::AllType();
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key.reset(new TunnelNHKey(agent_->fabric_vrf_name(),
+                                      agent_->router_id(),
+                                      Ip4Address(addr),
+                                      true, TunnelType::ComputeType(bmap)));
+        req.data.reset(new TunnelNHData());
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
     }
 
     Agent *agent() {return agent_;}
@@ -274,6 +307,66 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_5) {
     client->WaitForIdle();
 }
 
+////////////////////////////////////////////////////////////////////////////
+// UT for bug 1551577
+// Simulate the following scenario,
+// 1. Delete a DBEntry and enqueue DELETE_DBENTRY event
+// 2. Renew the DBEntry and enqueue ADD_DBENTRY
+// 3. Delete the DBEntry and not notify DELETE
+// 4. Process the DELETE_DBENTRY in (1)
+// 5. Free DBState
+// 6. Process the DELETE in (3) and let the DBEntry get freed
+// 7. Process the ADD_DBENTRY from (2).
+//    Agent asserts since its trying to process deleted DBEntry
+////////////////////////////////////////////////////////////////////////////
+TEST_F(FlowMgmtRouteTest, DB_Entry_Reuse) {
+#define vm3_ip  "1.1.1.3"
+    unsigned long addr = Ip4Address::from_string("100.100.100.1").to_ulong();
+
+    // Create TunnelNH
+    CreateTunnelNH(addr);
+    client->WaitForIdle();
+
+    // Create some MPLS Labels. They will be used to delay the DB-notification
+    // in later stages
+    ConcurrencyScope scope("db::DBTable");
+    int label_list[2000];
+    // Enqueue requests into flow-mgmt queue
+    for (int i = 100; i < 1000; i++) {
+        label_list[i] = CreateMpls(i);
+    }
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (flow_mgmt_->FlowUpdateQueueLength() == 0));
+
+    // Disable flow-management queue
+    flow_mgmt_->FlowUpdateQueueDisable(true);
+
+    // Delete the NH. This should trigger clear of DBState
+    DeleteTunnelNH(addr);
+    client->WaitForIdle();
+
+    // Make dummy enqueues so that subsequent operation on tunnel-nh are
+    // delayed
+    for (int i = 0; i < 100000; i++) {
+        flow_mgmt_->DummyEvent();
+    }
+
+    // Revoke the tunnel-nh and delete it again
+    CreateTunnelNH(addr);
+    client->WaitForIdle();
+
+    DeleteTunnelNH(addr);
+
+    // Delay notification tunnel-nh creation above to ensure the DBState
+    // for NH is cleared by flow-mgmt module
+    for (int i = 100; i < 1000; i++) {
+        DeleteMpls(label_list[i]);
+    }
+
+    // Enable flow-mgmt queue
+    flow_mgmt_->FlowUpdateQueueDisable(false);
+    WAIT_FOR(1000, 1000, (flow_mgmt_->FlowUpdateQueueLength() == 0));
+}
 
 int main(int argc, char *argv[]) {
     int ret = 0;
