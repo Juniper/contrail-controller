@@ -506,7 +506,7 @@ StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance)
     }
 
     static_route_queue_ = new WorkQueue<StaticRouteRequest *>
-        (static_route_task_id_, routing_instance()->index(),
+        (static_route_task_id_, 0,
          boost::bind(&StaticRouteMgr::StaticRouteEventCallback, this, _1));
 }
 
