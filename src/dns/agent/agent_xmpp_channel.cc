@@ -30,13 +30,13 @@ DnsAgentXmppChannel:: DnsAgentXmppChannel(XmppChannel *channel,
 }
 
 DnsAgentXmppChannel::~DnsAgentXmppChannel() {
+    channel_->UnRegisterReceive(xmps::DNS);
 }
 
 void DnsAgentXmppChannel::Close() {
     UpdateDnsRecords(BindUtil::DELETE_UPDATE);
     if (mgr_)
         mgr_->RemoveChannel(channel_);
-    channel_->UnRegisterReceive(xmps::DNS);
 }
 
 void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
@@ -155,9 +155,7 @@ void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
 }
 
 DnsAgentXmppChannelManager::DnsAgentXmppChannelManager(
-                            XmppServer *server) : server_(server), 
-    trigger_(boost::bind(&DnsAgentXmppChannelManager::ChannelCleaner, this),
-        TaskScheduler::GetInstance()->GetTaskId("dns::GarbageCleaner"), 0) {
+                            XmppServer *server) : server_(server) {
     if (server_) {
         server_->RegisterConnectionEvent(xmps::DNS,
         boost::bind(&DnsAgentXmppChannelManager::HandleXmppChannelEvent,
@@ -184,14 +182,6 @@ DnsAgentXmppChannelManager::DnsAgentXmppChannelManager::FindChannel(
     return it->second;
 }
 
-void DnsAgentXmppChannelManager::UpdateAll() {
-    for (ChannelMap::iterator iter = channel_map_.begin(); 
-         iter != channel_map_.end(); ++iter) {
-        DnsAgentXmppChannel *ch = iter->second;
-        ch->UpdateDnsRecords(BindUtil::ADD_UPDATE);
-    }
-}
-
 void 
 DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
@@ -206,24 +196,13 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
     } else if (state == xmps::NOT_READY) {
         if (it != channel_map_.end()) {
             DnsAgentXmppChannel *agent_xmpp_channel = (*it).second;
-            delete_list_.push_back(agent_xmpp_channel);
-            trigger_.Set();
+            agent_xmpp_channel->Close();
+            delete agent_xmpp_channel;
         } else {
             DNS_XMPP_TRACE(DnsXmppTrace, 
                            "Peer not found on channel not ready event");
         }
     }
-}
-
-bool DnsAgentXmppChannelManager::ChannelCleaner() {
-    // This is executed in the GarbageCleaner task context, which is
-    // excluded from xmpp task
-    for (unsigned int i = 0; i < delete_list_.size(); ++i) {
-        delete_list_[i]->Close();
-        delete delete_list_[i];
-    }
-    delete_list_.clear();
-    return true;
 }
 
 void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
