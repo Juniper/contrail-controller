@@ -79,6 +79,8 @@ public:
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowMgmtQueue(bool disabled);
+    size_t FlowMgmtQueueLength();
+
     const FlowStats *flow_stats() const { return &stats_; }
 
     void SetProfileData(ProfileData *data);
