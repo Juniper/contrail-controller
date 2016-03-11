@@ -27,6 +27,8 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
+const char *DiscoveryServiceClient::kDefaultClientIpAdress = "127.0.0.1";
+
 SandeshTraceBufferPtr DiscoveryClientTraceBuf(SandeshTraceBufferCreate(
     "DiscoveryClient", 1000));
 
@@ -209,18 +211,12 @@ DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
       shutdown_(false),
       subscriber_name_(client_name),
       heartbeat_interval_(DiscoveryServiceClient::kHeartBeatInterval),
-      local_addr_("127.0.0.1") {
+      local_addr_(kDefaultClientIpAdress) {
 }
 
 void DiscoveryServiceClient::Init() {
     http_client_->Init();
-
-    boost::system::error_code ec;
-    boost::asio::ip::tcp::socket socket(*evm_->io_service());
-    socket.connect(ds_endpoint_, ec);
-    if (ec == 0) {
-        local_addr_ = socket.local_endpoint().address().to_string();
-    }
+    UpdateLocalClientIpAddress();
 }
 
 void DiscoveryServiceClient::Shutdown() {
@@ -793,6 +789,15 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
                                 serviceName, ss.str());
 }
 
+void DiscoveryServiceClient::UpdateLocalClientIpAddress() {
+    boost::system::error_code ec;
+    boost::asio::ip::tcp::socket socket(*evm_->io_service());
+    socket.connect(ds_endpoint_, ec);
+    if (ec == 0) {
+        local_addr_ = socket.local_endpoint().address().to_string();
+    }
+    socket.close();
+}
 
 void DiscoveryServiceClient::Subscribe(std::string serviceName) {
     // Get Response Header
@@ -804,10 +809,23 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
         resp->subscribe_cb_called_ = false;
         resp->sub_sent_++;
 
-        if (resp->inuse_service_list_.size()) {
-            auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
-            if (impl->LoadDoc(resp->subscribe_msg_) != -1) {
-                XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        stringstream ss;
+        if (impl->LoadDoc(resp->subscribe_msg_) != -1) {
+            XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+            // Convert to string
+            impl->PrintDoc(ss);
+            if (ss.str().find(kDefaultClientIpAdress) != string::npos) {
+                UpdateLocalClientIpAddress();
+                if (!IsDefaultLocalAddress()) {
+                    pugi->ModifyNode("remote-addr", local_addr_);
+                    ss.str(std::string()); //clear the string
+                    impl->PrintDoc(ss);
+                    resp->subscribe_msg_ = ss.str();
+                }
+            }
+
+            if (resp->inuse_service_list_.size()) {
                 pugi::xml_node node_service = pugi->FindNode(serviceName);
                 if (!pugi->IsNull(node_service)) {
                     pugi->ReadNode(serviceName); //SetContext
@@ -825,7 +843,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
             }
 
             // Convert to string
-            stringstream ss;
+            ss.str(std::string()); //clear the string
             impl->PrintDoc(ss);
             SendHttpPostMessage("subscribe", serviceName, ss.str());
 
@@ -839,8 +857,6 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
                                             serviceName, ss.str());
                 resp->subscribe_chksum_ = gen_chksum;
             }
-        } else {
-            SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
         }
     }
 }
