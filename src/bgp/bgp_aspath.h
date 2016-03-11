@@ -62,6 +62,7 @@ struct AsPathSpec : public BgpAttribute {
     virtual size_t EncodeLength() const;
     virtual std::string ToString() const;
     AsPathSpec *Add(as_t asn) const;
+    AsPathSpec *Replace(as_t old_asn, as_t asn) const;
     std::vector<PathSegment *> path_segments;
 };
 
