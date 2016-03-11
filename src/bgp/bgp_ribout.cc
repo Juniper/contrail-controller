@@ -41,6 +41,12 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     if (as_number > rhs.as_number) {
         return false;
     }
+    if (as_override < rhs.as_override) {
+        return true;
+    }
+    if (as_override > rhs.as_override) {
+        return false;
+    }
     if (nexthop < rhs.nexthop) {
         return true;
     }

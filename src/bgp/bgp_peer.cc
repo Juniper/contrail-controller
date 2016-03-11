@@ -263,12 +263,12 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
         family_attributes_list_[family];
     if (!family_attributes ||
         family_attributes->gateway_address.is_unspecified()) {
-        return RibExportPolicy(
-            peer_type_, RibExportPolicy::BGP, peer_as_, -1, 0);
+        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+            as_override_, -1, 0);
     } else {
         IpAddress nexthop = family_attributes->gateway_address;
-        return RibExportPolicy(
-            peer_type_, RibExportPolicy::BGP, peer_as_, nexthop, -1, 0);
+        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+            as_override_, nexthop, -1, 0);
     }
 }
 
@@ -370,6 +370,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           admin_down_(config->admin_down()),
           passive_(config->passive()),
           resolve_paths_(config->router_type() == "bgpaas-client"),
+          as_override_(config->as_override()),
           membership_req_pending_(0),
           defer_close_(false),
           vpn_tables_registered_(false),
@@ -407,6 +408,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_name(ToUVEKey());
     peer_info.set_admin_down(admin_down_);
     peer_info.set_passive(passive_);
+    peer_info.set_as_override(as_override_);
     peer_info.set_router_type(router_type_);
     peer_info.set_peer_type(
         PeerType() == BgpProto::IBGP ? "internal" : "external");
@@ -601,6 +603,12 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (passive_ != config->passive()) {
         passive_ = config->passive();
         peer_info.set_passive(passive_);
+        clear_session = true;
+    }
+
+    if (as_override_ != config->as_override()) {
+        as_override_ = config->as_override();
+        peer_info.set_as_override(as_override_);
         clear_session = true;
     }
 
@@ -1743,6 +1751,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_closed_at(UTCUsecToString(deleter_->delete_time_stamp_usecs()));
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
+    bnr->set_as_override(as_override_);
     bnr->set_peer_address(peer_address_string());
     bnr->set_peer_id(bgp_identifier_string());
     bnr->set_peer_asn(peer_as());

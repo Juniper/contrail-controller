@@ -181,19 +181,19 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             BgpAttr *clone = new BgpAttr(*attr);
 
             // Retain LocalPref value if set, else set default to 100.
-            if (attr->local_pref() == 0)
+            if (clone->local_pref() == 0)
                 clone->set_local_pref(100);
 
             // If the route is locally originated i.e. there's no AsPath,
             // then generate a Nil AsPath i.e. one with 0 length. No need
             // to modify the AsPath if it already exists since this is an
             // iBGP RibOut.
-            if (attr->as_path() == NULL) {
+            if (clone->as_path() == NULL) {
                 AsPathSpec as_path;
                 clone->set_as_path(&as_path);
             }
 
-            attr_ptr = attr->attr_db()->Locate(clone);
+            attr_ptr = clone->attr_db()->Locate(clone);
             attr = attr_ptr.get();
         } else if (ribout->peer_type() == BgpProto::EBGP) {
             // Don't advertise routes from non-master instances if there's
@@ -205,7 +205,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
 
             // Sender side AS path loop check.
-            if (attr->as_path() &&
+            if (!ribout->as_override() && attr->as_path() &&
                 attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
                 return NULL;
             }
@@ -225,21 +225,31 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 clone->set_nexthop(ribout->nexthop());
 
             // Reset LocalPref.
-            if (attr->local_pref())
+            if (clone->local_pref())
                 clone->set_local_pref(0);
 
             // Reset Med if the path did not originate from an xmpp peer.
             // The AS path is NULL if the originating xmpp peer is locally
             // connected. It's non-NULL but empty if the originating xmpp
             // peer is connected to another bgp speaker in the iBGP mesh.
-            if (attr->med() && attr->as_path() && !attr->as_path()->empty())
+            if (clone->med() && clone->as_path() && !clone->as_path()->empty())
                 clone->set_med(0);
 
-            // Prepend the local AS to AsPath.
             as_t local_as =
-                attr->attr_db()->server()->local_autonomous_system();
-            if (attr->as_path() != NULL) {
-                const AsPathSpec &as_path = attr->as_path()->path();
+                clone->attr_db()->server()->local_autonomous_system();
+
+            // Override the peer AS with local AS in AsPath.
+            if (ribout->as_override() && clone->as_path() != NULL) {
+                const AsPathSpec &as_path = clone->as_path()->path();
+                AsPathSpec *as_path_ptr =
+                    as_path.Replace(ribout->peer_as(), local_as);
+                clone->set_as_path(as_path_ptr);
+                delete as_path_ptr;
+            }
+
+            // Prepend the local AS to AsPath.
+            if (clone->as_path() != NULL) {
+                const AsPathSpec &as_path = clone->as_path()->path();
                 AsPathSpec *as_path_ptr = as_path.Add(local_as);
                 clone->set_as_path(as_path_ptr);
                 delete as_path_ptr;
@@ -250,7 +260,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 delete as_path_ptr;
             }
 
-            attr_ptr = attr->attr_db()->Locate(clone);
+            attr_ptr = clone->attr_db()->Locate(clone);
             attr = attr_ptr.get();
         }
     }

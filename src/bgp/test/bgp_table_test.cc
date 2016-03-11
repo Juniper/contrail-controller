@@ -11,8 +11,6 @@
 #include "bgp/inet/inet_table.h"
 #include "db/db.h"
 
-using namespace std;
-
 class BgpTableTest : public ::testing::Test {
 protected:
     BgpTableTest()
@@ -249,9 +247,12 @@ TEST_F(BgpTableTest, RiboutClusterId) {
 // Different AS numbers result in creation of different RibOuts.
 TEST_F(BgpTableTest, RiboutAS) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
-    RibExportPolicy policy1(BgpProto::EBGP, RibExportPolicy::BGP, 101, -1, 0);
-    RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, 102, -1, 0);
-    RibExportPolicy policy3(BgpProto::EBGP, RibExportPolicy::BGP, 103, -1, 0);
+    RibExportPolicy policy1(
+        BgpProto::EBGP, RibExportPolicy::BGP, 101, false, -1, 0);
+    RibExportPolicy policy2(
+        BgpProto::EBGP, RibExportPolicy::BGP, 102, false, -1, 0);
+    RibExportPolicy policy3(
+        BgpProto::EBGP, RibExportPolicy::BGP, 103, false, -1, 0);
 
     // Create 3 ribouts.
     ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
@@ -285,6 +286,39 @@ TEST_F(BgpTableTest, RiboutAS) {
     ASSERT_TRUE(ribout3 == NULL);
 }
 
+// AS Override enabled/disabled results in creation of different RibOuts.
+TEST_F(BgpTableTest, RiboutASOverride) {
+    RibOut *ribout1 = NULL, *ribout2 = NULL, *temp = NULL;
+    RibExportPolicy policy1(
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, -1, 0);
+    RibExportPolicy policy2(
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, -1, 0);
+
+    // Create 2 ribouts.
+    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ASSERT_TRUE(ribout1 != NULL);
+    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ASSERT_TRUE(ribout2 != NULL);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 2);
+
+    // Check if we can find them.
+    temp = rt_table_->RibOutFind(policy1);
+    ASSERT_EQ(temp, ribout1);
+    temp = rt_table_->RibOutFind(policy2);
+    ASSERT_EQ(temp, ribout2);
+
+    // Delete all of them.
+    rt_table_->RibOutDelete(policy1);
+    rt_table_->RibOutDelete(policy2);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+
+    // Make sure they are all gone.
+    ribout1 = rt_table_->RibOutFind(policy1);
+    ASSERT_TRUE(ribout1 == NULL);
+    ribout2 = rt_table_->RibOutFind(policy2);
+    ASSERT_TRUE(ribout2 == NULL);
+}
+
 // Different nexthops result in creation of different RibOuts.
 TEST_F(BgpTableTest, RiboutNexthop) {
     boost::system::error_code ec;
@@ -293,11 +327,11 @@ TEST_F(BgpTableTest, RiboutNexthop) {
     IpAddress nexthop3 = IpAddress::from_string("10.1.1.3", ec);
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
     RibExportPolicy policy1(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop1, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, nexthop1, -1, 0);
     RibExportPolicy policy2(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop2, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, nexthop2, -1, 0);
     RibExportPolicy policy3(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop3, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, nexthop3, -1, 0);
 
     // Create 3 ribouts.
     ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);

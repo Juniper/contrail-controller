@@ -13,7 +13,11 @@
 #include "control-node/control_node.h"
 #include "net/community_type.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::cout;
+using std::endl;
+using std::ostringstream;
+using std::string;
 
 //
 // OVERVIEW
@@ -48,13 +52,13 @@ using namespace std;
 
 class BgpTestPeer : public IPeer {
 public:
-    BgpTestPeer(bool internal) : internal_(internal) { }
+    explicit BgpTestPeer(bool internal) : internal_(internal) { }
     virtual ~BgpTestPeer() { }
 
-    virtual std::string ToString() const {
+    virtual string ToString() const {
         return internal_ ? "TestPeerInt" : "TestPeerExt";
     }
-    virtual std::string ToUVEKey() const {
+    virtual string ToUVEKey() const {
         return internal_ ? "TestPeerInt" : "TestPeerExt";
     }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
@@ -69,7 +73,7 @@ public:
          return internal_ ? BgpProto::IBGP : BgpProto::EBGP;
     }
     virtual uint32_t bgp_identifier() const { return 0; }
-    virtual const std::string GetStateName() const { return ""; }
+    virtual const string GetStateName() const { return ""; }
     virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
@@ -85,7 +89,7 @@ private:
 
 class BgpRouteMock : public BgpRoute {
 public:
-    virtual std::string ToString() const { return ""; }
+    virtual string ToString() const { return ""; }
     virtual int CompareTo(const Route &rhs) const { return 0; }
     virtual void SetKey(const DBRequestKey *key) { }
     virtual KeyPtr GetDBRequestKey() const { return KeyPtr(NULL); }
@@ -97,7 +101,7 @@ public:
 
 class RTargetGroupMgrTest : public RTargetGroupMgr {
 public:
-    RTargetGroupMgrTest(BgpServer *server) : RTargetGroupMgr(server) {
+    explicit RTargetGroupMgrTest(BgpServer *server) : RTargetGroupMgr(server) {
     }
     virtual void GetRibOutInterestedPeers(RibOut *ribout,
              const ExtCommunity *ext_community,
@@ -109,7 +113,6 @@ public:
 
 class BgpTableExportTest : public ::testing::Test {
 protected:
-
     BgpTableExportTest()
         : server_(&evm_, "Local"),
           internal_(false),
@@ -125,10 +128,10 @@ protected:
     }
 
     virtual void SetUp() {
-        std::cout << "Table: " << table_name_
+        cout << "Table: " << table_name_
                 << " Source: " << (internal_ ? "IBGP" : "EBGP")
                 << " Local AS: " << (local_as_is_different_ ? 201 : 200)
-                << std::endl;
+                << endl;
 
         if (local_as_is_different_) {
             server_.set_local_autonomous_system(201);
@@ -202,14 +205,15 @@ protected:
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0) {
-        RibExportPolicy policy(type, encoding, as_number, -1, 0);
+        RibExportPolicy policy(type, encoding, as_number, false, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number,
-            IpAddress nexthop) {
-        RibExportPolicy policy(type, encoding, as_number, nexthop, -1, 0);
+            bool as_override, IpAddress nexthop) {
+        RibExportPolicy policy(
+            type, encoding, as_number, as_override, nexthop, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
     }
 
@@ -307,6 +311,12 @@ protected:
         EXPECT_EQ(med, attr->med());
     }
 
+    void VerifyAttrAsPathCount(uint32_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(count, attr->as_path_count());
+    }
+
     void VerifyAttrAsPrepend() {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
@@ -326,6 +336,13 @@ protected:
         as_t my_local_as = server_.local_autonomous_system();
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
+    }
+
+    void VerifyAttrNoAsPathLoop(as_t as_number) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath *as_path = attr->as_path();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
     }
 
     void VerifyAttrExtCommunity(bool is_null) {
@@ -350,14 +367,13 @@ protected:
 
     BgpTable *table_;
     RibOut *ribout_;
-    std::auto_ptr<BgpTestPeer> peer_;
+    auto_ptr<BgpTestPeer> peer_;
     RibPeerSet active_peerset_;
     BgpRouteMock rt_;
     BgpAttrPtr attr_ptr_;
 
     UpdateInfoSList uinfo_slist_;
     bool result_;
-
 };
 
 // Parameterize table name, peer type and local AS.
@@ -367,7 +383,6 @@ typedef std::tr1::tuple<const char *, bool, bool> TestParams1;
 class BgpTableExportParamTest1 :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<TestParams1> {
-
     virtual void SetUp() {
         table_name_ = std::tr1::get<0>(GetParam());
         internal_ = std::tr1::get<1>(GetParam());
@@ -533,7 +548,6 @@ INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
 class BgpTableExportParamTest2 :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<const char *> {
-
     virtual void SetUp() {
         table_name_ = GetParam();
         internal_ = true;
@@ -617,7 +631,6 @@ typedef std::tr1::tuple<const char *, bool> TestParams3;
 class BgpTableExportParamTest3 :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<TestParams3> {
-
     virtual void SetUp() {
         table_name_ = std::tr1::get<0>(GetParam());
         internal_ = false;
@@ -765,7 +778,6 @@ typedef std::tr1::tuple<bool, bool> TestParams4a;
 class BgpTableExportParamTest4a :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<TestParams4a> {
-
     virtual void SetUp() {
         table_name_ = "inet.0";
         internal_ = std::tr1::get<0>(GetParam());
@@ -817,19 +829,54 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity2) {
 //
 // Table : inet.0
 // Source: eBGP, iBGP
-// RibOut: eBGP with nexthop rewrite
-// Intent:
+// RibOut: eBGP with nexthop rewrite.
+// Intent: Nexthop is rewritten on export.
 //
 TEST_P(BgpTableExportParamTest4a, RewriteNexthop) {
     boost::system::error_code ec;
     IpAddress nexthop = IpAddress::from_string("2.2.2.2", ec);
-    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, nexthop);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, false, nexthop);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrNexthop("2.2.2.2");
+}
+
+//
+// Table : inet.0
+// Source: eBGP, iBGP
+// RibOut: eBGP with AS override.
+// Intent: Ribout AS is overridden to local AS.
+//
+TEST_P(BgpTableExportParamTest4a, AsOverride) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 100, true, IpAddress());
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrNoAsPathLoop(100);
+}
+
+//
+// Table : inet.0
+// Source: eBGP, iBGP
+// RibOut: eBGP with AS override and nexthop rewrite.
+// Intent: Nexthop rewrite and AS override work together.
+//
+TEST_P(BgpTableExportParamTest4a, AsOverrideAndRewriteNexthop) {
+    boost::system::error_code ec;
+    IpAddress nexthop = IpAddress::from_string("2.2.2.2", ec);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 100, true, nexthop);
     SetAttrExtCommunity(12345);
     AddPath();
     RunExport();
     VerifyExportAccept();
     VerifyAttrExtCommunity(true);
     VerifyAttrNexthop("2.2.2.2");
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrNoAsPathLoop(100);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4a,
@@ -843,7 +890,6 @@ INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4a,
 class BgpTableExportParamTest4b :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<bool> {
-
     virtual void SetUp() {
         table_name_ = "inet.0";
         internal_ = GetParam();
@@ -921,7 +967,6 @@ typedef std::tr1::tuple<bool, bool> TestParams5;
 class BgpTableExportParamTest5 :
     public BgpTableExportTest,
     public ::testing::WithParamInterface<TestParams5> {
-
     virtual void SetUp() {
         table_name_ = "bgp.l3vpn.0";
         internal_ = std::tr1::get<0>(GetParam());

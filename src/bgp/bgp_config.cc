@@ -150,6 +150,7 @@ BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           admin_down_(false),
           passive_(false),
+          as_override_(false),
           peer_as_(0),
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
@@ -167,6 +168,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     type_ = rhs.type_;
     admin_down_ = rhs.admin_down_;
     passive_ = rhs.passive_;
+    as_override_ = rhs.as_override_;
     peer_as_ = rhs.peer_as_;
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
@@ -189,6 +191,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(type_, rhs.type_);
     KEY_COMPARE(admin_down_, rhs.admin_down_);
     KEY_COMPARE(passive_, rhs.passive_);
+    KEY_COMPARE(as_override_, rhs.as_override_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);

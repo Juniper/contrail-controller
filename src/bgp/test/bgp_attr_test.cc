@@ -5,6 +5,8 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
+#include <boost/scoped_ptr.hpp>
+
 #include <sstream>
 
 #include "base/test/task_test_util.h"
@@ -322,7 +324,7 @@ TEST_F(BgpAttrTest, AsPathAdd) {
         AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
         ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
         for (int j = 0; j < 10; j++) {
-            ps->path_segment.push_back((i<<4) + j);
+            ps->path_segment.push_back((i << 4) + j);
         }
         path.path_segments.push_back(ps);
     }
@@ -340,7 +342,8 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
-    path.path_segments[0]->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    path.path_segments[0]->path_segment_type =
+        AsPathSpec::PathSegment::AS_SEQUENCE;
     for (int j = 11; j < 256; j++) {
         path.path_segments[0]->path_segment.push_back(j);
     }
@@ -350,7 +353,35 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
+}
 
+TEST_F(BgpAttrTest, AsPathReplace) {
+    AsPathSpec spec;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps1);
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps1->path_segment.push_back(64511);
+    ps1->path_segment.push_back(64513);
+    ps1->path_segment.push_back(64515);
+
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    spec.path_segments.push_back(ps2);
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ps2->path_segment.push_back(64512);
+    ps2->path_segment.push_back(64513);
+    ps2->path_segment.push_back(64514);
+
+    boost::scoped_ptr<AsPathSpec> new_spec1(spec.Replace(64513, 65000));
+    EXPECT_FALSE(new_spec1->AsPathLoop(64513, 0));
+    EXPECT_TRUE(new_spec1->AsPathLoop(65000, 1));
+    EXPECT_FALSE(new_spec1->AsPathLoop(65000, 2));
+
+    boost::scoped_ptr<AsPathSpec> new_spec2(new_spec1->Replace(65000, 64513));
+    EXPECT_FALSE(new_spec2->AsPathLoop(65000, 0));
+    EXPECT_TRUE(new_spec2->AsPathLoop(64513, 1));
+    EXPECT_FALSE(new_spec2->AsPathLoop(64513, 2));
+
+    EXPECT_EQ(0, spec.CompareTo(*new_spec2));
 }
 
 TEST_F(BgpAttrTest, AsPathFormat1) {
@@ -1175,7 +1206,8 @@ TEST_F(BgpAttrTest, PmsiTunnel3) {
     EXPECT_EQ(BgpAttribute::PmsiTunnel, pmsi_spec2.code);
     EXPECT_EQ(BgpAttribute::Optional | BgpAttribute::Transitive,
         pmsi_spec2.flags);
-    EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported, pmsi_spec2.tunnel_flags);
+    EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
+        pmsi_spec2.tunnel_flags);
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication, pmsi_spec2.tunnel_type);
     EXPECT_EQ(10000, pmsi_spec2.GetLabel());
     EXPECT_EQ("10.1.1.1", pmsi_spec2.GetIdentifier().to_string());
@@ -1410,7 +1442,8 @@ TEST_F(BgpAttrTest, EdgeDiscovery3) {
     EXPECT_EQ(2, edspec2.edge_list.size());
     int idx = 1;
     for (EdgeDiscoverySpec::EdgeList::const_iterator it =
-         edspec2.edge_list.begin(); it != edspec2.edge_list.end(); ++it, ++idx) {
+         edspec2.edge_list.begin(); it != edspec2.edge_list.end();
+         ++it, ++idx) {
         const EdgeDiscoverySpec::Edge *edge = *it;
         std::string addr_str = "10.1.1." + integerToString(idx);
         uint32_t first_label, last_label;
@@ -1952,7 +1985,8 @@ TEST_F(BgpAttrTest, EdgeForwarding3) {
     EXPECT_EQ(2, efspec2.edge_list.size());
     int idx = 1;
     for (EdgeForwardingSpec::EdgeList::const_iterator it =
-         efspec2.edge_list.begin(); it != efspec2.edge_list.end(); ++it, ++idx) {
+         efspec2.edge_list.begin(); it != efspec2.edge_list.end();
+         ++it, ++idx) {
         const EdgeForwardingSpec::Edge *edge = *it;
         error_code ec;
         std::string addr_str = "10.1.1." + integerToString(idx);
@@ -2322,7 +2356,6 @@ public:
     AttributeMock(TypeDB *db, const TypeSpec &spec) : Type(db, spec) { }
 
     virtual void Remove() {
-
         // Inject artificial delay to detect concurrency issues, if any.
         usleep(10000);
         Type::Remove();
@@ -2360,18 +2393,6 @@ static void ConcurrencyTest(TypeDB *db) {
     BOOST_FOREACH(tid, thread_ids) { pthread_join(tid, NULL); }
     TASK_UTIL_EXPECT_EQ(0, db->Size());
 }
-
-// Instantiate the template functions.
-template void ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB,
-                              BgpAttrSpec>(BgpAttrDB *);
-template void ConcurrencyTest<AsPath, AsPathPtr, AsPathDB,
-                              AsPathSpec>(AsPathDB *);
-template void ConcurrencyTest<Community, CommunityPtr, CommunityDB,
-                              CommunitySpec>(CommunityDB *);
-template void ConcurrencyTest<ExtCommunity, ExtCommunityPtr, ExtCommunityDB,
-                              ExtCommunitySpec>(ExtCommunityDB *);
-template void ConcurrencyTest<OriginVnPath, OriginVnPathPtr, OriginVnPathDB,
-                              OriginVnPathSpec>(OriginVnPathDB *);
 
 TEST_F(BgpAttrTest, BgpAttrDBConcurrency) {
     ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB, BgpAttrSpec>(attr_db_);

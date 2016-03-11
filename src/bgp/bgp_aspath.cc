@@ -103,7 +103,9 @@ bool AsPathSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
     return false;
 }
 
-// Create a new AsPathSpec by prepending the given asn at the beginning
+//
+// Create a new AsPathSpec by prepending the given asn at the beginning.
+//
 AsPathSpec *AsPathSpec::Add(as_t asn) const {
     AsPathSpec *new_spec = new AsPathSpec;
     PathSegment *ps = new PathSegment;
@@ -122,11 +124,27 @@ AsPathSpec *AsPathSpec::Add(as_t asn) const {
     } else {
         new_spec->path_segments.push_back(ps);
     }
-    if (first == last) return new_spec;
+    if (first == last)
+        return new_spec;
     for (int i = first; i < last; i++) {
         PathSegment *ps = new PathSegment;
         *ps = *path_segments[i];
         new_spec->path_segments.push_back(ps);
+    }
+    return new_spec;
+}
+
+//
+// Create a new AsPathSpec by replacing the old asn with given asn.
+//
+AsPathSpec *AsPathSpec::Replace(as_t old_asn, as_t asn) const {
+    AsPathSpec *new_spec = new AsPathSpec(*this);
+    for (size_t i = 0; i < new_spec->path_segments.size(); ++i) {
+        PathSegment *ps = new_spec->path_segments[i];
+        for (size_t j = 0; j < ps->path_segment.size(); ++j) {
+            if (ps->path_segment[j] == old_asn)
+                ps->path_segment[j] = asn;
+        }
     }
     return new_spec;
 }
