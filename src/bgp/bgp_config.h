@@ -168,6 +168,9 @@ public:
     bool passive() const { return passive_; }
     void set_passive(bool passive) { passive_ = passive; }
 
+    bool as_override() const { return as_override_; }
+    void set_as_override(bool as_override) { as_override_ = as_override; }
+
     uint32_t peer_as() const { return peer_as_; }
     void set_peer_as(uint32_t peer_as) { peer_as_ = peer_as; }
 
@@ -252,6 +255,7 @@ private:
     std::string router_type_;
     bool admin_down_;
     bool passive_;
+    bool as_override_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;

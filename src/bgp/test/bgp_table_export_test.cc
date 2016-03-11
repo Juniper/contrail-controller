@@ -202,14 +202,15 @@ protected:
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0) {
-        RibExportPolicy policy(type, encoding, as_number, -1, 0);
+        RibExportPolicy policy(type, encoding, as_number, false, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number,
-            IpAddress nexthop) {
-        RibExportPolicy policy(type, encoding, as_number, nexthop, -1, 0);
+            bool as_override, IpAddress nexthop) {
+        RibExportPolicy policy(
+            type, encoding, as_number, as_override, nexthop, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
     }
 
@@ -307,6 +308,12 @@ protected:
         EXPECT_EQ(med, attr->med());
     }
 
+    void VerifyAttrAsPathCount(uint32_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(count, attr->as_path_count());
+    }
+
     void VerifyAttrAsPrepend() {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
@@ -326,6 +333,13 @@ protected:
         as_t my_local_as = server_.local_autonomous_system();
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
+    }
+
+    void VerifyAttrNoAsPathLoop(as_t as_number) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath *as_path = attr->as_path();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
     }
 
     void VerifyAttrExtCommunity(bool is_null) {
@@ -817,19 +831,54 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity2) {
 //
 // Table : inet.0
 // Source: eBGP, iBGP
-// RibOut: eBGP with nexthop rewrite
-// Intent:
+// RibOut: eBGP with nexthop rewrite.
+// Intent: Nexthop is rewritten on export.
 //
 TEST_P(BgpTableExportParamTest4a, RewriteNexthop) {
     boost::system::error_code ec;
     IpAddress nexthop = IpAddress::from_string("2.2.2.2", ec);
-    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, nexthop);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, false, nexthop);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrNexthop("2.2.2.2");
+}
+
+//
+// Table : inet.0
+// Source: eBGP, iBGP
+// RibOut: eBGP with AS override.
+// Intent: Ribout AS is overridden to local AS.
+//
+TEST_P(BgpTableExportParamTest4a, AsOverride) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 100, true, IpAddress());
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrNoAsPathLoop(100);
+}
+
+//
+// Table : inet.0
+// Source: eBGP, iBGP
+// RibOut: eBGP with AS override and nexthop rewrite.
+// Intent: Nexthop rewrite and AS override work together.
+//
+TEST_P(BgpTableExportParamTest4a, AsOverrideAndRewriteNexthop) {
+    boost::system::error_code ec;
+    IpAddress nexthop = IpAddress::from_string("2.2.2.2", ec);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 100, true, nexthop);
     SetAttrExtCommunity(12345);
     AddPath();
     RunExport();
     VerifyExportAccept();
     VerifyAttrExtCommunity(true);
     VerifyAttrNexthop("2.2.2.2");
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrNoAsPathLoop(100);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4a,
