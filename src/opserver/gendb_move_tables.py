@@ -18,8 +18,7 @@ import sys
 import re
 import copy
 import random
-import gendb.ttypes
-from gendb.ttypes import DbDataType
+from sandesh.viz.gendb.ttypes import DbDataType
 
 import pycassa
 from pycassa.columnfamily import ColumnFamily
