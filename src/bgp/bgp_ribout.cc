@@ -41,6 +41,12 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     if (as_number > rhs.as_number) {
         return false;
     }
+    if (nexthop < rhs.nexthop) {
+        return true;
+    }
+    if (nexthop > rhs.nexthop) {
+        return false;
+    }
     if (affinity < rhs.affinity)  {
         return true;
     }
@@ -206,13 +212,8 @@ void RibOutAttr::set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
         return;
     }
 
-    bool nexthop_changed = attr_out_->nexthop() != attrp->nexthop();
+    assert(attr_out_->nexthop() == attrp->nexthop());
     attr_out_ = attrp;
-
-    // Update the next-hop list ? We would need label too then.
-    if (nexthop_changed) {
-        assert(false);
-    }
 }
 
 RouteState::RouteState() {

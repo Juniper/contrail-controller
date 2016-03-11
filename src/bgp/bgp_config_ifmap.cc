@@ -305,24 +305,28 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     }
     neighbor->set_peer_identifier(IpAddressToBgpIdentifier(identifier));
 
-    IpAddress inet_gw_address =
-        Ip4Address::from_string(params.gateway_address, err);
-    if (!params.gateway_address.empty() && err) {
-        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-            "Invalid gateway address " << params.gateway_address <<
-            " for neighbor " << neighbor->name());
-    } else {
-        neighbor->set_gateway_address(Address::INET, inet_gw_address);
-    }
+    if (params.router_type == "bgpaas-client") {
+        IpAddress inet_gw_address =
+            Ip4Address::from_string(params.gateway_address, err);
+        if (!params.gateway_address.empty() && err) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Invalid gateway address " <<
+                params.gateway_address <<
+                " for neighbor " << neighbor->name());
+        } else {
+            neighbor->set_gateway_address(Address::INET, inet_gw_address);
+        }
 
-    IpAddress inet6_gw_address =
-        Ip6Address::from_string(params.ipv6_gateway_address, err);
-    if (!params.ipv6_gateway_address.empty() && err) {
-        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-            "Invalid ipv6 gateway address " << params.ipv6_gateway_address <<
-            " for neighbor " << neighbor->name());
-    } else {
-        neighbor->set_gateway_address(Address::INET6, inet6_gw_address);
+        IpAddress inet6_gw_address =
+            Ip6Address::from_string(params.ipv6_gateway_address, err);
+        if (!params.ipv6_gateway_address.empty() && err) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Invalid ipv6 gateway address " <<
+                params.ipv6_gateway_address <<
+                " for neighbor " << neighbor->name());
+        } else {
+            neighbor->set_gateway_address(Address::INET6, inet6_gw_address);
+        }
     }
 
     neighbor->set_port(params.port);

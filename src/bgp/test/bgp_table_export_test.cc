@@ -206,6 +206,13 @@ protected:
         ribout_ = table_->RibOutLocate(&mgr_, policy);
     }
 
+    void CreateRibOut(BgpProto::BgpPeerType type,
+            RibExportPolicy::Encoding encoding, as_t as_number,
+            IpAddress nexthop) {
+        RibExportPolicy policy(type, encoding, as_number, nexthop, -1, 0);
+        ribout_ = table_->RibOutLocate(&mgr_, policy);
+    }
+
     void SetAttrAsPath(as_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const AsPathSpec &path_spec = attr_ptr_->as_path()->path();
@@ -325,6 +332,12 @@ protected:
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         EXPECT_EQ(is_null, attr->ext_community() == NULL);
+    }
+
+    void VerifyAttrNexthop(const string &nexthop_str) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(nexthop_str, attr->nexthop().to_string());
     }
 
     EventManager evm_;
@@ -778,6 +791,7 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity1) {
     RunExport();
     VerifyExportAccept();
     VerifyAttrExtCommunity(true);
+    VerifyAttrNexthop("1.1.1.1");
 }
 
 //
@@ -796,7 +810,26 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity2) {
     } else {
         VerifyExportAccept();
         VerifyAttrExtCommunity(true);
+        VerifyAttrNexthop("1.1.1.1");
     }
+}
+
+//
+// Table : inet.0
+// Source: eBGP, iBGP
+// RibOut: eBGP with nexthop rewrite
+// Intent:
+//
+TEST_P(BgpTableExportParamTest4a, RewriteNexthop) {
+    boost::system::error_code ec;
+    IpAddress nexthop = IpAddress::from_string("2.2.2.2", ec);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, nexthop);
+    SetAttrExtCommunity(12345);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrExtCommunity(true);
+    VerifyAttrNexthop("2.2.2.2");
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4a,

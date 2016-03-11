@@ -196,11 +196,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             attr_ptr = attr->attr_db()->Locate(clone);
             attr = attr_ptr.get();
         } else if (ribout->peer_type() == BgpProto::EBGP) {
-            // Don't advertise any routes from non-master instances.
-            // The ribout can only be for bgpaas-clients since that's
-            // the only case with bgp peers in non-master instance.
-            if (!rtinstance_->IsMasterRoutingInstance())
+            // Don't advertise routes from non-master instances if there's
+            // no nexthop. The ribout has to be for bgpaas-clients because
+            // that's the only case with bgp peers in non-master instance.
+            if (!rtinstance_->IsMasterRoutingInstance() &&
+                ribout->nexthop().is_unspecified()) {
                 return NULL;
+            }
 
             // Sender side AS path loop check.
             if (attr->as_path() &&
@@ -217,6 +219,10 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
 
             BgpAttr *clone = new BgpAttr(*attr);
+
+            // Update nexthop.
+            if (!ribout->nexthop().is_unspecified())
+                clone->set_nexthop(ribout->nexthop());
 
             // Reset LocalPref.
             if (attr->local_pref())
@@ -285,7 +291,6 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             if ((path->GetAttr() != attrs.get()) ||
                 (path->GetFlags() != flags) ||
                 (path->GetLabel() != label)) {
-
                 // Update Attributes and notify (if needed)
                 if (path->NeedsResolution())
                     path_resolver_->StopPathResolution(root->index(), path);

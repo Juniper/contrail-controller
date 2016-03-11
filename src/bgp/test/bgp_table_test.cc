@@ -285,6 +285,52 @@ TEST_F(BgpTableTest, RiboutAS) {
     ASSERT_TRUE(ribout3 == NULL);
 }
 
+// Different nexthops result in creation of different RibOuts.
+TEST_F(BgpTableTest, RiboutNexthop) {
+    boost::system::error_code ec;
+    IpAddress nexthop1 = IpAddress::from_string("10.1.1.1", ec);
+    IpAddress nexthop2 = IpAddress::from_string("10.1.1.2", ec);
+    IpAddress nexthop3 = IpAddress::from_string("10.1.1.3", ec);
+    RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
+    RibExportPolicy policy1(
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop1, -1, 0);
+    RibExportPolicy policy2(
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop2, -1, 0);
+    RibExportPolicy policy3(
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, nexthop3, -1, 0);
+
+    // Create 3 ribouts.
+    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ASSERT_TRUE(ribout1 != NULL);
+    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ASSERT_TRUE(ribout2 != NULL);
+    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ASSERT_TRUE(ribout3 != NULL);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+
+    // Check if we can find them.
+    temp = rt_table_->RibOutFind(policy1);
+    ASSERT_EQ(temp, ribout1);
+    temp = rt_table_->RibOutFind(policy2);
+    ASSERT_EQ(temp, ribout2);
+    temp = rt_table_->RibOutFind(policy3);
+    ASSERT_EQ(temp, ribout3);
+
+    // Delete all of them.
+    rt_table_->RibOutDelete(policy1);
+    rt_table_->RibOutDelete(policy2);
+    rt_table_->RibOutDelete(policy3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+
+    // Make sure they are all gone.
+    ribout1 = rt_table_->RibOutFind(policy1);
+    ASSERT_TRUE(ribout1 == NULL);
+    ribout2 = rt_table_->RibOutFind(policy2);
+    ASSERT_TRUE(ribout2 == NULL);
+    ribout3 = rt_table_->RibOutFind(policy3);
+    ASSERT_TRUE(ribout3 == NULL);
+}
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
