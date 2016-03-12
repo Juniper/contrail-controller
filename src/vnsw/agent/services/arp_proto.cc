@@ -150,9 +150,6 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() &&
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
-            if (path->subnet_gw_ip() == Ip4Address(0)) {
-                return;
-            }
             const NextHop *nh = path->ComputeNextHop(vrf_state_->agent);
             if (nh->GetType() != NextHop::INTERFACE) {
                 continue;
@@ -166,10 +163,10 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
                 //Ignore non vm interface nexthop
                 continue;
             }
-            if (path->subnet_gw_ip().is_v4() == false) {
+            if (path->subnet_service_ip().is_v4() == false) {
                 continue;
             }
-            gw_ip_ = path->subnet_gw_ip();
+            gw_ip_ = path->subnet_service_ip();
             uint32_t intf_id = intf->id();
             bool wait_for_traffic = path->path_preference().wait_for_traffic();
             //Build new list of interfaces in active state

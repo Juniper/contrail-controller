@@ -165,9 +165,9 @@ TEST_F(Ipv6Test, v6_subnet_gw_route) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
-        {"fd11::", 120, "fd11::1", true},
-        {"fd12::", 96, "fd12::1", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
+        {"fd11::", 120, "fd11::1", true, "fd11::1"},
+        {"fd12::", 96, "fd12::1", true, "fd12::1"},
     };
     client->Reset();
     CreateVmportEnv(input, 1, 0);
