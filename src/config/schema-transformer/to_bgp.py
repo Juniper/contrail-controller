@@ -66,14 +66,14 @@ class SchemaTransformer(object):
             'virtual_network': ['virtual_machine', 'port_tuple',
                                 'bgp_as_a_service'],
             'logical_router': ['virtual_network'],
-            'instance_ip': ['virtual_machine', 'port_tuple', 'bgp_as_a_service'],
+            'instance_ip': ['virtual_machine', 'port_tuple', 'bgp_as_a_service', 'virtual_network'],
             'floating_ip': ['virtual_machine', 'port_tuple'],
-            'virtual_machine': [],
-            'port_tuple': [],
+            'virtual_machine': ['virtual_network'],
+            'port_tuple': ['virtual_network'],
             'bgp_as_a_service': [],
         },
         'virtual_network': {
-            'self': ['network_policy'],
+            'self': ['network_policy', 'route_table'],
             'routing_instance': ['network_policy'],
             'network_policy': [],
             'virtual_machine_interface': [],
@@ -91,6 +91,7 @@ class SchemaTransformer(object):
         },
         'service_instance': {
             'self': ['network_policy', 'virtual_machine', 'port_tuple'],
+            'route_table': ['network_policy', 'virtual_machine', 'port_tuple'],
             'routing_policy': ['network_policy'],
             'route_aggregate': ['network_policy'],
             'virtual_machine': ['network_policy'],
@@ -109,7 +110,8 @@ class SchemaTransformer(object):
             'security_group': [],
         },
         'route_table': {
-            'self': ['virtual_network'],
+            'self': ['virtual_network', 'service_instance'],
+            'virtual_network': ['service_instance'],
         },
         'logical_router': {
             'self': [],
