@@ -1203,7 +1203,7 @@ class TestPolicy(test_case.STTestCase):
         rvn = self.create_virtual_network(rvn_name, "20.0.0.0/24")
 
         service_name = self.id() + 's1'
-        np = self.create_network_policy(lvn, rvn, [service_name], auto_policy=True, service_mode="in-network")
+        np = self.create_network_policy(lvn, rvn, [service_name], service_mode="in-network-nat")
 
         vn_name = self.id() + 'vn100'
         vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
@@ -1227,14 +1227,8 @@ class TestPolicy(test_case.STTestCase):
 
         @retries(5)
         def _match_route_table(rtgt_list):
-            sc = [x for x in to_bgp.ServiceChain]
-            if len(sc) == 0:
-                raise Exception("sc has 0 len")
-
-            sc_ri_name = ('service-'+sc[0] +
-                          '-default-domain_default-project_' + service_name)
             lri = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(lvn, sc_ri_name))
+                fq_name=self.get_ri_name(lvn))
             sr = lri.get_static_route_entries()
             if sr is None:
                 raise Exception("sr is None")
@@ -1248,10 +1242,10 @@ class TestPolicy(test_case.STTestCase):
             rt100 = set(ref['to'][0] for ref in ri100.get_route_target_refs())
             lrt = set(ref['to'][0] for ref in lri.get_route_target_refs() or [])
             if rt100 & lrt:
-                return sc_ri_name, (rt100 & lrt)
+                return (rt100 & lrt)
             raise Exception("rt100 route-target ref not found")
 
-        sc_ri_name, rt100 = _match_route_table(rtgt_list.get_route_target() +
+        rt100 = _match_route_table(rtgt_list.get_route_target() +
                                                imp_rtgt_list.get_route_target())
 
         rtgt_list.add_route_target('target:1:2')
@@ -1277,9 +1271,9 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.route_table_update(rt)
 
         @retries(5)
-        def _match_route_table_cleanup(sc_ri_name, rt100):
+        def _match_route_table_cleanup(rt100):
             lri = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(lvn, sc_ri_name))
+                fq_name=self.get_ri_name(lvn))
             sr = lri.get_static_route_entries()
             if sr and sr.route:
                 raise Exception("sr has route")
@@ -1290,16 +1284,18 @@ class TestPolicy(test_case.STTestCase):
             if rt100 & rt_set:
                 raise Exception("route-target ref still found: %s" % (rt100 & rt_set))
 
-        _match_route_table_cleanup(sc_ri_name, rt100)
+        _match_route_table_cleanup(rt100)
 
         # add the route again, then delete the network without deleting the
         # link to route table
+        route = RouteType(prefix="0.0.0.0/0",
+                          next_hop="default-domain:default-project:"+service_name)
         routes.add_route(route)
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
         _match_route_table(rtgt_list.get_route_target())
         self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
-        _match_route_table_cleanup(sc_ri_name, rt100)
+        _match_route_table_cleanup(rt100)
 
         self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
