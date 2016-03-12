@@ -205,7 +205,7 @@ public:
                             const SecurityGroupList &sg_list,
                             bool force_policy,
                             const PathPreference &path_preference,
-                            const IpAddress &subnet_gw_ip);
+                            const IpAddress &subnet_service_ip);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
@@ -213,7 +213,7 @@ public:
                                 const SecurityGroupList &sg_list,
                                 bool force_policy,
                                 const PathPreference &path_preference,
-                                const IpAddress &subnet_gw_ip);
+                                const IpAddress &subnet_service_ip);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);

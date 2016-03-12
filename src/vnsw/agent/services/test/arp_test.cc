@@ -537,7 +537,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
@@ -577,7 +577,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface_1) {
     EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
@@ -617,7 +617,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface_2) {
     EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();

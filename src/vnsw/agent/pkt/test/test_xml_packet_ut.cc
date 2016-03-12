@@ -148,7 +148,7 @@ TEST_F(TestPkt, flow_tsn_mode_1) {
     Agent *agent = Agent::GetInstance();
     //agent->set_tsn_enabled(true);
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.254", true}
+        {"1.1.1.0", 24, "1.1.1.254", true, "1.1.1.254"}
     };
     AddVn("vn1", 1);
     AddVrf("vrf1", 1);
