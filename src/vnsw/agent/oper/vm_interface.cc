@@ -2446,8 +2446,8 @@ Ip4Address VmInterface::GetGateway(const IpAddress &vm_ip) const {
         ipam = vn_->GetIpam(subnet_);
     }
 
-    if (ipam && ipam->default_gw.is_v4()) {
-        ip = ipam->default_gw.to_v4();
+    if (ipam && ipam->dns_server.is_v4()) {
+        ip = ipam->dns_server.to_v4();
     }
     return ip;
 }
@@ -2519,7 +2519,7 @@ void VmInterface::UpdateIpv6InterfaceRoute(bool old_ipv6_active, bool force_upda
 
             PathPreference path_preference;
             SetPathPreference(&path_preference, false);
-            //TODO: change subnet_gw_ip to Ip6Address
+            //TODO: change subnet_service_ip to Ip6Address
             InetUnicastAgentRouteTable::AddLocalVmRoute
                 (peer_.get(), vrf_->GetName(), primary_ip6_addr_, 128, GetUuid(),
                  vn_->GetName(), label_, sg_id_list, false, path_preference,
@@ -3701,11 +3701,8 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                                bool force_update,
                                                bool policy_change) const {
-    const VnIpam *ipam = interface->vn_->GetIpam(addr_);
     Ip4Address ip(0);
-    if (ipam) {
-        ip = ipam->default_gw.to_v4();
-    }
+    ip = interface->GetGateway(addr_);
 
     if (installed_ && force_update == false && policy_change == false &&
         gw_ip_ == ip) {

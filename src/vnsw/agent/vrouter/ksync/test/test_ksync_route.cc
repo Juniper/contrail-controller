@@ -168,7 +168,7 @@ TEST_F(TestKSyncRoute, remote_route_2) {
     BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                       "xmpp channel");
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -268,7 +268,7 @@ TEST_F(TestKSyncRoute, replacement_rt_1) {
     EXPECT_FALSE(ksync1->flood());
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -338,7 +338,7 @@ TEST_F(TestKSyncRoute, no_replacement_rt_1) {
 // proxy_arp_ and flood_ flags for IPAM subnet route
 TEST_F(TestKSyncRoute, ipam_subnet_route_1) {
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -364,7 +364,7 @@ TEST_F(TestKSyncRoute, ipam_subnet_route_2) {
     BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                       "xmpp channel");
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
@@ -395,7 +395,7 @@ TEST_F(TestKSyncRoute, ecmp_ipam_subnet_route_2) {
     BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                       "xmpp channel");
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
