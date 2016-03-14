@@ -150,9 +150,6 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() &&
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
-            if (path->subnet_service_ip() == Ip4Address(0)) {
-                return;
-            }
             const NextHop *nh = path->ComputeNextHop(vrf_state_->agent);
             if (nh->GetType() != NextHop::INTERFACE) {
                 continue;
