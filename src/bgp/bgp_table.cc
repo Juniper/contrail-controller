@@ -205,21 +205,34 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 return NULL;
             }
 
-            // Sender side AS path loop check.
-            if (!ribout->as_override() && attr->as_path() &&
-                attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
-                return NULL;
-            }
-
             // Handle route-target filtering.
-            if (attr->ext_community() != NULL) {
+            if (IsVpnTable() && attr->ext_community() != NULL) {
                 server()->rtarget_group_mgr()->GetRibOutInterestedPeers(
                     ribout, attr->ext_community(), peerset, &new_peerset);
                 if (new_peerset.empty())
                     return NULL;
             }
 
+            // Sender side AS path loop check and split horizon within RibOut.
+            if (!ribout->as_override()) {
+                if (attr->as_path() &&
+                    attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
+                    return NULL;
+                }
+            } else {
+                if (peer && peer->PeerType() == BgpProto::EBGP) {
+                    ribout->GetSubsetPeerSet(&new_peerset, peer);
+                    if (new_peerset.empty())
+                        return NULL;
+                }
+            }
+
             BgpAttr *clone = new BgpAttr(*attr);
+
+            // Remove non-transitive attributes.
+            // Note that med is handled further down.
+            clone->set_originator_id(Ip4Address());
+            clone->set_cluster_list(NULL);
 
             // Update nexthop.
             if (!ribout->nexthop().is_unspecified())
@@ -390,12 +403,17 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // Mark this peer's all paths as deleted.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); ++it) {
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
-
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer &&
-                path->GetSource() == BgpPath::BGP_XMPP) {
+
+        // Skip resolved paths.
+        if (path->IsResolved())
+            continue;
+
+        // Skip secondary paths.
+        if (dynamic_cast<BgpSecondaryPath *>(path))
+            continue;
+
+        if (path->GetPeer() == peer && path->GetSource() == BgpPath::BGP_XMPP) {
             deleted_paths.insert(make_pair(path, true));
         }
     }

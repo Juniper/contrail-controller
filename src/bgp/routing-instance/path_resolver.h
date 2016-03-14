@@ -29,6 +29,7 @@ class BgpTable;
 class DBEntryBase;
 class DBTablePartBase;
 class DeleteActor;
+class IPeer;
 class PathResolverPartition;
 class ResolverNexthop;
 class ResolverPath;
@@ -146,6 +147,8 @@ private:
 
     void DisableResolverPathUpdateProcessing();
     void EnableResolverPathUpdateProcessing();
+    void PauseResolverPathUpdateProcessing();
+    void ResumeResolverPathUpdateProcessing();
     size_t GetResolverPathUpdateListSize() const;
 
     BgpTable *table_;
@@ -216,6 +219,8 @@ private:
 
     void DisableResolverPathUpdateProcessing();
     void EnableResolverPathUpdateProcessing();
+    void PauseResolverPathUpdateProcessing();
+    void ResumeResolverPathUpdateProcessing();
     size_t GetResolverPathUpdateListSize() const;
 
     int part_id_;
@@ -309,8 +314,8 @@ private:
 
     void AddResolvedPath(ResolvedPathList::const_iterator it);
     void DeleteResolvedPath(ResolvedPathList::const_iterator it);
-    BgpPath *LocateResolvedPath(uint32_t path_id, const BgpAttr *attr,
-        uint32_t label);
+    BgpPath *LocateResolvedPath(const IPeer *peer, uint32_t path_id,
+        const BgpAttr *attr, uint32_t label);
 
     PathResolverPartition *partition_;
     const BgpPath *path_;

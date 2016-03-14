@@ -258,6 +258,20 @@ void BgpServer::RetryDelete() {
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 
+    static TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    static int resolver_path_task_id =
+        scheduler->GetTaskId("bgp::ResolverPath");
+    static int resolver_nexthop_task_id =
+        scheduler->GetTaskId("bgp::ResolverNexthop");
+
+    // Check if any PathResolver is active.
+    // Need to ensure that there's no pending deletes of BgpPaths added by
+    // PathResolver since they hold pointers to IPeer.
+    if (!scheduler->IsTaskGroupEmpty(resolver_path_task_id) ||
+        !scheduler->IsTaskGroupEmpty(resolver_nexthop_task_id)) {
+        return false;
+    }
+
     // Check if the IPeer membership manager queue is empty.
     if (!membership_mgr_->IsQueueEmpty()) {
         return false;

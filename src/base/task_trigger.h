@@ -29,6 +29,19 @@ public:
         return disabled_;
     }
 
+    // For Test only
+    void set_deferred() {
+        bool current = deferred_.fetch_and_store(true);
+        assert(!current);
+    }
+    void clear_deferred() {
+        bool current = deferred_.fetch_and_store(false);
+        assert(current);
+    }
+    bool deferred() {
+        return deferred_;
+    }
+
 private:
     class WorkerTask;
 
@@ -37,6 +50,7 @@ private:
     int task_instance_;
     tbb::atomic<bool> trigger_;
     tbb::atomic<bool> disabled_;
+    tbb::atomic<bool> deferred_;
 };
 
 #endif /* defined(__ctrlplane__task_trigger__) */

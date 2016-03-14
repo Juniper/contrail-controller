@@ -105,6 +105,10 @@ public:
         return ((flags_ & (INFEASIBLE_MASK & ~ResolveNexthop)) == 0);
     }
 
+    bool IsResolved() const {
+        return ((flags_ & ResolvedPath) != 0);
+    }
+
     uint32_t GetFlags() const {
         return flags_;
     }

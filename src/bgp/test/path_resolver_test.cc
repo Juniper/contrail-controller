@@ -517,6 +517,16 @@ protected:
         table->path_resolver()->EnableResolverPathUpdateProcessing();
     }
 
+    void PauseResolverPathUpdateProcessing(const string &instance) {
+        BgpTable *table = GetTable(instance);
+        table->path_resolver()->PauseResolverPathUpdateProcessing();
+    }
+
+    void ResumeResolverPathUpdateProcessing(const string &instance) {
+        BgpTable *table = GetTable(instance);
+        table->path_resolver()->ResumeResolverPathUpdateProcessing();
+    }
+
     size_t ResolverPathUpdateListSize(const string &instance) {
         BgpTable *table = GetTable(instance);
         return table->path_resolver()->GetResolverPathUpdateListSize();
@@ -2184,6 +2194,50 @@ TYPED_TEST(PathResolverTest, Shutdown4) {
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
     task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
+}
+
+//
+// Shutdown server and resolver before all resolver paths are deleted.
+// Deletion does not finish till resolver paths are deleted and nexthop
+// gets unregistered from condition listener.
+//
+TYPED_TEST(PathResolverTest, Shutdown5) {
+    BgpServerTestPtr bgp_server = this->bgp_server_;
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *bgp_peer2 = this->bgp_peer2_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+    this->AddBgpPath(bgp_peer2, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer2->ToString()));
+
+    task_util::WaitForIdle();
+    this->PauseResolverPathUpdateProcessing("blue");
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
+    TASK_UTIL_EXPECT_EQ(2, this->ResolverPathUpdateListSize("blue"));
+
+    TASK_UTIL_EXPECT_EQ(3, bgp_server->routing_instance_mgr()->count());
+    bgp_server->Shutdown(false, false);
+
+    // Verify that all instances are intact.
+    for (int idx = 0; idx < 100; ++idx) {
+        usleep(10000);
+        TASK_UTIL_EXPECT_EQ(3, bgp_server->routing_instance_mgr()->count());
+    }
+
+    // Ensure that all bgp::ResolverPath tasks are resumed before any of
+    // them run. Otherwise, it's possible that some of them run, trigger
+    // creation of bgp::ResolverNexthop task which runs and triggers the
+    // creation of bgp::Config task, which in turn destroys PathResolver.
+    // If this sequence happens before all the bgp::ResolverPath tasks
+    // are resumed, then would be accessing freed memory.
+    TaskScheduler::GetInstance()->Stop();
+    this->ResumeResolverPathUpdateProcessing("blue");
+    TaskScheduler::GetInstance()->Start();
 
     TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }

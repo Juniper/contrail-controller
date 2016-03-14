@@ -259,6 +259,7 @@ public:
 
     // Returns a bitmask with all the peers that are advertising this RibOut.
     const RibPeerSet &PeerSet() const;
+    void GetSubsetPeerSet(RibPeerSet *peerset, const IPeerUpdate *cpeer) const;
 
     BgpTable* table() const { return table_; }
 

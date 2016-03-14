@@ -79,8 +79,9 @@ void BgpServerTest::PostShutdown() {
     config_db_->Clear();
 }
 
-void BgpServerTest::Shutdown(bool verify) {
-    task_util::WaitForIdle();
+void BgpServerTest::Shutdown(bool verify, bool wait_for_idle) {
+    if (wait_for_idle)
+        task_util::WaitForIdle();
     BgpServer::Shutdown();
     if (verify)
         VerifyShutdown();
