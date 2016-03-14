@@ -36,7 +36,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
-    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false) {
 }
@@ -694,8 +694,8 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
         sync_route_ = true;
     }
 
-    if (path->subnet_gw_ip() != subnet_gw_ip_) {
-        path->set_subnet_gw_ip(subnet_gw_ip_);
+    if (path->subnet_service_ip() != subnet_service_ip_) {
+        path->set_subnet_service_ip(subnet_service_ip_);
         ret = true;
     }
 

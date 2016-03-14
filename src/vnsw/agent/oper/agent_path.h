@@ -140,7 +140,7 @@ public:
     const bool unresolved() const {return unresolved_;}
     const Ip4Address& tunnel_dest() const {return tunnel_dest_;}
     bool is_subnet_discard() const {return is_subnet_discard_;}
-    const IpAddress subnet_gw_ip() const { return subnet_gw_ip_;}
+    const IpAddress subnet_service_ip() const { return subnet_service_ip_;}
 
     TunnelType::Type GetTunnelType() const {
         return TunnelType::ComputeType(tunnel_bmap_);
@@ -164,8 +164,8 @@ public:
     void set_is_subnet_discard(bool discard) {
         is_subnet_discard_= discard;
     }
-    void set_subnet_gw_ip(const IpAddress &ip) {
-        subnet_gw_ip_ = ip;
+    void set_subnet_service_ip(const IpAddress &ip) {
+        subnet_service_ip_ = ip;
     }
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
     const MplsLabel* local_ecmp_mpls_label() const;
@@ -268,7 +268,7 @@ private:
     //This IP address gets used in sending arp query to the VM
     //helping in deciding the priority during live migration and
     //allowed address pair
-    IpAddress subnet_gw_ip_;
+    IpAddress subnet_service_ip_;
     //Mac address of ARP NH, used to notify change
     //to routes dependent on mac change, or ageout of ARP
     MacAddress arp_mac_;
@@ -382,12 +382,12 @@ public:
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
                  const PathPreference &path_preference,
-                 const IpAddress &subnet_gw_ip) :
+                 const IpAddress &subnet_service_ip) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(false), sync_route_(false),
         flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()),
-        path_preference_(path_preference), subnet_gw_ip_(subnet_gw_ip) {
+        path_preference_(path_preference), subnet_service_ip_(subnet_service_ip) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -416,7 +416,7 @@ private:
     SecurityGroupList sg_list_;
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
-    IpAddress subnet_gw_ip_;
+    IpAddress subnet_service_ip_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

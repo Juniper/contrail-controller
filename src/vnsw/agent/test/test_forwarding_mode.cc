@@ -45,11 +45,11 @@ struct PortInfo input[] = {
 };
 
 IpamInfo ipam_info_dhcp_enable[] = {
-    {"1.1.1.0", 24, "1.1.1.200", true},
+    {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
 };
 
 IpamInfo ipam_info_dhcp_disable[] = {
-    {"1.1.1.0", 24, "1.1.1.200", false},
+    {"1.1.1.0", 24, "1.1.1.200", false, "1.1.1.200"},
 };
 
 void RouterIdDepInit(Agent *agent) {

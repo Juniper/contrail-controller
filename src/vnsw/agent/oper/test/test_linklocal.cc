@@ -89,9 +89,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
-        {"1.2.3.128", 27, "1.2.3.129", true},
-        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12", true, "7.8.9.12"},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
@@ -237,9 +237,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
-        {"1.2.3.128", 27, "1.2.3.129", true},
-        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12", true, "7.8.9.12"},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
