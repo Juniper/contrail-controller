@@ -8,6 +8,7 @@
 #include <tbb/mutex.h>
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/assert.hpp>
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/parse_object.h"
@@ -374,7 +375,7 @@ class OpServerProxy::OpServerImpl {
             // If redis returns error for async request, then perhaps it
             // is busy executing a script and it has reached the maximum
             // execution time limit.
-            assert(reply->type != REDIS_REPLY_ERROR);
+            BOOST_ASSERT_MSG(reply->type != REDIS_REPLY_ERROR, reply->str);
 
             if (rpi) {
                 rpi->ProcessCallback(reply);
