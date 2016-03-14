@@ -26,13 +26,15 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
                                        const std::string &name) :
     OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
     mcast_local_row_(NULL), mcast_remote_row_(NULL), tor_ip_(),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
     name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
-    mcast_remote_row_(NULL), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device_display_name();
     tor_ip_ = entry->tor_ip();
@@ -41,7 +43,8 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
     mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    mc_flood_entry_(NULL) {
+    mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
@@ -52,7 +55,8 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
     name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
-    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL) {
+    mcast_remote_row_(NULL), tor_ip_(), mc_flood_entry_(NULL),
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this) {
 }
 
 LogicalSwitchEntry::~LogicalSwitchEntry() {
@@ -74,9 +78,10 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         // skip add encoding for stale entry
         return;
     }
+
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
-                vxlan_id_);
+                                         res_vxlan_id_.VxLanId());
 
     // Encode Delete for Old remote multicast entries
     DeleteOldMcastRemoteMac();
@@ -175,6 +180,10 @@ const IpAddress &LogicalSwitchEntry::tor_ip() const {
     return tor_ip_;
 }
 
+const OvsdbResourceVxLanId &LogicalSwitchEntry::res_vxlan_id() const {
+    return res_vxlan_id_;
+}
+
 bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
     PhysicalDeviceVn *entry =
         static_cast<PhysicalDeviceVn *>(db_entry);
@@ -207,14 +216,23 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
         // while creating stale entry we should not wait for physical
         // switch object since it will not be available till config
         // comes up
+        // for stale entry we should always be able to acquire vxlan id
+        assert(res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_));
         return NULL;
     }
+
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     PhysicalSwitchEntry *p_switch =
         static_cast<PhysicalSwitchEntry *>(p_table->GetReference(&key));
     if (!p_switch->IsResolved()) {
         return p_switch;
+    }
+
+    bool ret = res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_);
+    if (!ret) {
+        // failed to get vxlan-id hold entry in defer state
+        return KSyncObjectManager::default_defer_entry();
     }
 
     // check if physical locator is available
@@ -240,11 +258,27 @@ bool LogicalSwitchEntry::IsLocalMacsRef() const {
 }
 
 void LogicalSwitchEntry::Ack(bool success) {
+    if (success) {
+        if (ovs_entry_ != NULL) {
+            uint32_t active_vxlan_id =
+                (uint32_t)ovsdb_wrapper_logical_switch_tunnel_key(ovs_entry_);
+            res_vxlan_id_.set_active_vxlan_id(active_vxlan_id);
+        } else {
+            res_vxlan_id_.set_active_vxlan_id(0);
+        }
+    }
     ReleaseLocatorCreateReference();
     OvsdbDBEntry::Ack(success);
 }
 
 void LogicalSwitchEntry::TxnDoneNoMessage() {
+    if (ovs_entry_ != NULL) {
+        uint32_t active_vxlan_id =
+            (uint32_t)ovsdb_wrapper_logical_switch_tunnel_key(ovs_entry_);
+        res_vxlan_id_.set_active_vxlan_id(active_vxlan_id);
+    } else {
+        res_vxlan_id_.set_active_vxlan_id(0);
+    }
     ReleaseLocatorCreateReference();
 }
 
@@ -569,13 +603,19 @@ LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(
     if (false == args.Get("name", &name_)) {
         name_ = "";
     }
+    int vxlan_id = 0;
+    if (false == args.Get("vxlan_id", &vxlan_id)) {
+        vxlan_id = 0;
+    }
+    vxlan_id_ = vxlan_id;
 }
 
 LogicalSwitchSandeshTask::LogicalSwitchSandeshTask(std::string resp_ctx,
                                                    const std::string &ip,
                                                    uint32_t port,
-                                                   const std::string &name) :
-    OvsdbSandeshTask(resp_ctx, ip, port), name_(name) {
+                                                   const std::string &name,
+                                                   uint32_t vxlan_id) :
+    OvsdbSandeshTask(resp_ctx, ip, port), name_(name), vxlan_id_(vxlan_id) {
 }
 
 LogicalSwitchSandeshTask::~LogicalSwitchSandeshTask() {
@@ -585,16 +625,26 @@ void LogicalSwitchSandeshTask::EncodeArgs(AgentSandeshArguments &args) {
     if (!name_.empty()) {
         args.Add("name", name_);
     }
+    if (vxlan_id_ != 0) {
+        args.Add("vxlan_id", vxlan_id_);
+    }
 }
 
 OvsdbSandeshTask::FilterResp
 LogicalSwitchSandeshTask::Filter(KSyncEntry *kentry) {
     if (!name_.empty()) {
         LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
-        if (entry->name().find(name_) != std::string::npos) {
-            return FilterAllow;
+        if (entry->name().find(name_) == std::string::npos) {
+            return FilterDeny;
         }
-        return FilterDeny;
+    }
+    if (vxlan_id_ != 0) {
+        LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>(kentry);
+        const OvsdbResourceVxLanId &res = entry->res_vxlan_id();
+        if (entry->vxlan_id() != vxlan_id_ &&
+            res.active_vxlan_id() != vxlan_id_) {
+            return FilterDeny;
+        }
     }
     return FilterAllow;
 }
@@ -608,6 +658,9 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
+    const OvsdbResourceVxLanId &res = entry->res_vxlan_id();
+    lentry.set_vxlan_id_available(res.VxLanId() != 0);
+    lentry.set_ovs_vxlan_id(res.active_vxlan_id());
     if (entry->IsDeleted() && entry->IsLocalMacsRef()) {
         lentry.set_message("Waiting for Local Macs Cleanup");
     }
@@ -632,7 +685,7 @@ void OvsdbLogicalSwitchReq::HandleRequest() const {
     LogicalSwitchSandeshTask *task =
         new LogicalSwitchSandeshTask(context(), get_session_remote_ip(),
                                      get_session_remote_port(),
-                                     get_name());
+                                     get_name(), get_vxlan_id());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

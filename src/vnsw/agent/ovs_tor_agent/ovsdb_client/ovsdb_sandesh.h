@@ -96,7 +96,8 @@ class LogicalSwitchSandeshTask : public OvsdbSandeshTask {
 public:
     LogicalSwitchSandeshTask(std::string resp_ctx, AgentSandeshArguments &args);
     LogicalSwitchSandeshTask(std::string resp_ctx, const std::string &ip,
-                             uint32_t port, const std::string &name);
+                             uint32_t port, const std::string &name,
+                             uint32_t vxlan_id);
 
     virtual ~LogicalSwitchSandeshTask();
 
@@ -109,6 +110,7 @@ private:
     TableType GetTableType() { return LOGICAL_SWITCH_TABLE;}
 
     std::string name_;
+    uint32_t vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchSandeshTask);
 };
 

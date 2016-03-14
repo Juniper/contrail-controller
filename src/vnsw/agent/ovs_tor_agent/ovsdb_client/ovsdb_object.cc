@@ -20,13 +20,9 @@ OvsdbObject::OvsdbObject(OvsdbClientIdl *idl) : KSyncObject(),
 OvsdbObject::~OvsdbObject() {
 }
 
-bool OvsdbObject::IsActiveEntry(KSyncEntry *entry) {
-    return (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted());
-}
-
 KSyncEntry *OvsdbObject::FindActiveEntry(KSyncEntry *key) {
     KSyncEntry *entry = Find(key);
-    if (entry != NULL && IsActiveEntry(entry)) {
+    if (entry != NULL && entry->IsActive()) {
         return entry;
     }
     return NULL;
