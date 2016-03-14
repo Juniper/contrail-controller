@@ -405,14 +405,16 @@ void KSyncFlowIndexEntry::IndexUnassignedSm(KSyncFlowIndexManager *manager,
         break;
 
     case KSYNC_FREE:
-        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-            if (flow->deleted() == false) {
-                KSyncAddChange(manager, flow);
-            } else {
-                // flow is deleted already don't try add/delete
+        if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+            state_ = INDEX_SET;
+            AcquireIndex(manager, flow, flow->flow_handle());
+        } else {
+            if (flow->deleted()) {
                 state_ = INIT;
+                break;
             }
         }
+        KSyncAddChange(manager, flow);
         break;
 
     case VROUTER_ERROR:
