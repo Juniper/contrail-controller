@@ -12,15 +12,18 @@
 #include <vector>
 
 #include "base/lifetime.h"
-#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_rib_policy.h"
 #include "db/db_table_walker.h"
 #include "route/table.h"
 
 class BgpServer;
 class BgpRoute;
 class BgpPath;
+class IPeer;
 class Path;
 class PathResolver;
+class RibOut;
+class RibPeerSet;
 class Route;
 class RoutingInstance;
 class SchedulingGroupManager;

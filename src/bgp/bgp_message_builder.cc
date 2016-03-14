@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
 #include "net/bgp_af.h"

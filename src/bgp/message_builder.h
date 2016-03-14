@@ -5,11 +5,14 @@
 #ifndef SRC_BGP_MESSAGE_BUILDER_H_
 #define SRC_BGP_MESSAGE_BUILDER_H_
 
-#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_rib_policy.h"
 
-class BgpRoute;
 class BgpMessageBuilder;
+class BgpRoute;
+class BgpTable;
 class BgpXmppMessageBuilder;
+class IPeerUpdate;
+class RibOutAttr;
 
 class Message {
 public:
@@ -26,9 +29,13 @@ public:
     uint32_t num_unreach_routes() const {
         return num_unreach_route_;
     }
+
 protected:
     uint32_t num_reach_route_;
     uint32_t num_unreach_route_;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(Message);
 };
 
 class MessageBuilder {

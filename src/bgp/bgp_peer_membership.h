@@ -14,7 +14,7 @@
 #include "base/util.h"
 #include "base/queue_task.h"
 #include "db/db_table_walker.h"
-#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_rib_policy.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 

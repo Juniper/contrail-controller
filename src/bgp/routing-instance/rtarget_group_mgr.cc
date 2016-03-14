@@ -13,6 +13,7 @@
 #include "base/task_trigger.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"

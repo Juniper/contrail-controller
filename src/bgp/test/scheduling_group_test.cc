@@ -8,6 +8,7 @@
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/l3vpn/inetvpn_table.h"

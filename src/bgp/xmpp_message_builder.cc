@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "bgp/ipeer.h"
+#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/load_balance.h"

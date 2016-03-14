@@ -22,7 +22,7 @@
 #include "bgp/bgp_debug.h"
 #include "bgp/bgp_peer_key.h"
 #include "bgp/bgp_proto.h"
-#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_rib_policy.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_peer_close.h"
 #include "bgp/state_machine.h"

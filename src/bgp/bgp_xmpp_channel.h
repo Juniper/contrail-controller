@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "base/queue_task.h"
-#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_rib_policy.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "io/tcp_session.h"
 #include "net/rd.h"

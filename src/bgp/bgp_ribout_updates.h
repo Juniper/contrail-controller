@@ -5,14 +5,20 @@
 #ifndef SRC_BGP_BGP_RIBOUT_UPDATES_H_
 #define SRC_BGP_BGP_RIBOUT_UPDATES_H_
 
+#include <boost/scoped_ptr.hpp>
+
 #include <vector>
 
-#include "bgp/bgp_ribout.h"
+#include "base/util.h"
 
 class BgpTable;
+class DBEntryBase;
+class IPeerUpdate;
 class Message;
 class MessageBuilder;
+class RibPeerSet;
 class RibUpdateMonitor;
+class RibOut;
 class RouteUpdate;
 class RouteUpdatePtr;
 class UpdateQueue;
