@@ -14,13 +14,13 @@ class BridgeRouteEntry;
 
 namespace OVSDB {
 class VrfOvsdbObject;
+class VrfOvsdbEntry;
 
 class UnicastMacRemoteTable : public OvsdbDBObject {
 public:
     UnicastMacRemoteTable(OvsdbClientIdl *idl,
-                          const std::string &logical_switch_name);
-    UnicastMacRemoteTable(OvsdbClientIdl *idl, AgentRouteTable *table,
-                          const std::string &logical_switch_name);
+                          const std::string &logical_switch_name,
+                          VrfOvsdbEntry *vrf);
     virtual ~UnicastMacRemoteTable();
 
     virtual void OvsdbRegisterDBTable(DBTable *tbl);
@@ -42,6 +42,7 @@ public:
 private:
     std::string logical_switch_name_;
     LifetimeRef<UnicastMacRemoteTable> table_delete_ref_;
+    VrfOvsdbEntry *vrf_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteTable);
 };
 

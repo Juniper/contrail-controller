@@ -35,35 +35,44 @@ VrfOvsdbEntry::~VrfOvsdbEntry() {
     assert(route_table_ == NULL);
 }
 
-void VrfOvsdbEntry::AddMsg(struct ovsdb_idl_txn *txn) {
-    // if table is scheduled for delete, delete the entry
+bool VrfOvsdbEntry::Add() {
+    // if table is scheduled for delete, return from here
+    // and wait for delete callback
     if (table_->delete_scheduled()) {
-        DeleteMsg(txn);
-        return;
+        return true;
     }
+
     // create route table and register
     if (route_table_ == NULL) {
         route_table_ = new UnicastMacRemoteTable(table_->client_idl(),
-                                                 logical_switch_name_);
+                                                 logical_switch_name_, this);
     }
 
     if (!stale() && route_table_->GetDBTable() == NULL &&
         oper_route_table_ != NULL) {
-        // TODO register for route table.
         route_table_->OvsdbRegisterDBTable(oper_route_table_);
     }
+    return true;
 }
 
-void VrfOvsdbEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
-    AddMsg(txn);
+bool VrfOvsdbEntry::Change() {
+    return Add();
 }
 
-void VrfOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
+bool VrfOvsdbEntry::Delete() {
     // delete route table.
     if (route_table_ != NULL) {
         route_table_->DeleteTable();
-        route_table_ = NULL;
+        // while triggering a delete for UnicastMacRemoteTable, wait
+        // for table cleanup to complete to proceed with the KSync
+        // state machine, so that we maintain consistency for remote
+        // MAC table by not allowing two transient route table, one
+        // in process of deletion and other in process of addition
+        // which can lead to inconsistent state in OVSDB-server
+        return false;
     }
+
+    return true;
 }
 
 bool VrfOvsdbEntry::Sync(DBEntry *db_entry) {
@@ -85,6 +94,13 @@ bool VrfOvsdbEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry* VrfOvsdbEntry::UnresolvedReference() {
     return NULL;
+}
+
+void VrfOvsdbEntry::TriggerAck(UnicastMacRemoteTable *table) {
+    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    assert(route_table_ == table);
+    route_table_ = NULL;
+    object->NotifyEvent(this, KSyncEntry::DEL_ACK);
 }
 
 VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl) : OvsdbDBObject(idl, true) {
