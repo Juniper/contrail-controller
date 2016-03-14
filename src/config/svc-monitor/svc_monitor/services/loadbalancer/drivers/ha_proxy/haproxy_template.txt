@@ -1,0 +1,63 @@
+global
+        daemon
+        user nobody
+        group nogroup
+        log /dev/log local0
+        log /dev/log local1 notice
+        tune.ssl.default-dh-param 2048
+        ssl-default-bind-ciphers ${ssl_ciphers}
+        ulimit-n 200000
+        maxconn ${max_conn}
+        stats socket ${sock_path} mode 0666 level user
+
+defaults
+        log global
+        retries 3
+        option redispatch
+        timeout connect ${connect_timeout}
+        timeout client ${client_timeout}
+        timeout server ${server_timeout}
+
+% for listener_id in loadbalancer['listeners']:
+<% listener = listeners[listener_id] %>\
+frontend ${listener_id}
+        option tcplog
+        bind ${loadbalancer['vip']}:${listener['port']} ${ssl_cert}
+        mode ${listener['protocol']}
+        default_backend ${listener['pool']}
+        option forwardfor
+
+<% pool = pools[listener['pool']] %>\
+backend ${listener['pool']}
+        mode ${pool['protocol']}
+        balance ${pool['method']}
+        % if pool['protocol'] == 'http':
+        option forwardfor
+        % endif
+        % if timeout:
+        timeout check ${timeout}s
+        % endif
+        % if monitor_type in ['HTTP', 'HTTPS']:
+        option httpchk ${http_method} ${url_path}
+        http-check expect rstatus ${expected_codes}
+        % endif
+        % if monitor_type in ['HTTPS']:
+        option ssl-hello-chk
+        % endif
+        % if persistence == 'PERSISTENCE_SOURCE_IP':
+        stick-table type ip size 10k
+        stick on src
+        % elif persistence == 'PERSISTENCE_HTTP_COOKIE':
+        cookie SRV insert indirect nocache
+        % elif (persistence == 'PERSISTENCE_APP_COOKIE' and cookie):
+        appsession ${cookie} len 56 timeout 3h
+        % endif
+        % for server_id in pool['members']:
+<% server = members[server_id] %>\
+        % if delay and max_retries:
+        server ${server_id} ${server['address']}:${server['port']} weight ${server['weight']} check inter ${delay}s fall ${max_retries}
+        % else:
+        server ${server_id} ${server['address']}:${server['port']} weight ${server['weight']}
+        % endif
+% endfor
+% endfor

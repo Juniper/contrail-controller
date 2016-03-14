@@ -40,6 +40,8 @@ sources = [
     'svc_monitor/services/loadbalancer/drivers/f5/f5_driver.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/__init__.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/driver.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/haproxy_config.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/haproxy_template.txt',
     'svc_monitor/snat_agent.py',
     'svc_monitor/tests/__init__.py',
     'svc_monitor/tests/test_common_utils.py',
