@@ -453,7 +453,7 @@ class Controller(object):
 
     def reconnect_agg_uve(self, lredis):
         self._logger.error("Connected to Redis for Agg")
-        lredis.ping()
+        lredis.set(self._moduleid+':'+self._instance_id, True)
         for pp in self._workers.keys():
             self._workers[pp].reset_acq_time()
             self._workers[pp].kill(\
@@ -606,6 +606,10 @@ class Controller(object):
                             password=self._conf.redis_password(),
                             db=7)
                     self.reconnect_agg_uve(lredis)
+                else:
+                    if not lredis.exists(self._moduleid+':'+self._instance_id):
+                        self._logger.error('Identified redis restart')
+                        self.reconnect_agg_uve(lredis)
                 gevs = {}
                 pendingset = {}
                 for part in self._uveq.keys():
