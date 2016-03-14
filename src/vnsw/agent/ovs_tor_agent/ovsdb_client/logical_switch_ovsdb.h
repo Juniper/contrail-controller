@@ -93,9 +93,18 @@ public:
 
     bool IsLocalMacsRef() const;
 
+    // Override Ack api to get trigger on Ack
+    void Ack(bool success);
+
+    // Override TxnDoneNoMessage to get triggers for no message
+    // transaction complete
+    void TxnDoneNoMessage();
+
 private:
     void SendTrace(Trace event) const;
     void DeleteOldMcastRemoteMac();
+
+    void ReleaseLocatorCreateReference();
 
     friend class LogicalSwitchTable;
     std::string name_;
@@ -105,6 +114,10 @@ private:
     // the reference till timeout or when all the local
     // macs are withdrawn
     KSyncEntryPtr local_mac_ref_;
+
+    // physical_locator create ref
+    KSyncEntryPtr pl_create_ref_;
+
     int64_t vxlan_id_;
     struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;

@@ -56,6 +56,7 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
 }
 
 LogicalSwitchEntry::~LogicalSwitchEntry() {
+    assert(pl_create_ref_.get() == NULL);
 }
 
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
@@ -200,6 +201,8 @@ bool LogicalSwitchEntry::IsLess(const KSyncEntry &entry) const {
 }
 
 KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
+    assert(pl_create_ref_.get() == NULL);
+
     if (stale()) {
         // while creating stale entry we should not wait for physical
         // switch object since it will not be available till config
@@ -213,11 +216,36 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     if (!p_switch->IsResolved()) {
         return p_switch;
     }
+
+    // check if physical locator is available
+    std::string dest_ip = table_->client_idl()->tsn_ip().to_string();
+    PhysicalLocatorTable *pl_table =
+        table_->client_idl()->physical_locator_table();
+    PhysicalLocatorEntry pl_key(pl_table, dest_ip);
+    PhysicalLocatorEntry *pl_entry =
+        static_cast<PhysicalLocatorEntry *>(pl_table->GetReference(&pl_key));
+    if (!pl_entry->IsResolved()) {
+        if (!pl_entry->AcquireCreateRequest(this)) {
+            // failed to Acquire Create Request, wait for physical locator
+            return pl_entry;
+        }
+        pl_create_ref_ = pl_entry;
+    }
+
     return NULL;
 }
 
 bool LogicalSwitchEntry::IsLocalMacsRef() const {
     return (local_mac_ref_.get() != NULL);
+}
+
+void LogicalSwitchEntry::Ack(bool success) {
+    ReleaseLocatorCreateReference();
+    OvsdbDBEntry::Ack(success);
+}
+
+void LogicalSwitchEntry::TxnDoneNoMessage() {
+    ReleaseLocatorCreateReference();
 }
 
 void LogicalSwitchEntry::SendTrace(Trace event) const {
@@ -249,6 +277,17 @@ void LogicalSwitchEntry::DeleteOldMcastRemoteMac() {
     for (it = old_mcast_remote_row_list_.begin();
          it != old_mcast_remote_row_list_.end(); ++it) {
         ovsdb_wrapper_delete_mcast_mac_remote(*it);
+    }
+}
+
+void LogicalSwitchEntry::ReleaseLocatorCreateReference() {
+    // on Ack Release the physical locator create ref, if present
+    if (pl_create_ref_.get() != NULL) {
+        // release creator reference on txn complete
+        PhysicalLocatorEntry *pl_entry =
+            static_cast<PhysicalLocatorEntry *>(pl_create_ref_.get());
+        pl_entry->ReleaseCreateRequest(this);
+        pl_create_ref_ = NULL;
     }
 }
 
