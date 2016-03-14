@@ -162,8 +162,22 @@ void FlowMgmtManager::RetryVrfDeleteEvent(const VrfEntry *vrf) {
     request_queue_.Enqueue(req);
 }
 
+void FlowMgmtManager::DummyEvent() {
+    boost::shared_ptr<FlowMgmtRequest>req
+        (new FlowMgmtRequest(FlowMgmtRequest::DUMMY));
+    request_queue_.Enqueue(req);
+}
+
 void FlowMgmtManager::EnqueueFlowEvent(FlowEvent *event) {
     agent_->pkt()->get_flow_proto()->EnqueueFlowEvent(event);
+}
+
+void FlowMgmtManager::FlowUpdateQueueDisable(bool disabled) {
+    request_queue_.set_disable(disabled);
+}
+
+size_t FlowMgmtManager::FlowUpdateQueueLength() {
+    return request_queue_.Length();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -376,6 +390,9 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
         BgpAsAServiceRequestHandler(req.get());
         break;
     }
+
+    case FlowMgmtRequest::DUMMY:
+        break;
 
     default:
          assert(0);

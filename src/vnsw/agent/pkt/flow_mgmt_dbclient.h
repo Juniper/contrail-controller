@@ -13,11 +13,12 @@ class EcmpLoadBalance;
 class FlowMgmtDbClient {
 public:
     struct FlowMgmtState : public DBState {
-        FlowMgmtState() : gen_id_(0) { }
+        FlowMgmtState() : gen_id_(0), deleted_(false) { }
         virtual ~FlowMgmtState() { }
 
         void IncrementGenId() { gen_id_++; }
         uint32_t gen_id_;
+        bool deleted_;
     };
 
     struct VnFlowHandlerState : public FlowMgmtState {
@@ -104,6 +105,7 @@ public:
     bool FreeDBState(const DBEntry *entry, uint32_t gen_id);
 
 private:
+    friend class FlowMgmtRouteTest;
     void AddEvent(const DBEntry *entry, FlowMgmtState *state);
     void DeleteEvent(const DBEntry *entry, FlowMgmtState *state);
     void ChangeEvent(const DBEntry *entry, FlowMgmtState *state);
