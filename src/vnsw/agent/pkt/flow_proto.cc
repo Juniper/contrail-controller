@@ -136,6 +136,10 @@ void FlowProto::DisableFlowMgmtQueue(bool disabled) {
     flow_update_queue_.set_disable(disabled);
 }
 
+size_t FlowProto::FlowMgmtQueueLength() {
+    return flow_update_queue_.Length();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable related routines
 /////////////////////////////////////////////////////////////////////////////

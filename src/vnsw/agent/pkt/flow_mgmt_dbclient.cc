@@ -48,6 +48,7 @@ void FlowMgmtDbClient::AddEvent(const DBEntry *entry, FlowMgmtState *state) {
 
 void FlowMgmtDbClient::DeleteEvent(const DBEntry *entry, FlowMgmtState *state) {
     state->gen_id_++;
+    state->deleted_ = true;
     mgr_->DeleteEvent(entry, state->gen_id_);
 }
 
@@ -66,6 +67,10 @@ static DBState *ValidateGenId(DBTableBase *table, DBEntry *entry,
     if (state == NULL)
         return NULL;
 
+    // If DBEntry is re-added in meanwhile, we do not want to free DBState
+    if (state->deleted_ == false)
+        return NULL;
+
     if (state->gen_id_ > gen_id)
         return NULL;
 
@@ -75,9 +80,6 @@ static DBState *ValidateGenId(DBTableBase *table, DBEntry *entry,
 void FlowMgmtDbClient::FreeInterfaceState(Interface *intf, uint32_t gen_id) {
     VmInterface *vm_port = dynamic_cast<VmInterface *>(intf);
     if (vm_port == NULL)
-        return;
-
-    if ((intf->IsDeleted() == false) && (vm_port->vn() != NULL))
         return;
 
     DBState *state = ValidateGenId(intf->get_table(), intf,
@@ -100,7 +102,7 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
 
     VmIntfFlowHandlerState *state = static_cast<VmIntfFlowHandlerState *>
         (e->GetState(part->parent(), interface_listener_id_));
-    if (intf->IsDeleted() || new_vn == NULL) {
+    if (intf->IsDeleted()) {
         if (state) {
             DeleteEvent(vm_port, state);
         }
@@ -120,6 +122,11 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
         changed = true;
     } else {
+        if (state->deleted_) {
+            state->deleted_ = false;
+            changed = true;
+        }
+
         if (state->vn_.get() != new_vn) {
             changed = true;
             state->vn_ = new_vn;
@@ -147,10 +154,6 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
 // VN notification handler
 ////////////////////////////////////////////////////////////////////////////
 void FlowMgmtDbClient::FreeVnState(VnEntry *vn, uint32_t gen_id) {
-    if (vn->IsDeleted() == false) {
-        return;
-    }
-
     DBState *state = ValidateGenId(vn->get_table(), vn, vn_listener_id_,
                                    gen_id);
     if (state == NULL)
@@ -213,6 +216,11 @@ void FlowMgmtDbClient::VnNotify(DBTablePartBase *part, DBEntryBase *e) {
         changed = true;
     }
 
+    if (state->deleted_) {
+        state->deleted_ = false;
+        changed = true;
+    }
+
     if (changed) {
         AddEvent(vn, state);
     }
@@ -222,9 +230,6 @@ void FlowMgmtDbClient::VnNotify(DBTablePartBase *part, DBEntryBase *e) {
 // ACL notification handler
 ////////////////////////////////////////////////////////////////////////////
 void FlowMgmtDbClient::FreeAclState(AclDBEntry *acl, uint32_t gen_id) {
-    if (acl->IsDeleted() == false)
-        return;
-
     DBState *state = ValidateGenId(acl->get_table(), acl, acl_listener_id_,
                                    gen_id);
     if (state == NULL)
@@ -250,6 +255,7 @@ void FlowMgmtDbClient::AclNotify(DBTablePartBase *part, DBEntryBase *e) {
         state = new AclFlowHandlerState();
         e->SetState(part->parent(), acl_listener_id_, state);
     }
+    state->deleted_ = false;
     AddEvent(acl, state);
 }
 
@@ -257,9 +263,6 @@ void FlowMgmtDbClient::AclNotify(DBTablePartBase *part, DBEntryBase *e) {
 // NH notification handler
 ////////////////////////////////////////////////////////////////////////////
 void FlowMgmtDbClient::FreeNhState(NextHop *nh, uint32_t gen_id) {
-    if (nh->IsDeleted() == false)
-        return;
-
     DBState *state = ValidateGenId(nh->get_table(), nh, nh_listener_id_,
                                    gen_id);
     if (state == NULL)
@@ -286,6 +289,7 @@ void FlowMgmtDbClient::NhNotify(DBTablePartBase *part, DBEntryBase *e) {
         state = new NhFlowHandlerState();
         nh->SetState(part->parent(), nh_listener_id_, state);
     }
+    state->deleted_ = false;
     AddEvent(nh, state);
     return;
 }
@@ -378,6 +382,7 @@ void FlowMgmtDbClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
         vrf->SetState(part->parent(), vrf_listener_id_, state);
         AddEvent(vrf, state);
     }
+    state->deleted_ = false;
     return;
 }
 
@@ -542,6 +547,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
         route->SetState(partition->parent(), id, state);
         AddEvent(route, state);
         new_route = true;
+    } else {
+        if (state->deleted_) {
+            state->deleted_ = false;
+            new_route = true;
+        }
     }
 
     bool changed = false;

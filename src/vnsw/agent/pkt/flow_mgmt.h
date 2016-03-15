@@ -1029,6 +1029,8 @@ public:
     void DeleteEvent(const DBEntry *entry, uint32_t gen_id);
     void RetryVrfDeleteEvent(const VrfEntry *vrf);
     void RetryVrfDelete(uint32_t vrf_id);
+    // Dummy event used for testing
+    void DummyEvent();
 
     void VnFlowCounters(const VnEntry *vn,
                         uint32_t *ingress_flow_count,
@@ -1044,6 +1046,9 @@ public:
                              uint32_t source_port);
     void EnqueueUveAddEvent(const FlowEntry *flow) const;
     void EnqueueUveDeleteEvent(const FlowEntry *flow) const;
+
+    void FlowUpdateQueueDisable(bool val);
+    size_t FlowUpdateQueueLength();
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
