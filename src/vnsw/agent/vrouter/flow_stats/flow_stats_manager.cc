@@ -230,45 +230,42 @@ FlowStatsManager::Find(uint32_t proto, uint32_t port) const {
 }
 
 FlowStatsCollector*
-FlowStatsManager::GetFlowStatsCollector(const FlowKey &key) const {
+FlowStatsManager::GetFlowStatsCollector(const FlowEntry *flow) const {
+    /* If the reverse flow already has FlowStatsCollector assigned, return
+     * the same to ensure that forward and reverse flows go to same
+     * FlowStatsCollector */
+    const FlowEntry *rflow = flow->reverse_flow_entry();
+    if (rflow && rflow->fsc()) {
+        return rflow->fsc();
+    }
+    FlowStatsCollector* col = NULL;
+
+    const FlowKey &key = flow->key();
     FlowAgingTableKey key1(key.protocol, key.src_port);
+    FlowAgingTableMap::const_iterator key1_it =
+        flow_aging_table_map_.find(key1);
+
+    if (key1_it != flow_aging_table_map_.end()) {
+        col = key1_it->second.get();
+        if (!col->deleted())
+            return col;
+    }
+
     FlowAgingTableKey key2(key.protocol, key.dst_port);
-
-    FlowAgingTableMap::const_iterator key1_it = flow_aging_table_map_.find(key1);
-    FlowAgingTableMap::const_iterator key2_it = flow_aging_table_map_.find(key2);
-
-    if (key1_it == flow_aging_table_map_.end() &&
-        key2_it == flow_aging_table_map_.end() &&
-        protocol_list_[key.protocol] == NULL) {
-        return default_flow_stats_collector_.get();
+    FlowAgingTableMap::const_iterator key2_it =
+        flow_aging_table_map_.find(key2);
+    if (key2_it != flow_aging_table_map_.end()) {
+        col = key2_it->second.get();
+        if (!col->deleted())
+            return col;
     }
 
-    if (key1_it == flow_aging_table_map_.end() &&
-        key2_it == flow_aging_table_map_.end()) {
-        return protocol_list_[key.protocol];
+    if (protocol_list_[key.protocol] != NULL) {
+        col = protocol_list_[key.protocol];
+        if (!col->deleted())
+            return col;
     }
-
-    if (key1_it == flow_aging_table_map_.end()) {
-        return key2_it->second.get();
-    } else {
-        return key1_it->second.get();
-    }
-
-    if (key1_it->second->flow_age_time_intvl() ==
-        key2_it->second->flow_age_time_intvl()) {
-        if (key.src_port < key.dst_port) {
-            return key1_it->second.get();
-        } else {
-            return key2_it->second.get();
-        }
-    }
-
-    if (key1_it->second->flow_age_time_intvl() <
-        key2_it->second->flow_age_time_intvl()) {
-        return key1_it->second.get();
-    } else {
-        return key2_it->second.get();
-    }
+    return default_flow_stats_collector_.get();
 }
 
 void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
@@ -278,7 +275,7 @@ void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
 
     FlowStatsCollector *fsc = NULL;
     if (flow->fsc() == NULL) {
-        fsc = GetFlowStatsCollector(flow->key());
+        fsc = GetFlowStatsCollector(flow.get());
         flow->set_fsc(fsc);
     } else {
         fsc = flow->fsc();
@@ -303,7 +300,7 @@ void FlowStatsManager::FlowIndexUpdateEvent(const FlowEntryPtr &flow) {
 
     FlowStatsCollector *fsc = NULL;
     if (flow->fsc() == NULL) {
-        fsc = GetFlowStatsCollector(flow->key());
+        fsc = GetFlowStatsCollector(flow.get());
         flow->set_fsc(fsc);
     } else {
         fsc = flow->fsc();
@@ -321,7 +318,7 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
 
     FlowStatsCollector *fsc = NULL;
     if (flow->fsc() == NULL) {
-        fsc = GetFlowStatsCollector(flow->key());
+        fsc = GetFlowStatsCollector(flow.get());
         flow->set_fsc(fsc);
     } else {
         fsc = flow->fsc();

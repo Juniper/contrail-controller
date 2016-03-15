@@ -344,7 +344,7 @@ void MatchPolicy::Reset() {
 FlowEntry::FlowEntry(FlowTable *flow_table) :
     flow_table_(flow_table), flags_(0),
     tunnel_type_(TunnelType::INVALID),
-    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), fsc_(NULL) {
+    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
     Reset();
     alloc_count_.fetch_and_increment();
 }
@@ -374,6 +374,7 @@ void FlowEntry::Reset() {
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     ksync_index_entry_ = std::auto_ptr<KSyncFlowIndexEntry>
         (new KSyncFlowIndexEntry());
+    fsc_ = NULL;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
