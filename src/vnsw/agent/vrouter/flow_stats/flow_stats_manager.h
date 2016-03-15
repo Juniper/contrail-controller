@@ -108,7 +108,7 @@ public:
         return flow_aging_table_map_.end();
     }
 
-    FlowStatsCollector* GetFlowStatsCollector(const FlowKey &key) const;
+    FlowStatsCollector* GetFlowStatsCollector(const FlowEntry *p) const;
     const FlowStatsCollector* Find(uint32_t proto, uint32_t port) const;
 
     bool RequestHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
