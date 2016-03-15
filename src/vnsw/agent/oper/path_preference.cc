@@ -1058,9 +1058,11 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
        static_cast<PathPreferenceVrfState *>(e->GetState(partition->parent(),
                                                           vrf_id_));
 
-   if (vrf->IsDeleted() && vrf_state) {
-       e->ClearState(partition->parent(), vrf_id_);
-       delete vrf_state;
+   if (vrf->IsDeleted()) {
+       if (vrf_state) {
+           e->ClearState(partition->parent(), vrf_id_);
+           delete vrf_state;
+       }
        return;
    }
 
