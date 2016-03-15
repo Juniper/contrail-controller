@@ -367,15 +367,9 @@ void UnicastMacRemoteEntry::ReleaseLocatorCreateReference() {
 }
 
 UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
-        const std::string &logical_switch_name) :
+        const std::string &logical_switch_name, VrfOvsdbEntry *vrf) :
     OvsdbDBObject(idl, true), logical_switch_name_(logical_switch_name),
-    table_delete_ref_(this, NULL) {
-}
-
-UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
-        AgentRouteTable *table, const std::string &logical_switch_name) :
-    OvsdbDBObject(idl, table, true), logical_switch_name_(logical_switch_name),
-    table_delete_ref_(this, table->deleter()) {
+    table_delete_ref_(this, NULL), vrf_(vrf) {
 }
 
 UnicastMacRemoteTable::~UnicastMacRemoteTable() {
@@ -463,6 +457,9 @@ void UnicastMacRemoteTable::EmptyTable() {
     // unregister the object if emptytable is called with
     // object being scheduled for delete
     if (delete_scheduled()) {
+        // trigger Ack for Vrf entry and reset to NULL
+        vrf_->TriggerAck(this);
+        vrf_ = NULL;
         KSyncObjectManager::Unregister(this);
     }
 }
