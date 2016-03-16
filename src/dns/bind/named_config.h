@@ -114,7 +114,7 @@ protected:
     void WriteViewConfig(const VirtualDnsConfig *updated_vdns);
     void WriteDefaultView(ZoneViewMap &zone_view_map);
     void WriteZone(const std::string &vdns, const std::string &name,
-                   bool is_master);
+                   bool is_master, bool is_rr, const std::string &next_dns);
     void AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns);
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);
