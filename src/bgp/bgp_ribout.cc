@@ -19,55 +19,6 @@
 
 using std::find;
 
-//
-// Implement operator< for RibExportPolicy by comparing each of the fields.
-//
-bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
-    if (encoding < rhs.encoding) {
-        return true;
-    }
-    if (encoding > rhs.encoding) {
-        return false;
-    }
-    if (type < rhs.type) {
-        return true;
-    }
-    if (type > rhs.type) {
-        return false;
-    }
-    if (as_number < rhs.as_number) {
-        return true;
-    }
-    if (as_number > rhs.as_number) {
-        return false;
-    }
-    if (as_override < rhs.as_override) {
-        return true;
-    }
-    if (as_override > rhs.as_override) {
-        return false;
-    }
-    if (nexthop < rhs.nexthop) {
-        return true;
-    }
-    if (nexthop > rhs.nexthop) {
-        return false;
-    }
-    if (affinity < rhs.affinity)  {
-        return true;
-    }
-    if (affinity > rhs.affinity) {
-        return false;
-    }
-    if (cluster_id < rhs.cluster_id) {
-        return true;
-    }
-    if (cluster_id > rhs.cluster_id) {
-        return false;
-    }
-    return false;
-}
-
 RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
                              uint32_t label, const ExtCommunity *ext_community,
                              bool vrf_originated)

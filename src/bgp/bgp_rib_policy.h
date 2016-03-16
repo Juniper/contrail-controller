@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
 #ifndef SRC_BGP_BGP_RIB_POLICY_H_
@@ -35,40 +35,14 @@ struct RibExportPolicy {
         XMPP,
     };
 
-    RibExportPolicy()
-        : type(BgpProto::IBGP), encoding(BGP),
-          as_number(0), as_override(false), affinity(-1), cluster_id(0) {
-    }
-
+    RibExportPolicy();
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        int affinity, u_int32_t cluster_id)
-        : type(type), encoding(encoding), as_number(0), as_override(false),
-          affinity(affinity), cluster_id(cluster_id) {
-        if (encoding == XMPP)
-            assert(type == BgpProto::XMPP);
-        if (encoding == BGP)
-            assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
-    }
-
+        int affinity, u_int32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, int affinity, u_int32_t cluster_id)
-        : type(type), encoding(encoding), as_number(as_number),
-          as_override(as_override), affinity(affinity), cluster_id(cluster_id) {
-        if (encoding == XMPP)
-            assert(type == BgpProto::XMPP);
-        if (encoding == BGP)
-            assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
-    }
-
+        as_t as_number, bool as_override, int affinity, u_int32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         as_t as_number, bool as_override, IpAddress nexthop,
-        int affinity, u_int32_t cluster_id)
-        : type(type), encoding(BGP), as_number(as_number),
-          as_override(as_override), nexthop(nexthop),
-          affinity(affinity), cluster_id(cluster_id) {
-        assert(type == BgpProto::IBGP || type == BgpProto::EBGP);
-        assert(encoding == BGP);
-    }
+        int affinity, u_int32_t cluster_id);
 
     bool operator<(const RibExportPolicy &rhs) const;
 
