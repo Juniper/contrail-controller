@@ -411,8 +411,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
             }
 
             path = rt->FindPath(BgpPath::BGP_XMPP, peer, path_id);
-            if (path && req->oper != DBRequest::DB_ENTRY_DELETE)
-                deleted_paths.erase(path);
+            deleted_paths.erase(path);
 
             if (data->attrs() && count > 0) {
                 BgpAttr *clone = new BgpAttr(*data->attrs());

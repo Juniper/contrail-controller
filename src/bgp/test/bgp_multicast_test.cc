@@ -261,8 +261,8 @@ protected:
         TASK_UTIL_EXPECT_TRUE(uinfo.get() != NULL);
         BgpOList *olist = uinfo->roattr.attr()->olist().get();
         TASK_UTIL_EXPECT_TRUE(olist != NULL);
-        EXPECT_GE(olist->elements.size(), 1);
-        EXPECT_LE(olist->elements.size(), McastTreeManager::kDegree + 1);
+        EXPECT_GE(olist->elements().size(), 1);
+        EXPECT_LE(olist->elements().size(), McastTreeManager::kDegree + 1);
     }
 
     void VerifyOnlyForwarderProperties(ErmVpnTable *table,

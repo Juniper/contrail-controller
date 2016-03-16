@@ -208,7 +208,7 @@ protected:
         if (olist == NULL)
             return false;
         bool found = false;
-        BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
+        BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
             if (peer->address() == elem->address) {
                 EXPECT_FALSE(found);
                 found = true;
@@ -237,7 +237,7 @@ protected:
         BgpOListPtr olist = leaf ? attr->leaf_olist() : attr->olist();
         if (olist == NULL)
             return false;
-        BOOST_FOREACH(BgpOListElem *elem, olist->elements) {
+        BOOST_FOREACH(BgpOListElem *elem, olist->elements()) {
             if (peer->address() == elem->address)
                 return false;
         }
@@ -289,7 +289,7 @@ protected:
         }
 
         const BgpAttr *attr = uinfo->roattr.attr();
-        if (attr->olist()->elements.size() != count)
+        if (attr->olist()->elements().size() != count)
             return false;
 
         if (include_leaf && peer->assisted_replication_supported()) {
@@ -302,10 +302,10 @@ protected:
                 leaf_count++;
             }
 
-            if (attr->leaf_olist()->elements.size() != leaf_count)
+            if (attr->leaf_olist()->elements().size() != leaf_count)
                 return false;
         } else {
-            if (attr->leaf_olist()->elements.size() != 0)
+            if (attr->leaf_olist()->elements().size() != 0)
                 return false;
         }
 
@@ -477,11 +477,11 @@ protected:
         TASK_UTIL_EXPECT_TRUE(attr->pmsi_tunnel() != NULL);
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
-            pmsi_tunnel->tunnel_flags);
+            pmsi_tunnel->tunnel_flags());
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
-            pmsi_tunnel->tunnel_type);
+            pmsi_tunnel->tunnel_type());
         TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
-        TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier);
+        TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
         TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
@@ -1094,12 +1094,12 @@ protected:
         const BgpAttr *attr = rt->BestPath()->GetAttr();
         TASK_UTIL_EXPECT_TRUE(attr->pmsi_tunnel() != NULL);
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
-        TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::ARLeaf, pmsi_tunnel->tunnel_flags);
+        TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::ARLeaf, pmsi_tunnel->tunnel_flags());
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::AssistedReplicationContrail,
-            pmsi_tunnel->tunnel_type);
+            pmsi_tunnel->tunnel_type());
         TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->replicator_address(),
-            pmsi_tunnel->identifier);
+            pmsi_tunnel->identifier());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
         TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
         vector<string> encap = attr->ext_community()->GetTunnelEncap();
@@ -1263,11 +1263,11 @@ protected:
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
         uint8_t tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported |
             PmsiTunnelSpec::ARReplicator | PmsiTunnelSpec::LeafInfoRequired;
-        TASK_UTIL_EXPECT_EQ(tunnel_flags, pmsi_tunnel->tunnel_flags);
+        TASK_UTIL_EXPECT_EQ(tunnel_flags, pmsi_tunnel->tunnel_flags());
         TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
-            pmsi_tunnel->tunnel_type);
+            pmsi_tunnel->tunnel_type());
         TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
-        TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier);
+        TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
         TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);

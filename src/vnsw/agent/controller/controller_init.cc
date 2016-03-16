@@ -141,6 +141,9 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
+            xmpp_cfg->local_endpoint.address(
+                    ip::address::from_string("10.84.29.27"));
+            xmpp_cfg->local_endpoint.port(0);
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);

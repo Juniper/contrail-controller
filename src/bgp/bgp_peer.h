@@ -30,13 +30,13 @@
 
 class BgpNeighborConfig;
 class BgpPeerInfo;
+class BgpPeerInfoData;
 class BgpServer;
 class BgpSession;
-class RoutingInstance;
 class BgpSession;
-class BgpPeerInfo;
 class BgpNeighborResp;
 class BgpSandeshContext;
+class RoutingInstance;
 
 //
 // This contains per address family attributes.
@@ -291,6 +291,12 @@ public:
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
 
+protected:
+    std::vector<std::string> &negotiated_families() {
+        return negotiated_families_;
+    }
+    void SendEndOfRIB(Address::Family family);
+
 private:
     friend class BgpConfigTest;
     friend class BgpPeerTest;
@@ -311,13 +317,14 @@ private:
 
     RibExportPolicy BuildRibExportPolicy(Address::Family family) const;
     void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
-    void SendEndOfRIB(Address::Family family);
     void StartEndOfRibTimer();
     bool EndOfRibTimerExpired();
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
 
     virtual void BindLocalEndpoint(BgpSession *session);
+    void UnregisterAllTables();
+    void BGPPeerInfoSend(BgpPeerInfoData &peer_info);
 
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
