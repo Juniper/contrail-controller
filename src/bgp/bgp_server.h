@@ -174,11 +174,11 @@ public:
         return (peer_bmap_.size() - peer_bmap_.count());
     }
 
-    uint32_t num_closing_bgp_peer() const { return closing_count_; }
-    void increment_closing_count() { closing_count_++; }
-    void decrement_closing_count() {
-        assert(closing_count_ > 0);
-        closing_count_--;
+    uint32_t num_deleting_bgp_peer() const { return deleting_count_; }
+    void increment_deleting_count() { deleting_count_++; }
+    void decrement_deleting_count() {
+        assert(deleting_count_ > 0);
+        deleting_count_--;
     }
 
     uint32_t get_output_queue_depth() const;
@@ -251,7 +251,7 @@ private:
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
     tbb::atomic<uint32_t> num_up_peer_;
-    tbb::atomic<uint32_t> closing_count_;
+    tbb::atomic<uint32_t> deleting_count_;
     BgpPeerList peer_list_;
     EndpointToBgpPeerList endpoint_peer_list_;
 

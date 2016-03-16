@@ -199,6 +199,7 @@ private:
     friend int intrusive_ptr_add_ref(const ClusterList *ccluster_list);
     friend int intrusive_ptr_del_ref(const ClusterList *ccluster_list);
     friend void intrusive_ptr_release(const ClusterList *ccluster_list);
+    friend class ClusterListDB;
 
     mutable tbb::atomic<int> refcount_;
     ClusterListDB *cluster_list_db_;
@@ -332,7 +333,7 @@ public:
 
     const PmsiTunnelSpec &pmsi_tunnel() const { return pmsi_spec_; }
     uint32_t GetLabel(bool is_vni = false) const {
-        return (is_vni ? label : label >> 4);
+        return (is_vni ? label_ : label_ >> 4);
     }
 
     friend std::size_t hash_value(const PmsiTunnel &pmsi_tunnel) {
@@ -341,16 +342,21 @@ public:
         return hash;
     }
 
-    uint8_t tunnel_flags;
-    uint8_t tunnel_type;
-    Ip4Address identifier;
+    const uint8_t tunnel_flags() const { return tunnel_flags_; }
+    const uint8_t tunnel_type() const { return tunnel_type_; }
+    const Ip4Address identifier() const { return identifier_; }
+    const uint32_t label() const { return label_; }
 
 private:
     friend int intrusive_ptr_add_ref(const PmsiTunnel *cpmsi_tunnel);
     friend int intrusive_ptr_del_ref(const PmsiTunnel *cpmsi_tunnel);
     friend void intrusive_ptr_release(const PmsiTunnel *cpmsi_tunnel);
+    friend class PmsiTunnelDB;
 
-    uint32_t label;
+    uint8_t tunnel_flags_;
+    uint8_t tunnel_type_;
+    Ip4Address identifier_;
+    uint32_t label_;
     mutable tbb::atomic<int> refcount_;
     PmsiTunnelDB *pmsi_tunnel_db_;
     PmsiTunnelSpec pmsi_spec_;
@@ -453,6 +459,7 @@ private:
     friend int intrusive_ptr_add_ref(const EdgeDiscovery *ediscovery);
     friend int intrusive_ptr_del_ref(const EdgeDiscovery *ediscovery);
     friend void intrusive_ptr_release(const EdgeDiscovery *ediscovery);
+    friend class EdgeDiscoveryDB;
 
     mutable tbb::atomic<int> refcount_;
     EdgeDiscoveryDB *edge_discovery_db_;
@@ -559,6 +566,7 @@ private:
     friend int intrusive_ptr_add_ref(const EdgeForwarding *ceforwarding);
     friend int intrusive_ptr_del_ref(const EdgeForwarding *ceforwarding);
     friend void intrusive_ptr_release(const EdgeForwarding *ceforwarding);
+    friend class EdgeForwardingDB;
 
     mutable tbb::atomic<int> refcount_;
     EdgeForwardingDB *edge_forwarding_db_;
@@ -665,13 +673,16 @@ public:
     }
 
     typedef std::vector<BgpOListElem *> Elements;
-    Elements elements;
+
+    const Elements &elements() const { return elements_; }
 
 private:
     friend int intrusive_ptr_add_ref(const BgpOList *colist);
     friend int intrusive_ptr_del_ref(const BgpOList *colist);
     friend void intrusive_ptr_release(const BgpOList *colist);
+    friend class BgpOListDB;
 
+    Elements elements_;
     mutable tbb::atomic<int> refcount_;
     BgpOListDB *olist_db_;
     BgpOListSpec olist_spec_;
@@ -769,8 +780,8 @@ public:
     explicit BgpAttr(const BgpAttr &rhs);
     BgpAttr(BgpAttrDB *attr_db, const BgpAttrSpec &spec);
     virtual ~BgpAttr() { }
-
     virtual void Remove();
+
     int CompareTo(const BgpAttr &rhs) const;
 
     void set_origin(BgpAttrOrigin::OriginType org) { origin_ = org; }
@@ -844,6 +855,7 @@ public:
 
 private:
     friend class BgpAttrDB;
+    friend class BgpAttrTest;
     friend int intrusive_ptr_add_ref(const BgpAttr *cattrp);
     friend int intrusive_ptr_del_ref(const BgpAttr *cattrp);
     friend void intrusive_ptr_release(const BgpAttr *cattrp);

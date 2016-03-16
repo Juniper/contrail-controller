@@ -332,10 +332,10 @@ PmsiTunnel::PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db,
     : pmsi_tunnel_db_(pmsi_tunnel_db),
       pmsi_spec_(pmsi_spec) {
     refcount_ = 0;
-    tunnel_flags = pmsi_spec_.tunnel_flags;
-    tunnel_type = pmsi_spec_.tunnel_type;
-    label = pmsi_spec_.label;
-    identifier = pmsi_spec_.GetIdentifier();
+    tunnel_flags_ = pmsi_spec_.tunnel_flags;
+    tunnel_type_ = pmsi_spec_.tunnel_type;
+    label_ = pmsi_spec_.label;
+    identifier_ = pmsi_spec_.GetIdentifier();
 }
 
 void PmsiTunnel::Remove() {
@@ -684,13 +684,13 @@ BgpOList::BgpOList(BgpOListDB *olist_db, const BgpOListSpec &olist_spec)
          olist_spec_.elements.begin(); it != olist_spec_.elements.end(); ++it) {
         BgpOListElem *elem = new BgpOListElem(*it);
         sort(elem->encap.begin(), elem->encap.end());
-        elements.push_back(elem);
+        elements_.push_back(elem);
     }
-    sort(elements.begin(), elements.end(), BgpOListElemCompare());
+    sort(elements_.begin(), elements_.end(), BgpOListElemCompare());
 }
 
 BgpOList::~BgpOList() {
-    STLDeleteValues(&elements);
+    STLDeleteValues(&elements_);
 }
 
 struct BgpOListElementCompare {
@@ -702,8 +702,8 @@ struct BgpOListElementCompare {
 
 int BgpOList::CompareTo(const BgpOList &rhs) const {
     KEY_COMPARE(olist().subcode, rhs.olist().subcode);
-    int result = STLSortedCompare(elements.begin(), elements.end(),
-                                  rhs.elements.begin(), rhs.elements.end(),
+    int result = STLSortedCompare(elements().begin(), elements().end(),
+                                  rhs.elements().begin(), rhs.elements().end(),
                                   BgpOListElementCompare());
     return result;
 }
@@ -1017,12 +1017,12 @@ std::size_t hash_value(BgpAttr const &attr) {
     }
 
     if (attr.olist_) {
-        boost::hash_range(hash, attr.olist_->elements.begin(),
-                          attr.olist_->elements.end());
+        boost::hash_range(hash, attr.olist_->elements().begin(),
+                          attr.olist_->elements().end());
     }
     if (attr.leaf_olist_) {
-        boost::hash_range(hash, attr.leaf_olist_->elements.begin(),
-                          attr.leaf_olist_->elements.end());
+        boost::hash_range(hash, attr.leaf_olist_->elements().begin(),
+                          attr.leaf_olist_->elements().end());
     }
 
     if (attr.as_path_) boost::hash_combine(hash, *attr.as_path_);

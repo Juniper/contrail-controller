@@ -21,6 +21,7 @@ namespace sc = boost::statechart;
 class BgpPeer;
 class BgpSession;
 class BgpPeerInfo;
+class BgpPeerInfoData;
 class BgpMessage;
 class StateMachine;
 
@@ -127,7 +128,7 @@ public:
     void DeleteSession(BgpSession *session);
     void AssignSession(bool active);
 
-    void OnSessionEvent(TcpSession *session, TcpSession::Event event);
+    virtual void OnSessionEvent(TcpSession *session, TcpSession::Event event);
     bool PassiveOpen(BgpSession *session);
 
     void OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
@@ -178,6 +179,7 @@ public:
     void reset_last_info();
     void LogEvent(std::string event_name, std::string msg,
                   SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG);
+    bool HoldTimerExpired();
 
 private:
     friend class StateMachineTest;
@@ -192,13 +194,13 @@ private:
     void FireConnectTimer();
     bool OpenTimerExpired();
     void FireOpenTimer();
-    bool HoldTimerExpired();
     void FireHoldTimer();
     bool IdleHoldTimerExpired();
     void FireIdleHoldTimer();
 
     void TimerErrorHanlder(std::string name, std::string error) { }
     void DeleteAllTimers();
+    void BGPPeerInfoSend(BgpPeerInfoData &peer_info);
 
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);
