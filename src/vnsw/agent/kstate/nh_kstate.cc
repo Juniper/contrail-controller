@@ -118,8 +118,7 @@ const string NHKState::EncapToString(const vector<signed char> &encap) const {
    return strm.str();
 }
 
-const string NHKState::FlagsToString(short nh_flags) const {
-    unsigned short flags = nh_flags;
+const string NHKState::FlagsToString(uint32_t flags) const {
     string flag_str, policy_str("POLICY "), gre_str("TUNNEL_GRE ");
     string fabric_multicast("FABRIC_MULTICAST");
     string l2_multicast("L2_MULTICAST");
@@ -128,7 +127,7 @@ const string NHKState::FlagsToString(short nh_flags) const {
     string ecmp("ECMP");
     string multicast_encap("MULTICAST_ENCAP");
     string mpls_udp_str("TUNNEL_MPLS_UDP ");
-    string udp_str("TUNNEL_UDP ");
+    string udp_str("TUNNEL_UDP "), sip_copy("TUNNEL_SIP_COPY ");
     bool assigned = false;
 
     if (flags & NH_FLAG_VALID) {
@@ -191,6 +190,15 @@ const string NHKState::FlagsToString(short nh_flags) const {
             flag_str.append("| " + l2_multicast);
         } else {
             flag_str.assign(l2_multicast);
+            assigned = true;
+        }
+    }
+
+    if (flags & NH_FLAG_TUNNEL_SIP_COPY) {
+        if (assigned) {
+            flag_str.append("| " + sip_copy);
+        } else {
+            flag_str.assign(sip_copy);
             assigned = true;
         }
     }

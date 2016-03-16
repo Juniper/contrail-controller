@@ -244,6 +244,7 @@ void AgentInit::CreateVrfBase() {
     VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
     assert(vrf);
 
+    agent_->set_fabric_vrf(vrf);
     agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
     agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
