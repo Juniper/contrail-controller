@@ -311,7 +311,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
 
     if (olist) {
         assert(olist->olist().subcode == BgpAttribute::OList);
-        BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
+        BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
             autogen::EnetNextHopType nh;
             nh.af = BgpAf::IPv4;
             nh.address = elem->address.to_string();
@@ -326,7 +326,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
 
     if (leaf_olist) {
         assert(leaf_olist->olist().subcode == BgpAttribute::LeafOList);
-        BOOST_FOREACH(const BgpOListElem *elem, leaf_olist->elements) {
+        BOOST_FOREACH(const BgpOListElem *elem, leaf_olist->elements()) {
             autogen::EnetNextHopType nh;
             nh.af = BgpAf::IPv4;
             nh.address = elem->address.to_string();
@@ -376,7 +376,7 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
 
     const BgpOList *olist = roattr->attr()->olist().get();
     assert(olist->olist().subcode == BgpAttribute::OList);
-    BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
+    BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
         autogen::McastNextHopType nh;
         nh.af = BgpAf::IPv4;
         nh.address = elem->address.to_string();
