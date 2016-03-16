@@ -395,7 +395,7 @@ static void FillPmsiTunnelInfo(const PmsiTunnel *pmsi_tunnel, bool label_is_vni,
     ShowPmsiTunnel spt;
     spt.set_type(pmsi_tunnel->pmsi_tunnel().GetTunnelTypeString());
     spt.set_ar_type(pmsi_tunnel->pmsi_tunnel().GetTunnelArTypeString());
-    spt.set_identifier(pmsi_tunnel->identifier.to_string());
+    spt.set_identifier(pmsi_tunnel->identifier().to_string());
     spt.set_label(pmsi_tunnel->GetLabel(label_is_vni));
     spt.set_flags(pmsi_tunnel->pmsi_tunnel().GetTunnelFlagsStrings());
     show_path->set_pmsi_tunnel(spt);
