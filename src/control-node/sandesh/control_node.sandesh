@@ -24,7 +24,7 @@ struct BgpRouterState {
     7: optional u32 output_queue_depth;
     8: optional u32 num_bgp_peer;
     9: optional u32 num_up_bgp_peer;
-   20: optional u32 num_closing_bgp_peer;
+   20: optional u32 num_deleting_bgp_peer;
    10: optional u32 num_xmpp_peer;
    11: optional u32 num_up_xmpp_peer;
    21: optional u32 num_closing_xmpp_peer;

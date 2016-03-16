@@ -211,8 +211,8 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         prefix->ReadIpAddress(proto_prefix, ip_offset, ip_size);
         const PmsiTunnel *pmsi_tunnel = attr ? attr->pmsi_tunnel() : NULL;
         if (pmsi_tunnel &&
-            (pmsi_tunnel->tunnel_type == PmsiTunnelSpec::IngressReplication ||
-             pmsi_tunnel->tunnel_type ==
+            (pmsi_tunnel->tunnel_type() == PmsiTunnelSpec::IngressReplication ||
+             pmsi_tunnel->tunnel_type() ==
              PmsiTunnelSpec::AssistedReplicationContrail)) {
             const ExtCommunity *extcomm = attr ? attr->ext_community() : NULL;
             if (extcomm && extcomm->ContainsTunnelEncapVxlan()) {
@@ -715,8 +715,8 @@ bool EvpnRoute::IsValid() const {
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
         if (!pmsi_tunnel)
             return false;
-        uint8_t tunnel_type = pmsi_tunnel->tunnel_type;
-        uint8_t tunnel_flags = pmsi_tunnel->tunnel_flags;
+        uint8_t tunnel_type = pmsi_tunnel->tunnel_type();
+        uint8_t tunnel_flags = pmsi_tunnel->tunnel_flags();
         uint8_t ar_type =
             tunnel_flags & PmsiTunnelSpec::AssistedReplicationType;
         if (tunnel_type == PmsiTunnelSpec::IngressReplication) {

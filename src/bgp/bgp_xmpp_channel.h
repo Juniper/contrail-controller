@@ -33,6 +33,7 @@ class XmppServer;
 class BgpXmppChannelMock;
 class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
+class XmppPeerInfoData;
 class XmppSession;
 
 class BgpXmppChannel {
@@ -109,6 +110,7 @@ public:
     void FillCloseInfo(BgpNeighborResp *resp) const;
     void StaleCurrentSubscriptions();
     void SweepCurrentSubscriptions();
+    void XMPPPeerInfoSend(XmppPeerInfoData &peer_info);
 
     const XmppChannel *channel() const { return channel_; }
 

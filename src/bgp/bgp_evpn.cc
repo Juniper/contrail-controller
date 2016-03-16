@@ -85,10 +85,10 @@ bool EvpnMcastNode::UpdateAttributes(EvpnRoute *route) {
 
     const PmsiTunnel *pmsi_tunnel = attr_->pmsi_tunnel();
     uint8_t ar_type =
-        pmsi_tunnel->tunnel_flags & PmsiTunnelSpec::AssistedReplicationType;
+        pmsi_tunnel->tunnel_flags() & PmsiTunnelSpec::AssistedReplicationType;
 
     bool edge_replication_not_supported = false;
-    if ((pmsi_tunnel->tunnel_flags &
+    if ((pmsi_tunnel->tunnel_flags() &
          PmsiTunnelSpec::EdgeReplicationSupported) == 0) {
         edge_replication_not_supported = true;
     }
@@ -117,8 +117,8 @@ bool EvpnMcastNode::UpdateAttributes(EvpnRoute *route) {
         address_ = path->GetAttr()->nexthop().to_v4();
         changed = true;
     }
-    if (replicator_address_ != pmsi_tunnel->identifier) {
-        replicator_address_ = pmsi_tunnel->identifier;
+    if (replicator_address_ != pmsi_tunnel->identifier()) {
+        replicator_address_ = pmsi_tunnel->identifier();
         changed = true;
     }
 

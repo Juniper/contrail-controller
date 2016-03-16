@@ -376,11 +376,11 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
-    uint32_t num_closing_bgp_peer = server->num_closing_bgp_peer();
-    if (num_closing_bgp_peer != prev_state.get_num_closing_bgp_peer() ||
+    uint32_t num_deleting_bgp_peer = server->num_deleting_bgp_peer();
+    if (num_deleting_bgp_peer != prev_state.get_num_closing_bgp_peer() ||
         first) {
-        state.set_num_closing_bgp_peer(num_closing_bgp_peer);
-        prev_state.set_num_closing_bgp_peer(num_closing_bgp_peer);
+        state.set_num_deleting_bgp_peer(num_deleting_bgp_peer);
+        prev_state.set_num_closing_bgp_peer(num_deleting_bgp_peer);
         change = true;
     }
 
