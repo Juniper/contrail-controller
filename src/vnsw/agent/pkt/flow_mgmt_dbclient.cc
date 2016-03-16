@@ -542,7 +542,6 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     }
 
     bool new_route = false;
-    bool changed = false;
     if (state == NULL) {
         state  = new RouteFlowHandlerState();
         route->SetState(partition->parent(), id, state);
@@ -551,10 +550,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     } else {
         if (state->deleted_) {
             state->deleted_ = false;
-            changed = true;
+            new_route = true;
         }
     }
 
+    bool changed = false;
     // Handle SG change
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
