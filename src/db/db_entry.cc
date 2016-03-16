@@ -74,13 +74,12 @@ void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
     tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), true);
 
-    if (state_.erase(listener) != 0) {
-        // Account for state removal for this listener.
-        tbl_base->AddToDBStateCount(listener, -1);
-    }
+    assert(state_.erase(listener) != 0);
 
-    if (state_.empty() && IsDeleted() && !is_onlist()) {
-        assert(!IsOnRemoveQ());
+    // Account for state removal for this listener.
+    tbl_base->AddToDBStateCount(listener, -1);
+
+    if (state_.empty() && IsDeleted() && !is_onlist() && !IsOnRemoveQ()) {
         tbl_base->EnqueueRemove(this);
     }
 }
@@ -88,6 +87,10 @@ void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
 bool DBEntryBase::is_state_empty(DBTablePartBase *tpart) {
     tbb::spin_rw_mutex::scoped_lock lock(tpart->dbstate_mutex(), false);
     return state_.empty(); 
+}
+
+bool DBEntryBase::is_state_empty_unlocked(DBTablePartBase *tpart) {
+    return state_.empty();
 }
 
 void DBEntryBase::set_last_change_at_to_now() {

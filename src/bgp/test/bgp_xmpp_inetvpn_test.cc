@@ -27,6 +27,61 @@ using namespace std;
 using std::auto_ptr;
 using boost::assign::list_of;
 
+static const char *config_2_control_nodes_4vns = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <virtual-network name='pink'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
+        <vrf-target>target:1:2</vrf-target>\
+    </routing-instance>\
+    <virtual-network name='green'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='green'>\
+        <virtual-network>green</virtual-network>\
+        <vrf-target>target:1:3</vrf-target>\
+    </routing-instance>\
+    <virtual-network name='black'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='black'>\
+        <virtual-network>black</virtual-network>\
+        <vrf-target>target:1:4</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 static const char *config_1_control_node_2_vns = "\
 <config>\
     <bgp-router name=\'X\'>\
@@ -1038,6 +1093,77 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     // Close the sessions.
     agent_a_->SessionDown();
     agent_b_->SessionDown();
+}
+
+//
+// Agent flaps routes with same prefix on two connected VRFs repeatedly.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap_ConnectedVRF) {
+    Configure(config_2_control_nodes_4vns);
+    AddConnection(bs_x_, "blue", "pink");
+    AddConnection(bs_x_, "blue", "green");
+    AddConnection(bs_x_, "pink", "black");
+
+    AddConnection(bs_y_, "blue", "pink");
+    AddConnection(bs_y_, "blue", "green");
+    AddConnection(bs_y_, "pink", "black");
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    agent_a_->Subscribe("pink", 2);
+    agent_b_->Subscribe("pink", 2);
+    agent_a_->Subscribe("green", 3);
+    agent_b_->Subscribe("green", 3);
+    agent_a_->Subscribe("black", 4);
+    agent_b_->Subscribe("black", 4);
+
+    // Add and delete route from agent A repeatedly.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    for (int idx = 0; idx < 64; ++idx) {
+        agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
+        agent_a_->AddRoute("pink", route_a.str(), "192.168.1.1");
+        usleep(500);
+        agent_a_->DeleteRoute("blue", route_a.str());
+        agent_a_->DeleteRoute("pink", route_a.str());
+    }
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_a_, "pink", route_a.str());
+    VerifyRouteNoExists(agent_b_, "pink", route_a.str());
+
+
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
+    agent_a_->Unsubscribe("pink");
+    agent_b_->Unsubscribe("pink");
+    agent_a_->Unsubscribe("green");
+    agent_b_->Unsubscribe("green");
+    agent_a_->Unsubscribe("black");
+    agent_b_->Unsubscribe("black");
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
 }
 
 //
