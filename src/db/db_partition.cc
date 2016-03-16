@@ -169,12 +169,15 @@ public:
 
         RemoveQueueEntry *rm_entry = NULL;
         while (queue_->DequeueRemove(&rm_entry)) {
-            if (rm_entry->db_entry->IsDeleted() &&
-                !rm_entry->db_entry->is_onlist() &&
-                rm_entry->db_entry->is_state_empty(rm_entry->tpart)) {
-                rm_entry->tpart->Remove(rm_entry->db_entry);
-            } else {
-                rm_entry->db_entry->ClearOnRemoveQ();
+            {
+                tbb::mutex::scoped_lock lock(rm_entry->tpart->dbstate_mutex());
+                if (rm_entry->db_entry->IsDeleted() &&
+                    !rm_entry->db_entry->is_onlist() &&
+                    rm_entry->db_entry->is_state_empty_unlocked(rm_entry->tpart)) {
+                    rm_entry->tpart->Remove(rm_entry->db_entry);
+                } else {
+                    rm_entry->db_entry->ClearOnRemoveQ();
+                }
             }
             delete rm_entry;
             if (++count == kMaxIterations) {
