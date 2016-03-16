@@ -386,6 +386,7 @@ private:
     bool admin_down_;
     bool passive_;
     bool resolve_paths_;
+    bool as_override_;
 
     uint64_t membership_req_pending_;
     bool defer_close_;
