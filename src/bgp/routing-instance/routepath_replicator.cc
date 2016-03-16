@@ -551,9 +551,10 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
         if (rt->BestPath()->PathCompare(*path, true))
             break;
 
-        const BgpAttr *attr = path->GetAttr();
-        const ExtCommunity *ext_community = attr->ext_community();
-
+        const BgpAttrPtr attrp = BgpAttrPtr(path->GetAttr());
+        const ExtCommunityPtr ext_community_curr =
+            ExtCommunityPtr(attrp->ext_community());
+        const ExtCommunity *ext_community = ext_community_curr.get();
         ExtCommunityPtr extcomm_ptr =
           UpdateExtCommunity(server(), rtinstance, ext_community, export_list);
         ext_community = extcomm_ptr.get();

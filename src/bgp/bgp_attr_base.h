@@ -223,7 +223,7 @@ private:
             }
 
             // Decrement the counter bumped up above as we can't use this entry
-            // which is above to be deleted. Instead, retry inserting the passed
+            // which is about to be deleted. Instead, retry inserting the passed
             // entry again, into the database.
             intrusive_ptr_del_ref(*ret.first);
         }
