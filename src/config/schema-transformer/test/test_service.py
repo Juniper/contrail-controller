@@ -108,6 +108,12 @@ class TestPolicy(test_case.STTestCase):
         self.assertEqual(sci, expected)
 
     @retries(5)
+    def check_service_chain_is_deleted(self, sc_uuid):
+        for sc in to_bgp.ServiceChain.values():
+            if sc_uuid == sc.name:
+                raise Exception('Service chain %s not deleted' % sc_uuid)
+
+    @retries(5)
     def check_analyzer_ip(self, vmi_fq_name):
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name)
         vmi_props = vmi.get_virtual_machine_interface_properties()
@@ -923,6 +929,42 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy_no_vm
+
+    def test_service_policy_delete_vns_deletes_scs(self):
+        # Test to check deleting VNs without deleting the
+        # policy associated, deletes the service chain.
+
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        np.network_policy_entries.policy_rule[0].action_list.apply_service = ["default-domain:default-project:"+service_name]
+        np.set_network_policy_entries(np.network_policy_entries)
+        self._vnc_lib.network_policy_update(np)
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+
+        self.check_service_chain_is_deleted(sc_uuid=sc)
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_vn_is_deleted(uuid=vn2_obj.uuid)
+    # end test_service_policy_delete_vns_deletes_scs
 
     def test_multi_service_in_policy(self):
         # create  vn1
