@@ -2,14 +2,14 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-
+import time
+import paramiko
+import logging
+import ast
 from cfgm_common.vnc_kombu import VncKombuClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from issu_contrail_common import ICCassandraClient
 from issu_contrail_common import ICCassandraInfo
-import time
-import paramiko
-import logging
 import issu_contrail_config
 
 
@@ -67,11 +67,11 @@ class ICKombuClient(VncKombuClient):
             print "Config Sync done..."
         except Exception as e:
             self.logger(e, level=SandeshLevel.SYS_INFO)
-        self.logger("RMQ Listening...", level=SandeshLevel.SYS_INFO)
-        print "RMQ Listening..."
+        self.logger("Started runtime sync...", level=SandeshLevel.SYS_INFO)
+        print "Started runtime sync..."
         self._act_on_api("start")
-        self.logger("Start Compute migration...", level=SandeshLevel.SYS_INFO)
-        print "Start Compute migration..."
+        self.logger("Start Compute upgrade...", level=SandeshLevel.SYS_INFO)
+        print "Start Compute upgrade..."
 
 
 class ICRMQMain():
@@ -132,40 +132,41 @@ def _issu_rmq_main():
     logging.basicConfig(level=logging.INFO,
                         filename='/var/log/issu_contrail_run_sync.log',
                         format='%(asctime)s %(message)s')
+    args, remaining_args = issu_contrail_config.parse_args()
     new_cassandra_info = ICCassandraInfo(
-        issu_contrail_config.Cassandra_NewVersion_Address,
-        issu_contrail_config.ndb_prefix,
+        args.new_cassandra_address_list,
+        args.ndb_prefix,
         issu_contrail_config.issu_info_config_db_uuid,
         issu_contrail_config.issu_keyspace_config_db_uuid,
         issu_contrail_config.logger)
 
     old_cassandra_info = ICCassandraInfo(
-        issu_contrail_config.Cassandra_OldVersion_Address,
-        issu_contrail_config.odb_prefix,
+        args.old_cassandra_address_list,
+        args.odb_prefix,
         issu_contrail_config.issu_info_config_db_uuid,
         issu_contrail_config.issu_keyspace_config_db_uuid,
         issu_contrail_config.logger)
     # Create instance of amqp
     new_amqp_info = ICAmqpInfo(
-        issu_contrail_config.new_rabbit_ip,
-        issu_contrail_config.new_rabbit_port,
-        issu_contrail_config.new_rabbit_user,
-        issu_contrail_config.new_rabbit_password,
-        issu_contrail_config.new_rabbit_vhost,
-        issu_contrail_config.new_rabbit_ha_mode,
-        issu_contrail_config.new_rabbit_q_name)
+        args.new_rabbit_address_list,
+        args.new_rabbit_port,
+        args.new_rabbit_user,
+        args.new_rabbit_password,
+        args.new_rabbit_vhost,
+        args.new_rabbit_ha_mode,
+        args.new_rabbit_q_name)
 
-    old_amqp_info = ICAmqpInfo(issu_contrail_config.old_rabbit_ip,
-                               issu_contrail_config.old_rabbit_port,
-                               issu_contrail_config.old_rabbit_user,
-                               issu_contrail_config.old_rabbit_password,
-                               issu_contrail_config.old_rabbit_vhost,
-                               issu_contrail_config.old_rabbit_ha_mode,
-                               issu_contrail_config.old_rabbit_q_name)
+    old_amqp_info = ICAmqpInfo(args.old_rabbit_address_list,
+                               args.old_rabbit_port,
+                               args.old_rabbit_user,
+                               args.old_rabbit_password,
+                               args.old_rabbit_vhost,
+                               args.old_rabbit_ha_mode,
+                               args.old_rabbit_q_name)
 
     issu_rmq = ICRMQMain(
         old_cassandra_info, new_cassandra_info, old_amqp_info, new_amqp_info,
-        issu_contrail_config.new_api_info, issu_contrail_config.logger)
+        ast.literal_eval(args.new_api_info), issu_contrail_config.logger)
     while (1):
         time.sleep(1)
 

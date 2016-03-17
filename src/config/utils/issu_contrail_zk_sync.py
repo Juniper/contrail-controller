@@ -147,10 +147,11 @@ def _issu_zk_main():
         filename='/var/log/issu_contrail_zk.log',
         format='%(asctime)s %(message)s')
 
-    issu_handle = ContrailZKIssu(issu_contrail_config.Zookeeper_OldVersion_Address,
-                                 issu_contrail_config.Zookeeper_NewVersion_Address,
-                                 issu_contrail_config.odb_prefix,
-                                 issu_contrail_config.ndb_prefix,
+    args, remaining_args = issu_contrail_config.parse_args()
+    issu_handle = ContrailZKIssu(args.old_zookeeper_address_list,
+                                 args.new_zookeeper_address_list,
+                                 args.odb_prefix,
+                                 args.ndb_prefix,
                                  issu_contrail_config.issu_znode_list,
                                  issu_contrail_config.logger)
     issu_handle.issu_zk_start()
