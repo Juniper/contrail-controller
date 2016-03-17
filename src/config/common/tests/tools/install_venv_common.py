@@ -108,7 +108,7 @@ class InstallVenv(object):
     def pip_install(self, find_links, *args):
         find_links_str = ' '.join('--find-links file://'+x for x in find_links)
         cmd_array = ['%stools/with_venv.sh' %(os.environ.get('tools_path', '')),
-                         'python', '.venv/bin/pip', 'install', 
+                         'python', '.venv/bin/pip', 'install', '--no-cache-dir',
                          '--upgrade']
         for link in find_links:
             cmd_array.extend(['--find-links', 'file://'+link])
