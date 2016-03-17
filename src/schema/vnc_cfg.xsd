@@ -1424,6 +1424,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgpaas-ipv4-mapped-ipv6-nexthop', 'bgp-as-a-service') -->
+<xsd:element name='bgpaas-suppress-route-advertisement' type='xsd:boolean'/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This is used to indicate that the server should not advertise any
+            routes to the client i.e. the client has static routes (typically
+            a default) configured.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-suppress-route-advertisement', 'bgp-as-a-service') -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
