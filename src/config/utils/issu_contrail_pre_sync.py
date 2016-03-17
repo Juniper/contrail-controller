@@ -16,10 +16,11 @@ def _issu_cassandra_pre_sync_main():
         filename='/var/log/issu_contrail_pre_sync.log',
         format='%(asctime)s %(message)s')
 
+    args, remaining_args = issu_contrail_config.parse_args()
     issu_cass_pre = ICCassandraClient(
-        issu_contrail_config.Cassandra_OldVersion_Address,
-        issu_contrail_config.Cassandra_NewVersion_Address,
-        issu_contrail_config.odb_prefix, issu_contrail_config.ndb_prefix,
+        args.old_cassandra_address_list,
+        args.new_cassandra_address_list,
+        args.odb_prefix, args.ndb_prefix,
         issu_contrail_config.issu_info_pre, issu_contrail_config.logger)
     issu_cass_pre.issu_merge_copy(
         issu_contrail_config.issu_keyspace_config_db_uuid)
