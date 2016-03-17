@@ -254,7 +254,7 @@ class FakeCF(object):
     # end remove
 
     def xget(self, key, column_start=None, column_finish=None,
-             include_timestamp=False, include_ttl=False):
+             column_count=0, include_timestamp=False, include_ttl=False):
         col_names = []
         if key in self._rows:
             col_names = self._rows[key].keys()

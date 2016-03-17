@@ -934,7 +934,7 @@ class VncCassandraClient(object):
             else: # grab all resources of this type
                 obj_fq_name_cf = self._obj_fq_name_cf
                 try:
-                    cols = obj_fq_name_cf.get('%s' %(obj_type),
+                    cols = obj_fq_name_cf.xget('%s' %(obj_type),
                         column_count=self._MAX_COL)
                 except pycassa.NotFoundException:
                     if count:
@@ -944,7 +944,7 @@ class VncCassandraClient(object):
 
                 def filter_rows_no_anchor():
                     all_obj_infos = {}
-                    for col_name, col_val in cols.items():
+                    for col_name, _ in cols:
                         # give chance for zk heartbeat/ping
                         gevent.sleep(0)
                         col_name_arr = utils.decode_string(col_name).split(':')
@@ -1223,5 +1223,3 @@ class VncCassandraClient(object):
 
         result['%s_back_refs' % (back_ref_type)].append(back_ref_info)
     # end _read_back_ref
-
-
