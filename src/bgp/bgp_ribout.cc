@@ -241,7 +241,12 @@ RibOut::RibOut(BgpTable *table, SchedulingGroupManager *mgr,
         name_ += " Type: IBGP";
     } else {
         name_ += " Type: EBGP";
-        name_ += " (AS " + integerToString(policy_.as_number) + ")";
+        name_ += " (AS " + integerToString(policy_.as_number);
+        if (!policy_.nexthop.is_unspecified())
+            name_ += " Nexthop " + policy_.nexthop.to_string();
+        if (policy_.as_override)
+            name_ += " ASOverride";
+        name_ += ")";
     }
 }
 
