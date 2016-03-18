@@ -346,6 +346,10 @@ objectlog sandesh SgObjectLog {
     1: SgObjectLogInfo sg;
 }
 
+traceobject sandesh SgObjectTrace {
+    1: SgObjectLogInfo sg;
+}
+
 request sandesh SgListReq {
     1: string name;
 }
