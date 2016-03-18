@@ -2649,30 +2649,55 @@ class SchemaTransformer(object):
                             acl.uuid, str(e))
         # end for acl
 
-        gevent.sleep(0.001)
-        for sg in sg_list:
+        _SLEEP_TIMEOUT=0.001
+        start_time = time.time()
+        for index, sg in enumerate(sg_list):
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
-        gevent.sleep(0.001)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d security groups in %.3f", len(sg_list), elapsed_time)
+
         rt_list = _vnc_lib.route_targets_list()['route-targets']
-        for rt in rt_list:
+        start_time = time.time()
+        for index, rt in enumerate(rt_list):
             rt_name = ':'.join(rt['fq_name'])
             RouteTargetST.locate(rt_name, RouteTarget(rt_name))
-        for vn in vn_list:
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d route targets in %.3f", len(rt_list), elapsed_time)
+
+        start_time = time.time()
+        for index, vn in enumerate(vn_list):
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
                                     ri_dict)
-        gevent.sleep(0.001)
-        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
-        for vmi in vmi_list:
-            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d virtual networks in %.3f", len(vn_list), elapsed_time)
 
-        gevent.sleep(0.001)
+        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
+        start_time = time.time()
+        for index, vmi in enumerate(vmi_list):
+            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d virtual machine interfaces in %.3f", len(vmi_list), elapsed_time)
+
         vm_list = _vnc_lib.virtual_machines_list(detail=True)
-        for vm in vm_list:
+        start_time = time.time()
+        for index, vm in enumerate(vm_list):
             si_refs = vm.get_service_instance_refs()
             if si_refs:
                 si_fq_name_str = ':'.join(si_refs[0]['to'])
                 VirtualMachineST.locate(vm.get_fq_name_str(), 
                    si_fq_name_str)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d virtual machines in %.3f", len(vm_list), elapsed_time)
     # end reinit
 
     def cleanup(self):
