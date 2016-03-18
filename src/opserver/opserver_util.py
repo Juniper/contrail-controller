@@ -56,7 +56,7 @@ class ServicePoller(gevent.Greenlet):
                                    'discovery server : %s %s' % \
                     (self.svc_name, str(ex.args), traceback.format_exc()))
             else:
-                if slist:
+                if isinstance(slist,list):
                     disc_trace = self.trace_cls()
                     disc_trace.publishers = []
                     for svc in slist:
