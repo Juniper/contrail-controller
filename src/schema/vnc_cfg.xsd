@@ -1017,6 +1017,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-machine-interface-device-owner',
              'virtual-machine-interface') -->
 
+<xsd:element name="virtual-machine-interface-disable-policy"
+                               type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-disable-policy',
+              'virtual-machine-interface') -->
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
         <xsd:pattern value="management|left|right|other[0-9]*"/>
