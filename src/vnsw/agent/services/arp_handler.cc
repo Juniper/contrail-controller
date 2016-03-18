@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <stdint.h>
 #include "vr_defs.h"
 #include "oper/route_common.h"
 #include "oper/operdb_init.h"

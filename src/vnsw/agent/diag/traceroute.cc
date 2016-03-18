@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <stdint.h>
 #include <netinet/udp.h>
 #include "vr_defs.h"
 #include <sandesh/sandesh.h>

@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <stdint.h>
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "pkt/pkt_init.h"
