@@ -15,6 +15,7 @@
 
 #include <cmn/agent.h>
 #include <oper/physical_device.h>
+#include <uve/agent_uve_base.h>
 
 #include "ovsdb_client_idl.h"
 
@@ -47,6 +48,7 @@ private:
 
     // API to update connection info state
     void UpdateConnectionInfo(ConnectionStateEntry *entry, bool deleted);
+    void NotifyUve(ConnectionStateEntry *entry, bool deleted);
 
     Agent *agent_;
     DBTableBase *table_;
@@ -62,7 +64,8 @@ class ConnectionStateEntry : public DBState {
 public:
     typedef std::set<OvsdbClientIdl *> IdlList;
     ConnectionStateEntry(ConnectionStateTable *table,
-                         const std::string &device_name);
+                         const std::string &device_name,
+                         const boost::uuids::uuid &u);
     virtual ~ConnectionStateEntry();
 
     bool IsConnectionActive();
@@ -78,6 +81,7 @@ private:
 
     ConnectionStateTable *table_;
     std::string device_name_;
+    boost::uuids::uuid device_uuid_;
     PhysicalDevice *device_entry_;
     IdlList idl_list_;
     // Ha Stale Dev VN table for the device, which listens to physical

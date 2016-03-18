@@ -11,9 +11,10 @@ using namespace process;
 using namespace std;
 
 ConnectionStateEntry::ConnectionStateEntry(ConnectionStateTable *table,
-                                           const std::string &device_name) :
-    table_(table), device_name_(device_name), device_entry_(NULL),
-    ha_stale_dev_vn_table_(NULL) {
+                                           const std::string &device_name,
+                                           const boost::uuids::uuid &u) :
+    table_(table), device_name_(device_name), device_uuid_(u),
+    device_entry_(NULL), ha_stale_dev_vn_table_(NULL) {
     refcount_ = 0;
 }
 
@@ -71,7 +72,8 @@ ConnectionStateTable::~ConnectionStateTable() {
 
 void ConnectionStateTable::AddIdlToConnectionState(const std::string &dev_name,
                                                    OvsdbClientIdl *idl) {
-    ConnectionStateEntry *state = new ConnectionStateEntry(this, dev_name);
+    ConnectionStateEntry *state = new ConnectionStateEntry(this, dev_name,
+                                                     boost::uuids::nil_uuid());
     pair<EntryMap::iterator, bool> ret;
     ret = entry_map_.insert(pair<string, ConnectionStateEntry*>(dev_name,
                                                                 state));
@@ -137,7 +139,7 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
         if (dev->name().empty())
             return;
 
-        state = new ConnectionStateEntry(this, dev->name());
+        state = new ConnectionStateEntry(this, dev->name(), dev->uuid());
         pair<EntryMap::iterator, bool> ret;
         ret = entry_map_.insert(pair<string, ConnectionStateEntry*>(dev->name(),
                                                                     state));
@@ -146,6 +148,7 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
             delete state;
         }
         state = ret.first->second;
+        ret.first->second->device_uuid_ = dev->uuid();
         ret.first->second->device_entry_ = dev;
         dev->SetState(table_, id_, ret.first->second);
         UpdateConnectionInfo(ret.first->second, false);
@@ -160,6 +163,7 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
 
 void ConnectionStateTable::UpdateConnectionInfo(ConnectionStateEntry *entry,
                                                 bool deleted) {
+    NotifyUve(entry, deleted);
     if (agent_->connection_state() == NULL)
         return;
 
@@ -193,3 +197,25 @@ void ConnectionStateTable::UpdateConnectionInfo(ConnectionStateEntry *entry,
     }
 }
 
+void ConnectionStateTable::NotifyUve(ConnectionStateEntry *entry,
+                                     bool deleted) {
+    /* If device uuid is not available we cannot notify Uve Module */
+    if (entry->device_uuid_ == boost::uuids::nil_uuid())
+        return;
+
+    if (agent_->uve() == NULL || agent_->uve()->prouter_uve_table() == NULL)
+        return;
+
+    ProuterUveTable *ptable = agent_->uve()->prouter_uve_table();
+    if (deleted) {
+        ptable->UpdateMastership(entry->device_uuid_, false);
+    } else {
+        bool mastership = true;
+        if (entry->device_entry_ == NULL) {
+            mastership = false;
+        } else if (entry->idl_list_.empty()) {
+            mastership = false;
+        }
+        ptable->UpdateMastership(entry->device_uuid_, mastership);
+    }
+}

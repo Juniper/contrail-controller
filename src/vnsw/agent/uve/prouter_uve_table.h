@@ -79,6 +79,7 @@ class ProuterUveTable {
         bool changed_;
         bool deleted_;
         bool renewed_;
+        bool mastership_;
     };
     typedef boost::shared_ptr<ProuterUveEntry> ProuterUveEntryPtr;
     typedef std::map<boost::uuids::uuid, ProuterUveEntryPtr> UveProuterMap;
@@ -113,6 +114,7 @@ class ProuterUveTable {
     bool TimerExpiry();
     bool PITimerExpiry();
     bool LITimerExpiry();
+    void UpdateMastership(const boost::uuids::uuid &u, bool value);
 
  protected:
     UveProuterMap uve_prouter_map_;
