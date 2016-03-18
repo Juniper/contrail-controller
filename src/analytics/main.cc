@@ -304,12 +304,13 @@ int main(int argc, char *argv[])
     // 3. Redis To
     // 4. Discovery Collector Publish
     // 5. Database global
-    // 6. Database protobuf if enabled
+    // 6. Kafka Pub
+    // 7. Database protobuf if enabled
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            protobuf_server_enabled ? 6 : 5));
+            protobuf_server_enabled ? 7 : 6));
 
     LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
     LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());

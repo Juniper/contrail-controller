@@ -110,7 +110,7 @@ class OpServerProxy::OpServerImpl {
             RAC_DOWN = 2
         };
 
-        static const int kActivityCheckPeriod_ = 60;
+        static const int kActivityCheckPeriod_ms_ = 30000;
 
         const unsigned int partitions_;
 
@@ -132,7 +132,7 @@ class OpServerProxy::OpServerImpl {
                           const string& gen,
                           const string& value) {
             if (k_event_cb.disableKafka) {
-                LOG(ERROR, "Kafka ignoring KafkaPub");
+                LOG(INFO, "Kafka ignoring KafkaPub");
                 return;
             }
             char* gn = new char[gen.length()+1];
@@ -460,23 +460,50 @@ class OpServerProxy::OpServerImpl {
             return from_ops_conn_;
         }
         bool KafkaTimer() {
-            if (kafka_count_++ == kActivityCheckPeriod_) kafka_count_ = 0;
-            if (kafka_count_ == 0) {
+            
+            {
+		uint64_t new_tick_time = UTCTimestampUsec() / 1000;
+		// We track how long it has been since the timer was last called
+		// This is because the execution time of this function is highly variable.
+		// StartKafka can take several seconds
+		kafka_elapsed_ms_ += (new_tick_time - kafka_tick_ms_);
+		kafka_tick_ms_ = new_tick_time;
+            }
+
+            // Connection Status is periodically updated
+            // based on Kafka piblish activity.
+            // Update Connection Status more often during startup or during failures
+            if ((((kafka_tick_ms_ - kafka_start_ms_) < kActivityCheckPeriod_ms_) &&
+                 (kafka_elapsed_ms_ >= kActivityCheckPeriod_ms_/3)) ||
+                (k_event_cb.disableKafka &&
+                 (kafka_elapsed_ms_ >= kActivityCheckPeriod_ms_/3)) ||
+                (kafka_elapsed_ms_ > kActivityCheckPeriod_ms_)) {
+                
+                kafka_elapsed_ms_ = 0;
+
                 if (k_dr_cb.count==0) {
                     LOG(ERROR, "No Kafka Callbacks");
+                    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
+                        brokers_, ConnectionStatus::DOWN, process::Endpoint(), std::string());
+                } else {
+                    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
+                        brokers_, ConnectionStatus::UP, process::Endpoint(), std::string());
+                    LOG(INFO, "Got Kafka Callbacks " << k_dr_cb.count);
                 }
                 k_dr_cb.count = 0;
-            }
-            
-            if (k_event_cb.disableKafka) {
-                LOG(ERROR, "Kafka Restart");
-                StopKafka();
-                assert(StartKafka());
-                k_event_cb.disableKafka = false;
-                if (collector_ && redis_up_)
-                    LOG(ERROR, "Kafka Restarting Redis");
-                    collector_->RedisUpdate(true);
-            }
+
+		if (k_event_cb.disableKafka) {
+		    LOG(ERROR, "Kafka Restart");
+		    StopKafka();
+		    assert(StartKafka());
+		    k_event_cb.disableKafka = false;
+		    if (collector_ && redis_up_) {
+			LOG(ERROR, "Kafka Restarting Redis");
+			collector_->RedisUpdate(true);
+		    }
+		}
+            } 
+
             if (producer_) {
                 producer_->poll(0);
             }
@@ -507,6 +534,9 @@ class OpServerProxy::OpServerImpl {
             brokers_(brokers),
             topicpre_(topic),
             redis_up_(false),
+            kafka_elapsed_ms_(0),
+            kafka_start_ms_(UTCTimestampUsec()/1000),
+            kafka_tick_ms_(0),
             kafka_timer_(TimerManager::CreateTimer(*evm->io_service(),
                          "Kafka Timer", 
                          TaskScheduler::GetInstance()->GetTaskId(
@@ -533,6 +563,8 @@ class OpServerProxy::OpServerImpl {
             kafka_timer_->Start(1000,
                 boost::bind(&OpServerImpl::KafkaTimer, this), NULL);
             if (brokers.empty()) return;
+	    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
+		brokers_, ConnectionStatus::INIT, process::Endpoint(), std::string());
             assert(StartKafka());
         }
 
@@ -604,7 +636,9 @@ class OpServerProxy::OpServerImpl {
         std::string brokers_;
         std::string topicpre_;
         bool redis_up_;
-        uint16_t kafka_count_;
+        uint64_t kafka_elapsed_ms_;
+        const uint64_t kafka_start_ms_;
+        uint64_t kafka_tick_ms_;
         Timer *kafka_timer_;
 };
 
