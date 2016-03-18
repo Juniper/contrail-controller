@@ -1596,6 +1596,62 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+//Test SG id change
+TEST_F(CfgTest, Sg_id_change) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1, 10);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    VmInterface *intf = static_cast<VmInterface *>
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL) {
+        return;
+    }
+    VmInterface::SecurityGroupEntrySet::const_iterator it =
+        intf->sg_list().list_.begin();
+    EXPECT_TRUE(it->sg_.get() != NULL);
+    EXPECT_TRUE(it->sg_->GetSgId() == 10);
+
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list()[0] == 10);
+
+    // Add with proper sg id
+    AddSg("sg1", 1, 11);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+    it = intf->sg_list().list_.begin();
+    EXPECT_TRUE(it->sg_.get() != NULL);
+    EXPECT_TRUE(it->sg_->GetSgId() == 11);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list()[0] == 11);
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
