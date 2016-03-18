@@ -2840,30 +2840,39 @@ class SchemaTransformer(object):
                             acl.uuid, str(e))
         # end for acl
 
-        gevent.sleep(0.001)
-        for sg in sg_list:
+        for index, sg in enumerate(sg_list):
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
-        gevent.sleep(0.001)
+            if not index % 1000:
+                gevent.sleep(0.001)
+
         rt_list = _vnc_lib.route_targets_list()['route-targets']
-        for rt in rt_list:
+        for index, rt in enumerate(rt_list):
             rt_name = ':'.join(rt['fq_name'])
             RouteTargetST.locate(rt_name, RouteTarget(rt_name))
-        for vn in vn_list:
+            if not index % 1000:
+                gevent.sleep(0.001)
+
+        for index, vn in enumerate(vn_list):
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
                                     ri_dict)
-        gevent.sleep(0.001)
-        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
-        for vmi in vmi_list:
-            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+            if not index % 1000:
+                gevent.sleep(0.001)
 
-        gevent.sleep(0.001)
+        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
+        for index, vmi in enumerate(vmi_list):
+            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+            if not index % 1000:
+                gevent.sleep(0.001)
+
         vm_list = _vnc_lib.virtual_machines_list(detail=True)
-        for vm in vm_list:
+        for index, vm in enumerate(vm_list):
             si_refs = vm.get_service_instance_refs()
             if si_refs:
                 si_fq_name_str = ':'.join(si_refs[0]['to'])
                 VirtualMachineST.locate(vm.get_fq_name_str(), 
                    si_fq_name_str)
+            if not index % 1000:
+                gevent.sleep(0.001)
     # end reinit
 
     def cleanup(self):
