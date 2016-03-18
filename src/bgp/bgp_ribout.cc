@@ -397,6 +397,20 @@ const RibPeerSet &RibOut::PeerSet() const {
 }
 
 //
+// Clear the bit index corresponding to the specified peer.
+// Used to implement split horizon within an EBGP Ribout.
+//
+void RibOut::GetSubsetPeerSet(RibPeerSet *peerset,
+    const IPeerUpdate *cpeer) const {
+    assert(policy_.type == BgpProto::EBGP);
+    IPeerUpdate *peer = const_cast<IPeerUpdate *>(cpeer);
+    int index = GetPeerIndex(peer);
+    if (index < 0)
+        return;
+    peerset->reset(index);
+}
+
+//
 // Return the peer corresponding to the specified bit index.
 //
 IPeerUpdate *RibOut::GetPeer(int index) const {

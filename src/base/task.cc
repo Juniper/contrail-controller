@@ -12,6 +12,7 @@
 #include "tbb/enumerable_thread_specific.h"
 #include "base/logging.h"
 #include "base/task.h"
+#include "base/task_annotations.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -402,6 +403,19 @@ TaskGroup *TaskScheduler::GetTaskGroup(int task_id) {
 // Query TaskGroup for a task_id.Assumes valid entry is present for task_id
 TaskGroup *TaskScheduler::QueryTaskGroup(int task_id) {
     return task_group_db_[task_id];
+}
+
+//
+// Check if there are any Tasks in the given TaskGroup.
+// Assumes that all task ids are mutually exclusive with bgp::Config.
+//
+bool TaskScheduler::IsTaskGroupEmpty(int task_id) const {
+    CHECK_CONCURRENCY("bgp::Config");
+    tbb::mutex::scoped_lock lock(mutex_);
+    TaskGroup *group = task_group_db_[task_id];
+    assert(group);
+    assert(group->TaskRunCount() == 0);
+    return group->IsWaitQEmpty();
 }
 
 // Get TaskGroup for a task_id. Grows task_entry_db_ if necessary

@@ -477,6 +477,26 @@ void PathResolver::EnableResolverPathUpdateProcessing() {
 }
 
 //
+// Pause processing of the path update list in all partitions.
+// For testing only.
+//
+void PathResolver::PauseResolverPathUpdateProcessing() {
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        partitions_[part_id]->PauseResolverPathUpdateProcessing();
+    }
+}
+
+//
+// Resume processing of the path update list in all partitions.
+// For testing only.
+//
+void PathResolver::ResumeResolverPathUpdateProcessing() {
+    for (int part_id = 0; part_id < DB::PartitionCount(); ++part_id) {
+        partitions_[part_id]->ResumeResolverPathUpdateProcessing();
+    }
+}
+
+//
 // Get size of the update list.
 // For testing only.
 //
@@ -714,6 +734,22 @@ void PathResolverPartition::EnableResolverPathUpdateProcessing() {
 }
 
 //
+// Pause processing of the update list.
+// For testing only.
+//
+void PathResolverPartition::PauseResolverPathUpdateProcessing() {
+    rpath_update_trigger_->set_deferred();
+}
+
+//
+// Resume processing of the update list.
+// For testing only.
+//
+void PathResolverPartition::ResumeResolverPathUpdateProcessing() {
+    rpath_update_trigger_->clear_deferred();
+}
+
+//
 // Get size of the update list.
 // For testing only.
 //
@@ -800,10 +836,12 @@ ResolverPath::~ResolverPath() {
 //
 void ResolverPath::AddResolvedPath(ResolvedPathList::const_iterator it) {
     BgpPath *path = *it;
+    const IPeer *peer = path->GetPeer();
     resolved_path_list_.insert(path);
     route_->InsertPath(path);
     BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         "Added resolved path " << route_->ToString() <<
+        " peer " << (peer ? peer->ToString() : "None") <<
         " path_id " << BgpPath::PathIdString(path->GetPathId()) <<
         " nexthop " << path->GetAttr()->nexthop().to_string() <<
         " label " << path->GetLabel() <<
@@ -816,8 +854,10 @@ void ResolverPath::AddResolvedPath(ResolvedPathList::const_iterator it) {
 //
 void ResolverPath::DeleteResolvedPath(ResolvedPathList::const_iterator it) {
     BgpPath *path = *it;
+    const IPeer *peer = path->GetPeer();
     BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         "Deleted resolved path " << route_->ToString() <<
+        " peer " << (peer ? peer->ToString() : "None") <<
         " path_id " << BgpPath::PathIdString(path->GetPathId()) <<
         " nexthop " << path->GetAttr()->nexthop().to_string() <<
         " label " << path->GetLabel() <<
@@ -829,12 +869,13 @@ void ResolverPath::DeleteResolvedPath(ResolvedPathList::const_iterator it) {
 //
 // Find or create the matching resolved BgpPath.
 //
-BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id,
+BgpPath *ResolverPath::LocateResolvedPath(const IPeer *peer, uint32_t path_id,
     const BgpAttr *attr, uint32_t label) {
     for (ResolvedPathList::iterator it = resolved_path_list_.begin();
          it != resolved_path_list_.end(); ++it) {
         BgpPath *path = *it;
-        if (path->GetPathId() == path_id &&
+        if (path->GetPeer() == peer &&
+            path->GetPathId() == path_id &&
             path->GetAttr() == attr &&
             path->GetLabel() == label) {
             return path;
@@ -844,7 +885,7 @@ BgpPath *ResolverPath::LocateResolvedPath(uint32_t path_id,
     BgpPath::PathSource src = path_->GetSource();
     uint32_t flags =
         (path_->GetFlags() & ~BgpPath::ResolveNexthop) | BgpPath::ResolvedPath;
-    return (new BgpPath(path_id, src, attr, flags, label));
+    return (new BgpPath(peer, path_id, src, attr, flags, label));
 }
 
 //
@@ -910,6 +951,7 @@ bool ResolverPath::UpdateResolvedPaths() {
     // resolved paths.
     ResolvedPathList future_resolved_path_list;
     const BgpRoute *nh_route = rnexthop_->route();
+    const IPeer *peer = path_ ? path_->GetPeer() : NULL;
     Route::PathList::const_iterator it;
     if (path_ && nh_route)
         it = nh_route->GetPathList().begin();
@@ -954,7 +996,7 @@ bool ResolverPath::UpdateResolvedPaths() {
         // Locate the resolved path.
         uint32_t path_id = nh_path->GetAttr()->nexthop().to_v4().to_ulong();
         BgpPath *resolved_path =
-            LocateResolvedPath(path_id, attr.get(), nh_path->GetLabel());
+            LocateResolvedPath(peer, path_id, attr.get(), nh_path->GetLabel());
         future_resolved_path_list.insert(resolved_path);
     }
 

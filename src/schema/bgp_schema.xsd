@@ -167,11 +167,14 @@
             the attributes apply to both ends of the session.
             A non-zero hold-time overrides the hold-time inherited from the
             bgp-router configuration.
+            AS Override causes the neighbors AS to be replaced with the BGP
+            speaker AS in the AS Path.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:element name='bgp-router' type='xsd:string'/>
     <xsd:element name="admin-down" type="xsd:boolean" default="false"/>
     <xsd:element name="passive" type="xsd:boolean" default="false"/>
+    <xsd:element name="as-override" type="xsd:boolean" default="false"/>
     <xsd:element name='hold-time' type='BgpHoldTime' default='0'/>
     <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='0'/>
     <xsd:element name='address-families' type='AddressFamilies'/>

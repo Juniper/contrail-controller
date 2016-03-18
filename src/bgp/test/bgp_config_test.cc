@@ -75,6 +75,7 @@ protected:
     }
 
     bool GetPeerResolvePaths(BgpPeer *peer) { return peer->resolve_paths_; }
+    bool GetPeerAsOverride(BgpPeer *peer) { return peer->as_override_; }
 
     EventManager evm_;
     BgpServer server_;
@@ -703,6 +704,50 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors7) {
         peer2->gateway_address_string(Address::INET));
     TASK_UTIL_EXPECT_EQ("::ffff:10.0.0.253",
         peer2->gateway_address_string(Address::INET6));
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+}
+
+TEST_F(BgpConfigTest, BGPaaSNeighbors8) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_41a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_TRUE(GetPeerAsOverride(peer1));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+    TASK_UTIL_EXPECT_FALSE(GetPeerAsOverride(peer2));
+
+    // Update as-override.
+    content = FileRead("controller/src/bgp/testdata/config_test_41b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
+    TASK_UTIL_EXPECT_FALSE(GetPeerAsOverride(peer1));
+
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+    TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
+    TASK_UTIL_EXPECT_TRUE(GetPeerAsOverride(peer2));
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");
