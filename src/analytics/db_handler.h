@@ -183,13 +183,18 @@ private:
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
     static uint32_t field_cache_t2_;
-    static std::set<std::string> field_cache_set_;
+    static std::set<std::string> field_cache_set_[2];
+    static uint32_t field_cache_old_t2_;
+    static uint8_t old_t2_index_;
+    static uint8_t new_t2_index_;
     static tbb::mutex fmutex_;
     bool use_cql_;
     std::string tablespace_;
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
+    bool CanRecordDataForT2(uint32_t, std::string);
+    friend class DbHandlerTest;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
