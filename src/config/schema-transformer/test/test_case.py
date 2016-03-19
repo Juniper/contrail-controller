@@ -1,13 +1,62 @@
 import sys
+from gevent import sleep
+
 sys.path.append("../common/tests")
 from test_utils import *
 import test_common
 sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
 
 from vnc_api.vnc_api import *
-import uuid
+
+
+def retry_exc_handler(tries_remaining, exception, delay):
+    print >> sys.stderr, "."
+
+
+def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
+            hook=retry_exc_handler):
+    def dec(func):
+        def f2(*args, **kwargs):
+            mydelay = delay
+            tries = range(max_tries)
+            tries.reverse()
+            for tries_remaining in tries:
+                try:
+                   return func(*args, **kwargs)
+                except exceptions as e:
+                    if tries_remaining > 0:
+                        if hook is not None:
+                            hook(tries_remaining, e, mydelay)
+                        sleep(mydelay)
+                        mydelay = mydelay * backoff
+                    else:
+                        raise
+                else:
+                    break
+        return f2
+    return dec
+
+
+class VerifyCommon(object):
+    def __init__(self, vnc_lib):
+        self._vnc_lib = vnc_lib
+
+    @retries(5)
+    def wait_to_get_object(self, obj_class, obj_name):
+        if obj_name not in obj_class._dict:
+            raise Exception('%s not found' % obj_name)
+
+    @retries(5)
+    def wait_to_delete_object(self, obj_class, obj_name):
+        if obj_name in obj_class._dict:
+            raise Exception('%s still found' % obj_name)
+
 
 class STTestCase(test_common.TestCase):
+
+    def _class_str(self):
+        return str(self.__class__).strip('<class ').strip('>').strip("'")
+
     def setUp(self):
         super(STTestCase, self).setUp()
         self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
@@ -76,17 +125,56 @@ class STTestCase(test_common.TestCase):
         rule_addr = AddressType(**rule_kwargs)
         return rule_addr
 
+    def get_service_list(self, rule):
+        service_name_list = []
+        service_list = rule.get('service_list', None)
+        if service_list:
+            src_addresses = [rule['src']] if isinstance(rule['src'], dict) else rule['src']
+            dst_addresses = [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
+            vn1_name = [addr["value"].get_fq_name_str()\
+                        for addr in src_addresses if addr["type"] == "vn"][0]
+            vn2_name = [addr["value"].get_fq_name_str()\
+                        for addr in dst_addresses if addr["type"] == "vn"][0]
+            for service in service_list:
+                service_name_list.append(self._create_service(
+                    [('left', vn1_name), ('right', vn2_name)], service,
+                    rule['auto_policy'], **rule['service_kwargs']))
+        return service_name_list
+
+    def get_mirror_service(self, rule):
+        mirror_si = None
+        mirror_service = rule.get('mirror_service', None)
+        if mirror_service:
+            src_addresses = [rule['src']] if isinstance(rule['src'], dict) else rule['src']
+            dst_addresses = [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
+            vn1_name = [addr["value"].get_fq_name_str()\
+                        for addr in src_addresses if addr["type"] == "vn"][0]
+            vn2_name = [addr["value"].get_fq_name_str()\
+                        for addr in dst_addresses if addr["type"] == "vn"][0]
+            mirror_si = self._create_service(
+                [('left', vn1_name), ('right', vn2_name)], mirror_service, False,
+                service_mode='transparent', service_type='analyzer')
+        return mirror_si
+
     def create_network_policy_with_multiple_rules(self, rules):
         pentrys = []
         for rule in rules:
             addr1 = self.frame_rule_addresses(rule["src"])
             addr2 = self.frame_rule_addresses(rule["dst"])
+            service_list = self.get_service_list(rule)
+            mirror_service = self.get_mirror_service(rule)
             #src_port = rule["src-port"]
             src_port = PortType(-1, 0)
             #dst_port = rule["dst-port"]
             dst_port = PortType(-1, 0)
-            action = rule["action"]
-            action_list = ActionListType(simple_action=action)
+            action_list = ActionListType()
+            if mirror_service:
+                mirror = MirrorActionType(analyzer_name=mirror_service)
+                action_list.mirror_to=mirror
+            if service_list:
+                action_list.apply_service=service_list
+            else:
+                action_list.simple_action=rule["action"]
             prule = PolicyRuleType(direction=rule["direction"], protocol=rule["protocol"],
                                src_addresses=[addr1], dst_addresses=[addr2],
                                src_ports=[src_port], dst_ports=[dst_port],
