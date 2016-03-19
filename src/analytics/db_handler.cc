@@ -56,7 +56,10 @@ using process::ConnectionType;
 using process::ConnectionStatus;
 
 uint32_t DbHandler::field_cache_t2_ = 0;
-std::set<std::string> DbHandler::field_cache_set_;
+std::set<std::string> DbHandler::field_cache_set_[2];
+uint32_t DbHandler::field_cache_old_t2_ = 0;
+uint8_t DbHandler::old_t2_index_ = 0;
+uint8_t DbHandler::new_t2_index_ = 1;
 tbb::mutex DbHandler::fmutex_;
 
 DbHandler::DbHandler(EventManager *evm,
@@ -715,7 +718,8 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     std::string table_name(table_prefix);
     table_name.append(field_name);
 
-    /* Check if fieldname and value were already seen in this T2
+    /* Check if fieldname and value were already seen in this T2;
+       2 caches are mainted one for  last T2 and T2-1.
        We only need to record them if they have NOT been seen yet */
     bool record = false;
     std::string fc_entry(table_name);
@@ -724,17 +728,29 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     {
         tbb::mutex::scoped_lock lock(fmutex_);
         if (temp_u32 > field_cache_t2_) {
-            field_cache_set_.clear();
+            // swap old and new index; clear the old cache
+            old_t2_index_ = new_t2_index_;
+            new_t2_index_ = (new_t2_index_ == 1)?0:1;
+            field_cache_old_t2_ = field_cache_t2_;
+            field_cache_set_[new_t2_index_].clear();
             field_cache_t2_ = temp_u32;
+        } else if (temp_u32 > field_cache_old_t2_){
+            field_cache_set_[old_t2_index_].clear();
+            field_cache_old_t2_ = temp_u32;
         }
+        // Record only if not found in last or last but one T2 cache.
         if (temp_u32 == field_cache_t2_) {
-            if (field_cache_set_.find(fc_entry) == field_cache_set_.end()) {
-                field_cache_set_.insert(fc_entry);
+            if (field_cache_set_[new_t2_index_].find(fc_entry) ==
+                field_cache_set_[new_t2_index_].end()) {
+                field_cache_set_[new_t2_index_].insert(fc_entry);
                 record = true;
             }
-        } else {
-            /* This is an old time-stamp */
-            record = true;
+        } else if (temp_u32 == field_cache_old_t2_) {
+            if (field_cache_set_[old_t2_index_].find(fc_entry) ==
+                    field_cache_set_[old_t2_index_].end()) {
+                field_cache_set_[old_t2_index_].insert(fc_entry);
+                record = true;
+            }
         }
     }
 
