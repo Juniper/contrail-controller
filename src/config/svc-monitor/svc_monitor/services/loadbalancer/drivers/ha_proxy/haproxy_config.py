@@ -34,7 +34,10 @@ class HaproxyConfig(object):
         self.template.render_context(ctx)
         return buf.getvalue()
 
-    def build_config_v2(self, lb):
+    def build_config_v2(self, lb_dict):
+        lb = LoadbalancerSM.get(lb_dict['id'])
+        if not lb:
+            return
         self.set_globals(lb.uuid)
         self.set_defaults()
         self.set_loadbalancer(lb)
@@ -58,10 +61,12 @@ class HaproxyConfig(object):
 
     def set_loadbalancer(self, lb):
         loadbalancer = {}
-        loadbalancer['vip'] = lb.virtual_ip
+        loadbalancer['vip'] = lb.params['vip_address']
         loadbalancer['listeners'] = []
-        for listener_id in lb.listeners:
-            listener = LoadbalancerListener.get(listener_id)
+        self.config['listeners'] = {}
+        self.config['pools'] = {}
+        for listener_id in lb.loadbalancer_listeners:
+            listener = LoadbalancerListenerSM.get(listener_id)
             if not listener:
                 continue
             loadbalancer['listeners'].append(listener_id)
@@ -70,14 +75,13 @@ class HaproxyConfig(object):
 
     def add_listener(self, ll):
         listener = {}
-        listener['port'] = ll.port
-        listener['protocol'] = PROTO_MAP.get(ll.protocol)
-        for pool_id in ll.pools:
-            pool = LoadbalancerPool.get(pool_id)
-            if not pool:
-                continue
-            listener['pool'] = pool_id
-            self.add_pool(pool)
+        listener['port'] = ll.params['protocol_port']
+        listener['protocol'] = PROTO_MAP.get(ll.params['protocol'])
+        pool = LoadbalancerPoolSM.get(ll.loadbalancer_pool)
+        if not pool:
+            return
+        listener['pool'] = ll.loadbalancer_pool
+        self.add_pool(pool)
         self.config['listeners'][ll.uuid] = listener
 
     def set_virtual_ip(self, pool):
