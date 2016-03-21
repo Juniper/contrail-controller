@@ -481,6 +481,7 @@ void Agent::InitPeers() {
                                           false));
     mac_vm_binding_peer_.reset(new Peer(Peer::MAC_VM_BINDING_PEER,
                               MAC_VM_BINDING_PEER_NAME, false));
+    arp_peer_.reset(new Peer(Peer::ARP_PEER, ARP_PEER_NAME, false));
 }
 
 Agent::Agent() :
@@ -517,7 +518,7 @@ Agent::Agent() :
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ecmp_peer_(NULL), vgw_peer_(NULL), evpn_peer_(NULL), multicast_peer_(NULL),
     multicast_tor_peer_(NULL), multicast_tree_builder_peer_(NULL),
-    mac_vm_binding_peer_(NULL), ifmap_parser_(NULL),
+    mac_vm_binding_peer_(NULL), arp_peer_(NULL), ifmap_parser_(NULL),
     router_id_configured_(false), mirror_src_udp_port_(0),
     lifetime_manager_(NULL), ksync_sync_mode_(false), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 

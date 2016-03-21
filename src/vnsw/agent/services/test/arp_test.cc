@@ -203,12 +203,13 @@ public:
 
     void ArpNHUpdate(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
+        VnListType vn_list;
         InetUnicastAgentRouteTable::ArpRoute(op,
                           Agent::GetInstance()->fabric_vrf_name(),
                           ip, MacAddress(),
                           Agent::GetInstance()->fabric_vrf_name(),
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
-                          false, 32, false, "", SecurityGroupList());
+                          false, 32, false, vn_list, SecurityGroupList());
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
@@ -317,19 +318,47 @@ TEST_F(ArpTest, ArpReqTest) {
     arp_cache_sandesh->Release();
 }
 
-TEST_F(ArpTest, ArpGratuitousTest) {
+// Check that a Grat ARP for non-existing entry is ignored.
+TEST_F(ArpTest, ArpNonExistGratuitousTest) {
     for (int i = 0; i < 2; i++) {
         SendArpReq(req_ifindex, 0, ntohl(inet_addr(GRAT_IP)), 
                              ntohl(inet_addr(GRAT_IP)));
-        WaitForCompletion(2);
-        EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
-        EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+        client->WaitForIdle();
+        EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+        EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
     }
-    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, ntohl(inet_addr(GRAT_IP)));
-    usleep(175000); // wait for retry timer to expire
+}
+
+// Check that a Grat ARP to existing entry is processed.
+TEST_F(ArpTest, ArpGratuitousTest) {
+    TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
+    SendArpReq(req_ifindex, 0, dest_ip, dest_ip);
+    client->WaitForIdle();
+    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
+    client->WaitForIdle();
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
+    usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
-    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+}
+
+// Check that a Grat ARP with src ip zero is processed.
+TEST_F(ArpTest, ArpGratZeroSrcTest) {
+    TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
+    SendArpReq(req_ifindex, 0, 0, dest_ip); // src IP set to zero
+    client->WaitForIdle();
+    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
+    client->WaitForIdle();
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
+    usleep(175000);
+    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
+    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpTunnelGwTest) {
@@ -343,20 +372,6 @@ TEST_F(ArpTest, ArpTunnelGwTest) {
     EXPECT_TRUE(FindArpRoute(gw_ip, Agent::GetInstance()->fabric_vrf_name()));
     TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, ntohl(inet_addr(DIFF_NET_IP)));
     WaitForCompletion(1);
-}
-
-TEST_F(ArpTest, ArpDelTest) {
-    SendArpReq(req_ifindex, 0, ntohl(inet_addr(GRAT_IP)), 
-                         ntohl(inet_addr(GRAT_IP)));
-    WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
-    EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
-    ArpNHUpdate(DBRequest::DB_ENTRY_DELETE, ntohl(inet_addr(GRAT_IP)));
-    client->WaitForIdle();
-    usleep(175000);
-    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
-    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpTunnelTest) {
@@ -1014,6 +1029,10 @@ TEST_F(ArpTest, IntfArpReqTest_1) {
 
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 1);
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
+    usleep(1000);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     Interface *itf = VmPortGet(1);
@@ -1040,6 +1059,10 @@ TEST_F(ArpTest, IntfArpReqTest_2) {
 
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 1);
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
+    usleep(1000);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     Interface *itf = VmPortGet(1);

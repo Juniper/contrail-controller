@@ -1041,14 +1041,16 @@ void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
         return;
     }
 
-    PathPreferenceEventContainer event;
-    event.ip_ = rt->addr();
-    event.plen_ = rt->plen();
-    event.interface_index_ = interface_index;
-    event.vrf_index_ = vrf_index;
-    event.mac_ = mac;
-    event.vxlan_id_ = vm_intf->ethernet_tag();
-    work_queue_.Enqueue(event);
+    if (rt) {
+        PathPreferenceEventContainer event;
+        event.ip_ = rt->addr();
+        event.plen_ = rt->plen();
+        event.interface_index_ = interface_index;
+        event.vrf_index_ = vrf_index;
+        event.mac_ = mac;
+        event.vxlan_id_ = vm_intf->ethernet_tag();
+        work_queue_.Enqueue(event);
+    }
 }
 
 void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,

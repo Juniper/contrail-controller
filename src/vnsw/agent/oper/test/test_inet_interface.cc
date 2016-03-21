@@ -50,7 +50,7 @@ public:
         intf_count_ = agent_->interface_table()->Size();
         nh_count_ = agent_->nexthop_table()->Size();
         vrf_count_ = agent_->vrf_table()->Size();
-        peer_ = agent_->local_peer();
+        arp_peer_ = agent_->arp_peer();
 
         vrf_table_->CreateVrfReq(VRF_VHOST);
         vrf_table_->CreateVrfReq(VRF_LL);
@@ -88,7 +88,7 @@ public:
     InetUnicastAgentRouteTable *ll_rt_table_;
     InetUnicastAgentRouteTable *gw_rt_table_;
     VrfTable *vrf_table_;
-    const Peer *peer_;
+    const Peer *arp_peer_;
 };
 
 static void DelInterface(InetInterfaceTest *t, const char *ifname) {
@@ -110,17 +110,17 @@ static void DelInterface(InetInterfaceTest *t, const char *ifname,
     InetInterface::DeleteReq(t->interface_table_, ifname);
 
     if (strcmp(vrf, VRF_VHOST) == 0){
-        t->vhost_rt_table_->DeleteReq(t->peer_, vrf,
+        t->vhost_rt_table_->DeleteReq(t->arp_peer_, vrf,
                                       Ip4Address::from_string(gw), 32, NULL);
     }
 
     if (strcmp(vrf, VRF_LL) == 0){
-        t->ll_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
+        t->ll_rt_table_->DeleteReq(t->arp_peer_, vrf, Ip4Address::from_string(gw),
                                    32, NULL);
     }
 
     if (strcmp(vrf, VRF_GW) == 0){
-        t->gw_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
+        t->gw_rt_table_->DeleteReq(t->arp_peer_, vrf, Ip4Address::from_string(gw),
                                    32, NULL);
     }
 
@@ -299,7 +299,7 @@ static void InetTestCleanup(Agent *agent, const Ip4Address &addr,
     WAIT_FOR(1000, 1000,
              (RouteGet(agent->fabric_vrf_name(), addr, 32) == NULL));
 
-    table->DeleteReq(agent->local_peer(), agent->fabric_vrf_name(),
+    table->DeleteReq(agent->arp_peer(), agent->fabric_vrf_name(),
                      gw, 32, NULL);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000,
