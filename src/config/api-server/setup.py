@@ -12,7 +12,9 @@ class RunTestsCommand(Command):
     def finalize_options(self):
         self.cwd = os.getcwd()
     def run(self):
-        os.system('./run_tests.sh -V')
+        rc_sig = os.system('./run_tests.sh -V')
+        if rc_sig >> 8:
+            os._exit(rc_sig>>8)
         with open('test.log') as f:
             if not re.search('\nOK', ''.join(f.readlines())):
                 os._exit(1)
