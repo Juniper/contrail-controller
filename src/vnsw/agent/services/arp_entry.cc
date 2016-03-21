@@ -218,7 +218,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
         } else {
             /* Return if the route is already existing */
             InetUnicastRouteKey *rt_key = new InetUnicastRouteKey(
-                    handler_->agent()->local_peer(), vrf_name, ip, 32); 
+                    handler_->agent()->arp_peer(), vrf_name, ip, 32);
             AgentRoute *entry = key_.vrf->GetInet4UnicastRouteTable()->
                 FindActiveEntry(rt_key);
             delete rt_key;
@@ -270,7 +270,7 @@ bool ArpEntry::DeleteArpRoute() {
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac.ToString());
     if (IsDerived()) {
         //Just enqueue a delete, no need to mark nexthop invalid
-        InetUnicastAgentRouteTable::Delete(handler_->agent()->local_peer(),
+        InetUnicastAgentRouteTable::Delete(handler_->agent()->arp_peer(),
                                            vrf_name, ip, 32);
         return true;
     }
