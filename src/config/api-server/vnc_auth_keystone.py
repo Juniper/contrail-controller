@@ -17,8 +17,11 @@ import base64
 
 try:
     from keystoneclient.middleware import auth_token
-except Exception:
-    pass
+except ImportError:
+    try:
+        from keystonemiddleware import auth_token
+    except ImportError:
+        pass
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
