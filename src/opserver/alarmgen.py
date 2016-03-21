@@ -17,6 +17,9 @@ import time
 import copy
 import traceback
 import signal
+import logging
+logging.getLogger('kafka').addHandler(logging.StreamHandler())
+logging.getLogger('kafka').setLevel(logging.WARNING)
 try:
     from collections import OrderedDict
 except ImportError:
