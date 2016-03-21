@@ -9,8 +9,10 @@ import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_dri
 from vnc_api.vnc_api import ServiceTemplate, ServiceInstance, ServiceInstanceType
 from vnc_api.vnc_api import ServiceScaleOutType, ServiceInstanceInterfaceType
 from vnc_api.vnc_api import NoIdError, RefsExistError
+from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 
 from svc_monitor.config_db import *
+from haproxy_config import HaproxyConfig
 
 LOADBALANCER_SERVICE_TEMPLATE = [
     'default-domain',
@@ -26,6 +28,7 @@ class OpencontrailLoadbalancerDriver(
         self._svc_manager = manager
         self._lb_template = None
         self.db = db
+        self.config = HaproxyConfig()
 
     def get_lb_template(self):
         st = ServiceTemplateSM.get(self._lb_template)
@@ -383,3 +386,17 @@ class OpencontrailLoadbalancerDriver(
 
     def update_health_monitor(self, id, health_monitor):
         pass
+
+    def set_config(self, pool_id):
+        conf = self.config.build_config_v1(pool_id)
+        # TBD set_haproxy_config
+
+    def set_config_v2(self, lb):
+        conf = self.config.build_config_v2(lb)
+        # TBD set_haproxy_config
+
+    def set_haproxy_config(self, conf, kvps):
+        kvp_array = []
+        kvp = KeyValuePair('haproxy_config', conf)
+        kvp_array.append(kvp)
+        kvps.set_key_value_pair(kvp_array)
