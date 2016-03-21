@@ -1611,6 +1611,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-service-instance', 'project', 
              'service-instance', ['has']) -->
+<xsd:element name="service-instance-bindings" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('service-instance-bindings', 'service-instance', 'key') -->
 <xsd:element name='service-template-properties' type='ServiceTemplateType'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Property('service-template-properties', 'service-template')-->
