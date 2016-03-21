@@ -4,5 +4,3 @@ flexmock
 coverage
 pyaml
 httpretty==0.8.10
-distribute>=0.7.3
-
