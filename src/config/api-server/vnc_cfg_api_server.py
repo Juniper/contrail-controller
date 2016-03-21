@@ -424,23 +424,26 @@ class VncApiServer(VncApiServerGen):
     # end __init__
 
     def _extensions_transform_request(self, request):
-        if not self._extension_mgrs['resourceApi'].names():
+        extensions = self._extension_mgrs.get('resourceApi')
+        if not extensions or not extensions.names():
             return None
-        return self._extension_mgrs['resourceApi'].map_method(
+        return extensions.map_method(
                     'transform_request', request)
     # end _extensions_transform_request
 
     def _extensions_validate_request(self, request):
-        if not self._extension_mgrs['resourceApi'].names():
+        extensions = self._extension_mgrs.get('resourceApi')
+        if not extensions or not extensions.names():
             return None
-        return self._extension_mgrs['resourceApi'].map_method(
+        return extensions.map_method(
                     'validate_request', request)
     # end _extensions_validate_request
 
     def _extensions_transform_response(self, request, response):
-        if not self._extension_mgrs['resourceApi'].names():
+        extensions = self._extension_mgrs.get('resourceApi')
+        if not extensions or not extensions.names():
             return None
-        return self._extension_mgrs['resourceApi'].map_method(
+        return extensions.map_method(
                     'transform_response', request, response)
     # end _extensions_transform_response
 

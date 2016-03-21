@@ -6,7 +6,6 @@ bitarray
 geventhttpclient
 psutil
 bottle
-distribute>=0.7.3
 ../../../debug/config/common/dist/cfgm_common-0.1dev.tar.gz
 ../../../debug/api-lib/dist/vnc_api-0.1dev.tar.gz
 ../../../debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz

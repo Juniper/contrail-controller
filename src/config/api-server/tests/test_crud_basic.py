@@ -1242,7 +1242,7 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
         with test_common.flexmocks([
             (self._api_server._db_conn, 'dbe_create', stub),
             (self._api_server.get_resource_class('virtual-network'),
-             'post_dbe_create', stub)]):
+             'http_post_collection', stub)]):
             self._create_test_object()
             with ExpectedException(RefsExistError) as e:
                 self._create_test_object()
@@ -1396,7 +1396,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
                                    ('KEYSTONE', 'admin_password', 'bar'),])
 
     def setup_flexmock(self):
-        from keystoneclient.middleware import auth_token
+        from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             def __init__(self, app, *args, **kwargs):
                 self._app = app

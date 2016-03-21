@@ -5,4 +5,4 @@ flexmock
 coverage
 webtest
 pyaml
-distribute>=0.7.3
+keystonemiddleware
