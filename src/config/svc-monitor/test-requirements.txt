@@ -10,6 +10,7 @@ psutil>=0.6.0
 bottle
 amqp
 kombu
+mako
 ../../../debug/config/common/dist/cfgm_common-0.1dev.tar.gz
 ../../../debug/api-lib/dist/vnc_api-0.1dev.tar.gz
 ../../../debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz
