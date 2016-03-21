@@ -9,6 +9,7 @@
 #include "base/task.h"
 #include "base/test/task_test_util.h"
 #include "io/test/event_manager_test.h"
+#include "analytics/parser_util.h"
 
 using ::testing::Field;
 using ::testing::StrEq;
@@ -189,6 +190,42 @@ class SyslogParserTest : public ::testing::Test
     std::auto_ptr<SyslogParserTestHelper> sp_;
 };
 
+class LineParserTest : public ::testing::Test
+{
+  public:
+    virtual void SetUp() {
+        lp_.reset(new LineParser());
+    }
+    virtual void TearDown() {
+        lp_.reset();
+    }
+    LineParser::WordListType Parse(std::string s) {
+        return lp_->Parse(s);
+    }
+    LineParser::WordListType ParseXML(std::string s, bool a=true) {
+        pugi::xml_document doc;
+        if (doc.load(s.c_str(), s.length())) {
+//#define SYSLGDEBUG
+            LineParser::WordListType w;
+            if (a)
+                w = lp_->ParseXML(doc.document_element());
+            else
+                w = lp_->ParseXML(doc.document_element(), a);
+#ifdef SYSLGDEBUG
+            std::cout << s << "\n  Keywords:\n";
+            for (LineParser::WordListType::iterator i = w.begin();
+                    i != w.end(); i++)
+                std::cout << "      '" << *i << "'\n";
+            std::cout << "  Keywords end\n";
+#endif
+            return w;
+        }
+        return LineParser::WordListType();
+    }
+  private:
+    std::auto_ptr<LineParser> lp_;
+};
+
 TEST_F(SyslogParserTest, ParseNone)
 {
     bool r = Parse("");
@@ -216,6 +253,98 @@ TEST_F(SyslogCollectorTest, End2End)
     SendLog("<84>Feb 25 13:44:21 a3s45 sudo: pam_limits(sudo:session): invalid line 'cassandra - memlock unlimited' - skipped]");
     sleep(1);
     task_util::WaitForIdle();
+}
+
+TEST_F(LineParserTest, SimpleWords)
+{
+    EXPECT_THAT(Parse("fox box cox"), testing::Contains("fox"));
+}
+
+TEST_F(LineParserTest, QuotedWords)
+{
+    EXPECT_THAT(Parse("fox \"Steph Curry\" cox"), testing::Contains(
+                "steph curry"));
+}
+
+TEST_F(LineParserTest, SingleQuotedWords)
+{
+    EXPECT_THAT(Parse("fox 'Steph Curry' cox"), testing::Contains(
+                "steph curry"));
+}
+
+TEST_F(LineParserTest, IpAddr)
+{
+    EXPECT_THAT(Parse("my server has 10.84.5.22 address"), testing::Contains(
+                "10.84.5.22"));
+}
+
+TEST_F(LineParserTest, IpAddrMask)
+{
+    EXPECT_THAT(Parse("my server has 10.84.5.22/23 address"), testing::Contains(
+                "10.84.5.22/23"));
+}
+
+TEST_F(LineParserTest, StopWords)
+{
+    EXPECT_THAT(Parse("my server has that address of the or via"),
+            testing::ElementsAre("address", "has", "my", "server"));
+}
+
+TEST_F(LineParserTest, UuidTest)
+{
+    EXPECT_THAT(Parse("my server is d52eea70-e419-4246-98b9-292ae98d4d04"),
+            testing::Contains("d52eea70-e419-4246-98b9-292ae98d4d04"));
+}
+
+TEST_F(LineParserTest, WeiredString)
+{
+    EXPECT_THAT(Parse("<discClientLog type=\"sandesh\"><log_msg type=\"string\" identifier=\"1\">query resp =&gt; {\"AlarmGenerator\": [{\"ip-address\": \"10.84.9.45\", \"@publisher-id\": \"a3s45\", \"redis-port\": \"6379\", \"instance-id\": \"0\", \"partitions\": \"{\\\"0\\\": 1456357027958320, \\\"1\\\": 1456357027960085, \\\"2\\\": 1456357027962225, \\\"3\\\": 1456357027965660, \\\"4\\\": 1456357027972614, \\\"5\\\": 1456357027972692, \\\"6\\\": 1456357027976379, \\\"7\\\": 1456357027980294, \\\"8\\\": 1456357027983837, \\\"9\\\": 1456357027986552, \\\"10\\\": 1456357027988989, \\\"11\\\": 1456357027991162, \\\"12\\\": 1456357027992856, \\\"13\\\": 1456357027995411, \\\"14\\\": 1456357027998922}\"}], \"ttl\": 1199} </log_msg></discClientLog>"), testing::Contains("resp"));
+}
+
+TEST_F(LineParserTest, CommaInString)
+{
+    EXPECT_THAT(Parse("my server has 10.84.5.22, 23 & 24 address"),
+            testing::Contains("10.84.5.22"));
+}
+
+TEST_F(LineParserTest, AmpersandInString)
+{
+    EXPECT_THAT(Parse("my server has 10.84.5.22, 0x2b, 23 & 5.24 and address"),
+            testing::ElementsAre(
+                "10.84.5.22", "address", "has", "my", "server"));
+}
+
+TEST_F(LineParserTest, HexnOctInString)
+{
+    EXPECT_THAT(Parse("my server has 10.84.5.22, 0x2b, 23 & 5.24 023 address"),
+            testing::ElementsAre(
+                "10.84.5.22", "address", "has", "my", "server"));
+}
+
+TEST_F(LineParserTest, XmlString)
+{
+    EXPECT_THAT(ParseXML("<discClientLog type=\"sandesh\"><log_msg type=\"string\" identifier=\"1\">query resp =&gt; {\"AlarmGenerator\": [{\"ip-address\": \"10.84.9.45\", \"@publisher-id\": \"a3s45\", \"redis-port\": \"6379\", \"instance-id\": \"0\", \"partitions\": \"{\\\"0\\\": 1456357027958320, \\\"1\\\": 1456357027960085, \\\"2\\\": 1456357027962225, \\\"3\\\": 1456357027965660, \\\"4\\\": 1456357027972614, \\\"5\\\": 1456357027972692, \\\"6\\\": 1456357027976379, \\\"7\\\": 1456357027980294, \\\"8\\\": 1456357027983837, \\\"9\\\": 1456357027986552, \\\"10\\\": 1456357027988989, \\\"11\\\": 1456357027991162, \\\"12\\\": 1456357027992856, \\\"13\\\": 1456357027995411, \\\"14\\\": 1456357027998922}\"}], \"ttl\": 1199} </log_msg></discClientLog>"), testing::Contains("resp"));
+}
+
+TEST_F(LineParserTest, BlockString)
+{
+    EXPECT_THAT(ParseXML("<boo>aa bb { foo toy, 12 { bar 5 ball box } }</boo>"),
+            testing::Contains("box"));
+}
+
+TEST_F(LineParserTest, AttrString)
+{
+    EXPECT_THAT(ParseXML(
+                "<boo f=\"bad\">aa bb {foo toy, 12{bar 5 ball box}}</boo>"),
+            testing::Contains("bad"));
+}
+
+TEST_F(LineParserTest, NoAttrString)
+{
+    EXPECT_THAT(ParseXML(
+                "<boo f=\"bad\">my server has address: 10.84.5.22</boo>",
+                false), testing::ElementsAre(
+                "10.84.5.22", "address", "has", "my", "server"));
 }
 
 void ShowCollectorServerReq::HandleRequest() const {
