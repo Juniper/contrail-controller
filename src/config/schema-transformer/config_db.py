@@ -1366,7 +1366,7 @@ class NetworkPolicyST(DBBaseST):
                 prule.action_list.mirror_to.analyzer_name):
                 si_set.add(prule.action_list.mirror_to.analyzer_name)
             if prule.action_list.apply_service:
-                si_set = si_set.union(prule.action_list.apply_service)
+                si_set = si_set.union(set(prule.action_list.apply_service))
             for addr in prule.src_addresses + prule.dst_addresses:
                 if addr.network_policy:
                     np_set.add(addr.network_policy)
