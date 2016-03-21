@@ -22,7 +22,11 @@ defaults
 <% listener = listeners[listener_id] %>\
 frontend ${listener_id}
         option tcplog
+        % if ssl_cert:
         bind ${loadbalancer['vip']}:${listener['port']} ${ssl_cert}
+        % else:
+        bind ${loadbalancer['vip']}:${listener['port']}
+        % endif
         mode ${listener['protocol']}
         default_backend ${listener['pool']}
         option forwardfor
