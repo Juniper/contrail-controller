@@ -658,29 +658,28 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
             message_type, vmsgp->unm, "");
 
     const SandeshType::type &stype(header.get_Type());
-    std::string s;
 
-    if (stype == SandeshType::SYSTEM) {
+    LineParser::WordListType words;
+    if (stype == SandeshType::SYSTEM || stype == SandeshType::UVE ||
+            stype == SandeshType::OBJECT) {
         const SandeshXMLMessage *sxmsg =
             static_cast<const SandeshXMLMessage *>(vmsgp->msg);
-        const pugi::xml_node &parent(sxmsg->GetMessageNode());
-        s = LineParser::GetXmlString(parent);
+        words = LineParser::ParseXML(sxmsg->GetMessageNode(), false);
     } else if (!vmsgp->keyword_doc_.empty()) {
+        std::string s;
         s = std::string(vmsgp->keyword_doc_);
-    }
-    if (!s.empty()) {
-        LineParser::WordListType words = LineParser::ParseDoc(s.begin(),
-                s.end());
-        LineParser::RemoveStopWords(&words);
-        for (LineParser::WordListType::iterator i = words.begin();
-                i != words.end(); i++) {
-            // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
-            bool r = MessageIndexTableInsert(
-                    g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
-                    message_type, vmsgp->unm, *i);
-            if (!r)
-                DB_LOG(ERROR, "Failed to parse:" << s);
+        if (!s.empty()) {
+            words = LineParser::Parse(s);
         }
+    }
+    for (LineParser::WordListType::iterator i = words.begin();
+            i != words.end(); i++) {
+        // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
+        bool r = MessageIndexTableInsert(
+                g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                message_type, vmsgp->unm, *i);
+        if (!r)
+            DB_LOG(ERROR, "Failed to parse:");
     }
 
     /*
