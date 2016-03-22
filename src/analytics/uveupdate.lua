@@ -18,6 +18,8 @@ local _table = KEYS[3]
 local _uves = KEYS[4]
 local _values = KEYS[5]
 
+redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ..":"..attr)
+
 redis.call('select',db)
 local ism = redis.call('sismember', 'NGENERATORS', sm)
 if ism == 0 then
@@ -34,5 +36,7 @@ redis.call('sadd',_origins,sm..":"..typ)
 redis.call('sadd',_table,key..':'..sm..":"..typ)
 redis.call('zadd',_uves,seq,key)
 redis.call('hset',_values,attr,val)
+
+redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." done")
 
 return true
