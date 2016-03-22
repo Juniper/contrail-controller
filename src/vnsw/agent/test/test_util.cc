@@ -1322,6 +1322,14 @@ BridgeRouteEntry *L2RouteGet(const string &vrf_name,
     return L2RouteGet(vrf_name, mac, IpAddress());
 }
 
+const NextHop* L2RouteToNextHop(const string &vrf, const MacAddress &mac) {
+    BridgeRouteEntry* rt = L2RouteGet(vrf, mac);
+    if (rt == NULL)
+        return NULL;
+
+    return rt->GetActiveNextHop();
+}
+
 EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr, uint32_t ethernet_tag) {
     Agent *agent = Agent::GetInstance();
@@ -1364,6 +1372,14 @@ InetUnicastRouteEntry* RouteGetV6(const string &vrf_name, const Ip6Address &addr
     return route;
 }
 
+const NextHop* RouteToNextHop(const string &vrf_name, const Ip4Address &addr,
+                              int plen) {
+    InetUnicastRouteEntry* rt = RouteGet(vrf_name, addr, plen);
+    if (rt == NULL)
+        return NULL;
+
+    return rt->GetActiveNextHop();
+}
 
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
@@ -3338,6 +3354,14 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
                                                     pkt->GetBuffLen());
     delete pkt;
+    return NULL;
+}
+
+const NextHop* MplsToNextHop(uint32_t label) {
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
+    if (mpls) {
+        return mpls->nexthop();
+    }
     return NULL;
 }
 
