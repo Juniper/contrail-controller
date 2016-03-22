@@ -7,6 +7,7 @@
 
 import os
 import sys
+import platform
 
 Import('BuildEnv')
 AnalyticsEnv = BuildEnv.Clone()
@@ -56,6 +57,12 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'protobuf',
         'boost_filesystem',
         'boost_program_options'])
+
+(PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+if PLATFORM.lower() != 'ubuntu':
+    AnalyticsEnv.Prepend(LIBS=['ssl',
+        'crypto',
+        'sasl2'])
 
 if sys.platform != 'darwin':
     AnalyticsEnv.Append(LIBS=['rt'])
