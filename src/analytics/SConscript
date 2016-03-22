@@ -7,6 +7,7 @@
 
 import os
 import sys
+import platform
 
 Import('BuildEnv')
 AnalyticsEnv = BuildEnv.Clone()
@@ -57,6 +58,12 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'zookeeper_mt',
         'boost_filesystem',
         'boost_program_options'])
+
+(PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
+if PLATFORM.lower() != 'ubuntu':
+    AnalyticsEnv.Prepend(LIBS=['ssl',
+        'crypto',
+        'sasl2'])
 
 if AnalyticsEnv.UseCassandraCql():
     database_libs = ['cassandra_cql', 'cassandra']
