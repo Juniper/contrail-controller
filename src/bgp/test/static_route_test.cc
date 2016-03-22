@@ -1978,7 +1978,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-2"));
     for (int i = 0; i < DB::PartitionCount(); i++) {
         DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        TASK_UTIL_EXPECT_FALSE(partition->IsDBQueueEmpty());
+        TASK_UTIL_EXPECT_TRUE(partition->IsDBQueueEmpty());
     }
 
     // Check for Static route
@@ -2025,7 +2025,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     TASK_UTIL_EXPECT_TRUE(this->IsQueueEmpty("nat-2"));
     for (int i = 0; i < DB::PartitionCount(); i++) {
         DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        TASK_UTIL_EXPECT_FALSE(partition->IsDBQueueEmpty());
+        TASK_UTIL_EXPECT_TRUE(partition->IsDBQueueEmpty());
     }
 
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
