@@ -53,8 +53,9 @@ const uint32_t FlowEntryFreeList::kMinThreshold;
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 
 #define FLOW_LOCK(flow, rflow) \
-    tbb::mutex tmp_mutex, *mutex_ptr_1, *mutex_ptr_2; \
-    GetMutexSeq(flow->mutex(), rflow ? rflow->mutex() : tmp_mutex, \
+    tbb::mutex tmp_mutex1, tmp_mutex2, *mutex_ptr_1, *mutex_ptr_2; \
+    GetMutexSeq(flow ? flow->mutex() : tmp_mutex1, \
+                rflow ? rflow->mutex() : tmp_mutex2, \
                 &mutex_ptr_1, &mutex_ptr_2); \
     tbb::mutex::scoped_lock lock1(*mutex_ptr_1); \
     tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
