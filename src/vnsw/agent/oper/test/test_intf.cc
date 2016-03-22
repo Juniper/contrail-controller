@@ -170,6 +170,21 @@ public:
         client->WaitForIdle();
     }
 
+    void SetPolicyDisabledStatus(struct PortInfo *input, bool status) {
+        ostringstream str;
+
+        str << "<virtual-machine-interface-disable-policy>";
+        if (status) {
+            str << "true";
+        } else {
+            str << "false";
+        }
+        str << "</virtual-machine-interface-disable-policy>";
+
+        AddNode("virtual-machine-interface", input[0].name, input[0].intf_id,
+                str.str().c_str());
+    }
+
     void AddFatFlow(struct PortInfo *input, std::string protocol, int port) {
 
         ostringstream str;
@@ -3774,6 +3789,38 @@ TEST_F(IntfTest, IntfAddDel) {
     EXPECT_TRUE(RouteFind("vrf1", "1.1.1.1", 32));
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+TEST_F(IntfTest, IntfPolicyDisable) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->policy_enabled());
+
+    //Configure disable-policy as true on interface
+    SetPolicyDisabledStatus(input, true);
+    client->WaitForIdle();
+
+    //Verify that policy is disabled
+    EXPECT_FALSE(intf->policy_enabled());
+
+    //Configure disable-policy as false on interface
+    SetPolicyDisabledStatus(input, false);
+    client->WaitForIdle();
+
+    //Verify that policy is enabled
+    EXPECT_TRUE(intf->policy_enabled());
+
+    DeleteVmportEnv(input, 1, true, 1);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
     client->Reset();

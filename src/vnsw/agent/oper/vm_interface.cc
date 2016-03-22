@@ -62,7 +62,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     do_dhcp_relay_(false), vm_name_(),
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(false),
     layer3_forwarding_(true), flood_unknown_unicast_(false),
-    mac_set_(false), ecmp_(false), ecmp6_(false),
+    mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -97,8 +97,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
     bridging_(false), layer3_forwarding_(true),
     flood_unknown_unicast_(false), mac_set_(false),
-    ecmp_(false), ecmp6_(false), tx_vlan_id_(tx_vlan_id),
-    rx_vlan_id_(rx_vlan_id), parent_(parent),
+    ecmp_(false), ecmp6_(false), disable_policy_(false),
+    tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
@@ -756,7 +756,10 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
     }
 }
 
-static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
+static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data,
+                             IFMapNode *node) {
+    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
+                                       (node->GetObject());
     // Compute fabric_port_ and need_linklocal_ip_ flags
     data->fabric_port_ = false;
     data->need_linklocal_ip_ = true;
@@ -769,6 +772,7 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
     if (agent->isXenMode()) {
         data->need_linklocal_ip_ = false;
     }
+    data->disable_policy_ = cfg->disable_policy();
 }
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
@@ -996,7 +1000,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig(data->vrf_name_,
                                            bgp_as_a_service_node_list, u);
-    UpdateAttributes(agent_, data);
+    UpdateAttributes(agent_, data, node);
     BuildFatFlowTable(agent_, data, node);
 
     // Get DHCP enable flag from subnet
@@ -1637,7 +1641,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-    ecmp6_(false), dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
+    ecmp6_(false), dhcp_enable_(true), admin_state_(true),
+    disable_policy_(false), analyzer_name_(""),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -1803,6 +1808,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (dhcp_enable_ != data->dhcp_enable_) {
         dhcp_enable_ = data->dhcp_enable_;
+        ret = true;
+    }
+
+    if (disable_policy_ != data->disable_policy_) {
+        disable_policy_ = data->disable_policy_;
         ret = true;
     }
 
@@ -2391,6 +2401,10 @@ bool VmInterface::WaitForTraffic() const {
 
 // Compute if policy is to be enabled on the interface
 bool VmInterface::PolicyEnabled() const {
+    if (disable_policy_) {
+        return false;
+    }
+
     // Policy not supported for fabric ports
     if (fabric_port_) {
         return false;

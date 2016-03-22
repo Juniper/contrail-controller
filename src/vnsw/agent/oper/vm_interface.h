@@ -820,6 +820,7 @@ private:
     bool mac_set_;
     bool ecmp_;
     bool ecmp6_;
+    bool disable_policy_;
     // VLAN Tag and the parent interface when VLAN is enabled
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
@@ -989,6 +990,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool ecmp6_;
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     bool admin_state_;
+    bool disable_policy_;
     std::string analyzer_name_;
     VmInterface::Preference local_preference_;
     OperDhcpOptions oper_dhcp_options_;
