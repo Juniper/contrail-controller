@@ -554,10 +554,6 @@ class DiscoveryServer():
         m = sandesh.dsPublish(msg=msg, sandesh=self._sandesh)
         m.trace_msg(name='dsPublishTraceBuf', sandesh=self._sandesh)
 
-        if not service_type.lower() in self.service_config:
-            self.service_config[
-                service_type.lower()] = self._args.default_service_opts
-
         return response
     # end api_publish
 
@@ -1312,13 +1308,10 @@ def parse_args(args_str):
         'cluster_id': None,
         'white_list_publish': None,
         'white_list_subscribe': None,
-    }
-
-    # per service options
-    default_service_opts = {
-        'policy': None,
+        'policy': 'load-balance',
         'load-balance': False,
     }
+
     service_bool_opts = ['load-balance']
 
     cassandra_opts = {
@@ -1354,11 +1347,9 @@ def parse_args(args_str):
                 keystone_opts.update(dict(config.items("KEYSTONE")))
                 continue
             service = section.lower()
-            service_config[service] = default_service_opts.copy()
-            opt_dict = dict(config.items(section))
-            service_config[service].update(opt_dict)
+            service_config[service] = dict(config.items(section))
             for opt in service_bool_opts:
-                if opt in opt_dict:
+                if opt in service_config[service]:
                     service_config[service][opt] = config.getboolean(section, opt)
 
     defaults.update(keystone_opts)
@@ -1449,7 +1440,6 @@ def parse_args(args_str):
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config
-    args.default_service_opts = default_service_opts
     args.cassandra_config = cassandra_config
     args.cassandra_opts = cassandra_opts
     if type(args.cassandra_server_list) is str:
