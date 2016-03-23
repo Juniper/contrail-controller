@@ -190,22 +190,69 @@ class VncApiServer(object):
         return obj
     # end __new__
 
-    def _validate_complex_type(self, dict_cls, dict_body):
-        buf = cStringIO.StringIO()
-        tmp_prop = dict_cls(**dict_body)
-        tmp_prop.export(buf)
-        node = etree.fromstring(buf.getvalue())
-        tmp_prop = dict_cls()
-        tmp_prop.build(node)
+    @classmethod
+    def _validate_complex_type(cls, dict_cls, dict_body):
+        if dict_body is None:
+            return
+        for key, value in dict_body.items():
+            if key not in dict_cls.attr_fields:
+                raise ValueError('class %s does not have field %s' % (
+                                  str(dict_cls), key))
+            attr_type_vals = dict_cls.attr_field_type_vals[key]
+            attr_type = attr_type_vals['attr_type']
+            restrictions = attr_type_vals['restrictions']
+            is_array = attr_type_vals.get('is_array', False)
+            if is_array:
+                if not isinstance(value, list):
+                    raise ValueError('Field %s must be a list. Received value: %s'
+                                     % (key, str(value)))
+                values = value
+            else:
+                values = [value]
+            if attr_type_vals['is_complex']:
+                attr_cls = cfgm_common.utils.str_to_class(attr_type, __name__)
+                for item in values:
+                    cls._validate_complex_type(attr_cls, item)
+            else:
+                for item in values:
+                    cls._validate_simple_type(key, attr_type, item, restrictions)
     # end _validate_complex_type
 
-    def _validate_simple_type(self, xsd_type, value):
-        pass
+    @classmethod
+    def _validate_simple_type(cls, type_name, xsd_type, value, restrictions=None):
+        if value is None:
+            return
+        elif xsd_type in ('unsignedLong', 'integer'):
+            if not isinstance(value, (int, long)):
+                raise ValueError('%s: integer value expected instead of %s' %(
+                    type_name, value))
+            if restrictions:
+                if not (int(restrictions[0]) <= value <= int(restrictions[1])):
+                    raise ValueError('%s: value must be between %s and %s' %(
+                                type_name, restrictions[0], restrictions[1]))
+        elif xsd_type == 'boolean':
+            if not isinstance(value, bool):
+                raise ValueError('%s: true/false expected instead of %s' %(
+                    type_name, value))
+        else:
+            if not isinstance(value, basestring):
+                raise ValueError('%s: string value expected instead of %s' %(
+                    type_name, value))
+            if restrictions and value not in restrictions:
+                raise ValueError('%s: value must be one of %s' % (
+                    type_name, str(restrictions)))
     # end _validate_simple_type
 
     def _validate_props_in_request(self, resource_class, obj_dict):
         for prop_name in resource_class.prop_fields:
-            is_simple, prop_type = resource_class.prop_field_types[prop_name]
+            prop_field_types = resource_class.prop_field_types[prop_name]
+            if isinstance(prop_field_types, dict):
+                is_simple = not prop_field_types['is_complex']
+                prop_type = prop_field_types['xsd_type']
+                restrictions = prop_field_types['restrictions']
+            else:
+                is_simple, prop_type = prop_field_types
+                restrictions = None
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
@@ -221,20 +268,21 @@ class VncApiServer(object):
                 try:
                     self._validate_complex_type(prop_cls, prop_value)
                 except Exception as e:
-                    err_msg = 'Error validating property %s value %s ' \
-                              %(prop_name, prop_value)
+                    err_msg = 'Error validating property %s value %s ' %(
+                        prop_name, prop_value)
                     err_msg += str(e)
                     return False, err_msg
             elif isinstance(prop_value, list):
                 for elem in prop_value:
                     try:
                         if is_simple:
-                            self._validate_simple_type(prop_type, elem)
+                            self._validate_simple_type(prop_name, prop_type,
+                                                       elem, restrictions)
                         else:
                             self._validate_complex_type(prop_cls, elem)
                     except Exception as e:
-                        err_msg = 'Error validating property %s elem %s ' \
-                                  %(prop_name, elem)
+                        err_msg = 'Error validating property %s elem %s ' %(
+                            prop_name, elem)
                         err_msg += str(e)
                         return False, err_msg
             else: # complex-type + value isn't dict or wrapped in list or map
