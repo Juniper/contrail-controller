@@ -49,7 +49,7 @@ class VerifySecurityGroup(VerifyPolicy):
         match = False
         for rule in acl.access_control_list_entries.acl_rule:
             if acl_name == 'egress-access-control-list':
-                if rule.match_condition.dst_address.security_group != sg_id:
+                if rule.match_condition.dst_address.security_group != str(sg_id):
                     if is_all_rules:
                         raise Exception('sg %s/%s not found in %s - for some rule' %
                                            (str(fq_name), str(sg_id), acl_name))
@@ -57,7 +57,7 @@ class VerifySecurityGroup(VerifyPolicy):
                     match = True
                     break
             if acl_name == 'ingress-access-control-list':
-                if rule.match_condition.src_address.security_group != sg_id:
+                if rule.match_condition.src_address.security_group != str(sg_id):
                     if is_all_rules:
                         raise Exception('sg %s/%s not found in %s - for some rule' %
                                            (str(fq_name), str(sg_id), acl_name))
@@ -97,11 +97,11 @@ class VerifySecurityGroup(VerifyPolicy):
                     return
                 for rule in acl.access_control_list_entries.acl_rule:
                     if acl_name == 'egress-access-control-list':
-                        if rule.match_condition.dst_address.security_group == sg_id:
+                        if rule.match_condition.dst_address.security_group == str(sg_id):
                             raise Exception('sg %s/%s found in %s - for some rule' %
                                            (str(fq_name), str(sg_id), acl_name))
                     if acl_name == 'ingress-access-control-list':
-                        if rule.match_condition.src_address.security_group == sg_id:
+                        if rule.match_condition.src_address.security_group == str(sg_id):
                             raise Exception('sg %s/%s found in %s - for some rule' %
                                            (str(fq_name), str(sg_id), acl_name))
         except NoIdError:
