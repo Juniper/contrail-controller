@@ -292,7 +292,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         " size " << msgsize);
 }
 
-void BgpPeer::BGPPeerInfoSend(BgpPeerInfoData &peer_info) {
+void BgpPeer::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const {
     BGPPeerInfo::Send(peer_info);
 }
 

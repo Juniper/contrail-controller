@@ -324,7 +324,7 @@ private:
 
     virtual void BindLocalEndpoint(BgpSession *session);
     void UnregisterAllTables();
-    void BGPPeerInfoSend(BgpPeerInfoData &peer_info);
+    void BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const;
 
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
