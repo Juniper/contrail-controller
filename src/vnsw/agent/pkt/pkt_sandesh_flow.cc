@@ -309,18 +309,29 @@ bool PktSandeshFlow::Run() {
                 resp_obj_->set_flow_key(GetFlowKey(fe->key(), partition_id_));
                 flow_key_set = true;
 
+            } else {
+                FlowKey key;
+                resp_obj_->set_flow_key(GetFlowKey(key, ++partition_id_));
+                flow_key_set = true;
             }
             break;
+        }
+
+        while (it == flow_obj->flow_entry_map_.end()) {
+            if (++partition_id_ < agent_->flow_thread_count()) {
+                flow_obj = agent_->pkt()->flow_table(partition_id_);
+                it = flow_obj->flow_entry_map_.begin();
+                if (it != flow_obj->flow_entry_map_.end()) {
+                    break;
+                }
+            } else {
+              break;
+           }
         }
     }
 
     if (!flow_key_set) {
-        if (++partition_id_ < agent_->flow_thread_count()) {
-            FlowKey key;
-            resp_obj_->set_flow_key(GetFlowKey(key, partition_id_));
-        } else {
-            resp_obj_->set_flow_key(PktSandeshFlow::start_key);
-        }
+        resp_obj_->set_flow_key(PktSandeshFlow::start_key);
     }
 
     SendResponse(resp_obj_);
@@ -502,23 +513,35 @@ bool PktSandeshFlowStats::Run() {
                     << GetFlowKey(fe->key(), partition_id_);
                 resp_->set_flow_key(ostr.str());
                 flow_key_set = true;
+            } else {
+                ostringstream ostr;
+                FlowKey key;
+                ostr << proto_ << ":" << port_ << ":"
+                    << GetFlowKey(key, ++partition_id_);
+                resp_->set_flow_key(ostr.str());
+                flow_key_set = true;
             }
             break;
         }
+
+        while (it == flow_obj->flow_entry_map_.end()) {
+            if (++partition_id_ < agent_->flow_thread_count()) {
+                flow_obj = agent_->pkt()->flow_table(partition_id_);
+                it = flow_obj->flow_entry_map_.begin();
+                if (it != flow_obj->flow_entry_map_.end()) {
+                    break;
+                }
+            } else {
+              break;
+           }
+         }
+
     }
 
     if (!flow_key_set) {
-        if ( ++partition_id_ < agent_->flow_thread_count()) {
-             FlowKey key;
-             ostringstream ostr;
-             ostr << proto_ << ":" << port_ << ":"
-                  << GetFlowKey(key, partition_id_);
-            resp_->set_flow_key(ostr.str());
-        } else {
-            ostringstream ostr;
-            ostr << proto_ << ":" << port_ << ":" << "0x0";
-            resp_->set_flow_key(ostr.str());
-        }
+       ostringstream ostr;
+       ostr << proto_ << ":" << port_ << ":" <<PktSandeshFlow::start_key;
+       resp_->set_flow_key(ostr.str());
     }
     SendResponse(resp_);
     return true;
@@ -526,7 +549,7 @@ bool PktSandeshFlowStats::Run() {
 
 bool PktSandeshFlowStats::SetProto(string &key) {
     size_t n = std::count(key.begin(), key.end(), ':');
-    if (n != 3) {
+    if (n != 2) {
         return false;
     }
     stringstream ss(key);
