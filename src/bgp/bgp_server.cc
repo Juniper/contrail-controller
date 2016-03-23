@@ -337,12 +337,12 @@ BgpServer::BgpServer(EventManager *evm)
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     num_up_peer_ = 0;
-    closing_count_ = 0;
+    deleting_count_ = 0;
     message_build_error_ = 0;
 }
 
 BgpServer::~BgpServer() {
-    assert(closing_count_ == 0);
+    assert(deleting_count_ == 0);
     assert(srt_manager_list_.empty());
 }
 

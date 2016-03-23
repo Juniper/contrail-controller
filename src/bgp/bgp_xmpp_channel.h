@@ -33,6 +33,7 @@ class XmppServer;
 class BgpXmppChannelMock;
 class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
+class XmppPeerInfoData;
 class XmppSession;
 
 class BgpXmppChannel {
@@ -109,6 +110,7 @@ public:
     void FillCloseInfo(BgpNeighborResp *resp) const;
     void StaleCurrentSubscriptions();
     void SweepCurrentSubscriptions();
+    void XMPPPeerInfoSend(XmppPeerInfoData &peer_info);
 
     const XmppChannel *channel() const { return channel_; }
 
@@ -306,7 +308,7 @@ public:
         return channel_map_.size();
     }
 
-    uint32_t closing_count() const { return deleting_count_; }
+    uint32_t deleting_count() const { return deleting_count_; }
     void increment_deleting_count() { deleting_count_++; }
     void decrement_deleting_count() { deleting_count_--; }
 

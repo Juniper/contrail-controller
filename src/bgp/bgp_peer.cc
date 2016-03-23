@@ -44,15 +44,21 @@ class BgpPeer::PeerClose : public IPeerClose {
   public:
     explicit PeerClose(BgpPeer *peer)
         : peer_(peer),
-          is_closed_(false),
-          manager_(BgpObjectFactory::Create<PeerCloseManager>(peer_)) {
-    }
+          manager_(BgpObjectFactory::Create<PeerCloseManager>(peer_)) { }
 
-    virtual ~PeerClose() {
-    }
+    virtual ~PeerClose() { }
+    virtual string ToString() const { return peer_->ToString(); }
+    virtual void CustomClose() { return peer_->CustomClose(); }
+    virtual void GracefulRestartStale() { }
+    virtual void GracefulRestartSweep() { }
+    virtual PeerCloseManager *close_manager() { return manager_.get(); }
+    void Close() { manager_->Close(); }
 
-    virtual string ToString() const {
-        return peer_->ToString();
+    virtual void Delete() {
+        if (peer_->IsDeleted())
+            peer_->RetryDelete();
+        else
+            CloseComplete();
     }
 
     // If the peer is deleted or administratively held down, do not attempt
@@ -60,45 +66,20 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual bool IsCloseGraceful() {
         if (peer_->IsDeleted() || peer_->IsAdminDown())
             return false;
+        if (peer_->server()->IsDeleted())
+            return false;
         return peer_->server()->IsPeerCloseGraceful();
     }
 
-    virtual void CustomClose() { return peer_->CustomClose(); }
-    virtual void GracefulRestartStale() { }
-    virtual void GracefulRestartSweep() { }
-
-    // CloseComplete
-    //
     // Close process for this peer is complete. Restart the state machine and
     // attempt to bring up session with the neighbor
-    //
     virtual void CloseComplete() {
-        peer_->server()->decrement_closing_count();
-        if (!peer_->IsAdminDown())
+        if (!peer_->IsDeleted() && !peer_->IsAdminDown())
             peer_->state_machine_->Initialize();
-    }
-    virtual void Delete() {
-        if (!peer_->IsDeleted()) {
-            CloseComplete();
-            return;
-        }
-        peer_->server()->decrement_closing_count();
-        peer_->deleter()->RetryDelete();
-        is_closed_ = true;
-    }
-
-    bool IsClosed() const { return is_closed_; }
-    virtual PeerCloseManager *close_manager() { return manager_.get(); }
-
-    void Close() {
-        if (!manager_->IsCloseInProgress())
-            peer_->server()->increment_closing_count();
-        manager_->Close();
     }
 
 private:
     BgpPeer *peer_;
-    bool is_closed_;
     boost::scoped_ptr<PeerCloseManager> manager_;
 };
 
@@ -214,7 +195,7 @@ public:
 
     virtual bool MayDelete() const {
         CHECK_CONCURRENCY("bgp::Config");
-        if (!peer_->peer_close_->IsClosed())
+        if (peer_->IsCloseInProgress())
             return false;
         if (!peer_->state_machine_->IsQueueEmpty())
             return false;
@@ -229,6 +210,7 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         peer_->PostCloseRelease();
+        peer_->server()->decrement_deleting_count();
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
@@ -310,6 +292,10 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         " size " << msgsize);
 }
 
+void BgpPeer::BGPPeerInfoSend(BgpPeerInfoData &peer_info) {
+    BGPPeerInfo::Send(peer_info);
+}
+
 //
 // Callback from PeerRibMembershipManager.
 // Update pending membership request count and send EndOfRib for the family
@@ -332,7 +318,7 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("in sync");
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 
     SendEndOfRIB(table->family());
 }
@@ -342,7 +328,7 @@ bool BgpPeer::ResumeClose() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
     return true;
 }
 
@@ -419,7 +405,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_local_id(local_bgp_id_);
     peer_info.set_configured_families(config->GetAddressFamilies());
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 BgpPeer::~BgpPeer() {
@@ -429,7 +415,7 @@ BgpPeer::~BgpPeer() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_deleted(true);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Deleted");
 }
@@ -694,7 +680,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
 
     // Send the UVE as appropriate.
     if (admin_down_changed || clear_session) {
-        BGPPeerInfo::Send(peer_info);
+        BGPPeerInfoSend(peer_info);
     }
 }
 
@@ -802,7 +788,7 @@ void BgpPeer::Close() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 IPeerClose *BgpPeer::peer_close() {
@@ -898,7 +884,7 @@ void BgpPeer::RegisterAllTables() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 
     vector<Address::Family> family_list = list_of
         (Address::INET)(Address::INET6);
@@ -1056,7 +1042,7 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
         BgpPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());
         peer_info.set_send_state("not in sync");
-        BGPPeerInfo::Send(peer_info);
+        BGPPeerInfoSend(peer_info);
     }
     return send_ready_;
 }
@@ -1116,7 +1102,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
 
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 // Reset capabilities stored inside peer structure.
@@ -1132,7 +1118,7 @@ void BgpPeer::ResetCapabilities() {
     peer_info.set_families(families);
     vector<string> negotiated_families = vector<string>();
     peer_info.set_negotiated_families(negotiated_families);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
@@ -1453,7 +1439,7 @@ void BgpPeer::SetSendReady() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("in sync");
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void BgpPeer::set_session(BgpSession *session) {
@@ -1617,8 +1603,11 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
 }
 
 void BgpPeer::ManagedDelete() {
+    if (deleter_->IsDeleted())
+        return;
     BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Received request for deletion");
+    server()->increment_deleting_count();
     deleter_->Delete();
 }
 
@@ -1947,7 +1936,7 @@ void BgpPeer::increment_flap_count() {
     flap_info.set_flap_count(flap_count_);
     flap_info.set_flap_time(last_flap_);
     peer_info.set_flap_info(flap_info);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void BgpPeer::reset_flap_count() {
@@ -1958,5 +1947,5 @@ void BgpPeer::reset_flap_count() {
     peer_info.set_name(ToUVEKey());
     PeerFlapInfo flap_info;
     peer_info.set_flap_info(flap_info);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }

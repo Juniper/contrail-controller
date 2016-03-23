@@ -53,6 +53,16 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void AppendExtendedCommunity(ExtCommunity &comm,
+                const ExtCommunity::ExtCommunityList &list) {
+        comm.Append(list);
+    }
+
+    void PrependOriginVpn(OriginVnPath &path,
+                          const OriginVnPath::OriginVnValue &value) {
+        path.Prepend(value);
+    }
+
     EventManager evm_;
     BgpServer server_;
     BgpAttrDB *attr_db_;
@@ -576,7 +586,7 @@ TEST_F(BgpAttrTest, ExtCommunityAppend1) {
         put_value(comm.data(), comm.size(), 100 * idx);
         list.push_back(comm);
     }
-    extcomm1.Append(list);
+    AppendExtendedCommunity(extcomm1, list);
 
     ExtCommunitySpec spec2;
     for (int idx = 1; idx < 9; idx++)
@@ -598,7 +608,7 @@ TEST_F(BgpAttrTest, ExtCommunityAppend2) {
         put_value(comm.data(), comm.size(), 100 * idx);
         list.push_back(comm);
     }
-    extcomm1.Append(list);
+    AppendExtendedCommunity(extcomm1, list);
 
     ExtCommunitySpec spec2;
     for (int idx = 1; idx < 5; idx++)
@@ -683,7 +693,7 @@ TEST_F(BgpAttrTest, OriginVnPathPrepend) {
 
     for (int idx = 4; idx >= 1; idx--) {
         OriginVn origin_vn(64512, 100 * idx);
-        ovnpath1.Prepend(origin_vn.GetExtCommunity());
+        PrependOriginVpn(ovnpath1, origin_vn.GetExtCommunity());
     }
 
     OriginVnPathSpec spec2;
@@ -716,7 +726,7 @@ TEST_F(BgpAttrTest, OriginVnPathContains) {
 
     for (int idx = 8; idx > 0; idx -= 2) {
         OriginVn origin_vn(64512, 100 * idx);
-        ovnpath.Prepend(origin_vn.GetExtCommunity());
+        PrependOriginVpn(ovnpath, origin_vn.GetExtCommunity());
     }
 
     for (int idx = 1; idx <= 9; idx++) {
@@ -1227,11 +1237,11 @@ TEST_F(BgpAttrTest, PmsiTunnel4a) {
 
     const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
-        pmsi_tunnel->tunnel_flags);
+        pmsi_tunnel->tunnel_flags());
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
-        pmsi_tunnel->tunnel_type);
+        pmsi_tunnel->tunnel_type());
     EXPECT_EQ(10000, pmsi_tunnel->GetLabel());
-    EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier.to_string());
+    EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier().to_string());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel4b) {
@@ -1248,11 +1258,11 @@ TEST_F(BgpAttrTest, PmsiTunnel4b) {
 
     const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
     EXPECT_EQ(PmsiTunnelSpec::EdgeReplicationSupported,
-        pmsi_tunnel->tunnel_flags);
+        pmsi_tunnel->tunnel_flags());
     EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
-        pmsi_tunnel->tunnel_type);
+        pmsi_tunnel->tunnel_type());
     EXPECT_EQ(EvpnPrefix::kMaxVni, pmsi_tunnel->GetLabel(true));
-    EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier.to_string());
+    EXPECT_EQ("10.1.1.1", pmsi_tunnel->identifier().to_string());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel5) {

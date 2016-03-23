@@ -1673,6 +1673,10 @@ int StateMachine::GetConfiguredHoldTime() const {
     return kHoldTime;
 }
 
+void StateMachine::BGPPeerInfoSend(BgpPeerInfoData &peer_info) {
+    BGPPeerInfo::Send(peer_info);
+}
+
 void StateMachine::set_last_event(const std::string &event) {
     last_event_ = event;
     last_event_at_ = UTCTimestampUsec();
@@ -1687,7 +1691,7 @@ void StateMachine::set_last_event(const std::string &event) {
     event_info.set_last_event(last_event_);
     event_info.set_last_event_at(last_event_at_);
     peer_info.set_event_info(event_info);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::set_last_notification_out(int code, int subcode,
@@ -1701,7 +1705,7 @@ void StateMachine::set_last_notification_out(int code, int subcode,
     peer_info.set_notification_out_at(last_notification_out_at_);
     peer_info.set_notification_out(BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(code), subcode));
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::set_last_notification_in(int code, int subcode,
@@ -1715,7 +1719,7 @@ void StateMachine::set_last_notification_in(int code, int subcode,
     peer_info.set_notification_in_at(last_notification_in_at_);
     peer_info.set_notification_in(BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(code), subcode));
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::set_state(State state) {
@@ -1729,7 +1733,7 @@ void StateMachine::set_state(State state) {
     state_info.set_last_state(LastStateName());
     state_info.set_last_state_at(last_state_change_at_);
     peer_info.set_state_info(state_info);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::set_hold_time(int hold_time) {
@@ -1738,7 +1742,7 @@ void StateMachine::set_hold_time(int hold_time) {
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_hold_time(hold_time_);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::reset_hold_time() {
@@ -1747,7 +1751,7 @@ void StateMachine::reset_hold_time() {
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_hold_time(hold_time_);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
 
 void StateMachine::reset_last_info() {
@@ -1774,5 +1778,5 @@ void StateMachine::reset_last_info() {
     event_info.set_last_event(last_event_);
     event_info.set_last_event_at(last_event_at_);
     peer_info.set_event_info(event_info);
-    BGPPeerInfo::Send(peer_info);
+    BGPPeerInfoSend(peer_info);
 }
