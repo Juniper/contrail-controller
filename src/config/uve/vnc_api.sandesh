@@ -66,7 +66,7 @@ struct VncApiStats {
     7: string object_type (key="ConfigObjectTable")
     8: double response_time_in_usec
     9: u64 response_size
-    10: u64 response_code
+    10: string resp_code
 }
 
 /**
@@ -75,5 +75,5 @@ struct VncApiStats {
  * @action: No action needed
  */
 objectlog sandesh VncApiStatsLog {
-    1: VncApiStats api_stats (tags=".operation_type,.user,.useragent,.remote_ip,.domain_name,.project_name,.object_type,.response_time_in_usec,.response_size,.response_code")
+1: VncApiStats api_stats (tags=".operation_type,.user,.useragent,.remote_ip,.domain_name:.project_name,.object_type,.response_time_in_usec,.response_size,.resp_code")
 }
