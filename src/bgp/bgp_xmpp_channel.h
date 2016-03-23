@@ -110,7 +110,7 @@ public:
     void FillCloseInfo(BgpNeighborResp *resp) const;
     void StaleCurrentSubscriptions();
     void SweepCurrentSubscriptions();
-    void XMPPPeerInfoSend(XmppPeerInfoData &peer_info);
+    void XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const;
 
     const XmppChannel *channel() const { return channel_; }
 

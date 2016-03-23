@@ -533,7 +533,7 @@ BgpXmppChannel::~BgpXmppChannel() {
     channel_->UnRegisterReceive(peer_id_);
 }
 
-void BgpXmppChannel::XMPPPeerInfoSend(XmppPeerInfoData &peer_info) {
+void BgpXmppChannel::XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const {
     XMPPPeerInfo::Send(peer_info);
 }
 
