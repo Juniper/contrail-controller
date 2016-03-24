@@ -79,21 +79,6 @@ void Dns::SetTaskSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("http::RequestHandlerTask")));
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
                          exclude_io);
-
-    const char *garbage_exclude_list[] = {
-        "dns::Config",
-        "dns::BindStatus",
-        "db::DBTable",
-        "bgp::Config",
-        "xmpp::StateMachine",
-    };
-    arraysize = sizeof(garbage_exclude_list) / sizeof(char *);
-    TaskPolicy garbage_exclude;
-    for (int i = 0; i < arraysize; ++i) {
-        int task_id = scheduler->GetTaskId(garbage_exclude_list[i]);
-        garbage_exclude.push_back(TaskExclusion(task_id));
-    }
-    scheduler->SetPolicy(scheduler->GetTaskId("dns::GarbageCleaner"), garbage_exclude);
 }
 
 void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
