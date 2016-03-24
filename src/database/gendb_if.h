@@ -134,7 +134,8 @@ struct NewCol {
 
     bool operator==(const NewCol &rhs) const {
         return (*rhs.name == *name &&
-                *rhs.value == *value);
+                *rhs.value == *value &&
+                rhs.ttl == ttl);
     }
 
     size_t GetSize() const;
