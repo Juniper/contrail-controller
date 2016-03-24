@@ -229,19 +229,9 @@ def redis_query_result(host, port, redis_password, qid):
     try:
         status = redis_query_status(host, port, redis_password, qid)
     except redis.exceptions.ConnectionError:
-        # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-            name = 'Query', status = ConnectionStatus.DOWN,
-            message = 'Query[%s] result : Connection Error' % (qid),
-            server_addrs = ['%s:%d' % (host, port)]) 
         yield bottle.HTTPError(_ERRORS[errno.EIO],
                 'Failure in connection to the query DB')
     except Exception as e:
-        # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-            name = 'Query', status = ConnectionStatus.DOWN,
-            message = 'Query[%s] result : Exception: %s' % (qid, str(e)),
-            server_addrs = ['%s:%d' % (host, port)])
         self._logger.error("Exception: %s" % e)
         yield bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
     else:
@@ -256,12 +246,6 @@ def redis_query_result(host, port, redis_password, qid):
                     yield gen
         else:
             yield {}
-    # Update connection info
-    ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-        message = None,
-        status = ConnectionStatus.UP,
-        server_addrs = ['%s:%d' % (host, port)],
-        name = 'Query')
     return
 # end redis_query_result
 
@@ -995,21 +979,9 @@ class OpServer(object):
                                       redis_password=self._args.redis_password,
                                       qid=qid)
         except redis.exceptions.ConnectionError:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query[%s] status : Connection Error' % (qid),
-                server_addrs = ['%s:%s' % (redis_query_ip, \
-                    str(self._args.redis_query_port))])
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query[%s] status : Exception %s' % (qid, str(e)),
-                server_addrs = ['%s:%s' % (redis_query_ip, \
-                    str(self._args.redis_query_port))])
             self._logger.error("Exception: %s" % e)
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
         else:
@@ -1041,23 +1013,9 @@ class OpServer(object):
                 except StopIteration:
                     done = True
         except redis.exceptions.ConnectionError:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query [%s] chunk #%d : Connection Error' % \
-                    (qid, chunk_id),
-                server_addrs = ['%s:%s' % (redis_query_ip, \
-                    str(self._args.redis_query_port))])
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query [%s] chunk #%d : Exception %s' % \
-                    (qid, chunk_id, str(e)),
-                server_addrs = ['%s:%s' % (redis_query_ip, \
-                    str(self._args.redis_query_port))])
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.ENOENT], 'Error: %s' % e)
         else:
@@ -1123,33 +1081,15 @@ class OpServer(object):
                                     self._args.redis_password,
                                     qid, request.json)
             if prg is None:
-                # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                    name = 'Query', status = ConnectionStatus.DOWN,
-                    message = 'Query[%s] Query Engine not responding' % qid,
-                    server_addrs = ['127.0.0.1' + ':' + 
-                        str(self._args.redis_query_port)])  
                 self._logger.error('QE Not Responding')
                 yield bottle.HTTPError(_ERRORS[errno.EBUSY], 
                         'Query Engine is not responding')
                 return
 
         except redis.exceptions.ConnectionError:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query[%s] Connection Error' % (qid),
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Query[%s] Exception: %s' % (qid, str(e)),
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Error: %s' % e)
@@ -1236,31 +1176,13 @@ class OpServer(object):
             '''
 
         except redis.exceptions.ConnectionError:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Sync Query[%s] Connection Error' % qid,
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Sync Query[%s] Exception: %s' % (qid, str(e)),
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.EIO], 
                     'Error: %s' % e)
         else:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.UP,
-                message = None,
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)]) 
             self._logger.info(
                 "Query Result available at time %d" % time.time())
         return
@@ -1329,21 +1251,9 @@ class OpServer(object):
             queries['abandoned_queries'] = abandoned_queries_info
             queries['error_queries'] = error_queries_info
         except redis.exceptions.ConnectionError:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Show queries : Connection Error',
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as err:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.REDIS_QUERY,
-                name = 'Query', status = ConnectionStatus.DOWN,
-                message = 'Show queries : Exception %s' % str(err),
-                server_addrs = ['127.0.0.1' + ':' + 
-                    str(self._args.redis_query_port)])  
             self._logger.error("Exception in show queries: %s" % str(err))
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % err)
         else:
