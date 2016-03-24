@@ -432,7 +432,12 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     uint32_t temp_u32;
     std::string temp_str;
 
-    int ttl = GetTtl(TtlType::GLOBAL_TTL);
+    int ttl;
+    if (message_type == "VncApiConfigLog") {
+        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
+    } else {
+        ttl = GetTtl(TtlType::GLOBAL_TTL);
+    }
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
     // Rowkey
