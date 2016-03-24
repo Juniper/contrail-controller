@@ -52,7 +52,7 @@ public:
     void ProcessRibIn(DBTablePartBase *root, BgpRoute *rt, BgpTable *table,
                       int action_mask);
     bool IsCloseInProgress();
-    void StartRestartTimer(int time);
+    void ProcessEORMarkerReceived(Address::Family family);
     void FillCloseInfo(BgpNeighborResp *resp);
     const State state() const { return state_; }
 
@@ -75,6 +75,7 @@ public:
 private:
     friend class PeerCloseManagerTest;
 
+    void StartRestartTimer(int time);
     void ProcessClosure();
     void CloseComplete();
     bool ProcessSweepStateActions();
@@ -86,6 +87,7 @@ private:
     Timer *sweep_timer_;
     State state_;
     bool close_again_;
+    IPeerClose::Families families_;
     Stats stats_;
     tbb::recursive_mutex mutex_;
 };
