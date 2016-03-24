@@ -199,7 +199,7 @@ public:
     uint64_t cancel_count() const { return cancel_count_; }
     // Force number of threads
     void SetMaxThreadCount(int n);
-    void GetSandeshData(SandeshTaskScheduler *resp);
+    void GetSandeshData(SandeshTaskScheduler *resp, bool summary);
     void Log(const char *file_name, uint32_t line_no, const Task *task,
              const char *description, uint32_t delay);
     void RegisterLog(LogFn fn);
