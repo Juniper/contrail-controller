@@ -166,7 +166,7 @@ std::string LogicalSwitchEntry::tor_service_node() const {
     return ovsdb_wrapper_mcast_mac_remote_dst_ip(mcast_remote_row_);
 }
 
-const OvsdbResourceVxLanId &LogicalSwitchEntry::res_vxlan_id() const {
+OvsdbResourceVxLanId &LogicalSwitchEntry::res_vxlan_id() {
     return res_vxlan_id_;
 }
 
@@ -228,7 +228,7 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     if (!ret) {
         // failed to get vxlan-id hold entry in defer state
         // and delete ovs
-        DeleteOvs();
+        DeleteOvs(true);
         return KSyncObjectManager::default_defer_entry();
     }
 
@@ -273,7 +273,7 @@ void LogicalSwitchEntry::Ack(bool success) {
             // trigger delete ovs completed/cancel
             CancelDeleteOvs();
             // try delete OVS again
-            DeleteOvs();
+            DeleteOvs(false);
         }
     }
     ReleaseLocatorCreateReference();
@@ -293,7 +293,7 @@ void LogicalSwitchEntry::TxnDoneNoMessage() {
     ReleaseLocatorCreateReference();
 }
 
-void LogicalSwitchEntry::DeleteOvs() {
+void LogicalSwitchEntry::DeleteOvs(bool add_change_in_progress) {
     if (ovs_entry_ == NULL || delete_ovs_ == true) {
         return;
     }
@@ -303,11 +303,16 @@ void LogicalSwitchEntry::DeleteOvs() {
     // should not be triggered on stale entry
     assert(!stale());
 
-    // this API internally triggers DELADD_REQ on KSync entry
-    // which will activate the entry, if it needs to handle this
-    // operation for an inactive entry, it also needs to ensure
-    // that eventually an ADD should not be triggered
-    assert(IsActive());
+    // skip assert if this API is called inline from an Add/Change
+    // processing, where the state may say not active while this API
+    // is called and will result in false failures
+    if (!add_change_in_progress) {
+        // this API internally triggers DELADD_REQ on KSync entry
+        // which will activate the entry, if it needs to handle this
+        // operation for an inactive entry, it also needs to ensure
+        // that eventually an ADD should not be triggered
+        assert(IsActive());
+    }
 
     del_task_ = new ProcessDeleteOvsReqTask(this);
     TaskScheduler *scheduler = table_->client_idl()->agent()->task_scheduler();
