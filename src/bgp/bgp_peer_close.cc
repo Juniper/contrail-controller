@@ -109,14 +109,22 @@ void PeerCloseManager::Close() {
     }
 }
 
+void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
+    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    if (state_ == GR_TIMER && !families_.empty()) {
+        if (family == Address::UNSPEC) {
+            families_.clear();
+        } else {
+            families_.erase(family);
+        }
+        if (families_.empty())
+            StartRestartTimer(0);
+    }
+}
+
 // Process RibIn staling related activities during peer closure
 // Return true if at least ome time is started, false otherwise
 void PeerCloseManager::StartRestartTimer(int time) {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
-
-    if (state_ != GR_TIMER)
-        return;
-
     stale_timer_->Cancel();
     PEER_CLOSE_MANAGER_LOG("GR Timer started to fire after " << time <<
                            " seconds");
@@ -183,7 +191,9 @@ void PeerCloseManager::CloseComplete() {
     MOVE_TO_STATE(NONE);
     stale_timer_->Cancel();
     sweep_timer_->Cancel();
+    families_.clear();
     stats_.init++;
+
 
     // Nested closures trigger fresh GR
     if (close_again_) {
@@ -232,6 +242,7 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         // hoping for the peer (and the paths) to come back up.
         peer_->peer_close()->CloseComplete();
         MOVE_TO_STATE(GR_TIMER);
+        peer_->peer_close()->GetNegotiatedFamilies(&families_);
         StartRestartTimer(PeerCloseManager::kDefaultGracefulRestartTimeMsecs);
         stats_.gr_timer++;
         return;

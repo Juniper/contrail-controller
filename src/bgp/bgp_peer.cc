@@ -78,6 +78,12 @@ class BgpPeer::PeerClose : public IPeerClose {
             peer_->state_machine_->Initialize();
     }
 
+    virtual void GetNegotiatedFamilies(Families *families) const {
+        BOOST_FOREACH(const string family, peer_->negotiated_families()) {
+            families->insert(Address::FamilyFromString(family));
+        }
+    }
+
 private:
     BgpPeer *peer_;
     boost::scoped_ptr<PeerCloseManager> manager_;
@@ -261,6 +267,7 @@ void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
         "EndOfRib marker family " << Address::FamilyToString(family) <<
         " size " << msgsize);
 
+    peer_close_->close_manager()->ProcessEORMarkerReceived(family);
     if (family != Address::RTARGET)
         return;
     end_of_rib_timer_->Cancel();

@@ -169,6 +169,11 @@ public:
             connection->server())->IsPeerCloseGraceful();
     }
 
+    // EoR from xmpp is afi independent at the moment.
+    virtual void GetNegotiatedFamilies(Families *families) const {
+        families->insert(Address::UNSPEC);
+    }
+
     virtual void CustomClose() {
         if (!parent_ || parent_->rtarget_routes_.empty())
             return;
@@ -2272,7 +2277,8 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 
                 // Empty items-list can be considered as EOR Marker for all afis
                 if (item == 0) {
-                    peer_close_->close_manager()->StartRestartTimer(0);
+                    peer_close_->close_manager()->ProcessEORMarkerReceived(
+                            Address::UNSPEC);
                     return;
                 }
                 for (; item; item = item.next_sibling()) {
