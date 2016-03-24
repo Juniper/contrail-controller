@@ -162,11 +162,6 @@ def parse_args():
     parser.add_argument(
         '--load-balance',  help="Load balance specified service type", action="store_true")
     parser.add_argument(
-        '--oper-state', choices = ['up', 'down'],
-        help="Set operational state of a service")
-    parser.add_argument(
-        '--oper-state-reason', help="Reason for down operational state of a service")
-    parser.add_argument(
         '--admin-state', choices = ['up', 'down'],
         help="Set administrative state of a service")
     parser.add_argument(
@@ -264,7 +259,7 @@ except Exception as e:
 headers = DEFAULT_HEADERS.copy()
 headers['X-AUTH-TOKEN'] = vnc.get_auth_token()
 
-if args.oper_state or args.admin_state or args.oper_state_reason:
+if args.admin_state:
     if not args.service_id or not args.service_type:
         print 'Please specify service type and ID'
         sys.exit(1)
@@ -272,10 +267,6 @@ if args.oper_state or args.admin_state or args.oper_state_reason:
     data = {
         "service-type": args.service_type,
     }
-    if args.oper_state:
-        data['oper-state'] = args.oper_state
-    if args.oper_state_reason:
-        data['oper-state-reason'] = args.oper_state_reason
     if args.admin_state:
         data['admin-state'] = args.admin_state
     url = "http://%s:%s/service/%s" % (server_ip, server_port, args.service_id)
