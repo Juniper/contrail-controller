@@ -392,32 +392,8 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
         mac_addrs_dict = json.loads(mac_addrs_json)
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
-        if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
-            aap_config = obj_dict['virtual_machine_interface_allowed_address_pairs']
-            if 'allowed_address_pair' in aap_config:
-                aaps = aap_config['allowed_address_pair']
-                for aap in aaps or []:
-                    if aap['mac'] == "":
-                        aap['mac'] = obj_dict['virtual_machine_interface_mac_addresses']['mac_address'][0]
         return True, ""
     # end http_post_collection
-
-    @classmethod
-    def http_put(cls, id, fq_name, obj_dict, db_conn):
-        if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
-            vmi_id = {'uuid': id}
-            (read_ok, read_result) = db_conn.dbe_read('virtual-machine-interface', vmi_id)
-            if not read_ok:
-                return (False, (500, read_result))
-
-            aap_config = obj_dict['virtual_machine_interface_allowed_address_pairs']
-            if 'allowed_address_pair' in aap_config:
-                aaps = aap_config['allowed_address_pair']
-                for aap in aaps or []:
-                    if aap['mac'] == "":
-                        aap['mac'] = read_result['virtual_machine_interface_mac_addresses']['mac_address'][0]
-        return True, ""
-    # end http_put
 # end class VirtualMachineInterfaceServer
 
 
