@@ -551,12 +551,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         mac_addrs_dict = json.loads(mac_addrs_json)
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
-        aap_config = obj_dict.get(
-            'virtual_machine_interface_allowed_address_pairs', {})
-        for aap in aap_config.get('allowed_address_pair', []):
-            if not aap.get('mac', None):
-                aap['mac'] = mac_addrs_dict['mac_address'][0]
-
         if 'virtual_machine_interface_bindings' in obj_dict:
             bindings = obj_dict['virtual_machine_interface_bindings']
             kvps = bindings['key_value_pair']
@@ -639,13 +633,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     # Dont allow remove of vmi ref during update
                     msg = "VMI ref delete not allowed during update"
                     return (False, (409, msg))
-
-        aap_config = obj_dict.get(
-            'virtual_machine_interface_allowed_address_pairs', {})
-        for aap in aap_config.get('allowed_address_pair', []):
-            if not aap.get('mac', None):
-                aap['mac'] = read_result[
-                    'virtual_machine_interface_mac_addresses']['mac_address'][0]
 
         bindings = read_result.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
