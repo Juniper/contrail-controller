@@ -27,7 +27,7 @@ struct SandeshTaskGroup {
     1: string name;
     2: u32 task_id;
     3: list <SandeshTaskEntry> task_entry_list;
-    4: list <SandeshTaskPolicyEntry> task_policy_list;
+    4: optional list <SandeshTaskPolicyEntry> task_policy_list;
 }
 
 response sandesh SandeshTaskScheduler {
@@ -38,6 +38,9 @@ response sandesh SandeshTaskScheduler {
 }
 
 request sandesh SandeshTaskRequest {
+}
+
+request sandesh SandeshTaskSummaryRequest {
 }
 
 /**
