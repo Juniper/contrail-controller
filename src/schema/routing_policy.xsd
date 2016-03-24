@@ -23,6 +23,21 @@
 </xsd:simpleType>
 
 <xsd:complexType name='CommunityListType'>
+    <xsd:annotation>
+        <xsd:documentation>
+          List of Community attributes
+          This list indicates the attributes with which routes are tagged while
+          publishing. The attributes will be represented as bgp community in
+          the path attribute. Each attribute is indicated as string
+            1. String with two integer seperated by  ':'. E.g. "64512:123"
+            2. Wellknown community as string.  Possible values are
+                 "no-export"
+                 "accept-own"
+                 "no-advertise"
+                 "no-export-subconfed"
+                 "no-reoriginate"
+        </xsd:documentation>
+    </xsd:annotation>
     <xsd:element name='community' type='xsd:string' maxOccurs='unbounded'/>
 </xsd:complexType>
 
