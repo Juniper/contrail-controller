@@ -140,6 +140,9 @@ public:
     virtual PeerCloseManager *close_manager() {
         return manager_.get();
     }
+    virtual const int GetGracefulRestartTime() const {
+        return PeerCloseManager::kDefaultGracefulRestartTimeMsecs;
+    }
 
     // Mark all current subscription as 'stale'
     // Concurrency: Protected with a mutex from peer close manager
@@ -170,7 +173,7 @@ public:
     }
 
     // EoR from xmpp is afi independent at the moment.
-    virtual void GetNegotiatedFamilies(Families *families) const {
+    virtual void GetGracefulRestartFamilies(Families *families) const {
         families->insert(Address::UNSPEC);
     }
 
