@@ -25,6 +25,8 @@ oper_flaky_test_suite = []
 test_agent_sandesh = AgentEnv.MakeTestCmd(env, 'test_agent_sandesh', oper_test_suite)
 test_config_manager = AgentEnv.MakeTestCmd(env, 'test_config_manager', oper_test_suite)
 test_intf = AgentEnv.MakeTestCmd(env, 'test_intf', oper_test_suite)
+test_intf_policy = AgentEnv.MakeTestCmd(env, 'test_intf_policy',
+                                        oper_test_suite)
 test_find_scale = AgentEnv.MakeTestCmd(env, 'test_find_scale', oper_test_suite)
 test_logical_intf = AgentEnv.MakeTestCmd(env, 'test_logical_intf', oper_test_suite)
 test_vrf_assign = AgentEnv.MakeTestCmd(env, 'test_vrf_assign', oper_test_suite)
