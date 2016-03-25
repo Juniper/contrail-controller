@@ -110,6 +110,8 @@ public:
         return delete_on_completion_;
     }
 
+    int GetElapsedTime() const;
+
     // Only for state machine test
     // XXX: Don't use in production code
     void Fire() { 
@@ -125,6 +127,7 @@ public:
         return name_;
     }
 private:
+    friend class TimerImpl;
     friend class TimerManager;
     friend class TimerTest;
 

@@ -126,7 +126,7 @@ public:
     void SetSendReady();
 
     // thread: io::ReaderTask
-    void SetCapabilities(const BgpProto::OpenMessage *msg);
+    bool SetCapabilities(const BgpProto::OpenMessage *msg);
     void ResetCapabilities();
 
     // Table registration.
@@ -290,10 +290,22 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
+    void AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
+    bool SetGRCapabilities(BgpPeerInfoData *peer_info);
+    const BgpProto::OpenMessage::Capability::GR &gr_params() const {
+        return gr_params_;
+    }
+    BgpProto::OpenMessage::Capability::GR &gr_params() { return gr_params_; }
 
 protected:
-    std::vector<std::string> &negotiated_families() {
+    const std::vector<std::string> &negotiated_families() const {
         return negotiated_families_;
+    }
+    const std::vector<std::string> &graceful_restart_families() const {
+        return graceful_restart_families_;
+    }
+    std::vector<std::string> &graceful_restart_families() {
+        return graceful_restart_families_;
     }
     void SendEndOfRIB(Address::Family family);
 
@@ -307,6 +319,7 @@ private:
     class PeerClose;
     class PeerStats;
 
+    typedef std::map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
     typedef std::vector<BgpPeerFamilyAttributes *> FamilyAttributesList;
 
     void KeepaliveTimerErrorHandler(std::string error_name,
@@ -352,6 +365,7 @@ private:
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
+    static const Address::Family supported_families_[];
     BgpServer *server_;
     RoutingInstance *rtinstance_;
     TcpSession::Endpoint endpoint_;
@@ -407,6 +421,7 @@ private:
     FamilyAttributesList family_attributes_list_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
+    std::vector<std::string> graceful_restart_families_;
     BgpProto::BgpPeerType peer_type_;
     boost::scoped_ptr<StateMachine> state_machine_;
     boost::scoped_ptr<PeerClose> peer_close_;
@@ -420,6 +435,7 @@ private:
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;
+    BgpProto::OpenMessage::Capability::GR gr_params_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };

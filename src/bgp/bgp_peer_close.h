@@ -37,7 +37,8 @@ class PeerCloseManager {
 public:
     enum State { NONE, STALE, GR_TIMER, SWEEP, DELETE };
 
-    static const int kDefaultGracefulRestartTimeMsecs = 60*1000;
+    // RestartTime field in BGP GR capability is only 12 bits wide.
+    static const int kDefaultGracefulRestartTimeMsecs = 0x0fff*1000;
 
     // thread: bgp::StateMachine
     explicit PeerCloseManager(IPeer *peer);
@@ -87,6 +88,7 @@ private:
     Timer *sweep_timer_;
     State state_;
     bool close_again_;
+    int elapsed_;
     IPeerClose::Families families_;
     Stats stats_;
     tbb::recursive_mutex mutex_;
