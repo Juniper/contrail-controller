@@ -2080,7 +2080,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
             self.assertThat(resp.status_code, Equals(200))
 
         logger.info("Negative case without Documentation")
-        url = 'http://%s:%s/' %(listen_ip, listen_port)
+        url = 'http://%s:%s/virtual-networks' %(listen_ip, listen_port)
         orig_rbac_role = TestLocalAuth._rbac_role
         try:
             TestLocalAuth._rbac_role = 'foobar'
