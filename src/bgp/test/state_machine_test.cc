@@ -613,7 +613,7 @@ TEST_F(StateMachineUnitTest, Matrix) {
             TRANSITION2(EvBgpNotification, StateMachine::IDLE)
             TRANSITION(EvConnectTimerExpired, StateMachine::ESTABLISHED)
             TRANSITION(EvOpenTimerExpired, StateMachine::ESTABLISHED)
-            TRANSITION(EvTcpPassiveOpen, StateMachine::ESTABLISHED)
+            TRANSITION(EvTcpPassiveOpen, StateMachine::IDLE)
             TRANSITION2(EvBgpUpdate, StateMachine::ESTABLISHED);
 
     Transitions matrix[] =
@@ -2573,10 +2573,9 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     TaskScheduler::GetInstance()->Start();
-    VerifyState(StateMachine::ESTABLISHED);
-    VerifyDirection(BgpSessionMock::ACTIVE);
+    VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
-    TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() != NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
 }
 
 // Old State: Established
@@ -2589,7 +2588,7 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     EvBgpOpenCustom(session, lower_id_);
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
-    VerifyState(StateMachine::ESTABLISHED);
+    VerifyState(StateMachine::IDLE);
 }
 
 // Old State: Established

@@ -352,6 +352,81 @@ TEST_F(BgpProtoTest, Open3) {
     delete result;
 }
 
+TEST_F(BgpProtoTest, Open4) {
+
+    uint8_t data[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                      0x00, 0x4b, 0x01, 0x04, 0x1d, 0xfb, 0x00, 0xb4,
+                      0xc0, 0xa8, 0x38, 0x65, 0x2e, 0x02, 0x06, 0x01,
+                      0x04, 0x00, 0x01, 0x00, 0x01, 0x02, 0x02, 0x80,
+                      0x00, 0x02, 0x02, 0x02, 0x00, 0x02, 0x06, 0x41,
+                      0x04, 0x00, 0x00, 0x1d, 0xfb,
+
+                      0x02, 0x14, 0x40, 0x12, // Graceful Restart 18 Bytes
+                      0x00, 0x5a,             // Restart time: 90 Seconds
+                      0x00, 0x01, 0x80, 0x80, // IPv4 Vpn with Forwarding
+                      0x00, 0x01, 0x84, 0x80, // IPv4 RTarget with Forwarding
+                      0x00, 0x19, 0x46, 0x80, // L2Vpn EVpn with Forwarding
+                      0x00, 0x01, 0xf3, 0x80, // IPv4 ErmVpn with Forwarding
+    };
+
+    const BgpProto::OpenMessage *result =
+            static_cast<const BgpProto::OpenMessage *>(
+                    BgpProto::Decode(data, sizeof(data)));
+    EXPECT_TRUE(result != NULL);
+    EXPECT_EQ(5, result->opt_params.size());
+    for (size_t i = 0; i < result->opt_params.size(); i++) {
+        EXPECT_EQ(1, result->opt_params[i]->capabilities.size());
+    }
+    const BgpProto::OpenMessage::Capability *cap =
+        result->opt_params[0]->capabilities[0];
+    EXPECT_EQ(1, cap->code);
+    const unsigned char temp[] = {0, 1, 0, 1};
+    EXPECT_EQ(cap->capability, vector<uint8_t>(temp, temp + 4));
+
+    cap = result->opt_params[1]->capabilities[0];
+    EXPECT_EQ(0x80, cap->code);
+    EXPECT_EQ(0, cap->capability.size());
+
+    cap = result->opt_params[2]->capabilities[0];
+    EXPECT_EQ(0x02, cap->code);
+    EXPECT_EQ(0, cap->capability.size());
+
+    cap = result->opt_params[3]->capabilities[0];
+    EXPECT_EQ(0x41, cap->code);
+    const unsigned char temp2[] = {0, 0, 0x1d, 0xfb};
+    EXPECT_EQ(cap->capability, vector<uint8_t>(temp2, temp2 + 4));
+
+    cap = result->opt_params[4]->capabilities[0];
+    EXPECT_EQ(BgpProto::OpenMessage::Capability::GracefulRestart, cap->code);
+    BgpProto::OpenMessage::Capability::GR gr_params =
+        BgpProto::OpenMessage::Capability::GR();
+    BgpProto::OpenMessage::Capability::GR::Decode(&gr_params,
+            result->opt_params[4]->capabilities);
+
+    EXPECT_EQ(gr_params.flags, 0x00);
+    EXPECT_EQ(gr_params.time, 0x5a);
+    EXPECT_EQ(4, gr_params.families.size());
+
+    EXPECT_EQ(BgpAf::IPv4, gr_params.families[0].afi);
+    EXPECT_EQ(BgpAf::Vpn, gr_params.families[0].safi);
+    EXPECT_EQ(0x80, gr_params.families[0].flags);
+
+    EXPECT_EQ(BgpAf::IPv4, gr_params.families[1].afi);
+    EXPECT_EQ(BgpAf::RTarget, gr_params.families[1].safi);
+    EXPECT_EQ(0x80, gr_params.families[1].flags);
+
+    EXPECT_EQ(BgpAf::L2Vpn, gr_params.families[2].afi);
+    EXPECT_EQ(BgpAf::EVpn, gr_params.families[2].safi);
+    EXPECT_EQ(0x80, gr_params.families[2].flags);
+
+    EXPECT_EQ(BgpAf::IPv4, gr_params.families[3].afi);
+    EXPECT_EQ(BgpAf::ErmVpn, gr_params.families[3].safi);
+    EXPECT_EQ(0x80, gr_params.families[3].flags);
+
+    delete result;
+}
+
 TEST_F(BgpProtoTest, Notification) {
     BgpProto::Notification notification;
     notification.error = BgpProto::Notification::MsgHdrErr;
