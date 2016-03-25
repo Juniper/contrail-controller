@@ -563,7 +563,8 @@ struct Active : sc::state<Active, StateMachine> {
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->AssignSession(false);
         peer->SendOpen(session);
-        peer->SetCapabilities(event.msg.get());
+        if (!peer->SetCapabilities(event.msg.get()))
+            return discard_event();
         return transit<OpenConfirm>();
     }
 };
@@ -701,7 +702,8 @@ struct Connect : sc::state<Connect, StateMachine> {
         state_machine->set_active_session(NULL);
         state_machine->AssignSession(false);
         peer->SendOpen(session);
-        peer->SetCapabilities(event.msg.get());
+        if (!peer->SetCapabilities(event.msg.get()))
+            return discard_event();
         return transit<OpenConfirm>();
     }
 };
@@ -890,7 +892,8 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
 
         int local_holdtime = state_machine->GetConfiguredHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
-        peer->SetCapabilities(event.msg.get());
+        if (!peer->SetCapabilities(event.msg.get()))
+            return discard_event();
         return transit<OpenConfirm>();
     }
 

@@ -249,9 +249,11 @@ public:
         xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
                     boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
                                 graceful);
-        server_->GetIsPeerCloseGraceful_fnc_ =
+        for (int i = 1; i <= n_peers_; i++) {
+            bgp_servers_[i]->GetIsPeerCloseGraceful_fnc_ =
                     boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
                                 graceful);
+        }
     }
 
 protected:
@@ -942,7 +944,7 @@ void GracefulRestartTest::InitParams() {
 //     Subset of routes are [re]advertised after restart
 //     Subset of routing-instances are deleted (during GR)
 void GracefulRestartTest::GracefulRestartTestStart () {
-    SetPeerCloseGraceful(false);
+    SetPeerCloseGraceful(true);
     Configure();
 
     //  Bring up n_agents_ in n_instances_ and advertise n_routes_ per session
@@ -1186,12 +1188,6 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     //  Verify that n_agents_ * n_instances_ * n_routes_ routes are received in
     //  agent in each instance
     VerifyReceivedXmppRoutes(total_routes);
-
-    // TODO Only a subset of agents support GR
-    // BOOST_FOREACH(test::NetworkAgentMock *agent, n_gr_supported_agents)
-        SetPeerCloseGraceful(true);
-
-
     vector<test::NetworkAgentMock *> dont_unsubscribe =
         vector<test::NetworkAgentMock *>();
 
