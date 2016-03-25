@@ -138,6 +138,9 @@ class Subscribe(object):
             except (requests.exceptions.Timeout, socket.timeout):
                 self.stats['timeout'] += 1
                 emsg = 'Request Timeout'
+            except Exception as e:
+                self.stats['exc_unknown'] += 1
+                emsg = str(e)
             self.syslog('connection error or failed to subscribe')
             if not conn_state_updated:
                 conn_state_updated = True
