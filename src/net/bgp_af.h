@@ -34,6 +34,8 @@ public:
     static std::string ToString(uint16_t afi, uint8_t safi);
     static Address::Family AfiSafiToFamily(uint16_t afi, uint8_t safi);
     static std::pair<uint16_t, uint8_t> FamilyToAfiSafi(Address::Family family);
+    static Afi FamilyToAfi(Address::Family family);
+    static Safi FamilyToSafi(Address::Family family);
 };
 
 #endif

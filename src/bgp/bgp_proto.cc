@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_proto.h"
 
+#include <boost/foreach.hpp>
+
 #include <algorithm>
 #include <list>
 #include <map>
@@ -16,6 +18,7 @@
 #include "net/bgp_af.h"
 
 using boost::system::error_code;
+using boost::tie;
 using std::cout;
 using std::endl;
 using std::string;
@@ -113,6 +116,82 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
     return 0;
 }
 
+BgpProto::OpenMessage::Capability *
+BgpProto::OpenMessage::Capability::GR::Encode(
+        uint16_t gr_time, uint8_t gr_flags, uint8_t gr_afi_flags,
+        const vector<Address::Family> &gr_families) {
+    assert((gr_time >> RestartTimeBitPosition) == 0);
+    const uint16_t gr_bytes = (gr_flags << RestartTimeBitPosition) | gr_time;
+
+    vector<uint8_t> restart_cap;
+    restart_cap.push_back(gr_bytes >> 8);
+    restart_cap.push_back(gr_bytes & 0xFF);
+    BOOST_FOREACH(const Address::Family family, gr_families) {
+        uint16_t afi;
+        uint8_t safi;
+        tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);
+        restart_cap.push_back(0);
+        restart_cap.push_back(afi);
+        restart_cap.push_back(safi);
+        restart_cap.push_back(gr_afi_flags);
+    }
+    return new Capability(GracefulRestart, restart_cap.data(),
+                          restart_cap.size());
+}
+
+void BgpProto::OpenMessage::Capability::GR::GetFamilies(const GR &gr_params,
+        vector<string> *families) {
+    families->clear();
+    BOOST_FOREACH(Capability::GR::Family gr_family, gr_params.families) {
+        Address::Family family =
+            BgpAf::AfiSafiToFamily(gr_family.afi, gr_family.safi);
+        if (family == Address::UNSPEC) {
+            families->push_back(BgpAf::ToString(gr_family.afi, gr_family.safi));
+        } else {
+            families->push_back(Address::FamilyToString(family));
+        }
+    }
+
+    // Keep the list sorted and unique.
+    sort(families->begin(), families->end());
+    families->erase(unique(families->begin(), families->end()),
+                    families->end() );
+}
+
+bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
+        const vector<Capability *> &capabilities) {
+    gr_params->Initialize();
+
+    // Find and process all GR capabilities. We are expected to receive only
+    // one. Otherwise, the only the last one should be taken into effect.
+    bool result = false;
+    for (vector<Capability *>::const_iterator cap_it = capabilities.begin();
+            cap_it != capabilities.end(); ++cap_it) {
+        if ((*cap_it)->code != GracefulRestart)
+            continue;
+        result = true;
+        gr_params->Initialize();
+
+        uint8_t *data = (*cap_it)->capability.data();
+        uint16_t bytes = get_value(data, 2);
+
+        // 4 bits represent restart flags and the rest of the 12 bits represent
+        // restart time (in seconds)
+        gr_params->flags = (bytes & 0xF000) >> 12;
+        gr_params->time = bytes & 0x0FFF;
+
+        size_t offset = 2;
+        while (offset < (*cap_it)->capability.size()) {
+            uint16_t afi = get_value(data + offset, 2);
+            uint8_t safi = get_value(data + offset + 2, 1);
+            uint8_t flags = get_value(data + offset + 3, 1);
+            gr_params->families.push_back(Family(afi, safi, flags));
+            offset += 4;
+        }
+    }
+    return result;
+}
+
 const string BgpProto::OpenMessage::ToString() const {
     std::ostringstream os;
 
@@ -144,6 +223,17 @@ const string BgpProto::OpenMessage::ToString() const {
 
             if (++cap_it == param->capabilities.end())
                 break;
+        }
+
+        Capability::GR gr_params = Capability::GR();
+        if (Capability::GR::Decode(&gr_params, param->capabilities)) {
+            os << ", GR_Flags 0x" << std::hex << gr_params.flags;
+            os << ", GR_Time " << gr_params.time;
+            BOOST_FOREACH(Capability::GR::Family family, gr_params.families) {
+                os << ", GR_family " <<
+                    BgpAf::AfiSafiToFamily(family.afi, family.safi);
+                os << ", GR_family_flags 0x" << std::hex << family.flags;
+            }
         }
     }
 
