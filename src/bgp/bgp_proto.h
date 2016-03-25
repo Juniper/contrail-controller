@@ -107,9 +107,35 @@ public:
             Capability() : code(Reserved) { }
             explicit Capability(int code, const uint8_t *src, int size) :
                 code(code), capability(src, src + size) {}
+
+            struct GR {
+                explicit GR() { Initialize(); }
+                void Initialize() {
+                    flags = 0;
+                    time = 0;
+                    families.clear();
+                }
+                struct Family {
+                    Family(uint16_t afi, uint8_t safi, uint8_t flags) :
+                        afi(afi), safi(safi), flags(flags) { }
+                    uint16_t afi;
+                    uint8_t  safi;
+                    uint8_t  flags;
+                };
+                static Capability *Encode(uint16_t, uint8_t, uint8_t,
+                                          const std::vector<Address::Family> &);
+                static bool Decode(GR *, const std::vector<Capability *> &);
+                static void GetFamilies(const GR &, std::vector<std::string> *);
+
+                uint8_t flags;
+                uint16_t time;
+                std::vector<Family> families;
+            };
+
             int code;
             std::vector<uint8_t> capability;
         };
+
         struct OptParam : public ParseObject {
             ~OptParam() {
                 STLDeleteValues(&capabilities);
