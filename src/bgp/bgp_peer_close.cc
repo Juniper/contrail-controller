@@ -159,7 +159,7 @@ void PeerCloseManager::ProcessClosure() {
             }
             break;
         case GR_TIMER:
-            if (peer_->IsReady()) {
+            if (peer_->IsReady() && peer_->peer_close()->IsCloseGraceful()) {
                 MOVE_TO_STATE(SWEEP);
                 stats_.sweep++;
             } else {
@@ -242,8 +242,8 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         // hoping for the peer (and the paths) to come back up.
         peer_->peer_close()->CloseComplete();
         MOVE_TO_STATE(GR_TIMER);
-        peer_->peer_close()->GetNegotiatedFamilies(&families_);
-        StartRestartTimer(PeerCloseManager::kDefaultGracefulRestartTimeMsecs);
+        peer_->peer_close()->GetGracefulRestartFamilies(&families_);
+        StartRestartTimer(peer_->peer_close()->GetGracefulRestartTime());
         stats_.gr_timer++;
         return;
     }
