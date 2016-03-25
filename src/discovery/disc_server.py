@@ -554,10 +554,6 @@ class DiscoveryServer():
         m = sandesh.dsPublish(msg=msg, sandesh=self._sandesh)
         m.trace_msg(name='dsPublishTraceBuf', sandesh=self._sandesh)
 
-        if not service_type.lower() in self.service_config:
-            self.service_config[
-                service_type.lower()] = self._args.default_service_opts
-
         return response
     # end api_publish
 
@@ -601,7 +597,7 @@ class DiscoveryServer():
     def service_list(self, service_type, pubs):
         policy = self.get_service_config(service_type, 'policy') or 'load-balance'
 
-        if policy == 'load-balance':
+        if 'load-balance' in policy:
             f = self.service_list_load_balance
         elif policy == 'fixed':
             f = self.service_list_fixed
@@ -802,15 +798,15 @@ class DiscoveryServer():
         if count == 0:
             count = len(pubs_active)
 
+        expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
+        policy = self.get_service_config(service_type, 'policy')
+
         # Auto load-balance is triggered if enabled and some servers are
         # more than 5% off expected average allocation.
-        load_balance = self.get_service_config(service_type, 'load-balance')
+        load_balance = (policy == 'dynamic-load-balance')
         if load_balance:
             total_subs = sum([entry['in_use'] for entry in pubs_active])
             avg = total_subs/len(pubs_active)
-
-        expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
-        policy = self.get_service_config(service_type, 'policy')
 
         # if subscriber in-use-list present, forget previous assignments
         if len(inuse_list):
@@ -823,6 +819,7 @@ class DiscoveryServer():
                 # force renew for fixed policy since some service may have flapped
                 entry = plist.get(service_id, None)
                 if entry is None or expired or policy == 'fixed' or (load_balance and entry['in_use'] > int(1.05*avg)):
+                    self.syslog("%s del sub, lb=%s, policy=%s, expired=%s" % (cid, load_balance, policy, expired))
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
                     # load-balance one at at time to avoid churn
                     if load_balance and entry and entry['in_use'] > int(1.05*avg):
@@ -1312,14 +1309,8 @@ def parse_args(args_str):
         'cluster_id': None,
         'white_list_publish': None,
         'white_list_subscribe': None,
+        'policy': 'load-balance',
     }
-
-    # per service options
-    default_service_opts = {
-        'policy': None,
-        'load-balance': False,
-    }
-    service_bool_opts = ['load-balance']
 
     cassandra_opts = {
         'cassandra_user'     : None,
@@ -1354,12 +1345,7 @@ def parse_args(args_str):
                 keystone_opts.update(dict(config.items("KEYSTONE")))
                 continue
             service = section.lower()
-            service_config[service] = default_service_opts.copy()
-            opt_dict = dict(config.items(section))
-            service_config[service].update(opt_dict)
-            for opt in service_bool_opts:
-                if opt in opt_dict:
-                    service_config[service][opt] = config.getboolean(section, opt)
+            service_config[service] = dict(config.items(section))
 
     defaults.update(keystone_opts)
     parser.set_defaults(**defaults)
@@ -1449,7 +1435,6 @@ def parse_args(args_str):
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config
-    args.default_service_opts = default_service_opts
     args.cassandra_config = cassandra_config
     args.cassandra_opts = cassandra_opts
     if type(args.cassandra_server_list) is str:
