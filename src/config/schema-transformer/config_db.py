@@ -1076,12 +1076,12 @@ class VirtualNetworkST(DBBaseST):
             timer = self.network_policys[policy_name].get_timer()
             if timer is None:
                 if static_acl_entries is None:
-                    static_acl_entries = AclEntriesType(dynamic="false")
+                    static_acl_entries = AclEntriesType(dynamic=False)
                 acl_entries = static_acl_entries
                 dynamic = False
             else:
                 if dynamic_acl_entries is None:
-                    dynamic_acl_entries = AclEntriesType(dynamic="true")
+                    dynamic_acl_entries = AclEntriesType(dynamic=True)
                 acl_entries = dynamic_acl_entries
                 dynamic = True
             policy = NetworkPolicyST.get(policy_name)
@@ -1668,12 +1668,12 @@ class SecurityGroupST(DBBaseST):
         if addr.security_group is None:
             return True
         if addr.security_group in ['local', self.name]:
-            addr.security_group = self.obj.get_security_group_id()
+            addr.security_group = str(self.obj.get_security_group_id())
         elif addr.security_group == 'any':
-            addr.security_group = -1
+            addr.security_group = '-1'
         elif addr.security_group in self._dict:
-            addr.security_group = self._dict[
-                addr.security_group].obj.get_security_group_id()
+            addr.security_group = str(self._dict[
+                addr.security_group].obj.get_security_group_id())
         else:
             return False
         return True
