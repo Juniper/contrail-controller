@@ -62,6 +62,10 @@ class BgpPeer::PeerClose : public IPeerClose {
         }
     }
 
+    virtual const int GetGracefulRestartTime() const {
+        return peer_->gr_params_.time;
+    }
+
     // If the peer is deleted or administratively held down, do not attempt
     // graceful restart
     virtual bool IsCloseGraceful() {
@@ -69,7 +73,22 @@ class BgpPeer::PeerClose : public IPeerClose {
             return false;
         if (peer_->server()->IsDeleted())
             return false;
-        return peer_->server()->IsPeerCloseGraceful();
+        if (!peer_->server()->IsPeerCloseGraceful())
+            return false;
+
+        // Check if GR is supported by the peer.
+        if (peer_->graceful_restart_families().empty())
+            return false;
+
+        // TODO Make GR Afi specific
+        // If GR is not supported for any of the negotiated address family,
+        // then consider GR as not supported
+        if (!equal(peer_->negotiated_families().begin(),
+                   peer_->negotiated_families().end(),
+                   peer_->graceful_restart_families().begin())) {
+            return false;
+        }
+        return true;
     }
 
     // Close process for this peer is complete. Restart the state machine and
@@ -79,8 +98,9 @@ class BgpPeer::PeerClose : public IPeerClose {
             peer_->state_machine_->Initialize();
     }
 
-    virtual void GetNegotiatedFamilies(Families *families) const {
-        BOOST_FOREACH(const string family, peer_->negotiated_families()) {
+    virtual void GetGracefulRestartFamilies(Families *families) const {
+        families->clear();
+        BOOST_FOREACH(const string family, peer_->graceful_restart_families()) {
             families->insert(Address::FamilyFromString(family));
         }
     }
@@ -939,6 +959,33 @@ void BgpPeer::RegisterAllTables() {
     }
 }
 
+const Address::Family BgpPeer::supported_families_[] = {
+    Address::INET,
+    Address::INETVPN,
+    Address::EVPN,
+    Address::RTARGET,
+    Address::ERMVPN,
+    Address::INET6,
+    Address::INET6VPN,
+};
+
+void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
+    vector<Address::Family> gr_families = vector<Address::Family>();
+    for (size_t i = 0;
+         i < sizeof(supported_families_)/sizeof(supported_families_[0]); i++) {
+        if (LookupFamily(supported_families_[i]))
+            gr_families.push_back(supported_families_[i]);
+    }
+
+    uint8_t flags = 0;
+    uint16_t time = PeerCloseManager::kDefaultGracefulRestartTimeMsecs/1000;
+    uint8_t afi_flags = 0x80;
+    BgpProto::OpenMessage::Capability *gr_cap =
+        BgpProto::OpenMessage::Capability::GR::Encode(time, flags, afi_flags,
+                                                      gr_families);
+    opt_param->capabilities.push_back(gr_cap);
+}
+
 void BgpPeer::SendOpen(TcpSession *session) {
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = local_as_;
@@ -948,24 +995,30 @@ void BgpPeer::SendOpen(TcpSession *session) {
         new BgpProto::OpenMessage::OptParam;
 
     static const uint8_t cap_mp[][4] = {
-        { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
-        { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
-        { 0, BgpAf::L2Vpn, 0, BgpAf::EVpn },
-        { 0, BgpAf::IPv4,  0, BgpAf::RTarget },
-        { 0, BgpAf::IPv4,  0, BgpAf::ErmVpn },
-        { 0, BgpAf::IPv6,  0, BgpAf::Unicast },
-        { 0, BgpAf::IPv6,  0, BgpAf::Vpn },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[0]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[0]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[1]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[1]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[2]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[2]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[3]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[3]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[4]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[4]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[5]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[5]).second },
+        { 0, (uint8_t) BgpAf::FamilyToAfiSafi(supported_families_[6]).first, 0,
+             BgpAf::FamilyToAfiSafi(supported_families_[6]).second },
     };
 
-    typedef map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
     static const FamilyToCapabilityMap family_to_cap_map = map_list_of
-        (Address::INET,     cap_mp[0])
-        (Address::INETVPN,  cap_mp[1])
-        (Address::EVPN,     cap_mp[2])
-        (Address::RTARGET,  cap_mp[3])
-        (Address::ERMVPN,   cap_mp[4])
-        (Address::INET6,    cap_mp[5])
-        (Address::INET6VPN, cap_mp[6]);
+        (supported_families_[0], cap_mp[0])
+        (supported_families_[1], cap_mp[1])
+        (supported_families_[2], cap_mp[2])
+        (supported_families_[3], cap_mp[3])
+        (supported_families_[4], cap_mp[4])
+        (supported_families_[5], cap_mp[5])
+        (supported_families_[6], cap_mp[6]);
 
     // Add capabilities for configured address families.
     BOOST_FOREACH(const FamilyToCapabilityMap::value_type &val,
@@ -978,12 +1031,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
-    // Add restart capability for generating end-of-rib.
-    const uint8_t restart_cap[2] = { 0x0, 0x0 };
-    BgpProto::OpenMessage::Capability *cap =
-        new BgpProto::OpenMessage::Capability(
-            BgpProto::OpenMessage::Capability::GracefulRestart, restart_cap, 2);
-    opt_param->capabilities.push_back(cap);
+    AddGRCapabilities(opt_param);
 
     if (opt_param->capabilities.size()) {
         openmsg.opt_params.push_back(opt_param);
@@ -1068,7 +1116,24 @@ void BgpPeer::SendNotification(BgpSession *session,
     inc_tx_notification();
 }
 
-void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
+bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
+    BgpProto::OpenMessage::Capability::GR::Decode(&gr_params_, capabilities_);
+    BgpProto::OpenMessage::Capability::GR::GetFamilies(gr_params_,
+            &graceful_restart_families_);
+    peer_info->set_graceful_restart_families(graceful_restart_families_);
+    BGPPeerInfoSend(*peer_info);
+
+    // If GR is not longer supported, terminate GR right away.
+    // GR TODO: Exit GR process for only non-supported families.
+    if (peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER &&
+            !peer_close_->IsCloseGraceful()) {
+        Close();
+        return false;
+    }
+    return true;
+}
+
+bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     peer_bgp_id_ = htonl(msg->identifier);
     capabilities_.clear();
     vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
@@ -1115,7 +1180,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
 
-    BGPPeerInfoSend(peer_info);
+    return SetGRCapabilities(&peer_info);
 }
 
 // Reset capabilities stored inside peer structure.
@@ -1131,6 +1196,7 @@ void BgpPeer::ResetCapabilities() {
     peer_info.set_families(families);
     vector<string> negotiated_families = vector<string>();
     peer_info.set_negotiated_families(negotiated_families);
+    peer_info.set_graceful_restart_families(vector<string>());
     BGPPeerInfoSend(peer_info);
 }
 
@@ -1779,6 +1845,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
 
     bnr->set_configured_address_families(configured_families_);
     bnr->set_negotiated_address_families(negotiated_families_);
+    bnr->set_graceful_restart_address_families(graceful_restart_families_);
     bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborFamilyAttributes(bnr);
     FillBgpNeighborDebugState(bnr, peer_stats_.get());
