@@ -63,16 +63,6 @@ bool FlowHandler::Run() {
     std::auto_ptr<FlowTaskMsg> ipc;
 
     if (pkt_info_->type == PktType::INVALID) {
-        // packet parsing is not done, invoke the same here
-        uint8_t *pkt = pkt_info_->packet_buffer()->data();
-        PktHandler::PktModuleName mod = agent_->pkt()->pkt_handler()->
-                                        ParseFlowPacket(pkt_info_, pkt);
-        // if packet wasnt for flow module, it would've got enqueued to the
-        // correct module in the above call. Nothing else to do.
-        if (mod != PktHandler::FLOW) {
-            return true;
-        }
-        flow_proto_->FreeBuffer(pkt_info_.get());
         info.SetPktInfo(pkt_info_);
         info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
     } else if (pkt_info_->type == PktType::MESSAGE) {
@@ -123,16 +113,19 @@ bool FlowHandler::Run() {
         info.short_flow = true;
     }
 
-    //Identify port nat and enqueue port nat to specific flow table
+    // Flows that change port-numbers are always processed in thread-0.
+    // Identify flows that change port and enqueue to thread-0
     if (((pkt_info_->sport != info.nat_sport) ||
-        (pkt_info_->dport != info.nat_dport)) &&
-        (info.nat_sport != 0) && (info.nat_dport != 0) &&
-        (flow_table_index_ != FlowTable::kPortNatFlowTableInstance)) {
-        //Enqueue flow evaluation to
-        //FlowTable::kPortNatFlowTableInstance instance.
-        flow_proto_->EnqueueReentrant(pkt_info_,
-                                      FlowTable::kPortNatFlowTableInstance);
-        return true;
+         (pkt_info_->dport != info.nat_dport))) {
+        if ((info.nat_sport != 0 || info.nat_dport != 0)) {
+            if (flow_table_index_ != FlowTable::kPortNatFlowTableInstance) {
+                // Enqueue flow evaluation to
+                // FlowTable::kPortNatFlowTableInstance instance.
+                flow_proto_->EnqueueReentrant
+                    (pkt_info_, FlowTable::kPortNatFlowTableInstance);
+                return true;
+            }
+        }
     }
 
     if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
