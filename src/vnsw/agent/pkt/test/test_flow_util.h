@@ -243,7 +243,7 @@ private:
             Agent::GetInstance()->pkt()->get_flow_proto()->
                 DeleteFlowRequest(key_, true,
                                   Agent::GetInstance()->pkt()->
-                                  get_flow_proto()->GetFlowTable(key_)->
+                                  get_flow_proto()->GetTable(0)->
                                   table_index());
             return true;
         }

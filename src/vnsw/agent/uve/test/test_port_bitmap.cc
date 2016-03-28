@@ -262,7 +262,7 @@ public:
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
                                                         100, PktHandler::FLOW,
                                                         0));
-        FlowTable *flow_table = flow_proto_->GetFlowTable(flow->key());
+        FlowTable *flow_table = flow_proto_->GetTable(0);
         PktFlowInfo info(agent, pkt_info, flow_table);
         PktInfo *pkt = pkt_info.get();
 
@@ -291,7 +291,7 @@ protected:
 
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
-    FlowTable *flow_table = flow_proto_->GetFlowTable(key);
+    FlowTable *flow_table = flow_proto_->GetTable(0);
     FlowEntry flow(flow_table);
     flow.Reset(key);
     MakeFlow(&flow, 1, &dest_vn_name);
@@ -304,7 +304,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
 
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
-    FlowTable *flow_table = flow_proto_->GetFlowTable(key);
+    FlowTable *flow_table = flow_proto_->GetTable(0);
     FlowEntry flow(flow_table);
     flow.Reset(key);
     MakeFlow(&flow, 1, &dest_vn_name);
@@ -320,7 +320,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
 
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
-    FlowTable *flow_table = flow_proto_->GetFlowTable(key1);
+    FlowTable *flow_table = flow_proto_->GetTable(0);
     FlowEntry flow1(flow_table);
     flow1.Reset(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
@@ -328,7 +328,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 2, 2);
-    flow_table = flow_proto_->GetFlowTable(key2);
+    flow_table = flow_proto_->GetTable(0);
     FlowEntry flow2(flow_table);
     flow2.Reset(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
@@ -346,7 +346,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
 
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
-    FlowTable *flow_table = flow_proto_->GetFlowTable(key1);
+    FlowTable *flow_table = flow_proto_->GetTable(0);
     FlowEntry flow1(flow_table);
     flow1.Reset(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
@@ -354,7 +354,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_4) {
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 257, 257);
-    flow_table = flow_proto_->GetFlowTable(key2);
+    flow_table = flow_proto_->GetTable(0);
     FlowEntry flow2(flow_table);
     flow2.Reset(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
