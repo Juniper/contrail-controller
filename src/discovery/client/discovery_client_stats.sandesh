@@ -9,6 +9,7 @@ struct DiscoveryClientSubscriberStats {
     4: u32 subscribe_rcvd;
     5: u32 subscribe_retries;
     6: u32 subscribe_last_ttl;
+    7: u32 subscribe_unknown_error;
 }
 
 struct DiscoveryClientPublisherStats {
@@ -19,6 +20,7 @@ struct DiscoveryClientPublisherStats {
     5: u32 publish_retries;
     6: u32 publish_fallback;
     7: u32 publish_timeout;
+    8: u32 publish_unknown_error;
 }
 
 request sandesh DiscoveryClientSubscriberStatsReq {

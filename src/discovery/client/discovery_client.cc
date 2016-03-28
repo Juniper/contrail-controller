@@ -42,7 +42,7 @@ DSSubscribeResponse::DSSubscribeResponse(std::string serviceName,
                        TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), subscribe_msg_(""), attempts_(0),
       sub_sent_(0), sub_rcvd_(0), sub_fail_(0), sub_last_ttl_(0),
-      subscribe_cb_called_(false) {
+      sub_unknown_error_(0), subscribe_cb_called_(false) {
 }
 
 DSSubscribeResponse::~DSSubscribeResponse() {
@@ -118,6 +118,7 @@ DSPublishResponse::DSPublishResponse(std::string serviceName,
                           TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), publish_msg_(""), attempts_(0),
       pub_sent_(0), pub_rcvd_(0), pub_fail_(0), pub_fallback_(0), pub_timeout_(0),
+      pub_unknown_error_(0),
       pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0), pub_hb_timeout_(0),
       publish_cb_called_(false), heartbeat_cb_called_(false) {
 }
@@ -317,10 +318,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 
         // Errorcode is of type CURLcode
         if (ec.value() != 0) {
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
-                "Error PublishResponseHandler ",
-                 serviceName + " " + curl_error_category.message(ec.value()),
-                 ec.value());
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
@@ -332,6 +329,11 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
                 resp->pub_timeout_++;
                 // reset attempts so publish can be sent right away
                 resp->attempts_ = 0;
+            } else {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                    "Error PublishResponseHandler ",
+                     serviceName + " " + curl_error_category.message(ec.value()),
+                     ec.value());
             }
 
             // Update connection info
@@ -350,6 +352,13 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::DOWN, ds_endpoint_,
                 "Only header received");
+            resp->StartPublishConnectTimer(resp->GetConnectTime());
+        } else { 
+            resp->pub_unknown_error_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Publish Response Empty with unknown error");
             resp->StartPublishConnectTimer(resp->GetConnectTime());
         }
 
@@ -552,6 +561,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
 
         /* Send publish unconditionally */
         resp->pub_sent_++;
+        resp->publish_cb_called_ = false;
         SendHttpPostMessage(resp->publish_hdr_, serviceName,
                             resp->publish_msg_);
     }
@@ -626,6 +636,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
 
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
+        resp->publish_cb_called_ = false;
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
     }
 }
@@ -803,6 +814,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
 
         DSSubscribeResponse *resp = loc->second;
         resp->subscribe_timer_->Cancel();
+        resp->subscribe_cb_called_ = false;
         resp->sub_sent_++;
 
         auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
@@ -849,6 +861,8 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
             if (resp->subscribe_chksum_ != gen_chksum) {
                 DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
                                        serviceName, ss.str());
+                DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, "subscribe",
+                                            serviceName, ss.str());
                 resp->subscribe_chksum_ = gen_chksum;
             }
         }
@@ -923,6 +937,8 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "SubscribeResponseHandler, Only header received",
                  serviceName, ec.value());
+            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientErrorLog, serviceName,
+                "SubscribeResponseHandler, Only header received");
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
@@ -930,6 +946,13 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
                 serviceName, ConnectionStatus::DOWN, ds_endpoint_,
                 "Only header received");
+            hdr->StartSubscribeTimer(hdr->GetConnectTime());
+        } else {
+            hdr->sub_unknown_error_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Subscribe Response Empty with unknown error");
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
         }
 
@@ -1118,11 +1141,6 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
 
         // Errorcode is of type CURLcode
         if (ec.value() != 0) {
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
-                "Error HeartBeatResponseHandler ",
-                 serviceName + " " + curl_error_category.message(ec.value()),
-                 ec.value());
-
             resp->pub_hb_fail_++;
             // Resend original publish request after exponential back-off
             resp->attempts_++;
@@ -1139,6 +1157,11 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
                     // reset attempts so publish can be sent right away
                     resp->attempts_ = 0;
                 }
+            } else {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                    "Error HeartBeatResponseHandler ",
+                     serviceName + " " + curl_error_category.message(ec.value()),
+                     ec.value());
             }
 
             // Update connection info
@@ -1291,6 +1314,7 @@ void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
          stats.set_subscribe_rcvd(sub_resp->sub_rcvd_);
          stats.set_subscribe_fail(sub_resp->sub_fail_);
          stats.set_subscribe_retries(sub_resp->attempts_); 
+         stats.set_subscribe_unknown_error(sub_resp->sub_unknown_error_);
          stats.set_subscribe_last_ttl(sub_resp->sub_last_ttl_);
 
          ds_stats.push_back(stats);
@@ -1317,6 +1341,7 @@ void DiscoveryServiceClient::FillDiscoveryServicePublisherStats(
          stats.set_publish_fail(pub_resp->pub_fail_); 
          stats.set_publish_retries(pub_resp->attempts_);
          stats.set_publish_fallback(pub_resp->pub_fallback_); 
+         stats.set_publish_unknown_error(pub_resp->pub_unknown_error_); 
          stats.set_publish_timeout(pub_resp->pub_timeout_);
 
          ds_stats.push_back(stats);
