@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 #include <net/address_util.h>
+#include <boost/functional/hash.hpp>
 #include <init/agent_param.h>
 #include <cmn/agent_stats.h>
 #include <oper/agent_profile.h>
@@ -21,7 +22,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
                        boost::bind(&FlowProto::FlowEventHandler, this, _1,
                                    static_cast<FlowTable *>(NULL))),
-    stats_() {
+    use_vrouter_hash_(false), stats_() {
     flow_update_queue_.set_name("Flow update queue");
     agent->SetFlowProto(this);
     set_trace(false);
@@ -38,6 +39,13 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
             (new FlowEventQueue(task_id, i,
                                 boost::bind(&FlowProto::FlowEventHandler, this,
                                             _1, flow_table_list_[i])));
+    }
+    if (::getenv("USE_VROUTER_HASH") != NULL) {
+        string opt = ::getenv("USE_VROUTER_HASH");
+        if (opt == "" || strcasecmp(opt.c_str(), "false"))
+            use_vrouter_hash_ = false;
+        else
+            use_vrouter_hash_ = true;
     }
 }
 
@@ -75,9 +83,75 @@ void FlowProto::Shutdown() {
     flow_update_queue_.Shutdown();
 }
 
+static std::size_t HashCombine(uint32_t val, std::size_t hash) {
+    boost::hash_combine(hash, val);
+    return hash;
+}
+
+static std::size_t HashIp(const IpAddress &ip, std::size_t hash) {
+    if (ip.is_v6()) {
+        uint64_t val[2];
+        Ip6AddressToU64Array(ip.to_v6(), val, 2);
+        hash = HashCombine(hash, val[0]);
+        hash = HashCombine(hash, val[1]);
+    } else if (ip.is_v4()) {
+        hash = HashCombine(hash, ip.to_v4().to_ulong());
+    } else {
+        assert(0);
+    }
+    return hash;
+}
+
+// Get the thread to be used for the flow. We *try* to map forward and reverse
+// flow to same thread with following,
+//  if (sip < dip)
+//      ip1 = sip
+//      ip2 = dip
+//  else
+//      ip1 = dip
+//      ip2 = sip
+//  if (sport < dport)
+//      port1 = sport
+//      port2 = dport
+//  else
+//      port1 = dport
+//      port2 = sport
+//  field5 = proto
+//  hash = HASH(ip1, ip2, port1, port2, proto)
+//
+// The algorithm above cannot ensure NAT flows belong to same thread.
+uint16_t FlowProto::FlowTableIndex(const IpAddress &sip, const IpAddress &dip,
+                                   uint8_t proto, uint16_t sport,
+                                   uint16_t dport, uint32_t flow_handle) const {
+    if (use_vrouter_hash_) {
+        return (flow_handle/flow_table_list_.size()) % flow_table_list_.size();
+    }
+
+    std::size_t hash = 0;
+    if (sip < dip) {
+        hash = HashIp(sip, hash);
+        hash = HashIp(dip, hash);
+    } else {
+        hash = HashIp(dip, hash);
+        hash = HashIp(sip, hash);
+    }
+
+    if (sport < dport) {
+        HashCombine(hash, sport);
+        HashCombine(hash, dport);
+    } else {
+        HashCombine(hash, dport);
+        HashCombine(hash, sport);
+    }
+    HashCombine(hash, proto);
+    return (hash % (flow_event_queue_.size()));
+}
+
 FlowHandler *FlowProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                           boost::asio::io_service &io) {
-    uint32_t index = FlowTableIndex(info->sport, info->dport);
+    uint32_t index = FlowTableIndex(info->ip_saddr, info->ip_daddr,
+                                    info->sport, info->dport, info->ip_proto,
+                                    info->agent_hdr.cmd_param);
     return new FlowHandler(agent(), info, io, this, index);
 }
 
@@ -110,12 +184,10 @@ bool FlowProto::Validate(PktInfo *msg) {
     return true;
 }
 
-uint16_t FlowProto::FlowTableIndex(uint16_t sport, uint16_t dport) const {
-    return (sport ^ dport) % (flow_event_queue_.size());
-}
-
-FlowTable *FlowProto::GetFlowTable(const FlowKey &key) const {
-    uint16_t index = FlowTableIndex(key.src_port, key.dst_port);
+FlowTable *FlowProto::GetFlowTable(const FlowKey &key,
+                                   uint32_t flow_handle) const {
+    uint32_t index = FlowTableIndex(key.src_addr, key.dst_addr, key.src_port,
+                                    key.dst_port, key.protocol, flow_handle);
     return flow_table_list_[index];
 }
 
@@ -170,8 +242,8 @@ void FlowProto::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
     agent_->pkt()->flow_mgmt_manager()->VnFlowCounters(vn, in_count, out_count);
 }
 
-FlowEntry *FlowProto::Find(const FlowKey &key) const {
-    return GetFlowTable(key)->Find(key);
+FlowEntry *FlowProto::Find(const FlowKey &key, uint32_t table_index) const {
+    return GetTable(table_index)->Find(key);
 }
 
 bool FlowProto::AddFlow(FlowEntry *flow) {
@@ -199,7 +271,10 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     switch (event->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
         PktInfo *info = event->pkt_info().get();
-        uint32_t index = FlowTableIndex(info->sport, info->dport);
+        uint32_t index = FlowTableIndex(info->ip_saddr, info->ip_daddr,
+                                        info->sport, info->dport,
+                                        info->ip_proto,
+                                        info->agent_hdr.cmd_param);
         flow_event_queue_[index]->Enqueue(event);
         break;
     }
@@ -234,9 +309,15 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::AUDIT_FLOW:
+    case FlowEvent::AUDIT_FLOW: {
+        FlowTable *table = GetFlowTable(event->get_flow_key(),
+                                        event->flow_handle());
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
     case FlowEvent::GROW_FREE_LIST: {
-        FlowTable *table = GetFlowTable(event->get_flow_key());
+        FlowTable *table = GetTable(event->table_index());
         flow_event_queue_[table->table_index()]->Enqueue(event);
         break;
     }
@@ -267,6 +348,9 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
 bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     std::auto_ptr<FlowEvent> req_ptr(req);
+    // concurrency check to ensure all request are in right partitions
+    // flow-update-queue doenst happen table pointer. Skip concurrency check
+    // for flow-update-queue
     if (table) {
         assert(table->ConcurrencyCheck() == true);
     }
@@ -303,7 +387,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::GROW_FREE_LIST: {
-        FlowTable *table = GetFlowTable(req->get_flow_key());
         table->GrowFreeList();
         break;
     }
@@ -316,7 +399,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::DELETE_FLOW: {
-        table = GetTable(req->table_index());
         table->ProcessFlowEvent(req);
         //In case flow is deleted enqueue a free flow reference event.
         EnqueueFreeFlowReference(req->flow_ref());
@@ -333,7 +415,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::KSYNC_EVENT:
     case FlowEvent::KSYNC_VROUTER_ERROR: {
-        table = GetFlowTable(req->get_flow_key());
         table->ProcessFlowEvent(req);
         //In case flow is deleted enqueue a free flow reference event.
         EnqueueFreeFlowReference(req->flow_ref());
@@ -376,8 +457,9 @@ void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle) {
 }
 
 
-void FlowProto::GrowFreeListRequest(const FlowKey &key) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST, key, false));
+void FlowProto::GrowFreeListRequest(const FlowKey &key, FlowTable *table) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST, key, false,
+                                   table->table_index()));
     return;
 }
 

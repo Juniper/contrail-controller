@@ -290,6 +290,8 @@ private:
     FlowEntryFreeList free_list_;
     tbb::mutex mutex_;
     int flow_task_id_;
+    uint64_t total_add_;
+    uint64_t total_del_;
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 
