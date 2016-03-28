@@ -49,18 +49,14 @@ public:
     virtual ~DnsAgentXmppChannelManager();
     void RemoveChannel(XmppChannel *ch);
     DnsAgentXmppChannel *FindChannel(const XmppChannel *ch);
-    void UpdateAll();
     void HandleXmppChannelEvent(XmppChannel *channel, xmps::PeerState state);
-    bool ChannelCleaner();
 
     void GetAgentData(std::vector<AgentData> &list);
     void GetAgentDnsData(std::vector<AgentDnsData> &dt);
 
 private:
     XmppServer *server_;
-    TaskTrigger trigger_;
     ChannelMap channel_map_;
-    std::vector<DnsAgentXmppChannel *> delete_list_;
 };
 
 #endif // _dns_agent_xmpp_channel_h_
