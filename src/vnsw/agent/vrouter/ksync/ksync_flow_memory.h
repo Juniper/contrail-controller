@@ -57,6 +57,16 @@ public:
     }
     uint32_t audit_timeout() const { return audit_timeout_; }
 private:
+    struct AuditEntry {
+        AuditEntry(uint32_t flow_idx, uint8_t gen_id,
+                   uint64_t t) : audit_flow_idx(flow_idx),
+                   audit_flow_gen_id(gen_id), timeout(t) {}
+
+        uint32_t audit_flow_idx;
+        uint8_t audit_flow_gen_id;
+        uint64_t timeout;
+    };
+
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
 
     KSync                   *ksync_;
@@ -75,7 +85,7 @@ private:
     uint32_t                audit_yield_;
     uint32_t                audit_interval_;
     uint32_t                audit_flow_idx_;
-    std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
+    std::list<AuditEntry> audit_flow_list_;
 };
 
 #endif //  __src_vnsw_agent_vrouter_ksync_ksync_flow_memory_h

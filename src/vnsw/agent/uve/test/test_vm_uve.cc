@@ -84,6 +84,19 @@ public:
     UveVmUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
         proto_ = agent_->pkt()->get_flow_proto();
     }
+    void SetUp() {
+        agent_->flow_stats_manager()->set_delete_short_flow(false);
+        FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+            (agent_->flow_stats_manager()->default_flow_stats_collector());
+        f->ClearList();
+        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+
+        f = static_cast<FlowStatsCollectorTest *>
+            (agent_->flow_stats_manager()->tcp_flow_stats_collector());
+        f->ClearList();
+        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+    }
+
     void FlowSetUp() {
         EXPECT_EQ(0U, proto_->FlowCount());
         client->Reset();
@@ -980,14 +993,10 @@ TEST_F(UveVmUveTest, SIP_override) {
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
         (Agent::GetInstance()->flow_stats_manager()->
          default_flow_stats_collector());
-    f->ClearList();
     FlowExportInfo *info = f->FindFlowExportInfo(f1->uuid());
     FlowExportInfo *rinfo = f->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
-
-    std::vector<FlowLogData> list = f->ingress_flow_log_list();
-    EXPECT_EQ(0U, list.size());
 
     //Set the action as Log for the flow-entries to ensure that they are not
     //dropped during export
@@ -1001,7 +1010,7 @@ TEST_F(UveVmUveTest, SIP_override) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    list = f->ingress_flow_log_list();
+    std::vector<FlowLogData> list = f->ingress_flow_log_list();
     EXPECT_EQ(2U, list.size());
 
     IpAddress dip_addr = IpAddress::from_string(vm4_ip);
