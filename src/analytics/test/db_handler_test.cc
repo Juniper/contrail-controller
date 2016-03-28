@@ -41,6 +41,14 @@ using namespace GenDb;
 
 TtlMap ttl_map = g_viz_constants.TtlValuesDefault;
 
+struct DbHandlerCacheParam {
+        uint32_t field_cache_t2_;
+        std::set<std::string> field_cache_set_[2];
+        uint32_t field_cache_old_t2_;
+        uint8_t old_t2_index_;
+        uint8_t new_t2_index_;
+};
+
 class DbHandlerTest : public ::testing::Test {
 public:
     DbHandlerTest() :
@@ -72,6 +80,20 @@ public:
 
     DbHandlerPtr db_handler() {
         return db_handler_;
+    }
+
+    struct DbHandlerCacheParam GetDbHandlerCacheParam() {
+        db_handler_cache_param_.field_cache_t2_ = DbHandler::field_cache_t2_;
+        db_handler_cache_param_.field_cache_set_[0] = DbHandler::field_cache_set_[0];
+        db_handler_cache_param_.field_cache_set_[1] = DbHandler::field_cache_set_[1];
+        db_handler_cache_param_.field_cache_old_t2_ = DbHandler::field_cache_old_t2_;
+        db_handler_cache_param_.old_t2_index_ = DbHandler::old_t2_index_;
+        db_handler_cache_param_.new_t2_index_ = DbHandler::new_t2_index_;
+        return db_handler_cache_param_;
+    }
+
+    bool WriteToCache(uint32_t temp_t2, std::string fc_entry) {
+        return db_handler()->CanRecordDataForT2(temp_t2, fc_entry);
     }
 
 protected:
@@ -132,6 +154,7 @@ private:
     ThriftIfMock *dbif_mock_;
 #endif // !USE_CASSANDRA_CQL
     DbHandlerPtr db_handler_;
+    DbHandlerCacheParam db_handler_cache_param_;
 };
 
 
@@ -1180,6 +1203,87 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         db_handler()->FlowTableInsert(msg->GetMessageNode(),
                                       msg->GetHeader());
     }
+}
+
+TEST_F(DbHandlerTest, CanRecordDataForT2Test) {
+    uint32_t t1 = GetDbHandlerCacheParam().field_cache_t2_ + 2;
+    std::string fc_entry("tabname:vn1");
+    bool ret = WriteToCache(t1, fc_entry);
+    struct DbHandlerCacheParam cache_param = GetDbHandlerCacheParam();
+    // All the field_cache_t2 should be updated
+    EXPECT_EQ(t1, cache_param.field_cache_t2_);
+    EXPECT_EQ(t1-2, cache_param.field_cache_old_t2_);
+    std::set<std::string>  new_test_cache;
+    new_test_cache.insert(fc_entry);
+    EXPECT_THAT(new_test_cache, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.new_t2_index_]));
+    EXPECT_EQ(true, ret);
+    // only field_cache_old_t2_ should be updated
+    // t2 is older to field_cache_new_t2_ but
+    // t2 is newer to field_cache_old_t2_
+    uint32_t t2 = cache_param.field_cache_old_t2_+1;
+    fc_entry = "tabname:vn2";
+    ret = WriteToCache(t2, fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    std::set<std::string>  new_test_cache1;
+    new_test_cache1.insert(fc_entry);
+    EXPECT_EQ(t1, cache_param.field_cache_t2_);
+    EXPECT_EQ(t2, cache_param.field_cache_old_t2_);
+    EXPECT_THAT(new_test_cache1, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.old_t2_index_]));
+    EXPECT_EQ(true, ret);
+    // None should be updated and the function returns false
+    uint32_t t3 = cache_param.field_cache_old_t2_ - 1;
+    fc_entry = "tabname:vn2";
+    ret = WriteToCache(t3, fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_EQ(t1, cache_param.field_cache_t2_);
+    EXPECT_EQ(t2, cache_param.field_cache_old_t2_);
+    EXPECT_EQ(false, ret);
+    // New entry with t2=field_cache_t2_ should return true
+    fc_entry="tabname:vn3";
+    ret = WriteToCache(t1, fc_entry);
+    new_test_cache.insert(fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_THAT(new_test_cache, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.new_t2_index_]));
+    EXPECT_EQ(true, ret);
+    // New entry with t2=field_cache_old_t2_ should return true
+    fc_entry = "tabname:vn3";
+    ret = WriteToCache(t2, fc_entry);
+    new_test_cache1.insert(fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_THAT(new_test_cache1, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.old_t2_index_]));
+    EXPECT_EQ(true, ret);
+    // New entry with t2=field_cache_t2_ with existing value should return false
+    fc_entry="tabname:vn3";
+    ret = WriteToCache(t1, fc_entry);
+    new_test_cache.insert(fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_THAT(new_test_cache, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.new_t2_index_]));
+    EXPECT_EQ(false, ret);
+    // New entry with t2=field_cache_old_t2_ with existing value should return
+    // false
+    fc_entry = "tabname:vn3";
+    ret = WriteToCache(t2, fc_entry);
+    new_test_cache1.insert(fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_THAT(new_test_cache1, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.old_t2_index_]));
+    EXPECT_EQ(false, ret);
+    // New entry with t2>field_cache_t2_ with existing value should return true
+    t1 += 1;
+    fc_entry = "tabname:vn3";
+    ret = WriteToCache(t1, fc_entry);
+    new_test_cache.clear();
+    new_test_cache.insert(fc_entry);
+    cache_param = GetDbHandlerCacheParam();
+    EXPECT_EQ(t1, cache_param.field_cache_t2_);
+    EXPECT_THAT(new_test_cache, ::testing::ContainerEq(
+        cache_param.field_cache_set_[cache_param.new_t2_index_]));
+    EXPECT_EQ(true, ret);
 }
 
 class FlowTableTest: public ::testing::Test {
