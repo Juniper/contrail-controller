@@ -16,12 +16,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
      #IFMAP-SEMANTICS-IDL list-of-statements
      list-of-statements := list-of-statements, statement
-     statement  := Link('element', 'identifier', 'identifier', [ref-type-list])|
+     statement  := Link('element', 'identifier', 'identifier', [ref-type-list],\
+                                                         'property-required', 'property-operations')|
                    Type('element', [type-list])|
-                   Property(element-name identifier-name)|
+                   Property('element', 'identifier', 'property-required', 'property-operations')|
+                   ListProperty('element', 'identifier', 'property-required', 'property-operations')|
                    Exclude('element', [generator-list])
      element    := metadata element name
      identifier := identifier element name | "any" | "all"
+     property-required := required |
+                          optional |
+                          system-only|
+     property-operations := CRUD |
+                            CRD |
+                            R |
      ref-type-list:= ref-type-list 'has' |
                   := ref-type-list 'ref' |
                   := 
@@ -42,7 +50,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:simpleType name="IpAddressType">
-    <xsd:restriction base="xsd:string"/>
+    <xsd:restriction base="xsd:string" 
+         description='String of standard notation of ipv4 or ipv6 address'/>
 </xsd:simpleType>
 
 <xsd:simpleType name="AddressMode">
@@ -75,8 +84,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:complexType name="AllowedAddressPair">
     <xsd:all>
         <xsd:element name="ip" type="SubnetType"/>
-        <xsd:element name="mac" type="xsd:string"/>
-        <xsd:element name="address-mode" type="AddressMode"/>
+        <xsd:element name="mac" type="xsd:string" required='optional'/>
+        <xsd:element name="address-mode" type="AddressMode" required='optional'
+             description='Address-mode active-backup is used for VRRP address.
+                          Address-mode active-active is used for ECMP.'/>
     </xsd:all>
 </xsd:complexType> 
 
@@ -94,30 +105,38 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- ACL type definition -->
 
 <xsd:complexType name="SequenceType">
-    <xsd:element name="major" type="xsd:integer"/>
-    <xsd:element name="minor" type="xsd:integer"/>
+    <xsd:element name="major" type="xsd:integer" required='true'/>
+    <xsd:element name="minor" type="xsd:integer" required='true'/>
 </xsd:complexType>
 
 <xsd:complexType name="TimerType">
     <xsd:all>
-        <xsd:element name="start-time" type="xsd:dateTime"/>
-        <xsd:element name="on-interval" type="xsd:time"/>
-        <xsd:element name="off-interval" type="xsd:time"/>
-        <xsd:element name="end-time" type="xsd:dateTime"/>
+        <xsd:element name="start-time" type="xsd:dateTime" required='true'/>
+        <xsd:element name="on-interval" type="xsd:time" required='true'/>
+        <xsd:element name="off-interval" type="xsd:time" required='true'/>
+        <xsd:element name="end-time" type="xsd:dateTime" required='true'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="VirtualNetworkPolicyType">
-    <xsd:element name="sequence" type="SequenceType"/>
-    <xsd:element name="timer" type="TimerType"/>
+    <xsd:element name="sequence" type="SequenceType" required='optional'
+         description='Sequence number to specify order of policy attachment to netwrok'/>
+    <xsd:element name="timer" type="TimerType" required='optional'
+         description='Timer to sepcify when the policy can be active'/>
 </xsd:complexType>
 
 <xsd:complexType name="AddressType">
-    <xsd:element name="subnet" type="SubnetType"/> <!-- Deprecated in favor of subnet-list -->
-    <xsd:element name="virtual-network" type="xsd:string" />
-    <xsd:element name="security-group" type="xsd:string" />
-    <xsd:element name="network-policy" type="xsd:string"/>
-    <xsd:element name="subnet-list" type="SubnetType" maxOccurs="unbounded"/>
+    <!-- Deprecated in favor of subnet-list -->
+    <xsd:element name="subnet" type="SubnetType"           required='exclusive'
+             description='Any address that belongs to this subnet'/>
+    <xsd:element name="virtual-network" type="xsd:string"  required='exclusive'
+             description='Any address that belongs to this virtul network '/>
+    <xsd:element name="security-group"  type="xsd:string"  required='exclusive'
+             description='Any address that belongs to interface with this security-group'/>
+    <xsd:element name="network-policy"  type="xsd:string"  required='exclusive'
+             description='Any adddress that belongs to virtul network which has this policy attached'/>
+    <xsd:element name="subnet-list"     type="SubnetType"  maxOccurs="unbounded" required='exclusive'
+             description='Any adddress that belongs to any one of subnet in this list'/>
 </xsd:complexType>
 
 <xsd:simpleType name="L4PortType">
@@ -129,64 +148,86 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PortType">
     <xsd:sequence>
-        <xsd:element name="start-port" type="L4PortType" default="0"/>
-        <xsd:element name="end-port" type="L4PortType" default="65535"/>
+        <xsd:element name="start-port" type="L4PortType" default="0"   required='true'/>
+        <xsd:element name="end-port" type="L4PortType" default="65535" required='true'/>
     </xsd:sequence>
 </xsd:complexType>
 
 <xsd:complexType name="MatchConditionType">
     <xsd:sequence>
-        <xsd:element name="protocol"    type="xsd:string"/>
-        <xsd:element name="src-address" type="AddressType"/>
-        <xsd:element name="src-port"    type="PortType" />
-        <xsd:element name="dst-address" type="AddressType"/>
-        <xsd:element name="dst-port"    type="PortType" />
-        <xsd:element name="ethertype"   type="EtherType" />
+        <xsd:element name="protocol"    type="xsd:string"  required='true'
+             description='Layer 4 protocol in ip packet'/>
+        <xsd:element name="src-address" type="AddressType" required='true'
+             description='Source ip matching criteria'/>
+        <xsd:element name="src-port"    type="PortType"    required='true'
+             description='Range of source port for layer 4 protocol'/>
+        <xsd:element name="dst-address" type="AddressType" required='true'
+             description='Destination ip matching criteria'/>
+        <xsd:element name="dst-port"    type="PortType"    required='true'
+             description='Range of destination  port for layer 4 protocol'/>
+        <xsd:element name="ethertype"   type="EtherType"   required='true'/>
     </xsd:sequence>
 </xsd:complexType>
 
 <xsd:simpleType name="SimpleActionType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="deny"/>
-        <xsd:enumeration value="pass"/>
+        <xsd:enumeration value="deny" required='exclusive'/>
+        <xsd:enumeration value="pass" required='exclusive'/>
     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name="MirrorActionType">
     <xsd:all>
-        <xsd:element name="analyzer-name" type="xsd:string"/>
-        <xsd:element name="encapsulation" type="xsd:string"/>
-        <xsd:element name="analyzer-ip-address" type="smi:IpAddress"/>
-        <xsd:element name="routing-instance" type="xsd:string"/>
-        <xsd:element name="udp-port" type="xsd:integer"/>
+        <xsd:element name="analyzer-name" type="xsd:string"          required='optional'
+             description='Name of service instance used as analyzer'/>
+        <xsd:element name="encapsulation" type="xsd:string"          required='optional'
+             description='Encapsulation for Mirrored packet, not used currently'/>
+        <xsd:element name="analyzer-ip-address" type="smi:IpAddress" required='true'
+             description='ip address of interface to which mirrored packets are sent'/>
+        <xsd:element name="routing-instance" type="xsd:string"       required='true'
+             description='Internal use only, should be set to -1'/>
+        <xsd:element name="udp-port" type="xsd:integer"              required='optional'
+             description='ip udp port used in contrail default encapsulation for mirroring'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="ActionListType">
     <xsd:all>
-        <xsd:element name="simple-action" type="SimpleActionType"/>
-        <xsd:element name="gateway-name" type="xsd:string"/>
-        <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
-        <xsd:element name="mirror-to" type="MirrorActionType"/>
-        <xsd:element name="assign-routing-instance" type="xsd:string"/>
-        <xsd:element name="log" type="xsd:boolean" default="false"/>
-        <xsd:element name="alert" type="xsd:boolean" default="false"/>
+        <xsd:element name="simple-action" type="SimpleActionType" required='true'
+             description='Simple allow(pass) or deny action for traffic matching this rule'/>
+        <xsd:element name="gateway-name" type="xsd:string"        required='optional'
+             description='For internal use only'/>
+        <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded" required='optional'
+             description='Ordered list of service instances in service chain applied to traffic matching the rule'/>
+        <xsd:element name="mirror-to" type="MirrorActionType"                     required='optional'
+             description='Mirror traffic matching this rule'/>
+        <xsd:element name="assign-routing-instance" type="xsd:string"             required='optional'
+             description='For internal use only'/>
+        <xsd:element name="log" type="xsd:boolean" default="false"                required='optional'
+             description='Flow records for traffic matching this rule are sent at higher priority'/>
+        <xsd:element name="alert" type="xsd:boolean" default="false"              required='optional'
+             description='For internal use only'/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="AclRuleType">
     <xsd:all>
-        <xsd:element name="match-condition" type="MatchConditionType"/>
-        <xsd:element name="action-list" type="ActionListType"/>
-        <xsd:element name="rule-uuid" type="xsd:string"/>
+        <xsd:element name="match-condition" type="MatchConditionType" required='true'
+             description='Match condition for packets'/>
+        <xsd:element name="action-list" type="ActionListType"         required='true'
+             description='Actions to be performed if packets match condition'/>
+        <xsd:element name="rule-uuid" type="xsd:string"               required='optional'
+             description='Rule UUID is identifier used in flow records to identify rule'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="AclEntriesType">
     <xsd:all>
-       <xsd:element name="dynamic" type="xsd:boolean"/>
-       <xsd:element name="acl-rule" type="AclRuleType" maxOccurs="unbounded"/>
+       <xsd:element name="dynamic" type="xsd:boolean" required='optional'
+             description='For Internal use only'/>
+       <xsd:element name="acl-rule" type="AclRuleType" maxOccurs="unbounded" required='true'
+             description='For Internal use only'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -206,28 +247,36 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PolicyRuleType">
     <xsd:all>
-        <xsd:element name="rule-sequence"    type="SequenceType"/> <!-- dummy till ui etc. remove it -->
-        <xsd:element name="rule-uuid"        type="xsd:string"/>
-        <xsd:element name="direction"        type="DirectionType"/>
-        <xsd:element name="protocol"         type="xsd:string"/>
-        <xsd:element name="src-addresses"      type="AddressType"
-                                             maxOccurs="unbounded"/>
-        <xsd:element name="src-ports"         type="PortType"
-                                             maxOccurs="unbounded"/>
-        <xsd:element name="application"      type="xsd:string"
-                                             maxOccurs="unbounded"/>
-        <xsd:element name="dst-addresses"      type="AddressType"
-                                             maxOccurs="unbounded"/>
-        <xsd:element name="dst-ports"         type="PortType"
-                                             maxOccurs="unbounded"/>
-        <xsd:element name="action-list"      type="ActionListType"/>
-        <xsd:element name="ethertype"        type="EtherType"/>
+        <!-- dummy till ui etc. remove it -->
+        <xsd:element name="rule-sequence"    type="SequenceType" required='optional'
+             description='Deprecated, Will be removed'/>
+        <xsd:element name="rule-uuid"        type="xsd:string" required='optional'
+             description='Rule UUID is identifier used in flow records to identify rule'/>
+        <xsd:element name="direction"        type="DirectionType" required='true'/>
+        <xsd:element name="protocol"         type="xsd:string" required='true'
+             description='Layer 4 protocol in ip packet'/>
+        <xsd:element name="src-addresses"      type="AddressType" maxOccurs="unbounded" required='true'
+             description='Source ip matching criteria'/>
+        <xsd:element name="src-ports"         type="PortType"     maxOccurs="unbounded" required='true'
+             description='Range of source port for layer 4 protocol'/>
+        <xsd:element name="application"      type="xsd:string"     maxOccurs="unbounded" required='optional'
+             description='Optionally application can be specified instead of protcol and port. not currently implemented'/>
+        <xsd:element name="dst-addresses"      type="AddressType"  maxOccurs="unbounded" required='true'
+             description='Destination ip matching criteria'/>
+        <xsd:element name="dst-ports"         type="PortType"       maxOccurs="unbounded" required='true'
+             description='Range of destination  port for layer 4 protocol'/>
+        <xsd:element name="action-list"      type="ActionListType" required='true'
+             description='Actions to be performed if packets match condition'/>
+        <xsd:element name="ethertype"        type="EtherType" required='true'/>
+
+
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="PolicyEntriesType">
     <xsd:all>
-       <xsd:element name="policy-rule" type="PolicyRuleType" maxOccurs="unbounded"/>
+       <xsd:element name="policy-rule" type="PolicyRuleType" maxOccurs="unbounded" required='true'
+             description='List of policy rules'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -236,15 +285,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- API access list type -->
 <xsd:complexType name="ApiAccessType">
     <xsd:all>
-        <xsd:element name="api-name"      type="xsd:string"/>
-        <xsd:element name="permissions"   type="PermType"/>
+        <xsd:element name="api-name"      type="xsd:string" required='true'/>
+        <xsd:element name="permissions"   type="PermType" required='true'/>
     </xsd:all>
 </xsd:complexType> 
 
 <xsd:complexType name="ApiAccessListType">
     <xsd:all>
         <xsd:element name="api-access" type="ApiAccessType" 
-                                                       maxOccurs="unbounded"/>
+                                                       maxOccurs="unbounded" required='true'/>
     </xsd:all>
 </xsd:complexType> 
 <!-- API access list type End -->
@@ -253,51 +302,62 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="DhcpOptionType">
     <xsd:all>
-        <xsd:element name="dhcp-option-name" type="xsd:string"/>
-        <xsd:element name="dhcp-option-value" type="xsd:string"/>
+        <xsd:element name="dhcp-option-name" type="xsd:string" required='true'
+             description='Name of the DHCP option'/>
+        <xsd:element name="dhcp-option-value" type="xsd:string" required='true'
+             description='Encoded DHCP option value (decimal)'/>
         <!-- Encoded DHCP option value (decimal), to be copied byte by byte -->
-        <xsd:element name="dhcp-option-value-bytes" type="xsd:string"/>
+        <xsd:element name="dhcp-option-value-bytes" type="xsd:string" required='true'
+             description='Value of the DHCP option to be copied byte by byte'/>
     </xsd:all>
 </xsd:complexType> 
 
 <xsd:complexType name="DhcpOptionsListType">
     <xsd:all>
-        <xsd:element name="dhcp-option" type="DhcpOptionType" 
-                                                    maxOccurs="unbounded"/>
+        <xsd:element name="dhcp-option" type="DhcpOptionType" maxOccurs="unbounded"
+             description='List of DHCP options'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:simpleType name="IpamMethodType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="dhcp"/>
-        <xsd:enumeration value="fixed"/>
+        <xsd:enumeration value="dhcp" required='optional'
+             description='This IPAM needs DHCP support for the VM(s), this default method'/>
+        <xsd:enumeration value="fixed" required='optional'
+             description='This IPAM s static address for the VM(s)'/>
     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:simpleType name="IpamDnsMethodType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="none"/>
-        <xsd:enumeration value="default-dns-server"/>
-        <xsd:enumeration value="tenant-dns-server"/>
-        <xsd:enumeration value="virtual-dns-server"/>
+        <xsd:enumeration value="none" required='optional'
+             description='No DNS support for VM(s)'/>
+        <xsd:enumeration value="default-dns-server" required='optional'
+             description='Default DNS method is proxy to the infrastructure'/>
+        <xsd:enumeration value="tenant-dns-server" required='optional'
+             description='DNS server is accessible in tenant space, forward DNS packets normally'/>
+        <xsd:enumeration value="virtual-dns-server" required='optional'
+             description='Virtual DNS server using DNSaaS'/>
     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name="IpamDnsAddressType">
     <xsd:choice>
-        <xsd:element name="tenant-dns-server-address" type="IpAddressesType"/>
-        <xsd:element name="virtual-dns-server-name" type="xsd:string"/>
+        <xsd:element name="tenant-dns-server-address" type="IpAddressesType" required='optional'
+             description='In case of tenant DNS server method, Ip address of DNS server. This will be given in DHCP'/>
+        <xsd:element name="virtual-dns-server-name" type="xsd:string" required='optional'
+             description='In case of virtual DNS server, name of virtual DNS server'/>
     </xsd:choice>
 </xsd:complexType>
 
 <xsd:complexType name="IpamType">
     <xsd:all>
-        <xsd:element name="ipam-method"      type="IpamMethodType"/>
-        <xsd:element name="ipam-dns-method"  type="IpamDnsMethodType"/>
-        <xsd:element name="ipam-dns-server"  type="IpamDnsAddressType"/>
-        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
-        <xsd:element name="cidr-block"       type="SubnetType"/>
-        <xsd:element name="host-routes"      type="RouteTableType"/>
+        <xsd:element name="ipam-method"      type="IpamMethodType" required='optional'/>
+        <xsd:element name="ipam-dns-method"  type="IpamDnsMethodType" required='optional'/>
+        <xsd:element name="ipam-dns-server"  type="IpamDnsAddressType" required='optional'/>
+        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType" required='optional'/>
+        <xsd:element name="cidr-block"       type="SubnetType" required='optional'/>
+        <xsd:element name="host-routes"      type="RouteTableType" required='optional'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -312,26 +372,34 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:complexType name="EncapsulationPrioritiesType">
     <xsd:all>
         <xsd:element name="encapsulation" type="EncapsulationType" 
-                                              maxOccurs="unbounded"/>
+                                              maxOccurs="unbounded" required='optional'
+             description='Ordered list of encapsulation types to be used in priority'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="LinklocalServiceEntryType">
     <xsd:all>
-        <xsd:element name="linklocal-service-name" type="xsd:string"/>
-        <xsd:element name="linklocal-service-ip"   type="smi:IpAddress"/>
-        <xsd:element name="linklocal-service-port" type="xsd:integer"/>
-        <xsd:element name="ip-fabric-DNS-service-name" type="xsd:string"/>
-        <xsd:element name="ip-fabric-service-port" type="xsd:integer"/>
+        <xsd:element name="linklocal-service-name" type="xsd:string" required='true'
+             description='Name of the link local service. VM name resolution of this name will result in link local ip address'/>
+        <xsd:element name="linklocal-service-ip"   type="smi:IpAddress" required='true'
+             description='ip address of the link local service.'/>
+        <xsd:element name="linklocal-service-port" type="xsd:integer" required='true'
+             description='Destination TCP port number of link local service'/>
+        <xsd:element name="ip-fabric-DNS-service-name" type="xsd:string" required='optional'
+             description='DNS name to which link local service will be proxied'/>
+        <xsd:element name="ip-fabric-service-port" type="xsd:integer" required='true'
+             description='Destination TCP port number to which link local traffic will forwarded'/>
         <xsd:element name="ip-fabric-service-ip"   type="smi:IpAddress" 
-                                                   maxOccurs="unbounded"/>
+                                                   maxOccurs="unbounded" required='optional'
+             description='Destination ip address to which link local traffic will forwarded'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="LinklocalServicesTypes">
     <xsd:all>
         <xsd:element name="linklocal-service-entry" 
-                   type="LinklocalServiceEntryType" maxOccurs="unbounded"/>
+                   type="LinklocalServiceEntryType" maxOccurs="unbounded" required='optional'
+             description='List of link local services'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -345,23 +413,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="FloatingIpDnsNotation" default="dashed-ip-tenant-name">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="dashed-ip"/>
-        <xsd:enumeration value="dashed-ip-tenant-name"/>
-        <xsd:enumeration value="vm-name"/>
-        <xsd:enumeration value="vm-name-tenant-name"/>
+        <xsd:enumeration value="dashed-ip" required='optional'
+             description='Floating ip record will be added as dashed ip. e.g 10.1.2.3 = 10-1-2-3'/>
+        <xsd:enumeration value="dashed-ip-tenant-name" required='optional'
+             description='Floating ip record will be added as dashed (ip, tenant). e.g 10.1.2.3 = 10-1-2-3-tenant'/>
+        <xsd:enumeration value="vm-name" required='optional'
+             description='Floating ip record will be added as vm name'/>
+        <xsd:enumeration value="vm-name-tenant-name" required='optional'
+             description='Floating ip record will be added as vm name-tenant'/>
     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name="VirtualDnsType">
     <xsd:all>
-        <xsd:element name="domain-name"         type="xsd:string"/>
-        <xsd:element name="dynamic-records-from-client" type="xsd:boolean"/>
-        <xsd:element name="record-order"        type="DnsRecordOrderType"/>
-        <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
-        <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
-        <xsd:element name="floating-ip-record"  type="FloatingIpDnsNotation"/>
-        <xsd:element name="external-visible"    type="xsd:boolean" default="false"/>
-        <xsd:element name="reverse-resolution"  type="xsd:boolean" default="false"/>
+        <xsd:element name="domain-name"         type="xsd:string" required='true'
+             description='Default domain name for this virtual DNS server'/>
+        <xsd:element name="dynamic-records-from-client" type="xsd:boolean" required='optional'
+             description='Allow automatic addition of records on VM launch, default is True'/>
+        <xsd:element name="record-order"        type="DnsRecordOrderType"  required='optional'
+             description='Order of DNS load balancing, fixed, random, round-robin'/>
+        <xsd:element name="default-ttl-seconds" type="xsd:integer"  required='optional'
+             description='Default Time To Live for DNS records'/>
+        <xsd:element name="next-virtual-DNS"    type="xsd:string"  required='optional'
+             description='Next virtual DNS server to lookup if record is not found. Default is proxy to infrastructure DNS'/>
+        <xsd:element name="floating-ip-record"  type="FloatingIpDnsNotation"  required='optional'
+             description='Decides how floating ip records are added'/>
+        <xsd:element name="external-visible"    type="xsd:boolean" default="false"  required='optional'
+             description='Currently this option is not supported'/>
+        <xsd:element name="reverse-resolution"  type="xsd:boolean" default="false" required='optional'
+             description='Allow reverse DNS resolution, ip to name mapping'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -386,18 +466,24 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="VirtualDnsRecordType">
     <xsd:all>
-        <xsd:element name="record-name"        type="xsd:string"/>
-        <xsd:element name="record-type"        type="DnsRecordTypeType"/>
-        <xsd:element name="record-class"       type="DnsRecordClassType"/>
-        <xsd:element name="record-data"        type="xsd:string"/>
-        <xsd:element name="record-ttl-seconds" type="xsd:integer"/>
-        <xsd:element name="record-mx-preference" type="xsd:integer"/>
+        <xsd:element name="record-name"        type="xsd:string" required='true'
+             description='DNS name to be resolved'/>
+        <xsd:element name="record-type"        type="DnsRecordTypeType"  required='optional'
+             description='DNS record type can be A, AAAA, CNAME, PTR, NS and MX'/>
+        <xsd:element name="record-class"       type="DnsRecordClassType"  required='optional'
+             description='DNS record class supported is IN'/>
+        <xsd:element name="record-data"        type="xsd:string" required='true'
+             description='DNS record data is either ip address or string depending on type'/>
+        <xsd:element name="record-ttl-seconds" type="xsd:integer" required='optional'
+             description='Time To Live for this DNS record'/>
+        <xsd:element name="record-mx-preference" type="xsd:integer" required='optional'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="FloatingIpPoolType">
     <xsd:all>
-        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded" required='optional'
+             description='Block of ipaddresses for floating ip allocation. Currently not supported'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -409,24 +495,36 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="IpamSubnetType">
     <xsd:all>
-        <xsd:element name="subnet" type="SubnetType"/>
-        <xsd:element name="default-gateway" type="IpAddressType"/>
-        <xsd:element name="dns-server-address" type="IpAddressType"/>
-        <xsd:element name="subnet-uuid" type="xsd:string"/>
-        <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"/>
-        <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
-        <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded"/>
-        <xsd:element name="addr_from_start" type="xsd:boolean"/>
-        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
-        <xsd:element name="host-routes" type="RouteTableType"/>
-        <xsd:element name="subnet-name" type="xsd:string"/>
+        <xsd:element name="subnet" type="SubnetType"  required='true'
+             description='ip prefix and length for the subnet'/>
+        <xsd:element name="default-gateway" type="IpAddressType" required='optional'
+             description='default-gateway ip address in the subnet, if not provided one is auto generated by the system.'/>
+        <xsd:element name="dns-server-address" type="IpAddressType" required='optional'
+             description='DNS server ip address in the subnet, if not provided one is auto generated by the system.'/>
+        <xsd:element name="subnet-uuid" type="xsd:string"  required='system-only'
+             description='Subnet UUID is auto generated by the system'/>
+        <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"  required='optional'
+             description='Enable DHCP for the VM(s) in this subnet'/>
+        <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded" required='optional'
+             description='Tenant DNS servers ip address in tenant DNS method'/>
+        <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded" required='optional'
+             description='List of ranges of ip address within the subnet from which to allocate ip address. default is entire prefix'/>
+        <xsd:element name="addr_from_start" type="xsd:boolean" required='optional'
+             description='Start address allocation from start or from end of address range.'/>
+        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType" required='optional'
+             description='DHCP options list to be sent via DHCP for  VM(s) in this subnet'/>
+        <xsd:element name="host-routes" type="RouteTableType"  required='optional'
+             description='Host routes to be sent via DHCP for VM(s) in this subnet, Next hop for these routes is always default gateway'/>
+        <xsd:element name="subnet-name" type="xsd:string" required='optional'
+             description='User provided name for this subnet'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="VnSubnetsType">
     <xsd:all>
         <xsd:element name="ipam-subnets" type="IpamSubnetType" maxOccurs="unbounded"/>
-        <xsd:element name="host-routes" type="RouteTableType"/>
+        <xsd:element name="host-routes" type="RouteTableType" required='optional'
+             description='Common host routes to be sent via DHCP for VM(s) in all the subnets, Next hop for these routes is always default gateway'/>
     </xsd:all>
 </xsd:complexType>
 <!-- 
@@ -439,17 +537,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- admin:CRUD (single role permission) -->
 <xsd:complexType name="RbacPermType">
     <xsd:all>
-        <xsd:element name="role-name"        type="xsd:string"/>
-        <xsd:element name="role-crud"        type="xsd:string"/>
+        <xsd:element name="role-name"        type="xsd:string" required='true'
+             description='Name of the role' />
+        <xsd:element name="role-crud"        type="xsd:string" required='true'
+             description='String CRUD representing permissions for C=create, R=read, U=update, D=delete.'/>
     </xsd:all>
 </xsd:complexType>
 
 <!-- field is optional in RBAC ACL rule -->
 <xsd:complexType name="RbacRuleType">
     <xsd:all>
-        <xsd:element name="rule-object" type="xsd:string"/>
-        <xsd:element name="rule-field"  type="xsd:string" minOccurs="0" maxOccurs="1"/>
-        <xsd:element name="rule-perms"  type="RbacPermType" maxOccurs="unbounded"/>
+        <xsd:element name="rule-object" type="xsd:string" required='true'
+             description='Name of the REST API (object) for this rule, * represent all objects'/>
+        <xsd:element name="rule-field"  type="xsd:string" minOccurs="0" maxOccurs="1" required='optional'
+             description='Name of the level one field (property) for this object, * represent all properties'/>
+        <xsd:element name="rule-perms"  type="RbacPermType" maxOccurs="unbounded" required='true'
+             description='List of [(role, permissions),...]'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -463,9 +566,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- domain limits type -->
 <xsd:complexType name="DomainLimitsType">
     <xsd:all>
-    <xsd:element name="project-limit"   type="xsd:integer"/>
-    <xsd:element name="virtual-network-limit" type="xsd:integer"/>
-    <xsd:element name="security-group-limit"  type="xsd:integer"/>
+    <xsd:element name="project-limit"   type="xsd:integer" required='optional'
+         description='Maximum number of projects allowed in this domian'/>
+    <xsd:element name="virtual-network-limit" type="xsd:integer" required='optional'
+         description='Maximum number of virtual networks allowed in this domian'/>
+    <xsd:element name="security-group-limit"  type="xsd:integer" required='optional'
+         description='Maximum number of security groups allowed in this domian'/>
     <!-- More limits to come here -->
     </xsd:all>
 </xsd:complexType> 
@@ -479,7 +585,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType>
 
 <xsd:simpleType name="AccessType">
-     <xsd:restriction base="xsd:integer">
+     <xsd:restriction base="xsd:integer" required='true'
+          description_1="Three bits representing rwx."
+          description_2="   r=read permission,"
+          description_3="   w=write permission,"
+          description_4="   x=reference permission">
          <xsd:minInclusive value="0"/>
          <xsd:maxInclusive value="7"/>
      </xsd:restriction>
@@ -497,22 +607,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="ShareType">
     <xsd:all>
-        <xsd:element name="tenant"        type="xsd:string"/>
-        <xsd:element name="tenant-access" type="AccessType"/>
+        <xsd:element name="tenant"        type="xsd:string" required='true'
+             description='Name of tenant with whom the object is shared'/>
+        <xsd:element name="tenant-access" type="AccessType" required='true'
+             description='Allowed permissions in sharing'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="PermType2">
     <xsd:all>
-        <xsd:element name="owner"           type="xsd:string"/>
-        <xsd:element name="owner-access"    type="AccessType"/>
-        <xsd:element name="global-access"   type="AccessType"/>
-        <xsd:element name="share"           type="ShareType" maxOccurs="unbounded"/>
+        <xsd:element name="owner"           type="xsd:string" required='true'
+             description='Owner tenant of the object'/>
+        <xsd:element name="owner-access"    type="AccessType" required='true'
+             description='Owner permissions of the object'/>
+        <xsd:element name="global-access"   type="AccessType" required='optional'
+             description='Globally(others) shared object and permissions for others of the object'/>
+        <xsd:element name="share"           type="ShareType" maxOccurs="unbounded" required='optional'
+             description='Selectively shared object, List of (tenant, permissions)'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:simpleType name="CreatorType">
-    <xsd:restriction base="xsd:string">
+    <xsd:restriction base="xsd:string" required='system-only'
+         description='subsystem that created this object'>
         <xsd:enumeration value="vcenter-plugin"/>
         <xsd:enumeration value="test"/>
     </xsd:restriction>
@@ -520,14 +637,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="IdPermsType">
     <xsd:all>
-        <xsd:element name="permissions"   type="PermType"/>
-        <xsd:element name="uuid"          type="UuidType"/>
-        <xsd:element name="enable"        type="xsd:boolean"/>
-        <xsd:element name="created"       type="xsd:dateTime"/>
-        <xsd:element name="last-modified" type="xsd:dateTime"/>
-        <xsd:element name="description"   type="xsd:string"/>
-        <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
-        <xsd:element name="creator"       type="xsd:string"/>
+        <xsd:element name="permissions"   type="PermType" required='optional'
+             description='No longer used, will be removed'/>
+        <xsd:element name="uuid"          type="UuidType" required='true'
+             description='UUID of the object, system automatically allocates one if not provided'/>
+        <xsd:element name="enable"        type="xsd:boolean" required='true'
+             description='Administratively Enable/Disable this object'/>
+        <xsd:element name="created"       type="xsd:dateTime" required='system-only'
+             description='Time when this object was created'/>
+        <xsd:element name="last-modified" type="xsd:dateTime" required='system-only'
+             description='Time when this object was created'/>
+        <xsd:element name="description"   type="xsd:string" required='optional'
+             description='User provided text'/>
+        <xsd:element name="user-visible"  type="xsd:boolean" default="true" required='system-only'
+             description='System created internal objects will have this flag set and will not be visible'/>
+        <xsd:element name="creator"       type="xsd:string" required='system-only'
+             description='Id of tenant who created this object'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -540,42 +665,70 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PluginProperties">
     <xsd:all>
-        <xsd:element name="plugin-property" type="PluginProperty" maxOccurs="unbounded"/>
+        <xsd:element name="plugin-property" type="PluginProperty" maxOccurs="unbounded" required='optional'
+             description='List of plugin specific properties (property, value)'/>
     </xsd:all>
 </xsd:complexType>
   
 <xsd:element name="id-perms" type="IdPermsType"/>
-<!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
+<!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all', 'system-only', 'R',
+                                  'System maintained identity, time  and permissions data.') -->
 
 <xsd:element name="perms2" type="PermType2"/>
-<!--#IFMAP-SEMANTICS-IDL Property('perms2', 'all') -->
+<!--#IFMAP-SEMANTICS-IDL Property('perms2', 'all', 'system-only', 'R',
+                                  'Permissions data for role based access.') -->
+
 
 <xsd:complexType name="QuotaType">
     <xsd:all>
-        <xsd:element name="defaults" type="xsd:integer"/>
-        <xsd:element name="floating-ip" type="xsd:integer"/>
-        <xsd:element name="instance-ip" type="xsd:integer"/>
-        <xsd:element name="virtual-machine-interface" type="xsd:integer"/>
-        <xsd:element name="virtual-network" type="xsd:integer"/>
-        <xsd:element name="virtual-router" type="xsd:integer"/>
-        <xsd:element name="virtual-DNS" type="xsd:integer"/>
-        <xsd:element name="virtual-DNS-record" type="xsd:integer"/>
-        <xsd:element name="bgp-router" type="xsd:integer"/>
-        <xsd:element name="network-ipam" type="xsd:integer"/>
-        <xsd:element name="access-control-list" type="xsd:integer"/>
-        <xsd:element name="network-policy" type="xsd:integer"/>
-        <xsd:element name="floating-ip-pool" type="xsd:integer"/>
-        <xsd:element name="service-template" type="xsd:integer"/>
-        <xsd:element name="service-instance" type="xsd:integer"/>
-        <xsd:element name="logical-router" type="xsd:integer"/>
-        <xsd:element name="security-group" type="xsd:integer"/>
-        <xsd:element name="security-group-rule" type="xsd:integer"/>
-	<xsd:element name="subnet" type="xsd:integer"/>
-	<xsd:element name="global-vrouter-config" type="xsd:integer"/>
-	<xsd:element name="loadbalancer-pool" type="xsd:integer"/>
-	<xsd:element name="loadbalancer-member" type="xsd:integer"/>
-	<xsd:element name="loadbalancer-healthmonitor" type="xsd:integer"/>
-	<xsd:element name="virtual-ip" type="xsd:integer"/>
+        <xsd:element name="defaults" type="xsd:integer" required='optional'
+             description='Need to clarify'/>
+        <xsd:element name="floating-ip" type="xsd:integer" required='optional'
+             description='Maximum number of floating ips'/>
+        <xsd:element name="instance-ip" type="xsd:integer" required='optional'
+             description='Maximum number of instance ips'/>
+        <xsd:element name="virtual-machine-interface" type="xsd:integer" required='optional'
+             description='Maximum number of virtual machine interfaces'/>
+        <xsd:element name="virtual-network" type="xsd:integer" required='optional'
+             description='Maximum number of virtual networks'/>
+        <xsd:element name="virtual-router" type="xsd:integer" required='optional'
+             description='Maximum number of logical routers'/>
+        <xsd:element name="virtual-DNS" type="xsd:integer" required='optional'
+             description='Maximum number of virtual DNS servers'/>
+        <xsd:element name="virtual-DNS-record" type="xsd:integer" required='optional'
+             description='Maximum number of virtual DNS records'/>
+        <xsd:element name="bgp-router" type="xsd:integer" required='optional'
+             description='Maximum number of bgp routers'/>
+        <xsd:element name="network-ipam" type="xsd:integer" required='optional'
+             description='Maximum number of network IPAMs'/>
+        <xsd:element name="access-control-list" type="xsd:integer" required='optional'
+             description='Maximum number of access control lists'/>
+        <xsd:element name="network-policy" type="xsd:integer" required='optional'
+             description='Maximum number of network policies'/>
+        <xsd:element name="floating-ip-pool" type="xsd:integer" required='optional'
+             description='Maximum number of floating ip pools'/>
+        <xsd:element name="service-template" type="xsd:integer" required='optional'
+             description='Maximum number of service templates'/>
+        <xsd:element name="service-instance" type="xsd:integer" required='optional'
+             description='Maximum number of service instances'/>
+        <xsd:element name="logical-router" type="xsd:integer" required='optional'
+             description='Maximum number of logical routers'/>
+        <xsd:element name="security-group" type="xsd:integer" required='optional'
+             description='Maximum number of security groups'/>
+        <xsd:element name="security-group-rule" type="xsd:integer" required='optional'
+             description='Maximum number of security group rules'/>
+	<xsd:element name="subnet" type="xsd:integer" required='optional'
+             description='Maximum number of subnets'/>
+	<xsd:element name="global-vrouter-config" type="xsd:integer" required='optional'
+             description='Maximum number of global vrouter configs'/>
+	<xsd:element name="loadbalancer-pool" type="xsd:integer" required='optional'
+             description='Maximum number of loadbalancer pools'/>
+	<xsd:element name="loadbalancer-member" type="xsd:integer" required='optional'
+             description='Maximum number of loadbalancer member'/>
+	<xsd:element name="loadbalancer-healthmonitor" type="xsd:integer" required='optional'
+             description='Maximum number of loadbalancer health monitors'/>
+	<xsd:element name="virtual-ip" type="xsd:integer" required='optional'
+             description='Maximum number of virtual ips'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -589,13 +742,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="FlowAgingTimeoutList">
     <xsd:all>
-        <xsd:element name="flow-aging-timeout"
-            type="FlowAgingTimeout" maxOccurs="unbounded"/>
+        <xsd:element name="flow-aging-timeout" type="FlowAgingTimeout" maxOccurs="unbounded" required='optional'
+             description='List of (ip protocol, port number, timeout in seconds)'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:element name="display-name" type="xsd:string"/>
-<!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all') -->
+<!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all', 'optional', 'CRUD',
+                                  'Display name user configured string(name) that can be updated any time. Used as openstack name.') -->
 
 <!--Identifier "config-root" is used start config tree traversal for
     Entire config of the VNC, 
@@ -612,42 +766,55 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="config-root-global-system-config"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('config-root-global-system-config', 
-             'config-root', 'global-system-config', ['has']) -->
+             'config-root', 'global-system-config', ['has'], 'required', 'R',
+             'Global system config is object where all global system configuration is present.') -->
 <xsd:element name="autonomous-system" type="AutonomousSystemType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('autonomous-system', 'global-system-config') -->
+     Property('autonomous-system', 'global-system-config', 'required', 'CRUD',
+              '16 bit BGP Autonomous System number for the cluster.') -->
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('config-version', 'global-system-config') -->
+     Property('config-version', 'global-system-config', 'system-only', 'R',
+              'Version of OpenContrail software that generated this config.') -->
 
 <xsd:element name="plugin-tuning" type="PluginProperties"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('plugin-tuning', 'global-system-config') -->
+     Property('plugin-tuning', 'global-system-config', 'optional', 'CRUD',
+              'Various Orchestration system plugin(interface) parameters, like Openstack Neutron plugin.') -->
 
 <xsd:element name="ibgp-auto-mesh" type="xsd:boolean"/>
 <!-- Automatically create an iBGP mesh if set to True -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ibgp-auto-mesh', 'global-system-config') -->
+     Property('ibgp-auto-mesh', 'global-system-config', 'optional', 'CRUD',
+              'When true, system will automatically create BGP peering mesh with all control-nodes that have same BGP AS number as global AS number.') -->
 
 <xsd:element name="ip-fabric-subnets" type="SubnetListType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ip-fabric-subnets', 'global-system-config') -->
+     Property('ip-fabric-subnets', 'global-system-config', 'optional', 'CRUD',
+              'List of all subnets in which vrouter ip address exist. Used by Device manager to configure dynamic GRE tunnels on the SDN gateway.') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-bgp-router', 
-             'global-system-config', 'bgp-router', ['ref']) -->
+             'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
+             'List of references to all bgp routers in systems.') -->
 
 <!-- Ecmp load balance parameters to be used -->
 <xsd:complexType name="EcmpHashingIncludeFields">
     <xsd:all>
         <!-- hashing-configured - decides if fields should be used or not -->
-        <xsd:element name="hashing-configured" type="xsd:boolean" default="false"/>
-        <xsd:element name="source-ip" type="xsd:boolean" default="true"/>
-        <xsd:element name="destination-ip" type="xsd:boolean" default="true"/>
-        <xsd:element name="ip-protocol" type="xsd:boolean" default="true"/>
-        <xsd:element name="source-port" type="xsd:boolean" default="true"/>
-        <xsd:element name="destination-port" type="xsd:boolean" default="true"/>
+        <xsd:element name="hashing-configured" type="xsd:boolean" default="false" required='optional'
+             description='When True, Packet header fields used in calculating ECMP hash is decided by following flags'/>
+        <xsd:element name="source-ip" type="xsd:boolean" default="true" required='optional'
+             description='When false, do not use source ip in the ECMP hash calculation'/>
+        <xsd:element name="destination-ip" type="xsd:boolean" default="true" required='optional'
+             description='When false, do not use destination ip in the ECMP hash calculation'/>
+        <xsd:element name="ip-protocol" type="xsd:boolean" default="true" required='optional'
+             description='When false, do not use ip protocol in the ECMP hash calculation'/>
+        <xsd:element name="source-port" type="xsd:boolean" default="true" required='optional'
+             description='When false, do not use source port in the ECMP hash calculation'/>
+        <xsd:element name="destination-port" type="xsd:boolean" default="true" required='optional'
+             description='When false, do not use destination port in the ECMP hash calculation'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -655,24 +822,28 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="global-system-config-global-vrouter-config"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-global-vrouter-config', 
-             'global-system-config', 'global-vrouter-config', ['has']) -->
+             'global-system-config', 'global-vrouter-config', ['has'], 'required', 'R',
+             'Global vrouter config is object where all global vrouter config is present.') -->
 
 <xsd:element name="ecmp-hashing-include-fields"
              type="EcmpHashingIncludeFields"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'global-vrouter-config') -->
+     Property('ecmp-hashing-include-fields', 'global-vrouter-config', 'optional', 'CRUD',
+              'ECMP hashing config at global level.') -->
 
 <xsd:element name="linklocal-services" type="LinklocalServicesTypes"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('linklocal-services', 'global-vrouter-config') -->
+     Property('linklocal-services', 'global-vrouter-config', 'optional', 'CRUD',
+              'Global services provided on link local subnet to the virtual machines.') -->
 
 <xsd:element name="encapsulation-priorities" 
                                   type="EncapsulationPrioritiesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('encapsulation-priorities', 'global-vrouter-config') -->
+     Property('encapsulation-priorities', 'global-vrouter-config', 'optional', 'CRUD',
+              'Ordered list of enapsulations that vrouter will use in priority order.') -->
 
 <xsd:simpleType name="VxlanNetworkIdentifierModeType">
-    <xsd:restriction base='xsd:string'>
+    <xsd:restriction base='xsd:string' required='true'>
         <xsd:enumeration value='configured'/>
         <xsd:enumeration value='automatic'/>
     </xsd:restriction>
@@ -680,98 +851,122 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="vxlan-network-identifier-mode" 
                                  type="VxlanNetworkIdentifierModeType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('vxlan-network-identifier-mode', 'global-vrouter-config') -->
+     Property('vxlan-network-identifier-mode', 'global-vrouter-config', 'optional', 'CRUD',
+              ['Method of allocation of VxLAN VNI(s). Set at provision time and cannot be changed.',
+               '    configured = VxLAN VNI is given by user when virtual network is configured.',
+               '    automatic = System will allocate VxLAN VNI automatically.']) -->
 <xsd:element name="flow-export-rate" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('flow-export-rate', 'global-vrouter-config') -->
+     Property('flow-export-rate', 'global-vrouter-config', 'optional', 'CRUD', 
+              'Flow export rate is global config, rate at which each vrouter will sample and export flow records to analytics') -->
 
 <xsd:element name="flow-aging-timeout-list" type="FlowAgingTimeoutList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('flow-aging-timeout-list', 'global-vrouter-config') -->
+     Property('flow-aging-timeout-list', 'global-vrouter-config', 'optional', 'CRUD',
+              'Flow aging timeout per application (protocol, port) list.') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('config-root-domain', 'config-root', 'domain', ['has']) -->
+     Link('config-root-domain', 'config-root', 'domain', ['has'], 'system-only', 'CRUD',
+          'Domain is authentication namespace, a collection of projects.') -->
 <xsd:element name="domain-limits" type="DomainLimitsType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('domain-limits', ['backend']);
-     Property('domain-limits', 'domain') -->
+     Property('domain-limits', 'domain', 'optional', 'CRUD',
+              'Domain level Qouta, not currently implemented') -->
 
 <xsd:element name="project"   type="ifmap:IdentityType"/>
 <xsd:element name="domain-project"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('domain-project', 'domain', 'project', ['has']) -->
+     Link('domain-project', 'domain', 'project', ['has'], 'system-only', 'CRUD',
+          'Project represent one instance of application or tenant.') -->
 
 <xsd:element name="namespace" type="ifmap:IdentityType"/>
 <!--project-namespace is identifies namespace and also CIDR block -->
 
 <xsd:element name="namespace-cidr" type="SubnetType"/>
-<!--#IFMAP-SEMANTICS-IDL Property('namespace-cidr', 'namespace') -->
+<!--#IFMAP-SEMANTICS-IDL Property('namespace-cidr', 'namespace', 'optional', 'CRUD', 
+                                  'All networks in this namespace belong to this list of Prefixes. Not implemented.') -->
 
 <xsd:element name="domain-namespace"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('domain-namespace', 'domain', 'namespace', ['has']) -->
+     Link('domain-namespace', 'domain', 'namespace', ['has'], 'optional', 'CRUD',
+          'Namespace is unique networking namespace within this domain. If namespace is not present then default namespace of default project is used.') -->
 
 <xsd:element name="project-namespace" type="SubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('project-namespace', 'project', 'namespace', ['ref']) -->
+     Link('project-namespace', 'project', 'namespace', ['ref'], 'optional', 'CRUD',
+          'Reference to network namespace of this project.') -->
 
 <xsd:element name="security-group" type="ifmap:IdentityType"/>
 <xsd:element name="security-group-id" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('security-group-id', 'security-group') -->
+     Property('security-group-id', 'security-group', 'system-only', 'CR',
+              'Unique 32 bit ID automatically assigned to this security group [8M+1, 32G].') -->
 
 <xsd:element name="configured-security-group-id" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('configured-security-group-id', 'security-group') -->
+     Property('configured-security-group-id', 'security-group', 'optional', 'CRUD'
+              'Unique 32 bit user defined ID assigned to this security group [1, 8M].') -->
 
 <xsd:element name="project-security-group"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-security-group',
-          'project', 'security-group', ['has']) -->
+          'project', 'security-group', ['has'], 'optional', 'CRUD',
+          'Security Groups are set of state full access control rules attached to interfaces.It can be used to implement microsegmentation.') -->
 
 <xsd:element name="virtual-network" type="ifmap:IdentityType"/>
 <xsd:element name="project-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-virtual-network',
-          'project', 'virtual-network', ['has']) -->
+          'project', 'virtual-network', ['has'], 'optional', 'CRUD',
+          'Virtual network is collection of end points (interface or ip(s) or MAC(s)) that can talk to each other by default. It is collection of subnets connected by implicit router which default gateway in each subnet.') -->
 
 <xsd:element name="qos-queue" type="ifmap:IdentityType"/>
 <xsd:element name="project-qos-queue"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-qos-queue',
-          'project', 'qos-queue', ['has']) -->
+          'project', 'qos-queue', ['has'], 'optional', 'CRUD',
+          'QOS queue config object in this project.') -->
 <xsd:element name="min-bandwidth" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('min-bandwidth', 'qos-queue') -->
+     Property('min-bandwidth', 'qos-queue', 'required', 'CRUD',
+              'Minimum bandwidth for this queue.') -->
 <xsd:element name="max-bandwidth" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('max-bandwidth', 'qos-queue') -->
+     Property('max-bandwidth', 'qos-queue', 'required', 'CRUD',
+              'Maximum bandwidth for this queue.') -->
 
 <xsd:element name="qos-forwarding-class" type="ifmap:IdentityType"/>
 <xsd:element name="project-qos-forwarding-class"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-qos-forwarding-class',
-          'project', 'qos-forwarding-class', ['has']) -->
+          'project', 'qos-forwarding-class', ['has'], 'optional', 'CRUD'
+          'QOS forwarding class is object which represent Marking rules and queueing rules. It is modeled after JUNOS qos forwarding class.') -->
 <xsd:element name="dscp" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('dscp', 'qos-forwarding-class') -->
+     Property('dscp', 'qos-forwarding-class', 'optional', 'CRUD',
+              'DSCP value for this qos forwding class.') -->
 <xsd:element name="trusted" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('trusted', 'qos-forwarding-class') -->
+     Property('trusted', 'qos-forwarding-class', 'optional', 'CRUD',
+              'When trusted is true, original DSCP value is copied to overlay header.') -->
 <xsd:element name="qos-forwarding-class-qos-queue"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('qos-forwarding-class-qos-queue',
-          'qos-forwarding-class', 'qos-queue', ['ref']) -->
+          'qos-forwarding-class', 'qos-queue', ['ref'], 'optional', 'CRUD',
+          'Refernce to queue(qos-queue) used by this forwarding class.') -->
 <xsd:element name="virtual-network-qos-forwarding-class"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-qos-forwarding-class',
-          'virtual-network', 'qos-forwarding-class', ['ref']) -->
+          'virtual-network', 'qos-forwarding-class', ['ref'], 'optional', 'CRUD',
+          'Reference to qos-forwarding-class for this virtual network.') -->
 <xsd:element name="virtual-machine-interface-qos-forwarding-class"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-qos-forwarding-class',
-          'virtual-machine-interface', 'qos-forwarding-class', ['ref']) -->
+          'virtual-machine-interface', 'qos-forwarding-class', ['ref'], 'optional', 'CRUD',
+          'Reference to qos-forwarding-class for this virtual machine interface.') -->
 
 <xsd:simpleType name="VxlanNetworkIdentifierType">
      <xsd:restriction base="xsd:integer">
@@ -781,7 +976,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType> 
 
 <xsd:simpleType name="ForwardingModeType">
-     <xsd:restriction base='xsd:string'>
+     <xsd:restriction base='xsd:string' required='optional' operations='CRUD' 
+          description_1='L2_L3 = Packet will be L2 switched within subnet and routed(L3) outside subnet.'
+          description_2='L2 = Packet will be always L2 switched, unknown MACs will be broadcasted within Virtual network.'
+          description_3='L3 = Packets will be routed(L3) and vrouter behaves as proxy arp router.'>
          <xsd:enumeration value='l2_l3'/>
          <xsd:enumeration value='l2'/>
          <xsd:enumeration value='l3'/>
@@ -797,16 +995,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
-        <xsd:element name='allow-transit' type="xsd:boolean"/>
+        <xsd:element name='allow-transit' type="xsd:boolean" required='optional'
+             description_1='Enables transitive property for route imports.'
+             description_2='    If B imports routes of A and C imports from B,'
+             description_3='    then if B is transitive then C will have routes from A.'/>
         <!-- A unique id for the network, auto generated -->
-        <xsd:element name='network-id' type='xsd:integer'/> <!-- DEPRECATED -->
+        <xsd:element name='network-id' type='xsd:integer' required='system-only'
+             description='Not currently in used'/> <!-- DEPRECATED -->
         <!-- VNI for the network, configured by user -->
         <xsd:element name='vxlan-network-identifier'
-                     type='VxlanNetworkIdentifierType'/>
+                     type='VxlanNetworkIdentifierType' required='true'
+             description='VxLAN VNI value for this network'/>
         <!-- Forwarding mode for virtual-network  -->
-        <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
+        <xsd:element name='forwarding-mode' type='ForwardingModeType' required='optional'
+             description='Packet forwarding mode for this virtual network'/>
         <!-- Enable or disable unicast RPF for virtual-network -->
-        <xsd:element name='rpf' type='RpfModeType'/>
+        <xsd:element name='rpf' type='RpfModeType' required='optional'
+             description='Flag used to diable Reverse Path Forwarding(RPF) check for this network'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -824,24 +1029,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="forwarding-mode" type="ForwardingModeType"/>
 <!--#IFMAP-SEMANTICS-IDL
-    Property('forwarding-mode', 'global-vrouter-config') -->
+    Property('forwarding-mode', 'global-vrouter-config', 'optional', 'CRUD',
+             'Packet forwarding mode for this system L2-only, L3-only OR L2-L3. L2-L3 is default.') -->
 
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-network-properties', 'virtual-network') -->
+     Property('virtual-network-properties', 'virtual-network', 'optional', 'CRUD',
+               'Virtual network miscelenious configurations.') -->
 
 <!-- Ecmp nexthop load balance criterias -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'virtual-network') -->
+     Property('ecmp-hashing-include-fields', 'virtual-network', 'optional', 'CRUD',
+              'Ecmp hashing config at network level, overrides global config.') -->
 
 <xsd:element name="provider-properties" type="ProviderDetails"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('provider-properties', 'virtual-network') -->
+     Property('provider-properties', 'virtual-network', 'optional', 'CRD',
+              'Virtual network is provider network. Specifies VLAN tag and physical network name.') -->
 
 
 <xsd:element name="virtual-network-network-id" type='xsd:integer'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-network-network-id', 'virtual-network') -->
+     Property('virtual-network-network-id', 'virtual-network', 'system-only', 'CR',
+              'System assigned unique 32 bit ID for every virtual network.') -->
 
 <xsd:complexType name="RouteTargetList">
     <xsd:all>
@@ -851,29 +1061,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="route-target-list" type="RouteTargetList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('route-target-list', 'virtual-network') -->
+     Property('route-target-list', 'virtual-network', 'optional', 'CRUD',
+              'List of route targets that are used as both import and export for this virtual network.') -->
 
 <xsd:element name="import-route-target-list" type="RouteTargetList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('import-route-target-list', 'virtual-network') -->
+     Property('import-route-target-list', 'virtual-network', 'optional', 'CRUD',
+              'List of route targets that are used as import for this virtual network.') -->
 
 <xsd:element name="export-route-target-list" type="RouteTargetList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('export-route-target-list', 'virtual-network') -->
+     Property('export-route-target-list', 'virtual-network', 'optional', 'CRUD',
+              'List of route targets that are used as export for this virtual network.') -->
 
 <xsd:element name="configured-route-target-list" type="RouteTargetList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('configured-route-target-list', 'logical-router') -->
+     Property('configured-route-target-list', 'logical-router', 'optional', 'CRUD',
+              'List of route targets that represent this logical router, all virtual networks connected to this logical router will have this as their route target list.') -->
 
 <xsd:element name="router-external" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('router-external', ['backend']);
-     Property('router-external', 'virtual-network') -->
+     Property('router-external', 'virtual-network', 'optional', 'CRUD', 
+              'When true, this virtual network is openstack router external network.') -->
 
 <xsd:element name="is-shared" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('is-shared', ['backend']);
-     Property('is-shared', 'virtual-network') -->
+     Property('is-shared', 'virtual-network', 'optional', 'CRUD', 
+              'When true, this virtual network is shared with all tenants.') -->
 
 <xsd:element name="external-ipam" type="xsd:boolean"/>
     <xsd:annotation>
@@ -884,7 +1100,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('external-ipam', 'virtual-network') -->
+     Property('external-ipam', 'virtual-network', 'optional', 'CRUD',
+              'IP address assignment to VM is done statically, outside of (external to) Contrail Ipam. vCenter only feature.') -->
 
 <xsd:element name="flood-unknown-unicast" type="xsd:boolean"
     default='false'/>
@@ -895,9 +1112,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('flood-unknown-unicast', 'virtual-network') -->
+     Property('flood-unknown-unicast', 'virtual-network', 'optional', 'CRUD',
+              'When true, packets with unknown unicast MAC addres are flooded within the network. Default they are dropped.') -->
 
-<xsd:element name="multi-policy-service-chains-enabled" type="xsd:Boolean"/>
+<xsd:element name="multi-policy-service-chains-enabled" type="xsd:boolean"/>
     <xsd:annotation>
         <xsd:documentation>
             Enable this flag for the ability to create multiple service chains
@@ -916,84 +1134,101 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
 <!-- #IFMAP-SEMANTICS-IDL
-    Property('multi-policy-service-chains-enabled', 'virtual-network') -->
+    Property('multi-policy-service-chains-enabled', 'virtual-network', 'optional', 'CRUD',
+             ['Allow multiple service chains within same two networks based on network policy.',
+              'Current limitation is that both networks must reside within cluster, except when right most service is NAT.']) -->
 
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('network-ipam-mgmt', 'network-ipam') -->
+     Property('network-ipam-mgmt', 'network-ipam', 'optional', 'CRUD',
+              'Network IP Address Management configuration.') -->
 <xsd:element name="project-network-ipam"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-network-ipam',
-          'project', 'network-ipam', ['has']) -->
+          'project', 'network-ipam', ['has'], 'optional', 'CRUD',
+          'IP Address Management object that controls, ip allocation, DNS and DHCP') -->
 <xsd:element name="virtual-network-network-ipam" type="VnSubnetsType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-network-ipam',
-          'virtual-network', 'network-ipam', ['ref']) -->
+          'virtual-network', 'network-ipam', ['ref'], 'required', 'CRUD',
+          'Reference to network-ipam this network is using. It has list of subnets that are being used as property of the refernce.') -->
 
 <xsd:element name="network-policy" type="ifmap:IdentityType"/>
 <xsd:element name="project-network-policy"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-network-policy',
-          'project', 'network-policy', ['has']) -->
+          'project', 'network-policy', ['has'], 'optional', 'CRUD',
+          'Network Policy is set access control rules that can be attached to virtual networks. Network ACL(s) and connectivity information is derived from Network policies that are attached to virtual networks.') -->
 <xsd:element name="virtual-network-network-policy" type="VirtualNetworkPolicyType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-network-policy',
-          'virtual-network', 'network-policy', ['ref']) -->
+          'virtual-network', 'network-policy', ['ref'], 'optional', 'CRUD',
+          'Reference to network-policy attached to this network. It has sequence number to specify attachment order.') -->
 
 <xsd:element name="quota" type="QuotaType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('quota', 'project') -->
+     Property('quota', 'project', 'required', 'CRUD',
+              'Max instances limits for various objects under project.') -->
 
 <xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('network-policy-entries', 'network-policy') -->
+     Property('network-policy-entries', 'network-policy', 'required', 'CRUD',
+              'Network policy rule entries.') -->
 <xsd:element name="security-group-entries" type="PolicyEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('security-group-entries', 'security-group') -->
+     Property('security-group-entries', 'security-group', 'required', 'CRUD',
+              'Security group rule entries.') -->
 <xsd:element name="access-control-list" type="ifmap:IdentityType"/>
 <xsd:element name="access-control-list-entries" type="AclEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('access-control-list-entries', 'access-control-list') -->
+     Property('access-control-list-entries', 'access-control-list', 'system-only', 'CRUD',
+              'Automatically generated by system based on security groups or network policies.') -->
 
 <xsd:element name="virtual-network-access-control-list"/>
 <xsd:element name="security-group-access-control-list"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('security-group-access-control-list',
-          'security-group', 'access-control-list', ['has', 'derived']);
+          'security-group', 'access-control-list', ['has', 'derived'], 'system-only', 'CRUD',
+          'port access control list is  automatcally derived from all the security groups attached to port.');
      Link('virtual-network-access-control-list',
-          'virtual-network', 'access-control-list', ['has', 'derived'])
-    -->
+          'virtual-network', 'access-control-list', ['has', 'derived'], 'system-only', 'CRUD',
+          'Virtual network access control list are automatically derived from all the network policies attached to virtual network.') -->
 
 <xsd:element name="virtual-machine" type="ifmap:IdentityType"/>
 
 <xsd:element name="virtual-machine-interface-security-group"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-security-group',
-          'virtual-machine-interface', 'security-group', ['ref']) -->
+          'virtual-machine-interface', 'security-group', ['ref'], 'optional', 'CRUD',
+          'Interface ACL, Automatically generated by system based on security groups attached to this interface.') -->
 
 <xsd:element name="virtual-machine-interface" type="ifmap:IdentityType"/>
 <xsd:element name="virtual-machine-interface-mac-addresses" 
                                                 type="MacAddressesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-mac-addresses',
-             'virtual-machine-interface') -->
+             'virtual-machine-interface', 'required', 'CRUD',
+             'MAC address of the virtual machine interface, automatically assigned by system if not provided.') -->
 <xsd:element name="virtual-machine-interface-dhcp-option-list"
                                                 type="DhcpOptionsListType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-dhcp-option-list',
-              'virtual-machine-interface') -->
+              'virtual-machine-interface', 'optional', 'CRUD',
+              'DHCP options configuration specific to this interface.') -->
 <xsd:element name="virtual-machine-interface-host-routes"
                                                 type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-host-routes',
-              'virtual-machine-interface') -->
+              'virtual-machine-interface', 'optional', 'CRUD',
+              'List of host routes(prefixes, nexthop) that are passed to VM via DHCP.') -->
 
 <xsd:element name="virtual-machine-interface-allowed-address-pairs" 
                                                 type="AllowedAddressPairs"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-allowed-address-pairs',
-             'virtual-machine-interface') -->
+             'virtual-machine-interface', 'optional', 'CRUD',
+             'List of (IP address, MAC) other than instance ip on this interface.') -->
 <xsd:complexType name="VrfAssignRuleType">
     <xsd:all>
         <xsd:element name="match-condition" type="MatchConditionType"/>
@@ -1009,19 +1244,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 <xsd:element name="vrf-assign-table" type="VrfAssignTableType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('vrf-assign-table', 'virtual-machine-interface') -->
+     Property('vrf-assign-table', 'virtual-machine-interface', 'system-only', 'CRUD',
+              'VRF assignment policy for this interface, automatically generated by system.') -->
 
 <xsd:element name="virtual-machine-interface-device-owner"
                                                 type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-device-owner',
-             'virtual-machine-interface') -->
+             'virtual-machine-interface', 'optional', 'CRUD',
+             'For openstack compatibility, not used by system.') -->
 
 <xsd:element name="virtual-machine-interface-disable-policy"
                                type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-disable-policy',
-              'virtual-machine-interface') -->
+              'virtual-machine-interface', 'optional', 'CRUD',
+              'When True all policy checks for ingress and egress traffic from this interface are disabled. Flow table entries are not created.') -->
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
         <xsd:pattern value="management|left|right|other[0-9]*"/>
@@ -1032,68 +1270,77 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:element name="interface-type" type="ServiceInterfaceType"/>
 </xsd:complexType>
 
-<xsd:complexType name='RoutingPolicyServiceInstanceType'>
-    <xsd:annotation>
-        <xsd:documentation>
-            A given routing policy could be attached to both left or right
-            interface of a service instance. If it is the case, set both the
-            left-sequence and right-sequence. If you only want to attach it to
-            either left or right, but not both, then only set the corresponding
-            sequence number. A value of None also means it is not attached to
-            that interface.
-        </xsd:documentation>
-    </xsd:annotation>
+<xsd:complexType name='RoutingPolicyServiceInstanceType' required='optional'
+     description='A given routing policy could be attached to both left or right interface of a service instance. If it is the case, set both the left-sequence and right-sequence. If you only want to attach it to either left or right, but not both, then only set the corresponding sequence number. A value of None also means it is not attached to that interface.' >
     <xsd:element name="left-sequence" type="bgp:SequenceNumberType"/>
     <xsd:element name="right-sequence" type="bgp:SequenceNumberType"/>
 </xsd:complexType>
 
 <xsd:complexType name='InterfaceMirrorType'>
     <xsd:all>
-        <xsd:element name="traffic-direction" type="TrafficDirectionType"/>
-        <xsd:element name="mirror-to" type="MirrorActionType"/>
+        <xsd:element name="traffic-direction" type="TrafficDirectionType" required='true'
+             description='Specifies direction of traffic to mirror, Ingress, Egress or both'/>
+        <xsd:element name="mirror-to" type="MirrorActionType" required='true'
+             description='Mirror destination configuration'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name='VirtualMachineInterfacePropertiesType'>
     <xsd:all>
-        <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
-        <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
-        <xsd:element name="local-preference" type="xsd:integer"/>
-        <xsd:element name="sub-interface-vlan-tag" type="xsd:integer"/>
+        <xsd:element name='service-interface-type' type="ServiceInterfaceType" required='optional'
+             description='This interface belongs to Service Instance and is tagged as left, right or other'/>
+        <xsd:element name='interface-mirror'  type="InterfaceMirrorType" required='optional'
+             description='Interface Mirror configuration'/>
+        <xsd:element name="local-preference" type="xsd:integer" required='optional'
+             description='BGP route local preference for routes representing this interface, higher value is higher preference'/>
+        <xsd:element name="sub-interface-vlan-tag" type="xsd:integer" required='optional'
+             description='802.1Q VLAN tag to be used if this interface is sub-interface for some other interface.'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name='ServiceTemplateInterfaceType'>
     <xsd:all>
-        <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
-        <xsd:element name='shared-ip' type='xsd:boolean' default='false'/>
-        <xsd:element name='static-route-enable' type='xsd:boolean' default='false'/>
+        <xsd:element name='service-interface-type' type="ServiceInterfaceType" required='true'
+             description='Type of service interface supported by this template left, right or other.'/>
+        <xsd:element name='shared-ip' type='xsd:boolean' default='false' required='optional'
+             description='Shared ip is required on this interface when service instance is scaled out (Only V1)'/>
+        <xsd:element name='static-route-enable' type='xsd:boolean' default='false' required='optional'
+             description='Static routes configured required on this interface of service instance (Only V1)'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name='ServiceInstanceInterfaceType'>
     <xsd:all>
-        <xsd:element name='virtual-network' type='xsd:string'/>
-        <xsd:element name='ip-address' type='IpAddressType'/>
-        <xsd:element name='static-routes' type='RouteTableType' />
-        <xsd:element name='allowed-address-pairs' type="AllowedAddressPairs" />
+        <xsd:element name='virtual-network' type='xsd:string' required='true'
+             description='Interface belongs to this virtual network.'/>
+        <xsd:element name='ip-address' type='IpAddressType' required='optional'
+             description='Shared ip for this interface (Only V1)'/>
+        <xsd:element name='static-routes' type='RouteTableType' required='optional'
+             description='Static routes for this interface (Only V1)'/>
+        <xsd:element name='allowed-address-pairs' type="AllowedAddressPairs" required='optional'
+             description='Allowed address pairs, list of (IP address, MAC) for this interface'/>
     </xsd:all>
 </xsd:complexType>
+  
+  
 
 <!-- Ecmp nexthop load balance criterias -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ecmp-hashing-include-fields', 'virtual-machine-interface') -->
+     Property('ecmp-hashing-include-fields', 'virtual-machine-interface', 'optional', 'CRUD',
+              'Ecmp hashing config at interface level, overrides virtual network config.') -->
 
 <xsd:element name="virtual-machine-interface-properties" 
              type="VirtualMachineInterfacePropertiesType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-properties',
-             'virtual-machine-interface') -->
+             'virtual-machine-interface', 'optional', 'CRUD',
+             'Virtual Machine Interface miscelenious configurations.') -->
 
 <xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
      MapProperty('virtual-machine-interface-bindings',
-                  'virtual-machine-interface', 'key') -->
+                 'virtual-machine-interface', 'key', 'optional', 'CRUD', 
+                 'Dictionary of arbitrary (key, value) for this interface. Neutron port bindings use this.') -->
 
 <xsd:complexType name="ProtocolType">
     <xsd:all>
@@ -1107,6 +1354,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="fat-flow-protocol" type="ProtocolType" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
+  
+  
 
 <!--
     The protocols for which flows on the virtual-machine-interface fall
@@ -1116,32 +1365,38 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              type="FatFlowProtocols"/>
 <!--#IFMAP-SEMANTICS-IDL
      ListProperty('virtual-machine-interface-fat-flow-protocols',
-             'virtual-machine-interface') -->
+             'virtual-machine-interface', 'optional', 'CRUD', 
+             'List of (protocol, port number), for flows to interface with (protocol, destination port number), vrouter will ignore source port while setting up flow and ignore it as source port in reverse flow. Hence many flows will map to single flow.') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-sub-interface',
-          'virtual-machine-interface', 'virtual-machine-interface', ['ref'])
+          'virtual-machine-interface', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'List of references to the sub interfaces of this interface.')
  -->
 
 <xsd:element name="virtual-machine-virtual-machine-interface"/> <!-- DEPRECATED -->
 <xsd:element name="project-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-virtual-machine-interface',
-          'virtual-machine', 'virtual-machine-interface', ['has']);
+          'virtual-machine', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
+          'References to child interfaces this virtual machine has, this is being DEPRICATED.');
      Link('project-virtual-machine-interface',
-          'project', 'virtual-machine-interface', ['has'])
+          'project', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
+          'Virtual machine interface represent a interface(port) into virtual network. It may or may not have corresponding virtual machine. A virtual machine interface has atleast a MAC address and Ip address.')
  -->
 
 <xsd:element name="virtual-machine-interface-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-virtual-machine',
-          'virtual-machine-interface', 'virtual-machine', ['ref']) -->
+          'virtual-machine-interface', 'virtual-machine', ['ref'], 'optional', 'CRUD',
+          'This interface belongs to the referenced virtual machine.') -->
 
 <xsd:element name="virtual-machine-interface-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-virtual-network',
-          'virtual-machine-interface', 'virtual-network', ['ref']) -->
+          'virtual-machine-interface', 'virtual-network', ['ref'], 'required', 'CRUD',
+          'This interface is member of the referenced virtual network.') -->
 
 <xsd:simpleType name="TrafficDirectionType">
     <xsd:restriction base="xsd:string">
@@ -1167,7 +1422,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              type="PolicyBasedForwardingRuleType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-routing-instance',
-          'virtual-machine-interface', 'bgp:routing-instance', ['ref']) -->
+          'virtual-machine-interface', 'bgp:routing-instance', ['ref'], 'system-only', 'CRUD', 
+          'Automatically generated Forwarding policy. This will be depricated in future in favour of VRF assign rules.') -->
 
 <xsd:simpleType name="IpAddressFamilyType">
     <xsd:restriction base="xsd:string">
@@ -1179,149 +1435,184 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip" type="ifmap:IdentityType"/>
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-address', 'instance-ip') -->
+     Property('instance-ip-address', 'instance-ip', 'required', 'CRUD',
+              'Ip address value for instance ip.') -->
 <xsd:element name="instance-ip-family" type="IpAddressFamilyType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-family', 'instance-ip') -->
+     Property('instance-ip-family', 'instance-ip', 'optional', 'CRUD',
+              'Ip address family for instance ip, IPv4(v4) or IPv6(v6).') -->
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-mode', 'instance-ip') -->
+     Property('instance-ip-mode', 'instance-ip', 'optional', 'CRUD',
+              'Ip address HA mode in case this instance ip is used in more than one interface, active-Active or active-Standby.') -->
 <xsd:element name="secondary-ip-tracking-ip" type="SubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('secondary-ip-tracking-ip', 'instance-ip') -->
+     Property('secondary-ip-tracking-ip', 'instance-ip', 'optional', 'CRUD',
+              'When this instance ip is secondary ip, it can track activeness of another ip.') -->
 <xsd:element name="subnet-uuid" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('subnet-uuid', 'instance-ip') -->
+     Property('subnet-uuid', 'instance-ip', 'system-only', 'R', 
+              'This instance ip was allocated from this Subnet(UUID).') -->
 <xsd:element name="instance-ip-secondary" type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('instance-ip-secondary', 'instance-ip') -->
+     Property('instance-ip-secondary', 'instance-ip', 'optional', 'CRUD',
+              'This instance ip is secondary ip of the interface.') -->
 <xsd:element name="service-instance-ip" type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-instance-ip', 'instance-ip') -->
+     Property('service-instance-ip', 'instance-ip', 'system-only', 'CRUD',
+              'This instance ip is used as service chain next hop',) -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
-          'instance-ip', 'virtual-network', ['ref']) -->
+          'instance-ip', 'virtual-network', ['ref'], 'required', 'CRUD',
+          'Reference to virtual network of this instance ip.') -->
 <xsd:element name="instance-ip-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-machine-interface',
-          'instance-ip', 'virtual-machine-interface', ['ref']) -->
+          'instance-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Reference to virtual machine interface to which this instance ip is attached.') -->
 <xsd:element name="instance-ip-physical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-physical-router',
-          'instance-ip', 'physical-router', ['ref']) -->
+          'instance-ip', 'physical-router', ['ref'], 'optional', 'CRUD',
+          'This instance ip is used as IRB address on the referenced physical router (e.g.MX), In case of OVSDB TOR usecase this address will be used as default gateway for Host behind the TOR.') -->
 
 <xsd:element name="subnet" type="ifmap:IdentityType"/>
 <xsd:element name="subnet-ip-prefix" type="SubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('subnet-ip-prefix', 'subnet') -->
+     Property('subnet-ip-prefix', 'subnet', 'required', 'CRD',
+              'Ip prefix/length of the subnet.') -->
 <xsd:element name="subnet-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('subnet-virtual-machine-interface',
-          'subnet', 'virtual-machine-interface', ['ref']) -->
+          'subnet', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Subnet belongs of the refernced virtual machine interface. This is used in CPE use case when a subnet is reachable via the interface. It also serves as dynamic DHCP pool for host on this LAN, where vrouter is DHCP server.') -->
 
 <xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-pool-prefixes" type="FloatingIpPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-pool-prefixes', ['backend']);
-     Property('floating-ip-pool-prefixes', 'floating-ip-pool') -->
+     Property('floating-ip-pool-prefixes', 'floating-ip-pool', 'optional', 'CRUD',
+              'List of ip prefixes that restrict foating ip allocation from the corresponding virtual network.(Not yet implemented).') -->
 <xsd:element name="virtual-network-floating-ip-pool"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('virtual-network-floating-ip-pool', ['backend']);
      Link('virtual-network-floating-ip-pool',
-          'virtual-network', 'floating-ip-pool', ['has']) -->
+          'virtual-network', 'floating-ip-pool', ['has'], 'optional', 'CRUD',
+          'Floating ip pool is set of ip address that are carved out of a given network. Ip(s) from this set can be assigned to (virtual machine interface, ip) so that they become members of this network using one:one NAT.') -->
 <xsd:element name="project-floating-ip-pool"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('project-floating-ip-pool', ['backend']);
      Link('project-floating-ip-pool',
-          'project', 'floating-ip-pool', ['ref']) -->
+          'project', 'floating-ip-pool', ['ref'], 'optional', 'CRUD',
+          'Reference to floating ip pool in this project.') -->
 
 
 <xsd:element name="floating-ip" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('floating-ip-address', 'floating-ip') -->
+     Property('floating-ip-address', 'floating-ip', 'required', 'CR',
+              'Floating ip address.') -->
 <xsd:element name="floating-ip-is-virtual-ip" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-is-virtual-ip', ['backend']);
-     Property('floating-ip-is-virtual-ip', 'floating-ip') -->
+     Property('floating-ip-is-virtual-ip', 'floating-ip', 'optional', 'CRUD',
+              'This floating ip is used as virtual ip (VIP) in case of LBaaS.') -->
 <xsd:element name="floating-ip-fixed-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('floating-ip-fixed-ip-address', 'floating-ip') -->
+     Property('floating-ip-fixed-ip-address', 'floating-ip', 'optional', 'CRUD',
+              'This floating is tracking given fixed ip of the interface. The given fixed ip is used in 1:1 NAT.') -->
 <xsd:element name="floating-ip-address-family" type="IpAddressFamilyType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('floating-ip-address-family', 'floating-ip') -->
+     Property('floating-ip-address-family', 'floating-ip', 'optional', 'CRUD',
+              'Ip address family of the floating ip, IpV4 or IpV6') -->
 <xsd:element name="floating-ip-project"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('floating-ip-project',
-          'floating-ip', 'project', ['ref']) -->
+          'floating-ip', 'project', ['ref'], 'required', 'CRUD',
+          'Reference to project is which this floating ip was allocated.') -->
 <xsd:element name="floating-ip-pool-floating-ip"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-pool-floating-ip', ['backend']);
      Link('floating-ip-pool-floating-ip',
-          'floating-ip-pool', 'floating-ip', ['has']) -->
+          'floating-ip-pool', 'floating-ip', ['has'], 'optional', 'CRUD',
+          'Floating ip is a ip that can be assigned to (virtual machine interface(VMI), ip), By doing so VMI can no be part of the floating ip network and floating ip is used as one:one to NAT for doing so.') -->
 <xsd:element name="floating-ip-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-virtual-machine-interface', ['backend']);
      Link('floating-ip-virtual-machine-interface',
-          'floating-ip', 'virtual-machine-interface', ['ref']) -->
-
+          'floating-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Reference to virtual machine interface to which this floating ip is attached.') -->
 <xsd:element name="physical-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-physical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-physical-router', 
-             'global-system-config', 'physical-router', ['has']) -->
+             'global-system-config', 'physical-router', ['has'], 'optional', 'CRUD',
+             'Physical router object represent any physical device that participates in virtual networking, like routers, switches, servers, firewalls etc.') -->
 
 <xsd:simpleType name="VirtualRouterType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="embedded"/>
-        <xsd:enumeration value="tor-agent"/>
-        <xsd:enumeration value="tor-service-node"/>
+        <xsd:enumeration value="embedded" required='optional'
+             description='This virtual router is part of the compute node'/>
+        <xsd:enumeration value="tor-agent" required='optional'
+             description='This virtual router agent represents OVSDB TOR switch, It is responsible for data exchange with OVSDB on the TOR'/>
+        <xsd:enumeration value="tor-service-node" required='optional'
+             description='This virtual router agent represents TOR services node. It is responsible for DHCP, DNS and multicast for host sitting behind the TOR'/>
     </xsd:restriction>
 </xsd:simpleType>
+  
 
 <xsd:element name="virtual-router-type" type="VirtualRouterType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-router-type', 'virtual-router') -->
+     Property('virtual-router-type', 'virtual-router', 'optional', 'CRD', 
+              'Different types of the vrouters in the system.') -->
 
 <xsd:element name="virtual-router-dpdk-enabled" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-router-dpdk-enabled', 'virtual-router') -->
+     Property('virtual-router-dpdk-enabled', 'virtual-router', 'optional', 'CRUD',
+              'This vrouter\'s data path is using DPDK librarry, Virtual machines interfaces scheduled on this compute node will be tagged with aditional flags so that they are spawned with user space virtio driver. It is only applicable for embedded vrouter.') -->
 
 
 <xsd:element name="physical-router-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('physical-router-virtual-router',
-         'physical-router', 'virtual-router', ['ref']) -->
+         'physical-router', 'virtual-router', ['ref'], 'optional', 'CRUD',
+         'Referance to vrouter responsible for this physical router. Currently only pplicable for vrouters that are TOR agents.') -->
 
 <xsd:element name="physical-router-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
     Link('physical-router-bgp-router',
-         'physical-router', 'bgp-router', ['ref']) -->
+         'physical-router', 'bgp-router', ['ref'], 'optional', 'CRUD',
+         'Referance to BGP peer representing this physical router.') -->
 
 <xsd:element name="physical-router-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('physical-router-virtual-network',
-         'physical-router', 'virtual-network', ['ref']) -->
+         'physical-router', 'virtual-network', ['ref'], 'optional', 'CRUD',
+         'Reference to virtual network, whose VRF is present on this physical router, Applicable when only VRF is present with no physical interfaces from this physical vrouter. Generally used when using device manager and option A+B for this virtual network in L3VPN use case.') -->
 
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="physical-router-physical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('physical-router-physical-interface',
-          'physical-router', 'physical-interface', ['has']) -->
+          'physical-router', 'physical-interface', ['has'], 'optional', 'CRUD',
+          'Physical interfaces on physical routers.') -->
           
 <xsd:element name="logical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="physical-router-logical-interface"/>
 <xsd:element name="physical-interface-logical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('physical-router-logical-interface',
-          'physical-router', 'logical-interface', ['has']);
+          'physical-router', 'logical-interface', ['has'], 'optional', 'CRUD',
+          'Logical interfaces on physical routers.');
      Link('physical-interface-logical-interface',
-          'physical-interface', 'logical-interface', ['has']) -->
+          'physical-interface', 'logical-interface', ['has'], 'optional', 'CRUD',
+          'Logical interfaces on physical interface on physical routers.') -->
 
 <xsd:element name="logical-interface-vlan-tag" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('logical-interface-vlan-tag', 'logical-interface') -->
+     Property('logical-interface-vlan-tag', 'logical-interface', 'optional', 'CRUD',
+              'VLAN tag (.1Q) classifier for this logical interface.') -->
 
 <xsd:simpleType name="LogicalInterfaceType">
      <xsd:restriction base='xsd:string'>
@@ -1332,27 +1623,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="logical-interface-type" type="LogicalInterfaceType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('logical-interface-type', 'logical-interface') -->
+     Property('logical-interface-type', 'logical-interface', 'optional', 'CRUD',
+              ['Logical interface type can be L2 or L3.',
+               ' L2 - only L2 service is provided, MAC learning is supported.',
+               ' L3 - only L3 service is supported and MAC learning is not supported.']) -->
 
 <xsd:element name="physical-router-management-ip" type="smi:IpAddress"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-management-ip', 'physical-router') -->
+     Property('physical-router-management-ip', 'physical-router', 'required', 'CRUD',
+              'Management ip for this physical router. It is used by the device manager to perform netconf and by SNMP collector if enabled.') -->
 
 <xsd:element name="physical-router-dataplane-ip" type="smi:IpAddress"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-dataplane-ip', 'physical-router') -->
+     Property('physical-router-dataplane-ip', 'physical-router', 'optional', 'CRUD',
+              'This is ip address in the ip-fabric(underlay) network that can be used in data palne by physical router. Usually it is the VTEP address in VxLAN for the TOR switch.') -->
 
 <xsd:element name="physical-router-vendor-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-vendor-name', 'physical-router') -->
+     Property('physical-router-vendor-name', 'physical-router', 'required', 'CRUD',
+              'Vendor name of the physical router (e.g juniper). Used by the device manager to select driver.') -->
 
 <xsd:element name="physical-router-product-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-product-name', 'physical-router') -->
+     Property('physical-router-product-name', 'physical-router', 'required', 'CRUD',
+              'Model name of the physical router (e.g juniper). Used by the device manager to select driver.') -->
 
 <xsd:element name="physical-router-vnc-managed" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-vnc-managed', 'physical-router') -->
+     Property('physical-router-vnc-managed', 'physical-router', 'optional', 'CRUD',
+              'This physical router is enabled to be configured by device manager.') -->
 
 <xsd:complexType name="UserCredentials">
     <xsd:all>
@@ -1363,7 +1662,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="physical-router-user-credentials" type="UserCredentials"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-user-credentials', 'physical-router') -->
+     Property('physical-router-user-credentials', 'physical-router', 'optional', 'CRUD',
+              'Username and password for netconf to the physical router by device manager.') -->
 
 <xsd:complexType name="SNMPCredentials">
     <xsd:all>
@@ -1389,36 +1689,44 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="physical-router-snmp-credentials" type='SNMPCredentials'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-snmp-credentials', 'physical-router') -->
+     Property('physical-router-snmp-credentials', 'physical-router', 'optional', 'CRUD',
+              'SNMP credentials for the physical router used by SNMP colloctor.') -->
 
 <xsd:complexType name="JunosServicePorts">
     <xsd:element name="service-port" type="xsd:string" maxOccurs="unbounded"/>
 </xsd:complexType>
 <xsd:element name="physical-router-junos-service-ports" type='JunosServicePorts'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('physical-router-junos-service-ports', 'physical-router') -->
+     Property('physical-router-junos-service-ports', 'physical-router', 'optional', 'CRUD',
+              'Juniper JUNOS specific sevice interfaces name  to perform services like NAT.') -->
 
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-interface-virtual-machine-interface',
-          'logical-interface', 'virtual-machine-interface', ['ref']) -->
+          'logical-interface', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'References to virtual machine interfaces that represent end points that are reacheable by this logical interface.') -->
 
 <xsd:element name="bgp-as-a-service" type="ifmap:IdentityType"/>
 <xsd:element name="project-bgpaas"/>
 <!--#IFMAP-SEMANTICS-IDL
-    Link('project-bgpaas', 'project', 'bgp-as-a-service', ['has']) -->
+    Link('project-bgpaas', 'project', 'bgp-as-a-service', ['has'], 'optional', 'CRUD',
+         'BGP as service object represents BGP peer in the virtual network that can participate in dynamic routing with implicit default gateway of the virtual network.') -->
 <xsd:element name="bgpaas-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('bgpaas-virtual-machine-interface', 'bgp-as-a-service',
-            'virtual-machine-interface', ['ref']) -->
+            'virtual-machine-interface', ['ref'], 'required', 'CRUD',
+            'Reference to VMI on which BGPaaS BGP peering will happen.') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('autonomous-system', 'bgp-as-a-service') -->
+     Property('autonomous-system', 'bgp-as-a-service', 'required', 'CRUD',
+              'Autonomus system number for the BGP peer.') -->
 <xsd:element name="bgpaas-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bgpaas-ip-address', 'bgp-as-a-service') -->
+     Property('bgpaas-ip-address', 'bgp-as-a-service', 'required', 'CRUD',
+              'Ip address of the BGP peer.') -->
 <xsd:element name="bgpaas-session-attributes" type="BgpSessionAttributes"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bgpaas-session-attributes', 'bgp-as-a-service') -->
+     Property('bgpaas-session-attributes', 'bgp-as-a-service', 'required', 'CRUD',
+              'BGP peering session attributes.') -->
 <xsd:element name='bgpaas-ipv4-mapped-ipv6-nexthop' type='xsd:boolean'/>
     <xsd:annotation>
         <xsd:documentation>
@@ -1428,7 +1736,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bgpaas-ipv4-mapped-ipv6-nexthop', 'bgp-as-a-service') -->
+     Property('bgpaas-ipv4-mapped-ipv6-nexthop', 'bgp-as-a-service', 'optional', 'CRUD',
+              'True when client bgp implementation expects to receive a ipv4-mapped ipv6 address (as opposed to regular ipv6 address) as the bgp nexthop for ipv6 routes.') -->
 <xsd:element name='bgpaas-suppress-route-advertisement' type='xsd:boolean'/>
     <xsd:annotation>
         <xsd:documentation>
@@ -1438,57 +1747,70 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bgpaas-suppress-route-advertisement', 'bgp-as-a-service') -->
+     Property('bgpaas-suppress-route-advertisement', 'bgp-as-a-service', 'optional', 'CRUD',
+              'True when server should not advertise any routes to the client i.e. the client has static routes (typically a default) configured.') -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('global-system-config-virtual-router', 
-             'global-system-config', 'virtual-router', ['has']) -->
+             'global-system-config', 'virtual-router', ['has'], 'optional', 'CRUD',
+             'Virtual router is packet forwarding system on devices such as compute nodes(servers), TOR(s), routers.') -->
 <xsd:element name="virtual-router-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('virtual-router-ip-address', 'virtual-router') -->
+     Property('virtual-router-ip-address', 'virtual-router' , 'required', 'CRUD',
+              'Ip address of the virtual router.') -->
 
 <xsd:element name="virtual-router-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('virtual-router-virtual-machine',
-         'virtual-router', 'virtual-machine', ['ref']) -->
+         'virtual-router', 'virtual-machine', ['ref'], 'optional', 'CRUD',
+         'References to all virtual machines on this vrouter. This link is not present for dynamically scheduled VMs by Nova.') -->
 
 <xsd:element name="virtual-network-routing-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('virtual-network-routing-instance', ['backend']);
      Link('virtual-network-routing-instance',
-          'virtual-network', 'bgp:routing-instance', ['has', 'derived']) -->
+          'virtual-network', 'bgp:routing-instance', ['has', 'derived'], 'system-only', 'CRUD',
+          'List of references of routing instances for this virtual network, routing instances are internal to the system.') -->
 
 <xsd:element name="project-routing-policy"/>
 <!--#IFMAP-SEMANTICS-IDL
-    Link('project-routing-policy', 'project', 'routing-policy', ['has']) -->
+    Link('project-routing-policy', 'project', 'routing-policy', ['has'], 'optional', 'CRUD',
+         'List of references of child routing policy objects. automatically maintained by system.') -->
 
 <xsd:element name="project-route-aggregate"/>
 <!--#IFMAP-SEMANTICS-IDL
-    Link('project-route-aggregate', 'project', 'route-aggregate', ['has']) -->
+    Link('project-route-aggregate', 'project', 'route-aggregate', ['has'], 'optional', 'CRUD',
+         'List of references of child routing route aggregate objects. automatically maintained by system.') -->
 
 <xsd:element name="customer-attachment-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-virtual-machine-interface',
              ['backend', 'frontend']);
      Link('customer-attachment-virtual-machine-interface',
-          'bgp:customer-attachment', 'virtual-machine-interface', ['ref']) -->
+          'bgp:customer-attachment', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Not in Use.') -->
 <xsd:element name="customer-attachment-floating-ip"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('customer-attachment-floating-ip',
              ['backend', 'frontend']);
      Link('customer-attachment-floating-ip',
-          'bgp:customer-attachment', 'floating-ip', ['ref']) -->
+          'bgp:customer-attachment', 'floating-ip', ['ref'], 'optional', 'CRUD',
+          'Not in Use.') -->
 <xsd:element name="provider-attachment-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
      Exclude('provider-attachment-virtual-router',
              ['backend', 'frontend']);
      Link('provider-attachment-virtual-router',
-          'bgp:provider-attachment', 'virtual-router', ['ref']) -->
+          'bgp:provider-attachment', 'virtual-router', ['ref'], 'optional', 'CRUD',
+          'Not in Use.') -->
 
 <xsd:simpleType name='ServiceType'>
-    <xsd:restriction base='xsd:string'>
+    <xsd:restriction base='xsd:string' required='true'
+         description_1='firewall - routing is symetric between left network and right network.'
+         description_2='source-nat - routes are leaked from right network to left network but not reverse.'
+         description_3='analyser, loadbalancer - no routing requirement.'>
         <xsd:enumeration value='firewall'/>
         <xsd:enumeration value='analyzer'/>
         <xsd:enumeration value='source-nat'/>
@@ -1498,13 +1820,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='ServiceScaleOutType'>
     <xsd:all>
-        <xsd:element name='max-instances' type='xsd:integer' default='1'/>
-        <xsd:element name='auto-scale' type='xsd:boolean' default='false'/>
+        <xsd:element name='max-instances' type='xsd:integer' default='1' required='true'
+             description='Maximum number of scale out factor(virtual machines). can be changed dynamically'/>
+        <xsd:element name='auto-scale' type='xsd:boolean' default='false' required='true'
+             description='Automatically change the number of virtual machines. Not implemented'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:simpleType name="ServiceModeType">
-    <xsd:restriction base="xsd:string">
+    <xsd:restriction base="xsd:string" required='optional'
+         description_1='transparent - Packets are L2 forwarded as is without modifying headers.'
+         description_2='in-network - Packets are routed inside service.'
+         description_3='in-network-nat - Packets are Source NATed in the service.'>
         <xsd:enumeration value="transparent"/>
         <xsd:enumeration value="in-network"/>
         <xsd:enumeration value="in-network-nat"/>
@@ -1512,22 +1839,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType>
 
 <xsd:simpleType name="ServiceVirtualizationType" default="virtual-machine">
-    <xsd:annotation>
-      <xsd:documentation>
-        ServiceVirtualizationType defines how a service instance is
-        managed.
-        * virtual-machine instances are managed by openstack nova.
-        * network-namespace instances are scheduled by service-monitor
-        into a functioning virtual-router in the cluster.
-        * vrouter-instance type instance are scheduled in a specific
-        virtual-router according to the virtual-router-id parameter in
-        the service instance.
-        * physical-device instances must be linked to a service-appliance-set.
-        We will pick one or more service appliance from the set to schedule
-        the service.
-      </xsd:documentation>
-    </xsd:annotation>
-    <xsd:restriction base="xsd:string">
+    <xsd:restriction base="xsd:string" required='optional'
+         description_1='ServiceVirtualizationType defines how a service instance is managed.'
+         description_2='    virtual-machine instances are managed by openstack nova.'
+         description_3='    network-namespace instances are scheduled by service-monitor into a functioning virtual-router in the cluster.'
+         description_4='    vrouter-instance instance are scheduled in a specific virtual-router according to the virtual-router-id parameter in the service instance.'
+         description_5='    physical-device instances must be linked to a service-appliance-set. System will pick one or more service appliance from the set to schedule the service.'>
         <xsd:enumeration value="virtual-machine"/>
         <xsd:enumeration value="network-namespace"/>
         <xsd:enumeration value="vrouter-instance"/>
@@ -1550,148 +1867,175 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='ServiceTemplateType'> 
     <xsd:sequence>
-        <xsd:element name="version" type='xsd:integer' default='1'>
-          <xsd:annotation>
-            <xsd:documentation>
-              Version 1: Service is automatically launched, monitored and deleted
-              Version 2: User creates all objects and manages the 
-                         launch/monitoring/deletion of service. Example: heat template
-            </xsd:documentation>
-          </xsd:annotation>
-        </xsd:element>
-        <xsd:element name='service-mode' type='ServiceModeType'/>
-        <xsd:element name='service-type' type='ServiceType'/>
-        <xsd:element name='image-name' type='xsd:string'/>
-        <xsd:element name='service-scaling' type='xsd:boolean' default='false'/>
-        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
-        <xsd:element name='flavor' type='xsd:string'/>
-        <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/> <!-- DEPRECATED -->
-        <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
-        <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
-	<xsd:element name='vrouter-instance-type' type='VRouterInstanceType'/>
-        <xsd:element name='instance-data' type='xsd:string'>
-          <xsd:annotation>
-            <xsd:documentation>
-              Opaque string (typically in json format) used to spawn a
-              vrouter-instance.
-            </xsd:documentation>
-          </xsd:annotation>
-        </xsd:element>
+        <xsd:element name="version" type='xsd:integer' default='1' required='optional'
+             description_1='Version of service template.'
+             description_2='    1: Service virtual machines and interfaces are  automatically launched, monitored and deleted. '
+             description_3='    2: User creates all objects( virtual machines and interfaces) and manages the life cycle.'
+             description_4='       Useful when virtual machines and interfaces are managed via heat template'/>
+        <xsd:element name='service-mode' type='ServiceModeType' required='true'
+             description='Service instance mode decides how packets are forwarded across the service'/>
+        <xsd:element name='service-type' type='ServiceType' required='true'
+             description='Service instance mode decides how routing happens across the service'/>
+        <xsd:element name='image-name' type='xsd:string' required='optional'
+             description='Glance image name for the service virtual machine, Version 1 only'/>
+        <xsd:element name='service-scaling' type='xsd:boolean' default='false' required='optional'
+             description='Enable scaling of service virtual machines, Version 1 only'/>
+        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded' required='true'
+             description='List of interfaces which decided number of interfaces and type' />
+        <xsd:element name='flavor' type='xsd:string' required='optional'
+             description='Nova flavor used for service virtual machines, Version 1 only' />
+        <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType' required='optional'
+             description='Service virtualization type decides how individual service instances are instatiated'/>
+        <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false' required='optional'
+             description='Enable availability zone for verion 1 service instances'/>
+	<xsd:element name='vrouter-instance-type' type='VRouterInstanceType' required='optional'
+             description='Mechanism used to spawn service instance, when vrouter is spawning instances.Allowed values libvirt-qemu, docker or netns'/>
+        <xsd:element name='instance-data' type='xsd:string' required='optional'
+             description='Opaque string (typically in json format) used to spawn a vrouter-instance.'/>
     </xsd:sequence>
 </xsd:complexType>
 
 <xsd:complexType name='ServiceInstanceType'> 
     <xsd:sequence>
-        <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
-        <xsd:element name='availability-zone' type='xsd:string'/>
-        <xsd:element name='management-virtual-network' type='xsd:string'/> <!-- DEPRECATED -->
-        <xsd:element name='left-virtual-network' type='xsd:string'/>       <!-- DEPRECATED -->
-        <xsd:element name='left-ip-address' type='IpAddressType'/>         <!-- DEPRECATED -->
-        <xsd:element name='right-virtual-network' type='xsd:string'/>      <!-- DEPRECATED -->
-        <xsd:element name='right-ip-address' type='IpAddressType'/>        <!-- DEPRECATED -->
-        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
-        <xsd:element name='scale-out' type='ServiceScaleOutType'/>
-        <xsd:element name="ha-mode" type="AddressMode"/>
-        <xsd:element name='virtual-router-id' type='xsd:string'>
-          <xsd:annotation>
-            <xsd:documentation>
-              The uuid of a virtual-router object in which to spawn a
-              service-instance of type vrouter-instance.
-            </xsd:documentation>
-          </xsd:annotation>
-        </xsd:element>
+        <xsd:element name='auto-policy' type="xsd:boolean" default='false' required='system-only'
+             description='Set when system creates internal service chains, example SNAT with router external flag in logical router'/>
+        <xsd:element name='availability-zone' type='xsd:string' required='optional'
+             description='Availability zone used to spawn VM(s) for this service instance, used in version 1 (V1) only'/>
+        <xsd:element name='management-virtual-network' type='xsd:string' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='left-virtual-network' type='xsd:string' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='left-ip-address' type='IpAddressType' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='right-virtual-network' type='xsd:string' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='right-ip-address' type='IpAddressType' required='optional'
+             description='Deprecated'/> <!-- DEPRECATED -->
+        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded' required='true'
+             description='List of service instance interface properties. Ordered list as per service template'/>
+        <xsd:element name='scale-out' type='ServiceScaleOutType' required='optional'
+             description='Number of virtual machines in this service instance, used in version 1 (V1) only'/>
+        <xsd:element name="ha-mode" type="AddressMode" required='optional'
+             description='When scale-out is greater than one, decides if active-active or active-backup, used in version 1 (V1) only'/>
+        <xsd:element name='virtual-router-id' type='xsd:string' required='optional' 
+             description='UUID of a virtual-router on which this service instance need to spwan. Used to spawn services on CPE device when Nova is not present'/>
     </xsd:sequence>
 </xsd:complexType>
-
+  
 <xsd:element name='service-instance' type='ifmap:IdentityType'/>
 <xsd:element name='service-instance-properties' type='ServiceInstanceType'/>
 <!-- #IFMAP-SEMANTICS-IDL
-     Property('service-instance-properties', 'service-instance')-->
+     Property('service-instance-properties', 'service-instance', 'required', 'CRUD',
+              'Service instance configuration parameters.')-->
 <xsd:element name="project-service-instance"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-service-instance', 'project', 
-             'service-instance', ['has']) -->
+             'service-instance', ['has'], 'optional', 'CRUD',
+             'Service instance represents logical instance service used in the virtual world, e.g. firewall, load balancer etc. It can represent one or multiple virtual machines or physical devices. Many service instances can share a virtual machine or physical device.') -->
 <xsd:element name="service-instance-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     MapProperty('service-instance-bindings', 'service-instance', 'key') -->
+     MapProperty('service-instance-bindings', 'service-instance', 'key', 'optional', 'CRUD',
+                 'Opaque key value pair for generating config for the service instance.' ) -->
+
 <xsd:element name='service-template-properties' type='ServiceTemplateType'/>
 <!-- #IFMAP-SEMANTICS-IDL
-     Property('service-template-properties', 'service-template')-->
+     Property('service-template-properties', 'service-template', 'required', 'CRUD',
+              'Service template confurigation parameters.')-->
 <xsd:element name='service-template' type='ifmap:IdentityType'/>
 <xsd:element name='domain-service-template'/>
 <!-- #IFMAP-SEMANTICS-IDL
-     Link('domain-service-template', 'domain',
-          'service-template', ['has']) -->
+     Link('domain-service-template', 'domain', 'service-template', ['has'], 'optional', 'CRUD',
+          'Service templete defines how a service may be deployed in the network. Service instance is instantiated from config in service templete.') -->
 
 <xsd:element name='service-instance-service-template'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-service-template', 'service-instance',
-          'service-template', ['ref']) -->
+          'service-template', ['ref'], 'required', 'CRUD',
+          'Reference to the service template of this service instance.') -->
 
 <xsd:element name='virtual-machine-service-instance'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('virtual-machine-service-instance', 'virtual-machine',
-          'service-instance', ['ref', 'derived']) -->
+          'service-instance', ['ref', 'derived'], 'system-only', 'CRUD',
+          'Reference to the service instance of this virtual machine.') -->
 
 <xsd:element name='service-instance-shared-ip' type="ServiceInterfaceTag"/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-shared-ip', 'service-instance',
-          'instance-ip', ['ref']) -->
+          'instance-ip', ['ref'], 'system-only', 'CRUD',
+          'Reference to ip address, which is used as nexthop pointing to (service instance, service interface).') -->
 
 <xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-health-check-service-instance',
-          'service-health-check', 'service-instance', ['ref']) -->
+          'service-health-check', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'Reference to service instance using this service health check.') -->
 
 <xsd:element name="interface-route-table-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('interface-route-table-service-instance',
-          'interface-route-table', 'service-instance', ['ref']) -->
+          'interface-route-table', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'Reference to interface route table attached to (service instance, interface), This is used to add interface static routes to service instance interface.') -->
 
 <xsd:element name="routing-policy-service-instance" type="RoutingPolicyServiceInstanceType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('routing-policy-service-instance',
-          'bgp:routing-policy', 'service-instance', ['ref']) -->
+          'bgp:routing-policy', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'Reference to routing policy attached to (service instance, interface).') -->
 
 <xsd:element name="route-aggregate-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('route-aggregate-service-instance',
-          'bgp:route-aggregate', 'service-instance', ['ref']) -->
+          'bgp:route-aggregate', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'Reference to route-aggregate policy attached to (service instance, interface).') -->
 
 <xsd:element name='port-tuple' type='ifmap:IdentityType'/>
 
 <xsd:element name='service-instance-port-tuple'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('service-instance-port-tuple', 'service-instance',
-          'port-tuple', ['has', 'derived']) -->
+          'port-tuple', ['has', 'derived'], 'optional', 'CRUD',
+          ['Port tuples are ordered set of interfaces that represent a service virtual machine or physical device , which is part of this service instance.',
+           'Order of interfaces in port tuple is same as specified in the service template.',
+           'example SI = [(Left, Right, Management), (L, R, M), ..., (L, R, M)].']) -->
 
 <xsd:element name='port-tuple-interface'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('port-tuple-interface', 'virtual-machine-interface',
-          'port-tuple', ['ref']) -->
+          'port-tuple', ['ref'], 'optional', 'CRUD',
+          ['Ordered set of references to the interfaces in this port tuple.',
+           'Order is same as specified in the service interface.',
+           'example (left, right, manegement, other1).']) -->
 
 <xsd:element name="virtual-DNS"        type="ifmap:IdentityType"/>
 <xsd:element name="domain-virtual-DNS"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('domain-virtual-DNS', 'domain', 'virtual-DNS',  ['has']) -->
+     Link('domain-virtual-DNS', 'domain', 'virtual-DNS',  ['has'], 'optional', 'CRUD',
+          'Virtual DNS server is DNS as service for tenants. It is inbound DNS servce for virtual machines in this project. DNS requests by end points inside this project/IPAM are served by this DNS server rules.') -->
 
 <xsd:element name="virtual-DNS-data" type="VirtualDnsType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('virtual-DNS-data', 'virtual-DNS') -->
+     Property('virtual-DNS-data', 'virtual-DNS', 'required', 'CRUD',
+              'Virtua DNS data has configuration for virtual DNS like domain, dynamic records etc.') -->
 
 <xsd:element name="virtual-DNS-record"     type="ifmap:IdentityType"/>
 <xsd:element name="virtual-DNS-virtual-DNS-record"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-DNS-virtual-DNS-record', 
-                'virtual-DNS', 'virtual-DNS-record',  ['has']) -->
+                'virtual-DNS', 'virtual-DNS-record',  ['has'], 'optional', 'CRUD',
+                'Static DNS records in virtual DNS server.') -->
 
 <xsd:element name="virtual-DNS-record-data" type="VirtualDnsRecordType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('virtual-DNS-record-data', 'virtual-DNS-record') -->
+     Property('virtual-DNS-record-data', 'virtual-DNS-record', 'required', 'CRUD',
+              'DNS record data has configuration like type, name, ip address, loadbalancing etc.') -->
 
 <xsd:element name="network-ipam-virtual-DNS"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref']) -->
+     Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref'], 'optional', 'CRUD',
+          'Reference to virtual DNS used by this IPAM.') -->
 
 <xsd:complexType name="CommunityAttributes">
     <xsd:annotation>
@@ -1710,21 +2054,31 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         </xsd:documentation>
     </xsd:annotation>
     <xsd:all>
-        <xsd:element name="community-attribute" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="community-attribute" type="xsd:string" maxOccurs="unbounded" 
+             description_1='List of Community attributes, it indicates the attributes with which the routes are tagged while publishing.'
+             description_2='The attributes will be represented as bgp community in the path attribute.'
+             description_3='Each attribute is indicated as string.'
+             description_4='    1. String with two integers separated by ":". E.g. "64512:123"'
+             description_5='    2. Well-known community as string.'
+             description_6='       Possible values are "no-export" "accept-own" "no-advertise" "no-export-subconfed" "no-reoriginate"'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:simpleType name="RouteNextHopType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="service-instance"/>
-        <xsd:enumeration value="ip-address"/>
+        <xsd:enumeration value="service-instance" 
+             description='Next hop as service instance is used internal by the system internally currently'/>
+        <xsd:enumeration value="ip-address"
+             description='Users can set ip address as next hop'/>
     </xsd:restriction>
 </xsd:simpleType>
 
 <xsd:complexType name='RouteType'>
     <xsd:all>
-        <xsd:element name='prefix' type='xsd:string'/>
-        <xsd:element name='next-hop' type='xsd:string'/>
+        <xsd:element name='prefix' type='xsd:string'
+             description='Ip prefix/len format prefix'/>
+        <xsd:element name='next-hop' type='xsd:string'
+             description='Ip address or service instance name.'/>
         <xsd:element name='next-hop-type' type='RouteNextHopType'/>
         <xsd:element name='community-attributes' type='CommunityAttributes'/>
     </xsd:all>
@@ -1732,7 +2086,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="RouteTableType">
     <xsd:all>
-        <xsd:element name="route" type="RouteType" maxOccurs="unbounded"/>
+        <xsd:element name="route" type="RouteType" maxOccurs="unbounded"
+             description='List of ip routes with following fields.'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1745,73 +2100,93 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='ServiceHealthCheckType'>
     <xsd:sequence>
-        <xsd:element name='enabled' type='xsd:boolean' default='false'/>
-        <xsd:element name='monitor-type' type='HealthCheckProtocolType'/>
-        <xsd:element name='delay' type='xsd:integer'/>
-        <xsd:element name='timeout' type='xsd:integer'/>
-        <xsd:element name='max-retries' type='xsd:integer'/>
-        <xsd:element name='http-method' type='xsd:string'/>
-        <xsd:element name='url-path' type='xsd:string'/>
-        <xsd:element name='expected-codes' type='xsd:string'/>
+        <xsd:element name='enabled' type='xsd:boolean' default='false' required='optional' operations='CRUD'
+             description='Administratively enable or disable this health check.'/>
+        <xsd:element name='monitor-type' type='HealthCheckProtocolType' required='true' operations='CRUD'
+             description='Protocol used to monitor health, currently only HTTP and ICMP(ping) is supported'/>
+        <xsd:element name='delay' type='xsd:integer' required='true' operations='CRUD'
+             description='Time in seconds  at which health check is repeated'/>
+        <xsd:element name='timeout' type='xsd:integer' required='true' operations='CRUD'
+             description='Time in seconds to wait for response'/>
+        <xsd:element name='max-retries' type='xsd:integer' required='true' operations='CRUD'
+             description='Number of failures before declaring health bad'/>
+        <xsd:element name='http-method' type='xsd:string' required='optional' operations='CRUD'
+             description='In case monitor protocol is HTTP, type of http method used like GET, PUT, POST etc'/>
+        <xsd:element name='url-path' type='xsd:string' required='optional' operations='CRUD'
+             description='In case monitor protocol is HTTP, URL to be used. In case of ICMP, ip address'/>
+        <xsd:element name='expected-codes' type='xsd:string' required='optional' operations='CRUD'
+             description='In case monitor protocol is HTTP, expected return code for HTTP operations like 200 ok.'/>
     </xsd:sequence>
 </xsd:complexType>
 
 <xsd:element name="service-health-check" type="ifmap:IdentityType"/>
 <xsd:element name="service-health-check-properties" type="ServiceHealthCheckType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-health-check-properties', 'service-health-check') -->
+     Property('service-health-check-properties', 'service-health-check', 'required', 'CRUD',
+              'Service health check has following fields.') -->
 
 <xsd:element name="project-service-health-check"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-service-health-check',
-          'project', 'service-health-check', ['has']) -->
+          'project', 'service-health-check', ['has'], 'optional', 'CRUD',
+          'Service health check is a keepalive machenism for the virtual machine interface. Liveliness of the interface is determined based on configuration in the service health check. It is mainly designed for service instance interfaces. However it will work with any interface which present on contrail vrouter.') -->
 <xsd:element name="service-port-health-check"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-port-health-check',
-          'virtual-machine-interface', 'service-health-check', ['ref']) -->
+          'virtual-machine-interface', 'service-health-check', ['ref'], 'optional', 'CRUD',
+          'Refernce to health check object attached to this interface.') -->
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-route-table',
-          'project', 'route-table', ['has']) -->
+          'project', 'route-table', ['has'], 'optional', 'CRUD',
+          'Network route table is machinism of adding static routes in the virtual network') -->
 <xsd:element name="virtual-network-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-route-table',
-          'virtual-network', 'route-table', ['ref']) -->
+          'virtual-network', 'route-table', ['ref'], 'optional', 'CRUD',
+          'Refernce to route table attached to this virtual network.') -->
 <xsd:element name="routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('routes', 'route-table') -->
+     Property('routes', 'route-table', 'required', 'CRUD',
+              'Routes in the route table are configured in following way.') -->
 
 <xsd:element name="interface-route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-interface-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-interface-route-table',
-          'project', 'interface-route-table', ['has']) -->
+          'project', 'interface-route-table', ['has'], 'optional', 'CRUD',
+          'Interface route table is machanism to add static routes pointing to this interface.') -->
 <xsd:element name="virtual-machine-interface-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-route-table',
-          'virtual-machine-interface', 'interface-route-table', ['ref']) -->
+          'virtual-machine-interface', 'interface-route-table', ['ref'], 'optional', 'CRUD',
+          'Reference to the interface route table attached to this interface.') -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('interface-route-table-routes', 'interface-route-table') -->
+     Property('interface-route-table-routes', 'interface-route-table', 'required', 'CRUD',
+              'Interface route table used same structure as route table, however the next hop field is irrelevent.') -->
 
 <xsd:element name="logical-router" type="ifmap:IdentityType"/>
 
 <xsd:element name="project-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-logical-router',
-          'project', 'logical-router', ['has']) -->
+          'project', 'logical-router', ['has'], 'optional', 'CRUD',
+          'Logical router is a machanism to connect multiple virtual network as they have been connected by a router.') -->
 
 <xsd:element name="logical-router-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-interface',
-          'logical-router', 'virtual-machine-interface', ['ref']) -->
+          'logical-router', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Refernce to the interface attached to this logical router. By attaching a interface to logical network all subnets in the virtual network of the interface has this router.') -->
 
 <xsd:element name="logical-router-target"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-router-target',
-          'logical-router', 'route-target', ['ref']) -->
+          'logical-router', 'route-target', ['ref'], 'system-only', 'CRUD',
+          'Route target that represent this logical router.') -->
 
 <!-- 
     Link a virtual network used as the external gateway for source NAT support
@@ -1820,42 +2195,50 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="logical-router-gateway"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-gateway',
-          'logical-router', 'virtual-network', ['ref']) -->
+          'logical-router', 'virtual-network', ['ref'], 'optional', 'CRUD',
+          'Refernce to virtual network used as external gateway for this logical network. This link will cause a SNAT being spwaned between all networks connected to logical router and external network.') -->
 
 <xsd:element name="logical-router-service-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-service-instance',
-          'logical-router', 'service-instance', ['ref']) -->
+          'logical-router', 'service-instance', ['ref'], 'system-only', 'CRUD',
+          'Refernce to service instance doing SNAT functionality for external gateway.') -->
 
 <xsd:element name="config-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-config-node"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('global-system-config-config-node',
-             'global-system-config', 'config-node', ['has']) -->
+             'global-system-config', 'config-node', ['has'], 'admin-only', 'CRUD',
+             'Config node is object representing a logical node in system which serves config API.') -->
 
 <xsd:element name="config-node-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('config-node-ip-address', 'config-node') -->
+     Property('config-node-ip-address', 'config-node', 'admin-only', 'CRUD',
+              'Ip address of the config node, set while provisioning.') -->
 
 <xsd:element name="analytics-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-analytics-node"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-analytics-node', 
-             'global-system-config', 'analytics-node', ['has']) -->
+             'global-system-config', 'analytics-node', ['has'], 'admin-only', 'CRUD',
+             'Analytics node is object representing a logical node in system which serves operational API and analytics collector.') -->
 
 <xsd:element name="analytics-node-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('analytics-node-ip-address', 'analytics-node') -->
+     Property('analytics-node-ip-address', 'analytics-node', 'admin-only', 'CRUD',
+              'Ip address of the analytics node, set while provisioning.') -->
 
 <xsd:element name="database-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-database-node"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-database-node', 
-             'global-system-config', 'database-node', ['has']) -->
+             'global-system-config', 'database-node', ['has'], 'required', 'CRUD',
+             'Database node is object representing a logical node in system which host Cassendra DB and Zookeeper.') -->
 
 <xsd:element name="database-node-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('database-node-ip-address', 'database-node') -->
+     Property('database-node-ip-address', 'database-node', 'required', 'CRUD',
+              'Ip address of the database node, set while provisioning.') -->
 
 <xsd:complexType name="KeyValuePair">
     <xsd:all>
@@ -1889,22 +2272,34 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="global-system-config-service-appliance-set"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('global-system-config-service-appliance-set',
-             'global-system-config', 'service-appliance-set', ['has']) -->
+             'global-system-config', 'service-appliance-set', ['has'], 'optional', 'CRUD',
+             ['Service appliance set is the collection of service appliances.',
+              'This collection is used as a provider in loadbalancer pool config.',
+              'Algorithm to distribute/choose one appliance over other can be built while creating loadbalancer pool.',
+              'By default, system will create service-appliance-set with name "opencontrail".',
+              'This is the default loadbalancer provider for pools in Contrail.',
+              'This provider is based on "ha-proxy".'
+              'Service appliance set has following attribute -',
+              '     Driver to load for provisioning the appliance ',
+              '     Service appliance properties - HA mode.']) -->
 
 <!-- any Opaque property for the service appliance set -->
 <xsd:element name="service-appliance-set-properties" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-set-properties', 'service-appliance-set') -->
+     Property('service-appliance-set-properties', 'service-appliance-set', 'optional', 'CRUD',
+              'List of Key:Value pairs that are used by the provider driver and opaque to system.') -->
 
 <!-- python driver to load for provisioning the service appliance -->
 <xsd:element name="service-appliance-driver" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-driver', 'service-appliance-set') -->
+     Property('service-appliance-driver', 'service-appliance-set', 'optional', 'CRUD',
+              'Name of the provider driver for this service appliance set.') -->
 
 <!-- HA mode for service appliance set -->
 <xsd:element name="service-appliance-ha-mode" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-ha-mode', 'service-appliance-set') -->
+     Property('service-appliance-ha-mode', 'service-appliance-set', 'optional', 'CRUD',
+              'High availability mode for the service appliance set, active-active or active-backup.') -->
 
 <!--
     Service appliance
@@ -1919,21 +2314,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="service-appliance-user-credentials" type="UserCredentials"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-user-credentials', 'service-appliance') -->
+     Property('service-appliance-user-credentials', 'service-appliance', 'optional', 'CRUD',
+              'Authentication credentials for driver to access service appliance.') -->
 
 <xsd:element name="service-appliance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-ip-address', 'service-appliance') -->
+     Property('service-appliance-ip-address', 'service-appliance', 'required', 'CRUD',
+              'Manegment Ip address of the service-appliance.') -->
 
 <xsd:element name="service-appliance-set-service-appliance"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-appliance-set-service-appliance',
-          'service-appliance-set', 'service-appliance', ['has']) -->
+          'service-appliance-set', 'service-appliance', ['has'], 'optional', 'CRUD',
+          'Service appliance is a member in service appliance set (e.g. Loadbalancer, Firewall provider).By default system will create "ha-proxy" based service appliance.') -->
 
 <!-- any Opaque property for the service appliance -->
 <xsd:element name="service-appliance-properties" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('service-appliance-properties', 'service-appliance') -->
+     Property('service-appliance-properties', 'service-appliance', 'required', 'CRUD',
+              'List of Key:Value pairs used by the provider driver of this service appliance.') -->
 
 <xsd:complexType name="ServiceApplianceInterfaceType">
     <xsd:all>
@@ -1941,16 +2340,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 <!--  interfaces of the service appliance -->
-<xsd:element name="service-appliance-interface"
-    type="ServiceApplianceInterfaceType"/>
+<xsd:element name="service-appliance-interface" type="ServiceApplianceInterfaceType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-appliance-interface',
-          'service-appliance', 'physical-interface', ['ref']) -->
+          'service-appliance', 'physical-interface', ['ref'], 'optional', 'CRUD',
+          'Reference to physical interface that can be used as (service interface type)left, right, manegement OR other.') -->
 
 <xsd:element name="service-template-service-appliance-set"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-template-service-appliance-set', 'service-template',
-          'service-appliance-set', ['ref']) -->
+          'service-appliance-set', ['ref'], 'optional', 'CRUD',
+          'Reference to the service apliance set represented by this service template.') -->
 
 <!-- when service monitor selects a service appliance for a service instance,
      it will link the virtual machine interfaces it creates with the
@@ -1958,29 +2358,34 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine-interface-physical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-physical-interface',
-          'virtual-machine-interface', 'physical-interface', ['ref']) -->
+          'virtual-machine-interface', 'physical-interface', ['ref'], 'system-only', 'CRUD',
+          'Reference to the physical interface of service appliance this service interface represents.') -->
 
 <!-- connection between two physical interfaces -->
 <xsd:element name="physical-interface-connection" />
 <!--#IFMAP-SEMANTICS-IDL
      Link('physical-interface-connection',
-          'physical-interface', 'physical-interface', ['ref']) -->
+          'physical-interface', 'physical-interface', ['ref'], 'optional', 'CRUD',
+          'Reference to the other physical interface that is connected to this  physical interface.') -->
 
 <!-- RBAC fields -->
 <xsd:element name="api-access-list" type="ifmap:IdentityType"/>
 <xsd:element name="domain-api-access-list"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('domain-api-access-list',
-               'domain', 'api-access-list', ['has']) -->
+               'domain', 'api-access-list', ['has'], 'optional', 'CRUD',
+               'API access list is list of rules that define role based access to each API and its properties at doamin level.') -->
 <xsd:element name="project-api-access-list"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-api-access-list',
-               'project', 'api-access-list', ['has']) -->
+               'project', 'api-access-list', ['has'], 'optional', 'CRUD',
+               'API access list is list of rules that define role based access to each API and its properties at project level.') -->
 
 <!-- network.* => admin:CRUD (admin can perform all ops on networks) -->
 <xsd:element name="api-access-list-entries" type="RbacRuleEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('api-access-list-entries', 'api-access-list') -->
+     Property('api-access-list-entries', 'api-access-list', 'required', 'CRUD',
+              'List of rules e.g network.* => admin:CRUD (admin can perform all ops on networks).') -->
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
@@ -1988,26 +2393,34 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Discovery service assignment config -->
 <xsd:complexType name="DiscoveryPubSubEndPointType">
     <xsd:all>
-        <xsd:element name="ep-type"    type="xsd:string"/>
-        <xsd:element name="ep-id"      type="xsd:string"/>
-        <xsd:element name="ep-prefix"  type="SubnetType"/>
-        <xsd:element name="ep-version" type="xsd:string"/>
+        <xsd:element name="ep-type"    type="xsd:string" required='true' operation='CRUD'
+             decription='Type of service or client'/>
+        <xsd:element name="ep-id"      type="xsd:string" required='optional' operation='CRUD'
+             description='Specific service or client which is set of one.'/>
+        <xsd:element name="ep-prefix"  type="SubnetType" required='optional' operation='CRUD'
+             description='All  servers or clients whose ip match this prefix'/>
+        <xsd:element name="ep-version" type="xsd:string" required='optional' operation='CRUD'
+             description='All  servers or clients whose version match this version'/>
     </xsd:all>
 </xsd:complexType>
 <xsd:complexType name="DiscoveryServiceAssignmentType">
     <xsd:all>
-        <xsd:element name="publisher"  type="DiscoveryPubSubEndPointType"/>
-        <xsd:element name="subscriber" type="DiscoveryPubSubEndPointType"  maxOccurs="unbounded"/>
+        <xsd:element name="publisher"  type="DiscoveryPubSubEndPointType" required='true' operation='CRUD'
+             description='Publisher set'/>
+        <xsd:element name="subscriber" type="DiscoveryPubSubEndPointType"  maxOccurs="unbounded" required='true' operation='CRUD'
+             description='subscriber set'/>
     </xsd:all>
 </xsd:complexType>
 <xsd:element name="dsa-rule-entry" type="DiscoveryServiceAssignmentType"/>
 <xsd:element name="dsa-rule" type="ifmap:IdentityType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('dsa-rule-entry', 'dsa-rule') -->
+     Property('dsa-rule-entry', 'dsa-rule', 'required', 'CRUD',
+              'rule entry defining pubisher set and subscriber set.') -->
 <xsd:element name="discovery-service-assignment" type="ifmap:IdentityType"/>
 <xsd:element name="discovery-service-assignment-dsa-rule"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('discovery-service-assignment-dsa-rule',
-              'discovery-service-assignment', 'dsa-rule', ['has']) -->
+              'discovery-service-assignment', 'dsa-rule', ['has'], 'optional', 'CRUD',
+              'Discovery service rule for assigning subscriber to publisher. (set of subscriber) can be assigned to (set of publisher).') -->
 
 </xsd:schema>
