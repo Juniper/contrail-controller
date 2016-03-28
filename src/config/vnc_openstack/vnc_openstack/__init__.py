@@ -4,6 +4,7 @@
 
 import uuid
 import gevent
+import gevent.event
 import gevent.monkey
 gevent.monkey.patch_all()
 import requests
@@ -42,6 +43,8 @@ Q_MAX_ITEMS = 1000
 
 #Keystone SSL support
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+
+RETRIES_BEFORE_LOG = 100
 
 def fill_keystone_opts(obj, conf_sections):
     obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -741,6 +744,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             self._vnc_api_ip = '127.0.0.1'
         else:
             self._vnc_api_ip = api_server_ip
+        self._sandesh_logger = sandesh.logger()
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
         fill_keystone_opts(self, conf_sections)
@@ -750,6 +754,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         # Tracks which domains/projects have been sync'd from keystone to contrail api server
         self._vnc_domains = set()
         self._vnc_projects = set()
+        self._connected_to_api_server = gevent.event.Event()
         self._conn_glet = gevent.spawn(self._get_api_connection)
     # end __init__
 
@@ -758,14 +763,17 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             return
 
         # get connection to api-server REST interface
+        tries = 0
         while True:
             try:
+                tries = tries + 1
                 self._vnc_lib = vnc_api.VncApi(
                     api_server_host=self._vnc_api_ip,
                     api_server_port=self._vnc_api_port,
                     username=self._auth_user,
                     password=self._auth_passwd,
                     tenant_name=self._admin_tenant)
+                self._connected_to_api_server.set()
 
                 vnc_lib = self._vnc_lib
                 domain_id = vnc_lib.fq_name_to_id(
@@ -775,8 +783,13 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 self._vnc_projects.add(project_id)
                 self._vnc_domains.add(domain_id)
                 break
-            except requests.ConnectionError:
+            except Exception as e:
+                if tries % RETRIES_BEFORE_LOG == 0:
+                    err_msg = "Connect error to contrail api %s tries: %s" \
+                              %(tries, e)
+                    self._sandesh_logger.error(err_msg)
                 gevent.sleep(1)
+    # end _get_api_connection
 
     def __call__(self):
         pass
@@ -787,6 +800,15 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         ensure_default_security_group(self._vnc_lib, proj_obj)
     # end _create_default_security_group
 
+    def wait_for_api_server_connection(func):
+        def wrapper(self, *args, **kwargs):
+            self._connected_to_api_server.wait()
+            return func(self, *args, **kwargs)
+
+        return wrapper
+    # end wait_for_api_server_connection
+
+    @wait_for_api_server_connection
     def pre_domain_read(self, id):
         if not self._keystone_sync_on_demand:
             # domain added via poll
@@ -803,6 +825,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_domains.add(id)
     # end pre_domain_read
 
+    @wait_for_api_server_connection
     def pre_project_read(self, id):
         if not self._keystone_sync_on_demand:
             # project added via poll
@@ -820,10 +843,12 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     # end pre_project_read
 
+    @wait_for_api_server_connection
     def post_project_create(self, proj_dict):
         self._create_default_security_group(proj_dict)
     # end post_create_project
 
+    @wait_for_api_server_connection
     def pre_project_delete(self, proj_uuid):
         proj_obj = self._vnc_lib.project_read(id=proj_uuid)
         sec_groups = proj_obj.get_security_groups()
@@ -833,10 +858,12 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_projects.remove(proj_uuid)
     # end pre_project_delete
 
+    @wait_for_api_server_connection
     def pre_virtual_network_create(self, vn_dict):
         pass
     # end pre_virtual_network_create
 
+    @wait_for_api_server_connection
     def post_virtual_network_create(self, vn_dict):
         ipam_refs = vn_dict.get('network_ipam_refs', [])
         for ipam_ref in ipam_refs:
@@ -854,6 +881,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 self._vnc_lib.kv_store(subnet_name, subnet_uuid)
     # end post_virtual_network_create
 
+    @wait_for_api_server_connection
     def post_virtual_network_update(self, vn_uuid, vn_dict):
         ipam_refs = vn_dict.get('network_ipam_refs')
         if ipam_refs is None:
@@ -887,6 +915,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             self._vnc_lib.kv_store(subnet, new_subnets[subnet])
     # end post_virtual_network_update
 
+    @wait_for_api_server_connection
     def post_virtual_network_delete(self, vn_uuid, vn_dict):
         ipam_refs = vn_dict.get('network_ipam_refs', [])
         for ipam_ref in ipam_refs:
