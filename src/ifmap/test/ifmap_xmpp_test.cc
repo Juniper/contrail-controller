@@ -938,7 +938,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
-    EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 0);
+    EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 0);
 
     link = LinkLookup(vr, vm);
     EXPECT_TRUE(link != NULL);
@@ -960,7 +960,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     vnsw_client->SendVmConfigSubscribe(host_vm_name);
     task_util::WaitForIdle();
     usleep(1000);
-    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 1);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 1);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
     link = LinkLookup(vr, vm);
@@ -976,7 +976,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     num_msgs = vnsw_client->Count();
     vnsw_client->SendVmConfigSubscribe(host_vm_name);
     usleep(1000);
-    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 2);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 2);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
     link = LinkLookup(vr, vm);
@@ -3399,12 +3399,12 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
     IFMapClient *client1 = ifmap_server_.FindClient(client_name);
     size_t index1 = client1->index();
     task_util::WaitForIdle();
-    EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vrsub_messages(), 0);
+    EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vrsub_messages(), 0);
 
     // Subscribe to config again to simulate a spurious vr-subscribe
     vnsw_client->SendConfigSubscribe();
     usleep(1000);
-    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vrsub_messages(), 1);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vrsub_messages(), 1);
     IFMapClient *client2 = ifmap_server_.FindClient(client_name);
     size_t index2 = client2->index();
 

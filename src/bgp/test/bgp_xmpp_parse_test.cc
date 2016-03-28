@@ -27,6 +27,7 @@ public:
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }
+    int GetTaskInstance() const { return 0; }
     void RegisterReceive(xmps::PeerId id, ReceiveCb callback) { }
     void UnRegisterReceive(xmps::PeerId id) { }
     void UnRegisterWriteReady(xmps::PeerId id) { }

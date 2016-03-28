@@ -63,6 +63,7 @@ public:
     std::string local_endpoint_string() const;
     TcpServer *server() { return server_; }
     XmppSession *CreateSession();
+    int GetTaskInstance() const;
 
     std::string ToString() const; 
     std::string ToUVEKey() const; 
@@ -101,10 +102,8 @@ public:
     const XmppSession *session() const;
     XmppSession *session();
 
-    bool logUVE() const {
-        return ((IsClient() == false) && (log_uve_));
-    }
-    virtual bool IsClient() const = 0;
+    bool logUVE() const { return !is_client_ && log_uve_; }
+    bool IsClient() const { return is_client_; }
     virtual void ManagedDelete() = 0;
     virtual void RetryDelete() = 0;
     virtual LifetimeActor *deleter() = 0;
@@ -118,15 +117,6 @@ public:
     }
     XmppChannelMux *ChannelMux() {return mux_.get(); }
     void SetChannelMux(XmppChannelMux *channel_mux) { mux_.reset(channel_mux); }
-
-    int GetIndex() const {
-        // TODO, this is needed to ensure no two reader tasks on the
-        // same session can run in parallel, use endpoint_.port()
-        // return endpoint_.port();
-        //
-        // GR TODO: Use IP Address
-        return 0;
-    }
 
     void Initialize() { state_machine_->Initialize(); }
     void Clear() { state_machine_->Clear(); }
@@ -252,6 +242,7 @@ private:
     tbb::spin_mutex spin_mutex_;
     Timer *keepalive_timer_;
 
+    bool is_client_;
     bool log_uve_;
     bool admin_down_;
     bool disable_read_;
@@ -275,7 +266,6 @@ public:
     XmppServerConnection(XmppServer *server, const XmppChannelConfig *config);
     virtual ~XmppServerConnection();
 
-    virtual bool IsClient() const;
     virtual void ManagedDelete();
     virtual void RetryDelete();
     virtual LifetimeActor *deleter();
@@ -315,7 +305,7 @@ class XmppClientConnection : public XmppConnection {
 public:
     XmppClientConnection(XmppClient *server, const XmppChannelConfig *config);
     virtual ~XmppClientConnection();
-    virtual bool IsClient() const;
+
     virtual void ManagedDelete();
     virtual void RetryDelete();
     virtual LifetimeActor *deleter();

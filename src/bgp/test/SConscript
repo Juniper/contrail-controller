@@ -98,6 +98,8 @@ else:
     env.Prepend(LINKFLAGS =
                 ['-Wl,--whole-archive',
                  '-rdynamic',
+                 '-lbase',
+                 '-lboost_filesystem',
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
                  '-lbgp_evpn',

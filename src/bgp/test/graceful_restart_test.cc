@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 #include <list>
 
+#include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_config_parser.h"
@@ -893,6 +894,7 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
 
 // Invoke stale timer callbacks directly speed up the test.
 void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
+    ConcurrencyScope scope("bgp::Config");
     if (channel->Peer()->peer_close()->close_manager()->state() !=
             PeerCloseManager::GR_TIMER)
         return;
@@ -910,6 +912,7 @@ void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
 
 // Invoke stale timer callbacks directly as evm is not running in this unit test
 void GracefulRestartTest::CallStaleTimer(BgpPeerTest *peer) {
+    ConcurrencyScope scope("bgp::Config");
     if (peer->peer_close()->close_manager()->state() !=
             PeerCloseManager::GR_TIMER)
         return;

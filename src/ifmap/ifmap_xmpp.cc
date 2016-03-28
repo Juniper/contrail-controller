@@ -198,7 +198,7 @@ const std::string& IFMapXmppChannel::FQName() const {
 void IFMapXmppChannel::ProcessVrSubscribe(const std::string &identifier) {
     // If we have already received a vr-subscribe on this channel...
     if (client_added_) {
-        ifmap_channel_manager_->incr_dupicate_vrsub_messages();
+        ifmap_channel_manager_->incr_duplicate_vrsub_messages();
         IFMAP_XMPP_WARN(IFMapDuplicateVrSub, channel_name(), FQName());
         return;
     }
@@ -229,7 +229,7 @@ void IFMapXmppChannel::ProcessVmSubscribe(const std::string &vm_uuid) {
                          FQName(), vm_uuid);
     } else {
         // If we have already received a subscribe for this vm
-        ifmap_channel_manager_->incr_dupicate_vmsub_messages();
+        ifmap_channel_manager_->incr_duplicate_vmsub_messages();
         IFMAP_XMPP_WARN(IFMapDuplicateVmSub, channel_name(), FQName(), vm_uuid);
     }
 }
@@ -345,14 +345,18 @@ IFMapChannelManager::IFMapChannelManager(XmppServer *xmpp_server,
       config_task_work_queue_(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&IFMapChannelManager::ProcessChannelUnregister,
-                         this, _1)),
-      unknown_subscribe_messages(0), unknown_unsubscribe_messages(0),
-      duplicate_channel_ready_messages(0),
-      invalid_channel_not_ready_messages(0), invalid_channel_state_messages(0),
-      invalid_vm_subscribe_messages(0), vmsub_novrsub_messages(0),
-      vmunsub_novrsub_messages(0), vmunsub_novmsub_messages(0),
-      dupicate_vrsub_messages(0), dupicate_vmsub_messages(0) {
-
+                         this, _1)) {
+    unknown_subscribe_messages = 0;
+    unknown_unsubscribe_messages = 0;
+    duplicate_channel_ready_messages = 0;
+    invalid_channel_not_ready_messages = 0;
+    invalid_channel_state_messages = 0;
+    invalid_vm_subscribe_messages = 0;
+    vmsub_novrsub_messages = 0;
+    vmunsub_novrsub_messages = 0;
+    vmunsub_novmsub_messages = 0;
+    duplicate_vrsub_messages = 0;
+    duplicate_vmsub_messages = 0;
     xmpp_server_->RegisterConnectionEvent(xmps::CONFIG,
         boost::bind(&IFMapChannelManager::IFMapXmppChannelEventCb, this, _1,
                     _2));
@@ -530,10 +534,10 @@ static bool IFMapXmppShowReqHandleRequest(const Sandesh *sr,
         ifmap_channel_manager->get_vmunsub_novrsub_messages());
     channel_manager_stats.set_vmunsub_novmsub_messages(
         ifmap_channel_manager->get_vmunsub_novmsub_messages());
-    channel_manager_stats.set_dupicate_vrsub_messages(
-        ifmap_channel_manager->get_dupicate_vrsub_messages());
-    channel_manager_stats.set_dupicate_vmsub_messages(
-        ifmap_channel_manager->get_dupicate_vmsub_messages());
+    channel_manager_stats.set_duplicate_vrsub_messages(
+        ifmap_channel_manager->get_duplicate_vrsub_messages());
+    channel_manager_stats.set_duplicate_vmsub_messages(
+        ifmap_channel_manager->get_duplicate_vmsub_messages());
 
     IFMapXmppChannelMapList channel_map_list;
     std::vector<IFMapXmppChannelMapEntry> channel_map;

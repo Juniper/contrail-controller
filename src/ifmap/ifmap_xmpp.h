@@ -5,12 +5,14 @@
 #ifndef __XMPP_IFMAP_INC__
 #define __XMPP_IFMAP_INC__
 
+#include <boost/function.hpp>
+#include <boost/system/error_code.hpp>
+#include <tbb/atomic.h>
+
 #include <map>
 #include <string>
 
 #include "base/queue_task.h"
-#include <boost/function.hpp>
-#include <boost/system/error_code.hpp>
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_server.h"
 #include "xmpp/xmpp_channel.h"
@@ -114,11 +116,11 @@ public:
     void incr_vmunsub_novmsub_messages() {
         ++vmunsub_novmsub_messages;
     }
-    void incr_dupicate_vrsub_messages() {
-        ++dupicate_vrsub_messages;
+    void incr_duplicate_vrsub_messages() {
+        ++duplicate_vrsub_messages;
     }
-    void incr_dupicate_vmsub_messages() {
-        ++dupicate_vmsub_messages;
+    void incr_duplicate_vmsub_messages() {
+        ++duplicate_vmsub_messages;
     }
 
     uint64_t get_unknown_subscribe_messages() {
@@ -148,11 +150,11 @@ public:
     uint64_t get_vmunsub_novmsub_messages() {
         return vmunsub_novmsub_messages;
     }
-    uint64_t get_dupicate_vrsub_messages() {
-        return dupicate_vrsub_messages;
+    uint64_t get_duplicate_vrsub_messages() {
+        return duplicate_vrsub_messages;
     }
-    uint64_t get_dupicate_vmsub_messages() {
-        return dupicate_vmsub_messages;
+    uint64_t get_duplicate_vmsub_messages() {
+        return duplicate_vmsub_messages;
     }
     void FillChannelMap(std::vector<IFMapXmppChannelMapEntry> *out_map);
 
@@ -175,17 +177,17 @@ private:
     void DeleteIFMapXmppChannel(IFMapXmppChannel *ifmap_chnl);
     void EnqueueChannelEvent(XCEvent event, XmppChannel *channel);
 
-    uint64_t unknown_subscribe_messages;
-    uint64_t unknown_unsubscribe_messages;
-    uint64_t duplicate_channel_ready_messages;
-    uint64_t invalid_channel_not_ready_messages;
-    uint64_t invalid_channel_state_messages;
-    uint64_t invalid_vm_subscribe_messages;
-    uint64_t vmsub_novrsub_messages;
-    uint64_t vmunsub_novrsub_messages;
-    uint64_t vmunsub_novmsub_messages;
-    uint64_t dupicate_vrsub_messages;
-    uint64_t dupicate_vmsub_messages;
+    tbb::atomic<uint64_t> unknown_subscribe_messages;
+    tbb::atomic<uint64_t> unknown_unsubscribe_messages;
+    tbb::atomic<uint64_t> duplicate_channel_ready_messages;
+    tbb::atomic<uint64_t> invalid_channel_not_ready_messages;
+    tbb::atomic<uint64_t> invalid_channel_state_messages;
+    tbb::atomic<uint64_t> invalid_vm_subscribe_messages;
+    tbb::atomic<uint64_t> vmsub_novrsub_messages;
+    tbb::atomic<uint64_t> vmunsub_novrsub_messages;
+    tbb::atomic<uint64_t> vmunsub_novmsub_messages;
+    tbb::atomic<uint64_t> duplicate_vrsub_messages;
+    tbb::atomic<uint64_t> duplicate_vmsub_messages;
 };
 
 #endif // __XMPP_IFMAP_INC__

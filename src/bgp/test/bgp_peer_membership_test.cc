@@ -153,6 +153,7 @@ protected:
 
 // Single peer with inet table.
 TEST_F(PeerMembershipMgrTest, SinglePeerSingleTable) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.
@@ -197,6 +198,7 @@ TEST_F(PeerMembershipMgrTest, SinglePeerSingleTable) {
 
 // Single peer with inet and inetvpn table.
 TEST_F(PeerMembershipMgrTest, SinglePeerMultipleTable) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.
@@ -248,6 +250,7 @@ TEST_F(PeerMembershipMgrTest, SinglePeerMultipleTable) {
 
 // Single peer with red, green and blue vrf tables.
 TEST_F(PeerMembershipMgrTest, SinglePeerDynamicTables) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.
@@ -295,6 +298,7 @@ TEST_F(PeerMembershipMgrTest, SinglePeerDynamicTables) {
 
 // Multiple peers with single vrf table.
 TEST_F(PeerMembershipMgrTest, MultiplePeersSingleTable) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.
@@ -365,6 +369,7 @@ TEST_F(PeerMembershipMgrTest, MultiplePeersSingleTable) {
 
 // Delete a peer with membership request pending
 TEST_F(PeerMembershipMgrTest, PeerDeleteWithPendingMembershipRequestPending) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.
@@ -426,6 +431,7 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithPendingMembershipRequestPending) {
 
 // Delete a peer with db-request pending
 TEST_F(PeerMembershipMgrTest, PeerDeleteWithDBRequestPending) {
+    ConcurrencyScope scope("bgp::StateMachine");
     PeerRibMembershipManager *mgr = server()->membership_mgr();
 
     // Make sure we start out clean.

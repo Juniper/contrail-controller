@@ -34,7 +34,7 @@ XmppSession::XmppSession(XmppConnectionManager *manager, SslSocket *socket,
       manager_(manager),
       connection_(NULL),
       tag_known_(0),
-      index_(-1),
+      task_instance_(-1),
       stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0, 0)),
       keepalive_probes_(kSessionKeepaliveProbes) {
     buf_.reserve(kMaxMessageSize);
@@ -48,13 +48,18 @@ XmppSession::~XmppSession() {
 }
 
 void XmppSession::SetConnection(XmppConnection *connection) {
+    assert(connection);
     connection_ = connection;
-    index_ = connection_->GetIndex();
+    task_instance_ = connection_->GetTaskInstance();
 }
 
+//
+// Dissociate the connection from the this XmppSession.
+// Do not invalidate the task_instance since it can be used to spawn an
+// io::ReaderTask while this method is being executed.
+//
 void XmppSession::ClearConnection() {
     connection_ = NULL;
-    index_ = -1;
 }
 
 //

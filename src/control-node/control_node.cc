@@ -3,7 +3,9 @@
  */
 
 #include "control_node.h"
+
 #include <boost/assign.hpp>
+
 #include "base/task.h"
 
 std::string ControlNode::hostname_;
@@ -61,10 +63,13 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
 
     // Policy for bgp::StateMachine and xmpp::StateMachine Tasks.
-    // There should be exclusion between Reader and StateMachine
-    // tasks with the same index only (as opposed to all indices).
-    TaskPolicy sm_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")));
+    // Add policy to provision exclusion between io::Reader and
+    // bgp/xmpp StateMachine tasks with the same task instance.
+    TaskPolicy sm_policy;
+    for (int idx = 0; idx < scheduler->HardwareThreadCount(); ++idx) {
+        sm_policy.push_back(
+            (TaskExclusion(scheduler->GetTaskId("io::ReaderTask"), idx)));
+    }
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StateMachine"),
         sm_policy);
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
