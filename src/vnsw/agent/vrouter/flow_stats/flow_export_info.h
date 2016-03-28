@@ -63,8 +63,8 @@ public:
     }
     bool IsEqual(const FlowExportInfo &rhs) const;
     void Copy(const FlowExportInfo &rhs);
-    void set_delete_enqueued(bool value) { delete_enqueued_ = value; }
-    bool delete_enqueued() const { return delete_enqueued_; }
+    void set_delete_enqueue_time(uint64_t value) { delete_enqueue_time_ = value; }
+    uint64_t delete_enqueue_time() const { return delete_enqueue_time_; }
     uint32_t flow_partition() const {
         return flow_partition_;
     }
@@ -99,7 +99,7 @@ private:
     boost::uuids::uuid interface_uuid_;
     std::string drop_reason_;
     uint16_t tcp_flags_;
-    bool delete_enqueued_;
+    uint64_t delete_enqueue_time_;
     uint32_t flow_partition_;
 };
 
