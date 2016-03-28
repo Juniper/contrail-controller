@@ -1017,7 +1017,27 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
         // For EEXIST error donot mark the flow as ShortFlow since Vrouter
         // generates EEXIST only for cases where another add should be
         // coming from the pkt trap from Vrouter
-        if (req->ksync_error() != EEXIST) {
+        //
+        // FIXME : We dont have good scheme to handle following scenario,
+        // - VM1 in VN1 has floating-ip FIP1 in VN2
+        // - VM2 in VN2
+        // - VM1 pings VM2 (using floating-ip)
+        // The forward and reverse flows go to different partitions.
+        //
+        // If packets for both forward and reverse flows are trapped together
+        // we try to setup following flows from different partitions,
+        // FlowPair-1
+        //    - VM1 to VM2
+        //    - VM2 to FIP1
+        // FlowPair-2
+        //    - VM2 to FIP1
+        //    - VM1 to VM2
+        //
+        // The reverse flows for both FlowPair-1 and FlowPair-2 are not
+        // installed due to EEXIST error. We are converting flows to
+        // short-flow till this case is handled properly
+        if (req->ksync_error() != EEXIST ||
+            flow->is_flags_set(FlowEntry::NatFlow)) {
             flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
             // Enqueue Add request to flow-stats-collector
             // to update flow flags in stats collector
@@ -1115,7 +1135,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
     if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
         grow_pending_ = true;
         FlowProto *proto = table_->agent()->pkt()->get_flow_proto();
-        proto->GrowFreeListRequest(key);
+        proto->GrowFreeListRequest(key, table_);
     }
     flow->Reset(key);
     total_alloc_++;

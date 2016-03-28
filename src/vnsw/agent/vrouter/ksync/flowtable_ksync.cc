@@ -592,7 +592,8 @@ FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
     if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
         grow_pending_ = true;
         FlowProto *proto = object_->ksync()->agent()->pkt()->get_flow_proto();
-        proto->GrowFreeListRequest(flow_key->flow_entry()->key());
+        proto->GrowFreeListRequest(flow_key->flow_entry()->key(),
+                                   flow_key->flow_entry()->flow_table());
     }
 
     // Do post allocation initialization
