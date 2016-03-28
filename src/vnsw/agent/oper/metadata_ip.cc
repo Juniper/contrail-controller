@@ -43,6 +43,10 @@ Ip4Address MetaDataIp::GetLinkLocalIp() {
 IpAddress MetaDataIp::service_ip() {
     if (service_ip_ == kDefaultIp) {
         IpAddress service_ip =  intf_->GetServiceIp(intf_->primary_ip_addr());
+        if (service_ip == kDefaultIp) {
+            // if service IP is not available fallback to MetaData IP
+            return Ip4Address(METADATA_IP_ADDR);
+        }
         return service_ip;
     }
     return service_ip_;
