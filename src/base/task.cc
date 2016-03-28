@@ -187,7 +187,7 @@ public:
     void ClearTaskGroupStats();
     void ClearTaskStats();
     void ClearTaskStats(int instance_id);
-    void GetSandeshData(SandeshTaskGroup *resp) const;
+    void GetSandeshData(SandeshTaskGroup *resp, bool summary) const;
 
     int task_id() const { return task_id_; }
     int deferq_size() const { return deferq_.size(); }
@@ -1358,7 +1358,7 @@ void TaskEntry::GetSandeshData(SandeshTaskEntry *resp) const {
     resp->set_waitq_size(waitq_.size());
     resp->set_deferq_size(deferq_->size());
 }
-void TaskGroup::GetSandeshData(SandeshTaskGroup *resp) const {
+void TaskGroup::GetSandeshData(SandeshTaskGroup *resp, bool summary) const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     std::vector<SandeshTaskEntry> list;
     TaskEntry *task_entry = QueryTaskEntry(-1);
@@ -1380,6 +1380,9 @@ void TaskGroup::GetSandeshData(SandeshTaskGroup *resp) const {
     }
     resp->set_task_entry_list(list);
 
+    if (summary)
+        return;
+
     std::vector<SandeshTaskPolicyEntry> policy_list;
     for (TaskGroupPolicyList::const_iterator it = policy_.begin();
          it != policy_.end(); ++it) {
@@ -1391,7 +1394,7 @@ void TaskGroup::GetSandeshData(SandeshTaskGroup *resp) const {
     resp->set_task_policy_list(policy_list);
 }
 
-void TaskScheduler::GetSandeshData(SandeshTaskScheduler *resp) {
+void TaskScheduler::GetSandeshData(SandeshTaskScheduler *resp, bool summary) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     resp->set_running(running_);
@@ -1406,7 +1409,7 @@ void TaskScheduler::GetSandeshData(SandeshTaskScheduler *resp) {
         resp_group.set_task_id(it->second);
         resp_group.set_name(it->first);
         if (group)
-            group->GetSandeshData(&resp_group);
+            group->GetSandeshData(&resp_group, summary);
         list.push_back(resp_group);
     }
     resp->set_task_group_list(list);
