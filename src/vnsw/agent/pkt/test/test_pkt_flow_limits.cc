@@ -138,6 +138,7 @@ public:
 
 protected:
     virtual void SetUp() {
+        agent_->flow_stats_manager()->set_delete_short_flow(false);
         Ip4Address rid = Ip4Address::from_string(vhost_ip_addr);
         agent_->set_router_id(rid);
         agent_->set_compute_node_ip(rid);
