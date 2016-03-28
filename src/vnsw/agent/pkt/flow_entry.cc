@@ -1072,6 +1072,16 @@ void FlowEntry::GetVrfAssignAcl() {
         return;
     }
 
+    if (is_flags_set(FlowEntry::NatFlow)) {
+        if (key().dst_addr != reverse_flow_entry()->key().src_addr) {
+            //DNAT packet:
+            //Packet has already reached destination
+            //and is no longer passing through any service chain
+            //Hence dont apply any vrf translation
+            return;
+        }
+    }
+
     const VmInterface *intf =
         static_cast<const VmInterface *>(data_.intf_entry.get());
     //If interface has a VRF assign rule, choose the acl and match the

@@ -105,19 +105,23 @@ protected:
 
         //Leak route for 1.1.1.0 to default-project:vn2:vn2 and
         //default-project:vn3:vn3
+        VnListType vn_list;
+        vn_list.insert(std::string("default-project:vn1"));
         Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn2:vn2", ip2, 24, MakeUuid(1),
-                               "default-project:vn1", 16, SecurityGroupList(),
+                               vn_list,
+                               16, SecurityGroupList(),
                                CommunityList(), false,
-                               PathPreference(), Ip4Address(0));
+                               PathPreference(), Ip4Address(0), EcmpLoadBalance());
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
-                               "default-project:vn1", 16, SecurityGroupList(),
+                               vn_list,
+                               16, SecurityGroupList(),
                                CommunityList(), false,
-                               PathPreference(), Ip4Address(0));
+                               PathPreference(), Ip4Address(0), EcmpLoadBalance());
         client->WaitForIdle();
     }
 
@@ -191,12 +195,14 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl2) {
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn2", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "true");
     TestFlow flow[] = {
@@ -219,7 +225,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
 //via default-project:vn2 with ignore acl option set, add an ACL
 //to deny all traffic from default-project:vn1 to default-project:vn2
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
-    AddAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "drop");
+    AddAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "deny");
     AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "default-project:vn2:vn2", "false");
@@ -245,7 +251,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
 //and ensure it get applied
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl5) {
     AddAcl("egress-access-control-list-Acl", 10, "default-project:vn1",
-           "default-project:vn2", "drop");
+           "default-project:vn2", "deny");
     AddSg("sg1", 1);
     AddLink("security-group", "sg1", "access-control-list",
             "egress-access-control-list-Acl");
@@ -382,9 +388,12 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
 }
 
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
-
-    TunnelRouteAdd("10.1.1.2", "2.1.1.1", "default-project:vn1:vn1",
-                   16, "default-project:vn2");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.2");
+    Ip4Address vm_ip = Ip4Address::from_string("2.1.1.1");
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1", vm_ip, 32,
+                        server_ip, TunnelType::AllType(), 16,
+                        "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
 
     TestFlow flow[] = {
@@ -405,7 +414,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
                             10, 20, nh_id);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->acl_assigned_vrf() == "default-project:vn3:vn3");
-    DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32);
+    DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32, bgp_peer_);
     client->WaitForIdle();
 }
 
@@ -420,12 +429,14 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.100");
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn2", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
@@ -446,11 +457,14 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     AddLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
     client->WaitForIdle();
 
+    VnListType vn_list1;
+    vn_list.insert(std::string("default-project:vn1"));
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                 "default-project:vn3:vn3", ip2, 32, MakeUuid(7),
-                "default-project:vn1", 16, SecurityGroupList(),
-                CommunityList(), false, PathPreference(), Ip4Address(0));
+                vn_list1, 16, SecurityGroupList(),
+                CommunityList(), false, PathPreference(), Ip4Address(0),
+                EcmpLoadBalance());
     client->WaitForIdle();
 
     TestFlow flow[] = {
@@ -489,14 +503,16 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn2", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     AddVrf("vrf9");
@@ -552,14 +568,16 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp2) {
     client->WaitForIdle();
 
     AddVrf("vrf9");
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn1"));
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn1", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     AddAddressVrfAssignAcl("intf7", 7, "4.1.1.0", "2.1.1.0", 6, 1, 65535,
@@ -609,14 +627,16 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "default-project:vn2:vn2", "true");
 
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn2", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
@@ -650,14 +670,16 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           "default-project:vn2", 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0));
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
@@ -701,12 +723,97 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
     client->WaitForIdle();
 }
 
+//Ensure DNAT packet doesnt get VRF translated
+TEST_F(TestVrfAssignAclFlow, FloatingIp3) {
+    struct PortInfo input[] = {
+        {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    char FIP_VN[80] = "default-project:vn1";
+    char FIP_VRF[80] = "default-project:vn1:vn1";
+    char EXT_IP_VN[80] = "default-project:vn2";
+    char ACL_ASSIGNED_VRF[80] = "default-project:vn3:vn3";
+
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    Ip4Address ip2 = Ip4Address::from_string("1.1.1.100");
+    VnListType vn_list;
+    vn_list.insert(std::string(EXT_IP_VN));
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(), FIP_VRF,
+                           ip1, 24, MakeUuid(3), vn_list,
+                           16, SecurityGroupList(),
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0),
+                           EcmpLoadBalance());
+    client->WaitForIdle();
+
+    AddVrfAssignNetworkAcl("Acl", 10, EXT_IP_VN, FIP_VN, "pass",
+                           ACL_ASSIGNED_VRF);
+    AddLink("virtual-network", FIP_VN, "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", FIP_VN);
+    AddLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    vn_list.clear();
+    vn_list.insert(std::string(FIP_VN));
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                "default-project:vn3:vn3", ip2, 32, MakeUuid(7),
+                vn_list, 16, SecurityGroupList(),
+                CommunityList(), false, PathPreference(), Ip4Address(0),
+                EcmpLoadBalance());
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "2.1.1.1", "1.1.1.100", IPPROTO_TCP, 10,
+                       20, "vrf4", "10.1.1.1", VmPortGet(7)->label()),
+        {
+            new VerifyNat("4.1.1.1", "2.1.1.1", IPPROTO_TCP, 20, 10),
+            new VerifyVrf("vrf4", "vrf4"),
+            //Network ACL rule doesnt allow reverse traffic, hence
+            //deny for reverse flow
+            new VerifyAction(1 << TrafficAction::PASS,
+                            (1 << TrafficAction::DENY) |
+                            (1 << TrafficAction::IMPLICIT_DENY))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn1");
+    DelLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn1",
+            "access-control-list", "Acl");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    agent_->fabric_inet4_unicast_table()->DeleteReq(
+            agent_->local_peer(), "default-project:vn3:vn3", ip2, 32, NULL);
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
+
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     delete client;
     return ret;
