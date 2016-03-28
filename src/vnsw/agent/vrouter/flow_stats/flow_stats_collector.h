@@ -31,10 +31,19 @@ class FlowStatsManager;
 class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
-    static const uint32_t FlowCountPerPass = 200;
-    static const uint32_t FlowStatsMinInterval = (100); // time in milliseconds
-    static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
+    static const uint32_t kFlowStatsTimerInterval = 50; // time in milliseconds
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
+    // Retry flow-delete after 2 second
+    static const uint64_t kFlowDeleteRetryTime = (2 * 1000 * 1000);
+
+    // Time within which complete table must be scanned
+    // Specified in terms of percentage of aging-time
+    static const uint8_t  kFlowScanTime = 25;
+    // Flow timer interval
+    static const uint32_t kFlowStatsInterval = 50;
+    // Minimum flows to visit per interval
+    static const uint32_t kMinFlowsPerTimer = 500;
+
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
@@ -67,11 +76,9 @@ public:
     uint32_t threshold()  const;
     uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
     boost::uuids::uuid rand_gen();
-    void UpdateFlowMultiplier();
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) {
         flow_age_time_intvl_ = usecs;
-        UpdateFlowMultiplier();
     }
     void UpdateFlowAgeTimeInSecs(uint32_t secs) {
         UpdateFlowAgeTime(secs * 1000 * 1000);
@@ -116,6 +123,7 @@ protected:
 
 private:
     uint64_t GetScanTime();
+    void UpdateAgingParameters();
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time);
     void EvictedFlowStatsUpdate(const boost::uuids::uuid &u,
                                 uint32_t bytes,
@@ -137,7 +145,7 @@ private:
                                  bool teardown_time,
                                  uint64_t *diff_bytes,
                                  uint64_t *diff_pkts);
-    void FlowDeleteEnqueue(FlowExportInfo *info);
+    void FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t);
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,

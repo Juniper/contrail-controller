@@ -42,13 +42,13 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        FlowAgingTableKey *key,
                                        FlowStatsManager *aging_module) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
-                       ("Agent::StatsCollector"), instance_id,
-                       io, intvl, "Flow stats collector"),
+                       (kTaskFlowStatsCollector), instance_id,
+                       io, kFlowStatsTimerInterval, "Flow stats collector"),
         agent_uve_(uve), rand_gen_(boost::uuids::random_generator()),
         flow_iteration_key_(boost::uuids::nil_uuid()),
         flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
         request_queue_(agent_uve_->agent()->task_scheduler()->
-                       GetTaskId("Agent::StatsCollector"),
+                       GetTaskId(kTaskFlowStatsCollector),
                        instance_id,
                        boost::bind(&FlowStatsCollector::RequestHandler, 
                                    this, _1)),
@@ -62,8 +62,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         } else {
             flow_age_time_intvl_ = FlowAgeTime;
         }
-        flow_count_per_pass_ = FlowCountPerPass;
-        UpdateFlowMultiplier();
+        flow_count_per_pass_ = kMinFlowsPerTimer;;
         deleted_ = false;
         request_queue_.set_name("Flow stats collector");
 }
@@ -81,6 +80,7 @@ void FlowStatsCollector::Shutdown() {
     request_queue_.Shutdown();
 }
 
+// Get the time (in msec) in which one scan of flow-table is to be done
 uint64_t FlowStatsCollector::GetScanTime() {
     uint64_t scan_time_millisec;
     /* Use Age Time itself as scan-time for non-tcp flows */
@@ -89,22 +89,37 @@ uint64_t FlowStatsCollector::GetScanTime() {
         scan_time_millisec = agent_uve_->agent()->params()->
             tcp_flow_scan_interval() * 1000;
     } else {
-        /* Convert from micro-seconds to milliseconds */
+        // Convert aging-time configured in micro-sec to millisecond
         scan_time_millisec = flow_age_time_intvl_ / 1000;
+
+        // Compute time in which we must scan the complete table to honor the
+        // kFlowScanTime
+        scan_time_millisec = (scan_time_millisec * kFlowScanTime) / 100;
     }
 
-    if (scan_time_millisec == 0) {
-        scan_time_millisec = 1;
+    //  Enforce min value on scan-time. Aging timer run at kFlowStatsInterval
+    if (scan_time_millisec < kFlowStatsInterval) {
+        scan_time_millisec = kFlowStatsInterval;
     }
     return scan_time_millisec;
 }
 
-void FlowStatsCollector::UpdateFlowMultiplier() {
-    uint64_t scan_time_millisec = GetScanTime();
-    uint64_t default_age_time_millisec = FlowAgeTime / 1000;
-    uint64_t max_flows = (MaxFlows * scan_time_millisec) /
-                                            default_age_time_millisec;
-    flow_multiplier_ = (max_flows * FlowStatsMinInterval)/scan_time_millisec;
+/*
+ * Update flow_count_per_pass_ based on total flows that we have
+ * kFlowScanTime is the acceptable tolerance to aging interval. It
+ * effectively specifies the time in which we must scan the flow-table
+ */
+void FlowStatsCollector::UpdateAgingParameters() {
+    // Aging timer fires every kFlowStatsInterval msec. Compute number of time
+    // the timer fires for scan-time
+    uint32_t timers_per_scan = GetScanTime() / kFlowStatsInterval;
+
+    // Compute number of flows to visit per scan-time
+    flow_count_per_pass_ = flow_tree_.size() / timers_per_scan;
+
+    // Apply lower-limit
+    if (flow_count_per_pass_ < kMinFlowsPerTimer)
+        flow_count_per_pass_ = kMinFlowsPerTimer;
 }
 
 bool FlowStatsCollector::TcpFlowShouldBeAged(FlowExportInfo *stats,
@@ -317,14 +332,15 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(info, 0, 0);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info) {
+void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
+                                           uint64_t t) {
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(info->key(),
                                                       true,
                                                       info->flow_partition());
-    info->set_delete_enqueued(true);
+    info->set_delete_enqueue_time(t);
     FlowExportInfo *rev_info = FindFlowExportInfo(info->rev_flow_uuid());
     if (rev_info) {
-        rev_info->set_delete_enqueued(true);
+        rev_info->set_delete_enqueue_time(t);
     }
 }
 
@@ -373,45 +389,56 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
 }
 
 bool FlowStatsCollector::Run() {
-    FlowEntryTree::iterator it;
-    FlowExportInfo *rev_info = NULL;
-    FlowExportInfo *info = NULL;
-    uint32_t count = 0;
-    bool key_updation_reqd = true, deleted;
-
     run_counter_++;
     if (!flow_tree_.size()) {
         return true;
     }
+
+    // Update aging parameters for this cycle
+    UpdateAgingParameters();
+
     uint64_t curr_time = UTCTimestampUsec();
-    it = flow_tree_.upper_bound(flow_iteration_key_);
+    FlowEntryTree::iterator it = flow_tree_.lower_bound(flow_iteration_key_);
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
     }
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
                                          ksync_flow_memory();
-
-    while (it != flow_tree_.end()) {
+    uint32_t count = 0;
+    while (it != flow_tree_.end() && count < flow_count_per_pass_) {
+        FlowExportInfo *info = NULL;
         info = &it->second;
         it++;
+        count++;
 
-        if (info->delete_enqueued()) {
-            // if we come across deleted entry, trigger explicit delete
-            // again and skip further processing.
-            // duplicate delete will be suppressed in flow_table
-            FlowDeleteEnqueue(info);
+        // if we come across deleted entry, retry flow deletion after some time
+        // duplicate delete will be suppressed in flow_table
+        uint64_t delete_time = info->delete_enqueue_time();
+        if (delete_time && ((curr_time - delete_time) > kFlowDeleteRetryTime)) {
+            FlowDeleteEnqueue(info, curr_time);
             continue;
         }
 
-        deleted = false;
+        FlowExportInfo *rev_info = NULL;
+        // Delete short flows
+        if ((flow_stats_manager_->delete_short_flow() == true) &&
+            info->is_flags_set(FlowEntry::ShortFlow)) {
+            rev_info = FindFlowExportInfo(info->rev_flow_uuid());
+            FlowDeleteEnqueue(info, curr_time);
+            if (rev_info) {
+                count++;
+            }
+            continue;
+        }
 
-        flow_iteration_key_ = it->first;
+        bool deleted = false;
         const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
             (info->key(), info->flow_handle());
         // Can the flow be aged?
         if (ShouldBeAged(info, k_flow, curr_time)) {
             rev_info = FindFlowExportInfo(info->rev_flow_uuid());
-            // If reverse_flow is present, wait till both are aged
+            // ShouldBeAged looks at one flow only. So, check for both forward and
+            // reverse flows
             if (rev_info) {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetValidKFlowEntry
@@ -425,15 +452,16 @@ bool FlowStatsCollector::Run() {
         }
 
         if (deleted == true) {
-            FlowDeleteEnqueue(info);
+            FlowDeleteEnqueue(info, curr_time);
+            // We delete both forward and reverse flows. So, account for
+            // reverse flow also
             if (rev_info) {
                 count++;
-                if (count == flow_count_per_pass_) {
-                    break;
-                }
             }
         }
 
+        // Update stats for flows not being deleted
+        // Stats for deleted flow are updated when we get DELETE message
         if (deleted == false && k_flow) {
             uint64_t k_bytes, bytes;
             k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
@@ -458,63 +486,18 @@ bool FlowStatsCollector::Run() {
                 ExportFlow(info, 0, 0);
             }
         }
-
-        if ((!deleted) && (flow_stats_manager_->delete_short_flow() == true) &&
-            info->is_flags_set(FlowEntry::ShortFlow)) {
-            FlowDeleteEnqueue(info);
-            if (rev_info) {
-                count++;
-                if (count == flow_count_per_pass_) {
-                    break;
-                }
-            }
-        }
-
-        count++;
-        if (count == flow_count_per_pass_) {
-            break;
-        }
     }
 
     //Send any pending flow export messages
     DispatchPendingFlowMsg();
 
-    if (count == flow_count_per_pass_) {
-        if (it != flow_tree_.end()) {
-            key_updation_reqd = false;
-        }
-    }
-
-    /* Reset the iteration key if we are done with all the elements */
-    if (key_updation_reqd) {
+    // Update iterator for next pass
+    if (it == flow_tree_.end()) {
         flow_iteration_key_ = boost::uuids::nil_uuid();
-    }
-
-    /* Update the flow_timer_interval and flow_count_per_pass_ based on
-     * total flows that we have
-     */
-    uint32_t total_flows = flow_tree_.size();
-    uint32_t flow_timer_interval;
-
-    uint32_t scan_time_millisec = GetScanTime();
-
-    if (total_flows > 0) {
-        flow_timer_interval = std::min((scan_time_millisec * flow_multiplier_)/
-                                        total_flows, 1000U);
-        if (flow_timer_interval < FlowStatsMinInterval) {
-            flow_timer_interval = FlowStatsMinInterval;
-        }
     } else {
-        flow_timer_interval = flow_default_interval_;
+        flow_iteration_key_ = it->first;
     }
 
-    if (scan_time_millisec > 0) {
-        flow_count_per_pass_ = std::max((flow_timer_interval * total_flows)/
-                                         scan_time_millisec, 100U);
-    } else {
-        flow_count_per_pass_ = 100U;
-    }
-    set_expiry_time(flow_timer_interval);
     return true;
 }
 
@@ -941,7 +924,7 @@ void FlowStatsCollector::AddFlow(const boost::uuids::uuid &uuid,
         if (!it->second.IsEqual(info)) {
             it->second.Copy(info);
         }
-        it->second.set_delete_enqueued(false);
+        it->second.set_delete_enqueue_time(0);
         return;
     }
 
@@ -1039,7 +1022,7 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
     Ip4Address ip(value.fip());
     info.set_fip(ip.to_string());
     info.set_underlay_source_port(value.underlay_source_port());
-    info.set_delete_enqueued(value.delete_enqueued());
+    info.set_delete_enqueued(value.delete_enqueue_time() ? true : false);
 }
 
 void FlowStatsRecordsReq::HandleRequest() const {

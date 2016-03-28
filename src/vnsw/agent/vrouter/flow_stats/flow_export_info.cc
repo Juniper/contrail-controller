@@ -11,7 +11,7 @@ FlowExportInfo::FlowExportInfo() :
     vm_cfg_name_(), peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
     underlay_source_port_(0), changed_(false),
     fip_(0), fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""), tcp_flags_(0),
-    delete_enqueued_(false), flow_partition_(0) {
+    delete_enqueue_time_(0), flow_partition_(0) {
     key_.Reset();
     drop_reason_ = FlowEntry::DropReasonStr(FlowEntry::DROP_UNKNOWN);
     interface_uuid_ = boost::uuids::nil_uuid();
@@ -28,7 +28,7 @@ FlowExportInfo::FlowExportInfo(FlowEntry *fe, uint64_t setup_time) :
     vm_cfg_name_(fe->data().vm_cfg_name), peer_vrouter_(fe->peer_vrouter()),
     tunnel_type_(fe->tunnel_type()), underlay_source_port_(0),
     changed_(true), fip_(fe->fip()), fip_vmi_(fe->fip_vmi()), tcp_flags_(0),
-    delete_enqueued_(false) {
+    delete_enqueue_time_(0) {
     FlowEntry *rflow = fe->reverse_flow_entry();
     if (rflow) {
         rev_flow_uuid_ = rflow->uuid();
