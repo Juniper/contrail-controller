@@ -23,7 +23,7 @@ from sseclient import SSEClient
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
 
-from opserver.sandesh.viz.constants import UVE_MAP
+from sandesh.viz.constants import UVE_MAP
 
 
 class ContrailAlarmInfo(object):
