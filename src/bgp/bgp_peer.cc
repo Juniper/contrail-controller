@@ -352,14 +352,14 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           index_(server->RegisterPeer(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                   GetIndex()),
+                   GetTaskInstance()),
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
                      "BGP keepalive timer")),
           end_of_rib_timer_(TimerManager::CreateTimer(*server->ioservice(),
                    "BGP RTarget EndOfRib timer",
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                   GetIndex())),
+                   GetTaskInstance())),
           send_ready_(true),
           admin_down_(config->admin_down()),
           passive_(config->passive()),
@@ -1630,6 +1630,10 @@ void BgpPeer::RetryDelete() {
     deleter_->RetryDelete();
 }
 
+int BgpPeer::GetTaskInstance() const {
+    return index_ % TaskScheduler::GetInstance()->HardwareThreadCount();
+}
+
 void BgpPeer::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
     if (rtinstance_) {
         peer_info->set_domain(rtinstance_->name());
@@ -1768,6 +1772,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_local_asn(local_as());
     bnr->set_negotiated_hold_time(state_machine_->hold_time());
     bnr->set_primary_path_count(GetPrimaryPathCount());
+    bnr->set_task_instance(GetTaskInstance());
     bnr->set_auth_type(
         AuthenticationData::KeyTypeToString(inuse_authkey_type_));
     if (bsc->test_mode()) {

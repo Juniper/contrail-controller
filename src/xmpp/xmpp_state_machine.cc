@@ -1092,7 +1092,7 @@ void XmppStateMachine::ResetSession() {
     if (!connection)
         return;
 
-    // Stop keepalives, transition to IDLE and notify registerd entities.
+    // Stop keepalives, transition to IDLE and notify registered entities.
     connection->StopKeepAliveTimer();
     connection->ChannelMux()->HandleStateEvent(xmsm::IDLE);
     if (IsActiveChannel())
@@ -1107,7 +1107,7 @@ void XmppStateMachine::ResetSession() {
 XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
     bool auth_enabled)
     : work_queue_(TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
-          connection->GetIndex(),
+          connection->GetTaskInstance(),
           boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
       connection_(connection),
       session_(NULL),
@@ -1115,15 +1115,18 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
       connect_timer_(
           TimerManager::CreateTimer(*server_->event_manager()->io_service(),
           "Connect timer",
-          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+          connection->GetTaskInstance())),
       open_timer_(
           TimerManager::CreateTimer(*server_->event_manager()->io_service(),
           "Open timer",
-          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+          connection->GetTaskInstance())),
       hold_timer_(
           TimerManager::CreateTimer(*server_->event_manager()->io_service(),
           "Hold timer",
-          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+          connection->GetTaskInstance())),
       hold_time_(GetConfiguredHoldTime()),
       attempts_(0),
       keepalive_count_(0),
@@ -1178,7 +1181,7 @@ void XmppStateMachine::Initialize() {
 void XmppStateMachine::clear_session() {
     if (session_ != NULL) {
         session_->set_observer(NULL);
-        session_->SetConnection(NULL);
+        session_->ClearConnection();
         session_->Close();
         connection_->clear_session();
         session_ = NULL;
@@ -1188,7 +1191,7 @@ void XmppStateMachine::clear_session() {
 void XmppStateMachine::DeleteSession(XmppSession *session) {
     if (session != NULL) {
         session->set_observer(NULL);
-        session->SetConnection(NULL);
+        session->ClearConnection();
         session->Close();
         Enqueue(xmsm::EvTcpDeleteSession(session));
     }
@@ -1662,7 +1665,7 @@ void XmppStateMachine::ResurrectOldConnection(XmppConnection *new_connection,
             new_connection->server())->LocateConnectionEndpoint(
                 static_cast<XmppServerConnection *>(new_connection), created);
 
-    // If this is a new endpoint, then there is no older connecction to manage.
+    // If this is a new endpoint, then there is no older connection to manage.
     if (created)
         return;
 

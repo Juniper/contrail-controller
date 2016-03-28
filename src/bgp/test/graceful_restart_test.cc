@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 #include <list>
 
+#include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_config_parser.h"
@@ -891,12 +892,14 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
 
 // Invoke stale timer callbacks directly as evm is not running in this unit test
 void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
+    ConcurrencyScope scope("bgp::Config");
     channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
     task_util::WaitForIdle();
 }
 
 // Invoke stale timer callbacks directly as evm is not running in this unit test
 void GracefulRestartTest::CallStaleTimer(BgpPeerTest *peer) {
+    ConcurrencyScope scope("bgp::Config");
     peer->peer_close()->close_manager()->RestartTimerCallback();
     task_util::WaitForIdle();
 }

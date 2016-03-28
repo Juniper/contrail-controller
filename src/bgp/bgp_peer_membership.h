@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_BGP_PEER_MEMBERSHIP_H_
 #define SRC_BGP_BGP_PEER_MEMBERSHIP_H_
 
+#include <tbb/atomic.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -245,8 +247,8 @@ public:
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
     void FillRegisteredTable(const IPeer *peer, std::vector<std::string> *list);
     size_t GetMembershipCount() const { return peer_rib_set_.size(); }
-    int current_jobs_count() const { return current_jobs_count_; }
-    int total_jobs_count() const { return total_jobs_count_; }
+    uint64_t current_jobs_count() const { return current_jobs_count_; }
+    uint64_t total_jobs_count() const { return total_jobs_count_; }
 
 private:
     friend class BgpServerUnitTest;
@@ -299,8 +301,8 @@ private:
     BgpServer *server_;
 
     // Counters that track number of ongoing and total work items.
-    int        current_jobs_count_;
-    int        total_jobs_count_;
+    tbb::atomic<uint64_t> current_jobs_count_;
+    tbb::atomic<uint64_t> total_jobs_count_;
     WorkQueue<IPeerRibEvent *> *event_queue_;
     PeerRibSet peer_rib_set_;
     RibPeerMap rib_peer_map_;

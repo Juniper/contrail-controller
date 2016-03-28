@@ -513,7 +513,7 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       defer_peer_close_(false),
       membership_response_worker_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
-            channel->connection()->GetIndex(),
+            channel->GetTaskInstance(),
             boost::bind(&BgpXmppChannel::MembershipResponseHandler, this, _1)),
       lb_mgr_(new LabelBlockManager()) {
     channel_->RegisterReceive(peer_id_,
@@ -2409,6 +2409,7 @@ void BgpXmppChannelManager::AdminDownCallback() {
 
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
     as_t old_local_asn) {
+    CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->ASNUpdateCallback(old_asn, old_local_asn);
     }
@@ -2419,18 +2420,21 @@ void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
 
 void BgpXmppChannelManager::IdentifierUpdateCallback(
     Ip4Address old_identifier) {
+    CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->IdentifierUpdateCallback(old_identifier);
     }
 }
 
 void BgpXmppChannelManager::RoutingInstanceCallback(string vrf_name, int op) {
+    CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->RoutingInstanceCallback(vrf_name, op);
     }
 }
 
 void BgpXmppChannelManager::VisitChannels(BgpXmppChannelManager::VisitorFn fn) {
+    tbb::mutex::scoped_lock lock(mutex_);
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         fn(i.second);
     }
@@ -2454,11 +2458,15 @@ BgpXmppChannel *BgpXmppChannelManager::FindChannel(
 }
 
 void BgpXmppChannelManager::RemoveChannel(XmppChannel *channel) {
+    if (channel->connection() && !channel->connection()->IsActiveChannel()) {
+        CHECK_CONCURRENCY("bgp::Config");
+    }
     channel_map_.erase(channel);
     channel_name_map_.erase(channel->ToString());
 }
 
 BgpXmppChannel *BgpXmppChannelManager::CreateChannel(XmppChannel *channel) {
+    CHECK_CONCURRENCY("xmpp::StateMachine");
     BgpXmppChannel *ch = new BgpXmppChannel(channel, bgp_server_, this);
 
     return ch;
@@ -2466,8 +2474,9 @@ BgpXmppChannel *BgpXmppChannelManager::CreateChannel(XmppChannel *channel) {
 
 void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
-    XmppChannelMap::iterator it = channel_map_.find(channel);
+    tbb::mutex::scoped_lock lock(mutex_);
 
+    XmppChannelMap::iterator it = channel_map_.find(channel);
     BgpXmppChannel *bgp_xmpp_channel = NULL;
     if (state == xmps::READY) {
         if (it == channel_map_.end()) {

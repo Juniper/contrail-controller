@@ -22,6 +22,7 @@ public:
     virtual bool IsCloseInProgress() const;
     virtual void CloseComplete();
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb);
+    virtual int GetTaskInstance() const;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb);

@@ -8,6 +8,7 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <tbb/mutex.h>
 
 #include <map>
 #include <set>
@@ -303,9 +304,11 @@ public:
     void IdentifierUpdateCallback(Ip4Address old_identifier);
 
     uint32_t count() const {
+        tbb::mutex::scoped_lock lock(mutex_);
         return channel_map_.size();
     }
     uint32_t NumUpPeer() const {
+        tbb::mutex::scoped_lock lock(mutex_);
         return channel_map_.size();
     }
 
@@ -327,8 +330,9 @@ private:
     friend class BgpXmppUnitTest;
 
     XmppServer *xmpp_server_;
-    BgpServer  *bgp_server_;
+    BgpServer *bgp_server_;
     WorkQueue<BgpXmppChannel *> queue_;
+    mutable tbb::mutex mutex_;
     XmppChannelMap channel_map_;
     XmppChannelNameMap channel_name_map_;
     int id_;

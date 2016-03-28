@@ -35,7 +35,7 @@ public:
     static const int kMaxMessageSize = 4096;
     friend class XmppRegexMock;
 
-    virtual int GetSessionInstance() const { return index_; }
+    virtual int GetSessionInstance() const { return task_instance_; }
 
     boost::system::error_code EnableTcpKeepalive(int tcp_hold_time);
 
@@ -66,7 +66,7 @@ private:
     std::string buf_;
     std::string::const_iterator offset_;
     int tag_known_;
-    int index_;
+    int task_instance_;
     boost::match_results<std::string::const_iterator> res_;
     std::vector<StatsPair> stats_; // packet count
     int keepalive_idle_time_;

@@ -196,8 +196,8 @@ struct IFMapChannelManagerStats {
     7: u64 vmsub_novrsub_messages;
     8: u64 vmunsub_novrsub_messages;
     9: u64 vmunsub_novmsub_messages;
-    10: u64 dupicate_vrsub_messages;
-    11: u64 dupicate_vmsub_messages;
+    10: u64 duplicate_vrsub_messages;
+    11: u64 duplicate_vmsub_messages;
 }
 
 struct IFMapXmppChannelMapEntry {

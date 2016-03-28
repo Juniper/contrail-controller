@@ -77,6 +77,7 @@ struct BgpNeighborResp {
     4: string local_address;    // local ip address and port
     26: string local_id;
     5: u32 local_asn;
+    56: u32 task_instance;
     54: optional PeerCloseInfo peer_close_info;
     9: optional string send_state;       // in sync/not in sync
     10: optional string last_event;

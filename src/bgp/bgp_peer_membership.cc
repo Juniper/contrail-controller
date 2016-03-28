@@ -161,6 +161,7 @@ void IPeerRib::SetRibInRegistered(bool set) {
 void IPeerRib::RibInJoin(DBTablePartBase *root, DBEntryBase *db_entry,
                          BgpTable *table,
                          MembershipRequest::Action action_mask) {
+    CHECK_CONCURRENCY("db::DBTable");
     return;
 }
 
@@ -175,6 +176,7 @@ void IPeerRib::RibInJoin(DBTablePartBase *root, DBEntryBase *db_entry,
 void IPeerRib::RibInLeave(DBTablePartBase *root, DBEntryBase *db_entry,
                           BgpTable *table,
                           MembershipRequest::Action action_mask) {
+    CHECK_CONCURRENCY("db::DBTable");
     BgpRoute *rt = static_cast<BgpRoute *>(db_entry);
 
     if (!IsRibInRegistered()) return;
@@ -194,6 +196,7 @@ void IPeerRib::RibInLeave(DBTablePartBase *root, DBEntryBase *db_entry,
 // kicked off.
 //
 void IPeerRib::RegisterRibOut(RibExportPolicy policy) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     BgpServer *server = membership_mgr_->server();
     SchedulingGroupManager *mgr = server->scheduling_group_manager();
     ribout_ = table_->RibOutLocate(mgr, policy);
@@ -221,6 +224,7 @@ void IPeerRib::RegisterRibOut(RibExportPolicy policy) {
 // of the RibOut itself.
 //
 void IPeerRib::UnregisterRibOut() {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     if (!ribout_)
         return;
     int index = ribout_->GetPeerIndex(ipeer_);
@@ -239,6 +243,7 @@ void IPeerRib::UnregisterRibOut() {
 // exporting routes from now onwards.
 //
 void IPeerRib::DeactivateRibOut() {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     if (IsRibOutRegistered()) {
         ribout_->Deactivate(ipeer_);
     }
@@ -262,6 +267,7 @@ bool IPeerRib::IsRibOutActive() const {
 //
 // Set/Reset RibOut registered flag
 void IPeerRib::SetRibOutRegistered(bool set) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     ribout_registered_ = set;
 }
 
@@ -274,6 +280,7 @@ void IPeerRib::SetRibOutRegistered(bool set) {
 void IPeerRib::RibOutJoin(DBTablePartBase *root, DBEntryBase *db_entry,
                           BgpTable *table,
                           MembershipRequest::Action action_mask) {
+    CHECK_CONCURRENCY("db::DBTable");
     if (!(action_mask & MembershipRequest::RIBOUT_ADD)) {
         return;
     }
@@ -295,6 +302,7 @@ void IPeerRib::RibOutJoin(DBTablePartBase *root, DBEntryBase *db_entry,
 void IPeerRib::RibOutLeave(DBTablePartBase *root, DBEntryBase *db_entry,
                            BgpTable *table,
                            MembershipRequest::Action action_mask) {
+    CHECK_CONCURRENCY("db::DBTable");
     if (!(action_mask & MembershipRequest::RIBOUT_DELETE)) {
         return;
     }
@@ -323,8 +331,10 @@ void IPeerRib::ManagedDelete() {
 // Constructor for the PeerMembershipMgr. Create the peer membership task if
 // required.  Also create a WorkQueue to handle IPeerRibEvents.
 //
-PeerRibMembershipManager::PeerRibMembershipManager(BgpServer *server) :
-        server_(server), current_jobs_count_(0), total_jobs_count_(0) {
+PeerRibMembershipManager::PeerRibMembershipManager(BgpServer *server)
+    : server_(server) {
+    current_jobs_count_ = 0;
+    total_jobs_count_ = 0;
     if (membership_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         membership_task_id_ = scheduler->GetTaskId("bgp::PeerMembership");
@@ -408,6 +418,7 @@ void PeerRibMembershipManager::NotifyPeerRegistration(IPeer *ipeer,
 //
 void PeerRibMembershipManager::Join(BgpTable *table,
                                     MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     DB *db = table->database();
     DBTableWalker *walker = db->GetWalker();
 
@@ -430,6 +441,7 @@ void PeerRibMembershipManager::Join(BgpTable *table,
 bool PeerRibMembershipManager::RouteJoin(DBTablePartBase *root,
                                          DBEntryBase *db_entry, BgpTable *table,
                                          MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("db::DBTable");
     // Iterate through each of the peers in the request list and process RibIn
     // and RibOut for this peer
     //
@@ -458,6 +470,7 @@ bool PeerRibMembershipManager::RouteJoin(DBTablePartBase *root,
 //
 void PeerRibMembershipManager::JoinDone(DBTableBase *db,
                                         MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("db::DBTable");
     BgpTable *table = static_cast<BgpTable *>(db);
 
     IPeerRibEvent *event =
@@ -478,6 +491,7 @@ void PeerRibMembershipManager::JoinDone(DBTableBase *db,
 //
 void PeerRibMembershipManager::Leave(BgpTable *table,
                               MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     DB *db = table->database();
 
     for (MembershipRequestList::iterator iter = request_list->begin();
@@ -516,6 +530,7 @@ bool PeerRibMembershipManager::RouteLeave(DBTablePartBase *root,
                                           DBEntryBase *db_entry,
                                           BgpTable *table,
                                           MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("db::DBTable");
     for (MembershipRequestList::iterator iter = request_list->begin();
              iter != request_list->end(); iter++) {
         MembershipRequest *request = iter.operator->();
@@ -554,6 +569,7 @@ void PeerRibMembershipManager::MembershipRequestListDebug(
 //
 void PeerRibMembershipManager::LeaveDone(DBTableBase *db,
                                          MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("db::DBTable");
     BgpTable *table = static_cast<BgpTable *>(db);
 
     IPeerRibEvent *event =
@@ -568,6 +584,8 @@ void PeerRibMembershipManager::LeaveDone(DBTableBase *db,
 IPeerRibEvent *PeerRibMembershipManager::ProcessRequest(
         IPeerRibEvent::EventType event_type, BgpTable *table,
         const MembershipRequest &request) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::PeerMembership",
+        "bgp::StateMachine", "xmpp::StateMachine");
     TableMembershipRequestMap *request_map;
 
     if (event_type == IPeerRibEvent::REGISTER_RIB) {
@@ -625,6 +643,7 @@ IPeerRibEvent *PeerRibMembershipManager::ProcessRequest(
 void PeerRibMembershipManager::Register(
         IPeer *ipeer, BgpTable *table, const RibExportPolicy &policy,
         int instance_id, NotifyCompletionFn notify_completion_fn) {
+    CHECK_CONCURRENCY("bgp::Config","bgp::StateMachine", "xmpp::StateMachine");
     MembershipRequest request;
 
     request.ipeer = ipeer;
@@ -651,6 +670,7 @@ void PeerRibMembershipManager::Register(
 // Synchronously register the IPeer to the BgpTable for RIBIN_ADD.
 //
 void PeerRibMembershipManager::RegisterRibIn(IPeer *ipeer, BgpTable *table) {
+    CHECK_CONCURRENCY("bgp::StateMachine", "xmpp::StateMachine");
     tbb::mutex::scoped_lock lock(mutex_);
     IPeerRib *peer_rib = IPeerRibLocate(ipeer, table);
     peer_rib->RegisterRibIn();
@@ -670,6 +690,7 @@ void PeerRibMembershipManager::RegisterRibIn(IPeer *ipeer, BgpTable *table) {
 void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
                                           MembershipRequest::NotifyCompletionFn
                                               notify_completion_fn) {
+    CHECK_CONCURRENCY("bgp::Config","bgp::StateMachine", "xmpp::StateMachine");
     MembershipRequest request;
     request.ipeer = ipeer;
     request.action_mask = static_cast<MembershipRequest::Action>(
@@ -697,6 +718,7 @@ void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
 void PeerRibMembershipManager::UnregisterPeer(IPeer *ipeer,
         MembershipRequest::ActionGetFn action_get_fn,
         MembershipRequest::NotifyCompletionFn notify_completion_fn) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
     IPeerRibEvent *event = new IPeerRibEvent(IPeerRibEvent::UNREGISTER_PEER,
                                              ipeer, NULL);
 
@@ -715,6 +737,7 @@ void PeerRibMembershipManager::UnregisterPeer(IPeer *ipeer,
 void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
+    current_jobs_count_--;
     PeerRibMap::const_iterator it;
     int *count = NULL;
 
@@ -773,6 +796,7 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
 void PeerRibMembershipManager::UnregisterPeerDone(
         IPeer *ipeer, BgpTable *table, int *count,
         MembershipRequest::NotifyCompletionFn notify_completion_fn) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     // If there are other rib closes pending, wait
     if (--*count) return;
     delete count;
@@ -796,7 +820,8 @@ void PeerRibMembershipManager::UnregisterPeerDone(
 //
 void PeerRibMembershipManager::UnregisterPeerCompleteCallback(
                                    IPeerRibEvent *event) {
-    // Inform the requestor (PeerCloseManager) that this process is complete
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+    // Inform the requester (PeerCloseManager) that this process is complete
     current_jobs_count_--;
     event->request.notify_completion_fn(event->ipeer, NULL);
 }
@@ -947,6 +972,7 @@ void PeerRibMembershipManager::IPeerRibRemove(IPeerRib *peer_rib) {
 //
 void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
                                          MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     // We batch multiple requests and process them together in a single db
     // walk. Iterate through each request and notify the party appropriately
     for (MembershipRequestList::iterator iter =
@@ -966,6 +992,7 @@ void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
 //
 void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
                                    MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     // Notify completion right away if the table is marked for deletion
     if (table->IsDeleted()) {
         NotifyCompletion(table, request_list);
@@ -1025,6 +1052,7 @@ void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
 //
 void PeerRibMembershipManager::ProcessRegisterRibCompleteEvent(
     IPeerRibEvent *event) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
 
     //
     // Iterate through each request and notify completion
@@ -1041,6 +1069,7 @@ void PeerRibMembershipManager::ProcessRegisterRibCompleteEvent(
 //
 void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
                                    MembershipRequestList *request_list) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     bool complete = true;
 
     //
@@ -1079,6 +1108,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
 //
 void PeerRibMembershipManager::ProcessUnregisterRibCompleteEvent(
         IPeerRibEvent *event) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     for (MembershipRequestList::iterator iter =
             event->request_list->begin();
             iter != event->request_list->end(); iter++) {
@@ -1123,6 +1153,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibCompleteEvent(
 
 void PeerRibMembershipManager::IPeerRibEventCallbackUnlocked(
         IPeerRibEvent *event) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     MembershipRequestList *request_list = NULL;
     TableMembershipRequestMap::iterator map_iter;
 
@@ -1197,6 +1228,7 @@ void PeerRibMembershipManager::IPeerRibEventCallbackUnlocked(
 // Event handler for the IPeerRibEvent.
 //
 bool PeerRibMembershipManager::IPeerRibEventCallback(IPeerRibEvent *event) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
     tbb::mutex::scoped_lock lock(mutex_);
 
     IPeerRibEventCallbackUnlocked(event);

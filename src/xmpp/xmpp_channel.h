@@ -44,7 +44,9 @@ public:
         > RxMessageTraceCb;
 
     virtual ~XmppChannel() { }
+
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) = 0;
+    virtual int GetTaskInstance() const = 0;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb) = 0;
     virtual void UnRegisterReceive(xmps::PeerId) = 0;
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) = 0;
