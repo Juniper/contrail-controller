@@ -590,4 +590,24 @@ void NextFlowStatsRecordsSet::HandleRequest() const {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
+
+
+void SandeshFlowTableInfoRequest::HandleRequest() const {
+    FlowProto *proto = Agent::GetInstance()->pkt()->get_flow_proto();
+    SandeshFlowTableInfoResp *resp = new SandeshFlowTableInfoResp();
+    std::vector<SandeshFlowTableInfo> info_list;
+    for (uint16_t i = 0; i < proto->flow_table_count(); i++) {
+        FlowTable *table = proto->GetTable(i);
+        SandeshFlowTableInfo info;
+        info.set_index(table->table_index());
+        info.set_count(table->Size());
+        info.set_total_add(table->free_list()->total_alloc());
+        info.set_total_del(table->free_list()->total_free());
+        info_list.push_back(info);
+    }
+    resp->set_table_list(info_list);
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
 ////////////////////////////////////////////////////////////////////////////////

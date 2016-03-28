@@ -406,3 +406,26 @@ response sandesh FlowStatsCollectorRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowStatsRecordsSet");
 }
+
+/**
+ * Request message to get summary of flow tables
+ */
+request sandesh SandeshFlowTableInfoRequest{
+}
+
+/**
+ * Sandesh definition for every flow-table
+ */
+struct SandeshFlowTableInfo {
+    1: u32 index;
+    2: u32 count;
+    3: u64 total_add;
+    4: u64 total_del;
+}
+
+/**
+ * Response message for flow tables
+ */
+response sandesh SandeshFlowTableInfoResp {
+    1: list<SandeshFlowTableInfo> table_list;
+}

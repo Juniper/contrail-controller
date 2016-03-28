@@ -1114,7 +1114,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
     if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
         grow_pending_ = true;
         FlowProto *proto = table_->agent()->pkt()->get_flow_proto();
-        proto->GrowFreeListRequest(key);
+        proto->GrowFreeListRequest(key, table_);
     }
     flow->Reset(key);
     total_alloc_++;
