@@ -89,6 +89,20 @@ public:
     InterfaceUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
         flow_proto_ = agent_->pkt()->get_flow_proto();
     }
+
+    void SetUp() {
+        agent_->flow_stats_manager()->set_delete_short_flow(false);
+        FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+            (agent_->flow_stats_manager()->default_flow_stats_collector());
+        f->ClearList();
+        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+
+        f = static_cast<FlowStatsCollectorTest *>
+            (agent_->flow_stats_manager()->tcp_flow_stats_collector());
+        f->ClearList();
+        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+    }
+
     void InterfaceSetup() {
         client->Reset();
         CreateVmportEnv(stats_if, 2);
@@ -697,6 +711,13 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
+    //Fetch stats FIP entry and verify its statistics
+    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
+                                               vm1_fip, "default-project:vn4");
+    EXPECT_TRUE(fip != NULL);
+    WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
+    WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
+
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
@@ -706,13 +727,10 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
     //Fetch stats FIP entry and verify its statistics
-    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
-                                               vm1_fip, "default-project:vn4");
-    EXPECT_TRUE(fip != NULL);
-    EXPECT_EQ(3U, fip->in_packets_);
-    EXPECT_EQ(3U, fip->out_packets_);
-    EXPECT_EQ(300U, fip->in_bytes_);
-    EXPECT_EQ(300U, fip->out_bytes_);
+    EXPECT_EQ(4U, fip->in_packets_);
+    EXPECT_EQ(4U, fip->out_packets_);
+    EXPECT_EQ(330U, fip->in_bytes_);
+    EXPECT_EQ(330U, fip->out_bytes_);
 
     //cleanup
     FlowTearDown();
@@ -823,6 +841,14 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
+    //Fetch stats FIP entry and verify its statistics
+    //Fetch stats FIP entry and verify its statistics
+    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
+                                              vm1_fip, "default-project:vn4");
+    EXPECT_TRUE(fip != NULL);
+    WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
+    WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
+
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
@@ -835,14 +861,11 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
 
-    //Fetch stats FIP entry and verify its statistics
-    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
-                                              vm1_fip, "default-project:vn4");
     EXPECT_TRUE(fip != NULL);
-    EXPECT_EQ(3U, fip->in_packets_);
-    EXPECT_EQ(3U, fip->out_packets_);
-    EXPECT_EQ(300U, fip->in_bytes_);
-    EXPECT_EQ(300U, fip->out_bytes_);
+    EXPECT_EQ(4U, fip->in_packets_);
+    EXPECT_EQ(4U, fip->out_packets_);
+    EXPECT_EQ(330U, fip->in_bytes_);
+    EXPECT_EQ(330U, fip->out_bytes_);
 
     //Trigger Interface UVE send
     vmut->ClearCount();
@@ -856,10 +879,10 @@ TEST_F(InterfaceUveTest, FipStats_3) {
 
     //Verify stats values in UVE
     const VmFloatingIPStats &stats = uve1->get_fip_agg_stats().front();
-    EXPECT_EQ(3U, stats.get_in_pkts());
-    EXPECT_EQ(3U, stats.get_out_pkts());
-    EXPECT_EQ(300U, stats.get_in_bytes());
-    EXPECT_EQ(300U, stats.get_out_bytes());
+    EXPECT_EQ(4U, stats.get_in_pkts());
+    EXPECT_EQ(4U, stats.get_out_pkts());
+    EXPECT_EQ(330U, stats.get_in_bytes());
+    EXPECT_EQ(330U, stats.get_out_bytes());
 
     //cleanup
     FlowTearDown();
@@ -909,6 +932,13 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     EXPECT_TRUE(FlowGet(VrfGet("vrf7")->vrf_id(), vm_b_ip, vm_c_fip1, 1, 0, 0,
                         rev->key().nh));
 
+    //Fetch stats FIP entry and verify its statistics
+    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flowa,
+                                            vm_c_fip1, "default-project:vn8");
+    EXPECT_TRUE(fip != NULL);
+    WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
+    WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
+
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
@@ -917,14 +947,11 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     fsc->UpdateFloatingIpStats(info, 300, 3);
     fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
-    //Fetch stats FIP entry and verify its statistics
-    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flowa,
-                                            vm_c_fip1, "default-project:vn8");
     EXPECT_TRUE(fip != NULL);
-    EXPECT_EQ(3U, fip->in_packets_);
-    EXPECT_EQ(3U, fip->out_packets_);
-    EXPECT_EQ(300U, fip->in_bytes_);
-    EXPECT_EQ(300U, fip->out_bytes_);
+    EXPECT_EQ(4U, fip->in_packets_);
+    EXPECT_EQ(4U, fip->out_packets_);
+    EXPECT_EQ(330U, fip->in_bytes_);
+    EXPECT_EQ(330U, fip->out_bytes_);
 
     //Trigger VM UVE send
     vmut->ClearCount();
@@ -938,10 +965,10 @@ TEST_F(InterfaceUveTest, FipStats_4) {
 
     //Verify stats values in UVE
     const VmFloatingIPStats &stats = uve1->get_fip_agg_stats().front();
-    EXPECT_EQ(3U, stats.get_in_pkts());
-    EXPECT_EQ(3U, stats.get_out_pkts());
-    EXPECT_EQ(300U, stats.get_in_bytes());
-    EXPECT_EQ(300U, stats.get_out_bytes());
+    EXPECT_EQ(4U, stats.get_in_pkts());
+    EXPECT_EQ(4U, stats.get_out_pkts());
+    EXPECT_EQ(330U, stats.get_in_bytes());
+    EXPECT_EQ(330U, stats.get_out_bytes());
 
     //cleanup
     FlowTearDown2();
@@ -995,6 +1022,13 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm_fip, vm1_fip, 1, 0, 0,
                         rev->key().nh));
 
+    //Fetch stats FIP entry and verify its statistics
+    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
+                                            vm1_fip, "default-project:vn4");
+    EXPECT_TRUE(fip != NULL);
+    WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
+    WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
+
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
     EXPECT_TRUE(info != NULL);
@@ -1003,14 +1037,10 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     fsc->UpdateFloatingIpStats(info, 300, 3);
     fsc->UpdateFloatingIpStats(rinfo, 300, 3);
 
-    //Fetch stats FIP entry and verify its statistics
-    const InterfaceUveTable::FloatingIp *fip = vmut->GetVmIntfFip(flow0,
-                                              vm1_fip, "default-project:vn4");
-    EXPECT_TRUE(fip != NULL);
-    EXPECT_EQ(3U, fip->in_packets_);
-    EXPECT_EQ(3U, fip->out_packets_);
-    EXPECT_EQ(300U, fip->in_bytes_);
-    EXPECT_EQ(300U, fip->out_bytes_);
+    EXPECT_EQ(4U, fip->in_packets_);
+    EXPECT_EQ(4U, fip->out_packets_);
+    EXPECT_EQ(330U, fip->in_bytes_);
+    EXPECT_EQ(330U, fip->out_bytes_);
 
     //Trigger VM UVE send
     vmut->ClearCount();
@@ -1024,10 +1054,10 @@ TEST_F(InterfaceUveTest, FipStats_5) {
 
     //Verify stats values in UVE
     const VmFloatingIPStats &stats = uve1->get_fip_agg_stats().front();
-    EXPECT_EQ(3U, stats.get_in_pkts());
-    EXPECT_EQ(3U, stats.get_out_pkts());
-    EXPECT_EQ(300U, stats.get_in_bytes());
-    EXPECT_EQ(300U, stats.get_out_bytes());
+    EXPECT_EQ(4U, stats.get_in_pkts());
+    EXPECT_EQ(4U, stats.get_out_pkts());
+    EXPECT_EQ(330U, stats.get_in_bytes());
+    EXPECT_EQ(330U, stats.get_out_bytes());
     //cleanup
     FlowTearDown();
     util_.DeleteRemoteRoute("default-project:vn4:vn4", remote_vm_fip, peer_);
