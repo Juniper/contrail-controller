@@ -305,7 +305,7 @@ class SvcMonitor(object):
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
             self._vnc_lib, self._nova_client,
-            self._args)
+            self._disc, self.logger, self._args)
 
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
@@ -363,6 +363,7 @@ class SvcMonitor(object):
         self.upgrade()
 
         # check services
+        self.vrouter_scheduler.vrouters_running()
         self.launch_services()
 
         self._db_resync_done.set()
@@ -906,6 +907,9 @@ def timer_callback(monitor):
             vmi_delete_list.append(vmi.uuid)
     if len(vmi_delete_list):
         monitor.vm_manager.cleanup_svc_vm_ports(vmi_delete_list)
+
+    # check vrouter agent status
+    monitor.vrouter_scheduler.vrouters_running()
 
     # check status of service
     si_list = list(ServiceInstanceSM.values())

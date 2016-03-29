@@ -93,9 +93,12 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_args = mock.MagicMock()
         self.mocked_args.availability_zone = None
 
+        self.mocked_scheduler = mock.MagicMock()
+        self.mocked_scheduler.scheduler = mock.Mock(return_value=('fake-virtual-router'))
+
         self.netns_manager = NetworkNamespaceManager(
             db=self.mocked_db, logger=mock.MagicMock(),
-            vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
+            vnc_lib=self.mocked_vnc, vrouter_scheduler=self.mocked_scheduler,
             nova_client=self.nova_mock, args=self.mocked_args)
 
     def tearDown(self):

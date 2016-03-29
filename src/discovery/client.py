@@ -153,6 +153,8 @@ class Subscribe(object):
         for obj in info:
             if type(obj) is dict:
                 for k, v in obj.items():
+                    if isinstance(v, int):
+                        continue
                     obj[k] = v.encode('utf-8')
 
         self.ttl = response['ttl']
