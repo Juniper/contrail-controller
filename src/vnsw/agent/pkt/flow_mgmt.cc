@@ -275,7 +275,9 @@ bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
 
     Tree::iterator it = tree_.begin();
     while (it != tree_.end()) {
-        FlowEvent *flow_resp = new FlowEvent(event, (*it)->key(), true);
+        FlowEvent *flow_resp =
+            new FlowEvent(event, (*it)->key(), true,
+                          FlowTable::kPortNatFlowTableInstance);
         flow_resp->set_flow(*it);
         mgr->EnqueueFlowEvent(flow_resp);
         it++;

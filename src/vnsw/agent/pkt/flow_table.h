@@ -227,7 +227,6 @@ public:
 
     // FlowStatsCollector request queue events
     void NotifyFlowStatsCollector(FlowEntry *fe);
-    void KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle);
 
     // Free list
     void GrowFreeList();
