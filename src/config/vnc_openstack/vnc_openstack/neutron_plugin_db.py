@@ -1910,17 +1910,21 @@ class DBInterface(object):
                                         instance_ip_id=ip_back_ref['uuid'])
                                 except NoIdError:
                                     continue
-                            port_obj_ips.append(ip_obj.get_instance_ip_address())
+                                port_obj_ips.append(ip_obj.get_instance_ip_address())
                     ip_addr = fixed_ip['ip_address']
                     if ip_addr in port_obj_ips:
                         continue
+                    if oper == UPDATE:
+                        self._raise_contrail_exception(
+                            'BadRequest', resource='port',
+                            msg='Fixed ip cannot be updated on a port')
                     if self._ip_addr_in_net_id(ip_addr, net_id):
                         self._raise_contrail_exception(
                             'IpAddressInUse', net_id=net_id,
                             ip_address=ip_addr)
 
         return port_obj
-    #end _port_neutron_to_vnc
+    # end _port_neutron_to_vnc
 
     def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo):
         vm_refs = port_obj.get_virtual_machine_refs()
@@ -3540,7 +3544,7 @@ class DBInterface(object):
 
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
-        #add support, nova boot --nic subnet-id=subnet_uuid
+        # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
         try:
             if 'fixed_ips' in port_q:
@@ -3572,7 +3576,7 @@ class DBInterface(object):
                                                        net_obj, port_obj)
 
         return ret_port_q
-    #end port_create
+    # end port_create
 
     # TODO add obj param and let caller use below only as a converter
     @wait_for_api_server_connection
@@ -3585,7 +3589,7 @@ class DBInterface(object):
         ret_port_q = self._port_vnc_to_neutron(port_obj)
 
         return ret_port_q
-    #end port_read
+    # end port_read
 
     @wait_for_api_server_connection
     def port_update(self, port_id, port_q):
@@ -3597,16 +3601,11 @@ class DBInterface(object):
         net_id = port_obj.get_virtual_network_refs()[0]['uuid']
         net_obj = self._network_read(net_id)
         self._virtual_machine_interface_update(port_obj)
-        try:
-            self._port_create_instance_ip(net_obj, port_obj, port_q)
-        except vnc_exc.HttpError:
-            self._raise_contrail_exception('IpAddressGenerationFailure',
-                                           net_id=net_obj.uuid)
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
 
         return ret_port_q
-    #end port_update
+    # end port_update
 
     @wait_for_api_server_connection
     def port_delete(self, port_id):
