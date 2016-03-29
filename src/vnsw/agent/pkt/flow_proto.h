@@ -70,13 +70,15 @@ public:
     void ForceEnqueueFreeFlowReference(FlowEntryPtr &flow);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
                            uint32_t table_index);
-    void EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle);
-    void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
-    void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle);
+    void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,
+                          uint8_t gen_id);
+    void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
+                          uint8_t gen_id);
     bool FlowEventHandler(FlowEvent *req, FlowTable *table);
     void GrowFreeListRequest(const FlowKey &key, FlowTable *table);
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
-    void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);
+    void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle,
+                                uint8_t gen_id);
     void KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error);
     void MessageRequest(InterTaskMsg *msg);
 

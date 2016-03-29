@@ -869,32 +869,13 @@ void FlowTable::DeleteKSync(FlowEntry *flow) {
 
 void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
     KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
-    if (update) {
-        mgr->Change(flow);
+    if (flow->deleted()) {
+        // ignore update on a deleted flow
+        // flow should already be non deleted of an Add case
+        assert(update == false);
         return;
     }
-    mgr->Add(flow);
-}
-
-// Update FlowHandle for a flow
-void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
-    FlowEntry *rflow = flow->reverse_flow_entry();
-    assert(flow_handle != FlowEntry::kInvalidFlowHandle);
-
-    // compare update of flow_handle against the ksync index entry, since
-    // flow handle in flow can change while before we process the response
-    // from KSync and cause invalid state transition
-    if (flow->ksync_index_entry()->index() == flow_handle) {
-        return;
-    }
-
-    // flow-handle changed. We will need to update ksync-entry for flow with
-    // new flow-handle
-    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
-    mgr->UpdateFlowHandle(flow, flow_handle);
-    if (rflow) {
-        UpdateKSync(rflow, true);
-    }
+    mgr->Update(flow);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -941,7 +922,6 @@ bool FlowTable::PopulateFlowPointersFromRequest(const FlowEvent *req,
         break;
     }
 
-    case FlowEvent::RETRY_INDEX_ACQUIRE:
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::EVICT_FLOW: {
         *flow = req->flow();
@@ -983,27 +963,29 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
     // Check if flow-handle changed. This can happen if vrouter tries to
     // setup the flow which was evicted earlier
     case FlowEvent::EVICT_FLOW: {
-        if (flow->flow_handle() != req->flow_handle())
+        if (flow->flow_handle() != req->flow_handle() ||
+            flow->gen_id() != req->gen_id())
             break;
         EvictFlow(flow, rflow);
         break;
     }
 
-    // Flow was waiting for an index. Index is available now. Retry acquiring
-    // the index
-    case FlowEvent::RETRY_INDEX_ACQUIRE: {
-        if (flow->flow_handle() != req->flow_handle())
-            break;
-        UpdateKSync(flow, false);
-        break;
-    }
-
     case FlowEvent::FLOW_HANDLE_UPDATE: {
-        KSyncSetFlowHandle(flow, req->flow_handle());
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+        KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+        mgr->UpdateFlowHandle(ksync_entry, req->flow_handle(), req->gen_id());
         break;
     }
 
     case FlowEvent::KSYNC_VROUTER_ERROR: {
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+        if (flow != ksync_entry->flow_entry()) {
+            // flow is not using the ksync entry for which error is
+            // return, ignore the error
+            break;
+        }
         // Mark the flow entry as short flow and update ksync error event
         // to ksync index manager
         // For EEXIST error donot mark the flow as ShortFlow since Vrouter
@@ -1036,18 +1018,14 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
             FlowEntryPtr flow_ptr(flow);
             agent()->flow_stats_manager()->AddEvent(flow_ptr);
         }
-        KSyncFlowIndexManager *mgr =
-            agent()->ksync()->ksync_flow_index_manager();
-        mgr->UpdateKSyncError(flow);
         break;
     }
 
     case FlowEvent::KSYNC_EVENT: {
         FlowTableKSyncEntry *ksync_entry =
             (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        FlowTableKSyncObject *ksync_object = static_cast<FlowTableKSyncObject *>
-            (ksync_entry->GetObject());
-        ksync_object->GenerateKSyncEvent(ksync_entry, req->ksync_event());
+        KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+        mgr->TriggerKSyncEvent(ksync_entry, req->ksync_event());
         break;
     }
 

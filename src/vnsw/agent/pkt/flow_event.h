@@ -27,9 +27,6 @@ public:
         // flow is added in parallel with different index. In that case
         // we ignore the operation
         EVICT_FLOW,
-        // Flow was waiting to index to be free. Event to specify that flow
-        // should retry to acquire index
-        RETRY_INDEX_ACQUIRE,
         // Revaluate flow due to deletion of a DBEntry. Other than for INET
         // routes, delete of a DBEntry will result in deletion of flows using
         // the DBEntry
@@ -80,11 +77,11 @@ public:
         ksync_event_(), ksync_error_(0), table_index_(0){
     }
 
-    FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle) :
+    FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle,
+              uint8_t gen_id) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), del_rev_flow_(false), flow_handle_(flow_handle),
-        ksync_entry_(NULL), ksync_event_(), ksync_error_(0),
-        table_index_(0) {
+        gen_id_(gen_id), del_rev_flow_(false), flow_handle_(flow_handle),
+        ksync_entry_(NULL), ksync_event_(), ksync_error_(0), table_index_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, const DBEntry *db_entry) :
@@ -109,9 +106,17 @@ public:
         ksync_event_(), ksync_error_(0), table_index_(table_index) {
     }
 
-    FlowEvent(Event event, const FlowKey &key, uint32_t flow_handle) :
+    FlowEvent(Event event, const FlowKey &key) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), flow_key_(key), del_rev_flow_(false),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_(), ksync_error_(0), table_index_(0) {
+    }
+
+    FlowEvent(Event event, const FlowKey &key, uint32_t flow_handle,
+              uint8_t gen_id) :
+        event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
+        gen_id_(gen_id), flow_key_(key), del_rev_flow_(false),
         flow_handle_(flow_handle), ksync_entry_(NULL), ksync_event_(),
         ksync_error_(0), table_index_(0) {
     }
@@ -138,9 +143,9 @@ public:
         table_index_(0) {
     }
 
-    FlowEvent(KSyncEntry *entry, uint32_t flow_handle) :
+    FlowEvent(KSyncEntry *entry, uint32_t flow_handle, uint8_t gen_id) :
         event_(FLOW_HANDLE_UPDATE), flow_(NULL), pkt_info_(),
-        db_entry_(NULL), gen_id_(0), flow_key_(), del_rev_flow_(),
+        db_entry_(NULL), gen_id_(gen_id), flow_key_(), del_rev_flow_(),
         flow_handle_(flow_handle), ksync_entry_(entry), ksync_event_(),
         ksync_error_(0), table_index_(0) {
     }

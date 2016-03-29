@@ -233,8 +233,6 @@ public:
     void UpdateKSync(FlowEntry *flow, bool update);
     void DeleteKSync(FlowEntry *flow);
 
-    void KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle);
-
     // Free list
     void GrowFreeList();
     FlowEntryFreeList *free_list() { return &free_list_; }
