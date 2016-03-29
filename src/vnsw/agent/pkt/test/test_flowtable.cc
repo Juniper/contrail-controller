@@ -410,7 +410,7 @@ class SetupTask : public Task {
             test_->flow1 = FlowInit(test_->key1,
                                     test_->key1->GetFlowTable(proto));
             test_->flow1->set_flags(FlowEntry::LocalFlow);
-            test_->flow1->set_flow_handle(1);
+            test_->flow1->set_flow_handle(1, 0);
 
             test_->flow1_r = FlowInit(test_->key1_r,
                                       test_->key1_r->GetFlowTable(proto));
@@ -425,7 +425,7 @@ class SetupTask : public Task {
             test_->flow2 = FlowInit(test_->key2,
                                     test_->key2->GetFlowTable(proto));
             test_->flow2->reset_flags(FlowEntry::LocalFlow);
-            test_->flow2->set_flow_handle(2);
+            test_->flow2->set_flow_handle(2, 0);
 
             test_->flow2_r = FlowInit(test_->key2_r,
                                       test_->key2_r->GetFlowTable(proto));

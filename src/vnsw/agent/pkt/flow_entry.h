@@ -36,7 +36,6 @@
 class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
-class KSyncFlowIndexEntry;
 class FlowStatsCollector;
 
 ////////////////////////////////////////////////////////////////////////////
@@ -271,6 +270,30 @@ struct FlowData {
     // FlowEntry::Copy() on this structure
 };
 
+struct FlowEventLog {
+    enum Event {
+        FLOW_ADD,
+        FLOW_UPDATE,
+        FLOW_DELETE,
+        FLOW_EVICT,
+        FLOW_HANDLE_ASSIGN,
+        EVENT_MAX
+    };
+
+    FlowEventLog();
+    ~FlowEventLog();
+
+    uint64_t time_;
+    Event event_;
+    uint32_t flow_handle_;
+    uint8_t flow_gen_id_;
+    FlowTableKSyncEntry *ksync_entry_;
+    uint32_t hash_id_;
+    uint8_t gen_id_;
+    uint32_t vrouter_flow_handle_;
+    uint8_t vrouter_gen_id_;
+};
+
 class FlowEntry {
     public:
     enum FlowShortReason {
@@ -365,7 +388,7 @@ class FlowEntry {
                      const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl, FlowEntry *rflow,
                      Agent *agent);
-    void InitAuditFlow(uint32_t flow_idx);
+    void InitAuditFlow(uint32_t flow_idx, uint8_t gen_id);
     static void Init();
 
     static AgentRoute *GetL2Route(const VrfEntry *entry, const MacAddress &mac);
@@ -382,8 +405,9 @@ class FlowEntry {
     const FlowData &data() const { return data_;}
     FlowTable *flow_table() const { return flow_table_; }
     bool l3_flow() const { return l3_flow_; }
+    uint8_t gen_id() const { return gen_id_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle);
+    void set_flow_handle(uint32_t flow_handle, uint8_t gen_id);
     FlowEntry *reverse_flow_entry() { return reverse_flow_entry_.get(); }
     uint32_t flags() const { return flags_; }
     const FlowEntry *reverse_flow_entry() const {
@@ -482,7 +506,7 @@ class FlowEntry {
                                FlowSandeshData &fe_sandesh_data,
                                Agent *agent) const;
     uint32_t InterfaceKeyToId(Agent *agent, const VmInterfaceKey &key);
-    KSyncFlowIndexEntry *ksync_index_entry() { return ksync_index_entry_.get();}
+    FlowTableKSyncEntry *ksync_entry() { return ksync_entry_; }
     FlowStatsCollector* fsc() const {
         return fsc_;
     }
@@ -492,10 +516,19 @@ class FlowEntry {
     }
     static std::string DropReasonStr(uint16_t reason);
     std::string KeyString() const;
+
+    void SetEventSandeshData(SandeshFlowIndexInfo *info);
+    void LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
+                 uint32_t flow_handle, uint8_t gen_id);
+    // always needs to be called in context of index lock in index manager
+    bool IsIndexOwnerUnLocked(uint32_t index);
+
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
     friend class FlowStatsCollector;
+    friend class KSyncFlowIndexManager;
+
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
@@ -521,6 +554,7 @@ private:
     FlowTable *flow_table_;
     FlowData data_;
     bool l3_flow_;
+    uint8_t gen_id_;
     uint32_t flow_handle_;
     FlowEntryPtr reverse_flow_entry_;
     static tbb::atomic<int> alloc_count_;
@@ -540,16 +574,18 @@ private:
     // Following fields are required for FIP stats accounting
     uint32_t fip_;
     VmInterfaceKey fip_vmi_;
-    // KSync state for the flow
-    std::auto_ptr<KSyncFlowIndexEntry> ksync_index_entry_;
+    // Ksync entry for the flow
+    FlowTableKSyncEntry *ksync_entry_;
     // atomic refcount
     tbb::atomic<int> refcount_;
     tbb::mutex mutex_;
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
+    static SecurityGroupList default_sg_list_;
+    boost::scoped_array<FlowEventLog> event_logs_;
+    uint16_t event_log_index_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
-    static SecurityGroupList default_sg_list_;
 };
  
 void intrusive_ptr_add_ref(FlowEntry *fe);

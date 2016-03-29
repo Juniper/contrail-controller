@@ -22,6 +22,7 @@
 #include <vr_flow.h>
 
 class FlowTableKSyncObject;
+class KSyncFlowIndexManager;
 
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
 public:
@@ -52,11 +53,19 @@ public:
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t) const;
     virtual std::string VrouterError(uint32_t error) const;
+
+    uint8_t gen_id() { return gen_id_; }
+    void set_gen_id(uint8_t gen_id) { gen_id_ = gen_id; }
+
 private:
     friend class KSyncFlowEntryFreeList;
+    friend class KSyncFlowIndexManager;
+
     bool IgnoreVrouterError() const;
 
     FlowEntryPtr flow_entry_;
+    uint8_t gen_id_;  // contains the last propagated genid from flow module
+    uint8_t vrouter_gen_id_;  // Used to identify the last genid sent to vrouter
     uint32_t hash_id_;
     uint32_t old_reverse_flow_id_;
     uint32_t old_action_;
@@ -111,6 +120,7 @@ public:
     uint32_t alloc_count() const { return (max_count_ - free_list_.size()); }
     uint32_t total_alloc() const { return total_alloc_; }
     uint32_t total_free() const { return total_free_; }
+
 private:
     FlowTableKSyncObject *object_;
     uint32_t max_count_;
@@ -135,7 +145,6 @@ public:
     //bool DoEventTrace(void) { return false; }
     bool DoEventTrace(void) { return true; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
-    void PreFree(KSyncEntry *entry);
 
     vr_flow_req &flow_req() { return flow_req_; }
     KSync *ksync() const { return ksync_; }
@@ -143,6 +152,7 @@ public:
     FlowTable *flow_table() const { return flow_table_; }
     void UpdateFlowHandle(FlowTableKSyncEntry *entry, uint32_t flow_handle);
     void UpdateKey(KSyncEntry *entry, uint32_t flow_handle);
+    uint32_t GetKey(KSyncEntry *entry);
 
     void GrowFreeList();
     KSyncFlowEntryFreeList *free_list() { return &free_list_; }
