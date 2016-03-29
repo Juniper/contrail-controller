@@ -1077,7 +1077,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
                                    level=SandeshLevel.SYS_ERR)
                 # Cannot determine, err on side of caution
                 return True
-            if read_result.get('virtual_machine_interface_back_refs'):
+            if result.get('virtual_machine_interface_back_refs'):
                 return True
         return False
     # end is_active_vm_present
