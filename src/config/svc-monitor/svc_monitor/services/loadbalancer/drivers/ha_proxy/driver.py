@@ -9,8 +9,10 @@ import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_dri
 from vnc_api.vnc_api import ServiceTemplate, ServiceInstance, ServiceInstanceType
 from vnc_api.vnc_api import ServiceScaleOutType, ServiceInstanceInterfaceType
 from vnc_api.vnc_api import NoIdError, RefsExistError
+from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 
 from svc_monitor.config_db import *
+import haproxy_config
 
 LOADBALANCER_SERVICE_TEMPLATE = [
     'default-domain',
@@ -383,3 +385,39 @@ class OpencontrailLoadbalancerDriver(
 
     def update_health_monitor(self, id, health_monitor):
         pass
+
+    def set_config_v1(self, pool_id):
+        pool = LoadbalancerPoolSM.get(pool_id)
+        if not pool:
+            return
+        conf = haproxy_config.get_config_v1(pool)
+        self.set_haproxy_config(pool.service_instance, pool.uuid, conf)
+
+    def set_config_v2(self, lb_id):
+        lb = LoadbalancerSM.get(lb_id)
+        if not lb:
+            return
+        conf = haproxy_config.get_config_v2(lb.uuid)
+        self.set_haproxy_config(pool.service_instance, lb.uuid, conf)
+
+    def set_haproxy_config(self, si_id, lb_uuid, conf):
+        si = ServiceInstanceSM.get(si_id)
+        if not si:
+            return
+
+        for kv in si.kvps:
+            if kv['key'] == 'haproxy_config':
+                 if kv['value'] == conf:
+                     return
+
+        si_obj = ServiceInstance()
+        si_obj.uuid = si.uuid
+        si_obj.fq_name = si.fq_name
+        kvp = KeyValuePair('haproxy_config', conf)
+        si_obj.add_service_instance_bindings(kvp)
+        kvp = KeyValuePair('lb_uuid', lb_uuid)
+        si_obj.add_service_instance_bindings(kvp)
+        try:
+            self._api.service_instance_update(si_obj)
+        except NoIdError:
+            return

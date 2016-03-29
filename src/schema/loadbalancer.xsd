@@ -79,6 +79,7 @@
         <xsd:element name='loadbalancer-method' type='LoadbalancerMethodType'/>
         <xsd:element name='subnet-id' type='UuidStringType'/>
         <xsd:element name='session-persistence' type='SessionPersistenceType'/>
+        <xsd:element name='persistence-cookie-name' type='xsd:string'/>
     </xsd:sequence>
 </xsd:complexType>
 
