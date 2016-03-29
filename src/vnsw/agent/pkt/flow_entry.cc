@@ -339,12 +339,28 @@ void MatchPolicy::Reset() {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// FlowEventLog constructor/destructor
+/////////////////////////////////////////////////////////////////////////////
+FlowEventLog::FlowEventLog() : time_(0), event_(EVENT_MAX),
+    flow_handle_(FlowEntry::kInvalidFlowHandle), flow_gen_id_(0),
+    ksync_entry_(NULL), hash_id_(FlowEntry::kInvalidFlowHandle),
+    gen_id_(0), evict_gen_id_(0),
+    vrouter_flow_handle_(FlowEntry::kInvalidFlowHandle), vrouter_gen_id_(0) {
+}
+
+FlowEventLog::~FlowEventLog() {
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // FlowEntry constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
 FlowEntry::FlowEntry(FlowTable *flow_table) :
     flow_table_(flow_table), flags_(0),
     tunnel_type_(TunnelType::INVALID),
     fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    // ksync entry is set to NULL only on constructor and on flow delete
+    // it should not have any other explicit set to NULL
+    ksync_entry_ = NULL;
     Reset();
     alloc_count_.fetch_and_increment();
 }
@@ -356,9 +372,11 @@ FlowEntry::~FlowEntry() {
 }
 
 void FlowEntry::Reset() {
+    assert(ksync_entry_ == NULL);
     uuid_ = flow_table_->rand_gen();
     data_.Reset();
     l3_flow_ = true;
+    gen_id_ = 0;
     flow_handle_ = kInvalidFlowHandle;
     reverse_flow_entry_ = NULL;
     deleted_ = false;
@@ -372,9 +390,9 @@ void FlowEntry::Reset() {
     refcount_ = 0;
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
-    ksync_index_entry_ = std::auto_ptr<KSyncFlowIndexEntry>
-        (new KSyncFlowIndexEntry());
     fsc_ = NULL;
+    event_logs_.reset();
+    event_log_index_ = 0;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
@@ -423,6 +441,7 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
     if (update == false) {
+        gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;
         /* Flow Entry is being re-used. Generate a new UUID for it. */
         // results is delete miss for previous uuid to stats collector
@@ -516,6 +535,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl,
                             FlowEntry *rflow, Agent *agent) {
+    gen_id_ = pkt->GetAgentHdr().cmd_param_5;
     flow_handle_ = pkt->GetAgentHdr().cmd_param;
     if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
         return;
@@ -653,7 +673,8 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.dmac = pkt->smac;
 }
 
-void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
+void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
+    gen_id_ = gen_id;
     flow_handle_ = flow_idx;
     set_flags(FlowEntry::ShortFlow);
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
@@ -720,11 +741,12 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+void FlowEntry::set_flow_handle(uint32_t flow_handle, uint8_t gen_id) {
     if (flow_handle_ != flow_handle) {
         assert(flow_handle_ == kInvalidFlowHandle);
         flow_handle_ = flow_handle;
     }
+    gen_id_ = gen_id;
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {
@@ -1788,7 +1810,7 @@ void FlowEntry::set_ecmp_rpf_nh(uint32_t id) {
         update_ksync = SetEcmpRpfNH(flow_table(), id);
     }
 
-    if (ksync_index_entry()->ksync_entry() && update_ksync) {
+    if (ksync_entry() && update_ksync) {
         flow_table()->UpdateKSync(this, true);
     }
 }
@@ -2026,6 +2048,7 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const {
 }
 
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
+    info.set_gen_id(gen_id_);
     info.set_flow_index(flow_handle_);
     if (key_.family == Address::INET) {
         info.set_source_ip(key_.src_addr.to_v4().to_ulong());
@@ -2260,4 +2283,101 @@ string FlowEntry::KeyString() const {
         << key_.dst_port << " "
         << (uint16_t)key_.protocol;
     return str.str();
+}
+
+static std::string EventToString(FlowEventLog::Event event,
+                                 std::string &event_str) {
+    switch (event) {
+    case FlowEventLog::FLOW_ADD:
+        event_str = "FlowAdd";
+        break;
+    case FlowEventLog::FLOW_UPDATE:
+        event_str = "FlowUpdate";
+        break;
+    case FlowEventLog::FLOW_DELETE:
+        event_str = "FlowDelete";
+        break;
+    case FlowEventLog::FLOW_EVICT:
+        event_str = "FlowEvict";
+        break;
+    case FlowEventLog::FLOW_HANDLE_ASSIGN:
+        event_str = "FlowHandleAssign";
+        break;
+    default:
+        event_str = "Unknown";
+        break;
+    }
+    return event_str;
+}
+
+void FlowEntry::SetEventSandeshData(SandeshFlowIndexInfo *info) {
+    KSyncFlowIndexManager *mgr =
+        flow_table_->agent()->ksync()->ksync_flow_index_manager();
+    info->set_trace_index(event_log_index_);
+    if (mgr->sm_log_count() == 0) {
+        return;
+    }
+    int start = 0;
+    int count = event_log_index_;
+    if (event_log_index_ >= mgr->sm_log_count()) {
+        start = event_log_index_ % mgr->sm_log_count();
+        count = mgr->sm_log_count();
+    }
+    std::vector<SandeshFlowIndexTrace> trace_list;
+    for (int i = 0; i < count; i++) {
+        SandeshFlowIndexTrace trace;
+        FlowEventLog *log = &event_logs_[((start + i) % mgr->sm_log_count())];
+        trace.set_timestamp(log->time_);
+        trace.set_flow_handle(log->flow_handle_);
+        trace.set_flow_gen_id(log->flow_gen_id_);
+        string event_str;
+        trace.set_event(EventToString(log->event_, event_str));
+        trace.set_ksync_hash_id(log->hash_id_);
+        trace.set_ksync_gen_id(log->gen_id_);
+        trace.set_ksync_evict_gen_id(log->evict_gen_id_);
+        trace.set_vrouter_flow_handle(log->vrouter_flow_handle_);
+        trace.set_vrouter_gen_id(log->vrouter_gen_id_);
+        trace_list.push_back(trace);
+    }
+    info->set_flow_index_trace(trace_list);
+}
+
+void FlowEntry::LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
+                        uint32_t flow_handle, uint8_t gen_id) {
+    KSyncFlowIndexManager *mgr =
+        flow_table_->agent()->ksync()->ksync_flow_index_manager();
+    string event_str;
+    LOG(DEBUG, "Flow event = " << EventToString(event, event_str)
+        << " flow = " << (void *)this
+        << " flow->flow_handle = " << flow_handle_
+        << " flow->gen_id = " << (int)gen_id_
+        << " ksync = " << (void *)ksync
+        << " Ksync->hash_id = " << ksync->hash_id()
+        << " Ksync->gen_id = " << (int)ksync->gen_id()
+        << " Ksync->evict_gen_id = " << (int)ksync->evict_gen_id()
+        << " new_flow_handle = " << flow_handle
+        << " new_gen_id = " << (int)gen_id);
+
+    if (mgr->sm_log_count() == 0) {
+        return;
+    }
+
+    if (event_logs_ == NULL) {
+        event_log_index_ = 0;
+        event_logs_.reset(new FlowEventLog[mgr->sm_log_count()]);
+    }
+
+    FlowEventLog *log = &event_logs_[event_log_index_ % mgr->sm_log_count()];
+    event_log_index_++;
+
+    log->time_ = ClockMonotonicUsec();
+    log->event_ = event;
+    log->flow_handle_ = flow_handle_;
+    log->flow_gen_id_ = gen_id_;
+    log->ksync_entry_ = ksync;
+    log->hash_id_ = ksync->hash_id();
+    log->gen_id_ = ksync->gen_id();
+    log->evict_gen_id_ = ksync->evict_gen_id();
+    log->vrouter_flow_handle_ = flow_handle;
+    log->vrouter_gen_id_ = gen_id;
 }

@@ -157,6 +157,10 @@ protected:
     void ChangeKey(KSyncEntry *entry, uint32_t arg);
     virtual void UpdateKey(KSyncEntry *entry, uint32_t arg) { }
 
+    // derived class needs to implement GetKey,
+    // default impl will assert
+    virtual uint32_t GetKey(KSyncEntry *entry);
+
 private:
     friend class KSyncEntry;
     friend void TestTriggerStaleEntryCleanupCb(KSyncObject *obj);
