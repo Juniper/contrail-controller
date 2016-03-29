@@ -4,6 +4,13 @@ from vnc_api.vnc_api import *
 from svc_monitor.virtual_machine_manager import VirtualMachineManager
 from svc_monitor.config_db import *
 
+
+def test_get_instance_name(si, inst_count):
+    name = si.name + '__' + str(inst_count + 1)
+    instance_name = "__".join(si.fq_name[:-1] + [name])
+    return instance_name
+
+
 class VMObjMatcher(object):
     """
     Object for assert_called_with to check if vm object is created properly
@@ -54,14 +61,57 @@ class VirtualMachineManagerTest(unittest.TestCase):
             VirtualNetworkSM.locate(vn_obj.uuid, vn)
             return
 
+        def vm_read(vm_id):
+            class SI(object):
+                def __init__(self, name, fq_name):
+                    self.name = name
+                    self.fq_name = fq_name
+
+            vm_obj = {}
+            vm_obj['uuid'] = 'fake-vm-uuid'
+            vm_obj['fq_name'] = ['fake-vm-uuid']
+            fq_name = ['fake-domain', 'fake-project', 'fake-snat-instance']
+            name = 'fake-snat-instance'
+            si = SI(name, fq_name)
+            instance_name = test_get_instance_name(si, 0)
+            vm_obj['display_name'] = instance_name + '__' + 'network-namespace'
+            return True, [vm_obj]
+
         def vmi_create(vmi_obj):
             vmi_obj.uuid = 'fake-vmi-uuid'
             return
+        def vmi_db_read(vmi_id):
+            vmi_obj = {}
+            vmi_obj['uuid'] = 'fake-vmi-uuid'
+            vmi_obj['fq_name'] = ['fake-vmi-uuid']
+            vmi_obj['parent_type'] = 'project'
+            vmi_obj['parent_uuid'] = 'fake-project'
+            return True, [vmi_obj]
+
+        def iip_db_read(iip_id):
+            iip_obj = {}
+            iip_obj['uuid'] = 'fake-vmi-uuid'
+            iip_obj['fq_name'] = ['fake-iip-uuid']
+            return True, [iip_obj]
+
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake-iip-uuid'
+            return iip_obj.uuid
+
+        VirtualMachineSM._cassandra = mock.MagicMock()
+        VirtualMachineSM._cassandra._cassandra_virtual_machine_read = vm_read
+
+        VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
+        VirtualMachineInterfaceSM._cassandra._cassandra_virtual_machine_interface_read = vmi_db_read
+
+        InstanceIpSM._cassandra = mock.MagicMock()
+        InstanceIpSM._cassandra._cassandra_instance_ip_read = iip_db_read
 
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_network_create = vn_create
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
@@ -75,9 +125,12 @@ class VirtualMachineManagerTest(unittest.TestCase):
             nova_client=self.nova_mock, args=self.mocked_args)
 
     def tearDown(self):
-        ServiceTemplateSM.delete('fake-st-uuid')
-        ServiceInstanceSM.delete('fake-si-uuid')
-        pass
+        ServiceTemplateSM.reset()
+        ServiceInstanceSM.reset()
+        InstanceIpSM.reset()
+        VirtualMachineInterfaceSM.reset()
+        VirtualMachineSM.reset()
+        del VirtualMachineSM._cassandra
 
     def create_test_project(self, fq_name_str):
         proj_obj = {}
