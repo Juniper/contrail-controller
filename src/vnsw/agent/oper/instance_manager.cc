@@ -155,6 +155,7 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
                                  const int netns_workers,
                                  const int netns_timeout) {
 
+    /*
     DBTableBase *lb_table = agent_->loadbalancer_table();
     assert(lb_table);
     lb_listener_ = lb_table->Register(
@@ -164,6 +165,7 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
     assert(lb_pool_table);
     lb_pool_listener_ = lb_pool_table->Register(
         boost::bind(&InstanceManager::LoadbalancerPoolObserver, this, _1, _2));
+    */
 
     DBTableBase *si_table = agent_->service_instance_table();
     assert(si_table);

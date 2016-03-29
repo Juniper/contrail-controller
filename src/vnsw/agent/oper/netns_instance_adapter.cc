@@ -1,3 +1,5 @@
+#include <fstream>
+#include <boost/filesystem.hpp>
 #include "oper/netns_instance_adapter.h"
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
@@ -35,14 +37,33 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
     cmd_str << " --gw-ip " << props.gw_ip;
 
     if (props.service_type == ServiceInstance::LoadBalancer) {
+        std::stringstream pathgen;
+        boost::system::error_code error;
         boost::uuids::uuid lb_id = props.ToId();
-        cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
-            << "/conf.json";
-        cmd_str << props.IdToCmdLineStr();
-        if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
-            cmd_str << " --keystone-auth-cfg-file " <<
-                agent_->params()->si_lb_keystone_auth_conf_path();
+        pathgen << loadbalancer_config_path_ << lb_id;
+        boost::filesystem::path dir(pathgen.str());
+        if (!boost::filesystem::exists(dir, error)) {
+            boost::filesystem::create_directories(dir, error);
+            if (error) {
+                std::stringstream ss;
+                ss << "CreateDirectory error for ";
+                ss << UuidToString(lb_id) << " ";
+                ss << error.message();
+                LOG(ERROR, ss.str().c_str());
+                return NULL;
+            }
         }
+        pathgen << "/haproxy.conf.new";
+        const std::string &filename = pathgen.str();
+        std::ofstream fs(filename.c_str());
+        if (fs.fail()) {
+            LOG(ERROR, "File create " << filename << ": " << strerror(errno));
+            return NULL;
+        }
+        fs << "global\n\tdaemon\n\tuser nobody\n\tgroup nogroup\n\tlog /dev/log local0\n\tlog /dev/log local1 notice\n\ttune.ssl.default-dh-param 2048\n\tulimit-n 200000\n\tmaxconn 65000\n\tstats socket " << loadbalancer_config_path_ << lb_id << "/haproxy.sock mode 0666 level user\n\n" << "defaults\n\tlog global\n\tretries 3\n\toption redispatch\n\ttimeout connect 5000\n\ttimeout client 300000\n\ttimeout server 300000\n\nfrontend DEFAULT_FRONTEND\n\toption tcplog\n\tbind " << props.ip_addr_outside << ":80\n\tmode http\n\tdefault_backend DEFAULT_BACKEND\n\nbackend DEFAULT_BACKEND\n\tmode http\n\tbalance roundrobin\n\toption forwardfor\n";
+        fs.close();
+        cmd_str << " --cfg-file " << filename.c_str();
+        cmd_str << props.IdToCmdLineStr();
     }
 
     if (update) {
@@ -77,7 +98,7 @@ InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Proper
     if (props.service_type == ServiceInstance::LoadBalancer) {
         boost::uuids::uuid lb_id = props.ToId();
         cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
-            << "/conf.json";
+            << "/haproxy.conf";
         cmd_str << props.IdToCmdLineStr();
     }
 
