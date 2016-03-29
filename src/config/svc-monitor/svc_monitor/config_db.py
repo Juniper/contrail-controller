@@ -490,6 +490,8 @@ class ServiceInstanceSM(DBBaseSM):
         self.virtual_machines = set()
         self.logical_router = None
         self.params = None
+        self.bindings = None
+        self.kvps = None
         self.state = 'init'
         self.launch_count = 0
         self.back_off = -1
@@ -520,6 +522,9 @@ class ServiceInstanceSM(DBBaseSM):
         self.proj_name = obj['fq_name'][-2]
         self.check_vn_changes(obj)
         self.params = obj.get('service_instance_properties', None)
+        self.bindings = obj.get('service_instance_bindings', None)
+        if self.bindings:
+            self.kvps = self.bindings.get('key_value_pair', None)
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)

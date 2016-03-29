@@ -88,3 +88,9 @@ class OpencontrailFakeLoadbalancerDriver(
 
     def stats(self, pool_id):
         pass
+
+    def set_config_v1(self, pool_id):
+        pass
+
+    def set_config_v2(self, lb_id):
+        pass
