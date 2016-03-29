@@ -294,7 +294,6 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::EVICT_FLOW:
-    case FlowEvent::RETRY_INDEX_ACQUIRE:
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
@@ -404,7 +403,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     case FlowEvent::AUDIT_FLOW: {
         FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
-        flow->InitAuditFlow(req->flow_handle());
+        flow->InitAuditFlow(req->flow_handle(), req->gen_id());
         flow->flow_table()->Add(flow.get(), NULL);
         break;
     }
@@ -421,7 +420,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     case FlowEvent::EVICT_FLOW:
     // Flow was waiting for an index. Index is available now. Retry acquiring
     // the index
-    case FlowEvent::RETRY_INDEX_ACQUIRE:
     case FlowEvent::FLOW_HANDLE_UPDATE:
     case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::KSYNC_EVENT:
@@ -448,22 +446,18 @@ void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
     return;
 }
 
-void FlowProto::EvictFlowRequest(FlowEntryPtr &flow, uint32_t flow_handle) {
-    FlowEvent *event = new FlowEvent(FlowEvent::EVICT_FLOW, flow.get(),
-                                     flow_handle);
-    flow.reset();
+void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,
+                                 uint8_t gen_id) {
+    FlowEvent *event = new FlowEvent(FlowEvent::EVICT_FLOW, flow,
+                                     flow_handle, gen_id);
     EnqueueFlowEvent(event);
    return;
 }
 
-void FlowProto::RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle){
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::RETRY_INDEX_ACQUIRE, flow,
-                                   flow_handle));
-    return;
-}
-
-void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::AUDIT_FLOW, key, flow_handle));
+void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
+                                 uint8_t gen_id) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::AUDIT_FLOW, key, flow_handle,
+                                   gen_id));
     return;
 }
 
@@ -481,8 +475,9 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
 }
 
 void FlowProto::KSyncFlowHandleRequest(KSyncEntry *ksync_entry,
-                                       uint32_t flow_handle) {
-    EnqueueFlowEvent(new FlowEvent(ksync_entry, flow_handle));
+                                       uint32_t flow_handle,
+                                       uint8_t gen_id) {
+    EnqueueFlowEvent(new FlowEvent(ksync_entry, flow_handle, gen_id));
     return;
 }
 

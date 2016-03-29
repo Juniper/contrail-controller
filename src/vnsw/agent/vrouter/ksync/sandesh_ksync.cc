@@ -142,7 +142,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                                       r->get_fr_flow_stats_oflow());
         }
     }
-    proto->KSyncFlowHandleRequest(ksync_entry, r->get_fr_index());
+    proto->KSyncFlowHandleRequest(ksync_entry, r->get_fr_index(),
+                                  r->get_fr_gen_id());
     return;
 }
 
