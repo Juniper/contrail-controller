@@ -95,7 +95,7 @@ def set_v1_frontend_backend(pool):
     lconf = [
         'frontend %s' % vip.uuid,
         'option tcplog',
-        'bind %s:%d %s' % (vip.params['address'],
+        'bind %s:%s %s' % (vip.params['address'],
             vip.params['protocol_port'], ssl),
         'mode %s' % PROTO_MAP[vip.params['protocol']]
     ]
@@ -127,7 +127,7 @@ def set_v2_frontend_backend(lb):
         lconf = [
             'frontend %s' % ll.uuid,
             'option tcplog',
-            'bind %s:%d %s' % (lb.params['vip_address'],
+            'bind %s:%s %s' % (lb.params['vip_address'],
                 ll.params['protocol_port'], ssl),
             'mode %s' % PROTO_MAP[ll.params['protocol']]
         ]
@@ -179,10 +179,10 @@ def set_health_monitor(hm):
     if not hm.params['admin_state']:
         return '', []
 
-    server_suffix = ' check inter %ds fall %s' % \
+    server_suffix = ' check inter %ss fall %s' % \
         (hm.params['delay'], hm.params['max_retries'])
     conf = [
-        'timeout check %ds' % hm.params['timeout']
+        'timeout check %ss' % hm.params['timeout']
     ]
 
     if hm.params['monitor_type'] in (HEALTH_MONITOR_HTTP, HEALTH_MONITOR_HTTPS):

@@ -1327,3 +1327,9 @@ class OpencontrailF5LoadbalancerDriver(
                               pool_id):
         pass
     # end  update_health_monitor
+
+    def set_config_v1(self, pool_id):
+        pass
+
+    def set_config_v2(self, lb_id):
+        pass
