@@ -238,9 +238,24 @@ void KSyncObject::Delete(KSyncEntry *entry) {
 void KSyncObject::ChangeKey(KSyncEntry *entry, uint32_t arg) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     assert(tree_.erase(*entry) > 0);
+    uint32_t old_key = GetKey(entry);
     UpdateKey(entry, arg);
-    // assert for tree insertion failures till we handle it
-    assert(tree_.insert(*entry).second == true);
+    std::pair<Tree::iterator, bool> ret = tree_.insert(*entry);
+    if (ret.second == false) {
+        // entry with the same key already exist, to proceed further
+        // switch place with the existing entry
+        KSyncEntry *current = ret.first.operator->();
+        assert(tree_.erase(*current) > 0);
+        UpdateKey(current, old_key);
+        // following tree insertions should always pass
+        assert(tree_.insert(*current).second == true);
+        assert(tree_.insert(*entry).second == true);
+    }
+}
+
+uint32_t KSyncObject::GetKey(KSyncEntry *entry) {
+    assert(false);
+    return 0;
 }
 
 void KSyncObject::FreeInd(KSyncEntry *entry, uint32_t index) {
