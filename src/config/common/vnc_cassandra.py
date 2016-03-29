@@ -558,7 +558,7 @@ class VncCassandraClient(object):
                     if has_wrapper:
                         prop_field_types = obj_class.prop_field_types[prop_name]
                         if isinstance(prop_field_types, dict):
-                            prop_type = prop_field_types['xsd_type']
+                            wrapper_type = prop_field_types['xsd_type']
                         else:
                             _, wrapper_type = prop_field_types
                         wrapper_cls = self._get_xsd_class(wrapper_type)
