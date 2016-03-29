@@ -37,6 +37,7 @@ sources = [
     'svc_monitor/tests/test_vrouter_instance_manager.py',
     'svc_monitor/tests/test_virtual_machine_manager.py',
     'svc_monitor/tests/test_snat.py',
+    'svc_monitor/tests/test_common_utils.py',
     'svc_monitor/tests/scheduler/__init__.py',
     'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
 ]
