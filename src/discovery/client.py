@@ -125,7 +125,7 @@ class Subscribe(object):
                     gevent.sleep(2)
                 else:
                     connected = True
-            except requests.exceptions.ConnectionError:
+            except Exception as e:
                 # discovery server down or restarting?
                 self.syslog('discovery server down or restarting?')
                 if not conn_state_updated:
@@ -134,7 +134,7 @@ class Subscribe(object):
                         conn_type = ConnectionType.DISCOVERY, 
                         name = self.service_type,
                         status = ConnectionStatus.DOWN,
-                        message = 'Subscribe - ConnectionError',
+                        message = 'Subscribe - %s' % str(e),
                         server_addrs = \
                             ['%s:%s' % (self.dc._server_ip, \
                              self.dc._server_port)])
@@ -263,7 +263,7 @@ class DiscoveryClient(object):
                             self._server_port)],
                         message = 'Publish Error - Status Code ' + 
                             str(r.status_code))
-            except requests.exceptions.ConnectionError:
+            except Exception as e:
                 if not conn_state_updated:
                     conn_state_updated = True
                     ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
@@ -271,7 +271,7 @@ class DiscoveryClient(object):
                         status = ConnectionStatus.DOWN,
                         server_addrs = ['%s:%s' % (self._server_ip, \
                             self._server_port)],
-                        message = 'Publish Error - Connection Error') 
+                        message = 'Publish Error - %s' % str(e))
             self.syslog('connection error or failed to publish')
             gevent.sleep(2)
 
@@ -299,13 +299,13 @@ class DiscoveryClient(object):
                 try:
                     r = requests.post(
                         self.hburl, data=json.dumps(payload), headers=self._headers)
-                except requests.exceptions.ConnectionError:
+                except Exception as e:
                     service, data = pub_list[cookie]
                     ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
                         name = service, status = ConnectionStatus.DOWN,
                         server_addrs = ['%s:%s' % (self._server_ip, \
                             self._server_port)],
-                        message = 'HeartBeat - Connection Error') 
+                        message = 'HeartBeat - %s' % str(e))
                     self.syslog('Connection Error')
                     continue
 
