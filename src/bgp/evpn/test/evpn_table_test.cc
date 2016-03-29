@@ -34,7 +34,11 @@ static const int kRouteCount = 255;
 class EvpnTableTest : public ::testing::Test {
 protected:
     EvpnTableTest()
-        : server_(&evm_), master_(NULL) {
+        : server_(&evm_),
+          master_(NULL),
+          blue_(NULL),
+          blue_si_(NULL),
+          tid_(DBTableBase::kInvalidId) {
     }
 
     virtual void SetUp() {
@@ -45,19 +49,28 @@ protected:
 
         master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
             BgpConfigManager::kMasterInstance));
-        blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
-            "blue", "target:64512:1", "target:64512:1", "blue", 1));
+        blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("blue",
+            "target:64512:1 target:64512:2", "target:64512:1", "blue", 1));
+        blue_si_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("blue-si",
+            "target:64512:2 target:64512:1", "target:64512:2", "blue", 1));
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
-        server_.routing_instance_mgr()->CreateRoutingInstance(master_cfg_.get());
-        server_.routing_instance_mgr()->CreateRoutingInstance(blue_cfg_.get());
+        server_.routing_instance_mgr()->CreateRoutingInstance(
+            master_cfg_.get());
+        server_.routing_instance_mgr()->CreateRoutingInstance(
+            blue_cfg_.get());
+        server_.routing_instance_mgr()->CreateRoutingInstance(
+            blue_si_cfg_.get());
         scheduler->Start();
         task_util::WaitForIdle();
 
         blue_ = static_cast<EvpnTable *>(
             server_.database()->FindTable("blue.evpn.0"));
         TASK_UTIL_EXPECT_EQ(Address::EVPN, blue_->family());
+        blue_si_ = static_cast<EvpnTable *>(
+            server_.database()->FindTable("blue-si.evpn.0"));
+        TASK_UTIL_EXPECT_EQ(Address::EVPN, blue_si_->family());
         master_ = static_cast<EvpnTable *>(
             server_.database()->FindTable("bgp.evpn.0"));
         TASK_UTIL_EXPECT_EQ(Address::EVPN, master_->family());
@@ -111,6 +124,11 @@ protected:
         addReq.data.reset(new EvpnTable::RequestData(attr, 0, 0));
         addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         table->Enqueue(&addReq);
+    }
+
+    void AddRoute(EvpnTable *table, string prefix_str,
+        string rtarget_str, int virtual_network_index) {
+        AddRoute(table, prefix_str, rtarget_str, "", virtual_network_index);
     }
 
     void DelRoute(EvpnTable *table, string prefix_str) {
@@ -177,9 +195,11 @@ protected:
     BgpServer server_;
     EvpnTable *master_;
     EvpnTable *blue_;
+    EvpnTable *blue_si_;
     DBTableBase::ListenerId tid_;
     scoped_ptr<BgpInstanceConfig> master_cfg_;
     scoped_ptr<BgpInstanceConfig> blue_cfg_;
+    scoped_ptr<BgpInstanceConfig> blue_si_cfg_;
 
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;
@@ -690,6 +710,28 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN4) {
 }
 
 //
+// Route is not replicated to VRF if origin vn is different.
+//
+TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN5) {
+    ostringstream repr1, repr2;
+    repr1 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1.1";
+    repr2 << "2-0:0-0-11:12:13:14:15:16,192.168.1.1";
+    AddRoute(master_, repr1.str(), "target:64512:1", 2);
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+
+    DelRoute(master_, repr1.str());
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+}
+
+//
 // Basic - RD of VPN route is set to provided source RD.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN1) {
@@ -793,6 +835,34 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteToVPN4) {
     }
     TASK_UTIL_EXPECT_EQ(0, blue_->Size());
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
+}
+
+//
+// Route is not replicated from one VRF to another.
+//
+TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteVRFToVRF) {
+    ostringstream repr1, repr2;
+    repr1 << "2-0:0-0-11:12:13:14:15:16,192.168.1.1";
+    repr2 << "2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1.1";
+    AddRoute(blue_, repr1.str(), "", "10.1.1.1:65535");
+    task_util::WaitForIdle();
+    VerifyRouteExists(blue_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    VerifyRouteExists(master_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    VerifyRouteNoExists(blue_si_, repr1.str());
+    VerifyRouteNoExists(blue_si_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
+
+    DelRoute(blue_, repr1.str());
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(blue_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    VerifyRouteNoExists(master_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    VerifyRouteNoExists(blue_si_, repr1.str());
+    VerifyRouteNoExists(blue_si_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_si_->Size());
 }
 
 class EvpnTableInclusiveMulticastTest : public EvpnTableTest {
