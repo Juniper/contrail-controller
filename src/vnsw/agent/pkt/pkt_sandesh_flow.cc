@@ -64,6 +64,7 @@ using boost::system::error_code;
     } else {                                                                \
         data.set_nat("disabled");                                           \
     }                                                                       \
+    data.set_gen_id(fe->gen_id());                                \
     data.set_flow_handle(fe->flow_handle());                                \
     data.set_refcount(fe->GetRefCount());                                   \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
@@ -102,8 +103,7 @@ using boost::system::error_code;
     data.set_table_id(id);\
     data.set_deleted(fe->deleted());\
     SandeshFlowIndexInfo flow_index_info;\
-    KSyncFlowIndexManager *mgr = agent->ksync()->ksync_flow_index_manager();\
-    fe->ksync_index_entry()->SetSandeshData(mgr, &flow_index_info);\
+    fe->SetEventSandeshData(&flow_index_info);\
     data.set_flow_index_info(flow_index_info);
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";

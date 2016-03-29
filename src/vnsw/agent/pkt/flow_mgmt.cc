@@ -173,7 +173,8 @@ void FlowMgmtManager::EnqueueFlowEvent(FlowEvent *event) {
 
 void FlowMgmtManager::NonOperEntryEvent(FlowEvent::Event event,
                                         FlowEntry *flow) {
-    FlowEvent *flow_resp = new FlowEvent(event, flow->key(), true);
+    FlowEvent *flow_resp = new FlowEvent(event, flow->key(), true,
+                                         FlowTable::kPortNatFlowTableInstance);
     flow_resp->set_flow(flow);
     EnqueueFlowEvent(flow_resp);
 }

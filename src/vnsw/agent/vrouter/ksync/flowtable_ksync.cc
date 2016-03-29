@@ -114,6 +114,9 @@ void FlowTableKSyncEntry::Reset() {
     KSyncEntry::Reset();
     flow_entry_ = NULL;
     hash_id_ = FlowEntry::kInvalidFlowHandle;
+    gen_id_ = 0;
+    evict_gen_id_ = 0;
+    vrouter_gen_id_ = 0;
     old_reverse_flow_id_ = FlowEntry::kInvalidFlowHandle;
     old_action_ = 0;
     old_component_nh_idx_ = 0xFFFF;
@@ -128,6 +131,7 @@ void FlowTableKSyncEntry::Reset() {
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
     flow_entry_ = flow;
     hash_id_ = hash_id;
+    gen_id_ = flow->gen_id();
 }
 
 KSyncObject *FlowTableKSyncEntry::GetObject() {
@@ -177,9 +181,19 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t action = 0;
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
 
+    // currently vrouter doesnot guarantee gen id to always start from 0
+    // on vrouter-agent restart
+    // TODO(prabhjot) need to move last gen id seen by vrouter in KSync
+    // Index Manager
+    if (gen_id_ != evict_gen_id_) {
+        // skip sending update to vrouter for evicted entry
+        return 0;
+    }
+
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
+    req.set_fr_gen_id(gen_id_);
     const FlowKey *fe_key = &flow_entry_->key();
     req.set_fr_flow_ip(IpToVector(fe_key->src_addr, fe_key->dst_addr,
                                   flow_entry_->key().family));
@@ -196,10 +210,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     if (op == sandesh_op::DELETE) {
         if (hash_id_ == FlowEntry::kInvalidFlowHandle) {
-            return 0;
-        }
-
-        if (flow_entry_->ksync_index_entry()->skip_delete() == true) {
             return 0;
         }
 
@@ -366,6 +376,11 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
+    if (vrouter_gen_id_ != gen_id_) {
+        vrouter_gen_id_ = gen_id_;
+        changed = true;
+    }
+
     MirrorKSyncObject* obj = ksync_obj_->ksync()->mirror_ksync_obj();
     // Lookup for fist and second mirror entries
     std::vector<MirrorActionSpec>::const_iterator it;
@@ -484,9 +499,11 @@ bool FlowTableKSyncEntry::IgnoreVrouterError() const {
 
 std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
     if (error == EBADF)
-        return "Flow Key Mismatch";
+        return "Flow gen id Mismatch";
     else if (error == ENOSPC)
         return "Flow Table bucket full";
+    else if (error == EFAULT)
+        return "Flow Key Mismatch with same gen id";
     else return KSyncEntry::VrouterError(error);
 }
 
@@ -499,12 +516,6 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
 }
 
 FlowTableKSyncObject::~FlowTableKSyncObject() {
-}
-
-void FlowTableKSyncObject::PreFree(KSyncEntry *entry) {
-    FlowTableKSyncEntry *flow_ksync = static_cast<FlowTableKSyncEntry *>(entry);
-    FlowEntry *flow = flow_ksync->flow_entry().get();
-    ksync_->ksync_flow_index_manager()->Release(flow);
 }
 
 KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -526,6 +537,10 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
 
 void FlowTableKSyncObject::UpdateKey(KSyncEntry *entry, uint32_t flow_handle) {
     static_cast<FlowTableKSyncEntry *>(entry)->set_hash_id(flow_handle);
+}
+
+uint32_t FlowTableKSyncObject::GetKey(KSyncEntry *entry) {
+    return static_cast<FlowTableKSyncEntry *>(entry)->hash_id();
 }
 
 void FlowTableKSyncObject::UpdateFlowHandle(FlowTableKSyncEntry *entry,
@@ -598,6 +613,7 @@ FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
 
     // Do post allocation initialization
     flow->Reset(flow_key->flow_entry().get(), flow_key->hash_id());
+    flow->set_evict_gen_id(flow_key->evict_gen_id_);
     total_alloc_++;
     return flow;
 }
