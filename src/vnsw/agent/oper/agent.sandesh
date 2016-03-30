@@ -1066,7 +1066,7 @@ traceobject sandesh OperNextHop {
     1: NextHopObjectLogInfo nh;
 }
 
-systemlog sandesh AgentRouteLog {
+trace sandesh AgentRouteLog {
     1: string message;
     2: string ip;
     3: "in VRF";
