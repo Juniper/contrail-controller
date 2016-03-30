@@ -226,6 +226,8 @@ class VirtualRouterSM(DBBase):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.agent_state = False
+        self.agent_down_count = 0
         self.virtual_machines = set()
         self.update(obj_dict)
     # end __init__
@@ -246,6 +248,19 @@ class VirtualRouterSM(DBBase):
         obj.update_multiple_refs('virtual_machine', {})
         del cls._dict[uuid]
     # end delete
+
+    def set_agent_state(self, up):
+        if up:
+            self.agent_down_count = 0
+            self.agent_state = True
+        else:
+            self.agent_down_count += 1
+            if not (self.agent_down_count % 3):
+                self.agent_state = False
+
+    def set_netns_version(self, netns_version):
+        self.netns_version = netns_version
+
 # end VirtualRouterSM
 
 
