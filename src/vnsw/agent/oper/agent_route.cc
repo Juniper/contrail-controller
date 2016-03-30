@@ -28,6 +28,9 @@ using namespace boost::asio;
 SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
     AGENT_DBWALK_TRACE_BUF, 1000));
 
+SandeshTraceBufferPtr AgentRouteTraceBuf(SandeshTraceBufferCreate(
+    AGENT_ROUTE_TRACE_BUF, 5000));
+
 class AgentRouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(AgentRouteTable *rt_table) : 
@@ -333,10 +336,9 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     if (data) {
         if (data->IsPeerValid(key) == false) {
-            AGENT_ROUTE_LOG("Invalid/Inactive Peer ",
-                            key->ToString(),
-                            vrf_name(),
-                            "");
+            AGENT_ROUTE_LOG("Route operation ignored. Invalid/Inactive Peer ",
+                            key->ToString(), vrf_name(),
+                            data->InvalidPeerMsg(key));
             return;
         }
     } else {
@@ -390,8 +392,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 rt->FillTrace(rt_info, AgentRoute::ADD, NULL);
                 OPER_TRACE(Route, rt_info);
                 route_added = true;
-                AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
-                                GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
                 path = rt->FindPathUsingKeyData(key, data);
@@ -412,8 +412,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 RouteInfo rt_info;
                 rt->FillTrace(rt_info, AgentRoute::ADD_PATH, path);
                 OPER_TRACE(Route, rt_info);
-                AGENT_ROUTE_LOG("Path add", rt->ToString(), vrf_name(),
-                                GETPEERNAME(key->peer()));
             } else {
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
@@ -775,6 +773,10 @@ bool AgentRouteData::IsPeerValid(const AgentRouteKey *key) const {
     const Peer *peer = key->peer();
     assert(peer->NeedValidityCheck() == false);
     return true;
+}
+
+std::string AgentRouteData::InvalidPeerMsg(const AgentRouteKey *key) const {
+    return "AgentRouteData: Unknown Reason";
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
