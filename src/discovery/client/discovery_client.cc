@@ -39,7 +39,7 @@ DSResponseHeader::DSResponseHeader(std::string serviceName, uint8_t numbOfInstan
       subscribe_timer_(TimerManager::CreateTimer(*evm->io_service(), "Subscribe Timer",
                        TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), subscribe_msg_(""), attempts_(0),
-      sub_sent_(0), sub_rcvd_(0), sub_fail_(0),
+      sub_sent_(0), sub_rcvd_(0), sub_fail_(0), 
       subscribe_cb_called_(false) {
 }
 
@@ -486,6 +486,8 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
             resp->publish_msg_ = ss.str();
         }
 
+        resp->pub_sent_++;
+        resp->publish_cb_called_ = false;
         /* Send publish unconditionally */
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
                                serviceName, resp->publish_msg_);
@@ -666,6 +668,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
         DSResponseHeader *resp = loc->second;
         resp->subscribe_timer_->Cancel();
         resp->sub_sent_++;
+        resp->subscribe_cb_called_ = false;
         SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
     }
 }
@@ -894,6 +897,7 @@ void DiscoveryServiceClient::SendHeartBeat(std::string serviceName,
                                     std::string msg) {
     DSPublishResponse *resp = GetPublishResponse(serviceName); 
     resp->pub_hb_sent_++;
+    resp->heartbeat_cb_called_ = false;
     SendHttpPostMessage("heartbeat", serviceName, msg);
 }
 
@@ -930,11 +934,6 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
 
         // Errorcode is of type CURLcode
         if (ec.value() != 0) {
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
-                "Error HeartBeatResponseHandler ",
-                 serviceName + " " + curl_error_category.message(ec.value()),
-                 ec.value());
-
             resp->pub_hb_fail_++;
             // Resend original publish request after exponential back-off
             resp->attempts_++;
@@ -951,6 +950,11 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
                     // reset attempts so publish can be sent right away
                     resp->attempts_ = 0;
                 }
+            } else {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                    "Error HeartBeatResponseHandler ",
+                     serviceName + " " + curl_error_category.message(ec.value()),
+                     ec.value());
             }
 
             // Update connection info
