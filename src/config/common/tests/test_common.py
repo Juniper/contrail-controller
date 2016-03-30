@@ -481,7 +481,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                     service_template_properties=st_prop)
                 self._vnc_lib.service_template_create(service_template)
                 scale_out = ServiceScaleOutType()
-                if service_mode == 'in-network':
+                if service_mode in ['in-network', 'in-network-nat']:
                     if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
                                ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
                     si_props = ServiceInstanceType(
