@@ -255,9 +255,9 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         logging.info("Checking Stats " + str(UTCTimestampUsec()))
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
-            select_fields = [ "MAX(st.i1)"],
+            select_fields = [ "MAX(st.i1)", "PERCENTILES(st.i1)"],
             where_clause = 'name|st.s1=t04|samp1', num = 1, check_rows =
-            [{u'MAX(st.i1)': 4}]);
+            [{u'MAX(st.i1)': 4, u'PERCENTILES(st.i1)': None}]);
 
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
             select_fields = [ "MIN(st.d1)"],
