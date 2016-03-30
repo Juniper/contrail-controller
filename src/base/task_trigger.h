@@ -38,9 +38,8 @@ public:
         bool current = deferred_.fetch_and_store(false);
         assert(current);
     }
-    bool deferred() {
-        return deferred_;
-    }
+    bool deferred() const { return deferred_; }
+    bool IsSet() const { return trigger_; }
 
 private:
     class WorkerTask;
