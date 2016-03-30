@@ -69,6 +69,7 @@ struct AgentRouteData : public AgentData {
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) = 0;
     virtual bool IsPeerValid(const AgentRouteKey *key) const;
+    virtual std::string InvalidPeerMsg(const AgentRouteKey *key) const;
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
     bool is_multicast() const {return is_multicast_;}
@@ -295,18 +296,25 @@ private:
 };
 
 #define AGENT_DBWALK_TRACE_BUF "AgentDBwalkTrace"
+#define AGENT_ROUTE_TRACE_BUF  "OperRouteTrace"
 
 extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
+extern SandeshTraceBufferPtr AgentRouteTraceBuf;
 
 #define AGENT_DBWALK_TRACE(obj, ...) do {                                  \
     obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0);
 
 #define GETPEERNAME(peer) (peer)? peer->GetName() : ""
-#define AGENT_ROUTE_LOG(oper, route, vrf, peer_name)\
+#define AGENT_ROUTE_LOG(msg, route, vrf, peer_info)\
 do {\
-    AgentRouteLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
-                   oper, route, vrf, peer_name);\
+    AgentRouteLog::TraceMsg(AgentRouteTraceBuf, __FILE__, __LINE__, msg, route,\
+                            vrf, peer_info);\
+} while(false);\
+
+#define ROUTE_OPER_TRACE(type, rt_info)\
+do {\
+    OperRoute::TraceMsg(AgentRouteTraceBuf, __FILE__, __LINE__, rt_info);\
 } while(false);\
 
 #endif
