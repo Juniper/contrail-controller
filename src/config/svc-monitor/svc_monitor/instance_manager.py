@@ -542,13 +542,12 @@ class InstanceManager(object):
     def _associate_vrouter(self, si, vm):
         vrouter_name = None
         if not vm.virtual_router:
-            chosen_vr_fq_name = None
-            chosen_vr_fq_name = self.vrouter_scheduler.schedule(
-                si.uuid, vm.uuid)
-            if chosen_vr_fq_name:
-                vrouter_name = chosen_vr_fq_name[-1]
-                self.logger.log_info("VRouter %s updated with VM %s" %
-                    (':'.join(chosen_vr_fq_name), vm.name))
+            chosen_vr = self.vrouter_scheduler.schedule(si, vm)
+            if chosen_vr:
+                vr = VirtualRouterSM.get(chosen_vr)
+                vrouter_name = vr.name
+                self.logger.log_notice("vrouter %s updated with vm %s" %
+                                        (':'.join(vr.fq_name), vm.name))
                 vm.update()
         else:
             vr = VirtualRouterSM.get(vm.virtual_router)
@@ -607,7 +606,7 @@ class VRouterHostedManager(InstanceManager):
                 service_up = False
             else:
                 vr = VirtualRouterSM.get(vm.virtual_router)
-                if self.vrouter_scheduler.vrouter_running(vr.name):
+                if vr.agent_state:
                     continue
                 self._vnc_lib.ref_update('virtual-router', vr.uuid,
                     'virtual-machine', vm.uuid, None, 'DELETE')
