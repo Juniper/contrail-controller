@@ -535,6 +535,208 @@ TEST_F(BgpXmppUnitTest, ConnectionTearWithPendingUnreg) {
     task_util::WaitForIdle();
 }
 
+//
+// Route ADD request in DBParition is handled after the peer unsubscribed
+// from the VRF. This race condition is achieved by disabling the DBPartition
+// while handling route add request and unsubscribe request
+//
+TEST_F(BgpXmppUnitTest, BasicDelayedInput) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 1);
+
+    a_->database()->SetQueueDisable(true);
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    task_util::WaitForIdle();
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    task_util::WaitForIdle();
+
+    // The unsubscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 0);
+
+    a_->database()->SetQueueDisable(false);
+    TASK_UTIL_EXPECT_TRUE(a_->database()->IsDBQueueEmpty());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 0);
+
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+//
+// Route ADD request in DBParition is handled after the peer unsubscribed
+// and resubscribed to the VRF. Expected result is route added before previous
+// unsubscribe is ignored and doesn't cause route add to VRF after subsequent
+// subscription.
+// This race condition is achieved by disabling the DBPartition
+// while handling route add request and unsubscribe and subscribe request
+//
+TEST_F(BgpXmppUnitTest, BasicDelayedInput_1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 1);
+
+    a_->database()->SetQueueDisable(true);
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    task_util::WaitForIdle();
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    task_util::WaitForIdle();
+
+    // The unsubscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 0);
+
+    // Subscribe again
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe("red", 2);
+    task_util::WaitForIdle();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "red", 2));
+
+    agent_a_->AddRoute("blue", "10.1.1.3/32");
+
+    // Enable DB Partition
+    a_->database()->SetQueueDisable(false);
+    TASK_UTIL_EXPECT_TRUE(a_->database()->IsDBQueueEmpty());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 2);
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    task_util::WaitForIdle();
+
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+//
+// Route DELETE request in DBParition is handled after the peer unsubscribed
+// and resubscribed to the VRF.
+// Route add of same prefix after the re-subscribe is not impacted due to
+// delayed route delete in DBPartition request queue.
+// This race condition is achieved by disabling the DBPartition
+// while handling route delete request and unsubscribe and subscribe request
+//
+TEST_F(BgpXmppUnitTest, BasicDelayedInput_2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 1);
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 2);
+
+    a_->database()->SetQueueDisable(true);
+    agent_a_->DeleteRoute("blue", "10.1.1.1/32");
+    task_util::WaitForIdle();
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    task_util::WaitForIdle();
+
+    // The unsubscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 0);
+
+    // Subscribe again
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe("red", 2);
+    task_util::WaitForIdle();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "red", 2));
+
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+
+    // Enable DB Partition
+    a_->database()->SetQueueDisable(false);
+    TASK_UTIL_EXPECT_TRUE(a_->database()->IsDBQueueEmpty());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 2);
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("red", -1, false);
+    task_util::WaitForIdle();
+
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
 TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
     ConfigureWithoutRoutingInstances();
     task_util::WaitForIdle();
