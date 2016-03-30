@@ -56,6 +56,7 @@ struct DSResponseHeader {
     int sub_sent_;
     int sub_rcvd_;
     int sub_fail_;
+    int sub_unknown_error_;
 
     bool subscribe_cb_called_;
 };
@@ -101,10 +102,12 @@ struct DSPublishResponse {
     int pub_rcvd_;
     int pub_fail_;
     int pub_fallback_;
+    int pub_unknown_error_;
     int pub_hb_sent_;
     int pub_hb_fail_;
     int pub_hb_rcvd_;
     int pub_hb_timeout_;
+    int pub_hb_unknown_error_;
 
     bool publish_cb_called_;
     bool heartbeat_cb_called_;
