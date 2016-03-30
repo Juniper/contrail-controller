@@ -149,6 +149,7 @@ public:
         // Find the vm's node using its UUID. If the config has not added the
         // vm yet, treat this request as pending since we cant process it right
         // now.
+        IFMapClient *client = ifmap_server_->FindClient(vr_name_);
         IFMapNode *vm_node = ifmap_server_->GetVmNodeByUuid(vm_uuid_);
         if (vm_node) {
             if (vm_node->IsDeleted()) {
@@ -161,15 +162,16 @@ public:
             std::string vm_name = vm_node->name();
             vr_table->IFMapVmSubscribe(vr_name_, vm_name, subscribe_, has_vms_);
 
-            IFMapClient *client = ifmap_server_->FindClient(vr_name_);
             if (client) {
                 if (subscribe_) {
                     ifmap_server_->ClientGraphDownload(client);
                 }
             }
         } else {
-            ifmap_server_->ProcessVmRegAsPending(vm_uuid_, vr_name_,
-                                                 subscribe_);
+            if (client) {
+                ifmap_server_->ProcessVmRegAsPending(vm_uuid_, vr_name_,
+                                                     subscribe_);
+            }
         }
 
         return true;
