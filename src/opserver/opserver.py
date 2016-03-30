@@ -617,6 +617,9 @@ class OpServer(object):
                     scln = stat_query_column(name= "MIN(" + aln.name + ")",
                             datatype=aln.datatype, index=False)
                     scols.append(scln)
+                    scln = stat_query_column(name= "PERCENTILES(" + aln.name + ")",
+                            datatype='percentiles', index=False)
+                    scols.append(scln)
 
             if not isname: 
                 keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)

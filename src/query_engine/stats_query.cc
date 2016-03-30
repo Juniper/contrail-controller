@@ -125,6 +125,13 @@ QEOpServerProxy::AggOper StatsQuery::ParseAgg(
         return QEOpServerProxy::MIN;
     }
 
+    if (0 == vname.compare(0,11,string("PERCENTILES"))) {
+        sfield = vname.substr(12);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::PERCENTILES;
+    }
+
     return QEOpServerProxy::INVALID;
 }
 

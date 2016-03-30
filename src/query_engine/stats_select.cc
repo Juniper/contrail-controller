@@ -21,6 +21,14 @@ using std::set;
 using std::pair;
 using std::make_pair;
 
+struct TDigest {
+};
+
+void 
+StatsSelect::DeleteTDigest(TDigest *t) {
+    TDigest_destroy(t);
+}
+
 bool
 StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks, 
         const QEOpServerProxy::AggRowT& aggs, std::string& jstr) {
@@ -79,6 +87,8 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                 sname = string("MAX(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::MIN) {
                 sname = string("MIN(") + it->first.second + string(")");
+            } else if (it->first.first == QEOpServerProxy::PERCENTILES) {
+                sname = string("PERCENTILES(") + it->first.second + string(")");
             } else {
                 QE_ASSERT(0);
             }
@@ -96,6 +106,33 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                         double mapit = boost::get<double>(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetDouble(mapit);
+                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
+                            val, dd.GetAllocator());
+                    }
+                    break;
+                case QEOpServerProxy::TDIGEST : {
+                        boost::shared_ptr<TDigest> mapit =
+                            boost::get<boost::shared_ptr<TDigest> >(it->second);
+                        
+                        rapidjson::Value val(rapidjson::kObjectType);
+                        float ptiles[7] = {.01,.05,.25,.5,.75,.95,.99};
+                        std::string stiles[7] = {"01","05","25","50","75","95","99"};
+#if 0
+                        size_t jj = TDigest_get_ncentroids(mapit.get());
+                        for (size_t kk=0; kk < jj; kk++) {
+                            Centroid *c = TDigest_get_centroid(mapit.get(), kk);
+                            std::cout << "Parse Centroid " <<
+                               Centroid_get_mean(c) << " " <<
+                               Centroid_get_count(c) << " " <<
+                               Centroid_quantile(c, mapit.get()) << std::endl;
+                        }
+#endif
+                        for (size_t idx=0; idx<7; idx++) {
+                            rapidjson::Value sval(rapidjson::kNumberType);
+                            sval.SetDouble(TDigest_percentile(mapit.get(), ptiles[idx]));
+                            val.AddMember(stiles[idx].c_str(), dd.GetAllocator(),
+                                sval, dd.GetAllocator());
+                        }
                         dd.AddMember(sname.c_str(), dd.GetAllocator(),
                             val, dd.GetAllocator());
                     }
@@ -242,6 +279,9 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             } else if (agg == QEOpServerProxy::MIN) {
                 min_field_.insert(sfield);
                 QE_TRACE(DEBUG, "StatsSelect MIN " << sfield);
+            } else if (agg == QEOpServerProxy::PERCENTILES) {
+                percentile_cols_.insert(sfield);
+                QE_TRACE(DEBUG, "StatsSelect PERCENTILES " << sfield);
             } else {
                 QE_ASSERT(0);
             }
@@ -375,10 +415,32 @@ void StatsSelect::MergeAggRow(QEOpServerProxy::AggRowT &arows,
                     QE_ASSERT(0);
                 }     
             }
-
+            if (jt->first.first == QEOpServerProxy::PERCENTILES) {
+                StatsSelect::StatVal & sv = jt->second;
+                try {
+                    if (sv.which() == QEOpServerProxy::TDIGEST) {
+                        boost::shared_ptr<TDigest>& pt =
+                            boost::get<boost::shared_ptr<TDigest> >(jt->second);
+                        
+                        boost::shared_ptr<TDigest> pt2 =
+                            boost::get<boost::shared_ptr<TDigest> >(kt->second);
+                        size_t j, ncentroids = TDigest_get_ncentroids(pt2.get());
+                        for (j = 0; j < ncentroids; j++) {
+                            Centroid * c = TDigest_get_centroid(pt2.get(), j);
+                            TDigest* nd = TDigest_add(pt.get(),
+                                Centroid_get_mean(c),
+                                Centroid_get_count(c));
+                            if (nd) {
+                                pt.reset(nd);
+                            }
+                        }
+                    }
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                }     
+            }
         }
     }
-
 }
 
 namespace boost {
@@ -458,8 +520,31 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
             pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::MIN,it->name);
             narows.insert(make_pair(aggkey, it->value)); 
         }
-    }
+        uit = percentile_cols_.find(it->name);
+        if (uit!=percentile_cols_.end()) {
+            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::PERCENTILES,it->name);
 
+            TDigest *t = TDigest_create(0.01, 100);
+
+	    StatsSelect::StatVal sv = it->value;
+            double val;
+	    try {
+		if (sv.which() == QEOpServerProxy::UINT64) {
+                    val = boost::get<uint64_t>(sv);
+		}
+		if (sv.which() == QEOpServerProxy::DOUBLE) {
+                    val = boost::get<double>(sv);
+		}                   
+	    } catch (boost::bad_get& ex) {
+		QE_ASSERT(0);
+	    } catch (const std::out_of_range& oor) {
+		QE_ASSERT(0);
+	    }                        
+            TDigest_add(t, val, 1);
+            boost::shared_ptr<TDigest> pt(t, &StatsSelect::DeleteTDigest);
+            narows.insert(make_pair(aggkey, pt)); 
+        }
+    }
     
     for (std::set<std::string>::const_iterator ct = class_cols_.begin();
             ct!=class_cols_.end(); ct++) {
@@ -484,7 +569,7 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
         pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::COUNT,count_field_);
         narows.insert(make_pair(aggkey, (uint64_t) 1));            
     }
-
+    
     MergeFullRow(ukey, uniks, narows, output);
 
     return true;
