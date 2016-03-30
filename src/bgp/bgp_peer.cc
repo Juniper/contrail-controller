@@ -55,10 +55,11 @@ class BgpPeer::PeerClose : public IPeerClose {
     void Close() { manager_->Close(); }
 
     virtual void Delete() {
-        if (peer_->IsDeleted())
+        if (peer_->IsDeleted()) {
             peer_->RetryDelete();
-        else
+        } else {
             CloseComplete();
+        }
     }
 
     // If the peer is deleted or administratively held down, do not attempt
@@ -823,7 +824,12 @@ bool BgpPeer::IsDeleted() const {
 }
 
 bool BgpPeer::IsCloseInProgress() const {
-    return (defer_close_ || peer_close_->close_manager()->IsCloseInProgress());
+    CHECK_CONCURRENCY("bgp::Config");
+
+    // trigger is set only after defer_close is reset
+    assert(!(defer_close_ && trigger_.IsSet()));
+    return (defer_close_ || trigger_.IsSet() ||
+            peer_close_->close_manager()->IsCloseInProgress());
 }
 
 StateMachine::State BgpPeer::GetState() const {
