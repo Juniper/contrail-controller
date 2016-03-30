@@ -7,6 +7,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <tbb/mutex.h>
 #include <tbb/spin_mutex.h>
 
 #include <memory>
@@ -386,6 +387,7 @@ private:
     // and the io thread should need to lock it once every few seconds at
     // most.  Hence we choose a spin_mutex.
     tbb::spin_mutex spin_mutex_;
+    mutable tbb::mutex close_mutex_;
     BgpSession *session_;
     Timer *keepalive_timer_;
     Timer *end_of_rib_timer_;

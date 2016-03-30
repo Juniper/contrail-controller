@@ -55,10 +55,11 @@ class BgpPeer::PeerClose : public IPeerClose {
     void Close() { manager_->Close(); }
 
     virtual void Delete() {
-        if (peer_->IsDeleted())
+        if (peer_->IsDeleted()) {
             peer_->RetryDelete();
-        else
+        } else {
             CloseComplete();
+        }
     }
 
     // If the peer is deleted or administratively held down, do not attempt
@@ -262,6 +263,7 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
     inc_rx_end_of_rib();
+    tbb::mutex::scoped_lock lock(close_mutex_);
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
         "EndOfRib marker family " << Address::FamilyToString(family) <<
@@ -309,6 +311,7 @@ void BgpPeer::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const {
 // in question.
 //
 void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
+    tbb::mutex::scoped_lock lock(close_mutex_);
     assert(membership_req_pending_);
     membership_req_pending_--;
 
@@ -784,6 +787,7 @@ void BgpPeer::CustomClose() {
 // Close this peer by closing all of it's RIBs.
 //
 void BgpPeer::Close() {
+    tbb::mutex::scoped_lock lock(close_mutex_);
     if (membership_req_pending_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
@@ -823,7 +827,12 @@ bool BgpPeer::IsDeleted() const {
 }
 
 bool BgpPeer::IsCloseInProgress() const {
-    return (defer_close_ || peer_close_->close_manager()->IsCloseInProgress());
+    tbb::mutex::scoped_lock lock(close_mutex_);
+
+    // trigger is set only after defer_close is reset (under mutex protection)
+    assert(!(defer_close_ && trigger_.IsSet()));
+    return (defer_close_ || trigger_.IsSet() ||
+            peer_close_->close_manager()->IsCloseInProgress());
 }
 
 StateMachine::State BgpPeer::GetState() const {
@@ -883,6 +892,7 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 // normally before ribout registration to VPN tables is completed.
 //
 void BgpPeer::RegisterAllTables() {
+    tbb::mutex::scoped_lock lock(close_mutex_);
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
 
@@ -1382,6 +1392,7 @@ void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
 }
 
 bool BgpPeer::EndOfRibTimerExpired() {
+    tbb::mutex::scoped_lock lock(close_mutex_);
     RegisterToVpnTables();
     return false;
 }
