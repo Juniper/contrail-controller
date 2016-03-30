@@ -146,6 +146,13 @@ public:
             db_->FindTable("__ifmap__.virtual_machine.0"));
         assert(vm_table != NULL);
 
+        // We are processing a VM-sub/unsub. If the client is gone by the time
+        // we get here, there is nothing to do.
+        IFMapClient *client = ifmap_server_->FindClient(vr_name_);
+        if (!client) {
+            return true;
+        }
+
         // Find the vm's node using its UUID. If the config has not added the
         // vm yet, treat this request as pending since we cant process it right
         // now.
@@ -161,11 +168,8 @@ public:
             std::string vm_name = vm_node->name();
             vr_table->IFMapVmSubscribe(vr_name_, vm_name, subscribe_, has_vms_);
 
-            IFMapClient *client = ifmap_server_->FindClient(vr_name_);
-            if (client) {
-                if (subscribe_) {
-                    ifmap_server_->ClientGraphDownload(client);
-                }
+            if (subscribe_) {
+                ifmap_server_->ClientGraphDownload(client);
             }
         } else {
             ifmap_server_->ProcessVmRegAsPending(vm_uuid_, vr_name_,
