@@ -2933,7 +2933,7 @@ class DBInterface(object):
         si_prop_obj = ServiceInstanceType(
             scale_out=ServiceScaleOutType(max_instances=2,
                                           auto_scale=True),
-            auto_policy=True)
+            auto_policy=False)
 
         # set right interface in order of [right, left] to match template
         left_if = ServiceInstanceInterfaceType()
