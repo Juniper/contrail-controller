@@ -73,8 +73,32 @@ class SnatInstanceManager(unittest.TestCase):
             vr_obj['fq_name'] = ['fake-vr-uuid']
             return True, [vr_obj]
 
+        def vmi_db_read(vmi_id):
+            vmi_obj = {}
+            vmi_obj['uuid'] = 'fake-vmi-uuid'
+            vmi_obj['fq_name'] = ['fake-vmi-uuid']
+            vmi_obj['parent_type'] = 'project'
+            vmi_obj['parent_uuid'] = 'fake-project'
+            return True, [vmi_obj]
+
+        def iip_db_read(iip_id):
+            iip_obj = {}
+            iip_obj['uuid'] = 'fake-vmi-uuid'
+            iip_obj['fq_name'] = ['fake-iip-uuid']
+            return True, [iip_obj]
+
+        def iip_create(iip_obj):
+            iip_obj.uuid = 'fake-iip-uuid'
+            return iip_obj.uuid
+
         VirtualMachineSM._cassandra = mock.MagicMock()
         VirtualMachineSM._cassandra._cassandra_virtual_machine_read = vm_read
+
+        VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
+        VirtualMachineInterfaceSM._cassandra._cassandra_virtual_machine_interface_read = vmi_db_read
+
+        InstanceIpSM._cassandra = mock.MagicMock()
+        InstanceIpSM._cassandra._cassandra_instance_ip_read = iip_db_read
 
         VirtualRouterSM._cassandra = mock.MagicMock()
         VirtualRouterSM._cassandra._cassandra_virtual_router_read = vr_read
@@ -86,6 +110,7 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
         self.mocked_vnc.virtual_network_create = vn_create
+        self.mocked_vnc.instance_ip_create = iip_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
@@ -99,9 +124,18 @@ class SnatInstanceManager(unittest.TestCase):
             nova_client=self.nova_mock, args=self.mocked_args)
 
     def tearDown(self):
-        ServiceTemplateSM.delete('fake-st-uuid')
-        ServiceInstanceSM.delete('fake-si-uuid')
-        pass
+        ServiceTemplateSM.reset()
+        ServiceInstanceSM.reset()
+        InstanceIpSM.reset()
+        del InstanceIpSM._cassandra
+        VirtualMachineInterfaceSM.reset()
+        del VirtualMachineInterfaceSM._cassandra
+        VirtualMachineSM.reset()
+        del VirtualMachineSM._cassandra
+        VirtualRouterSM.reset()
+        del VirtualRouterSM._cassandra
+        VirtualNetworkSM.reset()
+        del VirtualNetworkSM._cassandra
 
     def create_test_project(self, fq_name_str):
         proj_obj = {}
@@ -193,4 +227,7 @@ class SnatInstanceManager(unittest.TestCase):
 
         self.netns_manager._vnc_lib.virtual_machine_delete\
             .assert_called_with(id='fake-vm-uuid')
-        mocked_vr.del_virtual_machine.assert_called_with(VMObjMatcher('fake-vm-uuid', True))
+        self.netns_manager._vnc_lib.ref_update.\
+                assert_called_with('virtual-router', 'fake-vr-uuid',
+                        'virtual-machine', 'fake-vm-uuid', None, 'DELETE')
+        #mocked_vr.del_virtual_machine.assert_called_with(VMObjMatcher('fake-vm-uuid', True))
