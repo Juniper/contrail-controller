@@ -1,0 +1,77 @@
+<!--
+ Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:simpleType name="AlarmOperation">
+    <xsd:restriction base="xsd::string">
+        <xsd:enumeration value="=="/>
+        <xsd:enumeration value="!="/>
+        <xsd:enumeration value="<="/>
+        <xsd:enumeration value=">="/>
+        <xsd:enumeration value="in"/>
+        <xsd:enumeration value="not in"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="AlarmOperand1">
+    <xsd:all>
+        <xsd:element name="key" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmOperand2">
+    <xsd:choice>
+        <xsd:element name="key" type="xsd:string"/>
+        <xsd:element name="json_value" type="xsd:string"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmElement">
+    <xsd:all>
+        <xsd:element name="operation" type="AlarmOperation"/>
+        <xsd:element name="operand1" type="AlarmOperand1"/>
+        <xsd:element name="operand2" type="AlarmOperand2"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmRule">
+    <xsd:all>
+        <xsd:element name="rule" type="AlarmElement"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmAllOf">
+    <xsd:all>
+        <xsd:element name="all-of" type="AlarmRule" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmAnyOf">
+    <xsd:all>
+        <xsd:element name="any-of" type="AlarmAllOf" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="AlarmSeverity">
+    <xsd:annotation>
+        <xsd:documentation>
+            Alarm severity of value "0" denotes highest severity and
+            value of "7" denotes lowest severity
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="7"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="AlarmConfig">
+    <xsd:all>
+        <xsd:element name="enable" type="xsd:boolean" default="true"/>
+    </xsd:all>
+</xsd:complexType>
+
+</xsd:schema>

@@ -2010,4 +2010,48 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('discovery-service-assignment-dsa-rule',
               'discovery-service-assignment', 'dsa-rule', ['has']) -->
 
+<xsd:element name="alarm-config" type="AlarmConfig"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-config', 'global-system-config') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-config', 'project') -->
+
+<xsd:element name="alarm" type="ifmap:IdentityType"/>
+<xsd:element name="alarm-object-types" type="xsd:string" maxOccurs="unbounded"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            List of object types where this alarm config should be applied.
+            For example, rules that are based on NodeStatus UVE can be
+            applied to multiple object types such as analytics-node,
+            config-node, control-node, etc.,
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-object-type', 'alarm') -->
+<xsd:element name="alarm-type" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-type', 'alarm') -->
+<xsd:element name="alarm-severity" type="AlarmSeverity"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-severity', 'alarm') -->
+<xsd:element name="alarm-rules" type="AlarmAnyOf"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            alarm-rules should be specified as OR-of-ANDs of AlarmRule.
+            Example: "alarm_rules":{"any_of":[{"all_of":[{AlarmRule1}, {AlarmRule2}, ...]},
+                                              {"all_of":[{AlarmRule3}, {AlarmRule4}, ...]}]}
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-rules', 'alarm') -->
+
+<xsd:element name="global-system-config-alarm"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-alarm',
+          'global-system-config', 'alarm', ['has']) -->
+
+<xsd:element name="project-alarm"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-alarm', 'project', 'alarm', ['has']) -->
+
 </xsd:schema>
