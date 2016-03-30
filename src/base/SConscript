@@ -62,6 +62,7 @@ libbase = env.Library('base',
                        'task_annotations.cc',
                        'task_sandesh.cc',
                        'task_trigger.cc',
+                       'tdigest.c',
                        timer,
                        taskinfo_sandesh_files_,
                        ]])
