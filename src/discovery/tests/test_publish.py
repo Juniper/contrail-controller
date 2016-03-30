@@ -9,7 +9,10 @@ import test_discovery
 
 import discoveryclient.client as client
 
+subscribe_info = ''
 def info_callback(info):
+    global subscribe_info
+    subscribe_info = info
     # print 'In subscribe callback handler'
     # print '%s' % (info)
     pass
@@ -356,3 +359,34 @@ class DiscoveryServerTestCase(test_discovery.TestCase, fixtures.TestWithFixtures
 
         response = json.loads(msg)
         self.assertEqual(len(response['services']), 0)
+
+    def test_publish_subscribe(self):
+        global subscribe_info
+        service_type = 'foobar'
+        payload = {
+            '%s' % service_type: { "ip-addr" : "1.1.1.1", "port_str"    : "1234", "port_int": 5678 },
+            'service-type' : '%s' % service_type,
+        }
+        puburl = '/publish/test_discovery'
+        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 1)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+
+        service_count = 1
+        tasks = []
+        disc = client.DiscoveryClient(self._disc_server_ip,
+                   self._disc_server_port, "test-publish")
+        obj = disc.subscribe(service_type, service_count, info_callback)
+        tasks.append(obj.task)
+        print 'Started task to subscribe service %s, count %d' \
+            % (service_type, service_count)
+        time.sleep(1)
+        self.assertEqual(subscribe_info[0]['port_str'], "1234")
+        self.assertEqual(subscribe_info[0]['port_int'], 5678)
