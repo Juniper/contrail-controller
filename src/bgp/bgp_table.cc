@@ -329,13 +329,29 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
                      DBRequest *req) {
     const IPeer *peer =
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
+
+    RequestData *data = static_cast<RequestData *>(req->data.get());
     // Skip if this peer is down
-    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) &&
-        peer && !peer->IsReady())
-        return;
+    if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE && peer) {
+        if (!peer->IsReady()) {
+            return;
+        }
+        //
+        // For XMPP peer, verify that agent is subscribed to the VRF
+        // and route add is from the same incarnation of VRF subscription
+        //
+        if (peer->IsXmppPeer()) {
+            PeerRibMembershipManager *mgr =
+                rtinstance_->server()->membership_mgr();
+            IPeerRib *rib = mgr->IPeerRibFind(const_cast<IPeer *>(peer), this);
+            if ((!rib && IsRegistrationRequired()) || 
+                (rib && rib->subscribed_at() != data->subscribed_at())) {
+                return;
+            }
+        }
+    }
 
     BgpRoute *rt = TableFind(root, req->key.get());
-    RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
 
     // First mark all paths from this request source as deleted.

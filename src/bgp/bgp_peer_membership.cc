@@ -91,7 +91,8 @@ IPeerRib::IPeerRib(
       ribin_registered_(false),
       ribout_registered_(false),
       stale_(false),
-      instance_id_(-1) {
+      instance_id_(-1),
+      subscribed_at_(0) {
     if (membership_mgr != NULL) {
         LifetimeActor *deleter = table ? table->deleter() : NULL;
         if (deleter) {

@@ -783,8 +783,9 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
 // Return true if there's a pending request, false otherwise.
 //
 bool BgpXmppChannel::GetMembershipInfo(BgpTable *table,
-    int *instance_id, RequestType *req_type) {
+    int *instance_id, uint64_t *subscribed_at, RequestType *req_type) {
     *instance_id = -1;
+    *subscribed_at = 0;
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table->name());
     if (loc != routingtable_membership_request_map_.end()) {
@@ -794,7 +795,11 @@ bool BgpXmppChannel::GetMembershipInfo(BgpTable *table,
     } else {
         *req_type = NONE;
         PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
-        *instance_id = mgr->GetRegistrationId(peer_.get(), table);
+        IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
+        if (rib) {
+            *instance_id = rib->instance_id();
+            *subscribed_at = rib->subscribed_at();
+        }
         return false;
     }
 }
@@ -826,7 +831,7 @@ bool BgpXmppChannel::GetMembershipInfo(const string &vrf_name,
 //
 bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
     Address::Family family, BgpTable **table,
-    int *instance_id, bool *subscribe_pending) {
+    int *instance_id, uint64_t *subscribed_at, bool *subscribe_pending) {
     *table = NULL;
     *subscribe_pending = false;
 
@@ -835,7 +840,7 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
     if (rt_instance != NULL && !rt_instance->deleted()) {
         *table = rt_instance->GetTable(family);
         RequestType req_type;
-        if (GetMembershipInfo(*table, instance_id, &req_type)) {
+        if (GetMembershipInfo(*table, instance_id, subscribed_at, &req_type)) {
             // Bail if there's a pending unsubscribe.
             if (req_type != SUBSCRIBE) {
                 BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
@@ -920,9 +925,10 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
 
     bool subscribe_pending;
     int instance_id;
+    uint64_t subscribed_at;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::ERMVPN, &table, &instance_id,
-        &subscribe_pending)) {
+        &subscribed_at, &subscribe_pending)) {
         channel_->Close();
         return false;
     }
@@ -1023,7 +1029,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
             attrs.push_back(&ext);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-        req.data.reset(new ErmVpnTable::RequestData(attr, flags, 0));
+        req.data.reset(new ErmVpnTable::RequestData(attr, flags,
+                                                    0, subscribed_at));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1084,9 +1091,10 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
 
     bool subscribe_pending;
     int instance_id;
+    uint64_t subscribed_at;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::INET, &table, &instance_id,
-        &subscribe_pending)) {
+        &subscribed_at, &subscribe_pending)) {
         channel_->Close();
         return false;
     }
@@ -1212,7 +1220,8 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new InetTable::RequestData(attr, nexthops));
+        req.data.reset(new InetTable::RequestData(attr, nexthops,
+                                                  subscribed_at));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1284,9 +1293,10 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
     bool subscribe_pending;
     int instance_id;
+    uint64_t subscribed_at;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::INET6, &table, &instance_id,
-        &subscribe_pending)) {
+        &subscribed_at, &subscribe_pending)) {
         channel_->Close();
         return false;
     }
@@ -1416,7 +1426,8 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new Inet6Table::RequestData(attr, nexthops));
+        req.data.reset(new Inet6Table::RequestData(attr, nexthops,
+                                                   subscribed_at));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1526,9 +1537,10 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     bool subscribe_pending;
     int instance_id;
+    uint64_t subscribed_at;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::EVPN, &table, &instance_id,
-        &subscribe_pending)) {
+        &subscribed_at, &subscribe_pending)) {
         channel_->Close();
         return false;
     }
@@ -1703,7 +1715,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new EvpnTable::RequestData(attr, nexthops));
+        req.data.reset(new EvpnTable::RequestData(attr, nexthops,
+                                                  subscribed_at));
         stats_[0].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1742,11 +1755,18 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
     }
 
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
-    if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
-        BGP_LOG_PEER(Event, Peer(),
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-            "Not subscribed to table " << table->name());
-        return;
+    if (mgr) {
+        IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
+        if (!rib) {
+            BGP_LOG_PEER(Event, Peer(),
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                "Not subscribed to table " << table->name());
+            return;
+        }
+        if (ptr->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+            ((BgpTable::RequestData *)ptr->data.get())
+                ->set_subscribed_at(rib->subscribed_at());
+        }
     }
 
     table->Enqueue(ptr.get());
@@ -1847,8 +1867,10 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
         return true;
     } else if (state.pending_req == SUBSCRIBE) {
         IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
-        if (rib)
+        if (rib) {
             rib->set_instance_id(state.instance_id);
+            rib->set_subscribed_at(UTCTimestampUsec());
+        }
     }
 
     for (DeferQ::iterator it = defer_q_.find(vrf_n_table);

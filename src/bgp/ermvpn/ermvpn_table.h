@@ -34,6 +34,7 @@ public:
     virtual Address::Family family() const { return Address::ERMVPN; }
     bool IsDefault() const;
     virtual bool IsVpnTable() const { return IsDefault(); }
+    virtual bool IsRegistrationRequired() const { return false; }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;

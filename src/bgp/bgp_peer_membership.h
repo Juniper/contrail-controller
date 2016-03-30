@@ -148,6 +148,11 @@ public:
     int instance_id() const { return instance_id_; }
     void set_instance_id(int instance_id) { instance_id_ = instance_id; }
 
+    uint64_t subscribed_at() const { return subscribed_at_; }
+    void set_subscribed_at(uint64_t subscribed_at) {
+        subscribed_at_ = subscribed_at;
+    }
+
 private:
     IPeer *ipeer_;
     BgpTable *table_;
@@ -158,6 +163,7 @@ private:
     bool ribout_registered_;
     bool stale_;
     int instance_id_;       // xmpp peer instance-id
+    uint64_t subscribed_at_;
     DISALLOW_COPY_AND_ASSIGN(IPeerRib);
 };
 

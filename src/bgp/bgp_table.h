@@ -49,23 +49,42 @@ public:
 
         typedef std::vector<NextHop> NextHops;
 
-        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label)
-            : attrs_(attrs) {
+        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
+                    uint64_t subscribed_at)
+            : attrs_(attrs), subscribed_at_(subscribed_at) {
             nexthops_.push_back(NextHop(flags,
                                    attrs ? attrs->nexthop() : Ip4Address(0),
                                    label));
         }
+
+        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label)
+            : attrs_(attrs), subscribed_at_(0) {
+            nexthops_.push_back(NextHop(flags,
+                                   attrs ? attrs->nexthop() : Ip4Address(0),
+                                   label));
+        }
+
+        RequestData(const BgpAttrPtr &attrs, NextHops nexthops,
+                    uint64_t subscribed_at) :
+            attrs_(attrs), nexthops_(nexthops), subscribed_at_(subscribed_at) {
+        }
+
         RequestData(const BgpAttrPtr &attrs, NextHops nexthops) :
-            attrs_(attrs), nexthops_(nexthops) {
+            attrs_(attrs), nexthops_(nexthops), subscribed_at_(0) {
         }
 
         NextHops &nexthops() { return nexthops_; }
         BgpAttrPtr &attrs() { return attrs_; }
         void set_attrs(BgpAttrPtr attrs) { attrs_ = attrs; }
+        void set_subscribed_at(uint64_t subscribed_at) {
+            subscribed_at_ = subscribed_at;
+        }
+        uint64_t subscribed_at() const { return subscribed_at_; }
 
     private:
         BgpAttrPtr attrs_;
         NextHops nexthops_;
+        uint64_t subscribed_at_;
     };
 
     BgpTable(DB *db, const std::string &name);
@@ -83,6 +102,8 @@ public:
 
     virtual Address::Family family() const = 0;
     virtual bool IsVpnTable() const { return false; }
+    // Whether route added is allowed only for peer's subscribed to the table
+    virtual bool IsRegistrationRequired() const { return true; }
     virtual std::auto_ptr<DBEntry> AllocEntryStr(
         const std::string &key) const = 0;
 
