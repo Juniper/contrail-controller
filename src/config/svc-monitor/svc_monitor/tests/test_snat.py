@@ -93,9 +93,12 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_args = mock.MagicMock()
         self.mocked_args.availability_zone = None
 
+        self.mocked_scheduler = mock.MagicMock()
+        self.mocked_scheduler.schedule = mock.Mock(return_value=('fake-virtual-router'))
+
         self.netns_manager = NetworkNamespaceManager(
             db=self.mocked_db, logger=mock.MagicMock(),
-            vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
+            vnc_lib=self.mocked_vnc, vrouter_scheduler=self.mocked_scheduler,
             nova_client=self.nova_mock, args=self.mocked_args)
 
     def tearDown(self):
@@ -133,10 +136,21 @@ class SnatInstanceManager(unittest.TestCase):
         vm.proj_fq_name = ['fake-domain', 'fake-project']
         return vm
 
+    def create_test_virtual_router(self, fq_name_str):
+        vr_obj = {}
+        vr_obj['fq_name'] = fq_name_str.split(':')
+        vr_obj['name'] = fq_name_str.split(':')[0]
+        vr_obj['uuid'] = fq_name_str
+        vr_obj['display_name'] = fq_name_str
+        vr = VirtualRouterSM.locate(vr_obj['uuid'], vr_obj)
+        vr.agent_state = True
+        return vr
+
     def test_snat_instance_create(self):
         self.create_test_project('fake-domain:fake-project')
         self.create_test_virtual_network('fake-domain:fake-project:public-vn')
         self.create_test_security_group('fake-domain:fake-project:default')
+        self.create_test_virtual_router('fake-virtual-router')
 
         st_obj = {}
         st_obj['fq_name'] = ['fake-domain', 'fake-snat-template']
