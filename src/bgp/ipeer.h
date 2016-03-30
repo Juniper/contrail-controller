@@ -143,6 +143,14 @@ public:
     virtual const IPeerDebugStats *peer_stats() const = 0;
     virtual bool IsReady() const = 0;
     virtual bool IsXmppPeer() const = 0;
+    //
+    // Whether the peer must register to a table
+    // before it could push the route to VRF.
+    // Control is mostly required in MockPeer in unit tests.
+    //
+    virtual bool IsRegistrationRequired() const {
+        return true;
+    }
     virtual void Close() = 0;
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;

@@ -113,8 +113,8 @@ static void ShowXmppNeighborStatisticsVisitor(
         if (!table)
             return;
 
-        if (bgp_server->membership_mgr()->GetRegistrationId(
-            channel->Peer(), table) < 0) {
+        const PeerRibMembershipManager *mgr = bgp_server->membership_mgr();
+        if (!mgr->GetRegistrationInfo(channel->Peer(), table)) {
             return;
         }
     }

@@ -52,23 +52,32 @@ public:
 
         typedef std::vector<NextHop> NextHops;
 
-        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label)
-            : attrs_(attrs) {
+        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
+                    uint64_t subscription_gen_id = 0)
+            : attrs_(attrs), subscription_gen_id_(subscription_gen_id) {
             nexthops_.push_back(NextHop(flags,
                                    attrs ? attrs->nexthop() : Ip4Address(0),
                                    label));
         }
-        RequestData(const BgpAttrPtr &attrs, NextHops nexthops) :
-            attrs_(attrs), nexthops_(nexthops) {
+
+        RequestData(const BgpAttrPtr &attrs, NextHops nexthops,
+                    uint64_t subscription_gen_id = 0) :
+            attrs_(attrs), nexthops_(nexthops),
+            subscription_gen_id_(subscription_gen_id) {
         }
 
         NextHops &nexthops() { return nexthops_; }
         BgpAttrPtr &attrs() { return attrs_; }
         void set_attrs(BgpAttrPtr attrs) { attrs_ = attrs; }
+        void set_subscription_gen_id(uint64_t subscription_gen_id) {
+            subscription_gen_id_ = subscription_gen_id;
+        }
+        uint64_t subscription_gen_id() const { return subscription_gen_id_; }
 
     private:
         BgpAttrPtr attrs_;
         NextHops nexthops_;
+        uint64_t subscription_gen_id_;
     };
 
     BgpTable(DB *db, const std::string &name);

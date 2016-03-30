@@ -82,7 +82,8 @@ IPeerRib::IPeerRib(
       table_delete_ref_(this, NULL),
       ribin_registered_(false),
       ribout_registered_(false),
-      instance_id_(-1) {
+      instance_id_(-1),
+      subscription_gen_id_(0) {
     if (membership_mgr != NULL) {
         LifetimeActor *deleter = table ? table->deleter() : NULL;
         if (deleter) {
@@ -845,14 +846,19 @@ IPeerRib *PeerRibMembershipManager::IPeerRibLocate(IPeer *ipeer,
 }
 
 //
-// Return the instance-id of the IPeer for the BgpTable.
+// Return the subscription info of the IPeer for the BgpTable.
 //
-int PeerRibMembershipManager::GetRegistrationId(const IPeer *ipeer,
-                                                const BgpTable *table) const {
+bool PeerRibMembershipManager::GetRegistrationInfo(const IPeer *ipeer,
+      const BgpTable *table, int *instance_id,
+      uint64_t *subscription_gen_id) const {
     assert(ipeer->IsXmppPeer());
     const IPeerRib *peer_rib = IPeerRibFind(
         const_cast<IPeer *>(ipeer), const_cast<BgpTable *>(table));
-    return (peer_rib ? peer_rib->instance_id() : -1);
+    if (!peer_rib) return false;
+    if (instance_id) *instance_id = peer_rib->instance_id();
+    if (subscription_gen_id)
+        *subscription_gen_id = peer_rib->subscription_gen_id();
+    return true;
 }
 
 void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
