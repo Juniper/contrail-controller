@@ -99,6 +99,9 @@ public:
     virtual bool IsXmppPeer() const {
         return is_xmpp_;
     }
+    virtual bool IsRegistrationRequired() const {
+        return false;
+    }
     virtual void Close() {
     }
     BgpProto::BgpPeerType PeerType() const {
