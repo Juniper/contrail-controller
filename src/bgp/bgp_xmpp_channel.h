@@ -188,11 +188,12 @@ private:
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
 
     virtual bool GetMembershipInfo(BgpTable *table,
-        int *instance_id, RequestType *req_type);
+        int *instance_id, uint64_t *subscribed_at, RequestType *req_type);
     virtual bool GetMembershipInfo(const std::string &vrf_name,
         int *instance_id);
     bool VerifyMembership(const std::string &vrf_name, Address::Family family,
-        BgpTable **table, int *instance_id, bool *subscribe_pending);
+        BgpTable **table, int *instance_id, uint64_t *subscribed_at,
+        bool *subscribe_pending);
 
     bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
                      bool add_change);
@@ -314,6 +315,9 @@ public:
 
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
+    uint64_t get_subscription_gen_id() {
+        return subscription_gen_id_.fetch_and_increment();
+    }
 
 protected:
     virtual BgpXmppChannel *CreateChannel(XmppChannel *channel);
@@ -332,6 +336,8 @@ private:
     int asn_listener_id_;
     int identifier_listener_id_;
     uint32_t deleting_count_;
+    // Generation number for subscription tracking
+    tbb::atomic<uint64_t> subscription_gen_id_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };

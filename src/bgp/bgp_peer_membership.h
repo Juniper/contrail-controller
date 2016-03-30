@@ -146,6 +146,11 @@ public:
     int instance_id() const { return instance_id_; }
     void set_instance_id(int instance_id) { instance_id_ = instance_id; }
 
+    uint64_t subscription_gen_id() const { return subscription_gen_id_; }
+    void set_subscription_gen_id(uint64_t subscription_gen_id) {
+        subscription_gen_id_ = subscription_gen_id;
+    }
+
 private:
     IPeer *ipeer_;
     BgpTable *table_;
@@ -155,6 +160,7 @@ private:
     bool ribin_registered_;
     bool ribout_registered_;
     int instance_id_;       // xmpp peer instance-id
+    uint64_t subscription_gen_id_;
     DISALLOW_COPY_AND_ASSIGN(IPeerRib);
 };
 
@@ -223,7 +229,9 @@ public:
         }
         return false;
     }
-    int GetRegistrationId(const IPeer *ipeer, const BgpTable *table) const;
+
+    bool GetRegistrationInfo(const IPeer *ipeer, const BgpTable *table,
+           int *instance_id = NULL, uint64_t *subscription_gen_id = NULL) const;
 
     void Enqueue(IPeerRibEvent *event) { event_queue_->Enqueue(event); }
 

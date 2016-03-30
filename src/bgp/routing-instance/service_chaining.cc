@@ -499,13 +499,15 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
         // that are on the same compute node.
         const IPeer *peer = connected_path->GetPeer();
         if (src_ != connected_ && peer && peer->IsXmppPeer()) {
-            int id = membership_mgr->GetRegistrationId(peer, bgptable);
-            if (id < 0)
+            int instance_id = -1;
+            bool is_registered = membership_mgr->GetRegistrationInfo(peer,
+                                                       bgptable, &instance_id);
+            if (!is_registered)
                 continue;
             RouteDistinguisher connected_rd = attr->source_rd();
             if (connected_rd.Type() != RouteDistinguisher::TypeIpAddressBased)
                 continue;
-            RouteDistinguisher rd(connected_rd.GetAddress(), id);
+            RouteDistinguisher rd(connected_rd.GetAddress(), instance_id);
             new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(), rd);
         }
 

@@ -8,6 +8,7 @@
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
@@ -366,13 +367,34 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
                      DBRequest *req) {
     const IPeer *peer =
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
+
+    RequestData *data = static_cast<RequestData *>(req->data.get());
     // Skip if this peer is down
-    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) &&
-        peer && !peer->IsReady())
-        return;
+    if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE && peer) {
+        if (!peer->IsReady()) {
+            return;
+        }
+        //
+        // For XMPP peer, verify that agent is subscribed to the VRF
+        // and route add is from the same incarnation of VRF subscription
+        //
+        if (peer->IsXmppPeer() && peer->IsRegistrationRequired()) {
+            PeerRibMembershipManager *mgr =
+                rtinstance_->server()->membership_mgr();
+            int instance_id = -1;
+            uint64_t subscription_gen_id = 0;
+            bool is_registered =
+                mgr->GetRegistrationInfo(const_cast<IPeer *>(peer), this,
+                                         &instance_id, &subscription_gen_id);
+            if ((!is_registered && (family() != Address::RTARGET)) ||
+                (is_registered &&
+                 (subscription_gen_id != data->subscription_gen_id()))) {
+                return;
+            }
+        }
+    }
 
     BgpRoute *rt = TableFind(root, req->key.get());
-    RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
 
     // First mark all paths from this request source as deleted.
