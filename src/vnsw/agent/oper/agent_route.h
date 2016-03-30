@@ -181,6 +181,7 @@ public:
     //Stale path handling
     void StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
                            const Peer *peer);
+    void SquashStalePaths(AgentRoute *rt, const AgentPath *path);
 
 private:
     class DeleteActor;
@@ -253,6 +254,7 @@ public:
     uint32_t vrf_id() const;
 
     AgentPath *FindLocalVmPortPath() const;
+    AgentPath *FindStalePath();
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     const std::string &dest_vn_name() const;
@@ -262,7 +264,6 @@ public:
     void ResyncTunnelNextHop();
     bool HasUnresolvedPath();
     bool Sync(void);
-    void SquashStalePaths(const AgentPath *path);
 
     //TODO Move dependantroutes and nh  to inet4
     void UpdateDependantRoutes();// analogous to updategatewayroutes
