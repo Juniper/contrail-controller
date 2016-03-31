@@ -29,6 +29,17 @@ VLAN_INTERFACE_DETAIL = ['vlan protocol 802.1q',
                          'vlan id']
 
 
+def remove_interface_suffix(interface):
+    """Remove a possible "<if>@<endpoint>" suffix from an interface' name.
+
+    This suffix can appear in some kernel versions, and intends on specifying,
+    for example, a veth's pair. However, this interface name is useless to us
+    as further 'ip' commands require that the suffix be removed.
+    """
+    # If '@' is not present, this will do nothing.
+    return interface.partition("@")[0]
+
+
 class SubProcessBase(object):
     def __init__(self, root_helper=None, namespace=None, force_root=False):
         self.root_helper = root_helper
@@ -95,6 +106,8 @@ class IPWrapper(SubProcessBase):
 
                 if exclude_loopback and name == LOOPBACK_DEVNAME:
                     continue
+
+                name = remove_interface_suffix(name)
 
                 retval.append(IPDevice(name,
                                        self.root_helper,
