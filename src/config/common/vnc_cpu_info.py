@@ -41,7 +41,7 @@ class CpuInfo(object):
         self._new_ip = None
 
         # spawn a Greenlet object to do periodic collect and send.
-        gevent.spawn(self.cpu_stats)
+        vnc_greenlets.launch_greenlet("VNC CPU Info", self.cpu_stats)
     # end __init__
 
     def get_config_node_ip(self):
