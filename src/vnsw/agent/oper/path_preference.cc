@@ -865,8 +865,14 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
     }
 
     PathPreferenceEventContainer event;
-    event.ip_ = rt->addr();
-    event.plen_ = rt->plen();
+    if (rt) {
+        event.ip_ = rt->addr();
+        event.plen_ = rt->plen();
+    } else {
+        // (0 IP + Mac) event required for EVPN
+        event.ip_ = IpAddress();
+        event.plen_ = 32;
+    }
     event.interface_index_ = interface_index;
     event.vrf_index_ = vrf_index;
     event.mac_ = mac;
