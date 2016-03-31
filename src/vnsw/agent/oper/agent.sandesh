@@ -1611,12 +1611,12 @@ traceobject sandesh OperNextHop {
 }
 
 /**
- * @description: System log for agent route
+ * @description: Log for agent route
  * @type: systemlog
  * @severity: DEBUG
  * @cause: Normal operation
  */
-systemlog sandesh AgentRouteLog {
+trace sandesh AgentRouteLog {
     1: string message;
     2: string ip;
     3: "in VRF";
