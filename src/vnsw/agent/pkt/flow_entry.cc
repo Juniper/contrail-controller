@@ -1621,7 +1621,7 @@ void FlowEntry::SetComponentIndex(const NextHopKey *nh_key,
     const IpAddress dip = rflow->key().src_addr;
     InetUnicastRouteEntry *rt =
         static_cast<InetUnicastRouteEntry *>(FlowEntry::GetUcRoute(vrf, dip));
-    if (!rt || rt->GetActiveNextHop()->GetType() != NextHop::COMPOSITE) {
+    if (!rt ) {
         rflow->set_ecmp_rpf_nh(0);
         return;
     }
