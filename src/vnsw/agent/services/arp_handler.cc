@@ -75,7 +75,7 @@ bool ArpHandler::HandlePacket() {
             return true;
         }
 
-        if (tpa == spa) {
+        if (tpa == spa || spa == 0) {
             arp_cmd = GRATUITOUS_ARP;
         }
     } else {
@@ -200,11 +200,8 @@ bool ArpHandler::HandlePacket() {
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key, key.vrf, ArpEntry::INITING, itf);
-                entry->HandleArpReply(MacAddress(arp_->arp_sha));
-                arp_proto->AddArpEntry(entry);
-                arp_ = NULL;
-                return false;
+                // ignore gratuitous ARP when entry is not present in cache
+                return true;
             }
         }
 
