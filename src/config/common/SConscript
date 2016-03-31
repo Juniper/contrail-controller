@@ -39,6 +39,7 @@ local_sources = [
                   'dependency_tracker.py',
                   'vnc_api_stats.py',
                   'ssl_adapter.py',
+                  'vnc_greenlets.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
@@ -72,6 +73,7 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
        env.SandeshGenPy('#controller/src/config/uve/physical_router.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
 ]
 
 # Generate the sandesh cpuinfo from base

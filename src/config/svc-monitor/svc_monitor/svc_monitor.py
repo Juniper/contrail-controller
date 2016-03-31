@@ -29,6 +29,7 @@ from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
 from cfgm_common.utils import cgitb_hook
+from cfgm_common import vnc_greenlets
 
 from config_db import *
 
@@ -830,7 +831,8 @@ def run_svc_monitor(args=None):
             time.sleep(3)
 
     monitor.post_init(vnc_api, args)
-    timer_task = gevent.spawn(launch_timer, monitor)
+    timer_task = vnc_greenlets.launch_greenlet("VNC SVC Monitor",\
+                                               monitor)
     gevent.joinall([timer_task])
 
 
