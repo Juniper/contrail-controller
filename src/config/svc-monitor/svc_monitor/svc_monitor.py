@@ -831,6 +831,7 @@ def run_svc_monitor(args=None):
 
     monitor.post_init(vnc_api, args)
     timer_task = gevent.spawn(launch_timer, monitor)
+
     gevent.joinall([timer_task])
 
 
