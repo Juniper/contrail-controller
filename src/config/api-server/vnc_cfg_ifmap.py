@@ -161,11 +161,8 @@ class VncIfmapClient(object):
             # construct object of xsd-type and get its xml repr
             # e.g. virtual_network_properties
             prop_field_types = obj_class.prop_field_types[prop_field]
-            if isinstance(prop_field_types, dict):
-                is_simple = not prop_field_types['is_complex']
-                prop_type = prop_field_types['xsd_type']
-            else:
-                is_simple, prop_type = prop_field_types
+            is_simple = not prop_field_types['is_complex']
+            prop_type = prop_field_types['xsd_type']
             # e.g. virtual-network-properties
             prop_meta = obj_class.prop_field_metas[prop_field]
             if is_simple:

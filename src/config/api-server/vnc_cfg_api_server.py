@@ -246,13 +246,9 @@ class VncApiServer(object):
     def _validate_props_in_request(self, resource_class, obj_dict):
         for prop_name in resource_class.prop_fields:
             prop_field_types = resource_class.prop_field_types[prop_name]
-            if isinstance(prop_field_types, dict):
-                is_simple = not prop_field_types['is_complex']
-                prop_type = prop_field_types['xsd_type']
-                restrictions = prop_field_types['restrictions']
-            else:
-                is_simple, prop_type = prop_field_types
-                restrictions = None
+            is_simple = not prop_field_types['is_complex']
+            prop_type = prop_field_types['xsd_type']
+            restrictions = prop_field_types['restrictions']
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
