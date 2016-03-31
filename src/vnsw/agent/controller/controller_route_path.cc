@@ -46,6 +46,27 @@ bool CheckPeerValidity(const AgentXmppChannel *channel,
     return false;
 }
 
+// Error string for invalid-peer
+std::string GetInvalidPeerMsg(const std::string &type,
+                              const AgentXmppChannel *channel,
+                              uint64_t sequence_number) {
+    if (sequence_number == ControllerPeerPath::kInvalidPeerIdentifier) {
+        return type + " : Invalid sequence number";
+    }
+
+    assert(channel);
+    if (channel->bgp_peer_id() == NULL) {
+        return type + " : bgp-peer-id NULL";
+    }
+
+    if (sequence_number != channel->unicast_sequence_number()) {
+        return type + " : sequence number mis-match";
+    }
+
+    return type + " : Unexpected error";
+}
+
+
 ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
     AgentRouteData(false), peer_(peer) {
     if ((peer != NULL) && (peer->GetType() == Peer::BGP_PEER) ) {
@@ -56,6 +77,11 @@ ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
         channel_ = NULL;
         sequence_number_ = kInvalidPeerIdentifier;
     }
+}
+
+string ControllerEcmpRoute::PeerInvalidMsg(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ControllerEcmpRoute", channel(),
+                             sequence_number());
 }
 
 bool ControllerEcmpRoute::IsPeerValid(const AgentRouteKey *key) const {
@@ -104,6 +130,10 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
                               nh_req, ecmp_suppressed,
                               ecmp_load_balance);
     return data;
+}
+
+string ControllerVmRoute::PeerInvalidMsg(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ControllerVmRoute", channel(), sequence_number());
 }
 
 bool ControllerVmRoute::IsPeerValid(const AgentRouteKey *key) const {
@@ -267,6 +297,11 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                  path_preference, Ip4Address(0), ecmp_load_balance),
     sequence_number_(sequence_number), channel_(channel) { }
 
+string ControllerLocalVmRoute::PeerInvalidMsg(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ControllerLocalVmRoute", channel_,
+                             sequence_number_);
+}
+
 bool ControllerLocalVmRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
@@ -282,6 +317,11 @@ ControllerVlanNhRoute::ControllerVlanNhRoute(const VmInterfaceKey &intf,
     VlanNhRoute(intf, tag, label, dest_vn_list, sg_list, path_preference),
     sequence_number_(sequence_number), channel_(channel) { }
 
+string ControllerVlanNhRoute::PeerInvalidMsg(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ControllerVlanNhRoute", channel_,
+                             sequence_number_);
+}
+
 bool ControllerVlanNhRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
@@ -294,6 +334,12 @@ ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKe
                                                            const AgentXmppChannel *channel) :
     InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_list),
     sequence_number_(sequence_number), channel_(channel) { }
+
+string ControllerInetInterfaceRoute::PeerInvalidMsg
+(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ConrollerInetInterfaceRoute", channel_,
+                          sequence_number_);
+}
 
 bool ControllerInetInterfaceRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
@@ -367,6 +413,10 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
+string ClonedLocalPath::PeerInvalidMsg(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ClonedLocalPath", channel_, sequence_number_);
+}
+
 bool ClonedLocalPath::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
@@ -381,6 +431,12 @@ ControllerMulticastRoute::ControllerMulticastRoute(const string &vn_name,
                                                    const AgentXmppChannel *channel) :
     MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type),
     sequence_number_(sequence_number), channel_(channel) { }
+
+string ControllerMulticastRoute::PeerInvalidMsg
+(const AgentRouteKey *key) const {
+    return GetInvalidPeerMsg("ControllerMulticastRoute", channel_,
+                          sequence_number_);
+}
 
 bool ControllerMulticastRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
