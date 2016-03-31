@@ -1079,6 +1079,15 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     usleep(1000);
 }
 
+void VnVxlanAddReq(int id, const char *name, uint32_t vxlan_id) {
+    std::vector<VnIpam> ipam;
+    VnData::VnIpamDataMap vn_ipam_data;
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
+                                              name, ipam, vn_ipam_data, id,
+                                              vxlan_id, true, true, false);
+    usleep(1000);
+}
+
 void VnDelReq(int id) {
     Agent::GetInstance()->vn_table()->DelVn(MakeUuid(id));
     usleep(1000);

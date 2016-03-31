@@ -92,7 +92,7 @@ public:
     const std::string &device_name() const;
     int64_t vxlan_id() const;
     std::string tor_service_node() const;
-    const OvsdbResourceVxLanId &res_vxlan_id() const;
+    OvsdbResourceVxLanId &res_vxlan_id();
     bool IsDeleteOvsInProgress() const;
 
     bool Sync(DBEntry*);
@@ -128,7 +128,7 @@ public:
     // active again and remains in deferred state
     // Once logical switch is available again in OVSDB-server
     // we program back all the deferred entries
-    void DeleteOvs();
+    void DeleteOvs(bool add_change_in_progress);
 
 private:
     class ProcessDeleteOvsReqTask : public Task {
