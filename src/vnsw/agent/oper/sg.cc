@@ -53,18 +53,16 @@ std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
 
 DBEntry *SgTable::OperDBAdd(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
-    SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
-    sg->sg_id_ = data->sg_id_;
     ChangeHandler(sg, req);
-    sg->SendObjectLog(AgentLogEvent::ADD);
+    sg->SendObjectLog(GetOperDBTraceBuf(), AgentLogEvent::ADD);
     return sg;
 }
 
 bool SgTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
     SgEntry *sg = static_cast<SgEntry *>(entry);
-    sg->SendObjectLog(AgentLogEvent::CHANGE);
+    sg->SendObjectLog(GetOperDBTraceBuf(), AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -73,6 +71,11 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     SgData *data = static_cast<SgData *>(req->data.get());
     
+    if (sg->sg_id_ != data->sg_id_) {
+        sg->sg_id_ = data->sg_id_;
+        ret = true;
+    }
+
     AclKey key(data->egress_acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>(agent()->acl_table()->FindActiveEntry(&key));
     if (sg->egress_acl_ != acl) {
@@ -90,7 +93,7 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
 bool SgTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
-    sg->SendObjectLog(AgentLogEvent::DELETE);
+    sg->SendObjectLog(GetOperDBTraceBuf(), AgentLogEvent::DELETE);
     return true;
 }
 
@@ -203,7 +206,8 @@ bool SgEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     return false;
 }
 
-void SgEntry::SendObjectLog(AgentLogEvent::type event) const {
+void SgEntry::SendObjectLog(SandeshTraceBufferPtr buf, 
+                            AgentLogEvent::type event) const {
     SgObjectLogInfo info;
 
     string str;
@@ -234,6 +238,7 @@ void SgEntry::SendObjectLog(AgentLogEvent::type event) const {
     }
     info.set_ref_count(GetRefCount());
     SG_OBJECT_LOG_LOG("AgentSg", SandeshLevel::SYS_INFO, info);
+    SG_OBJECT_TRACE_TRACE(buf, info);
 }
 
 void SgListReq::HandleRequest() const {

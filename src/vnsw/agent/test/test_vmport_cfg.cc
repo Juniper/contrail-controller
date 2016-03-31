@@ -1509,15 +1509,13 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     EXPECT_TRUE(sg_entry != NULL);
     EXPECT_TRUE(sg_entry->GetSgId() == 2);
 
-    // Try modifying with another sg id for same uuid and it should not happen
-    // in oper. Old sgid i.e. 2 shud be retained.
     AddSg("sg1", 1, 3);
     client->WaitForIdle();
     sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
                                             FindActiveEntry(key));
 
     EXPECT_TRUE(sg_entry != NULL);
-    EXPECT_TRUE(sg_entry->GetSgId() == 2);
+    EXPECT_TRUE(sg_entry->GetSgId() == 3);
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");

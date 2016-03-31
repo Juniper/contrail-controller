@@ -59,7 +59,8 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void SendObjectLog(AgentLogEvent::type event) const;
+    void SendObjectLog(SandeshTraceBufferPtr ptr,
+                       AgentLogEvent::type event) const;
 private:
     friend class SgTable;
     uuid sg_uuid_;
