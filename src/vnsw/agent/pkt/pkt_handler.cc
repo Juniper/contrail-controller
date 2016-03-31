@@ -320,14 +320,22 @@ bool PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
         return pkt_info->l3_label;
     }
 
-    if (pkt_info->dmac == agent_->vrrp_mac()) {
-        return true;
+    VrfTable *table = static_cast<VrfTable *>(agent_->vrf_table());
+    VrfEntry *vrf = table->FindVrfFromId(pkt_info->agent_hdr.vrf);
+    if (vrf == NULL) {
+        return false;
     }
 
-    if (pkt_info->dmac == agent_->vhost_interface()->mac()) {
-        return true;
+    BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
+    AgentRoute *rt = static_cast<AgentRoute *>
+        (l2_table->FindRoute(pkt_info->dmac));
+    if (rt) {
+        const NextHop *nh = rt->GetActiveNextHop();
+        if (nh && nh->GetType() == NextHop::L2_RECEIVE) {
+            return true;
+        }
     }
-
     return false;
 }
 
