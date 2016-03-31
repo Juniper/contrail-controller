@@ -134,6 +134,63 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 }
 
+// Config is received, then client gets deleted, then vm-subscribe is received.
+TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigDeleteClientSubscribe) {
+    string filename = GetParam();
+    string content = FileRead(filename);
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+
+    // Dont create the client but trigger receiving VM subscribes from that
+    // client to simulate the condition where the client is deleted before the
+    // subscribe is processed.
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
+    task_util::WaitForIdle();
+
+    // Check the VM's. XMPP as origin must not exist.
+    IFMapNode *vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "2d308482-c7b3-4e05-af14-e732b7b50117");
+    EXPECT_TRUE(vm != NULL);
+    IFMapObject *obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::XMPP));
+    ASSERT_TRUE(obj == NULL);
+
+    vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "93e76278-1990-4905-a472-8e9188f41b2c");
+    EXPECT_TRUE(vm != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::XMPP));
+    ASSERT_TRUE(obj == NULL);
+
+    vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
+    EXPECT_TRUE(vm != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::XMPP));
+    ASSERT_TRUE(obj == NULL);
+}
+
 TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -167,6 +224,59 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
+
+    string filename = GetParam();
+    string content = FileRead(filename);
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+}
+
+// Vm-subscribe is received, then client gets deleted, then config is received.
+TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+
+    // Dont create the client but trigger receiving VM subscribes from that
+    // client to simulate the condition where the client is deleted before the
+    // subscribe is processed.
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
+    task_util::WaitForIdle();
+
+    // Since the client does not exist, none of the VMs should make it to the
+    // pending list.
+    string vr_name;
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->PendingVmRegExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117", &vr_name));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->PendingVmRegExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c", &vr_name));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->PendingVmRegExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", &vr_name));
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 0);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
     string filename = GetParam();
     string content = FileRead(filename);
