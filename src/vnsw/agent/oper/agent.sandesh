@@ -484,6 +484,16 @@ objectlog sandesh SgObjectLog {
 }
 
 /**
+ * @description: Trace log for security group object in vrouter-agent oper DB
+ * @type: Trace
+ * @severity: DEBUG
+ * @object: SgEntry
+ */
+traceobject sandesh SgObjectTrace {
+    1: SgObjectLogInfo sg;
+}
+
+/**
  * Request message for security group request
  */
 request sandesh SgListReq {
