@@ -375,7 +375,10 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors1) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
@@ -421,7 +424,10 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
@@ -488,7 +494,10 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
 }
 
 //
@@ -710,7 +719,10 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors7) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors8) {
@@ -754,7 +766,10 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors8) {
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
 }
 
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
