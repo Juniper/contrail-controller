@@ -259,17 +259,8 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 }
 
 void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
-     // Enqueue Flow packets directly to the flow module and avoid additional
-    // work queue hop.
-    if (IsFlowPacket(hdr)) {
-        boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff, hdr));
-        agent_->pkt()->get_flow_proto()->EnqueueFlowEvent(new FlowEvent(
-                                    FlowEvent::VROUTER_FLOW_MSG, pkt_info));
-        return;
-    }
-
-    // Other packets are enqueued to a workqueue to decouple from ASIO and
-    // run in exclusion with DB.
+    // Enqueue packets to a workqueue to decouple from ASIO and run in
+    // exclusion with DB
     boost::shared_ptr<PacketBufferEnqueueItem>
         info(new PacketBufferEnqueueItem(hdr, buff));
     work_queue_.Enqueue(info);
