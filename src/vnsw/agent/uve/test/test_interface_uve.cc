@@ -718,8 +718,8 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -776,8 +776,8 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -849,8 +849,8 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -939,8 +939,8 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry
@@ -1029,8 +1029,8 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Update FIP stats which resuts in creation of stats FIP entry

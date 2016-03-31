@@ -17,50 +17,44 @@ public:
         INVALID,
         ADD_FLOW,
         DELETE_FLOW,
-        UPDATE_FLOW_INDEX,
         UPDATE_FLOW_STATS
     };
 
-    FlowExportReq(Event event, const boost::uuids::uuid &u,
-                  FlowExportInfo info) :
-        event_(event), uuid_(u), info_(info), time_(0), index_(0) {
+    FlowExportReq(Event event, FlowExportInfo info) :
+        event_(event), info_(info), flow_(), time_(0) {
     }
 
-    FlowExportReq(Event event, const boost::uuids::uuid &u, uint64_t time) :
-        event_(event), uuid_(u), time_(time), index_(0) {
+    FlowExportReq(Event event, FlowEntryPtr fe, uint64_t time,
+                  const RevFlowDepParams &p) :
+        event_(event), info_(), flow_(fe.get()), time_(time), params_(p) {
     }
 
-    FlowExportReq(Event event, const boost::uuids::uuid &u, uint64_t t,
-                  uint32_t idx) :
-        event_(event), uuid_(u), time_(t), index_(idx) {
-    }
-
-    FlowExportReq(Event event, const boost::uuids::uuid &u, uint32_t bytes,
+    FlowExportReq(Event event, const FlowEntryPtr &fe, uint32_t bytes,
                   uint32_t packets, uint32_t oflow_bytes) :
-                  event_(event), uuid_(u), bytes_(bytes), packets_(packets),
+                  event_(event), flow_(fe), bytes_(bytes), packets_(packets),
                   oflow_bytes_(oflow_bytes) {
     }
 
     ~FlowExportReq() { }
 
     Event event() const { return event_; }
-    const boost::uuids::uuid &uuid() const { return uuid_; }
     FlowExportInfo info() const { return info_; }
+    FlowEntryPtr flow() const { return flow_; }
     uint64_t time() const { return time_; }
-    uint32_t index() const  { return index_; }
     uint32_t bytes() const { return bytes_;}
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
+    const RevFlowDepParams& params() const { return params_; }
 
 private:
     Event event_;
-    const boost::uuids::uuid uuid_;
     FlowExportInfo info_;
+    FlowEntryPtr flow_;
     uint64_t time_;
-    uint32_t index_;
     uint32_t bytes_;
     uint32_t packets_;
     uint32_t oflow_bytes_;
+    RevFlowDepParams params_;
     DISALLOW_COPY_AND_ASSIGN(FlowExportReq);
 };
 #endif //  __AGENT_FLOW_EXPORT_REQUEST_H__

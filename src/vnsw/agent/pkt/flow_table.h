@@ -55,6 +55,20 @@ class FlowTableKSyncEntry;
 class FlowTableKSyncObject;
 class FlowEvent;
 
+#define FLOW_LOCK(flow, rflow) \
+    tbb::mutex tmp_mutex1, tmp_mutex2, *mutex_ptr_1, *mutex_ptr_2; \
+    FlowTable *_table = NULL;                 \
+    FlowEntry *_rflow = (FlowEntry *)(rflow); \
+    if (flow)                                 \
+        _table = flow->flow_table();          \
+    else if (_rflow)                          \
+        _table = _rflow->flow_table();        \
+    _table->GetMutexSeq(flow ? flow->mutex() : tmp_mutex1,     \
+                        _rflow ? _rflow->mutex() : tmp_mutex2, \
+                        &mutex_ptr_1, &mutex_ptr_2);           \
+    tbb::mutex::scoped_lock lock1(*mutex_ptr_1);               \
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
+
 /////////////////////////////////////////////////////////////////////////////
 // Class to manage free-list of flow-entries
 // Flow allocation can happen from multiple threads. In scaled scenarios
@@ -225,8 +239,6 @@ public:
     void UpdateKSync(FlowEntry *flow, bool update);
     void DeleteKSync(FlowEntry *flow);
 
-    // FlowStatsCollector request queue events
-    void NotifyFlowStatsCollector(FlowEntry *fe);
     void KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle);
 
     // Free list
@@ -237,6 +249,8 @@ public:
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only
     bool ConcurrencyCheck();
+    void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
+                     tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
@@ -247,9 +261,9 @@ public:
 private:
     bool IsEvictedFlow(const FlowKey &key);
 
-    void DeleteInternal(FlowEntry *fe, uint64_t t);
+    void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);
     void ResyncAFlow(FlowEntry *fe);
-    void DeleteFlowInfo(FlowEntry *fe);
+    void DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params);
 
     void AddFlowInfo(FlowEntry *fe);
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
@@ -260,8 +274,6 @@ private:
                      bool rev_flow_update);
     void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
              FlowEntry *new_rflow, bool fwd_flow_update, bool rev_flow_update);
-    void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
-                     tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
     void EvictFlow(FlowEntry *flow, FlowEntry *rflow);
     bool DeleteFlows(FlowEntry *flow, FlowEntry *rflow);
     bool DeleteUnLocked(const FlowKey &key, bool del_reverse_flow);
