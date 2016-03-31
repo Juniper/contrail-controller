@@ -724,6 +724,330 @@ TEST_F(BgpConfigTest, InstanceTargetImport2) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+//
+// Snat optimization is enabled.
+// Non-default instances should ignore connection to other instances if the
+// vn has property router-external.
+// Service instance's is-default property is not explicitly set.
+//
+TEST_F(BgpConfigTest, ExternalNetworkNonDefaultInstanceTarget1) {
+    string content =
+        FileRead("controller/src/bgp/testdata/config_test_20a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    autogen::VirtualNetwork::OolProperty *prop_router_external =
+        new autogen::VirtualNetwork::OolProperty;
+    prop_router_external->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "virtual-network", "blue",
+        "router-external", prop_router_external);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue",
+        "routing-instance-is-default", prop_is_default);
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+    RoutingInstance *blue = mgr->GetRoutingInstance("blue:blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    RoutingInstance *blue_si1 = mgr->GetRoutingInstance("blue:blue-si1");
+    TASK_UTIL_ASSERT_TRUE(blue_si1 != NULL);
+    RoutingInstance *blue_si2 = mgr->GetRoutingInstance("blue:blue-si2");
+    TASK_UTIL_ASSERT_TRUE(blue_si2 != NULL);
+
+    RouteTarget rtarget;
+    RoutingInstance::RouteTargetList ilist;
+
+    ilist = blue->GetImportList();
+    TASK_UTIL_EXPECT_EQ(3, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:200");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si1->GetImportList();
+    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si2->GetImportList();
+    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance-is-default");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "virtual-network", "blue", "router-external");
+    task_util::WaitForIdle();
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, mgr->count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// Snat optimization is enabled.
+// Non-default instances should ignore connection to other instances if the
+// vn has property router-external.
+// Service instance's is-default property is explicitly set to false.
+//
+TEST_F(BgpConfigTest, ExternalNetworkNonDefaultInstanceTarget2) {
+    string content =
+        FileRead("controller/src/bgp/testdata/config_test_20a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    autogen::VirtualNetwork::OolProperty *prop_router_external =
+        new autogen::VirtualNetwork::OolProperty;
+    prop_router_external->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "virtual-network", "blue",
+        "router-external", prop_router_external);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue",
+        "routing-instance-is-default", prop_is_default);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default1 =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default1->data = false;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue-si1",
+        "routing-instance-is-default", prop_is_default1);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default2 =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default2->data = false;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue-si2",
+        "routing-instance-is-default", prop_is_default2);
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+    RoutingInstance *blue = mgr->GetRoutingInstance("blue:blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    RoutingInstance *blue_si1 = mgr->GetRoutingInstance("blue:blue-si1");
+    TASK_UTIL_ASSERT_TRUE(blue_si1 != NULL);
+    RoutingInstance *blue_si2 = mgr->GetRoutingInstance("blue:blue-si2");
+    TASK_UTIL_ASSERT_TRUE(blue_si2 != NULL);
+
+    RouteTarget rtarget;
+    RoutingInstance::RouteTargetList ilist;
+
+    ilist = blue->GetImportList();
+    TASK_UTIL_EXPECT_EQ(3, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:200");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si1->GetImportList();
+    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si2->GetImportList();
+    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance-is-default");
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue-si1", "routing-instance-is-default");
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue-si2", "routing-instance-is-default");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "virtual-network", "blue", "router-external");
+    task_util::WaitForIdle();
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, mgr->count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// Snat optimization is not enabled.
+// Non-default instances should not ignore connection to other instances even
+// if the vn has property router-external.
+//
+TEST_F(BgpConfigTest, ExternalNetworkNonDefaultInstanceTarget3) {
+    ControlNode::SetOptimizeSnat(false);
+
+    string content =
+        FileRead("controller/src/bgp/testdata/config_test_20a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    autogen::VirtualNetwork::OolProperty *prop_router_external =
+        new autogen::VirtualNetwork::OolProperty;
+    prop_router_external->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "virtual-network", "blue",
+        "router-external", prop_router_external);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default->data = true;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue",
+        "routing-instance-is-default", prop_is_default);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default1 =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default1->data = false;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue-si1",
+        "routing-instance-is-default", prop_is_default1);
+    task_util::WaitForIdle();
+
+    autogen::RoutingInstance::OolProperty *prop_is_default2 =
+        new autogen::RoutingInstance::OolProperty;
+    prop_is_default2->data = false;
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_,
+        "routing-instance", "blue:blue-si2",
+        "routing-instance-is-default", prop_is_default2);
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgLink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+    RoutingInstance *blue = mgr->GetRoutingInstance("blue:blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    RoutingInstance *blue_si1 = mgr->GetRoutingInstance("blue:blue-si1");
+    TASK_UTIL_ASSERT_TRUE(blue_si1 != NULL);
+    RoutingInstance *blue_si2 = mgr->GetRoutingInstance("blue:blue-si2");
+    TASK_UTIL_ASSERT_TRUE(blue_si2 != NULL);
+
+    RouteTarget rtarget;
+    RoutingInstance::RouteTargetList ilist;
+
+    ilist = blue->GetImportList();
+    TASK_UTIL_EXPECT_EQ(3, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:200");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si1->GetImportList();
+    TASK_UTIL_EXPECT_EQ(2, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:201");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:200");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ilist = blue_si2->GetImportList();
+    TASK_UTIL_EXPECT_EQ(2, ilist.size());
+    rtarget = RouteTarget::FromString("target:1:202");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:1:200");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si1",
+        "connection");
+    ifmap_test_util::IFMapMsgUnlink(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance", "blue:blue-si2",
+        "connection");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue", "routing-instance-is-default");
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue-si1", "routing-instance-is-default");
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "routing-instance", "blue:blue-si2", "routing-instance-is-default");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_,
+        "virtual-network", "blue", "router-external");
+    task_util::WaitForIdle();
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, mgr->count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+
+    ControlNode::SetOptimizeSnat(true);
+}
+
 TEST_F(BgpConfigTest, Instances) {
     string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1186,6 +1510,7 @@ TEST_F(BgpConfigTest, AddressFamilies3) {
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    ControlNode::SetOptimizeSnat(true);
     BgpObjectFactory::Register<BgpConfigManager>(
         boost::factory<BgpIfmapConfigManager *>());
     ::testing::InitGoogleTest(&argc, argv);

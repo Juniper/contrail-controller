@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue">
+        <network-id>101</network-id>
+    </virtual-network>
+    <routing-instance name="blue:blue">
+        <virtual-network>blue</virtual-network>
+        <vrf-target>target:1:200</vrf-target>
+    </routing-instance>
+    <routing-instance name="blue:blue-si1">
+        <virtual-network>blue</virtual-network>
+        <vrf-target>target:1:201</vrf-target>
+    </routing-instance>
+    <routing-instance name="blue:blue-si2">
+        <virtual-network>blue</virtual-network>
+        <vrf-target>target:1:202</vrf-target>
+    </routing-instance>
+</config>

@@ -12,6 +12,7 @@
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "control-node/control_node.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
 
@@ -572,6 +573,18 @@ static int GetVirtualNetworkVxlanId(DBGraph *graph, IFMapNode *node) {
     return 0;
 }
 
+//
+// Get router external property for a virtual-network.  The input IFMapNode
+// represents the virtual-network.
+//
+static bool GetVirtualNetworkRouterExternal(DBGraph *graph, IFMapNode *node) {
+    const autogen::VirtualNetwork *vn =
+        static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::ROUTER_EXTERNAL))
+        return vn->router_external();
+    return false;
+}
+
 static void SetStaticRouteConfig(BgpInstanceConfig *rti,
                                  const autogen::RoutingInstance *config) {
     BgpInstanceConfig::StaticRouteList list;
@@ -586,7 +599,7 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
         item.route_target = route.route_target;
         list.push_back(item);
     }
-    
+
     rti->swap_static_routes(&list);
 }
 
@@ -625,8 +638,10 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
 void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
                                     const autogen::RoutingInstance *config) {
     BgpInstanceConfig::RouteTargetList import_list, export_list;
+    BgpInstanceConfig::RouteTargetList conn_export_list;
     data_.Clear();
 
+    bool vn_router_external = false;
     DBGraph *graph = manager->graph();
     IFMapNode *node = node_proxy_.node();
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
@@ -652,16 +667,23 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
         } else if (strcmp(adj->table()->Typename(), "routing-instance") == 0) {
             vector<string> target_list;
             GetRoutingInstanceExportTargets(graph, adj, &target_list);
-            BOOST_FOREACH(string target, target_list) {
-                import_list.insert(target);
-            }
+            conn_export_list.insert(target_list.begin(), target_list.end());
         } else if (strcmp(adj->table()->Typename(), "virtual-network") == 0) {
             data_.set_virtual_network(adj->name());
             data_.set_virtual_network_index(GetVirtualNetworkIndex(graph, adj));
             data_.set_virtual_network_allow_transit(
                 GetVirtualNetworkAllowTransit(graph, adj));
             data_.set_vxlan_id(GetVirtualNetworkVxlanId(graph, adj));
+            vn_router_external = GetVirtualNetworkRouterExternal(graph, adj);
         }
+    }
+
+    // Insert export targets of connected routing instances into import list.
+    // Don't do this for non-default routing instances of router-external VNs
+    // as a temporary workaround for launchpad bug 1554175.
+    if (!ControlNode::GetOptimizeSnat() || !vn_router_external ||
+        (config && config->is_default())) {
+        import_list.insert(conn_export_list.begin(), conn_export_list.end());
     }
 
     data_.set_import_list(import_list);
