@@ -208,6 +208,7 @@ class LoadbalancerAgent(Agent):
         v = self.virtual_ip_get_reqdict(vip)
         driver = self._get_driver_for_pool(v['pool_id'])
         try:
+            driver.set_config_v1(vip.loadbalancer_pool)
             if not vip.last_sent:
                 driver.create_vip(v)
             elif v != vip.last_sent:
@@ -230,6 +231,7 @@ class LoadbalancerAgent(Agent):
         lb = self.loadbalancer_get_reqdict(loadbalancer)
         driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
         try:
+            driver.set_config_v2(loadbalancer.uuid)
             if not loadbalancer.last_sent:
                 driver.create_loadbalancer(lb)
             elif lb != loadbalancer.last_sent:

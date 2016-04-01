@@ -397,8 +397,8 @@ class OpencontrailLoadbalancerDriver(
         lb = LoadbalancerSM.get(lb_id)
         if not lb:
             return
-        conf = haproxy_config.get_config_v2(lb.uuid)
-        self.set_haproxy_config(pool.service_instance, lb.uuid, conf)
+        conf = haproxy_config.get_config_v2(lb)
+        self.set_haproxy_config(lb.service_instance, lb.uuid, conf)
 
     def set_haproxy_config(self, si_id, lb_uuid, conf):
         si = ServiceInstanceSM.get(si_id)
