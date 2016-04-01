@@ -392,7 +392,6 @@ class LoadbalancerAgent(Agent):
                'protocol_port': props['protocol_port'],
                'protocol': props['protocol'],
                'loadbalancer_id': listener.loadbalancer,
-               'session_persistence': None,
                'admin_state_up': props['admin_state'],
                'status': self._get_object_status(listener)}
 
@@ -484,6 +483,7 @@ class LoadbalancerAgent(Agent):
             'name': pool.display_name,
             'description': self._get_object_description(pool),
             'status': self._get_object_status(pool),
+            'session_persistence': None,
         }
 
         props = pool.params
@@ -491,6 +491,12 @@ class LoadbalancerAgent(Agent):
             value = props[key]
             if value is not None:
                 res[mapping] = value
+
+        if props['session_persistence']:
+            sp = {'type': props['session_persistence']}
+            if props['session_persistence'] == 'APP_COOKIE':
+                sp['cookie_name'] = props['persistence_cookie_name']
+            res['session_persistence'] = sp
 
         # provider
         res['provider'] = pool.provider
