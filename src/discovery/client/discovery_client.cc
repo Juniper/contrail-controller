@@ -489,6 +489,8 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
             resp->publish_msg_ = ss.str();
         }
 
+        resp->pub_sent_++;
+        resp->publish_cb_called_ = false;
         /* Send publish unconditionally */
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_,
                                serviceName, resp->publish_msg_);
@@ -564,6 +566,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
 
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
+        resp->publish_cb_called_ = false;
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
 
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_, 
@@ -661,6 +664,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
         DSResponseHeader *resp = loc->second;
         resp->subscribe_timer_->Cancel();
         resp->sub_sent_++;
+        resp->subscribe_cb_called_ = false;
         SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
     }
 }
@@ -888,6 +892,7 @@ void DiscoveryServiceClient::SendHeartBeat(std::string serviceName,
                                     std::string msg) {
     DSPublishResponse *resp = GetPublishResponse(serviceName); 
     resp->pub_hb_sent_++;
+    resp->heartbeat_cb_called_ = false;
     SendHttpPostMessage("heartbeat", serviceName, msg);
 }
 
