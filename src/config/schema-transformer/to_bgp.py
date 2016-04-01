@@ -312,6 +312,7 @@ class VirtualNetworkST(DBBase):
                     if old_rtgt_name in static_route.route_target:
                         static_route.route_target.remove(old_rtgt_name)
                         static_route.route_target.append(new_rtgt_name)
+                left_ri.obj.set_static_route_entries(static_route_entries)
                 _vnc_lib.routing_instance_update(left_ri.obj)
             try:
                 RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
