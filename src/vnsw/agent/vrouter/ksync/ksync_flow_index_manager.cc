@@ -430,6 +430,9 @@ void KSyncFlowIndexEntry::IndexUnassignedSm(KSyncFlowIndexManager *manager,
         AcquireIndex(manager, flow, flow->flow_handle());
         state_ = INDEX_SET;
         KSyncUpdateFlowHandle(manager, flow);
+        if (flow->deleted() == false) {
+            KSyncAddChange(manager, flow);
+        }
         break;
 
     default:

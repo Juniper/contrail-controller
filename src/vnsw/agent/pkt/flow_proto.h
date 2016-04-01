@@ -51,10 +51,13 @@ public:
                                    boost::asio::io_service &io);
     bool Enqueue(boost::shared_ptr<PktInfo> msg);
 
-    FlowEntry *Find(const FlowKey &key) const;
-    uint16_t FlowTableIndex(uint16_t sport, uint16_t dport) const;
+    FlowEntry *Find(const FlowKey &key, uint32_t table_index) const;
+    uint16_t FlowTableIndex(const IpAddress &sip, const IpAddress &dip,
+                            uint8_t proto, uint16_t sport,
+                            uint16_t dport, uint32_t flow_handle) const;
+    uint32_t flow_table_count() const { return flow_table_list_.size(); }
     FlowTable *GetTable(uint16_t index) const;
-    FlowTable *GetFlowTable(const FlowKey &key) const;
+    FlowTable *GetFlowTable(const FlowKey &key, uint32_t flow_handle) const;
     uint32_t FlowCount() const;
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
                         uint32_t *out_count);
@@ -71,7 +74,7 @@ public:
     void RetryIndexAcquireRequest(FlowEntry *flow, uint32_t flow_handle);
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle);
     bool FlowEventHandler(FlowEvent *req, FlowTable *table);
-    void GrowFreeListRequest(const FlowKey &key);
+    void GrowFreeListRequest(const FlowKey &key, FlowTable *table);
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle);
     void KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error);
@@ -101,6 +104,7 @@ private:
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
     tbb::atomic<int> linklocal_flow_count_;
+    bool use_vrouter_hash_;
     FlowStats stats_;
 };
 
