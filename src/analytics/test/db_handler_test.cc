@@ -652,7 +652,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
                               g_viz_constants.MESSAGE_TABLE_KEYWORD),
                         _,
                         _))))
-        .Times(2)
+        .Times(3)
         .WillRepeatedly(Return(true));
 
     EXPECT_CALL(*dbif_mock(),

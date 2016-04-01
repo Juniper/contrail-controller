@@ -8,6 +8,7 @@
 #include "query.h"
 #include "json_parse.h"
 #include "stats_query.h"
+#include <boost/algorithm/string/case_conv.hpp>
 
 static std::string ToString(const rapidjson::Value& value_value) {
     std::string svalue;
@@ -514,13 +515,20 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->cfname = g_viz_constants.MESSAGE_TABLE_KEYWORD;
                 db_query->t_only_col = true;
 
-                // only EQUAL op supported currently
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                boost::algorithm::to_lower(value);
+
+                // only EQUAL & Prefix op supported currently
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
 #ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value);
+                if (op == PREFIX) {
+                    value2 = value + "\x7f";
+                    db_query->cr.finish_.push_back(value2);
+                } else {
+                    db_query->cr.finish_.push_back(value);
+                }
 #else
                 db_query->row_key_suffix.push_back(value);
 #endif
