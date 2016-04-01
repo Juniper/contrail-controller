@@ -200,20 +200,26 @@ class LineParserTest : public ::testing::Test
         lp_.reset();
     }
     LineParser::WordListType Parse(std::string s) {
-        return DebugPrint(s, lp_->Parse(s));
+        LineParser::WordListType w;
+        lp_->Parse(s, &w);
+        return DebugPrint(s, w);
     }
     LineParser::WordListType ParseXML(std::string s, bool a=true) {
         pugi::xml_document doc;
+        LineParser::WordListType w;
         if (doc.load(s.c_str(), s.length())) {
             if (a)
-                return DebugPrint(s,  lp_->ParseXML(doc.document_element()));
+                lp_->ParseXML(doc.document_element(), &w);
             else
-                return DebugPrint(s,  lp_->ParseXML(doc.document_element(), a));
+                lp_->ParseXML(doc.document_element(), &w, a);
         }
-        return DebugPrint(s, LineParser::WordListType());
+        return DebugPrint(s, w);
+    }
+    unsigned int SearchPattern(std::string exp, std::string text) {
+        return lp_->SearchPattern(exp, text);
     }
   private:
-    LineParser::WordListType DebugPrint(std::string s, 
+    LineParser::WordListType DebugPrint(std::string s,
             LineParser::WordListType w) {
 //#define SYSLGDEBUG
 #ifdef SYSLGDEBUG
@@ -353,6 +359,37 @@ TEST_F(LineParserTest, NoAttrString)
                 "<boo f=\"bad\">my server has address: 10.84.5.22</boo>",
                 false), testing::ElementsAre(
                 "10.84.5.22", "address", "has", "my", "server"));
+}
+
+TEST_F(LineParserTest, RegexpTextSearch)
+{
+    EXPECT_EQ(1, SearchPattern("box", "Its in the box of gems"));
+}
+
+TEST_F(LineParserTest, RegexpWildcardSearch)
+{
+    EXPECT_EQ(1, SearchPattern("bo.*f", "Its in the box of gems"));
+}
+
+TEST_F(LineParserTest, RegexpWildcardSearchMultiple)
+{
+    EXPECT_EQ(2, SearchPattern("bo.", "Some bones of the body"));
+}
+
+TEST_F(LineParserTest, SearchJson)
+{
+    EXPECT_EQ(1, SearchPattern("\"type\": \"int\"", "{\"box\": {\"count\": 2," \
+                "\"ball\": \"golf\", \"type\": \"int\"}, \"foo\": \"bar\"}"));
+}
+
+TEST_F(LineParserTest, SearchMultilineJsonLike)
+{
+    EXPECT_EQ(1, SearchPattern("used_sys_mem: 37335184", "\n{   \n    ComputeCpuState: \n    {\n        name: a7s30\n        cpu_info:  \n        {\n            VrouterCpuInfo:\n            {\n                mem_virt: 1039252\n                cpu_share: 1.05\n                used_sys_mem: 37335184\n                one_min_cpuload: 0.14\n                mem_res: 265460\n            }\n            tags: .mem_virt,.cpu_share,.mem_res\n        }\n    }\n}\n"));
+}
+
+TEST_F(LineParserTest, WCSearchMultilineJsonLike)
+{
+    EXPECT_EQ(1, SearchPattern("name: a7s[0-9]+", "\n{   \n    ComputeCpuState: \n    {\n        name: a7s30\n        cpu_info:  \n        {\n            VrouterCpuInfo:\n            {\n                mem_virt: 1039252\n                cpu_share: 1.05\n                used_sys_mem: 37335184\n                one_min_cpuload: 0.14\n                mem_res: 265460\n            }\n            tags: .mem_virt,.cpu_share,.mem_res\n        }\n    }\n}\n"));
 }
 
 void ShowCollectorServerReq::HandleRequest() const {

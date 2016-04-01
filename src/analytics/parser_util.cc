@@ -24,58 +24,60 @@ using namespace BOOST_SPIRIT_CLASSIC_NS;
 
 
 
-void
+bool
 LineParser::GetAtrributes(const pugi::xml_node &node,
         LineParser::WordListType *words)
 {
+     bool r=true;
      for (pugi::xml_attribute attr = node.first_attribute(); attr;
              attr = attr.next_attribute()) {
          std::string s =  boost::algorithm::to_lower_copy(std::string(
                      attr.value()));
          if (!s.empty()) {
-             LineParser::WordListType w = ParseDoc(s.begin(), s.end());
-             words->insert(w.begin(), w.end());
+             r &= ParseDoc(s.begin(), s.end(), words);
          }
      }
+     return r;
 }
 
-void
-LineParser::Travarse(const pugi::xml_node &node,
+bool
+LineParser::Traverse(const pugi::xml_node &node,
         LineParser::WordListType *words, bool check_attr)
 {
     pugi::xml_node_type type = node.type();
+    bool r = true;
 
     if (type == pugi::node_element) {
         if (check_attr)
-            GetAtrributes(node, words);
+            r &= GetAtrributes(node, words);
     } else if (type == pugi::node_pcdata || type == pugi::node_cdata) {
          std::string s =  boost::algorithm::to_lower_copy(std::string(
                      node.value()));
          if (!s.empty()) {
-             LineParser::WordListType w = ParseDoc(s.begin(), s.end());
-             words->insert(w.begin(), w.end());
+             r &= ParseDoc(s.begin(), s.end(), words);
          }
     }
     for (pugi::xml_node s = node.first_child(); s; s = s.next_sibling())
-        Travarse(s, words, check_attr);
+        r &= Traverse(s, words, check_attr);
+    return r;
 }
 
-LineParser::WordListType
-LineParser::ParseXML(const pugi::xml_node &node, bool check_attr)
+bool
+LineParser::ParseXML(const pugi::xml_node &node,
+        LineParser::WordListType *words, bool check_attr)
 {
-    LineParser::WordListType w;
-
+    bool r=true;
     if (check_attr)
-        GetAtrributes(node, &w);
+        r &= GetAtrributes(node, words);
     for (pugi::xml_node s = node; s; s = s.next_sibling())
-        Travarse(s, &w, check_attr);
-    return w;
+        r &= Traverse(s, words, check_attr);
+    return r;
 }
 
-LineParser::WordListType
-LineParser::Parse(std::string s) {
+bool
+LineParser::Parse(std::string s, LineParser::WordListType *words) {
     std::string ls = boost::algorithm::to_lower_copy(s);
-    return ParseDoc(ls.begin(), ls.end());
+    return ParseDoc(ls.begin(), ls.end(), words);
 }
 
 template<typename Iterator>
@@ -87,8 +89,9 @@ struct msg_skipper : public qi::grammar<Iterator> {
 };
 
 template <typename Iterator>
-LineParser::WordListType
-LineParser::ParseDoc(Iterator start, Iterator end)
+bool
+LineParser::ParseDoc(Iterator start, Iterator end,
+        LineParser::WordListType *pv)
 {
     using ascii::space;
     using qi::char_;
@@ -137,7 +140,6 @@ LineParser::ParseDoc(Iterator start, Iterator end)
         ("via", true)("or", true)("of", true)
         ("string", true)("sandesh", true)("client", true)
         ("the", true)("that", true)("and", true);
-    WordListType v;
     qi::rule<Iterator, std::string(), skipper_t> aw =
         +( *( lit(":")
             | lit(",")
@@ -146,17 +148,17 @@ LineParser::ParseDoc(Iterator start, Iterator end)
             | lit("&")
             ) >>
          ( stop_words
-         | stats [insert(ref(v), _1)]
-         | word2 [insert(ref(v), _1)]
-         | word3 [insert(ref(v), _1)]
-         | uuid  [insert(ref(v), _1)]
-         | ip    [insert(ref(v), _1)]
-         | ipv6  [insert(ref(v), _1)]
+         | stats [insert(ref(*pv), _1)]
+         | word2 [insert(ref(*pv), _1)]
+         | word3 [insert(ref(*pv), _1)]
+         | uuid  [insert(ref(*pv), _1)]
+         | ip    [insert(ref(*pv), _1)]
+         | ipv6  [insert(ref(*pv), _1)]
          | hex1
          | oct1
          | num1
          | num2
-         | word  [insert(ref(v), _1)]
+         | word  [insert(ref(*pv), _1)]
          )
         );
 
@@ -169,21 +171,7 @@ LineParser::ParseDoc(Iterator start, Iterator end)
     BOOST_SPIRIT_DEBUG_RULE(word);
     BOOST_SPIRIT_DEBUG_RULE(word2);
     BOOST_SPIRIT_DEBUG_RULE(aw);
-    if ((start == end) && r)
-        return v;
-    std::cout << "failed " << r << " " << (start == end) << "\n";
-    return v;
-}
-
-void
-LineParser::RemoveStopWords(WordListType *v) {
-    //WordListType::iterator i = v->begin();
-    //while (i != v->end()) {
-    //if (stop_words_.find(*i) == stop_words_.end())
-    //    i++;
-    //else
-    //    i = v->erase(i);
-    //}
+    return ((start == end) && r);
 }
 
 std::string
@@ -210,15 +198,48 @@ LineParser::GetXmlString(const pugi::xml_node node) {
     return sstream.str();
 }
 
-std::map<std::string, bool> LineParser::stop_words_ =
-    boost::assign::map_list_of("via", true)("or", true)("of", true)("-", true)
-        ("----", true)("the", true)("that", true);
+unsigned int
+LineParser::SearchPattern(boost::regex exp, std::string text)
+{
+    unsigned int cnt = 0;
+
+    boost::match_results<std::string::const_iterator> what;
+    boost::match_flag_type flags = boost::match_default;
+    std::string::const_iterator start = text.begin(), end = text.end();
+    while(regex_search(start, end, what, exp, flags)) {
+        cnt++;
+        //start looking for next match after this one
+        start = what[0].second;
+        // update flags:
+        flags |= boost::match_prev_avail;
+        flags |= boost::match_not_bob;
+//#define SYSLGDEBUG
+#ifdef SYSLGDEBUG
+        std::cout << "Text:        \"" << text << "\"\n";
+        std::cout << "<String 5> \""
+                  << std::string(what[5].first, what[5].second)
+                  << "\" + <string 6> \"" << std::string(what[6].first, what[6].second)
+                  << "\" = " << what[5].first - text.begin();
+        std::cout << "\n what.size = " << what.size()
+                  << "\n====================\n";
+        for(unsigned int i = 0; i < what.size(); ++i)
+        {
+            std::cout << "      $" << i << " = {";
+            std::cout << std::string(what[i].first,  what[i].second);
+            std::cout << "}\n";
+        }
+#endif
+    }
+    return cnt;
+}
+
 
 // generate a method for the template(required for static template function
 void
 TemplateGen() {
     std::string s("hello");
-    LineParser::WordListType words = LineParser::Parse(s);
+    LineParser::WordListType words;
+    LineParser::Parse(s, &words);
     std::cout << "result length: " << words.size() << std::endl;
 }
 

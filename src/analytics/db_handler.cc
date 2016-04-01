@@ -667,12 +667,14 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
             stype == SandeshType::OBJECT) {
         const SandeshXMLMessage *sxmsg =
             static_cast<const SandeshXMLMessage *>(vmsgp->msg);
-        words = LineParser::ParseXML(sxmsg->GetMessageNode(), false);
+        if (!LineParser::ParseXML(sxmsg->GetMessageNode(), &words, false))
+            DB_LOG(ERROR, "Failed to parse xml");
     } else if (!vmsgp->keyword_doc_.empty()) {
         std::string s;
         s = std::string(vmsgp->keyword_doc_);
         if (!s.empty()) {
-            words = LineParser::Parse(s);
+            if (!LineParser::Parse(s, &words))
+                DB_LOG(ERROR, "Failed to parse text");
         }
     }
     for (LineParser::WordListType::iterator i = words.begin();
@@ -682,7 +684,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
                 g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
                 message_type, vmsgp->unm, *i);
         if (!r)
-            DB_LOG(ERROR, "Failed to parse:");
+            DB_LOG(ERROR, "Failed to insert keyword: " << *i);
     }
 
     /*
