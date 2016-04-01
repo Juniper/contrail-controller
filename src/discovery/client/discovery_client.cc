@@ -317,10 +317,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 
         // Errorcode is of type CURLcode
         if (ec.value() != 0) {
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
-                "Error PublishResponseHandler ",
-                 serviceName + " " + curl_error_category.message(ec.value()),
-                 ec.value());
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
@@ -332,6 +328,11 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
                 resp->pub_timeout_++;
                 // reset attempts so publish can be sent right away
                 resp->attempts_ = 0;
+            } else {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                    "Error PublishResponseHandler ",
+                     serviceName + " " + curl_error_category.message(ec.value()),
+                     ec.value());
             }
 
             // Update connection info
@@ -552,6 +553,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
 
         /* Send publish unconditionally */
         resp->pub_sent_++;
+        resp->publish_cb_called_ = false;
         SendHttpPostMessage(resp->publish_hdr_, serviceName,
                             resp->publish_msg_);
     }
@@ -626,6 +628,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
 
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
+        resp->publish_cb_called_ = false;
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
     }
 }
@@ -803,6 +806,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
 
         DSSubscribeResponse *resp = loc->second;
         resp->subscribe_timer_->Cancel();
+        resp->subscribe_cb_called_ = false;
         resp->sub_sent_++;
 
         auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
@@ -849,6 +853,8 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
             if (resp->subscribe_chksum_ != gen_chksum) {
                 DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
                                        serviceName, ss.str());
+                DISCOVERY_CLIENT_LOG_NOTICE(DiscoveryClientLogMsg, "subscribe",
+                                            serviceName, ss.str());
                 resp->subscribe_chksum_ = gen_chksum;
             }
         }
@@ -923,6 +929,8 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "SubscribeResponseHandler, Only header received",
                  serviceName, ec.value());
+            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientErrorLog, serviceName,
+                "SubscribeResponseHandler, Only header received");
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
@@ -1118,11 +1126,6 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
 
         // Errorcode is of type CURLcode
         if (ec.value() != 0) {
-            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
-                "Error HeartBeatResponseHandler ",
-                 serviceName + " " + curl_error_category.message(ec.value()),
-                 ec.value());
-
             resp->pub_hb_fail_++;
             // Resend original publish request after exponential back-off
             resp->attempts_++;
@@ -1139,6 +1142,11 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
                     // reset attempts so publish can be sent right away
                     resp->attempts_ = 0;
                 }
+            } else {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                    "Error HeartBeatResponseHandler ",
+                     serviceName + " " + curl_error_category.message(ec.value()),
+                     ec.value());
             }
 
             // Update connection info
