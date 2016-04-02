@@ -144,6 +144,7 @@ void VnAddReq(int id, const char *name, const char *vrf_name);
 void VnVxlanAddReq(int id, const char *name, uint32_t vxlan_id);
 void VnDelReq(int id);
 void VrfAddReq(const char *name);
+void VrfAddReq(const char *name, const boost::uuids::uuid &vn_uuid);
 void VrfDelReq(const char *name);
 void VmAddReq(int id);
 void VmDelReq(int id);
