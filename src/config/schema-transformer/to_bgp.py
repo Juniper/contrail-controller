@@ -2405,9 +2405,14 @@ class VirtualMachineInterfaceST(DictST):
         if smode not in ['in-network', 'in-network-nat']:
             return
 
+        if smode == 'in-network-nat' and self.service_interface_type == 'right':
+            vn_policies = []
+        else:
+            vn_policies = vn.policies
+
         policy_rule_count = 0
         si_name = vm_obj.service_instance
-        for policy_name in vn.policies:
+        for policy_name in vn_policies:
             policy = NetworkPolicyST.get(policy_name)
             if policy is None:
                 continue
