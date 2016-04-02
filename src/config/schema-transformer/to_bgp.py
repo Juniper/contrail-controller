@@ -60,6 +60,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
+from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
 _BGP_RTGT_MAX_ID = 1 << 24
@@ -2783,6 +2784,7 @@ class SchemaTransformer(object):
         vn_id_list = [vn.uuid for vn in vn_list]
         ri_list = _vnc_lib.routing_instances_list(detail=True)
         ri_dict = {}
+        ri_deleted = {}
         for ri in ri_list:
             delete = False
             if ri.parent_uuid not in vn_id_list:
@@ -2793,6 +2795,7 @@ class SchemaTransformer(object):
                 sc_id = VirtualNetworkST._get_service_id_from_ri(ri.name)
                 if sc_id and sc_id not in ServiceChain:
                     delete = True
+                    ri_deleted.setdefault(ri.parent_uuid, []).append(ri.uuid)
                 else:
                     ri_dict[ri.get_fq_name_str()] = ri
             if delete:
@@ -2861,6 +2864,11 @@ class SchemaTransformer(object):
 
         start_time = time.time()
         for index, vn in enumerate(vn_list):
+            if vn.uuid in ri_deleted:
+                vn_ri_list = vn.get_routing_instances() or []
+                new_vn_ri_list = [vn_ri for vn_ri in vn_ri_list
+                                  if vn_ri['uuid'] not in ri_deleted[vn.uuid]]
+                vn.routing_instances = new_vn_ri_list
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
                                     ri_dict)
             if not index % 100:
