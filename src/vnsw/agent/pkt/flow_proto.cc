@@ -39,6 +39,10 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
             (new FlowEventQueue(task_id, i,
                                 boost::bind(&FlowProto::FlowEventHandler, this,
                                             _1, flow_table_list_[i])));
+        flow_delete_queue_.push_back
+            (new FlowEventQueue(task_id, i,
+                                boost::bind(&FlowProto::FlowEventHandler, this,
+                                            _1, flow_table_list_[i])));
     }
     if (::getenv("USE_VROUTER_HASH") != NULL) {
         string opt = ::getenv("USE_VROUTER_HASH");
@@ -51,6 +55,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
 
 FlowProto::~FlowProto() {
     STLDeleteValues(&flow_event_queue_);
+    STLDeleteValues(&flow_delete_queue_);
     STLDeleteValues(&flow_table_list_);
 }
 
@@ -79,6 +84,7 @@ void FlowProto::Shutdown() {
     }
     for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
         flow_event_queue_[i]->Shutdown();
+        flow_delete_queue_[i]->Shutdown();
     }
     flow_update_queue_.Shutdown();
 }
@@ -201,6 +207,7 @@ bool FlowProto::Enqueue(boost::shared_ptr<PktInfo> msg) {
 
 void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
     flow_event_queue_[index]->set_disable(disabled);
+    flow_delete_queue_[index]->set_disable(disabled);
 }
 
 void FlowProto::DisableFlowMgmtQueue(bool disabled) {
@@ -262,7 +269,11 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowProto::EnqueueEvent(FlowEvent *event, FlowTable *table) {
-    flow_event_queue_[table->table_index()]->Enqueue(event);
+    if (event->event() == FlowEvent::DELETE_FLOW) {
+        flow_delete_queue_[table->table_index()]->Enqueue(event);
+    } else {
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+    }
 }
 
 void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
@@ -288,7 +299,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
     case FlowEvent::DELETE_FLOW: {
         FlowTable *table = GetTable(event->table_index());
-        flow_event_queue_[table->table_index()]->Enqueue(event);
+        flow_delete_queue_[table->table_index()]->Enqueue(event);
         break;
     }
 
