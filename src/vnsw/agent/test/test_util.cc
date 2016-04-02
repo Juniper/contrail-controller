@@ -1098,6 +1098,11 @@ void VrfAddReq(const char *name) {
     usleep(1000);
 }
 
+void VrfAddReq(const char *name, const boost::uuids::uuid &vn_uuid) {
+    Agent::GetInstance()->vrf_table()->CreateVrfReq(name, vn_uuid);
+    usleep(1000);
+}
+
 void VrfDelReq(const char *name) {
     Agent::GetInstance()->vrf_table()->DeleteVrfReq(name);
     usleep(1000);

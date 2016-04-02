@@ -352,8 +352,8 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     DBEntry *entry = static_cast<DBEntry *>(e);
     DBTableBase *table = partition->parent();
     assert(table_ == table);
-    DBState *state = entry->GetState(table, id_);
-    KSyncDBEntry *ksync = static_cast<KSyncDBEntry *>(state);
+    KSyncDBEntry *ksync =
+        static_cast<KSyncDBEntry *>(entry->GetState(table, id_));
     DBFilterResp resp = DBFilterAccept;
 
     // cleanup is in-process, ignore All db notifications.
@@ -367,48 +367,66 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         resp = DBEntryFilter(entry, ksync);
     }
 
-    if (entry->IsDeleted() || resp == DBFilterDelete) {
-        if (state == NULL) {
-            return;
-        }
-        // Check if there is any entry present in dup_entry_list
-        if (!ksync->dup_entry_list_.empty()) {
-            // Check if entry getting deleted is actively associated with
-            // Ksync Entry.
-            if (entry == ksync->GetDBEntry()) {
-                // clean up db entry state.
-                CleanupOnDel(ksync);
-                ksync->SetDBEntry(ksync->dup_entry_list_.front());
-                ksync->dup_entry_list_.pop_front();
+    if (entry->IsDeleted() || resp == DBFilterDelete ||
+        resp == DBFilterDelAdd) {
+        if (ksync != NULL) {
+            // Check if there is any entry present in dup_entry_list
+            if (!ksync->dup_entry_list_.empty()) {
+                // Check if entry getting deleted is actively associated with
+                // Ksync Entry.
+                if (entry == ksync->GetDBEntry()) {
+                    // clean up db entry state.
+                    CleanupOnDel(ksync);
+                    ksync->SetDBEntry(ksync->dup_entry_list_.front());
+                    ksync->dup_entry_list_.pop_front();
 
-                // DB entry association changed, trigger re-sync.
-                if (ksync->Sync(ksync->GetDBEntry())) {
-                    NotifyEvent(ksync, KSyncEntry::ADD_CHANGE_REQ);
+                    // DB entry association changed, trigger re-sync.
+                    if (ksync->Sync(ksync->GetDBEntry())) {
+                        NotifyEvent(ksync, KSyncEntry::ADD_CHANGE_REQ);
+                    }
+                } else {
+                    // iterate through entries and delete the
+                    // corresponding DB ref.
+                    KSyncDBEntry::DupEntryList::iterator it_dup;
+                    for (it_dup = ksync->dup_entry_list_.begin();
+                            it_dup != ksync->dup_entry_list_.end(); ++it_dup) {
+                        if (entry == *it_dup)
+                            break;
+                    }
+                    // something bad has happened if we fail to find the entry.
+                    assert(it_dup != ksync->dup_entry_list_.end());
+                    ksync->dup_entry_list_.erase(it_dup);
+                    entry->ClearState(table_, id_);
                 }
             } else {
-                // iterate through entries and delete the corresponding DB ref.
-                KSyncDBEntry::DupEntryList::iterator it_dup;
-                for (it_dup = ksync->dup_entry_list_.begin();
-                        it_dup != ksync->dup_entry_list_.end(); ++it_dup) {
-                    if (entry == *it_dup)
-                        break;
+                if (resp == DBFilterDelAdd) {
+                    // clean up db entry state, so that other ksync entry can
+                    // replace the states appropriately.
+                    // cleanup needs to be triggered before notifying delete
+                    // after that ksync entry might be already free'd
+                    CleanupOnDel(ksync);
                 }
-                // something bad has happened if we fail to find the entry.
-                assert(it_dup != ksync->dup_entry_list_.end());
-                ksync->dup_entry_list_.erase(it_dup);
-                entry->ClearState(table_, id_);
-            }
-        } else {
-            // We may get duplicate delete notification in
-            // case of db entry reuse
-            // add -> change ->delete(Notify) -> change -> delete(Notify)
-            // delete and change gets suppresed as delete and we get
-            // a duplicate delete notification
-            if (ksync->IsDeleted() == false) {
-                NotifyEvent(ksync, KSyncEntry::DEL_REQ);
+                // We may get duplicate delete notification in
+                // case of db entry reuse
+                // add -> change ->delete(Notify) -> change -> delete(Notify)
+                // delete and change gets suppresed as delete and we get
+                // a duplicate delete notification
+                if (ksync->IsDeleted() == false) {
+                    NotifyEvent(ksync, KSyncEntry::DEL_REQ);
+                }
             }
         }
-    } else {
+        if (resp != DBFilterDelAdd) {
+            // return from here except for DBFilterDelAdd case, where
+            // ADD needs to be triggered after Delete
+            return;
+        }
+        // reset ksync entry pointer, as ksync and DB entry is already
+        // dissassociated
+        ksync = NULL;
+    }
+
+    {
         if (resp == DBFilterIgnore) {
             // DB filter tells us to ignore this Add/Change.
             return;
