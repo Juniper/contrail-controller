@@ -148,7 +148,12 @@ bool DBPartition::IsDBQueueEmpty() const {
 }
 
 void DBPartition::SetQueueDisable(bool disable) {
-    work_queue_->set_disable(disable);
+    if (disable) {
+        work_queue_->set_disable(true);
+    } else {
+        work_queue_->set_disable(false);
+        work_queue_->MaybeStartRunner();
+    }
 }
 
 class DBPartition::QueueRunner : public Task {
@@ -162,10 +167,9 @@ public:
     virtual bool Run() {
         int count = 0;
 
-        //
-        // Skip if the queue is disabled from running
-        //
-        if (queue_->disable()) return false;
+        // Skip if the queue is disabled.
+        if (queue_->disable())
+            return queue_->RunnerDone();
 
         RemoveQueueEntry *rm_entry = NULL;
         while (queue_->DequeueRemove(&rm_entry)) {
@@ -233,7 +237,7 @@ void DBPartition::WorkQueue::MaybeStartRunner() {
 
 bool DBPartition::WorkQueue::RunnerDone() {
     tbb::mutex::scoped_lock lock(mutex_);
-    if (request_queue_.empty() && remove_queue_.empty()) {
+    if (disable_ || (request_queue_.empty() && remove_queue_.empty())) {
         running_ = false;
         return true;
     }
