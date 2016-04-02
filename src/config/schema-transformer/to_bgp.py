@@ -2453,7 +2453,9 @@ class VirtualMachineInterfaceST(DictST):
             # end for prule
         # end for policy_name
 
-        if policy_rule_count == 0:
+        if ((smode == 'in-network-nat' and
+             self.service_interface_type == 'right') or
+            policy_rule_count == 0):
             vrf_table = None
         vrf_table_pickle = jsonpickle.encode(vrf_table)
         if vrf_table_pickle != self.vrf_table:
