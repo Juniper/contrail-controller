@@ -96,6 +96,9 @@ public:
     }
 
     virtual bool OnChange(DBEntry *entry, const DBRequest *req) {
+        Vlan::VlanKey *key = static_cast<Vlan::VlanKey *>(req->key.get());
+        Vlan *vlan = static_cast<Vlan *>(entry);
+        vlan->tag_ = key->tag_;
         return true;
     }
 
@@ -207,6 +210,22 @@ public:
         const Vlan *vlan = static_cast<const Vlan *>(e);
         VlanKSyncEntry *key = new VlanKSyncEntry(vlan);
         return static_cast<KSyncEntry *>(key);
+    }
+
+    DBFilterResp DBEntryFilter(const DBEntry *entry,
+                               const KSyncDBEntry *ksync) {
+        const Vlan *vlan = static_cast<const Vlan *>(entry);
+        if (vlan->GetTag() == 0) {
+            return DBFilterDelete;
+        }
+        if (ksync != NULL) {
+            const VlanKSyncEntry *kvlan =
+                static_cast<const VlanKSyncEntry *>(ksync);
+            if (vlan->GetTag() != kvlan->GetTag()) {
+                return DBFilterDelAdd;
+            }
+        }
+        return DBFilterAccept;
     }
 
     static void Init(VlanTable *table) {
@@ -684,6 +703,259 @@ TEST_F(DBKSyncTest, DeleteAck_after_create_stale) {
     TestTriggerStaleEntryCleanupCb(VlanKSyncObject::GetKSyncObject());
 
     EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
+}
+
+TEST_F(DBKSyncTest, DBFilterDelete) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    // set entry to wait for ack trigger, to control KSync state
+    // events order
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan;
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 0));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Above should trigger a delete filter
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan == NULL);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 0));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 1);
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+}
+
+TEST_F(DBKSyncTest, DBFilterDelAdd) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    // set entry to wait for ack trigger, to control KSync state
+    // events order
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan;
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Above should trigger a delete-add filter, which will trigger delete
+    // for ksync entry with 10 and create of ksync entry with 11
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan == NULL);
+    VlanKSyncEntry v1(11);
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v1));
+    EXPECT_TRUE(ksync_vlan != NULL);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 1);
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
+}
+
+TEST_F(DBKSyncTest, DBFilterDelAddwithTwoOperDBEntry) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    // set entry to wait for ack trigger, to control KSync state
+    // events order
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan;
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 10 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("vlan10") == 0);
+    }
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Above should trigger a delete-add filter, which will trigger delete
+    // for ksync entry with 10  to start using new_vlan10 and create of
+    // ksync entry with 11
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 10 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("new_vlan10") == 0);
+    }
+
+    VlanKSyncEntry v1(11);
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v1));
+    EXPECT_TRUE(ksync_vlan != NULL);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(adc_notification, 3);
+    EXPECT_EQ(del_notification, 2);
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetChangeCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
+}
+
+TEST_F(DBKSyncTest, DBFilterDelAddDupToDup) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan11", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    // set entry to wait for ack trigger, to control KSync state
+    // events order
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry v1(11);
+    VlanKSyncEntry *ksync_vlan;
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 10 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("vlan10") == 0);
+    }
+
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v1));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 11 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("vlan11") == 0);
+    }
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Above should trigger a delete-add filter, which will trigger delete
+    // for ksync entry with 10  to start using new_vlan10 and put vlan10 as
+    // duplicate db entry of vlan11
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 10 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("new_vlan10") == 0);
+    }
+
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v1));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 11 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("vlan11") == 0);
+    }
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan11", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    ksync_vlan =
+        static_cast<VlanKSyncEntry*>(VlanKSyncObject::GetKSyncObject()->Find(&v1));
+    EXPECT_TRUE(ksync_vlan != NULL);
+    if (ksync_vlan != NULL) {
+        // check ksync entry in sync and db entry vlan 11 being in use
+        EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+        EXPECT_TRUE(ksync_vlan->name().compare("vlan10") == 0);
+    }
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 11));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(adc_notification, 4);
+    EXPECT_EQ(del_notification, 3);
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetChangeCount(), 2);
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
 }
 

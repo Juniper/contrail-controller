@@ -201,7 +201,9 @@ public:
     enum DBFilterResp {
         DBFilterAccept,  // Accept DB Entry Add/Change for processing
         DBFilterIgnore,  // Ignore DB Entry Add/Change
-        DBFilterDelete  // Ignore DB Entry Add/Change and clear previous state
+        DBFilterDelete,  // Ignore DB Entry Add/Change and clear previous state
+        DBFilterDelAdd,  // Delete current ksync and add new one (key change)
+        DBFilterMax
     };
     // Create KSyncObject. DB Table will be registered later
     KSyncDBObject();
