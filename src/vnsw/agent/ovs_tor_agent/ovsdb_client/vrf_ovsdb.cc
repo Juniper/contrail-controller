@@ -175,6 +175,14 @@ KSyncDBObject::DBFilterResp VrfOvsdbObject::OvsdbDBEntryFilter(
         return DBFilterDelete;
     }
 
+    if (ovsdb_entry != NULL) {
+        const VrfOvsdbEntry *o_vrf =
+            static_cast<const VrfOvsdbEntry *>(ovsdb_entry);
+        if (o_vrf->logical_switch_name_ != UuidToString(vrf->vn()->GetUuid())) {
+            return DBFilterDelAdd;
+        }
+    }
+
     return DBFilterAccept;
 }
 
