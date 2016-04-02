@@ -72,6 +72,7 @@ else:
     database_libs = ['cassandra_thrift', 'thrift']
 
 database_libs.append('gendb')
+database_libs.append('boost_regex')
 AnalyticsEnv.Prepend(LIBS=database_libs)
 
 if sys.platform != 'darwin':
