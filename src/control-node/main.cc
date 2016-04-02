@@ -580,6 +580,7 @@ int main(int argc, char *argv[]) {
     }
 
     ControlNode::SetTestMode(options.test_mode());
+    ControlNode::SetOptimizeSnat(options.optimize_snat());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
     sandesh_context.set_test_mode(ControlNode::GetTestMode());

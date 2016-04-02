@@ -27,6 +27,8 @@ public:
     }
     static void SetTestMode(const bool flag) { test_mode_ = flag; }
     static bool GetTestMode() { return test_mode_; }
+    static void SetOptimizeSnat(bool flag) { optimize_snat_ = flag; }
+    static bool GetOptimizeSnat() { return optimize_snat_; }
 
 private:
     static std::string hostname_;
@@ -34,7 +36,7 @@ private:
     static std::string self_ip_;
     static DiscoveryServiceClient *ds_client_;
     static bool test_mode_;
-
+    static bool optimize_snat_;
 };
 
 void ControlNodeShutdown();

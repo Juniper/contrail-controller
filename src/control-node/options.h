@@ -43,6 +43,7 @@ public:
     const bool test_mode() const { return test_mode_; }
     const bool collectors_configured() const { return collectors_configured_; }
     const int tcp_hold_time() const { return tcp_hold_time_; }
+    const bool optimize_snat() const { return optimize_snat_; }
 
 private:
 
@@ -92,6 +93,7 @@ private:
     bool test_mode_;
     bool collectors_configured_;
     int tcp_hold_time_;
+    bool optimize_snat_;
 
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
