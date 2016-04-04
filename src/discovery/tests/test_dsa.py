@@ -5,6 +5,7 @@
 import sys
 import gevent
 import uuid
+import time
 sys.path.append("../config/common/tests")
 from testtools.matchers import Equals, Contains, Not
 from test_utils import *
@@ -61,12 +62,187 @@ def build_dsa_rule_entry(rule_str):
     dsa_rule_entry = DiscoveryServiceAssignmentType(publisher, subscriber)
     return dsa_rule_entry
 
-def info_callback(info):
-    print 'In subscribe callback handler'
-    print '%s' % (info)
-    pass
+server_list = {}
+def info_callback(info, client_id):
+    print 'subscribe[%s]=%s' % (client_id, info)
+    global server_list
+    server_list[client_id] = [entry['@publisher-id'] for entry in info]
+
+def validate_in_use_count(response, expected_counts, context):
+    services = response['services']
+    in_use_counts = {entry['ep_id']:entry['in_use'] for entry in services}
+    print '%s %s' % (context, in_use_counts)
+    return in_use_counts == expected_counts
 
 class TestDsa(test_case.DsTestCase):
+    def setUp(self):
+        extra_config_knobs = [
+            ('pulkit-pub', 'policy', 'load-balance'),
+            ('test_bug_1548638', 'policy', 'fixed'),
+        ]
+        super(TestDsa, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
+
+    def tearDown(self):
+        global server_list
+        server_list = {}
+        super(TestDsa, self).tearDown()
+
+    def test_bug_1549243(self):
+        puburl = '/publish'
+        suburl = "/subscribe"
+        service_type = 'pulkit-pub'
+        subscriber_type = "pulkit-sub"
+
+        dsa = DiscoveryServiceAssignment()
+        rule_entry = build_dsa_rule_entry('77.77.2.0/24,%s 77.77.2.0/24,%s' % (service_type, subscriber_type))
+        rule_uuid = uuid.uuid4()
+        dsa_rule1 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule1.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule1)
+
+        # publish 3 instances
+        pub_tasks = []
+        client_type = 'test-discovery'
+        for ipaddr in ["77.77.1.10", "77.77.2.10", "77.77.3.10"]:
+            pub_id = 'test_discovery-%s' % ipaddr
+            pub_data = {service_type : '%s-%s' % (service_type, ipaddr)}
+            disc = client.DiscoveryClient(
+                        self._disc_server_ip, self._disc_server_port,
+                        client_type, pub_id)
+            disc.set_remote_addr(ipaddr)
+            task = disc.publish(service_type, pub_data)
+            pub_tasks.append(task)
+
+        time.sleep(1)
+
+        # Verify all services are published.
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 3)
+
+        service_count = 2
+        sub_tasks = []
+        for remote, count in [("77.77.3.11", 6), ("77.77.2.11", 4)]:
+            for i in range(count):
+                subscriber_id = "client-%s-%d" % (remote, i)
+                disc = client.DiscoveryClient(
+                           self._disc_server_ip, self._disc_server_port,
+                           subscriber_type, pub_id=subscriber_id)
+                disc.set_remote_addr(remote)
+                obj = disc.subscribe(
+                          service_type, service_count, info_callback, subscriber_id)
+            sub_tasks.append(obj.task)
+            time.sleep(1)
+        print 'Started tasks to subscribe service %s, count %d' \
+            % (service_type, service_count)
+
+        # validate all clients have subscribed
+        time.sleep(1)
+        (code, msg) = self._http_get('/clients.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 6*2+4)
+
+        # verify service assignment is 4,4,8
+        expected_in_use_counts = {
+            'test_discovery-77.77.1.10':4,
+            'test_discovery-77.77.2.10':8,
+            'test_discovery-77.77.3.10':4,
+        }
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 3)
+        success = validate_in_use_count(response, expected_in_use_counts, 'In-use count after initial subscribe')
+        self.assertEqual(success, True)
+
+        # validate assignment remains same after resubscribe
+        time.sleep(2*60)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 3)
+        success = validate_in_use_count(response, expected_in_use_counts, 'In-use count after initial subscribe')
+        self.assertEqual(success, True)
+
+    def test_bug_1548638(self):
+        puburl = '/publish'
+        suburl = "/subscribe"
+        service_type = 'test_bug_1548638'
+
+        # publish 3 dns servers
+        for ipaddr in ["77.77.1.10", "77.77.2.10", "77.77.3.10"]:
+            payload = {
+                service_type: { "ip-addr" : ipaddr, "port" : "1111" },
+                'service-type' : '%s' % service_type,
+                'service-id' : '%s-%s' % (service_type, ipaddr),
+                'remote-addr': ipaddr,
+            }
+            (code, msg) = self._http_post(puburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+
+        # Verify all services are published.
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 3)
+
+        # verify all agents see only 2 publishers due to fixed policy
+        expectedpub_set = set(["test_bug_1548638-77.77.1.10", "test_bug_1548638-77.77.2.10"])
+        for ipaddr in ["77.77.1.11", "77.77.2.11", "77.77.3.11"]:
+            payload = {
+                'service'     : service_type,
+                'client'      : ipaddr,
+                'instances'   : 2,
+                'client-type' : 'contrail-vrouter-agent:0',
+                'remote-addr' : ipaddr,
+            }
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), payload['instances'])
+            receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+            self.assertEqual(expectedpub_set == receivedpub_set, True)
+
+        dsa = DiscoveryServiceAssignment()
+        rule_entry = build_dsa_rule_entry('77.77.3.0/24,%s 77.77.3.11/32,contrail-vrouter-agent:0' % service_type)
+        rule_uuid = uuid.uuid4()
+        dsa_rule1 = DsaRule(name = str(rule_uuid), parent_obj = dsa, dsa_rule_entry = rule_entry)
+        dsa_rule1.set_uuid(str(rule_uuid))
+        self._vnc_lib.dsa_rule_create(dsa_rule1)
+
+        expectedpub_set = set(["test_bug_1548638-77.77.1.10", "test_bug_1548638-77.77.2.10"])
+        for ipaddr in ["77.77.1.11", "77.77.2.11"]:
+            payload = {
+                'service'     : service_type,
+                'client'      : ipaddr,
+                'instances'   : 2,
+                'client-type' : 'contrail-vrouter-agent:0',
+                'remote-addr' : ipaddr,
+            }
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), payload['instances'])
+            receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+            self.assertEqual(expectedpub_set == receivedpub_set, True)
+
+        expectedpub_set = set(["test_bug_1548638-77.77.3.10"])
+        for ipaddr in ["77.77.3.11"]:
+            payload = {
+                'service'     : service_type,
+                'client'      : ipaddr,
+                'instances'   : 2,
+                'client-type' : 'contrail-vrouter-agent:0',
+                'remote-addr' : ipaddr,
+            }
+            (code, msg) = self._http_post(suburl, json.dumps(payload))
+            self.assertEqual(code, 200)
+            response = json.loads(msg)
+            self.assertEqual(len(response[service_type]), 1)
+            receivedpub_set = set([svc['@publisher-id'] for svc in response[service_type]])
+            self.assertEqual(expectedpub_set == receivedpub_set, True)
 
     def test_bug_1548771(self):
         dsa = DiscoveryServiceAssignment()
