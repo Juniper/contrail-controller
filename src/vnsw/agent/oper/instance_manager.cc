@@ -13,10 +13,6 @@
 #include "db/db.h"
 #include "io/event_manager.h"
 #include "oper/instance_task.h"
-#include "oper/loadbalancer.h"
-#include "oper/loadbalancer_pool.h"
-#include "oper/loadbalancer_config.h"
-#include "oper/loadbalancer_pool_info.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "oper/vm.h"
@@ -32,7 +28,7 @@ SandeshTraceBufferPtr InstanceManagerTraceBuf(
         SandeshTraceBufferCreate("InstanceManager", 1000));
 
 static const char loadbalancer_config_path_default[] =
-        "/var/lib/contrail/loadbalancer/";
+        "/var/lib/contrail/";
 static const char namespace_store_path_default[] =
         "/var/run/netns";
 static const char namespace_prefix[] = "vrouter-";
@@ -98,26 +94,6 @@ public:
 
             //Delete Namespace
             manager_->StopStaleNetNS(prop);
-
-            //If Loadbalncer, delete the config files as well
-            if (prop.service_type == ServiceInstance::LoadBalancer) {
-
-                //Delete the complete directory
-                std::stringstream cfg_path;
-                cfg_path <<
-                    manager_->loadbalancer_config_path_ << prop.pool_id;
-
-                boost::system::error_code error;
-                if (fs::exists(cfg_path.str())) {
-                    fs::remove_all(cfg_path.str(), error);
-                    if (error) {
-                        std::stringstream ss;
-                        ss << "Stale loadbalancer cfg fle delete error ";
-                        ss << error.message();
-                        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
-                    }
-                }
-            }
         }
     }
 
@@ -133,15 +109,11 @@ InstanceManager::~InstanceManager() {
 
 InstanceManager::InstanceManager(Agent *agent)
         : si_listener_(DBTableBase::kInvalidId),
-          lb_listener_(DBTableBase::kInvalidId),
-          lb_pool_listener_(DBTableBase::kInvalidId),
           netns_timeout_(-1),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&InstanceManager::DequeueEvent, this, _1)),
-          loadbalancer_config_path_(loadbalancer_config_path_default),
           namespace_store_path_(namespace_store_path_default),
           stale_timer_interval_(5 * 60 * 1000),
-          lb_config_(new LoadbalancerConfig(agent)),
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
                       GetTaskId("db::DBTable"), 0)), agent_(agent) {
@@ -154,17 +126,6 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
                                  const std::string &docker_cmd,
                                  const int netns_workers,
                                  const int netns_timeout) {
-
-    DBTableBase *lb_table = agent_->loadbalancer_table();
-    assert(lb_table);
-    lb_listener_ = lb_table->Register(
-        boost::bind(&InstanceManager::LoadbalancerObserver, this, _1, _2));
-
-    DBTableBase *lb_pool_table = agent_->loadbalancer_pool_table();
-    assert(lb_pool_table);
-    lb_pool_listener_ = lb_pool_table->Register(
-        boost::bind(&InstanceManager::LoadbalancerPoolObserver, this, _1, _2));
-
     DBTableBase *si_table = agent_->service_instance_table();
     assert(si_table);
     si_listener_ = si_table->Register(
@@ -179,9 +140,10 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
         LOG(ERROR, "Path for Docker starter command not specified "
                    "in the config file, the Docker instances won't be started");
     }
+
     adapters_.push_back(new DockerInstanceAdapter(docker_cmd, agent_));
     adapters_.push_back(new NetNSInstanceAdapter(netns_cmd,
-                        loadbalancer_config_path_, agent_));
+                        loadbalancer_config_path_default, agent_));
 #ifdef WITH_LIBVIRT
     adapters_.push_back(new LibvirtInstanceAdapter(agent_,
                         "qemu:///system"));
@@ -198,7 +160,6 @@ void InstanceManager::Initialize(DB *database, const std::string &netns_cmd,
     if (netns_workers > 0) {
        workers = netns_workers;
     }
-
 
     task_queues_.resize(workers);
     for (std::vector<InstanceTaskQueue *>::iterator iter = task_queues_.begin();
@@ -416,10 +377,6 @@ void InstanceManager::StateClear() {
 
 void InstanceManager::Terminate() {
     StateClear();
-    agent_->loadbalancer_table()->Unregister(lb_listener_);
-    agent_->loadbalancer_table()->Clear();
-    agent_->loadbalancer_pool_table()->Unregister(lb_pool_listener_);
-    agent_->loadbalancer_pool_table()->Clear();
     agent_->service_instance_table()->Unregister(si_listener_);
     agent_->service_instance_table()->Clear();
 
@@ -721,14 +678,11 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
     }
     cmd_str << netns_cmd_ << " destroy";
 
-
     cmd_str << " " << props.ServiceTypeString();
     cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     if (props.service_type == ServiceInstance::LoadBalancer) {
-        cmd_str << " --cfg-file " << loadbalancer_config_path_default <<
-            props.ToId() << "/conf.json";
         cmd_str << props.IdToCmdLineStr();
     }
 
@@ -826,95 +780,6 @@ void InstanceManager::EventObserver(
                 StartServiceInstance(svc_instance, state, false);
                 SetLastCmdType(svc_instance, Start);
             }
-        }
-    }
-}
-
-void InstanceManager::LoadbalancerObserver(DBTablePartBase *db_part,
-                                           DBEntryBase *entry) {
-    Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
-    std::stringstream pathgen;
-    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
-
-    boost::system::error_code error;
-    if (!loadbalancer->IsDeleted()) {
-        boost::filesystem::path dir(pathgen.str());
-        if (!boost::filesystem::exists(dir, error)) {
-            boost::filesystem::create_directories(dir, error);
-            if (error) {
-                std::stringstream ss;
-                ss << "CreateDirectory error for ";
-                ss << UuidToString(loadbalancer->uuid()) << " ";
-                ss << error.message();
-                INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
-                return;
-            }
-        }
-        pathgen << "/conf.json";
-        lb_config_->GenerateV2Config(pathgen.str(), loadbalancer);
-    } else {
-        boost::filesystem::remove_all(pathgen.str(), error);
-        if (error) {
-            std::stringstream ss;
-            ss << "Removeall error for ";
-            ss << UuidToString(loadbalancer->uuid()) << " ";
-            ss << error.message();
-            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
-            return;
-        }
-    }
-}
-
-void InstanceManager::LoadbalancerPoolObserver(
-    DBTablePartBase *db_part, DBEntryBase *entry) {
-    LoadbalancerPool *loadbalancer = static_cast<LoadbalancerPool *>(entry);
-    LBPoolState *state = static_cast<LBPoolState *>
-            (entry->GetState(db_part->parent(), lb_pool_listener_));
-    std::stringstream pathgen;
-    boost::system::error_code error;
-    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
-    if (state) {
-        if (loadbalancer->IsDeleted() || (loadbalancer->properties() == NULL) ||
-            ((state->type == LoadbalancerPool::LBAAS_V1) &&
-             (loadbalancer->type() != LoadbalancerPool::LBAAS_V1))) {
-             boost::filesystem::remove_all(pathgen.str(), error);
-             if (error) {
-                 LOG(ERROR, error.message());
-             }
-             entry->ClearState(db_part->parent(), lb_pool_listener_);
-             delete state;
-             return;
-        }
-    }
-    /* Ignore ADD notifications for LoadbalancerPool if it is not of type
-     * LBAAS_V1 as config generation for them is taken care in context of
-     * Loadbalancer object
-     */
-    if (loadbalancer->type() != LoadbalancerPool::LBAAS_V1) {
-        return;
-    }
-
-    if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
-        boost::filesystem::path dir(pathgen.str());
-        if (!boost::filesystem::exists(dir, error)) {
-#if 0
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
-            }
-#endif
-            boost::filesystem::create_directories(dir, error);
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
-            }
-        }
-        pathgen << "/conf.json";
-        lb_config_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
-                                   *loadbalancer->properties());
-        if (!state) {
-            state = new LBPoolState(LoadbalancerPool::LBAAS_V1);
-            entry->SetState(db_part->parent(), lb_pool_listener_, state);
         }
     }
 }

@@ -33,8 +33,6 @@
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
 #include <oper/instance_manager.h>
-#include <oper/loadbalancer.h>
-#include <oper/loadbalancer_pool.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
 #include <oper/config_manager.h>
@@ -82,10 +80,6 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.vxlan.0", &VxLanTable::CreateTable);
     DB::RegisterFactory("db.service-instance.0",
                         &ServiceInstanceTable::CreateTable);
-    DB::RegisterFactory("db.loadbalancer.0",
-                        &LoadbalancerTable::CreateTable);
-    DB::RegisterFactory("db.loadbalancer-pool.0",
-                        &LoadbalancerPoolTable::CreateTable);
     DB::RegisterFactory("db.physical_devices.0",
                         &PhysicalDeviceTable::CreateTable);
     DB::RegisterFactory("db.healthcheck.0",
@@ -185,20 +179,6 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_service_instance_table(si_table);
     si_table->Initialize(agent_->cfg()->cfg_graph(), dependency_manager_.get());
     si_table->set_agent(agent_);
-
-    LoadbalancerTable *lb_table =
-        static_cast<LoadbalancerTable *>(db->CreateTable("db.loadbalancer.0"));
-    agent_->set_loadbalancer_table(lb_table);
-    lb_table->set_agent(agent_);
-    lb_table->Initialize(agent_->cfg()->cfg_graph());
-
-    LoadbalancerPoolTable *lb_pool_table =
-        static_cast<LoadbalancerPoolTable *>(db->CreateTable
-                                             ("db.loadbalancer-pool.0"));
-    agent_->set_loadbalancer_pool_table(lb_pool_table);
-    lb_pool_table->Initialize(agent_->cfg()->cfg_graph(),
-                              dependency_manager_.get());
-    lb_pool_table->set_agent(agent_);
 
     PhysicalDeviceTable *dev_table =
         DBTableCreate<PhysicalDeviceTable>(db, agent_, this,

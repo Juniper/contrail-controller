@@ -344,9 +344,44 @@ void ServiceInstance::Properties::Clear() {
     interface_count = 0;
 
     instance_data.clear();
-    
+    std::vector<autogen::KeyValuePair>::const_iterator iter;
+    for (iter = instance_kvps.begin(); iter != instance_kvps.end(); ++iter) {
+        autogen::KeyValuePair kvp = *iter;
+        kvp.Clear();
+    }
+
     pool_id = boost::uuids::nil_uuid();
     loadbalancer_id = boost::uuids::nil_uuid();
+}
+
+static int compare_kvps(const std::vector<autogen::KeyValuePair> &lhs,
+        const std::vector<autogen::KeyValuePair> &rhs) {
+    int ret = 0;
+    std::vector<autogen::KeyValuePair>::const_iterator iter1;
+    std::vector<autogen::KeyValuePair>::const_iterator iter2;
+
+    iter1 = lhs.begin();
+    iter2 = rhs.begin();
+    while (iter1 != lhs.end() && iter2 != rhs.end()) {
+        if ((ret = iter1->key.compare(iter2->key)) != 0) {
+            return ret;
+        }
+        if ((ret = iter1->value.compare(iter2->value)) != 0) {
+            return ret;
+        }
+        ++iter1;
+        ++iter2;
+    }
+
+    if (iter1 != lhs.end()) {
+        return 1;
+    }
+
+    if (iter2 != rhs.end()) {
+        return -1;
+    }
+
+    return 0;
 }
 
 template <typename Type>
@@ -421,6 +456,11 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
         return cmp;
     }
 
+    cmp = compare_kvps(instance_kvps, rhs.instance_kvps);
+    if (cmp != 0) {
+        return cmp;
+    }
+
     cmp = compare(pool_id, rhs.pool_id);
     if (cmp == 0) {
         if (!pool_id.is_nil())
@@ -433,6 +473,24 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
             return !cmp;
     }
     return cmp;
+}
+
+void InstanceKvpsDiffString(const std::vector<autogen::KeyValuePair> &lhs,
+        const std::vector<autogen::KeyValuePair> &rhs,
+        std::stringstream *ss) {
+    std::vector<autogen::KeyValuePair>::const_iterator iter;
+
+    *ss << " KeyValuePair:";
+    iter = lhs.begin();
+    while (iter != lhs.end()) {
+        *ss << " -" << iter->key << ": " << iter->value;
+        iter++;
+    }
+    iter = rhs.begin();
+    while (iter != rhs.end()) {
+        *ss << " +" << iter->key << ": " << iter->value;
+        iter++;
+    }
 }
 
 std::string ServiceInstance::Properties::DiffString(
@@ -492,6 +550,9 @@ std::string ServiceInstance::Properties::DiffString(
     }
     if (compare(instance_data, rhs.instance_data)) {
         ss << " image: -" << instance_data << " +" << rhs.instance_data;
+    }
+    if (compare_kvps(instance_kvps, rhs.instance_kvps)) {
+        InstanceKvpsDiffString(instance_kvps, rhs.instance_kvps, &ss);
     }
     return ss.str();
 }
@@ -785,6 +846,7 @@ void ServiceInstanceTable::CalculateProperties(
 
     autogen::ServiceInstance *svc_instance =
                  static_cast<autogen::ServiceInstance *>(node->GetObject());
+    properties->instance_kvps = svc_instance->bindings();
     FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
 
     if (properties->service_type == ServiceInstance::LoadBalancer) {
