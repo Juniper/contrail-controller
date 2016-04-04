@@ -24,7 +24,8 @@ setup(
               'cfgm_common.uve.physical_router',
               'cfgm_common.uve.cfgm_cpuinfo',
               'cfgm_common.uve.cfgm_cpuinfo.cpuinfo',
-              'cfgm_common.uve.cfgm_cpuinfo.process_info'
+              'cfgm_common.uve.cfgm_cpuinfo.process_info',
+              'cfgm_common.uve.greenlets'
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
