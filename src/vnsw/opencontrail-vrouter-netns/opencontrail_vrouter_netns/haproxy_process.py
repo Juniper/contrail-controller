@@ -8,8 +8,7 @@ SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
 
 def get_pid_file_from_conf_file(conf_file):
     dir_name = os.path.dirname(conf_file)
-    sout = os.path.split(dir_name)
-    pid_file = sout[0] + "/" + sout[1] + ".haproxy.pid"
+    pid_file = dir_name + "/" + "haproxy.pid"
     return pid_file
 
 def delete_haproxy_pid_file(conf_file):
@@ -32,11 +31,9 @@ def stop_haproxy(conf_file, daemon_mode=False):
     delete_haproxy_pid_file(conf_file)
 
 
-def start_update_haproxy(conf_file, netns, daemon_mode=False,
+def start_update_haproxy(haproxy_cfg_file, netns, daemon_mode=False,
                          keystone_auth_conf_file=None):
-    pool_id = os.path.split(os.path.dirname(conf_file))[1]
-    haproxy_cfg_file = haproxy_config.build_config(conf_file, \
-                                      keystone_auth_conf_file)
+    pool_id = os.path.split(os.path.dirname(haproxy_cfg_file))[1]
     try:
         if daemon_mode:
             _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)

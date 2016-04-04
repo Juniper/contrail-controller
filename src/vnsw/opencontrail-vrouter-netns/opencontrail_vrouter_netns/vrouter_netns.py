@@ -33,6 +33,8 @@ import subprocess
 import requests
 import json
 import os
+import shlex
+
 
 from linux import ip_lib
 import haproxy_process
@@ -54,7 +56,9 @@ class NetnsManager(object):
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
     PORT_TYPE = 'NameSpacePort'
-    LBAAS_PROCESS = 'haproxy'
+    LBAAS_DIR = "/var/lib/contrail/loadbalancer/"
+    LBAAS_PROCESS = '/haproxy'
+    LBAAS_PROCESS_CONF = LBAAS_PROCESS + ".conf"
     BASE_URL = "http://localhost:9091/port"
     HEADERS = {'content-type': 'application/json'}
 
@@ -88,6 +92,7 @@ class NetnsManager(object):
         self.cfg_file = cfg_file
         self.update = update
         self.gw_ip = gw_ip
+        self.loadbalancer_id = loadbalancer_id
         self.keystone_auth_cfg_file = keystone_auth_cfg_file
 
     def _get_tap_name(self, uuid_str):
@@ -137,7 +142,18 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             self.create()
 
-        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True,
+        dir_name = os.path.dirname(self.cfg_file) + "/" + self.loadbalancer_id
+        cfg_file = os.path.basename(self.cfg_file)
+        cfg_file_list = cfg_file.split('.')
+        lb_id_list = [self.loadbalancer_id]
+        cfg_file = dir_name + "/" + '.'.join(set(cfg_file_list) ^ set(lb_id_list))
+        cmd = "mkdir -p " + dir_name
+        cmd_list = shlex.split(cmd)
+        subprocess.Popen(cmd_list)
+        cmd = "mv " + self.cfg_file + " " + cfg_file
+        cmd_list = shlex.split(cmd)
+        subprocess.Popen(cmd_list)
+        haproxy_process.start_update_haproxy(cfg_file, self.namespace, True,
                                              self.keystone_auth_cfg_file)
 
         try:
@@ -149,8 +165,12 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
-
-        haproxy_process.stop_haproxy(self.cfg_file, True)
+        conf_file = self.LBAAS_DIR + self.loadbalancer_id + self.LBAAS_PROCESS_CONF
+        haproxy_process.stop_haproxy(conf_file, True)
+        dir_name = self.LBAAS_DIR + self.loadbalancer_id
+        cmd = "rm -rf " + dir_name
+        cmd_list = shlex.split(cmd)
+        subprocess.Popen(cmd_list)
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
