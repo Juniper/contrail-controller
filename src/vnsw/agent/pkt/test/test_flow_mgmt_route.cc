@@ -149,7 +149,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_1) {
         vif0->vrf()->GetInet4UnicastRouteTable();
     AgentRoute *rt = table->FindRoute(remote_ip);
 
-    flow_mgmt_->DeleteEvent(rt, 0xFFFFFFFF);
+    flow_mgmt_->DeleteDBEntryEvent(rt, 0xFFFFFFFF);
     client->WaitForIdle();
 
     DeleteRoute(vrf_name.c_str(), remote_subnet.to_string().c_str(), 24, peer_);
@@ -191,7 +191,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_2) {
     flow_mgmt_->DeleteEvent(flow, params);
     client->WaitForIdle();
 
-    flow_mgmt_->DeleteEvent(rt, 0xFFFFFFFF);
+    flow_mgmt_->DeleteDBEntryEvent(rt, 0xFFFFFFFF);
     client->WaitForIdle();
 
     DeleteRoute(vrf_name.c_str(), remote_subnet.to_string().c_str(), 24, peer_);
@@ -264,7 +264,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
     client->WaitForIdle(10);
 
     RevFlowDepParams params;
-    flow_proto_->DisableFlowMgmtQueue(true);
+    flow_proto_->DisableFlowUpdateQueue(true);
     flow_mgmt_->DeleteEvent(flow, params);
     flow_mgmt_->DeleteEvent(flow->reverse_flow_entry(), params);
     flow_mgmt_->AddEvent(flow);
@@ -274,7 +274,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
     DeleteVmportEnv(input, 3, true, 1);
     client->WaitForIdle(3);
 
-    flow_proto_->DisableFlowMgmtQueue(false);
+    flow_proto_->DisableFlowUpdateQueue(false);
     mgr->DisableWorkQueue(false);
     client->WaitForIdle(10);
 
