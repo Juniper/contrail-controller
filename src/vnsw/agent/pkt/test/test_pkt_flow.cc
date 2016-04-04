@@ -2207,6 +2207,41 @@ TEST_F(FlowTest, Flow_return_error) {
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
 }
 
+//Create short-flow and delete the flow entry
+//before vrouter sends a response for flow
+//verify flow gets cleaned up
+TEST_F(FlowTest, Flow_return_error_1) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    client->WaitForIdle();
+
+    //Create short flow
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {new ShortFlow()}
+        }
+    };
+
+    sock->SetBlockMsgProcessing(true);
+    /* Failure to allocate reverse flow index, convert to short flow and age */
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
+    flow[0].pkt_.set_allow_wait_for_idle(false);
+    CreateFlow(flow, 1);
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0,
+                            GetFlowKeyNH(input[0].intf_id));
+
+    client->EnqueueFlowAge();
+    WAIT_FOR(1000, 1000, (fe->deleted() == true));
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowTableWait(0));
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
+}
+
 //Test for subnet broadcast flow
 TEST_F(FlowTest, Subnet_broadcast_Flow) {
     IpamInfo ipam_info[] = {
