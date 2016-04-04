@@ -10,6 +10,7 @@
 #include <boost/uuid/uuid.hpp>
 #include "cmn/agent_db.h"
 #include "oper/ifmap_dependency_manager.h"
+#include "schema/vnc_cfg_types.h"
 
 class DBGraph;
 class IFMapDependencyManager;
@@ -91,12 +92,10 @@ public:
         int interface_count;
 
         std::string instance_data;
+        std::vector<autogen::KeyValuePair> instance_kvps;
 
-        // loadbalancer-pool uuid
-        boost::uuids::uuid pool_id;
-
-        // loadbalancer uuid
-        boost::uuids::uuid loadbalancer_id;
+        // loadbalancer id
+        std::string loadbalancer_id;
     };
 
     ServiceInstance();
