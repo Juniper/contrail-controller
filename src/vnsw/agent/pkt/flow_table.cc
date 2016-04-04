@@ -52,13 +52,24 @@ const uint32_t FlowEntryFreeList::kMinThreshold;
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 
-#define FLOW_LOCK(flow, rflow) \
+#define FLOW_LOCK(flow, rflow, flow_event) \
+    bool is_flow_rflow_key_same = false; \
+    if (flow == rflow) { \
+        if (flow_event == FlowEvent::DELETE_FLOW) { \
+            assert(0); \
+        } \
+        is_flow_rflow_key_same = true; \
+        rflow = NULL; \
+    } \
     tbb::mutex tmp_mutex1, tmp_mutex2, *mutex_ptr_1, *mutex_ptr_2; \
     GetMutexSeq(flow ? flow->mutex() : tmp_mutex1, \
                 rflow ? rflow->mutex() : tmp_mutex2, \
                 &mutex_ptr_1, &mutex_ptr_2); \
     tbb::mutex::scoped_lock lock1(*mutex_ptr_1); \
-    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2); \
+    if (is_flow_rflow_key_same) { \
+        flow->MakeShortFlow(FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY); \
+    }
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable constructor/destructor
@@ -162,7 +173,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
 
-    FLOW_LOCK(new_flow, new_rflow);
+    FLOW_LOCK(new_flow, new_rflow, FlowEvent::FLOW_MESSAGE);
     AddInternal(flow, new_flow, rflow, new_rflow, false, false);
 }
 
@@ -178,7 +189,7 @@ void FlowTable::Update(FlowEntry *flow, FlowEntry *rflow) {
         rev_flow_update = false;
     }
 
-    FLOW_LOCK(new_flow, new_rflow);
+    FLOW_LOCK(new_flow, new_rflow, FlowEvent::FLOW_MESSAGE);
     AddInternal(flow, new_flow, rflow, new_rflow, fwd_flow_update,
                 rev_flow_update);
 }
@@ -368,7 +379,7 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
     FlowEntry *rflow = NULL;
 
     PopulateFlowEntriesUsingKey(key, del_reverse_flow, &flow, &rflow);
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::DELETE_FLOW);
     return DeleteUnLocked(del_reverse_flow, flow, rflow);
 }
 
@@ -853,7 +864,7 @@ bool FlowTable::FlowResponseHandlerUnLocked(const FlowEvent *resp,
 bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
     FlowEntry *flow = resp->flow();
     FlowEntry *rflow = flow->reverse_flow_entry_.get();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, resp->event());
     return FlowResponseHandlerUnLocked(resp, flow, rflow);
 }
 
@@ -979,7 +990,7 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
                                          FlowEntry *flow,
                                          FlowEntry *rflow) {
     //Take lock
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, req->event());
 
     //Now process events.
     switch (req->event()) {
