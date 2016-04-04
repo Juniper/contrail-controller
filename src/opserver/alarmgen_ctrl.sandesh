@@ -111,6 +111,35 @@ response sandesh UVETablePerfResp {
     6: u64 call_time
 }
 
+enum UVEAlarmState {
+    Idle,
+    Soak_Active,
+    Active,
+    Soak_Idle
+}
+
+struct UVEAlarmOperState {
+    1: UVEAlarmState state
+    2: u64           delete_timestamp
+    3: list<u64>     alarm_timestamp
+    4: u32           head_timestamp
+}
+
+struct UVEAlarmStateMachineInfo {
+    1: sandesh_alarm_base.UVEAlarmInfo      uai
+    2: sandesh_alarm_base.UVEAlarmConfig    uac
+    3: UVEAlarmOperState uas
+}
+
+trace sandesh AlarmStateChangeTrace {
+    1: "State change info for alarm:"
+    2: string		table
+    3: string		uv
+    4: string		alarm_type
+    5: UVEAlarmState	old_state
+    6: UVEAlarmState	new_state
+}
+
 /**
  * @description: sandesh request to get alarms for a given UVE table
  */
@@ -123,7 +152,7 @@ request sandesh UVETableAlarmReq {
  */
 response sandesh UVETableAlarmResp {
     1: string table
-    2: list<sandesh_alarm_base.UVEAlarms> uves
+    2: list<UVEAlarmStateMachineInfo> uves
 }
 
 struct UVETypeInfo {
