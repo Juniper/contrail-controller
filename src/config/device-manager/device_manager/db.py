@@ -20,6 +20,7 @@ from gevent import queue
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from netaddr import IPAddress
 from cfgm_common.zkclient import IndexAllocator
+from cfgm_common import vnc_greenlets
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 
 
@@ -117,7 +118,8 @@ class PhysicalRouterDM(DBBaseDM):
             self.product, self._logger)
         self.set_conf_sent_state(False)
         self.config_repush_interval = PushConfigState.get_repush_interval()
-        self.nc_handler_gl = gevent.spawn(self.nc_handler)
+        self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",\
+                                                       self.nc_handler)
         self.uve_send()
     # end __init__
 

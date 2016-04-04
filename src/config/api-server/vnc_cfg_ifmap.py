@@ -34,6 +34,7 @@ from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
+from cfgm_common import vnc_greenlets
 
 
 import copy
@@ -124,7 +125,9 @@ class VncIfmapClient(object):
 
         self._init_conn()
         self._publish_config_root()
-        self._health_checker_greenlet = gevent.spawn(self._health_checker)
+        self._health_checker_greenlet =\
+               vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',\
+                                         self._health_checker)
     # end __init__
 
     def object_alloc(self, obj_type, parent_type, fq_name):
@@ -386,7 +389,10 @@ class VncIfmapClient(object):
 
         self._queue = Queue(self._get_api_server()._args.ifmap_queue_size)
         if self._dequeue_greenlet is None:
-            self._dequeue_greenlet = gevent.spawn(self._ifmap_dequeue_task)
+            self._dequeue_greenlet =\
+                  vnc_greenlets.VncGreenlet("VNC IfMap Dequeue",\
+                                            self._ifmap_dequeue_task)
+
     # end reset
 
 
@@ -1156,7 +1162,9 @@ class VncZkClient(object):
 
     def reconnect_zk(self):
         if self._reconnect_zk_greenlet is None:
-            self._reconnect_zk_greenlet = gevent.spawn(self._reconnect_zk)
+            self._reconnect_zk_greenlet =\
+                   vnc_greenlets.VncGreenlet("VNC IfMap ZK Reconnect",\
+                                             self._reconnect_zk)
     # end
 
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
