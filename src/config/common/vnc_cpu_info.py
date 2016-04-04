@@ -14,6 +14,7 @@ from uve.cfgm_cpuinfo.cpuinfo.ttypes import *
 from buildinfo import build_info
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
+import vnc_greenlets
 
 # CpuInfo object for config-node
 
@@ -41,7 +42,7 @@ class CpuInfo(object):
         self._new_ip = None
 
         # spawn a Greenlet object to do periodic collect and send.
-        gevent.spawn(self.cpu_stats)
+        vnc_greenlets.VncGreenlet("VNC CPU Info", self.cpu_stats)
     # end __init__
 
     def get_config_node_ip(self):
