@@ -28,7 +28,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
     request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)) {
-    request_queue_.set_name("Flow management");
+    request_queue_.set_name("Flow Management Queue");
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
         bgp_as_a_service_flow_mgmt_tree_[count].reset(
             new BgpAsAServiceFlowMgmtTree(this));
@@ -389,10 +389,6 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
     default:
          assert(0);
 
-    }
-
-    if (req->flow().get()) {
-        agent_->pkt()->get_flow_proto()->EnqueueFreeFlowReference(req->flow());
     }
 
     return true;

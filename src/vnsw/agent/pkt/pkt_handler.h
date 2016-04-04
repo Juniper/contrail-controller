@@ -236,6 +236,8 @@ public:
         PacketBufferEnqueueItem(const AgentHdr &h, const PacketBufferPtr &b)
             : hdr(h), buff(b) {}
     };
+    typedef WorkQueue<boost::shared_ptr<PacketBufferEnqueueItem> >
+        PktHandlerQueue;
 
     PktHandler(Agent *, PktModule *pkt_module);
     virtual ~PktHandler();
@@ -280,6 +282,7 @@ public:
     void Enqueue(PktModuleName module, boost::shared_ptr<PktInfo> pkt_info);
     bool IsFlowPacket(PktInfo *pkt_info);
     void CalculatePort(PktInfo *pkt_info);
+    const PktHandlerQueue *work_queue() const { return &work_queue_; }
 
 private:
     void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
@@ -314,7 +317,7 @@ private:
 
     Agent *agent_;
     PktModule *pkt_module_;
-    WorkQueue<boost::shared_ptr<PacketBufferEnqueueItem> > work_queue_;
+    PktHandlerQueue work_queue_;
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };
 

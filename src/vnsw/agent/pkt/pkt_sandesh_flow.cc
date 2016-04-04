@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 
+#include <cmn/agent_stats.h>
 #include <uve/agent_uve.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
@@ -616,8 +617,12 @@ void NextFlowStatsRecordsSet::HandleRequest() const {
 
 
 void SandeshFlowTableInfoRequest::HandleRequest() const {
-    FlowProto *proto = Agent::GetInstance()->pkt()->get_flow_proto();
+    Agent *agent = Agent::GetInstance();
+    FlowProto *proto = agent->pkt()->get_flow_proto();
     SandeshFlowTableInfoResp *resp = new SandeshFlowTableInfoResp();
+    resp->set_flow_count(proto->FlowCount());
+    resp->set_total_added(agent->stats()->flow_created());
+    resp->set_total_deleted(agent->stats()->flow_aged());
     std::vector<SandeshFlowTableInfo> info_list;
     for (uint16_t i = 0; i < proto->flow_table_count(); i++) {
         FlowTable *table = proto->GetTable(i);

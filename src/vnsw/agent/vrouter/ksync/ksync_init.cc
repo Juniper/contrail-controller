@@ -105,6 +105,9 @@ void KSync::InitDone() {
     }
     uint32_t count = ksync_flow_memory_->flow_table_entries_count();
     ksync_flow_index_manager_->InitDone(count);
+    AgentProfile *profile = agent_->oper_db()->agent_profile();
+    profile->RegisterKSyncStatsCb(boost::bind(&KSync::SetProfileData,
+                                              this, _1));
 }
 
 void KSync::InitFlowMem() {
@@ -127,6 +130,29 @@ int KSync::Encode(Sandesh &encoder, uint8_t *buf, int buf_len) {
     int len, error;
     len = encoder.WriteBinary(buf, buf_len, &error);
     return len;
+}
+
+void KSync::SetProfileData(ProfileData *data) {
+    KSyncSock *sock = KSyncSock::Get(0);
+    const KSyncTxQueue *tx_queue = sock->send_queue();
+
+    ProfileData::WorkQueueStats *stats = &data->ksync_tx_queue_count_;
+    stats->name_ = "KSync Send Queue";
+    stats->queue_count_ = tx_queue->queue_len();
+    stats->enqueue_count_ = tx_queue->enqueues();
+    stats->dequeue_count_ = tx_queue->dequeues();
+    stats->max_queue_count_ = tx_queue->max_queue_len();
+    stats->task_start_count_ = tx_queue->write_events();
+
+    const KSyncSock::KSyncReceiveQueue *rx_queue =
+        sock->get_receive_work_queue(0);
+    stats = &data->ksync_rx_queue_count_;
+    stats->name_ = rx_queue->Description();
+    stats->queue_count_ = rx_queue->Length();
+    stats->enqueue_count_ = rx_queue->NumEnqueues();
+    stats->dequeue_count_ = rx_queue->NumDequeues();
+    stats->max_queue_count_ = rx_queue->max_queue_len();
+    stats->task_start_count_ = rx_queue->task_starts();
 }
 
 void KSync::VRouterInterfaceSnapshot() {
