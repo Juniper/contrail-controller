@@ -10,11 +10,9 @@
 #include "db/db_table.h"
 #include "oper/service_instance.h"
 #include "oper/instance_manager_adapter.h"
-#include "oper/loadbalancer_pool.h"
 
 class Agent;
 class DB;
-class LoadbalancerConfig;
 class InstanceState;
 class InstanceTask;
 class InstanceTaskQueue;
@@ -43,11 +41,6 @@ class InstanceManager {
         OnErrorEvent,
         OnTaskTimeoutEvent,
         OnExitEvent
-    };
-
-    struct LBPoolState :public DBState {
-        LBPoolState (LoadbalancerPool::Type t) : type(t) { }
-        LoadbalancerPool::Type type;
     };
 
     struct InstanceManagerChildEvent {
@@ -81,7 +74,6 @@ class InstanceManager {
 
     InstanceState *GetState(ServiceInstance *) const;
     bool StaleTimeout();
-    const LoadbalancerConfig &lb_config() const { return *(lb_config_.get()); }
     void SetStaleTimerInterval(int minutes);
     int StaleTimerInterval() { return stale_timer_interval_;}
     void SetNamespaceStorePath(std::string path);
@@ -141,15 +133,7 @@ class InstanceManager {
      */
     void EventObserver(DBTablePartBase *db_part, DBEntryBase *entry);
 
-    /*
-     * Event observer for changes in the "db.loadbalancer.0" table.
-     */
-    void LoadbalancerObserver(DBTablePartBase *db_part, DBEntryBase *entry);
-    void LoadbalancerPoolObserver(DBTablePartBase *db_part, DBEntryBase *entry);
-
     DBTableBase::ListenerId si_listener_;
-    DBTableBase::ListenerId lb_listener_;
-    DBTableBase::ListenerId lb_pool_listener_;
     std::string netns_cmd_;
     int netns_timeout_;
     int netns_reattempts_;
@@ -162,7 +146,6 @@ class InstanceManager {
     std::string loadbalancer_config_path_;
     std::string namespace_store_path_;
     int stale_timer_interval_;
-    std::auto_ptr<LoadbalancerConfig> lb_config_;
     Timer *stale_timer_;
     std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
     Agent *agent_;

@@ -1,3 +1,5 @@
+#include <fstream>
+#include <boost/filesystem.hpp>
 #include "oper/netns_instance_adapter.h"
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
@@ -35,14 +37,45 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
     cmd_str << " --gw-ip " << props.gw_ip;
 
     if (props.service_type == ServiceInstance::LoadBalancer) {
-        boost::uuids::uuid lb_id = props.ToId();
-        cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
-            << "/conf.json";
-        cmd_str << props.IdToCmdLineStr();
+        if (props.loadbalancer_id.empty()) {
+            LOG(ERROR, "loadbalancer id is missing for service instance: "
+                        << UuidToString(props.instance_id));
+            return NULL;
+        }
+        cmd_str << " --loadbalancer-id " << props.loadbalancer_id;
         if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
             cmd_str << " --keystone-auth-cfg-file " <<
                 agent_->params()->si_lb_keystone_auth_conf_path();
         }
+        std::stringstream pathgen;
+        pathgen << loadbalancer_config_path_
+                << props.loadbalancer_id << ".conf";
+        const std::string &filename = pathgen.str();
+        std::ofstream fs(filename.c_str());
+        if (fs.fail()) {
+            LOG(ERROR, "File create " << filename << ": " << strerror(errno));
+            return NULL;
+        }
+        const std::vector<autogen::KeyValuePair> &kvps  = props.instance_kvps;
+        bool kvp_found = false;
+        std::vector<autogen::KeyValuePair>::const_iterator iter;
+        autogen::KeyValuePair kvp;
+        for (iter = kvps.begin(); iter != kvps.end(); ++iter) {
+            kvp = *iter;
+            /* :::: - Key Value Seperator
+               ::::: - Key Value Pair Seperator */
+            if (kvp_found == true)
+                fs << ":::::";
+            fs << kvp.key << "::::" << kvp.value;
+            kvp_found = true;
+        }
+        fs.close();
+        if (kvp_found == false) {
+            LOG(ERROR, "KeyValuePair is missing for loadbalancer: "
+                        << props.loadbalancer_id);
+            return NULL;
+        }
+        cmd_str << " --cfg-file " << pathgen.str();
     }
 
     if (update) {
@@ -75,10 +108,12 @@ InstanceTask* NetNSInstanceAdapter::CreateStopTask(const ServiceInstance::Proper
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
     if (props.service_type == ServiceInstance::LoadBalancer) {
-        boost::uuids::uuid lb_id = props.ToId();
-        cmd_str << " --cfg-file " << loadbalancer_config_path_ << lb_id
-            << "/conf.json";
-        cmd_str << props.IdToCmdLineStr();
+        if (props.loadbalancer_id.empty()) {
+            LOG(ERROR, "loadbalancer id is missing for service instance: "
+                        << UuidToString(props.instance_id));
+            return NULL;
+        }
+        cmd_str << " --loadbalancer-id " << props.loadbalancer_id;
     }
 
     return new InstanceTaskExecvp("NetNS", cmd_str.str(), STOP,

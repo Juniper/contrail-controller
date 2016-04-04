@@ -29,8 +29,6 @@
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
 #include <oper/service_instance.h>
-#include <oper/loadbalancer.h>
-#include <oper/loadbalancer_pool.h>
 #include <oper/physical_device.h>
 
 #include <vgw/cfg_vgw.h>

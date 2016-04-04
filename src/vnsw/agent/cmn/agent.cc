@@ -510,7 +510,6 @@ Agent::Agent() :
     vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), mpls_table_(NULL),
     acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
     vxlan_table_(NULL), service_instance_table_(NULL),
-    loadbalancer_table_(NULL), loadbalancer_pool_table_(NULL),
     physical_device_table_(NULL), physical_device_vn_table_(NULL),
     config_manager_(), mirror_cfg_table_(NULL), intf_mirror_cfg_table_(NULL),
     intf_cfg_table_(NULL), router_id_(0), prefix_len_(0), 

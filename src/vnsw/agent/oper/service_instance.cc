@@ -295,19 +295,14 @@ static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
     properties->instance_data = svc_template_props.instance_data;
 }
 
-static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
-                                   ServiceInstance::Properties *properties) {
-    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
-         iter != node->end(graph); ++iter) {
-        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (IsNodeType(adj, "loadbalancer-pool")) {
-            autogen::LoadbalancerPool *pool =
-                    static_cast<autogen::LoadbalancerPool *>(adj->GetObject());
-            properties->pool_id = IdPermsGetUuid(pool->id_perms());
-        } else if (IsNodeType(adj, "loadbalancer")) {
-            autogen::Loadbalancer *lb =
-                    static_cast<autogen::Loadbalancer *>(adj->GetObject());
-            properties->loadbalancer_id = IdPermsGetUuid(lb->id_perms());
+static void FindAndSetLoadbalancer(ServiceInstance::Properties *properties) {
+    const std::vector<autogen::KeyValuePair> &kvps = properties->instance_kvps;
+    std::vector<autogen::KeyValuePair>::const_iterator iter;
+    for (iter = kvps.begin(); iter != kvps.end(); ++iter) {
+        autogen::KeyValuePair kvp = *iter;
+        if (kvp.key == "lb_uuid") {
+            properties->loadbalancer_id = kvp.value;
+            break;
         }
     }
 }
@@ -344,9 +339,51 @@ void ServiceInstance::Properties::Clear() {
     interface_count = 0;
 
     instance_data.clear();
-    
-    pool_id = boost::uuids::nil_uuid();
-    loadbalancer_id = boost::uuids::nil_uuid();
+    std::vector<autogen::KeyValuePair>::const_iterator iter;
+    for (iter = instance_kvps.begin(); iter != instance_kvps.end(); ++iter) {
+        autogen::KeyValuePair kvp = *iter;
+        kvp.Clear();
+    }
+
+    loadbalancer_id.clear();
+}
+
+static int compare_kvps(const std::vector<autogen::KeyValuePair> &lhs,
+        const std::vector<autogen::KeyValuePair> &rhs) {
+    int ret = 0;
+    int match;
+    int remining_rhs_items;
+    std::vector<autogen::KeyValuePair>::const_iterator iter1;
+    std::vector<autogen::KeyValuePair>::const_iterator iter2;
+
+    iter1 = lhs.begin();
+    iter2 = rhs.begin();
+    match = 0;
+    remining_rhs_items = rhs.end() - rhs.begin();
+    while (iter1 != lhs.end()) {
+        while (iter2 != rhs.end()) {
+            if (iter1->key.compare(iter2->key) == 0) {
+                if ((ret = iter1->value.compare(iter2->value)) != 0) {
+                    return ret;
+                }
+                remining_rhs_items--;
+                match = 1;
+                break;
+            }
+            iter2++;
+        }
+        if (match == 0) {
+            return 1;
+        }
+        match = 0;
+        iter2 = rhs.begin();
+        iter1++;
+    }
+
+    if (remining_rhs_items)
+        return -1;
+
+    return 0;
 }
 
 template <typename Type>
@@ -421,18 +458,73 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
         return cmp;
     }
 
-    cmp = compare(pool_id, rhs.pool_id);
-    if (cmp == 0) {
-        if (!pool_id.is_nil())
-            return !cmp;
+    cmp = compare_kvps(instance_kvps, rhs.instance_kvps);
+    if (cmp != 0) {
+        return cmp;
     }
 
     cmp = compare(loadbalancer_id, rhs.loadbalancer_id);
-    if (cmp == 0) {
-        if (!loadbalancer_id.is_nil())
-            return !cmp;
+    if (cmp != 0) {
+            return cmp;
     }
     return cmp;
+}
+
+void InstanceKvpsDiffString(const std::vector<autogen::KeyValuePair> &lhs,
+        const std::vector<autogen::KeyValuePair> &rhs,
+        std::stringstream *ss) {
+    int ret = 0;
+    int match;
+    int remining_rhs_items;
+    std::vector<autogen::KeyValuePair>::const_iterator iter1;
+    std::vector<autogen::KeyValuePair>::const_iterator iter2;
+
+    iter1 = lhs.begin();
+    iter2 = rhs.begin();
+    match = 0;
+    remining_rhs_items = rhs.size();
+    while (iter1 != lhs.end()) {
+        while (iter2 != rhs.end()) {
+            if (iter1->key.compare(iter2->key) == 0) {
+                remining_rhs_items--;
+                match = 1;
+                if ((ret = iter1->value.compare(iter2->value)) != 0) {
+                    *ss << iter1->key << ": -" << iter1->value;
+                    *ss << " +" << iter2->value;
+                    break;
+                }
+            }
+            iter2++;
+        }
+        if (match == 0) {
+            *ss << " -" << iter1->key << ": " << iter1->value;
+        }
+        match = 0;
+        iter2 = rhs.begin();
+        iter1++;
+    }
+
+    if (remining_rhs_items == 0)
+        return;
+
+    iter1 = rhs.begin();
+    iter2 = lhs.begin();
+    match = 0;
+    while (iter1 != rhs.end()) {
+        while (iter2 != lhs.end()) {
+            if (iter1->key.compare(iter2->key) == 0) {
+                match = 1;
+                break;
+            }
+            iter2++;
+        }
+        if (match == 0) {
+            *ss << " +" << iter1->key << ": " << iter1->value;
+        }
+        match = 0;
+        iter2 = lhs.begin();
+        iter1++;
+    }
 }
 
 std::string ServiceInstance::Properties::DiffString(
@@ -475,9 +567,6 @@ std::string ServiceInstance::Properties::DiffString(
         ss << " pfx-outside: -" << ip_prefix_len_outside
            << " +" << rhs.ip_prefix_len_outside;
     }
-    if (compare(pool_id, rhs.pool_id)) {
-        ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
-    }
 
     if (compare(loadbalancer_id, rhs.loadbalancer_id)) {
         ss << " loadbalancer_id: -" << loadbalancer_id << " +"
@@ -492,6 +581,9 @@ std::string ServiceInstance::Properties::DiffString(
     }
     if (compare(instance_data, rhs.instance_data)) {
         ss << " image: -" << instance_data << " +" << rhs.instance_data;
+    }
+    if (compare_kvps(instance_kvps, rhs.instance_kvps)) {
+        InstanceKvpsDiffString(instance_kvps, rhs.instance_kvps, &ss);
     }
     return ss.str();
 }
@@ -526,7 +618,8 @@ bool ServiceInstance::Properties::Usable() const {
         return false;
 
     if (service_type == LoadBalancer) {
-        return (!pool_id.is_nil() || !loadbalancer_id.is_nil());
+        if (loadbalancer_id.empty())
+            return false;
     }
 
     return true;
@@ -535,26 +628,6 @@ bool ServiceInstance::Properties::Usable() const {
 const std::string &ServiceInstance::Properties::ServiceTypeString() const {
     return ServiceInstanceTypesMapping::IntServiceTypeToStr(
         static_cast<ServiceType>(service_type));
-}
-
-std::string ServiceInstance::Properties::IdToCmdLineStr() const {
-    std::stringstream cmd_line;
-    if (!pool_id.is_nil()) {
-        cmd_line << " --pool-id " << pool_id;
-    } else if (!loadbalancer_id.is_nil()) {
-        cmd_line << " --loadbalancer-id " << loadbalancer_id;
-    }
-    return cmd_line.str();
-}
-
-boost::uuids::uuid ServiceInstance::Properties::ToId() const {
-    boost::uuids::uuid lb_id = boost::uuids::nil_uuid();
-    if (!pool_id.is_nil()) {
-        lb_id = pool_id;
-    } else if (!loadbalancer_id.is_nil()) {
-        lb_id = loadbalancer_id;
-    }
-    return lb_id;
 }
 
 /*
@@ -785,10 +858,11 @@ void ServiceInstanceTable::CalculateProperties(
 
     autogen::ServiceInstance *svc_instance =
                  static_cast<autogen::ServiceInstance *>(node->GetObject());
+    properties->instance_kvps = svc_instance->bindings();
     FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
 
     if (properties->service_type == ServiceInstance::LoadBalancer) {
-        FindAndSetLoadbalancer(graph, node, properties);
+        FindAndSetLoadbalancer(properties);
     }
 }
 

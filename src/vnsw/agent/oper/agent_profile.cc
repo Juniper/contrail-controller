@@ -235,10 +235,6 @@ static void GetDBTableStats(SandeshDBTableStatsInfo *stats, int index,
         } else if (itr->first.find(kMplsDbTablePrefix) != std::string::npos) {
            DBStatsToSandesh(&db_stats, "Mpls", itr->second);
            db_stats_list.push_back(db_stats);
-        } else if (itr->first.find(kLoadBalnceDbTablePrefix) !=
-                   std::string::npos) {
-           DBStatsToSandesh(&db_stats, "Loadbalancer", itr->second);
-           db_stats_list.push_back(db_stats);
         } else if (itr->first.find(kVnDbTablePrefix) != std::string::npos) {
            DBStatsToSandesh(&db_stats, "Vn", itr->second);
            db_stats_list.push_back(db_stats);
