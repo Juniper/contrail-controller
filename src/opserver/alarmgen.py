@@ -28,7 +28,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
-    UVEAlarms, UVEAlarmInfo, AlarmTemplate, AllOf
+    UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmTemplate, AllOf
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -46,7 +46,9 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
-    UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVEKeyCount
+    UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVEKeyCount, \
+    UVEAlarmStateMachineInfo, UVEAlarmState, UVEAlarmOperState,\
+    AlarmStateChangeTrace
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -182,10 +184,30 @@ class AlarmProcessor(object):
     def __init__(self, logger):
         self.uve_alarms = {}
         self._logger = logger
+        self.ActiveTimer = {}
+        self.IdleTimer = {}
+        self.FreqExceededCheck = {}
+        self.FreqCheck_Times = {}
+        self.FreqCheck_Seconds = {}
 
     def process_alarms(self, ext, uv, local_uve):
         nm = ext.entry_point_target.split(":")[1]
         sev = ext.obj.severity()
+        if not uv in self.ActiveTimer:
+            self.ActiveTimer[uv] = {}
+        self.ActiveTimer[uv][nm] = ext.obj.ActiveTimer()
+        if not uv in self.IdleTimer:
+            self.IdleTimer[uv] = {}
+        self.IdleTimer[uv][nm] = ext.obj.IdleTimer()
+        if not uv in self.FreqExceededCheck:
+            self.FreqExceededCheck[uv] = {}
+        self.FreqExceededCheck[uv][nm] = ext.obj.FreqExceededCheck()
+        if not uv in self.FreqCheck_Times:
+            self.FreqCheck_Times[uv] = {}
+        self.FreqCheck_Times[uv][nm] = ext.obj.FreqCheck_Times()
+        if not uv in self.FreqCheck_Seconds:
+            self.FreqCheck_Seconds[uv] = {}
+        self.FreqCheck_Seconds[uv][nm] = ext.obj.FreqCheck_Seconds()
 
         try:
             or_list = ext.obj.__call__(uv, local_uve)
@@ -202,6 +224,306 @@ class AlarmProcessor(object):
             self.uve_alarms[nm] = UVEAlarmInfo(type = nm, severity = sev,
                                    timestamp = 0, token = "",
                                    any_of = [AllOf(all_of=[])], ack = False)
+
+class AlarmStateMachine:
+    tab_alarms_timer = {}
+    def __init__(self, tab, uv, nm, sandesh, activeTimer, idleTimer,
+            freqCheck_Times, freqCheck_Seconds, freqExceededCheck):
+        self._sandesh = sandesh
+        self._logger = sandesh._logger
+        self.tab = tab
+        self.uv = uv
+        self.nm = nm
+        self.uac = UVEAlarmConfig(ActiveTimer = activeTimer, IdleTimer = \
+                idleTimer, FreqCheck_Times = freqCheck_Times, FreqCheck_Seconds
+                = freqCheck_Seconds, FreqExceededCheck = freqExceededCheck)
+        self.uas = UVEAlarmOperState(state = UVEAlarmState.Idle,
+                                head_timestamp = 0, alarm_timestamp = [])
+        self.uai = None
+        self.activeTimeout = None
+        self.idleTimeout = None
+        self.clearTimeout = None
+
+    def get_uai(self, forced=False):
+        """
+        This functions returns all the alarms which are in Active or
+        Soak_Idle state, all other alarms are not yet asserted or cleared
+        """
+        if forced:
+            return self.uai
+        if self.uas.state == UVEAlarmState.Active or \
+                self.uas.state == UVEAlarmState.Soak_Idle:
+            return self.uai
+        return None
+
+    def get_uac(self):
+        return self.uac
+
+    def get_uas(self):
+        return self.uas
+
+    def set_uai(self, uai):
+        if self.uai == None:
+            self.uai = uai
+
+    def is_new_alarm_same(self, new_uai):
+        uai2 = copy.deepcopy(self.uai)
+        uai2.timestamp = 0
+        uai2.token = ""
+        uai2.ack = False
+
+        if (uai2 == new_uai) and \
+                self.uas.state == UVEAlarmState.Active:
+            return True
+        return False
+
+    def set_alarms(self):
+        """
+        This function runs the state machine code for setting an alarm
+        If a timer becomes Active, caller should send out updated AlarmUVE
+        """
+        update_alarms = False
+        old_state = self.uas.state
+        curr_time = int(time.time())
+        if self.uas.state == UVEAlarmState.Soak_Idle:
+            self.uas.state = UVEAlarmState.Active
+            AlarmStateMachine.tab_alarms_timer[self.clearTimeout].discard\
+                    ((self.tab, self.uv, self.nm))
+        elif self.uas.state == UVEAlarmState.Idle:
+            if self.uac.FreqExceededCheck:
+                # log the timestamp
+                ts = int(self.uai.timestamp/1000000.0)
+                if len(self.uas.alarm_timestamp) <= self.uas.head_timestamp:
+                    self.uas.alarm_timestamp.append(ts)
+                else:
+                    self.uas.alarm_timestamp[self.uas.head_timestamp] = ts
+                self.uas.head_timestamp = (self.uas.head_timestamp + 1) % \
+                                (self.uac.FreqCheck_Times + 1)
+            if not self.uac.ActiveTimer or self.is_alarm_frequency_exceeded():
+                self.uas.state = UVEAlarmState.Active
+                update_alarms = True
+            else:
+                # put it on the timer
+                self.uas.state = UVEAlarmState.Soak_Active
+                self.activeTimeout = curr_time + self.uac.ActiveTimer
+                timeout_value = self.activeTimeout
+                if not timeout_value in AlarmStateMachine.tab_alarms_timer:
+                    AlarmStateMachine.tab_alarms_timer[timeout_value] = set()
+                AlarmStateMachine.tab_alarms_timer[timeout_value].add\
+                        ((self.tab, self.uv, self.nm))
+        self.send_state_change_trace(old_state, self.uas.state)
+        return update_alarms
+    #end set_alarms
+
+    def send_state_change_trace(self, os, ns):
+        # No need to send if old and new states are same
+        if os == ns:
+            return
+        state_trace = AlarmStateChangeTrace()
+        state_trace.table = str(self.tab)
+        state_trace.uv = str(self.uv)
+        state_trace.alarm_type = str(self.nm)
+        state_trace.old_state = os
+        state_trace.new_state = ns
+        state_trace.trace_msg(name="AlarmStateChangeTrace", \
+                                    sandesh=self._sandesh)
+
+    def clear_alarms(self):
+        """
+        This function runs the state machine code for clearing an alarm
+        If a timer becomes Idle with no soaking enabled,
+        caller should delete corresponding alarm and send out updated AlarmUVE
+        """
+        cur_time = int(time.time())
+        old_state = self.uas.state
+        delete_alarm = False
+        if self.uas.state == UVEAlarmState.Soak_Active:
+            # stop the active timer and start idle timer
+            self.uas.state = UVEAlarmState.Idle
+            if self.uac.FreqCheck_Seconds:
+                self.idleTimeout = cur_time + self.uac.FreqCheck_Seconds
+                to_value = self.idleTimeout
+                AlarmStateMachine.tab_alarms_timer[self.activeTimeout].discard\
+                    ((self.tab, self.uv, self.nm))
+                if not to_value in AlarmStateMachine.tab_alarms_timer:
+                    AlarmStateMachine.tab_alarms_timer[to_value] = set()
+                AlarmStateMachine.tab_alarms_timer[to_value].add\
+                    ((self.tab, self.uv, self.nm))
+            else:
+                delete_alarm = True
+        elif self.uas.state == UVEAlarmState.Active:
+            if not self.uac.IdleTimer:
+                # Move to Idle state, caller should delete it
+                self.uas.state = UVEAlarmState.Idle
+                if self.uac.FreqCheck_Seconds:
+                    self.idleTimeout = cur_time + self.uac.FreqCheck_Seconds
+                    to_value = self.idleTimeout
+                    AlarmStateMachine.tab_alarms_timer[self.activeTimeout]\
+                            .discard((self.tab, self.uv, self.nm))
+                    if not to_value in AlarmStateMachine.tab_alarms_timer:
+                        AlarmStateMachine.tab_alarms_timer[to_value] = set()
+                    AlarmStateMachine.tab_alarms_timer[to_value].add\
+                        ((self.tab, self.uv, self.nm))
+                else:
+                    delete_alarm = True
+            else:
+                self.uas.state = UVEAlarmState.Soak_Idle
+                self.clearTimeout = cur_time + self.uac.IdleTimer
+                to_value = self.clearTimeout
+                if not to_value in AlarmStateMachine.tab_alarms_timer:
+                    AlarmStateMachine.tab_alarms_timer[to_value] = set()
+                AlarmStateMachine.tab_alarms_timer[to_value].add\
+                        ((self.tab, self.uv, self.nm))
+        self.send_state_change_trace(old_state, self.uas.state)
+        return delete_alarm
+
+    def is_alarm_frequency_exceeded(self):
+        if not self.uac.FreqExceededCheck or \
+                not self.uac.FreqCheck_Times or \
+                not self.uac.FreqCheck_Seconds:
+            return False
+        if len(self.uas.alarm_timestamp) < self.uac.FreqCheck_Times + 1:
+            return False
+        freqCheck_times = self.uac.FreqCheck_Times
+        head = self.uas.head_timestamp
+        start = (head + freqCheck_times + 1) % freqCheck_times
+        end = (head + freqCheck_times) % freqCheck_times
+        if (self.uas.alarm_timestamp[end] - self.uas.alarm_timestamp[start]) \
+                <= self.uac.FreqCheck_Seconds:
+            self._logger.info("alarm frequency is exceeded, raising alarm")
+            return True
+        return False
+
+    def run_active_timer(self):
+        curr_time = int(time.time())
+        update_alarm = False
+        timeout_value = None
+        if curr_time >= self.activeTimeout:
+            self.send_state_change_trace(self.uas.state,
+                        UVEAlarmState.Active)
+            self.uas.state = UVEAlarmState.Active
+            timeout_value = -1
+            update_alarm = True
+        return timeout_value, update_alarm
+
+    def run_clear_timer(self):
+        """
+        This is the handler function for checking timer in Soak_Idle state. 
+        State Machine should be deleted by the caller if this timer fires
+        """
+        curr_time = int(time.time())
+        clearTimerExpired = 0
+        update_alarm = False
+        timeout_value = None
+        delete_alarm = False
+        if self.clearTimeout:
+            clearTimerExpired = curr_time - self.clearTimeout
+        if clearTimerExpired >= 0:
+            self.send_state_change_trace(self.uas.state, UVEAlarmState.Idle)
+            self.uas.state = UVEAlarmState.Idle
+            if self.uac.FreqCheck_Seconds:
+                self.idleTimeout = curr_time + self.uac.FreqCheck_Seconds
+                timeout_value = self.idleTimeout
+                update_alarm = True
+            else:
+                delete_alarm = True
+        return timeout_value, update_alarm, delete_alarm
+
+    def run_idle_timer(self):
+        """
+        This is the handler function for checking timer in Idle state. 
+        State Machine should be deleted by the caller if this timer fires
+        """
+        curr_time = int(time.time())
+        delete_alarm = False
+        idleTimerExpired = 0
+        if self.idleTimeout > 0:
+            idleTimerExpired = curr_time - self.idleTimeout
+        if idleTimerExpired >= 0:
+            delete_alarm = True
+        return delete_alarm
+
+    def run_uve_soaking_timer(self):
+        """
+        This function goes through the list of alarms which were raised
+        or set to delete but not soaked yet.
+        If an alarm is soaked for corresponding soak_time then it is asserted
+        or deleted
+        """
+        update_alarm = False
+        delete_alarm = False
+        timeout_value = None
+        if self.uas.state == UVEAlarmState.Soak_Active:
+            timeout_value, update_alarm = self.run_active_timer()
+        elif self.uas.state == UVEAlarmState.Soak_Idle:
+            timeout_value, update_alarm, delete_alarm = self.run_clear_timer()
+        elif self.uas.state == UVEAlarmState.Idle:
+            delete_alarm = self.run_idle_timer()
+        return delete_alarm, update_alarm, timeout_value
+    #end run_uve_soaking_timer
+
+    def delete_timers(self):
+        if self.uas.state == UVEAlarmState.Idle:
+            if self.idleTimeout and self.idleTimeout > 0:
+                AlarmStateMachine.tab_alarms_timer[self.idleTimeout].\
+                        discard((self.tab, self.uv, self.nm))
+        elif self.uas.state == UVEAlarmState.Soak_Active:
+            if self.activeTimeout and self.activeTimeout > 0:
+                AlarmStateMachine.tab_alarms_timer[self.activeTimeout].\
+                        discard((self.tab, self.uv, self.nm))
+        elif self.uas.state == UVEAlarmState.Soak_Idle:
+            if self.clearTimeout and self.clearTimeout > 0:
+                AlarmStateMachine.tab_alarms_timer[self.clearTimeout].\
+                        discard((self.tab, self.uv, self.nm))
+
+    @staticmethod
+    def run_timers(curr_time, tab_alarms):
+        inputs = namedtuple('inputs', ['tab', 'uv', 'nm',
+                            'delete_alarm', 'timeout_val', 'old_to'])
+        delete_alarms = []
+        update_alarms = []
+        if curr_time in AlarmStateMachine.tab_alarms_timer:
+            update_timers = []
+            for (tab, uv, nm) in AlarmStateMachine.tab_alarms_timer[curr_time]:
+                asm = tab_alarms[tab][uv][nm]
+                delete_alarm, update_alarm, timeout_val = \
+                                asm.run_uve_soaking_timer()
+                if delete_alarm:
+                    delete_alarms.append((asm.tab, asm.uv, asm.nm))
+                if update_alarm:
+                    update_alarms.append((asm.tab, asm.uv, asm.nm))
+                update_timers.append(inputs(tab=asm.tab, uv=asm.uv, nm=asm.nm,
+                                    delete_alarm=delete_alarm,
+                                    timeout_val=timeout_val, old_to=curr_time))
+            for timer in update_timers:
+                if timer.timeout_val is not None or timer.delete_alarm:
+                    AlarmStateMachine.update_tab_alarms_timer(timer.tab,
+                                    timer.uv, timer.nm, timer.old_to, 
+                                    timer.timeout_val, tab_alarms)
+        return delete_alarms, update_alarms
+
+    @staticmethod
+    def update_tab_alarms_timer(tab, uv, nm, curr_index, timeout_val,
+            tab_alarms):
+        del_timers = []
+        if curr_index is not None and curr_index > 0:
+            timers = AlarmStateMachine.tab_alarms_timer[curr_index]
+            if (tab, uv, nm) in timers:
+                asm = tab_alarms[tab][uv][nm]
+                timers.discard((tab, uv, nm))
+            if len(timers) == 0:
+                del_timers.append(curr_index)
+        for timeout in del_timers:
+            del AlarmStateMachine.tab_alarms_timer[timeout]
+        if timeout_val >= 0:
+            if not timeout_val in AlarmStateMachine.tab_alarms_timer:
+                AlarmStateMachine.tab_alarms_timer[timeout_val] = set()
+            if (tab, uv, nm) not in AlarmStateMachine.tab_alarms_timer\
+                    [timeout_val]:
+                AlarmStateMachine.tab_alarms_timer[timeout_val].add\
+                        ((asm.tab, asm.uv, asm.nm))
+
+
 
 class Controller(object):
 
@@ -267,7 +589,8 @@ class Controller(object):
             self._logger = self._sandesh._logger
         # Trace buffer list
         self.trace_buf = [
-            {'name':'DiscoveryMsg', 'size':1000}
+            {'name':'DiscoveryMsg', 'size':1000},
+            {'name':'AlarmStateChangeTrace', 'size':1000}
         ]
         # Create trace buffers 
         for buf in self.trace_buf:
@@ -560,6 +883,34 @@ class Controller(object):
             self._logger.error("Agg unexpected rows %s" % str(rows))
             assert()
         
+    def send_alarm_update(self, tab, uk):
+        ustruct = None
+        alm_copy = []
+        for nm, asm in self.tab_alarms[tab][uk].iteritems():
+            uai = asm.get_uai()
+            if uai:
+                alm_copy.append(copy.deepcopy(uai))
+        if len(alm_copy) == 0:
+            ustruct = UVEAlarms(name = str(uk).split(':',1)[1], deleted = True)
+            self._logger.info('deleting alarm:')
+        else:
+            ustruct = UVEAlarms(name = str(uk).split(':',1)[1],
+                                    alarms = alm_copy)
+        alarm_msg = AlarmTrace(data=ustruct, table=tab, \
+                                    sandesh=self._sandesh)
+        alarm_msg.send(sandesh=self._sandesh)
+        self._logger.info('raising alarm %s' % (alarm_msg.log()))
+
+    def run_alarm_timers(self, curr_time):
+        delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self.tab_alarms)
+
+        for alarm in delete_alarms:
+            del self.tab_alarms[alarm[0]][alarm[1]][alarm[2]]
+            self.send_alarm_update(alarm[0], alarm[1])
+        for alarm in update_alarms:
+            self.send_alarm_update(alarm[0], alarm[1])
+
     def run_uve_processing(self):
         """
         This function runs in its own gevent, and provides state compression
@@ -675,6 +1026,8 @@ class Controller(object):
                 gevent.sleep(1)
                         
             curr = time.time()
+
+            self.run_alarm_timers(int(curr))
             if (curr - prev) < 0.5:
                 gevent.sleep(0.5 - (curr - prev))
             else:
@@ -689,6 +1042,7 @@ class Controller(object):
                 uk = tk + ":" + rkey
                 if tk in self.tab_alarms:
                     if uk in self.tab_alarms[tk]:
+                        self.delete_tab_alarms_timer(tk, uk)
                         del self.tab_alarms[tk][uk]
                         ustruct = UVEAlarms(name = rkey, deleted = True)
                         alarm_msg = AlarmTrace(data=ustruct, \
@@ -700,6 +1054,13 @@ class Controller(object):
                 self._logger.error("UVE %s deleted in stop" % (uk))
             del self.ptab_info[part][tk]
         del self.ptab_info[part]
+
+    def delete_tab_alarms_timer(self, tab, uv):
+        """
+        This function deletes all the timers for given tab,uv combination
+        """
+        for ak,av in self.tab_alarms[tab][uv].iteritems():
+            av.delete_timers()
 
     def handle_uve_notif(self, part, uves):
         """
@@ -819,12 +1180,16 @@ class Controller(object):
                 
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
-                        del self.tab_alarms[tab][uv]
-                        ustruct = UVEAlarms(name = uve_name, deleted = True)
-                        alarm_msg = AlarmTrace(data=ustruct, table=tab, \
-                                sandesh=self._sandesh)
-                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
-                        alarm_msg.send(sandesh=self._sandesh)
+                        del_types = []
+                        for nm, asm in self.tab_alarms[tab][uv].iteritems():
+                            delete_alarm = \
+                                self.tab_alarms[tab][uv][nm].clear_alarms()
+                            if delete_alarm:
+                                del_types.append(nm)
+                        for nm in del_types:
+                            del self.tab_alarms[tab][uv][nm]
+                        if len(del_types) > 0:
+                            self.send_alarm_update(tab, uv)
                 # Both alarm and non-alarm contents are gone.
                 # We do not need to do alarm evaluation
                 continue
@@ -833,12 +1198,17 @@ class Controller(object):
             if len(local_uve.keys()) == 1 and "UVEAlarms" in local_uve:
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
-                        del self.tab_alarms[tab][uv]
-                        ustruct = UVEAlarms(name = uve_name, deleted = True)
-                        alarm_msg = AlarmTrace(data=ustruct, table=tab, \
-                                sandesh=self._sandesh)
-                        self._logger.info('send del alarm: %s' % (alarm_msg.log()))
-                        alarm_msg.send(sandesh=self._sandesh)
+                        self._logger.info("UVE %s has no non-alarm" % (uv))
+                        del_types = []
+                        for nm, asm in self.tab_alarms[tab][uv].iteritems():
+                            delete_alarm = \
+                                self.tab_alarms[tab][uv][nm].clear_alarms()
+                            if delete_alarm:
+                                del_types.append(nm)
+                        for nm in del_types:
+                            del self.tab_alarms[tab][uv][nm]
+                        if len(del_types) > 0:
+                            self.send_alarm_update(tab, uv)
                 continue
  
             # Handing Alarms
@@ -858,20 +1228,16 @@ class Controller(object):
 
             del_types = []
             if self.tab_alarms[tab].has_key(uv):
-                for nm, uai in self.tab_alarms[tab][uv].iteritems():
-                    uai2 = copy.deepcopy(uai)
-                    uai2.timestamp = 0
-                    uai2.token = ""
-                    uai2.ack = False
+                for nm, asm in self.tab_alarms[tab][uv].iteritems():
                     # This type was present earlier, but is now gone
                     if not new_uve_alarms.has_key(nm):
                         del_types.append(nm)
                     else:
                         # This type has no new information
-                        if uai2 == new_uve_alarms[nm]:
+                        if asm.is_new_alarm_same(new_uve_alarms[nm]):
                             del new_uve_alarms[nm]
-            if len(del_types) != 0  or \
-                    len(new_uve_alarms) != 0:
+
+            if len(del_types) != 0  or len(new_uve_alarms) != 0:
                 self._logger.debug("Alarm[%s] Deleted %s" % \
                         (tab, str(del_types))) 
                 self._logger.debug("Alarm[%s] Updated %s" % \
@@ -883,24 +1249,30 @@ class Controller(object):
                     uai.token = Controller.token(self._sandesh, uai.timestamp)
                     if not self.tab_alarms[tab].has_key(uv):
                         self.tab_alarms[tab][uv] = {}
-                    self.tab_alarms[tab][uv][nm] = uai
+                    if not nm in self.tab_alarms[tab][uv]:
+                        self.tab_alarms[tab][uv][nm] = AlarmStateMachine(
+                                    tab = tab, uv = uv, nm = nm,
+                                    sandesh = self._sandesh,
+                                    activeTimer = aproc.ActiveTimer[uv][nm],
+                                    idleTimer = aproc.IdleTimer[uv][nm],
+                                    freqCheck_Times = aproc.FreqCheck_Times[uv][nm],
+                                    freqCheck_Seconds = \
+                                            aproc.FreqCheck_Seconds[uv][nm],
+                                    freqExceededCheck = \
+                                            aproc.FreqExceededCheck[uv][nm])
+                    asm = self.tab_alarms[tab][uv][nm]
+                    asm.set_uai(uai)
+                    # go through alarm set statemachine code
+                    update_alarms = asm.set_alarms()
+                    if update_alarms:
+                        self.send_alarm_update(tab, uv)
                 # These alarm types are now gone
                 for dnm in del_types:
-                    del self.tab_alarms[tab][uv][dnm]
-                    
-                ustruct = None
-                if len(self.tab_alarms[tab][uv]) == 0:
-                    ustruct = UVEAlarms(name = uve_name,
-                            deleted = True)
-                    del self.tab_alarms[tab][uv]
-                else:
-                    alm_copy = copy.deepcopy(self.tab_alarms[tab][uv])
-                    ustruct = UVEAlarms(name = uve_name,
-                            alarms = alm_copy.values())
-                alarm_msg = AlarmTrace(data=ustruct, table=tab, \
-                        sandesh=self._sandesh)
-                self._logger.info('send alarm: %s' % (alarm_msg.log()))
-                alarm_msg.send(sandesh=self._sandesh)
+                    if dnm in self.tab_alarms[tab][uv]:
+                        delete_alarm = \
+                            self.tab_alarms[tab][uv][dnm].clear_alarms()
+                        if delete_alarm:
+                            del self.tab_alarms[tab][uv][dnm]
         if success:
             return output
         else:
@@ -950,10 +1322,14 @@ class Controller(object):
             resp = UVETableAlarmResp(table = pt)
             uves = []
             for uk,uv in self.tab_alarms[pt].iteritems():
-                alms = []
                 for ak,av in uv.iteritems():
-                    alms.append(av)
-                uves.append(UVEAlarms(name = uk, alarms = alms))
+                    alm_copy = []
+                    uai = av.get_uai(forced=True)
+                    if uai:
+                        alm_copy.append(copy.deepcopy(uai))
+                        uves.append(UVEAlarmStateMachineInfo(
+                            uai = UVEAlarms(name = uk, alarms = alm_copy),
+                            uac = av.get_uac(), uas = av.get_uas()))
             resp.uves = uves 
             if np == len(parts):
                 mr = False
@@ -1225,10 +1601,15 @@ class Controller(object):
         uname = alarm_req.table+':'+alarm_req.name
         atype = alarm_req.type
         try:
-            alarm_type = self.tab_alarms[table][uname][atype]
+            alarm_type = \
+                self.tab_alarms[table][uname][atype].get_uai()
         except KeyError:
             return SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT
         else:
+            # Either alarm is not present ot it is not in Active or Soak_Idle
+            # state
+            if alarm_type is None:
+                return SandeshAlarmAckResponseCode.ALARM_NOT_PRESENT
             # Either the timestamp sent by the client is invalid or
             # the alarm is updated.
             if alarm_type.timestamp != alarm_req.timestamp:
@@ -1238,8 +1619,12 @@ class Controller(object):
                 return SandeshAlarmAckResponseCode.SUCCESS
             # All sanity checks passed. Acknowledge the alarm.
             alarm_type.ack = True
-            alarm = copy.deepcopy(self.tab_alarms[table][uname])
-            alarm_data = UVEAlarms(name=alarm_req.name, alarms=alarm.values())
+            alarm = []
+            for nm, asm in self.tab_alarms[table][uname].iteritems():
+                uai = asm.get_uai()
+                if uai:
+                    alarm.append(copy.deepcopy(uai))
+            alarm_data = UVEAlarms(name=alarm_req.name, alarms=alarm)
             alarm_sandesh = AlarmTrace(data=alarm_data, table=table,
                                        sandesh=self._sandesh)
             alarm_sandesh.send(sandesh=self._sandesh)
