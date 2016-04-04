@@ -405,10 +405,11 @@ class OpencontrailLoadbalancerDriver(
         if not si:
             return
 
-        for kv in si.kvps:
-            if kv['key'] == 'haproxy_config':
-                 if kv['value'] == conf:
-                     return
+        if si.kvps:
+            for kv in si.kvps:
+                if kv['key'] == 'haproxy_config':
+                    if kv['value'] == conf:
+                        return
 
         si_obj = ServiceInstance()
         si_obj.uuid = si.uuid
