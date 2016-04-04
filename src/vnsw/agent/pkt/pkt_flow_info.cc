@@ -1640,12 +1640,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Allocate reverse flow
-    if (in->intf_ == out->intf_) {
-        // we are trying to loopback to the same interface,
-        // this is not supported, mark the flow as short flow
-        short_flow = true;
-        short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
-    } else if (nat_done) {
+    if (nat_done) {
         FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr, pkt->ip_proto,
                      r_sport, r_dport);
         rflow = FlowEntry::Allocate(rkey, flow_table);
