@@ -59,6 +59,17 @@ SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
     tbb::mutex::scoped_lock lock1(*mutex_ptr_1); \
     tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
 
+#define ADD_CHANGE_FLOW_LOCK(flow, rflow) \
+    bool rflow_nullified = false; \
+    if (flow == rflow) { \
+        rflow_nullified = true; \
+        rflow = NULL; \
+    } \
+    FLOW_LOCK(flow, rflow); \
+    if (rflow_nullified) { \
+        flow->MakeShortFlow(FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY); \
+    }
+
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
@@ -161,7 +172,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
 
-    FLOW_LOCK(new_flow, new_rflow);
+    ADD_CHANGE_FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, false, false);
 }
 
@@ -177,7 +188,7 @@ void FlowTable::Update(FlowEntry *flow, FlowEntry *rflow) {
         rev_flow_update = false;
     }
 
-    FLOW_LOCK(new_flow, new_rflow);
+    ADD_CHANGE_FLOW_LOCK(new_flow, new_rflow);
     AddInternal(flow, new_flow, rflow, new_rflow, fwd_flow_update,
                 rev_flow_update);
 }

@@ -1775,6 +1775,24 @@ TEST_F(FlowTest, vm_packet_to_own_floating_ip) {
     WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
+// negative test scenario where packet with same source and dest IP is received.
+TEST_F(FlowTest, invalid_nat_flow_1) {
+    TxIpPacket(vnet[1]->id(), "2.1.1.100", "2.1.1.100", 1);
+    client->WaitForIdle();
+
+    // verify flow created as short flow
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), "2.1.1.100", "2.1.1.100",
+                            1, 0, 0, vnet[1]->flow_key_nh()->id());
+
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+
+    //cleanup
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(2);
+    WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
