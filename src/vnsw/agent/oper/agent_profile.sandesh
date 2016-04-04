@@ -76,6 +76,41 @@ request sandesh SandeshFlowStatsRequest {
 }
 
 /**
+ * Sandesh definition for summary of flow work-queues
+ */
+struct SandeshFlowQueueSummaryOneInfo {
+    1: u64 qcount;
+    2: u64 dequeues;
+    3: u64 enqueues;
+    4: u64 max_qlen;
+}
+
+struct SandeshFlowQueueSummaryInfo {
+    1: u32 index;
+    2: string time_str;
+    3: SandeshFlowQueueSummaryOneInfo flow_event_queue;
+    4: SandeshFlowQueueSummaryOneInfo flow_delete_queue;
+    5: SandeshFlowQueueSummaryOneInfo flow_update_queue;
+    6: SandeshFlowQueueSummaryOneInfo flow_mgmt_queue;
+    7: SandeshFlowQueueSummaryOneInfo pkt_handler_queue;
+    8: SandeshFlowQueueSummaryOneInfo ksync_tx_queue;
+    9: SandeshFlowQueueSummaryOneInfo ksync_rx_queue;
+}
+
+/**
+ * Response message for flow-queue summary counts
+ */
+response sandesh SandeshFlowQueueSummaryResp {
+    1: list<SandeshFlowQueueSummaryInfo> summary;
+}
+
+/**
+ * Request message to get summary of flow work-queues
+ */
+request sandesh SandeshFlowQueueSummaryRequest{
+}
+
+/**
  * Sandesh definition for agent profile task
  */
 struct TaskProfileStats {

@@ -93,7 +93,6 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
-    void EnqueueFreeFlowReference(FlowEntryPtr &flow);
     bool EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
                           uint8_t table_index);
 

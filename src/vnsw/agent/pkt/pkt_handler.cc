@@ -45,6 +45,7 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
     stats_(), agent_(agent), pkt_module_(pkt_module),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::PktHandler"), 0,
                 boost::bind(&PktHandler::ProcessPacket, this, _1)) {
+    work_queue_.set_name("Packet Handler Queue");
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)

@@ -35,14 +35,21 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     TaskScheduler *scheduler = agent_->task_scheduler();
     uint32_t task_id = scheduler->GetTaskId(kTaskFlowEvent);
     for (uint32_t i = 0; i < table_count; i++) {
-        flow_event_queue_.push_back
-            (new FlowEventQueue(task_id, i,
-                                boost::bind(&FlowProto::FlowEventHandler, this,
-                                            _1, flow_table_list_[i])));
-        flow_delete_queue_.push_back
-            (new FlowEventQueue(task_id, i,
-                                boost::bind(&FlowProto::FlowEventHandler, this,
-                                            _1, flow_table_list_[i])));
+        char name[128];
+        sprintf(name, "Flow Event Queue-%d", i);
+        FlowEventQueue *queue =
+            new FlowEventQueue(task_id, i, boost::bind
+                               (&FlowProto::FlowEventHandler, this,
+                                _1, flow_table_list_[i]));
+        queue->set_name(name);
+        flow_event_queue_.push_back(queue);
+
+        sprintf(name, "Flow Delete Queue-%d", i);
+        queue = new FlowEventQueue(task_id, i,
+                                   boost::bind(&FlowProto::FlowEventHandler,
+                                               this, _1, flow_table_list_[i]));
+        queue->set_name(name);
+        flow_delete_queue_.push_back(queue);
     }
     if (::getenv("USE_VROUTER_HASH") != NULL) {
         string opt = ::getenv("USE_VROUTER_HASH");
@@ -404,7 +411,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     case FlowEvent::REVALUATE_DBENTRY: {
         FlowEntry *flow = req->flow();
         flow->flow_table()->FlowResponseHandler(req);
-        EnqueueFreeFlowReference(req->flow_ref());
         break;
     }
 
@@ -422,8 +428,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     case FlowEvent::DELETE_FLOW: {
         table->ProcessFlowEvent(req);
-        //In case flow is deleted enqueue a free flow reference event.
-        EnqueueFreeFlowReference(req->flow_ref());
         break;
     }
 
@@ -438,8 +442,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     case FlowEvent::KSYNC_EVENT:
     case FlowEvent::KSYNC_VROUTER_ERROR: {
         table->ProcessFlowEvent(req);
-        //In case flow is deleted enqueue a free flow reference event.
-        EnqueueFreeFlowReference(req->flow_ref());
         break;
     }
 
@@ -521,19 +523,6 @@ void FlowProto::MessageRequest(InterTaskMsg *msg) {
 // 2. Due to OS scheduling, its possible that the request we are
 //    enqueuing completes even before this function is returned. So,
 //    drop the reference immediately after allocating the event
-void FlowProto::EnqueueFreeFlowReference(FlowEntryPtr &flow) {
-    if (flow == NULL) {
-        return;
-    }
-    tbb::mutex::scoped_lock lock(flow->mutex());
-    if (flow->deleted()) {
-        FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
-                                         flow.get());
-        flow.reset();
-        EnqueueFlowEvent(event);
-    }
-}
-
 void FlowProto::ForceEnqueueFreeFlowReference(FlowEntryPtr &flow) {
     FlowEvent *event = new FlowEvent(FlowEvent::FREE_FLOW_REF,
                                      flow.get());
@@ -579,6 +568,36 @@ void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
     }
 }
 
+static void SetFlowEventQueueStats(const FlowProto::FlowEventQueue *queue,
+                                   ProfileData::WorkQueueStats *stats) {
+    stats->name_ = queue->Description();
+    stats->queue_count_ = queue->Length();
+    stats->enqueue_count_ = queue->NumEnqueues();
+    stats->dequeue_count_ = queue->NumDequeues();
+    stats->max_queue_count_ = queue->max_queue_len();
+    stats->task_start_count_ = queue->task_starts();
+}
+
+static void SetFlowMgmtQueueStats(const FlowMgmtManager::FlowMgmtQueue *queue,
+                                  ProfileData::WorkQueueStats *stats) {
+    stats->name_ = queue->Description();
+    stats->queue_count_ = queue->Length();
+    stats->enqueue_count_ = queue->NumEnqueues();
+    stats->dequeue_count_ = queue->NumDequeues();
+    stats->max_queue_count_ = queue->max_queue_len();
+    stats->task_start_count_ = queue->task_starts();
+}
+
+static void SetPktHandlerQueueStats(const PktHandler::PktHandlerQueue *queue,
+                                    ProfileData::WorkQueueStats *stats) {
+    stats->name_ = queue->Description();
+    stats->queue_count_ = queue->Length();
+    stats->enqueue_count_ = queue->NumEnqueues();
+    stats->dequeue_count_ = queue->NumDequeues();
+    stats->max_queue_count_ = queue->max_queue_len();
+    stats->task_start_count_ = queue->task_starts();
+}
+
 void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.flow_count_ = FlowCount();
     data->flow_.add_count_ = stats_.add_count_;
@@ -587,4 +606,22 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.reval_count_ = stats_.revaluate_count_;
     data->flow_.handle_update_ = stats_.handle_update_;
     data->flow_.vrouter_error_ = stats_.vrouter_error_;
+
+    PktModule *pkt = agent()->pkt();
+    const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
+        pkt->flow_mgmt_manager()->request_queue();
+    SetFlowMgmtQueueStats(flow_mgmt, &data->flow_.flow_mgmt_queue_);
+
+    data->flow_.flow_event_queue_.resize(flow_table_list_.size());
+    data->flow_.flow_delete_queue_.resize(flow_table_list_.size());
+    for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
+        SetFlowEventQueueStats(flow_event_queue_[i],
+                               &data->flow_.flow_event_queue_[i]);
+        SetFlowEventQueueStats(flow_delete_queue_[i],
+                               &data->flow_.flow_delete_queue_[i]);
+    }
+    SetFlowEventQueueStats(&flow_update_queue_, &data->flow_.flow_update_queue_);
+    const PktHandler::PktHandlerQueue *pkt_queue =
+        pkt->pkt_handler()->work_queue();
+    SetPktHandlerQueueStats(pkt_queue, &data->flow_.pkt_handler_queue_);
 }

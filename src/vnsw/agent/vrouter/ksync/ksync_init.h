@@ -14,6 +14,7 @@
 #include <vrouter/ksync/vrf_assign_ksync.h>
 #include <vrouter/ksync/interface_scan.h>
 #include <vrouter/ksync/ksync_flow_index_manager.h>
+#include <oper/agent_profile.h>
 #include "vnswif_listener.h"
 
 class KSyncFlowMemory;
@@ -59,6 +60,8 @@ public:
     KSyncFlowIndexManager *ksync_flow_index_manager() const  {
         return ksync_flow_index_manager_.get();
     }
+
+    void SetProfileData(ProfileData *data);
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
