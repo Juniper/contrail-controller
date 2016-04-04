@@ -1655,6 +1655,14 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         rflow = FlowEntry::Allocate(rkey, flow_table);
     }
 
+    //Validate that rflow does not attend up with same key as of flow.
+    //If it happens then make rflow as NULL and mark flow as short flow.
+    if (flow->key().IsEqual(rflow->key())) {
+        rflow.reset(NULL);
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_INVALID_PKT_PARAMS;
+    }
+
     bool swap_flows = false;
     // If this is message processing, then retain forward and reverse flows
     if (pkt->type == PktType::MESSAGE && !short_flow &&
