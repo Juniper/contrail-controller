@@ -980,6 +980,8 @@ private:
 class FlowMgmtManager {
 public:
     static const std::string kFlowMgmtTask;
+    typedef boost::shared_ptr<FlowMgmtRequest> FlowMgmtRequestPtr;
+    typedef WorkQueue<FlowMgmtRequestPtr> FlowMgmtQueue;
     struct FlowEntryInfo {
         FlowMgmtKeyTree tree_;
         uint32_t count_; // Number of times tree modified
@@ -1012,20 +1014,28 @@ public:
     void Init();
     void Shutdown();
 
-    bool DBEntryRequestHandler(FlowMgmtRequest *req, const DBEntry *entry);
-    bool RequestHandler(boost::shared_ptr<FlowMgmtRequest> req);
+    bool RequestHandler(FlowMgmtRequestPtr req);
+    bool DBRequestHandler(FlowMgmtRequestPtr req);
+    bool LogHandler(FlowMgmtRequestPtr req);
+
+    bool DBRequestHandler(FlowMgmtRequest *req, const DBEntry *entry);
     bool BgpAsAServiceRequestHandler(FlowMgmtRequest *req);
     bool DbClientHandler(const DBEntry *entry);
     void EnqueueFlowEvent(FlowEvent *event);
+    void NonOperEntryEvent(FlowEvent::Event event, FlowEntry *flow);
+    void DBEntryEvent(FlowEvent::Event event, FlowMgmtKey *key,
+                      FlowEntry *flow);
+    void FreeDBEntryEvent(FlowEvent::Event event, FlowMgmtKey *key,
+                          uint32_t gen_id);
 
     Agent *agent() const { return agent_; }
     void AddEvent(FlowEntry *low);
     void DeleteEvent(FlowEntry *flow, const RevFlowDepParams &params);
     void FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes, uint32_t packets,
                               uint32_t oflow_bytes);
-    void AddEvent(const DBEntry *entry, uint32_t gen_id);
-    void ChangeEvent(const DBEntry *entry, uint32_t gen_id);
-    void DeleteEvent(const DBEntry *entry, uint32_t gen_id);
+    void AddDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
+    void ChangeDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
+    void DeleteDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
     void RetryVrfDeleteEvent(const VrfEntry *vrf);
     void RetryVrfDelete(uint32_t vrf_id);
     // Dummy event used for testing
@@ -1040,6 +1050,8 @@ public:
         return flow_mgmt_dbclient_.get();
     }
 
+    const FlowMgmtQueue *request_queue() const { return &request_queue_; }
+    const FlowMgmtQueue *log_queue() const { return &log_queue_; }
     void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
@@ -1087,7 +1099,9 @@ private:
     FlowEntryTree flow_tree_;
     boost::scoped_ptr<BgpAsAServiceFlowMgmtTree> bgp_as_a_service_flow_mgmt_tree_[MAX_XMPP_SERVERS];
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
-    WorkQueue<boost::shared_ptr<FlowMgmtRequest> > request_queue_;
+    FlowMgmtQueue request_queue_;
+    FlowMgmtQueue db_event_queue_;
+    FlowMgmtQueue log_queue_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
 };
 
