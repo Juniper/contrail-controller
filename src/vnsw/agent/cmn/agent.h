@@ -188,8 +188,6 @@ class DiagTable;
 class VNController;
 class AgentSignal;
 class ServiceInstanceTable;
-class LoadbalancerTable;
-class LoadbalancerPoolTable;
 class Agent;
 class RESTServer;
 
@@ -224,7 +222,6 @@ extern void RouterIdDepInit(Agent *agent);
 #define kVnDbTablePrefix  "db.vn"
 #define kVmDbTablePrefix  "db.vm"
 #define kVrfDbTablePrefix "db.vrf.0"
-#define kLoadBalnceDbTablePrefix "db.loadbalancer.0"
 #define kMplsDbTablePrefix "db.mpls"
 #define kAclDbTablePrefix  "db.acl"
 #define kV4UnicastRouteDbTableSuffix "uc.route.0"
@@ -558,24 +555,6 @@ public:
 
    void set_service_instance_table(ServiceInstanceTable *table) {
        service_instance_table_= table;
-   }
-
-    // Loadbalancer
-   LoadbalancerTable *loadbalancer_table() const {
-       return loadbalancer_table_;
-   }
-
-   void set_loadbalancer_table(LoadbalancerTable *table) {
-       loadbalancer_table_ = table;
-   }
-
-    // Loadbalancer-pool
-   LoadbalancerPoolTable *loadbalancer_pool_table() const {
-       return loadbalancer_pool_table_;
-   }
-
-   void set_loadbalancer_pool_table(LoadbalancerPoolTable *table) {
-       loadbalancer_pool_table_ = table;
    }
 
     // DNS XMPP Server
@@ -1056,8 +1035,6 @@ private:
     VrfAssignTable *vrf_assign_table_;
     VxLanTable *vxlan_table_;
     ServiceInstanceTable *service_instance_table_;
-    LoadbalancerTable *loadbalancer_table_;
-    LoadbalancerPoolTable *loadbalancer_pool_table_;
     PhysicalDeviceTable *physical_device_table_;
     PhysicalDeviceVnTable *physical_device_vn_table_;
     std::auto_ptr<ConfigManager> config_manager_;

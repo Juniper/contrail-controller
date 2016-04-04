@@ -15,7 +15,6 @@
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/physical_device.h"
-#include "oper/loadbalancer.h"
 #include "filter/acl.h"
 
 #include <boost/assign/list_of.hpp>
@@ -76,11 +75,6 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "floating-ip",
         "floating-ip-pool",
         "instance-ip",
-        "loadbalancer",
-        "loadbalancer-listener",
-        "loadbalancer-healthmonitor",
-        "loadbalancer-member",
-        "loadbalancer-pool",
         "logical-interface",
         "network-ipam",
         "physical-interface",
@@ -123,8 +117,6 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
 
     ReactionMap react_si = map_list_of<string, PropagateList>
-            ("loadbalancer-pool-service-instance", list_of("self"))
-            ("loadbalancer-service-instance", list_of("self"))
             ("service-instance-service-template", list_of("self"))
             ("virtual-machine-service-instance", list_of("self"))
             ("self", list_of("self"));
@@ -164,34 +156,6 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     ReactionMap react_ipam = map_list_of<string, PropagateList>
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
-
-
-    ReactionMap react_lb_pool = map_list_of<string, PropagateList>
-            ("loadbalancer-pool-loadbalancer-healthmonitor",
-             list_of("self")("loadbalancer-pool-service-instance"))
-            ("loadbalancer-pool-loadbalancer-member",
-             list_of("self")("loadbalancer-pool-service-instance"))
-            ("self", list_of("self")("loadbalancer-pool-service-instance"))
-            ("virtual-ip-loadbalancer-pool", list_of("self"));
-    policy->insert(make_pair("loadbalancer-pool", react_lb_pool));
-
-    ReactionMap react_lb = map_list_of<string, PropagateList>
-            ("loadbalancer-listener-loadbalancer",
-             list_of("self")("loadbalancer-service-instance"))
-            ("self", list_of("self")("loadbalancer-service-instance"));
-    policy->insert(make_pair("loadbalancer", react_lb));
-
-    ReactionMap react_lb_vip = map_list_of<string, PropagateList>
-            ("self", list_of("virtual-ip-loadbalancer-pool"));
-    policy->insert(make_pair("virtual-ip", react_lb_vip));
-
-    ReactionMap react_lb_member = map_list_of<string, PropagateList>
-            ("self", list_of("loadbalancer-pool-loadbalancer-member"));
-    policy->insert(make_pair("loadbalancer-member", react_lb_member));
-
-    ReactionMap react_lb_healthmon = map_list_of<string, PropagateList>
-            ("self", list_of("loadbalancer-pool-loadbalancer-healthmonitor"));
-    policy->insert(make_pair("loadbalancer-healthmonitor", react_lb_healthmon));
 
     InitializeDependencyRules(agent);
 }
@@ -717,32 +681,6 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "physical-interface", true));
     RegisterConfigHandler(this, "physical-router",
                           agent ? agent->physical_device_table() : NULL);
-
-    AddDependencyPath("loadbalancer",
-                      MakePath("loadbalancer-listener-loadbalancer",
-                               "loadbalancer-listener", false,
-                               "loadbalancer-pool-loadbalancer-listener",
-                               "loadbalancer-pool", true,
-                               "loadbalancer-pool-loadbalancer-member",
-                               "loadbalancer-member", false));
-    AddDependencyPath("loadbalancer",
-                      MakePath("loadbalancer-listener-loadbalancer",
-                               "loadbalancer-listener", false,
-                               "loadbalancer-pool-loadbalancer-listener",
-                               "loadbalancer-pool", true,
-                               "loadbalancer-pool-loadbalancer-healthmonitor",
-                               "loadbalancer-healthmonitor", false));
-    AddDependencyPath("loadbalancer",
-                      MakePath("loadbalancer-listener-loadbalancer",
-                               "loadbalancer-listener", false,
-                               "loadbalancer-pool-loadbalancer-listener",
-                               "loadbalancer-pool", true,
-                               "loadbalancer-pool-loadbalancer-member",
-                               "loadbalancer-member", false,
-                               "loadbalancer-pool-loadbalancer-healthmonitor",
-                               "loadbalancer-healthmonitor", false));
-    RegisterConfigHandler(this, "loadbalancer",
-                          agent ? agent->loadbalancer_table() : NULL);
 
     RegisterConfigHandler(this, "service-health-check",
                           agent ? agent->health_check_table() : NULL);
