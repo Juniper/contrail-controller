@@ -774,7 +774,8 @@ class AnalyticsFixture(fixtures.Fixture):
         if not ret['uves']:
             ret['uves'] = []
         alarms = {}
-        for elem in ret['uves']:
+	for uves in ret['uves']:
+	    elem = uves['uai']['UVEAlarms']
             if elem['name'] != name:
                 continue
             for alm in elem['alarms']:

@@ -22,11 +22,13 @@ from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
     SandeshAlarmAckResponseCode
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
     AlarmTemplate, AlarmElement, Operand1, Operand2, \
-    UVEAlarmInfo, UVEAlarms, AllOf
+    UVEAlarmInfo, UVEAlarmConfig, UVEAlarms, AllOf
+from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmOperState, \
+    UVEAlarmStateMachineInfo, UVEAlarmState
 from opserver.uveserver import UVEServer
 from opserver.partition_handler import PartitionHandler, UveStreamProc, \
     UveStreamer, UveStreamPart, PartInfo
-from opserver.alarmgen import Controller
+from opserver.alarmgen import Controller, AlarmStateMachine
 from opserver.alarmgen_cfg import CfgParser
 
 logging.basicConfig(level=logging.DEBUG,
@@ -274,18 +276,24 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def tearDown(self):
         self._agtask.kill()
 
-    @staticmethod
-    def create_test_alarm_info(alarm_type):
+    def create_test_alarm_info(self, table, name, alarm_type):
         or_list = []
         or_list.append([AllOf(all_of=[AlarmElement(\
             rule=AlarmTemplate(oper="!=",
                 operand1=Operand1(keys=["dummytoken"]),
                 operand2=Operand2(json_value=json.dumps('UP'))),
             json_operand1_value=json.dumps('DOWN'))])])
-        alarm_info = UVEAlarmInfo(type=alarm_type, severity=1,
+        uai = UVEAlarmInfo(type=alarm_type, severity=1,
                                   timestamp=UTCTimestampUsec(),
                                   token="dummytoken",
                                   any_of=or_list, ack=False)
+        conf = UVEAlarmConfig()
+        state = UVEAlarmOperState(state = UVEAlarmState.Active,
+                                head_timestamp = 0, alarm_timestamp = [])
+        alarm_info = AlarmStateMachine(tab = table, uv = name, nm = \
+		alarm_type, activeTimer = 0, idleTimer = 0, freqCheck_Times\
+		= 0, freqCheck_Seconds = 0, freqExceededCheck = False, sandesh=self._ag._sandesh)
+	alarm_info.set_uai(uai)
         return alarm_info
     # end create_test_alarm_info
 
@@ -296,12 +304,12 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         if not self._ag.tab_alarms[table].has_key(key):
             self._ag.tab_alarms[table][key] = {}
         self._ag.tab_alarms[table][key][atype] = \
-            TestAlarmGen.create_test_alarm_info(atype)
+            self.create_test_alarm_info(table, name, atype)
     # end add_test_alarm
 
     def get_test_alarm(self, table, name, atype):
         key = table+':'+name
-        return self._ag.tab_alarms[table][key][atype]
+        return self._ag.tab_alarms[table][key][atype].get_uai(forced=True)
     # end get_test_alarm
 
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
@@ -447,7 +455,17 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self._ag.tab_alarms = {}
         self.add_test_alarm('table1', 'name1', 'type1')
         self.add_test_alarm('table1', 'name1', 'type2')
-        tab_alarms_copy = copy.deepcopy(self._ag.tab_alarms)
+	tab_alarms_copy = {}
+	for tab in self._ag.tab_alarms.keys():
+	    for uk,uv in self._ag.tab_alarms[tab].iteritems():
+		for ak,av in uv.iteritems():
+		    uai = av.get_uai(forced=True)
+		    if uai:
+			if not tab in tab_alarms_copy.keys():
+			    tab_alarms_copy[tab] = {}
+			if not uk in tab_alarms_copy[tab].keys():
+			    tab_alarms_copy[tab][uk] = {}
+        		tab_alarms_copy[tab][uk][ak] = copy.deepcopy(uai)
 
         TestCase = namedtuple('TestCase', ['name', 'input', 'output'])
         TestInput = namedtuple('TestInput', ['alarm_ack_req'])
@@ -531,6 +549,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             )
         ]
 
+        self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    get_uas().state = UVEAlarmState.Active
+        self._ag.tab_alarms['table1']['table1:name1']['type2'].\
+                    get_uas().state = UVEAlarmState.Active
         for case in tests:
             logging.info('=== Test %s ===' % (case.name))
             return_code = self._ag.alarm_ack_callback(case.input.alarm_ack_req)
@@ -543,9 +565,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                 uvekey = table+':'+name
                 for atype, alarm in tab_alarms_copy[table][uvekey].iteritems():
                     if atype in case.output.ack_values:
-                        alarm.ack = case.output.ack_values[atype]
-                alarms = copy.deepcopy(tab_alarms_copy[table][uvekey])
-                alarm_data = UVEAlarms(name=name, alarms=alarms.values())
+			alarm.ack = case.output.ack_values[atype]
+		alarms = copy.deepcopy(tab_alarms_copy[table][uvekey])
+		alarm_data = UVEAlarms(name=name, alarms=alarms.values())
                 MockAlarmTrace.assert_called_once_with(data=alarm_data,
                     table=table, sandesh=self._ag._sandesh)
                 MockAlarmTrace().send.assert_called_once_with(
@@ -557,8 +579,101 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             # verify that ack field is set in the alarm table upon
             # successful acknowledgement and the table is untouched in case
             # of failure.
-            self.assertEqual(tab_alarms_copy, self._ag.tab_alarms)
+            #self.assertEqual(tab_alarms_copy, self._ag.tab_alarms)
+	    for tab in self._ag.tab_alarms.keys():
+		for uk,uv in self._ag.tab_alarms[tab].iteritems():
+		    for ak,av in uv.iteritems():
+			uai = av.get_uai(forced=True)
+			if uai:
+        		    self.assertEqual(uai, tab_alarms_copy[tab][uk][ak])
     # end test_03_alarm_ack_callback
+
+    def test_04_alarm_state_machine(self):
+        self._ag.tab_alarms = {}
+        self.add_test_alarm('table1', 'name1', 'type1')
+
+        TestCase = namedtuple('TestCase', ['name', 'initial_state',
+	    'timer', 'expected_output_state'])
+        set_alarm_test1 = [
+            TestCase (
+		name = "case2 set alarm in Soak_Idle",
+		initial_state = UVEAlarmState.Idle,
+		timer = 0,
+		expected_output_state = UVEAlarmState.Active
+            ),
+	]
+
+	clear_alarm_test1 = [
+            TestCase (
+		name = "case1 clear alarm in Active",
+		initial_state = UVEAlarmState.Active,
+		timer = 0,
+		expected_output_state = UVEAlarmState.Idle
+            ),
+            TestCase (
+		name = "case1 clear alarm in Active",
+		initial_state = UVEAlarmState.Active,
+		timer = 10,
+		expected_output_state = UVEAlarmState.Soak_Idle
+            ),
+        ]
+        set_alarm_test2 = [
+            TestCase (
+		name = "case2 set alarm in Soak_Idle",
+		initial_state = UVEAlarmState.Soak_Idle,
+		timer = 10,
+		expected_output_state = UVEAlarmState.Active
+            ),
+	]
+
+        for case in set_alarm_test1:
+            logging.info('=== Test %s ===' % (case.name))
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    get_uas().state = case.initial_state
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    get_uac().ActiveTimer = case.timer
+            update_alarm = self._ag.tab_alarms['table1']['table1:name1']\
+		    ['type1'].set_alarms()
+            # verify output state
+            output_state = self._ag.tab_alarms['table1']['table1:name1']\
+                    ['type1'].get_uas().state
+            self.assertEqual(case.expected_output_state, output_state)
+            self.assertEqual(True, update_alarm)
+
+        for case in clear_alarm_test1:
+            logging.info('=== Test %s ===' % (case.name))
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uas.state = case.initial_state
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uac.IdleTimer = case.timer
+            delete_alarm, update_alarm = self._ag.tab_alarms['table1']\
+		    ['table1:name1']['type1'].clear_alarms()
+            # verify output state
+            output_state = self._ag.tab_alarms['table1']['table1:name1']\
+                    ['type1'].uas.state
+            self.assertEqual(case.expected_output_state, output_state)
+	    if(case.expected_output_state == UVEAlarmState.Idle):
+	    	self.assertEqual(delete_alarm, True)
+	    	self.assertEqual(update_alarm, True)
+	    elif case.expected_output_state == UVEAlarmState.Soak_Idle:
+	    	self.assertEqual(delete_alarm, False)
+	    	self.assertEqual(update_alarm, False)
+
+        for case in set_alarm_test2:
+            logging.info('=== Test %s ===' % (case.name))
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    get_uas().state = case.initial_state
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    get_uac().ActiveTimer = case.timer
+            update_alarm = self._ag.tab_alarms['table1']['table1:name1']\
+		    ['type1'].set_alarms()
+            # verify output state
+            output_state = self._ag.tab_alarms['table1']['table1:name1']\
+                    ['type1'].get_uas().state
+            self.assertEqual(case.expected_output_state, output_state)
+            self.assertEqual(False, update_alarm)
+
+    # end test_04_alarm_state_machine
 
 # end class TestAlarmGen
 
