@@ -4,12 +4,44 @@ import shlex
 import subprocess
 import haproxy_config
 
+HAPROXY_DIR = "/var/lib/contrail/loadbalancer"
+HAPROXY_PROCESS = 'haproxy'
+HAPROXY_PROCESS_CONF = HAPROXY_PROCESS + ".conf"
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
+
+def delete_haproxy_dir(base_dir, loadbalancer_id):
+    dir_name = base_dir + "/" +  loadbalancer_id
+    cmd = "rm -rf " + dir_name
+    cmd_list = shlex.split(cmd)
+    p = subprocess.Popen(cmd_list)
+    p.communicate()
+
+def create_haproxy_dir(base_dir, loadbalancer_id):
+    dir_name = base_dir + "/" + loadbalancer_id
+    cmd = "mkdir -p " + dir_name
+    cmd_list = shlex.split(cmd)
+    p = subprocess.Popen(cmd_list)
+    p.communicate()
+    return dir_name
+
+def get_haproxy_config_file(cfg_file, dir_name):
+    f = open(cfg_file)
+    content = f.read()
+    f.close()
+    kvps = content.split(':::::')
+    for kvp in kvps or []:
+        KeyValue = kvp.split('::::')
+        if (KeyValue[0] == 'haproxy_config'):
+            break;
+    haproxy_cfg_file = dir_name + "/" + HAPROXY_PROCESS_CONF
+    f = open(haproxy_cfg_file, 'w+')
+    f.write(KeyValue[1])
+    f.close()
+    return haproxy_cfg_file
 
 def get_pid_file_from_conf_file(conf_file):
     dir_name = os.path.dirname(conf_file)
-    sout = os.path.split(dir_name)
-    pid_file = sout[0] + "/" + sout[1] + ".haproxy.pid"
+    pid_file = dir_name + "/" + "haproxy.pid"
     return pid_file
 
 def delete_haproxy_pid_file(conf_file):
@@ -17,9 +49,11 @@ def delete_haproxy_pid_file(conf_file):
     if os.path.isfile(pid_file):
         cmd = "rm " + pid_file
         cmd_list = shlex.split(cmd)
-        subprocess.Popen(cmd_list)
+        p = subprocess.Popen(cmd_list)
+        p.communicate()
 
-def stop_haproxy(conf_file, daemon_mode=False):
+def stop_haproxy(loadbalancer_id, daemon_mode=False):
+    conf_file = HAPROXY_DIR + "/" +  loadbalancer_id + "/" + HAPROXY_PROCESS_CONF
     try:
         if daemon_mode:
             _stop_haproxy_daemon(conf_file)
@@ -30,13 +64,14 @@ def stop_haproxy(conf_file, daemon_mode=False):
         pass
 
     delete_haproxy_pid_file(conf_file)
+    delete_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
 
 
-def start_update_haproxy(conf_file, netns, daemon_mode=False,
-                         keystone_auth_conf_file=None):
-    pool_id = os.path.split(os.path.dirname(conf_file))[1]
-    haproxy_cfg_file = haproxy_config.build_config(conf_file, \
-                                      keystone_auth_conf_file)
+def start_update_haproxy(loadbalancer_id, cfg_file,
+        netns, daemon_mode=False, keystone_auth_conf_file=None):
+    pool_id = loadbalancer_id
+    dir_name = create_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
+    haproxy_cfg_file = get_haproxy_config_file(cfg_file, dir_name)
     try:
         if daemon_mode:
             _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)
