@@ -43,17 +43,17 @@ FlowMgmtDbClient::~FlowMgmtDbClient() {
 }
 
 void FlowMgmtDbClient::AddEvent(const DBEntry *entry, FlowMgmtState *state) {
-    mgr_->AddEvent(entry, state->gen_id_);
+    mgr_->AddDBEntryEvent(entry, state->gen_id_);
 }
 
 void FlowMgmtDbClient::DeleteEvent(const DBEntry *entry, FlowMgmtState *state) {
     state->gen_id_++;
     state->deleted_ = true;
-    mgr_->DeleteEvent(entry, state->gen_id_);
+    mgr_->DeleteDBEntryEvent(entry, state->gen_id_);
 }
 
 void FlowMgmtDbClient::ChangeEvent(const DBEntry *entry, FlowMgmtState *state) {
-    mgr_->ChangeEvent(entry, state->gen_id_);
+    mgr_->ChangeDBEntryEvent(entry, state->gen_id_);
 }
 
 ////////////////////////////////////////////////////////////////////////////

@@ -217,11 +217,11 @@ void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
     flow_delete_queue_[index]->set_disable(disabled);
 }
 
-void FlowProto::DisableFlowMgmtQueue(bool disabled) {
+void FlowProto::DisableFlowUpdateQueue(bool disabled) {
     flow_update_queue_.set_disable(disabled);
 }
 
-size_t FlowProto::FlowMgmtQueueLength() {
+size_t FlowProto::FlowUpdateQueueLength() {
     return flow_update_queue_.Length();
 }
 
@@ -275,14 +275,6 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 /////////////////////////////////////////////////////////////////////////////
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
-void FlowProto::EnqueueEvent(FlowEvent *event, FlowTable *table) {
-    if (event->event() == FlowEvent::DELETE_FLOW) {
-        flow_delete_queue_[table->table_index()]->Enqueue(event);
-    } else {
-        flow_event_queue_[table->table_index()]->Enqueue(event);
-    }
-}
-
 void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     // Keep UpdateStats in-sync on add of new events
     UpdateStats(event->event(), &stats_);
@@ -312,7 +304,6 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::EVICT_FLOW:
-    case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
@@ -320,7 +311,18 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::FREE_DBENTRY:
+    case FlowEvent::FREE_DBENTRY: {
+        flow_update_queue_.Enqueue(event);
+        break;
+    }
+
+    case FlowEvent::REVALUATE_FLOW: {
+        FlowEntry *flow = event->flow();
+        FlowTable *table = flow->flow_table();
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
     case FlowEvent::REVALUATE_DBENTRY: {
         flow_update_queue_.Enqueue(event);
         break;
