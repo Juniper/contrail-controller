@@ -34,6 +34,7 @@ import requests
 import json
 import os
 
+
 from linux import ip_lib
 import haproxy_process
 
@@ -54,7 +55,6 @@ class NetnsManager(object):
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
     PORT_TYPE = 'NameSpacePort'
-    LBAAS_PROCESS = 'haproxy'
     BASE_URL = "http://localhost:9091/port"
     HEADERS = {'content-type': 'application/json'}
 
@@ -88,6 +88,7 @@ class NetnsManager(object):
         self.cfg_file = cfg_file
         self.update = update
         self.gw_ip = gw_ip
+        self.loadbalancer_id = loadbalancer_id
         self.keystone_auth_cfg_file = keystone_auth_cfg_file
 
     def _get_tap_name(self, uuid_str):
@@ -137,9 +138,8 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             self.create()
 
-        haproxy_process.start_update_haproxy(self.cfg_file, self.namespace, True,
-                                             self.keystone_auth_cfg_file)
-
+        haproxy_process.start_update_haproxy(self.loadbalancer_id, self.cfg_file,
+                      self.namespace, True, self.keystone_auth_cfg_file)
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
@@ -149,8 +149,7 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
-
-        haproxy_process.stop_haproxy(self.cfg_file, True)
+        haproxy_process.stop_haproxy(self.loadbalancer_id, True)
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
