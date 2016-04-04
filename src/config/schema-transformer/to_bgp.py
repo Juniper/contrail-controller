@@ -352,10 +352,12 @@ class SchemaTransformer(object):
         vn_id_list = [vn.uuid for vn in vn_list]
         ri_dict = {}
         service_ri_dict = {}
+        ri_deleted = {}
         for ri in DBBaseST.list_vnc_obj('routing_instance'):
             delete = False
             if ri.parent_uuid not in vn_id_list:
                 delete = True
+                ri_deleted.setdefault(ri.parent_uuid, []).append(ri.uuid)
             else:
                 # if the RI was for a service chain and service chain no
                 # longer exists, delete the RI
@@ -423,6 +425,11 @@ class SchemaTransformer(object):
         gevent.sleep(0.001)
         RouteTargetST.reinit()
         for vn in vn_list:
+            if vn.uuid in ri_deleted:
+                vn_ri_list = vn.get_routing_instances() or []
+                new_vn_ri_list = [vn_ri for vn_ri in vn_ri_list
+                                  if vn_ri['uuid'] not in ri_deleted[vn.uuid]]
+                vn.routing_instances = new_vn_ri_list
             VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
         for ri_name, ri_obj in ri_dict.items():
             RoutingInstanceST.locate(ri_name, ri_obj)
