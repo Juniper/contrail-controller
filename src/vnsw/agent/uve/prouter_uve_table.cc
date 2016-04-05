@@ -14,17 +14,17 @@ ProuterUveTable::ProuterUveTable(Agent *agent, uint32_t default_intvl)
       pr_timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "ProuterUveTimer",
-              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+              TaskScheduler::GetInstance()->GetTaskId(kTaskDBExclude), 0)),
       pi_timer_last_visited_(""),
       pi_timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "PIUveTimer",
-              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+              TaskScheduler::GetInstance()->GetTaskId(kTaskDBExclude), 0)),
       li_timer_last_visited_(nil_uuid()),
       li_timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "LIUveTimer",
-              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+              TaskScheduler::GetInstance()->GetTaskId(kTaskDBExclude), 0)) {
 
       pr_timer_->Start(default_intvl,
                     boost::bind(&ProuterUveTable::TimerExpiry, this));
