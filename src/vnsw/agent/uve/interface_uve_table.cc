@@ -14,7 +14,7 @@ InterfaceUveTable::InterfaceUveTable(Agent *agent, uint32_t default_intvl)
       timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "InterfaceUveTimer",
-              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+              TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0)) {
       expiry_time_ = default_intvl;
       timer_->Start(expiry_time_,
                     boost::bind(&InterfaceUveTable::TimerExpiry, this));

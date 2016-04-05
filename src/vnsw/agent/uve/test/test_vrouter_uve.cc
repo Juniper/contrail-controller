@@ -49,7 +49,7 @@ void RouterIdDepInit(Agent *agent) {
 class VrouterUveSendTask : public Task {
 public:
     VrouterUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->vrouter_uve_entry()->TimerExpiry();

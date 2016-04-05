@@ -35,7 +35,7 @@ VrouterUveEntryBase::VrouterUveEntryBase(Agent *agent)
       physical_device_listener_id_(DBTableBase::kInvalidId),
       timer_(TimerManager::CreateTimer(
                  *(agent_->event_manager())->io_service(), "UveDBWalkTimer",
-                 TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+                 TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0)) {
     StartTimer();
 }
 

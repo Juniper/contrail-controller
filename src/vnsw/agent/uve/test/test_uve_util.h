@@ -35,7 +35,7 @@ private:
 class ProuterUveSendTask : public Task {
 public:
     ProuterUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->prouter_uve_table()->TimerExpiry();
@@ -47,7 +47,7 @@ public:
 class PIUveSendTask : public Task {
 public:
     PIUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->prouter_uve_table()->PITimerExpiry();
@@ -59,7 +59,7 @@ public:
 class LIUveSendTask : public Task {
 public:
     LIUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->prouter_uve_table()->LITimerExpiry();
@@ -122,7 +122,7 @@ private:
 class VnUveSendTask : public Task {
 public:
     VnUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->vn_uve_table()->TimerExpiry();
@@ -134,7 +134,7 @@ public:
 class VmUveSendTask : public Task {
 public:
     VmUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->vm_uve_table()->TimerExpiry();
@@ -146,7 +146,7 @@ public:
 class VmiUveSendTask : public Task {
 public:
     VmiUveSendTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->uve()->interface_uve_table()->TimerExpiry();
