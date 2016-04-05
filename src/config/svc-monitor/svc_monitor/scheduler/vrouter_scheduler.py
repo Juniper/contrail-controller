@@ -63,7 +63,22 @@ class VRouterScheduler(object):
         for az in az_list:
             if self._args.netns_availability_zone not in str(az):
                 continue
-            az_vr_list.extend(az.hosts.keys())
+            try:
+                # check if the az is available
+                if not az.zoneState['available']:
+                    continue
+                # check if there are any hosts
+                if not az.hosts:
+                    continue
+                # check if hosts are active & enabled
+                for host,host_status in az.hosts.iteritems():
+                    if (('nova-compute' in host_status) and \
+                        host_status['nova-compute']['available'] and \
+                        host_status['nova-compute']['active']):
+                        az_vr_list.append(host)
+            except Exception as e:
+                self._logger.log_error(str(e))
+                continue
 
         return az_vr_list
 
