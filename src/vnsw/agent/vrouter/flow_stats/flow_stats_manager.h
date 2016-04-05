@@ -92,8 +92,7 @@ public:
 
     //Add flow entry to particular aging table
     void AddEvent(FlowEntryPtr &flow);
-    void DeleteEvent(const FlowEntryPtr &flow);
-    void FlowIndexUpdateEvent(const FlowEntryPtr &flow);
+    void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes);
 

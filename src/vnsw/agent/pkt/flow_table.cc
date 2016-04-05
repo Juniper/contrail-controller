@@ -52,14 +52,6 @@ const uint32_t FlowEntryFreeList::kMinThreshold;
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 
-#define FLOW_LOCK(flow, rflow) \
-    tbb::mutex tmp_mutex1, tmp_mutex2, *mutex_ptr_1, *mutex_ptr_2; \
-    GetMutexSeq(flow ? flow->mutex() : tmp_mutex1, \
-                rflow ? rflow->mutex() : tmp_mutex2, \
-                &mutex_ptr_1, &mutex_ptr_2); \
-    tbb::mutex::scoped_lock lock1(*mutex_ptr_1); \
-    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
-
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
@@ -138,7 +130,9 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
 }
 
 void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
-    DeleteFlowInfo(lhs);
+    RevFlowDepParams params;
+    lhs->RevFlowDepInfo(&params);
+    DeleteFlowInfo(lhs, params);
     if (rhs)
         lhs->Copy(rhs, update);
 }
@@ -277,7 +271,8 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     AddFlowInfo(flow);
 }
 
-void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time) {
+void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time,
+                               const RevFlowDepParams &params) {
     if (fe->deleted()) {
         /* Already deleted return from here. */
         return;
@@ -291,7 +286,7 @@ void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time) {
     }
     fe->set_reverse_flow_entry(NULL);
 
-    DeleteFlowInfo(fe);
+    DeleteFlowInfo(fe, params);
     DeleteKSync(fe);
 
     agent_->stats()->incr_flow_aged();
@@ -300,13 +295,22 @@ void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time) {
 
 bool FlowTable::DeleteFlows(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
+
+    /* Fetch reverse-flow info for both flows before their reverse-flow
+     * links are broken. This info is required during FlowExport */
+    RevFlowDepParams r_params;
+    if (rflow) {
+        rflow->RevFlowDepInfo(&r_params);
+    }
     if (flow) {
+        RevFlowDepParams f_params;
+        flow->RevFlowDepInfo(&f_params);
         /* Delete the forward flow */
-        DeleteInternal(flow, time);
+        DeleteInternal(flow, time, f_params);
     }
 
     if (rflow) {
-        DeleteInternal(rflow, time);
+        DeleteInternal(rflow, time, r_params);
     }
     return true;
 }
@@ -497,8 +501,8 @@ void FlowTable::AddFlowInfo(FlowEntry *fe) {
     agent_->pkt()->flow_mgmt_manager()->AddEvent(fe);
 }
 
-void FlowTable::DeleteFlowInfo(FlowEntry *fe) {
-    agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe);
+void FlowTable::DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params) {
+    agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe, params);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -768,12 +772,10 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
 // must be deleted
 void FlowTable::DeleteMessage(FlowEntry *flow) {
     DeleteUnLocked(true, flow, flow->reverse_flow_entry());
-    DeleteFlowInfo(flow);
 }
 
 void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
     DeleteUnLocked(false, flow, NULL);
-    DeleteFlowInfo(flow);
 
     // Reverse flow unlinked with forward flow. Make it short-flow
     if (reverse_flow && reverse_flow->deleted() == false) {
@@ -890,19 +892,9 @@ void FlowTable::KSyncSetFlowHandle(FlowEntry *flow, uint32_t flow_handle) {
     // new flow-handle
     KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
     mgr->UpdateFlowHandle(flow, flow_handle);
-    NotifyFlowStatsCollector(flow);
     if (rflow) {
         UpdateKSync(rflow, true);
     }
-}
-
-void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
-    /* FlowMgmt Task does not do anything apart from notifying
-     * FlowStatsCollector on Flow Index change. We don't directly enqueue
-     * the index change event to FlowStatsCollector to avoid Flow Index change
-     * event reaching FlowStatsCollector before Flow Add
-     */
-    agent_->pkt()->flow_mgmt_manager()->FlowIndexUpdateEvent(fe);
 }
 
 /////////////////////////////////////////////////////////////////////////////
