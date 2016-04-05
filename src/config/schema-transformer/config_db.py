@@ -3247,8 +3247,10 @@ class VirtualMachineInterfaceST(DBBaseST):
         if vn is None:
             return
         vm_pt = self.get_virtual_machine_or_port_tuple()
-        if not vm_pt or vm_pt.get_service_mode() not in ['in-network',
-                                                         'in-network-nat']:
+        if not vm_pt:
+            return
+        smode = vm_pt.get_service_mode()
+        if smode not in ['in-network', 'in-network-nat']:
             return
 
         vrf_table = VrfAssignTableType()
@@ -3279,7 +3281,12 @@ class VirtualMachineInterfaceST(DBBaseST):
 
         policy_rule_count = 0
         si_name = vm_pt.service_instance
-        for service_chain_list in vn.service_chains.values():
+        if smode == 'in-network-nat' and self.service_interface_type == 'right':
+            vn_service_chains = []
+        else:
+            vn_service_chains = vn.service_chains.values()
+
+        for service_chain_list in vn_service_chains:
             for service_chain in service_chain_list:
                 if not service_chain.created:
                     continue
@@ -3292,10 +3299,9 @@ class VirtualMachineInterfaceST(DBBaseST):
                                                 dst_port=dp,
                                                 protocol=service_chain.protocol)
 
-                        vrf_rule = VrfAssignRuleType(
-                            match_condition=mc,
-                            routing_instance=ri_name,
-                            ignore_acl=True)
+                        vrf_rule = VrfAssignRuleType(match_condition=mc,
+                                                     routing_instance=ri_name,
+                                                     ignore_acl=True)
                         vrf_table.add_vrf_assign_rule(vrf_rule)
                         policy_rule_count += 1
             # end for service_chain
