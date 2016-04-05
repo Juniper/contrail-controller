@@ -19,7 +19,7 @@
 
 import mock
 import unittest
-
+import six
 import cfgm_common.analytics_client as analytics
 import cfgm_common.svc_info as svc_info
 from sandesh_common.vns import constants
@@ -144,3 +144,54 @@ class TestRandomScheduler(unittest.TestCase):
             self.assertEqual(chosen_vrouter, 'vrouter1')
 
         random_patch.stop()
+
+    def test_disabled_azs(self):
+        class FakeAvailabilityZone(object):
+            def __repr__(self):
+                return "<AvailabilityZone: %s>" % self.zoneName
+            def __init__(self, info):
+                self._info = info
+                self._add_details(info)
+
+            def _add_details(self, info):
+                for (k, v) in six.iteritems(info):
+                    try:
+                        setattr(self, k, v)
+                        self._info[k] = v
+                    except AttributeError:
+                        pass
+
+        def get_fake_azs():
+            az1_info = {"zoneState":{"available":True},
+                        "hosts":{"compute1":{"nova-compute":
+                                            {"available":True,"active":True}},
+                                 "compute2":{"nova-compute":
+                                            {"available":False,"active":True}},
+                                 "compute3":{"nova-compute":
+                                            { "available":True,"active":True}}},
+                        "zoneName":"fake_az1"}
+
+            az2_info = {"zoneState":{"available":False},
+                        "hosts":{"compute4":{"nova-compute":
+                                            {"available":True,"active":True}}},
+                        "zoneName":"fake_az2"}
+
+            az3_info = {"zoneState":{"available":True},
+                        "hosts":{"compute5":{"nova-compute":
+                                            {"available":True,"active":True}}},
+                        "zoneName":"fake_az3"}
+
+
+            return [FakeAvailabilityZone(az1_info),FakeAvailabilityZone(az2_info),
+                    FakeAvailabilityZone(az3_info)]
+
+        self.mock_nc = mock.MagicMock()
+        self.mock_nc.oper = mock.Mock(return_value=get_fake_azs())
+
+        self.scheduler2 = \
+            scheduler.RandomScheduler(vnc_lib=self.vnc_mock, nova_client=self.mock_nc,
+                disc=mock.MagicMock(), logger=mock.MagicMock(),
+                args=mock.MagicMock(netns_availability_zone="fake_az1"))
+
+        az_vr_list = self.scheduler2._get_az_vrouter_list()
+        self.assertEqual(az_vr_list, ['compute1', 'compute3'])
