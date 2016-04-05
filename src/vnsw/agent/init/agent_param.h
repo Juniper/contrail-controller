@@ -263,21 +263,11 @@ protected:
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
-                     ValueType &var, const std::string &val) {
-        return GetOptValueImpl(var_map, var, val,
-            static_cast<ValueType *>(0));
-    }
+                     ValueType &var, const std::string &val);
     // Implementation overloads
     template <typename ValueType>
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, const std::string &val, ValueType*) {
-        // Check if the value is present.
-        if (var_map.count(val) && !var_map[val].defaulted()) {
-            var = var_map[val].as<ValueType>();
-            return true;
-        }
-        return false;
-    }
+                         ValueType &var, const std::string &val, ValueType*);
     template <typename ElementType>
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
                          std::vector<ElementType> &var, const std::string &val,
@@ -312,24 +302,6 @@ protected:
 private:
     friend class AgentParamTest;
     void ComputeFlowLimits();
-    void ParseCollector();
-    void ParseVirtualHost();
-    void ParseDns();
-    void ParseDiscovery();
-    void ParseNetworks();
-    void ParseHypervisor();
-    void ParseDefaultSection();
-    void ParseTaskSection();
-    void ParseMetadataProxy();
-    void ParseFlows();
-    void ParseHeadlessMode();
-    void ParseDhcpRelayMode();
-    void ParseSimulateEvpnTor();
-    void ParseServiceInstance();
-    void ParseAgentInfo();
-    void ParseNexthopServer();
-    void ParsePlatform();
-    void ParseBgpAsAServicePortRange();
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -366,9 +338,11 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseBgpAsAServicePortRangeArguments
         (const boost::program_options::variables_map &v);
+    void InitializeOptions();
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
+    boost::program_options::options_description config_file_options_;
     bool enable_flow_options_;
     bool enable_vhost_options_;
     bool enable_hypervisor_options_;
