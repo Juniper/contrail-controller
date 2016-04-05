@@ -674,7 +674,8 @@ class SvcMonitorTest(unittest.TestCase):
         pool_dict['loadbalancer_pool_provider'] = 'Test-SAS'
         pool_dict['loadbalancer_pool_properties'] = \
             {'protocol': 'TCP', 'subnet_id': 'subnet-id',
-             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': 'true'}
+             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': 'true',
+             'session_persistence': None, 'persistence_cookie_name': None}
         pool_obj = LoadbalancerPool.from_dict(**pool_dict)
         self._return_obj['loadbalancer_pool'] = pool_dict
         config_db.LoadbalancerPoolSM.locate(uuid)

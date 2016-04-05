@@ -132,6 +132,8 @@ class LoadbalancerAgentTest(unittest.TestCase):
         pool_obj['loadbalancer_pool_properties'] = {'protocol': 'HTTP',
                                                     'subnet_id': 'subnet-id',
                                                     'loadbalancer_method': 'ROUND_ROBIN',
+                                                    'session_persistence': None,
+                                                    'persistence_cookie_name': None,
                                                     'admin_state': 'true'}
         if vip:
             pool_obj['virtual_ip_back_refs']=[{'uuid': vip.uuid}]

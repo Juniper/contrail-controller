@@ -157,7 +157,8 @@ OpencontrailLoadbalancerDriver")
         pool_obj['loadbalancer_pool_provider'] = 'f5'
         pool_obj['loadbalancer_pool_properties'] = \
             {'protocol': 'HTTP', 'subnet_id': 'pool_subnet_id',
-             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': 'true'}
+             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': 'true',
+             'session_persistence': None, 'persistence_cookie_name': None}
         if vip:
             pool_obj['virtual_ip_back_refs']=[{'uuid': vip.uuid}]
         if hm:
