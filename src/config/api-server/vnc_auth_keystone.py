@@ -128,6 +128,11 @@ class AuthPostKeystone(object):
             env['HTTP_X_ROLE'] = env['HTTP_X_API_ROLE']
         """
 
+        # If HTTP_X_ROLE not found, then copy from HTTP_X_API_ROLE
+        if 'HTTP_X_API_ROLE' in env:
+            if not 'HTTP_X_ROLE' in env or len(env['HTTP_X_ROLE']) == 0:
+                env['HTTP_X_ROLE'] = env['HTTP_X_API_ROLE']
+
         # only allow admin access when MT is on
         roles = []
         if 'HTTP_X_ROLE' in env:
