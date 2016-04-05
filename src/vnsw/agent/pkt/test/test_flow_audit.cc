@@ -17,19 +17,10 @@ struct PortInfo input[] = {
 };
 VmInterface *vmi0;
 
-static bool FlowStatsTimerStartStopTrigger (bool stop) {
-    Agent::GetInstance()->flow_stats_manager()->\
-        default_flow_stats_collector()->TestStartStopTimer(stop);
+static bool FlowStatsTimerStartStopTrigger (FlowStatsCollector *fsc,
+                                            bool stop) {
+    fsc->TestStartStopTimer(stop);
     return true;
-}
-
-static void FlowStatsTimerStartStop (bool stop) {
-    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent);
-    std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop),
-                         task_id, 0));
-    trigger_->Set();
-    client->WaitForIdle();
 }
 
 class FlowAuditTest : public ::testing::Test {
@@ -49,6 +40,8 @@ public:
 
         vmi0 = VmInterfaceGet(input[0].intf_id);
         assert(vmi0);
+        FlowStatsTimerStartStop(true);
+        KFlowPurgeHold();
     }
 
     virtual void TearDown() {
@@ -57,8 +50,20 @@ public:
 
         DeleteVmportEnv(input, 1, true, 1);
         client->WaitForIdle();
+        FlowStatsTimerStartStop(false);
+        KFlowPurgeHold();
     }
 
+    void FlowStatsTimerStartStop (bool stop) {
+        int task_id =
+            agent_->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
+        std::auto_ptr<TaskTrigger> trigger_
+            (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
+                                         flow_stats_collector_, stop),
+                             task_id, 0));
+        trigger_->Set();
+        client->WaitForIdle();
+    }
 
     bool FlowTableWait(size_t count) {
         int i = 1000;
@@ -140,24 +145,35 @@ public:
     FlowStatsCollector* flow_stats_collector_;
 };
 
-TEST_F(FlowAuditTest, FlowAudit) {
-    KFlowPurgeHold();
-    FlowStatsTimerStartStop(true);
+// Validate flows audit
+TEST_F(FlowAuditTest, FlowAudit_1) {
+    // Create two hold-flows
     EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
     EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
     RunFlowAudit();
     EXPECT_TRUE(FlowTableWait(2));
+
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
-    //FlowStatsTimerStartStop(false);
+
+    // Wait till flow-stats-collector sees the flows
+    WAIT_FOR(1000, 1000, (flow_stats_collector_->Size() == 2));
+
+    // Enqueue aging and validate flows are deleted
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
-    KFlowPurgeHold();
+}
 
-    string vrf_name =
-        Agent::GetInstance()->vrf_table()->FindVrfFromId(1)->GetName();
+// Validate flow do not get deleted in following case,
+// - Flow-audit runs and enqueues request to delete
+// - Add flow before audit message is run
+// - Flow-audit message should be ignored
+TEST_F(FlowAuditTest, FlowAudit_2) {
+
+    // Create the flow first
+    string vrf_name = agent_->vrf_table()->FindVrfFromId(1)->GetName();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, "1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
@@ -166,24 +182,27 @@ TEST_F(FlowAuditTest, FlowAudit) {
             }
         }
     };
-
     CreateFlow(flow, 1);
-
     EXPECT_TRUE(FlowTableWait(2));
-    EXPECT_TRUE(KFlowHoldAdd(10, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
+
+    uint32_t nh_id = vmi0->flow_key_nh()->id();
+    // Validate that flow-drop-reason is not AUDIT
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() != FlowEntry::SHORT_AUDIT_ENTRY);
+
+    // Wait till flow-stats-collector sees the flows
+    WAIT_FOR(1000, 1000, (flow_stats_collector_->Size() == 2));
+
+    // Enqueue Audit message
+    EXPECT_TRUE(KFlowHoldAdd(nh_id, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
     RunFlowAudit();
-    client->EnqueueFlowAge();
     client->WaitForIdle();
-    usleep(500);
-    int tmp_age_time = 10 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
-    //Set the flow age time to 10 microsecond
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
-    KFlowPurgeHold();
+
+    // Validate that flow-drop-reason is not AUDIT
+    fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() != FlowEntry::SHORT_AUDIT_ENTRY);
 }
 
 int main(int argc, char *argv[]) {
