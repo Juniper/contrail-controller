@@ -48,8 +48,7 @@ public:
     void RegisterXmppChannel(XmppChannel *channel);
 
 protected:
-    virtual void WriteReadyCb(uint8_t *msg, 
-                              const boost::system::error_code &ec);
+    virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
