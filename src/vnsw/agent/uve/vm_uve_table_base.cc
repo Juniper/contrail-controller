@@ -13,7 +13,7 @@ VmUveTableBase::VmUveTableBase(Agent *agent, uint32_t default_intvl)
       timer_(TimerManager::CreateTimer
              (*(agent->event_manager())->io_service(),
               "VmUveTimer",
-              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+              TaskScheduler::GetInstance()->GetTaskId(kTaskDBExclude), 0)) {
       expiry_time_ = default_intvl;
       timer_->Start(expiry_time_,
                     boost::bind(&VmUveTableBase::TimerExpiry, this));
