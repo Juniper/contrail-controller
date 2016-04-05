@@ -391,6 +391,7 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
 bool FlowStatsCollector::Run() {
     run_counter_++;
     if (!flow_tree_.size()) {
+        set_expiry_time(kFlowStatsTimerInterval);
         return true;
     }
 
@@ -500,6 +501,15 @@ bool FlowStatsCollector::Run() {
     } else {
         flow_iteration_key_ = it->first;
     }
+
+    // The flow processing above can have significant latency (>20msec)
+    // adjust timer such that time between firing is kFlowStatsTimerInterval
+    int64_t latency = (UTCTimestampUsec() - curr_time)/1000;
+    int next_interval = (int)kFlowStatsTimerInterval - latency;
+    if (next_interval < (int)kFlowStatsTimerIntervalMin) {
+        next_interval = (int)kFlowStatsTimerIntervalMin;
+    }
+    RescheduleTimer(next_interval);
 
     return true;
 }

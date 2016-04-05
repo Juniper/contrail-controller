@@ -32,9 +32,11 @@ class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
     static const uint32_t kFlowStatsTimerInterval = 50; // time in milliseconds
+    // Min time in milliseconds
+    static const uint32_t kFlowStatsTimerIntervalMin = 5;
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
     // Retry flow-delete after 2 second
-    static const uint64_t kFlowDeleteRetryTime = (2 * 1000 * 1000);
+    static const uint64_t kFlowDeleteRetryTime = (5 * 1000 * 1000);
 
     // Time within which complete table must be scanned
     // Specified in terms of percentage of aging-time
