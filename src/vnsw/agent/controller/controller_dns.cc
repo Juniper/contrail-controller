@@ -48,7 +48,7 @@ bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {
         return false;
 
     return channel_->Send((const uint8_t *)msg, len, xmps::DNS, 
-            boost::bind(&AgentDnsXmppChannel::WriteReadyCb, this, msg, _1));
+            boost::bind(&AgentDnsXmppChannel::WriteReadyCb, this, _1));
 }
 
 void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
@@ -76,9 +76,7 @@ std::string AgentDnsXmppChannel::ToString() const {
     return channel_->ToString();
 }
 
-void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg, 
-                                       const boost::system::error_code &ec) {
-    delete [] msg;
+void AgentDnsXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 }
 
 void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
