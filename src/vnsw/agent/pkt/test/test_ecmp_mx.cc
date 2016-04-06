@@ -224,6 +224,16 @@ TEST_F(EcmpTest, EcmpTest_5) {
     //Reverse all the nexthop in vrf2
     AddRemoteEcmpRoute("vrf2", "0.0.0.0", 0, "vn2", 4, true);
 
+    VnListType vn_list;
+    vn_list.insert("vn1");
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                "vrf2", ip, 32, MakeUuid(1), vn_list,
+                vm1_label, SecurityGroupList(), CommunityList(),
+                false, PathPreference(), Ip4Address(0), EcmpLoadBalance());
+    client->WaitForIdle();
+
     AddVrfAssignNetworkAcl("Acl", 10, "vn1", "vn2", "pass", "vrf2");
     AddLink("virtual-network", "vn1", "access-control-list", "Acl");
     client->WaitForIdle();
@@ -248,6 +258,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     DeleteRoute("vrf2", "0.0.0.0", 0, bgp_peer);
+    DeleteRoute("vrf2", "1.1.1.1", 32, agent_->local_peer());
     DelLink("virtual-network", "vn1", "access-control-list", "Acl");
     DelAcl("Acl");
     client->WaitForIdle();

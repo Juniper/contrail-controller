@@ -495,4 +495,8 @@ void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void AddStaticPreference(std::string intf_name, int intf_id, uint32_t value);
 bool VnMatch(VnListType &vn_list, std::string &vn);
+void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
+                            const char *sip, const char *dip, int proto,
+                            int sport_start, int sport_end, int dport_start,
+                            int dport_end, const char *vrf, const char *ignore_acl);
 #endif // vnsw_agent_test_cmn_util_h
