@@ -278,7 +278,7 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         // gateway route also. If gateway are redundant, then the subnet route
         // can be an ECMP route.
         if (rt->ipam_subnet_route()) {
-            proxy_arp = false;
+            proxy_arp = true;
             flood = true;
         }
         break;
