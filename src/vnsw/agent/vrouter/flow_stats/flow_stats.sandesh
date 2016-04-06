@@ -129,20 +129,6 @@ response sandesh FlowStatsRecordsResp {
 }
 
 /**
- * Request message to get flow stats based on flow key
- */
-request sandesh FetchFlowStatsRecord {
-    1: string uuid;
-}
-
-/**
- * Response message for flow stats based on flow key
- */
-response sandesh FlowStatsRecordResp {
-    1: SandeshFlowExportInfo info;
-}
-
-/**
  * Request message to get flow aging parameters
  */
 request sandesh ShowAgingConfig {

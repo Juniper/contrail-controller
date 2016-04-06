@@ -746,6 +746,24 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
     return data_.acl_assigned_vrf_index_;
 }
 
+void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
+    params->sip_ = key().src_addr;
+    FlowEntry *rev_flow = reverse_flow_entry();
+    if (rev_flow) {
+        params->rev_uuid_ = rev_flow->uuid();
+        if (key().family != Address::INET) {
+            return;
+        }
+        if (is_flags_set(FlowEntry::NatFlow) &&
+            is_flags_set(FlowEntry::IngressDir)) {
+            const FlowKey *nat_key = &rev_flow->key();
+            if (key().src_addr != nat_key->dst_addr) {
+                params->sip_ = nat_key->dst_addr;
+            }
+        }
+    }
+}
+
 static bool ShouldDrop(uint32_t action) {
     if (action & TrafficAction::DROP_FLAGS)
         return true;
@@ -2190,13 +2208,6 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_source_vn_list(data_.SourceVnList());
     fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
     std::vector<uint32_t> v;
-    if (!fsc_) {
-        return;
-    }
-    const FlowExportInfo *info = fsc_->FindFlowExportInfo(uuid_);
-    if (!info) {
-        return;
-    }
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin(); 
             it != data_.source_sg_id_l.end(); it++) {
@@ -2209,18 +2220,21 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         v.push_back(*it);
     }
     fe_sandesh_data.set_dest_sg_id_l(v);
-    if (info) {
-        fe_sandesh_data.set_flow_uuid(UuidToString(info->flow_uuid()));
-        fe_sandesh_data.set_bytes(integerToString(info->bytes()));
-        fe_sandesh_data.set_packets(integerToString(info->packets()));
-        fe_sandesh_data.set_setup_time(
-            integerToString(UTCUsecToPTime(info->setup_time())));
-        fe_sandesh_data.set_setup_time_utc(info->setup_time());
-        if (info->teardown_time()) {
-            fe_sandesh_data.set_teardown_time(
-                integerToString(UTCUsecToPTime(info->teardown_time())));
-        } else {
-            fe_sandesh_data.set_teardown_time("");
+    fe_sandesh_data.set_flow_uuid(UuidToString(uuid()));
+    if (fsc_) {
+        const FlowExportInfo *info = fsc_->FindFlowExportInfo(this);
+        if (info) {
+            fe_sandesh_data.set_bytes(integerToString(info->bytes()));
+            fe_sandesh_data.set_packets(integerToString(info->packets()));
+            fe_sandesh_data.set_setup_time(
+                integerToString(UTCUsecToPTime(info->setup_time())));
+            fe_sandesh_data.set_setup_time_utc(info->setup_time());
+            if (info->teardown_time()) {
+                fe_sandesh_data.set_teardown_time(
+                    integerToString(UTCUsecToPTime(info->teardown_time())));
+            } else {
+                fe_sandesh_data.set_teardown_time("");
+            }
         }
     }
     fe_sandesh_data.set_current_time(integerToString(

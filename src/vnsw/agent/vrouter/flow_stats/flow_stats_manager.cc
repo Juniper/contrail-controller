@@ -284,29 +284,14 @@ void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
     fsc->AddEvent(flow);
 }
 
-void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow) {
+void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
+                                   const RevFlowDepParams &params) {
     if (flow == NULL) {
         return;
     }
     FlowStatsCollector *fsc = flow->fsc();
     assert(fsc != NULL);
-    fsc->DeleteEvent(flow->uuid());
-}
-
-void FlowStatsManager::FlowIndexUpdateEvent(const FlowEntryPtr &flow) {
-    if (flow == NULL) {
-        return;
-    }
-
-    FlowStatsCollector *fsc = NULL;
-    if (flow->fsc() == NULL) {
-        fsc = GetFlowStatsCollector(flow.get());
-        flow->set_fsc(fsc);
-    } else {
-        fsc = flow->fsc();
-    }
-
-    fsc->FlowIndexUpdateEvent(flow->uuid(), flow->flow_handle());
+    fsc->DeleteEvent(flow, params);
 }
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
@@ -324,7 +309,7 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
         fsc = flow->fsc();
     }
 
-    fsc->UpdateStatsEvent(flow->uuid(), bytes, packets, oflow_bytes);
+    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes);
 }
 
 void FlowStatsManager::FreeIndex(uint32_t idx) {
