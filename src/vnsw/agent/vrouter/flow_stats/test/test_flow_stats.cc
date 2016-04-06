@@ -195,8 +195,8 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
     EXPECT_TRUE(rfe != NULL);
     FlowStatsCollector *col =
         agent_->flow_stats_manager()->default_flow_stats_collector();
-    FlowExportInfo *info = col->FindFlowExportInfo(fe->uuid());
-    FlowExportInfo *rinfo = col->FindFlowExportInfo(rfe->uuid());
+    FlowExportInfo *info = col->FindFlowExportInfo(fe);
+    FlowExportInfo *rinfo = col->FindFlowExportInfo(rfe);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     EXPECT_EQ(2U, col->Size());
