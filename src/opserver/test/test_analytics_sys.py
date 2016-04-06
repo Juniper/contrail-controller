@@ -141,6 +141,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_message_table_messagetype()
         assert vizd_obj.verify_message_table_where_or()
         assert vizd_obj.verify_message_table_where_and()
+        assert vizd_obj.verify_message_table_where_prefix()
         assert vizd_obj.verify_message_table_filter()
         assert vizd_obj.verify_message_table_filter2()
         assert vizd_obj.verify_message_table_sort()
