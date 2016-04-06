@@ -26,6 +26,7 @@ except ImportError:
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common import utils as cfgmutils
+from cfgm_common import vnc_greenlets
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
@@ -232,7 +233,7 @@ class AuthServiceKeystone(object):
         # open access for troubleshooting
         admin_port = self._conf_info['admin_port']
         self._local_auth_app = LocalAuth(bottle.app(), self._conf_info)
-        gevent.spawn(self._local_auth_app.start_http_server)
+        vnc_greenlets.VncGreenlet("VNC Auth Keystone", self._local_auth_app.start_http_server)
 
         app = auth_middleware
 
