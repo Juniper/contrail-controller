@@ -273,6 +273,17 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
+        // packet parsing is not done, invoke the same here
+        uint8_t *pkt = req->pkt_info()->packet_buffer()->data();
+        PktInfoPtr info = req->pkt_info();
+        PktHandler::PktModuleName mod =
+            agent()->pkt()->pkt_handler()->ParseFlowPacket(info, pkt);
+        // if packet wasnt for flow module, it would've got enqueued to the
+        // correct module in the above call. Nothing else to do.
+        if (mod != PktHandler::FLOW) {
+            break;
+        }
+        FreeBuffer(info.get());
         ProcessProto(req->pkt_info());
         break;
     }
