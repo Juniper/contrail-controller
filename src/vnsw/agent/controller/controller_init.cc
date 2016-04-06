@@ -43,8 +43,9 @@ SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf(SandeshTraceBufferCreate(
 SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf(SandeshTraceBufferCreate(
     "ControllerRxConfigXmppMessage", 5000));
 
-ControllerDiscoveryData::ControllerDiscoveryData(std::vector<DSResponse> resp) :
-    ControllerWorkQueueData(), discovery_response_(resp) {
+ControllerDiscoveryData::ControllerDiscoveryData(xmps::PeerId peer_id,
+                                                 std::vector<DSResponse> resp) :
+    ControllerWorkQueueData(), peer_id_(peer_id), discovery_response_(resp) {
 }
 
 VNController::VNController(Agent *agent) 
@@ -222,7 +223,7 @@ void VNController::DnsXmppServerConnect() {
                                                 agent_->dns_server(count),
                                                 count);
             client_dns->RegisterConnectionEvent(xmps::DNS,
-                boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent,
+                boost::bind(&AgentDnsXmppChannel::XmppClientChannelEvent,
                             dns_peer, _2));
 
             XmppChannelConfig *xmpp_cfg_dns = new XmppChannelConfig(true);
@@ -234,7 +235,11 @@ void VNController::DnsXmppServerConnect() {
             xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
-            xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
+            if (agent_->xmpp_dns_test_mode()) {
+                xmpp_cfg_dns->endpoint.port(agent_->dns_server_port(count));
+            } else {
+                xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
+            }
             xmpp_dns->AddXmppChannelConfig(xmpp_cfg_dns);
             xmpp_dns->InitClient(client_dns);
 
@@ -420,7 +425,7 @@ bool VNController::AgentXmppServerExists(const std::string &server_ip,
 }
 
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
-    ControllerDiscoveryDataType data(new ControllerDiscoveryData(resp));
+    ControllerDiscoveryDataType data(new ControllerDiscoveryData(xmps::BGP, resp));
     ControllerWorkQueueDataType base_data =
         boost::static_pointer_cast<ControllerWorkQueueData>(data);
     work_queue_.Enqueue(base_data);
@@ -539,8 +544,15 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
     agent_->reset_dns_server(idx);
 }
 
-
 void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
+    ControllerDiscoveryDataType data(new ControllerDiscoveryData(xmps::DNS, resp));
+    ControllerWorkQueueDataType base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    work_queue_.Enqueue(base_data);
+}
+
+bool VNController::ApplyDiscoveryDnsXmppServicesInternal(
+    std::vector<DSResponse> resp) {
 
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
@@ -610,6 +622,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
     } 
 
     DnsXmppServerConnect();
+    return true;
 }
 
 /*
@@ -771,8 +784,15 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
     ControllerDiscoveryDataType discovery_data =
         boost::dynamic_pointer_cast<ControllerDiscoveryData>(data);
     if (discovery_data) {
-        return ApplyDiscoveryXmppServicesInternal(discovery_data->
-                                                  discovery_response_);
+        if (discovery_data->peer_id_ == xmps::BGP) {
+            return ApplyDiscoveryXmppServicesInternal(discovery_data->
+                                                      discovery_response_);
+        } else if (discovery_data->peer_id_ == xmps::DNS) {
+            return ApplyDiscoveryDnsXmppServicesInternal(discovery_data->
+                                                         discovery_response_);
+        } else {
+            LOG(ERROR, "Unknown Peer Id processing Discovery Response");
+        }
     }
     return true;
 }
@@ -802,9 +822,15 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
     } else if (data->peer_id() == xmps::DNS) {
         AgentDnsXmppChannel *peer =
             agent_->dns_xmpp_channel(data->channel_id());
-        if (peer) {
-            AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
-                                                              data->peer_state());
+        if (data->config()) {
+            if (peer) {
+                peer->ReceiveDnsMessage(data->dom());                
+            } 
+        } else {
+            if (peer) {
+                AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
+                                                                  data->peer_state());
+            }
         }
     }
 
