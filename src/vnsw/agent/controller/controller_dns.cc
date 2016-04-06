@@ -29,8 +29,8 @@ AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent,
 
 AgentDnsXmppChannel::~AgentDnsXmppChannel() {
     if (channel_) {
-        channel_->UnRegisterReceive(xmps::DNS);
         channel_->UnRegisterWriteReady(xmps::DNS);
+        channel_->UnRegisterReceive(xmps::DNS);
     }
 }
 
@@ -53,23 +53,35 @@ bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {
 
 void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
     if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        XmlBase *impl = msg->dom.get();
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
-        pugi::xml_node node = pugi->FindNode("dns");
-        DnsAgentXmpp::XmppType xmpp_type;
-        uint32_t xid;
-        uint16_t code;
-        std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
-        if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
-                                             code, xmpp_data.get())) {
-            dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
-                                    false);
-        }
-    }
+        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get()); 
+        pugi->LoadXmlDoc(msg_pugi->doc()); //Verify Xmpp message format 
+        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
+                                                                          xmps::UNKNOWN,
+                                                                          xs_idx_,
+                                                                          impl,
+                                                                          true));
+        agent_->controller()->Enqueue(data);
+    } 
 }
 
 void AgentDnsXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
     ReceiveMsg(msg);
+}
+
+void AgentDnsXmppChannel::ReceiveDnsMessage(std::auto_ptr<XmlBase> impl) {
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi::xml_node node = pugi->FindNode("dns");
+    DnsAgentXmpp::XmppType xmpp_type;
+    uint32_t xid;
+    uint16_t code;
+    std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
+    if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
+                                         code, xmpp_data.get())) {
+        dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
+                                false);
+    }
 }
 
 std::string AgentDnsXmppChannel::ToString() const {
