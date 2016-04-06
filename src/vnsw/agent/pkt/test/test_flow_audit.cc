@@ -150,7 +150,7 @@ TEST_F(FlowAuditTest, FlowAudit) {
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
-    FlowStatsTimerStartStop(false);
+    //FlowStatsTimerStartStop(false);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
