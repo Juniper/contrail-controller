@@ -15,7 +15,7 @@
 
 using boost::system::error_code;
 
-#define SET_SANDESH_FLOW_DATA(agent, data, fe, info)                               \
+#define SET_SANDESH_FLOW_DATA(agent, data, fe, info)                        \
     data.set_vrf(fe->data().vrf);                                           \
     data.set_sip(fe->key().src_addr.to_string());                           \
     data.set_dip(fe->key().dst_addr.to_string());                           \
@@ -23,11 +23,12 @@ using boost::system::error_code;
     data.set_dst_port((unsigned)fe->key().dst_port);                        \
     data.set_protocol(fe->key().protocol);                                  \
     data.set_dest_vrf(fe->data().dest_vrf);                                 \
+    data.set_uuid(UuidToString(fe->uuid()));                                \
     data.set_action(fe->match_p().action_info.action);                      \
     std::vector<ActionStr> action_str_l;                                    \
     SetActionStr(fe->match_p().action_info, action_str_l);                  \
     if ((fe->match_p().action_info.action & TrafficAction::DROP_FLAGS) != 0) {\
-        data.set_drop_reason(fe->DropReasonStr(fe->data().drop_reason));                        \
+        data.set_drop_reason(fe->DropReasonStr(fe->data().drop_reason));    \
     }                                                                       \
     data.set_action_str(action_str_l);                                      \
     std::vector<MirrorActionSpec>::const_iterator mait;                     \
@@ -53,7 +54,6 @@ using boost::system::error_code;
         data.set_setup_time(                                                \
             integerToString(UTCUsecToPTime(info->setup_time())));           \
         data.set_setup_time_utc(info->setup_time());                        \
-        data.set_uuid(UuidToString(info->flow_uuid()));                     \
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {                       \
             data.set_egress_uuid(UuidToString(info->egress_uuid()));        \
         }                                                                   \
@@ -301,7 +301,7 @@ bool PktSandeshFlow::Run() {
         FlowStatsCollector *fec = fe->fsc();
         const FlowExportInfo *info = NULL;
         if (fec) {
-            info = fec->FindFlowExportInfo(fe->uuid());
+            info = fec->FindFlowExportInfo(fe);
         }
         SetSandeshFlowData(list, fe, info);
         ++it;
@@ -404,7 +404,7 @@ void FetchFlowRecord::HandleRequest() const {
        FlowStatsCollector *fec = fe->fsc();
        const FlowExportInfo *info = NULL;
        if (fec) {
-           info = fec->FindFlowExportInfo(fe->uuid());
+           info = fec->FindFlowExportInfo(fe);
        }
        SandeshFlowData data;
        SET_SANDESH_FLOW_DATA(agent, data, fe, info);
@@ -517,7 +517,7 @@ bool PktSandeshFlowStats::Run() {
 
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe->uuid());
+        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
         SetSandeshFlowData(list, fe, info);
         ++it;
         count++;

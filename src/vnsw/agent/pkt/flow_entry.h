@@ -40,6 +40,23 @@ class KSyncFlowIndexEntry;
 class FlowStatsCollector;
 
 ////////////////////////////////////////////////////////////////////////////
+// This is helper struct to carry parameters of reverse-flow. When flow is
+// being deleted, the relationship between forward and reverse flows are
+// broken. However, some info of reverse flow is needed during export of flows
+// for FlowStatsCollector. This information of reverse flow is carried in the
+// following struct.
+////////////////////////////////////////////////////////////////////////////
+struct RevFlowDepParams {
+    uuid rev_uuid_;
+    IpAddress sip_;
+    RevFlowDepParams() : rev_uuid_(), sip_() {
+    }
+    RevFlowDepParams(const uuid &uuid, IpAddress sip) : rev_uuid_(uuid),
+        sip_(sip) {
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////
 // Helper class to manage following,
 // 1. VM referred by the flow
 // 2. Per VM flow counters to apply per-vm flow limits
@@ -492,6 +509,7 @@ class FlowEntry {
     }
     static std::string DropReasonStr(uint16_t reason);
     std::string KeyString() const;
+    void RevFlowDepInfo(RevFlowDepParams *params);
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;

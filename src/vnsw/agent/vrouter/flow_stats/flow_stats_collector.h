@@ -38,7 +38,7 @@ public:
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
-    typedef std::map<boost::uuids::uuid, FlowExportInfo> FlowEntryTree;
+    typedef std::map<const FlowEntry*, FlowExportInfo> FlowEntryTree;
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
@@ -81,17 +81,17 @@ public:
                                uint64_t pkts);
     void Shutdown();
     void set_delete_short_flow(bool val) { delete_short_flow_ = val; }
-    void AddEvent(FlowEntryPtr &flow);
-    void DeleteEvent(const boost::uuids::uuid &u);
-    void SourceIpOverride(FlowExportInfo *info, FlowLogData &s_flow);
-    FlowExportInfo *FindFlowExportInfo(const boost::uuids::uuid &u);
-    const FlowExportInfo *FindFlowExportInfo(const boost::uuids::uuid &u) const;
+    void AddEvent(const FlowEntryPtr &flow);
+    void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
+    void SourceIpOverride(FlowExportInfo *info, FlowLogData &s_flow,
+                          const RevFlowDepParams *params);
+    FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe);
+    const FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe) const;
     void ExportFlow(FlowExportInfo *info, uint64_t diff_bytes,
-                    uint64_t diff_pkts);
+                    uint64_t diff_pkts, const RevFlowDepParams *params);
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
                                uint64_t bytes, uint64_t pkts);
-    void FlowIndexUpdateEvent(const boost::uuids::uuid &u, uint32_t idx);
-    void UpdateStatsEvent(const boost::uuids::uuid &u, uint32_t bytes,
+    void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes);
     size_t Size() const { return flow_tree_.size(); }
     void NewFlow(const FlowExportInfo &info);
@@ -116,18 +116,33 @@ protected:
 
 private:
     uint64_t GetScanTime();
-    void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time);
-    void EvictedFlowStatsUpdate(const boost::uuids::uuid &u,
+    void UpdateStatsAndExportFlow(FlowExportInfo *info,
+                                  uint64_t teardown_time,
+                                  const RevFlowDepParams *p);
+    void EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
                                 uint32_t bytes,
                                 uint32_t packets,
                                 uint32_t oflow_bytes);
+    void ExportFlowLocked(FlowExportInfo *info,
+                          uint64_t diff_bytes,
+                          uint64_t diff_pkts,
+                          const RevFlowDepParams *params);
     void UpdateAndExportInternal(FlowExportInfo *info,
                                  uint32_t bytes,
                                  uint16_t oflow_bytes,
                                  uint32_t pkts,
                                  uint16_t oflow_pkts,
                                  uint64_t time,
-                                 bool teardown_time);
+                                 bool teardown_time,
+                                 const RevFlowDepParams *params);
+    void UpdateAndExportInternalLocked(FlowExportInfo *info,
+                                       uint32_t bytes,
+                                       uint16_t oflow_bytes,
+                                       uint32_t pkts,
+                                       uint16_t oflow_pkts,
+                                       uint64_t time,
+                                       bool teardown_time,
+                                       const RevFlowDepParams *params);
     void UpdateFlowStatsInternal(FlowExportInfo *info,
                                  uint32_t bytes,
                                  uint16_t oflow_bytes,
@@ -150,8 +165,6 @@ private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowExportInfo *info, const vr_flow_entry *k_flow,
                       uint64_t curr_time);
-    bool TcpFlowShouldBeAged(FlowExportInfo *stats, const vr_flow_entry *k_flow,
-                             uint64_t curr_time);
     uint64_t GetUpdatedFlowPackets(const FlowExportInfo *stats,
                                    uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowExportInfo *stats,
@@ -161,9 +174,8 @@ private:
     uint32_t ReverseFlowFip(const FlowExportInfo *info);
     VmInterfaceKey ReverseFlowFipVmi(const FlowExportInfo *info);
     bool RequestHandler(boost::shared_ptr<FlowExportReq> req);
-    void AddFlow(const boost::uuids::uuid &key, FlowExportInfo info);
-    void DeleteFlow(const boost::uuids::uuid &key);
-    void UpdateFlowIndex(const boost::uuids::uuid &u, uint32_t idx);
+    void AddFlow(FlowExportInfo info);
+    void DeleteFlow(const FlowEntryPtr &flow);
     void HandleFlowStatsUpdate(const FlowKey &key, uint32_t bytes,
                                uint32_t packets, uint32_t oflow_bytes);
 
@@ -173,7 +185,7 @@ private:
 
     AgentUveBase *agent_uve_;
     boost::uuids::random_generator rand_gen_;
-    boost::uuids::uuid flow_iteration_key_;
+    const FlowEntry* flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;
     uint32_t flow_multiplier_;
