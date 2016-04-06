@@ -15,6 +15,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <memory>
 #include <boost/variant.hpp>
 #include <boost/uuid/uuid.hpp>
 #include "QEOpServerProxy.h"
@@ -58,7 +59,7 @@ public:
             const QEOpServerProxy::AggRowT&, std::string& jstr);
 
 private:
-
+    static void DeleteTDigest(TDigest *);
     static void MergeAggRow(QEOpServerProxy::AggRowT &arows,
             const QEOpServerProxy::AggRowT &narows);
     static void MergeFullRow(
@@ -101,6 +102,8 @@ private:
 
     std::set<std::string> max_field_;
     std::set<std::string> min_field_;
+
+    std::set<std::string> percentile_cols_;
 
 };
 #endif
