@@ -474,6 +474,7 @@ Agent::Agent() :
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     vhost_interface_(NULL),
     connection_state_(NULL), debug_(false), test_mode_(false),
+    xmpp_dns_test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
     tor_agent_enabled_(false),
     flow_table_size_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
