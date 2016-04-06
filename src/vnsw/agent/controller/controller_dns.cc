@@ -29,8 +29,8 @@ AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent,
 
 AgentDnsXmppChannel::~AgentDnsXmppChannel() {
     if (channel_) {
-        channel_->UnRegisterReceive(xmps::DNS);
         channel_->UnRegisterWriteReady(xmps::DNS);
+        channel_->UnRegisterReceive(xmps::DNS);
     }
 }
 
