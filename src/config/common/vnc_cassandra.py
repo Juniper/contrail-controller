@@ -410,13 +410,17 @@ class VncCassandraClient(object):
         return getattr(vnc_api, xsd_type)
     # end _get_xsd_class
 
-    def object_create(self, res_type, obj_id, obj_dict):
+    def object_create(self, res_type, obj_id, obj_dict,
+                      uuid_batch=None, fqname_batch=None):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
 
-        # Gather column values for obj and updates to backrefs
-        # in a batch and write it at the end
-        bch = self._obj_uuid_cf.batch()
+        if uuid_batch:
+            bch = uuid_batch
+        else:
+            # Gather column values for obj and updates to backrefs
+            # in a batch and write it at the end
+            bch = self._obj_uuid_cf.batch()
 
         obj_cols = {}
         obj_cols['fq_name'] = json.dumps(obj_dict['fq_name'])
@@ -486,13 +490,17 @@ class VncCassandraClient(object):
                     ref_type.replace('-', '_'), ref_uuid, ref_data)
 
         bch.insert(obj_id, obj_cols)
-        bch.send()
+        if not uuid_batch:
+            bch.send()
 
         # Update fqname table
         fq_name_str = ':'.join(obj_dict['fq_name'])
         fq_name_cols = {utils.encode_string(fq_name_str) + ':' + obj_id:
                         json.dumps(None)}
-        self._obj_fq_name_cf.insert(obj_type, fq_name_cols)
+        if fqname_batch:
+            fqname_batch.insert(obj_type, fq_name_cols)
+        else:
+            self._obj_fq_name_cf.insert(obj_type, fq_name_cols)
 
         return (True, '')
     # end object_create
@@ -648,7 +656,8 @@ class VncCassandraClient(object):
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
 
-    def object_update(self, res_type, obj_uuid, new_obj_dict):
+    def object_update(self, res_type, obj_uuid, new_obj_dict,
+                      uuid_batch=None):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
          # Grab ref-uuids and properties in new version
@@ -688,7 +697,10 @@ class VncCassandraClient(object):
         for col_info in obj_cols_iter:
             obj_cols[col_info[0]] = col_info[1]
 
-        bch = obj_uuid_cf.batch()
+        if uuid_batch:
+            bch = uuid_batch
+        else:
+            bch = obj_uuid_cf.batch()
         for col_name in obj_cols.keys():
             if self._re_match_prop.match(col_name):
                 (_, prop_name) = col_name.split(':')
@@ -763,7 +775,8 @@ class VncCassandraClient(object):
             else:
                 self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
 
-        bch.send()
+        if not uuid_batch:
+            bch.send()
 
         return (True, '')
     # end object_update
