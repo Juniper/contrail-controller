@@ -68,9 +68,10 @@ private:
 
 class ControllerDiscoveryData : public ControllerWorkQueueData {
 public:
-    ControllerDiscoveryData(std::vector<DSResponse> resp);
+    ControllerDiscoveryData(xmps::PeerId peer_id, std::vector<DSResponse> resp);
     virtual ~ControllerDiscoveryData() {}
 
+    xmps::PeerId peer_id_;
     std::vector<DSResponse> discovery_response_;
     DISALLOW_COPY_AND_ASSIGN(ControllerDiscoveryData);
 };
@@ -180,6 +181,7 @@ private:
     bool AgentXmppServerExists(const std::string &server_ip,
                                std::vector<DSResponse> resp);
     bool  ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp);
+    bool  ApplyDiscoveryDnsXmppServicesInternal(std::vector<DSResponse> resp);
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
