@@ -1531,6 +1531,65 @@ class RouteTableServer(Resource, RouteTable):
 
 # end class RouteTableServer
 
+class InterfaceRouteTableServer(Resource, InterfaceRouteTable):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls._check_prefixes(obj_dict)
+        if not ok:
+            return (ok, result)
+
+        return cls._check_communities(obj_dict)
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls._check_prefixes(obj_dict)
+        if not ok:
+            return (ok, result)
+
+        return cls._check_communities(obj_dict)
+    # end pre_dbe_update
+
+    @classmethod
+    def _check_prefixes(cls, obj_dict):
+        routes = obj_dict.get('interface_route_table_routes') or {}
+        in_routes = routes.get("route") or []
+        in_prefixes = [r.get('prefix') for r in in_routes]
+        in_prefixes_set = set(in_prefixes)
+        if len(in_prefixes) != len(in_prefixes_set):
+            return (False, (400, 'duplicate prefixes not '
+                                      'allowed: %s' % obj_dict.get('uuid')))
+
+        return (True, "")
+    # end _check_prefixes
+
+    @classmethod
+    def _check_communities(cls, obj_dict):
+        routes = obj_dict.get('interface_route_table_routes') or {}
+        in_routes = routes.get("route") or []
+        in_communities = [r.get('community_attributes').get('community_attribute')\
+                                                                for r in in_routes]
+        # Flatten the community list so that we can iterate through it
+        flat_community_list = [c for c_list in in_communities for c in c_list]
+        for every_community in flat_community_list:
+            # Regex for ASN format - number:number
+            res = re.match('[0-9]+:[0-9]+', every_community)
+            if res is None:
+                return (False, (400, 'Invalid community format %s. '
+                                     'Change to \'number:number\''
+                                     % every_community))
+
+            asn = every_community.split(':')
+            #Max ASN value is 2 bytes and cannot exceed 65535
+            if int(asn[0]) > 65535 or int(asn[1]) > 65535:
+                return (False, (400, 'Out of range ASN values: %s. '
+                                     'ASN values cannot exceed 65535'
+                                     % every_community))
+        return (True, "")
+    # end _check_communities
+# end class InterfaceRouteTableServer
+
 class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
     @classmethod
