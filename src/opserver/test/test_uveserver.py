@@ -101,23 +101,23 @@ def MakeStringList(strings):
             result = AppendList(result, "element", elems)
     return result
 
-def MakeHrefList(strings):
-    if isinstance(strings[0],basestring):
-        # This is an input to the aggregation
-        result = MakeStringList(strings)
-        result['@ulink'] = "ObjectIf:mystruct"
-    else:
-        # This is a test output of the aggregation
-        result = {}
-        for elems in strings:
-            item = {}
-            item['name'] = MakeBasic("string", elems['name'])
-            item['href'] = MakeBasic("string", elems['href'])
-            if not result:
-                result = MakeList("struct", "LinkObj", item)
-            else:
-                result = AppendList(result, "LinkObj", item)
-            
+def MakeStringMap(inmap):
+    result = {}
+    result['@type'] = "map"
+    result['@aggtype'] = "union"
+    result['map'] = {}
+    result['map']['@value'] = "string"
+    result['map']['@size'] = str(len(inmap))
+    result['map']['element'] = []
+    keytype = None 
+    for elem in inmap.keys():
+        result['map']['element'].append(elem)
+        result['map']['element'].append(inmap[elem])
+        if isinstance(elem,basestring):
+            keytype = 'string'
+        else:
+            keytype = 'i32'
+    result['map']['@key'] = keytype
     return result
 
 '''
@@ -131,7 +131,7 @@ This function returns a mock sandesh dict
         5: optional i32                     total_acl_rules
         6: optional i64                     in_tpkts  (aggtype="counter")
         7: optional list<VnStats>           in_stats  (aggtype="append")
-        8: optional list<string>            ifs (aggtype="union",ulink="ObjectIf:mystruct")
+        8: optional map<i32,string>         mstr (aggtype="union")
 '''
 
 
@@ -145,7 +145,7 @@ def MakeUVEVirtualNetwork(
         total_acl_rules=None,
         in_tpkts=None,
         in_stats=None,
-        ifs=None):
+        mstr=None):
     rsult = copy.deepcopy(istate)
     if rsult is None:
         rsult = {}
@@ -163,11 +163,11 @@ def MakeUVEVirtualNetwork(
             result['UVEVirtualNetwork']['connected_networks'] = {}
         result['UVEVirtualNetwork']['connected_networks'][source] = \
             MakeStringList(connected_networks)
-    if ifs is not None:
-        if ('ifs' not in result['UVEVirtualNetwork']):
-            result['UVEVirtualNetwork']['ifs'] = {}
-        result['UVEVirtualNetwork']['ifs'][source] = \
-            MakeHrefList(ifs)
+    if mstr is not None:
+        if ('mstr' not in result['UVEVirtualNetwork']):
+            result['UVEVirtualNetwork']['mstr'] = {}
+        result['UVEVirtualNetwork']['mstr'][source] = \
+            MakeStringMap(mstr)
     if total_virtual_machines is not None:
         if ('total_virtual_machines' not in result['UVEVirtualNetwork']):
             result['UVEVirtualNetwork']['total_virtual_machines'] = {}
@@ -256,8 +256,8 @@ class UVEServerTest(unittest.TestCase):
                     res['UVEVirtualNetwork']['total_acl_rules'][1][1]]))
         logging.info(json.dumps(res, indent=4, sort_keys=True))
 
-    def test_union_agg(self):
-        logging.info("*** Running test_union_agg ***")
+    def test_list_union_agg(self):
+        logging.info("*** Running test_list_union_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -290,29 +290,34 @@ class UVEServerTest(unittest.TestCase):
             'connected_networks']["10.10.10.11"]
         self.assertEqual(cn, res['UVEVirtualNetwork']['connected_networks'])
 
-    def test_href_agg(self):
-        logging.info("*** Running test_href_agg ***")
+    def test_map_union_agg(self):
+        logging.info("*** Running test_map_union_agg ***")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
-            ifs=["host1:eth0"],
+            mstr={2:"xxx", 3:"yyy"},
         )
 
-        pa = ParallelAggregator(uvevn, {"ObjectIf":"if"})
-        res = pa.aggregate("abc-corp:vn-00", True, "127.0.0.1:8081")
+        uvevn2 = MakeUVEVirtualNetwork(
+            uvevn, "abc-corp:vn-00", "10.10.10.11",
+            mstr={3:"xxx", 4:"yyy"},
+        )
+
+        pa = ParallelAggregator(uvevn2)
+        res = pa.aggregate("abc-corp:vn-00", False)
 
         logging.info(json.dumps(res, indent=4, sort_keys=True))
 
         uvetest = MakeUVEVirtualNetwork(
-            None, "abc-corp:vn-00", "10.10.10.10",
-            ifs=[{"name":"host1:eth0",
-                  "href":"127.0.0.1:8081/analytics/uves/if/host1:eth0?cfilt=mystruct"}],
+            None, "abc-corp:vn-00", "10.10.10.11",
+            mstr={"10.10.10.10:2":"xxx", "10.10.10.10:3":"yyy",\
+                  "10.10.10.11:3":"xxx", "10.10.10.11:4":"yyy"}
         )
 
-        cn = OpServerUtils.uve_attr_flatten(
-                uvetest["abc-corp:vn-00"]['UVEVirtualNetwork'][
-                "ifs"]["10.10.10.10"])
-        self.assertEqual(cn, res['UVEVirtualNetwork']['ifs'])
+        cn = uvetest["abc-corp:vn-00"]['UVEVirtualNetwork'][
+            'mstr']["10.10.10.11"]
+        self.assertEqual(sorted(cn['map']['element']),
+            sorted(res['UVEVirtualNetwork']['mstr']['map']['element']))
 
     def test_sum_agg(self):
         logging.info("*** Running test_sum_agg ***")
