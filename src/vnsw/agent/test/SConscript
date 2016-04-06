@@ -87,8 +87,15 @@ test_xmpp_ifmap = AgentEnv.MakeTestCmd(env, 'test_xmpp_ifmap', flaky_agent_suite
 test_xmppcs_ifmap = AgentEnv.MakeTestCmd(env, 'test_xmppcs_ifmap', flaky_agent_suite)
 test_xmpp_discovery_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_hv', 
                                               flaky_agent_suite)
+env.Alias('agent::test_xmpp_discovery_hv', test_xmpp_discovery_hv)
+
 test_xmpp_discovery_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_non_hv', 
                                                   agent_suite)
+env.Alias('agent::test_xmpp_discovery_non_hv', test_xmpp_discovery_non_hv)
+
+test_xmpp_discovery_dns_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_dns_hv',
+                                                  agent_suite)
+env.Alias('agent::test_xmpp_discovery_dns_hv', test_xmpp_discovery_dns_hv)
 
 #test_bgp = AgentEnv.MakeTestCmd(env, 'test_bgp', flaky_agent_suite)
 test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', flaky_agent_suite)
