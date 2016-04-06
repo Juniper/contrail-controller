@@ -973,7 +973,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         ip_version = 6 if family == 'v6' else 4
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name,
                                               asked_ip_version=ip_version,
-                                              alloc_id='user-opaque-alloc')
+                                              alloc_id=str(uuid.uuid4()))
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
