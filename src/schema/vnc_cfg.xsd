@@ -2188,6 +2188,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'logical-router', 'route-target', ['ref'], 'system-only', 'CRUD',
           'Route target that represent this logical router.') -->
 
+<xsd:element name="logical-router-route-table"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('logical-router-route-table',
+          'logical-router', 'route-table', ['ref'], 'optional', 'CRUD',
+          'Reference to the route table attached to this logical router. By attaching route table, system will create static routes with the route target only of route targets linked to this logical router') -->
+
 <!-- 
     Link a virtual network used as the external gateway for source NAT support
     (aka external gateway in OpenStack Neutron API).
