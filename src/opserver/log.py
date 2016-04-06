@@ -214,9 +214,14 @@ class LogQuerier(object):
         and_filter = []
         or_filter = []
         if self._args.source is not None:
+            if self._args.source.endswith('*'):
+                val = self._args.source[:-1]
+                oper = OpServerUtils.MatchOp.PREFIX
+            else:
+                val = self._args.source
+                oper = OpServerUtils.MatchOp.EQUAL
             source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
-                                               value=self._args.source,
-                                               op=OpServerUtils.MatchOp.EQUAL)
+                                               value=val, op=oper)
             where_msg.append(source_match.__dict__)
 
         if self._args.module is not None:
@@ -226,17 +231,27 @@ class LogQuerier(object):
             where_msg.append(module_match.__dict__)
 
         if self._args.category is not None:
+            if self._args.category.endswith('*'):
+                val = self._args.category[:-1]
+                oper = OpServerUtils.MatchOp.PREFIX
+            else:
+                val = self._args.category
+                oper = OpServerUtils.MatchOp.EQUAL
             category_match = OpServerUtils.Match(
                 name=VizConstants.CATEGORY,
-                value=self._args.category,
-                op=OpServerUtils.MatchOp.EQUAL)
+                value=val, op=oper)
             where_msg.append(category_match.__dict__)
 
         if self._args.message_type is not None:
+            if self._args.message_type.endswith('*'):
+                val = self._args.message_type[:-1]
+                oper = OpServerUtils.MatchOp.PREFIX
+            else:
+                val = self._args.message_type
+                oper = OpServerUtils.MatchOp.EQUAL
             message_type_match = OpServerUtils.Match(
                 name=VizConstants.MESSAGE_TYPE,
-                value=self._args.message_type,
-                op=OpServerUtils.MatchOp.EQUAL)
+                value=val, op=oper)
             where_msg.append(message_type_match.__dict__)
 
         if self._args.level is not None:

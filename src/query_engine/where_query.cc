@@ -496,12 +496,17 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->t_only_col = true;
 
                 // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
 #ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value);
+                if (op == PREFIX) {
+                    value2 = value + "\x7f";
+                    db_query->cr.finish_.push_back(value2);
+                } else {
+                    db_query->cr.finish_.push_back(value);
+                }
 #else
                 db_query->row_key_suffix.push_back(value);
 #endif
@@ -543,12 +548,17 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->t_only_col = true;
 
                 // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
 #ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value);
+                if (op == PREFIX) {
+                    value2 = value + "\x7f";
+                    db_query->cr.finish_.push_back(value2);
+                } else {
+                    db_query->cr.finish_.push_back(value);
+                }
 #else
                 db_query->row_key_suffix.push_back(value);
 #endif
@@ -569,12 +579,17 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->t_only_col = true;
 
                 // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
 #ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value);
+                if (op == PREFIX) {
+                    value2 = value + "\x7f";
+                    db_query->cr.finish_.push_back(value2);
+                } else {
+                    db_query->cr.finish_.push_back(value);
+                }
 #else
                 db_query->row_key_suffix.push_back(value);
 #endif
@@ -590,12 +605,17 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->t_only_col = true;
 
                 // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
 #ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value);
+                if (op == PREFIX) {
+                    value2 = value + "\x7f";
+                    db_query->cr.finish_.push_back(value2);
+                } else {
+                    db_query->cr.finish_.push_back(value);
+                }
 #else
                 db_query->row_key_suffix.push_back(value);
 #endif
