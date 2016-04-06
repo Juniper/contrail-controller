@@ -737,6 +737,19 @@ void FlowEntry::set_acl_assigned_vrf_index() {
             flow_table()->agent()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf) {
         data_.acl_assigned_vrf_index_ = vrf->vrf_id();
+        bool set_dest_vrf = true;
+        if (is_flags_set(FlowEntry::NatFlow) &&
+            reverse_flow_entry() &&
+            key().dst_addr != reverse_flow_entry()->key().src_addr) {
+            //Packet is getting DNATed, VRF assign ACL action
+            //is applied on floating-ip VN and the destination VRF should
+            //be retained as interface VRF
+            set_dest_vrf = false;
+        }
+
+        if (set_dest_vrf) {
+            data_.dest_vrf = vrf->vrf_id();
+        }
         return;
     }
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
@@ -1436,6 +1449,7 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
     data_.match_p.sg_action_summary = 0;
+
     const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
     FlowPolicyInfo nw_acl_info(value), sg_acl_info(value);
     FlowPolicyInfo rev_sg_acl_info(value);
@@ -1595,10 +1609,8 @@ FlowEntry::GetDestinationVrf() {
     const VrfEntry *vrf = NULL;
     VrfTable *vrf_table = flow_table()->agent()->vrf_table();
 
-    if (match_p().action_info.action &
-            (1 << TrafficAction::VRF_TRANSLATE)) {
-        vrf = vrf_table->FindVrfFromId(acl_assigned_vrf_index());
-    } else if (is_flags_set(FlowEntry::NatFlow)) {
+    if (is_flags_set(FlowEntry::NatFlow) ||
+        match_p().action_info.action & (1 << TrafficAction::VRF_TRANSLATE)) {
         vrf = vrf_table->FindVrfFromId(data().dest_vrf);
     } else {
         vrf = vrf_table->FindVrfFromId(data().vrf);
