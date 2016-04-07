@@ -972,6 +972,26 @@ class AnalyticsFixture(fixtures.Fixture):
                 return False
 
     @retry(delay=1, tries=6)
+    def verify_message_table_where_prefix(self):
+        self.logger.info('verify_message_table_where_prefix')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        prefix_key_value_map = {'Source': socket.gethostname()[:-1],
+            'ModuleId': 'contrail-', 'Messagetype': 'Collector',
+            'Category': 'Discovery'}
+        for key, value in prefix_key_value_map.iteritems():
+            self.logger.info('verify where_prefix: %s = %s*' % (key, value))
+            res = vns.post_query('MessageTable', start_time='-10m',
+                    end_time='now', select_fields=[key],
+                    where_clause='%s = %s*' % (key, value))
+            if not len(res):
+                return False
+            self.logger.info(str(res))
+            for r in res:
+                assert(r[key].startswith(value))
+        return True
+    # end verify_message_table_where_prefix
+
+    @retry(delay=1, tries=6)
     def verify_message_table_filter(self):
         self.logger.info("verify_message_table_where_filter")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
