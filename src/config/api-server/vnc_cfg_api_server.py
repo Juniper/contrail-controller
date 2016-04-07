@@ -943,18 +943,11 @@ class VncApiServer(object):
         else:
             req_fields = []
 
-        filter_params = get_request().query.filters
-        if filter_params:
-            try:
-                ff_key_vals = filter_params.split(',')
-                ff_names = [ff.split('==')[0] for ff in ff_key_vals]
-                ff_values = [ff.split('==')[1] for ff in ff_key_vals]
-                filters = {'field_names': ff_names, 'field_values': ff_values}
-            except Exception as e:
-                raise cfgm_common.exceptions.HttpError(
-                    400, 'Invalid filter ' + filter_params)
-        else:
-            filters = None
+        try:
+            filters = utils.get_filters(get_request().query.filters)
+        except Exception as e:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Invalid filter ' + get_request().query.filters)
 
         return self._list_collection(resource_type,
             parent_uuids, back_ref_uuids, obj_uuids, is_count, is_detail,
@@ -2275,18 +2268,11 @@ class VncApiServer(object):
         is_count = get_request().json.get('count', False)
         is_detail = get_request().json.get('detail', False)
 
-        filter_params = get_request().json.get('filters', {})
-        if filter_params:
-            try:
-               ff_key_vals = filter_params.split(',')
-               ff_names = [ff.split('==')[0] for ff in ff_key_vals]
-               ff_values = [ff.split('==')[1] for ff in ff_key_vals]
-               filters = {'field_names': ff_names, 'field_values': ff_values}
-            except Exception as e:
-               raise cfgm_common.exceptions.HttpError(
-                   400, 'Invalid filter ' + filter_params)
-        else:
-            filters = None
+        try:
+            filters = utils.get_filters(get_request().json.get('filters'))
+        except Exception as e:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Invalid filter ' + get_request().json.get('filters'))
 
         req_fields = get_request().json.get('fields', [])
         if req_fields:
@@ -2656,7 +2642,7 @@ class VncApiServer(object):
         obj_dicts = []
         if not is_detail:
             if not self.is_admin_request():
-                obj_ids_list = [{'uuid': obj_uuid} 
+                obj_ids_list = [{'uuid': obj_uuid}
                                 for _, obj_uuid in fq_names_uuids]
                 obj_fields = [u'id_perms']
                 if req_fields:
