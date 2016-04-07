@@ -10,7 +10,7 @@ from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 
 from vnc_api import vnc_api
-from exceptions import NoIdError, DatabaseUnavailableError
+from exceptions import NoIdError, DatabaseUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -24,6 +24,7 @@ import datetime
 import re
 from operator import itemgetter
 import itertools
+from collections import OrderedDict
 
 class VncCassandraClient(object):
     # Name to ID mapping keyspace + tables
@@ -42,8 +43,6 @@ class VncCassandraClient(object):
     _UUID_KEYSPACE = {_UUID_KEYSPACE_NAME:
         [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
          (_OBJ_SHARED_CF_NAME, None)]}
-
-    _MAX_COL = 10000000
 
     @classmethod
     def get_db_info(cls):
@@ -103,12 +102,48 @@ class VncCassandraClient(object):
             return False
     #end
 
-    def get(self, cf_name, key):
-        try:
-            return self.get_cf(cf_name).get(key)
-        except:
-            return None
-    #end
+    def get(self, cf_name, key, columns=[], start='', finish=''):
+        result = OrderedDict()
+        for column in columns:
+            result.update(self.multiget(cf_name,
+                                        [key],
+                                        start=column,
+                                        finish=column)[key])
+        if start or finish:
+            result.update(self.multiget(cf_name,
+                                        [key],
+                                        start=start,
+                                        finish=finish)[key])
+        if not columns and not start and not finish:
+            result.update(self.multiget(cf_name, [key]))
+
+        if result:
+            return result
+
+    def multiget(self, cf_name, keys, start='', finish='', timestamp=False):
+        results = OrderedDict()
+        cf = self.get_cf(cf_name)
+
+        for key in keys:
+            row = results.setdefault(key, OrderedDict())
+            for col, val in cf.xget(key,
+                                    column_start=start,
+                                    column_finish=finish,
+                                    include_timestamp=timestamp):
+                try:
+                    if timestamp:
+                        row[col] = (json.loads(val[0]), val[1])
+                    else:
+                        row[col] = json.loads(val)
+                except ValueError as e:
+                    msg = ("Cannot json load the value of cf: %s, key:%s "
+                           "(error: %s). Use it as is: %s" %
+                           (cf_name, key, str(e),
+                            val if not timestamp else val[0]))
+                    self._logger(msg, level=SandeshLevel.SYS_WARN)
+                    row[col] = val
+            results[key] = row
+        return results if results else None
 
     def delete(self, cf_name, key):
         try:
@@ -124,6 +159,14 @@ class VncCassandraClient(object):
         except:
             return None
     #end
+
+    def get_one_col(self, cf_name, key, column):
+        col = self.multiget(cf_name, [key], start=column, finish=column)[key]
+        if not col:
+            raise NoIdError(key)
+        elif len(col) > 1:
+            raise VncError('Multi match %s for %s' % (column, key))
+        return col[column]
 
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
         bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
@@ -262,6 +305,11 @@ class VncCassandraClient(object):
 
     def _handle_exceptions(self, func):
         def wrapper(*args, **kwargs):
+            if func.__name__ in ['get', 'multiget']:
+                msg = ("It is not recommended to use 'get' or 'multiget' "
+                       "pycassa methods with precaution. It's better to use "
+                       "'xget' or 'get_range' methods")
+                self._logger(msg, level=SandeshLevel.SYS_WARN)
             try:
                 if self._conn_state != ConnectionStatus.UP:
                     # will set conn_state to UP if successful
@@ -511,39 +559,38 @@ class VncCassandraClient(object):
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
 
+        if len(obj_uuids) == 1 and obj_uuid_cf.get_count(obj_uuids[0]) == 0:
+            raise NoIdError(obj_uuids[0])
+
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
-        if (field_names is None or
-            (set(field_names) & (obj_class.backref_fields |
-                                 obj_class.children_fields))):
-            # atleast one backref/children field is needed
-            obj_rows = obj_uuid_cf.multiget(obj_uuids,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-        else: # ignore reading backref + children columns
-            obj_rows = obj_uuid_cf.multiget(obj_uuids,
-                                       column_start='d',
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
+        column_start = ''
+        if (field_names and
+            not (set(field_names) & (obj_class.backref_fields |
+                                     obj_class.children_fields))):
+            # ignore reading backref + children columns
+            column_start = 'd'
 
-        if (len(obj_uuids) == 1) and not obj_rows:
+        obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                 obj_uuids,
+                                 start=column_start,
+                                 timestamp=True)
+        if (len(obj_uuids) == 1) and not obj_rows.items():
             raise NoIdError(obj_uuids[0])
 
         results = []
-        for row_key in obj_rows:
-            obj_uuid = row_key
-            obj_cols = obj_rows[obj_uuid]
-            if obj_type != json.loads(obj_cols['type'][0]):
+        for obj_uuid, obj_cols in obj_rows.items():
+            if obj_type != obj_cols['type'][0]:
                 continue
             result = {}
             result['uuid'] = obj_uuid
-            result['fq_name'] = json.loads(obj_cols['fq_name'][0])
+            result['fq_name'] = obj_cols['fq_name'][0]
             for col_name in obj_cols.keys():
                 if self._re_match_parent.match(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
-                    parent_type = json.loads(obj_cols['parent_type'][0])
+                    parent_type = obj_cols['parent_type'][0]
                     result['parent_type'] = parent_type
                     try:
                         result['parent_uuid'] = parent_uuid
@@ -555,7 +602,7 @@ class VncCassandraClient(object):
 
                 if self._re_match_prop.match(col_name):
                     (_, prop_name) = col_name.split(':')
-                    result[prop_name] = json.loads(obj_cols[col_name][0])
+                    result[prop_name] = obj_cols[col_name][0]
 
                 if (self._re_match_prop_list.match(col_name) or
                     self._re_match_prop_map.match(col_name)):
@@ -574,12 +621,11 @@ class VncCassandraClient(object):
                         if prop_name not in result:
                             result[prop_name] = {wrapper_field: []}
                         result[prop_name][wrapper_field].append(
-                            json.loads(obj_cols[col_name][0]))
+                            obj_cols[col_name][0])
                     else:
                         if prop_name not in result:
                             result[prop_name] = []
-                        result[prop_name].append(
-                            json.loads(obj_cols[col_name][0]))
+                        result[prop_name].append(obj_cols[col_name][0])
 
                 if self._re_match_children.match(col_name):
                     (_, child_type, child_uuid) = col_name.split(':')
@@ -623,7 +669,7 @@ class VncCassandraClient(object):
                 [child.pop('tstamp') for child in result[child_field]]
             # for all children
 
-            results.append(result)
+        results.append(result)
         # end for all rows
 
         return (True, results)
@@ -644,16 +690,15 @@ class VncCassandraClient(object):
         col_finish = 'children:'+child_type[:-1]+';'
         num_children = obj_uuid_cf.get_count(obj_uuid,
                                    column_start=col_start,
-                                   column_finish=col_finish,
-                                   max_count=self._MAX_COL)
+                                   column_finish=col_finish)
         return (True, num_children)
     # end object_count_children
 
     def update_last_modified(self, bch, obj_uuid, id_perms=None):
         if id_perms is None:
-            id_perms = json.loads(
-                 self._obj_uuid_cf.get(obj_uuid,
-                                       ['prop:id_perms'])['prop:id_perms'])
+            id_perms = self.get_one_col(self._OBJ_UUID_CF_NAME,
+                                        obj_uuid,
+                                        'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
@@ -693,24 +738,20 @@ class VncCassandraClient(object):
         # Gather column values for obj and updates to backrefs
         # in a batch and write it at the end
         obj_uuid_cf = self._obj_uuid_cf
-        obj_cols_iter = obj_uuid_cf.xget(obj_uuid)
-        # TODO optimize this (converts tuple to dict)
-        obj_cols = {}
-        for col_info in obj_cols_iter:
-            obj_cols[col_info[0]] = col_info[1]
 
         if uuid_batch:
             bch = uuid_batch
         else:
             bch = obj_uuid_cf.batch()
-        for col_name in obj_cols.keys():
+
+        for col_name, col_value in obj_uuid_cf.xget(obj_uuid):
             if self._re_match_prop.match(col_name):
                 (_, prop_name) = col_name.split(':')
                 if prop_name == 'id_perms':
                     # id-perms always has to be updated for last-mod timestamp
                     # get it from request dict(or from db if not in request dict)
                     new_id_perms = new_obj_dict.get(
-                        prop_name, json.loads(obj_cols[col_name]))
+                        prop_name, json.loads(col_value))
                     self.update_last_modified(bch, obj_uuid, new_id_perms)
                 elif prop_name in new_obj_dict:
                     self._update_prop(bch, obj_uuid, prop_name, new_props)
@@ -789,29 +830,31 @@ class VncCassandraClient(object):
         obj_class = self._get_resource_class(obj_type)
 
         children_fq_names_uuids = []
-        if filters:
-            fnames = filters.get('field_names', [])
-            fvalues = filters.get('field_values', [])
-            filter_fields = [(fnames[i], fvalues[i]) for i in range(len(fnames))]
-        else:
-            filter_fields = []
 
-        def filter_rows(coll_infos, filter_cols, filter_params):
-            filt_infos = {}
-            coll_rows = obj_uuid_cf.multiget(coll_infos.keys(),
-                                   columns=filter_cols,
-                                   column_count=self._MAX_COL)
-            for row in coll_rows:
+        def filter_rows(coll_infos, filters=None):
+            if not coll_infos or not filters:
+                return coll_infos
+
+            filtered_infos = {}
+            rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                 coll_infos.keys(),
+                                 start='prop:',
+                                 finish='prop;')
+            for obj_uuid, properties in rows.items():
                 # give chance for zk heartbeat/ping
                 gevent.sleep(0)
+
                 full_match = True
-                for fname, fval in filter_params:
-                    if coll_rows[row]['prop:%s' %(fname)] != fval:
-                        full_match = False
-                        break
+                for filter_key, filter_values in filters.items():
+                    property = 'prop:%s' % filter_key
+                    if (property not in properties or
+                            properties[property] not in filter_values):
+                            full_match=False
+                            break
+
                 if full_match:
-                    filt_infos[row] = coll_infos[row]
-            return filt_infos
+                    filtered_infos[obj_uuid] = coll_infos[obj_uuid]
+            return filtered_infos
         # end filter_rows
 
         def get_fq_name_uuid_list(obj_uuids):
@@ -829,20 +872,13 @@ class VncCassandraClient(object):
 
         if parent_uuids:
             # go from parent to child
-            obj_uuid_cf = self._obj_uuid_cf
-            col_start = 'children:%s:' %(obj_type)
-            col_fin = 'children:%s;' %(obj_type)
-            try:
-                obj_rows = obj_uuid_cf.multiget(parent_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-            except pycassa.NotFoundException:
-                if count:
-                    return (True, 0)
-                else:
-                    return (True, children_fq_names_uuids)
+            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                     parent_uuids,
+                                     start='children:%s:' % (obj_type),
+                                     finish='children:%s;' % (obj_type),
+                                     timestamp=True)
+            if not obj_rows:
+                return ((True, 0) if count else (True, []))
 
             def filter_rows_parent_anchor(sort=False):
                 # flatten to [('children:<type>:<uuid>', (<val>,<ts>), *]
@@ -858,12 +894,7 @@ class VncCassandraClient(object):
                     all_child_infos[child_uuid] = {'uuid': child_uuid,
                                                    'tstamp': col_val_ts[1]}
 
-                filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
-                if filter_cols:
-                    filt_child_infos = filter_rows(all_child_infos, filter_cols,
-                                                   filter_fields)
-                else: # no filter specified
-                    filt_child_infos = all_child_infos
+                filt_child_infos = filter_rows(all_child_infos, filters)
 
                 if not sort:
                     ret_child_infos = filt_child_infos.values()
@@ -874,9 +905,6 @@ class VncCassandraClient(object):
                 return get_fq_name_uuid_list(r['uuid'] for r in ret_child_infos)
             # end filter_rows_parent_anchor
 
-            if count:
-                return (True, len(filter_rows_parent_anchor()))
-
             children_fq_names_uuids = filter_rows_parent_anchor(sort=True)
 
         if back_ref_uuids:
@@ -884,17 +912,14 @@ class VncCassandraClient(object):
             obj_uuid_cf = self._obj_uuid_cf
             col_start = 'backref:%s:' %(obj_type)
             col_fin = 'backref:%s;' %(obj_type)
-            try:
-                obj_rows = obj_uuid_cf.multiget(back_ref_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-            except pycassa.NotFoundException:
-                if count:
-                    return (True, 0)
-                else:
-                    return (True, children_fq_names_uuids)
+
+            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                     back_ref_uuids,
+                                     start='backref:%s:' % (obj_type),
+                                     finish='backref:%s;' % (obj_type),
+                                     timestamp=True)
+            if not obj_rows:
+                return ((True, 0) if count else (True, []))
 
             def filter_rows_backref_anchor():
                 # flatten to [('backref:<obj-type>:<uuid>', (<val>,<ts>), *]
@@ -910,19 +935,10 @@ class VncCassandraClient(object):
                     all_backref_infos[backref_uuid] = \
                         {'uuid': backref_uuid, 'tstamp': col_val_ts[1]}
 
-                filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
-                if filter_cols:
-                    filt_backref_infos = filter_rows(
-                        all_backref_infos, filter_cols, filter_fields)
-                else: # no filter specified
-                    filt_backref_infos = all_backref_infos
-
+                filt_backref_infos = filter_rows(all_backref_infos, filters)
                 return get_fq_name_uuid_list(r['uuid'] for r in
                                              filt_backref_infos.values())
             # end filter_rows_backref_anchor
-
-            if count:
-                return (True, len(filter_rows_backref_anchor()))
 
             children_fq_names_uuids = filter_rows_backref_anchor()
 
@@ -935,31 +951,15 @@ class VncCassandraClient(object):
                     for obj_uuid in obj_uuids:
                         all_obj_infos[obj_uuid] = None
 
-                    filter_cols = ['prop:%s' %(fname)
-                                   for fname, _ in filter_fields]
-                    if filter_cols:
-                        filt_obj_infos = filter_rows(
-                            all_obj_infos, filter_cols, filter_fields)
-                    else: # no filters specified
-                        filt_obj_infos = all_obj_infos
-
+                    filt_obj_infos = filter_rows(all_obj_infos, filters)
                     return get_fq_name_uuid_list(filt_obj_infos.keys())
                 # end filter_rows_object_list
 
-                if count:
-                    return (True, len(filter_rows_object_list()))
                 children_fq_names_uuids = filter_rows_object_list()
 
             else: # grab all resources of this type
                 obj_fq_name_cf = self._obj_fq_name_cf
-                try:
-                    cols = obj_fq_name_cf.xget('%s' %(obj_type),
-                        column_count=self._MAX_COL)
-                except pycassa.NotFoundException:
-                    if count:
-                        return (True, 0)
-                    else:
-                        return (True, children_fq_names_uuids)
+                cols = obj_fq_name_cf.xget('%s' %(obj_type))
 
                 def filter_rows_no_anchor():
                     all_obj_infos = {}
@@ -970,21 +970,14 @@ class VncCassandraClient(object):
                         obj_uuid = col_name_arr[-1]
                         all_obj_infos[obj_uuid] = (col_name_arr[:-1], obj_uuid)
 
-                    filter_cols = ['prop:%s' %(fname) for fname, _ in filter_fields]
-                    if filter_cols:
-                        filt_obj_infos = filter_rows(all_obj_infos, filter_cols,
-                                                     filter_fields)
-                    else: # no filters specified
-                        filt_obj_infos = all_obj_infos
-
+                    filt_obj_infos = filter_rows(all_obj_infos, filters)
                     return filt_obj_infos.values()
                 # end filter_rows_no_anchor
 
-                if count:
-                    return (True, len(filter_rows_no_anchor()))
-
                 children_fq_names_uuids = filter_rows_no_anchor()
 
+        if count:
+            return (True, len(children_fq_names_uuids))
         return (True, children_fq_names_uuids)
 
     # end object_list
@@ -993,11 +986,8 @@ class VncCassandraClient(object):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
-        try:
-            fq_name = json.loads(
-                obj_uuid_cf.get(obj_uuid, columns=['fq_name'])['fq_name'])
-        except pycassa.NotFoundException:
-            raise NoIdError(obj_uuid)
+        fq_name = self.get_one_col(self._OBJ_UUID_CF_NAME,
+                                   obj_uuid, 'fq_name')
         bch = obj_uuid_cf.batch()
 
         # unlink from parent
@@ -1044,14 +1034,8 @@ class VncCassandraClient(object):
 
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
-        try:
-            col_name = 'prop:id_perms'
-            obj_cols = self._obj_uuid_cf.get(obj_uuid,
-                columns=[col_name],
-                column_count=self._MAX_COL)
-            result['id_perms'] = json.loads(obj_cols[col_name])
-        except pycassa.NotFoundException:
-            raise NoIdError(obj_uuid)
+        result['id_perms'] = self.get_one_col(self._OBJ_UUID_CF_NAME,
+                                              obj_uuid, 'prop:id_perms')
 
         # read in prop-list or prop-map fields
         for field in obj_fields:
@@ -1066,19 +1050,15 @@ class VncCassandraClient(object):
                 col_start = '%s:%s:' %(prop_pfx, field)
                 col_end = '%s:%s;' %(prop_pfx, field)
 
-            obj_cols = self._obj_uuid_cf.get(obj_uuid,
-                column_start=col_start,
-                column_finish=col_end,
-                column_count=self._MAX_COL,
-                include_timestamp=True)
+            obj_cols = self._obj_uuid_cf.xget(obj_uuid,
+                                              column_start=col_start,
+                                              column_finish=col_end)
 
             result[field] = []
-            for col_name in obj_cols.keys():
+            for name, value in obj_cols:
                 # tuple of col_value, position. result is already sorted
                 # lexically by position
-                result[field].append(
-                    (json.loads(obj_cols[col_name][0]),
-                     col_name.split(':')[-1]) )
+                result[field].append((json.loads(value), name.split(':')[-1]))
 
         return (True, result)
     # end prop_collection_read
@@ -1098,13 +1078,12 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][0]
         except KeyError:
-            try:
-                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
-            except pycassa.NotFoundException:
+            obj = self.get(self._OBJ_UUID_CF_NAME, id,
+                           columns=['fq_name', 'type'])
+            if not obj:
                 raise NoIdError(id)
-
-            fq_name = json.loads(obj['fq_name'])
-            obj_type = json.loads(obj['type'])
+            fq_name = obj['fq_name']
+            obj_type = obj['type']
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return fq_name
     # end uuid_to_fq_name
@@ -1113,13 +1092,12 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][1]
         except KeyError:
-            try:
-                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
-            except pycassa.NotFoundException:
+            obj = self.get(self._OBJ_UUID_CF_NAME, id,
+                           columns=['fq_name', 'type'])
+            if not obj:
                 raise NoIdError(id)
-
-            fq_name = json.loads(obj['fq_name'])
-            obj_type = json.loads(obj['type'])
+            fq_name = obj['fq_name']
+            obj_type = obj['type']
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return obj_type
     # end uuid_to_obj_type
@@ -1127,47 +1105,37 @@ class VncCassandraClient(object):
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
-        fq_name_str = ':'.join(fq_name)
-        col_start = '%s:' % (utils.encode_string(fq_name_str))
-        col_fin = '%s;' % (utils.encode_string(fq_name_str))
-        try:
-            col_info_iter = self._obj_fq_name_cf.xget(
-                method_name, column_start=col_start, column_finish=col_fin)
-        except pycassa.NotFoundException:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
+        fq_name_str = utils.encode_string(':'.join(fq_name))
 
-        col_infos = list(col_info_iter)
-
-        if len(col_infos) == 0:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
-
-        for (col_name, col_val) in col_infos:
-            obj_uuid = col_name.split(':')[-1]
-
-        return obj_uuid
+        col_infos = self.get(self._OBJ_FQ_NAME_CF_NAME,
+                             method_name,
+                             start=fq_name_str + ':',
+                             finish=fq_name_str + ';')
+        if not col_infos:
+            raise NoIdError('%s %s' % (obj_type, fq_name_str))
+        if len(col_infos) > 1:
+            raise VncError('Multi match %s for %s' % (fq_name_str, obj_type))
+        return col_infos.popitem()[0].split(':')[-1]
     # end fq_name_to_uuid
 
     # return all objects shared with a (share_type, share_id)
     def get_shared(self, obj_type, share_id = '', share_type = 'global'):
         result = []
         method_name = obj_type.replace('-', '_')
-        col_start = '%s:%s:' % (share_type, share_id)
-        col_fin = '%s:%s;' % (share_type, share_id)
-        try:
-            col_info_iter = self._obj_shared_cf.xget(
-                method_name, column_start=col_start, column_finish=col_fin)
-        except pycassa.NotFoundException:
+        column = '%s:%s' % (share_type, share_id)
+
+        col_infos = self.get(self._OBJ_SHARED_CF_NAME,
+                             method_name,
+                             start=column + ':',
+                             finish=column + ';')
+
+        if not col_infos:
             return None
 
-        col_infos = list(col_info_iter)
-
-        if len(col_infos) == 0:
-            return None
-
-        for (col_name, col_val) in col_infos:
+        for (col_name, col_val) in col_infos.items():
             # ('*:*:f7963198-08a4-4b96-a02e-41cc66593163', u'7')
             obj_uuid = col_name.split(':')[-1]
-            result.append((obj_uuid, json.loads(col_val)))
+            result.append((obj_uuid, col_val))
 
         return result
 
@@ -1202,7 +1170,7 @@ class VncCassandraClient(object):
         if '%s_refs' % (ref_type) not in result:
             result['%s_refs' % (ref_type)] = []
 
-        ref_data = json.loads(ref_data_json)
+        ref_data = ref_data_json
         ref_info = {}
         try:
             ref_info['to'] = self.uuid_to_fq_name(ref_uuid)
@@ -1229,7 +1197,7 @@ class VncCassandraClient(object):
 
         back_ref_info = {}
         back_ref_info['to'] = self.uuid_to_fq_name(back_ref_uuid)
-        back_ref_data = json.loads(back_ref_data_json)
+        back_ref_data = back_ref_data_json
         if back_ref_data:
             try:
                 back_ref_info['attr'] = back_ref_data['attr']

@@ -6,6 +6,7 @@ Provides utility routines for modules in api-server
 """
 import sys
 import argparse
+from cfgm_common import jsonutils as json
 import ConfigParser
 import gen.resource_xsd
 import vnc_quota
@@ -325,3 +326,32 @@ class ColorLog(object):
 
         return getattr(self._log, name)
 # end ColorLog
+
+
+def get_filters(data, skips=None):
+    """Extracts the filters of query parameters.
+    Returns a dict of lists for the filters:
+    check=a&check=b&name=Bob&
+    becomes:
+    {'check': [u'a', u'b'], 'name': [u'Bob']}
+    'data' contains filters in format:
+    check==a,check==b,name==Bob
+    """
+    skips = skips or []
+    res = {}
+
+    if not data:
+        return res
+
+    for filter in data.split(','):
+        key, value = filter.split('==')
+        try:
+            value = json.load(value)
+        except ValueError:
+            pass
+        if key in skips:
+            continue
+        values = list(set(res.get(key, [])) | set([value]))
+        if values:
+            res[key] = values
+    return res
