@@ -946,10 +946,8 @@ class VncApiServer(object):
         filter_params = get_request().query.filters
         if filter_params:
             try:
-                ff_key_vals = filter_params.split(',')
-                ff_names = [ff.split('==')[0] for ff in ff_key_vals]
-                ff_values = [ff.split('==')[1] for ff in ff_key_vals]
-                filters = {'field_names': ff_names, 'field_values': ff_values}
+                filters = {f.split('==')[0]: f.split('==')[1]
+                           for f in filter_params.split(',')}
             except Exception as e:
                 raise cfgm_common.exceptions.HttpError(
                     400, 'Invalid filter ' + filter_params)
@@ -2656,7 +2654,7 @@ class VncApiServer(object):
         obj_dicts = []
         if not is_detail:
             if not self.is_admin_request():
-                obj_ids_list = [{'uuid': obj_uuid} 
+                obj_ids_list = [{'uuid': obj_uuid}
                                 for _, obj_uuid in fq_names_uuids]
                 obj_fields = [u'id_perms']
                 if req_fields:

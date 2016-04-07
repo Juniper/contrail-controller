@@ -815,9 +815,8 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def get_relaxed_refs(self, obj_uuid):
         try:
-            relaxed_cols = self._obj_uuid_cf.get(obj_uuid,
-                column_start='relaxbackref:',
-                column_finish='relaxbackref;')
+            relaxed_cols = self.get(self._OBJ_UUID_CF_NAME, obj_uuid,
+                                    'relaxbackref')
         except pycassa.NotFoundException:
             return []
 
@@ -825,9 +824,8 @@ class VncServerCassandraClient(VncCassandraClient):
     # end get_relaxed_refs
 
     def is_latest(self, id, tstamp):
-        id_perms_json = self._obj_uuid_cf.get(
-            id, columns=['prop:id_perms'])['prop:id_perms']
-        id_perms = json.loads(id_perms_json)
+        id_perms = self.get_one_row(self._OBJ_UUID_CF_NAME, id,
+                                    'prop:id_perms')
         if id_perms['last_modified'] == tstamp:
             return True
         else:
@@ -845,32 +843,19 @@ class VncServerCassandraClient(VncCassandraClient):
         bch.send()
 
     def uuid_to_obj_dict(self, id):
-        try:
-            obj_cols = self._obj_uuid_cf.get(id)
-        except pycassa.NotFoundException:
+        obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
+        if not obj_cols:
             raise NoIdError(id)
         return obj_cols
     # end uuid_to_obj_dict
 
     def uuid_to_obj_perms(self, id):
-        try:
-            id_perms_json = self._obj_uuid_cf.get(
-                id, columns=['prop:id_perms'])['prop:id_perms']
-            id_perms = json.loads(id_perms_json)
-        except pycassa.NotFoundException:
-            raise NoIdError(id)
-        return id_perms
+        return self.get_one_row(self._OBJ_UUID_CF_NAME, id, 'prop:id_perms')
     # end uuid_to_obj_perms
 
     # fetch perms2 for an object
     def uuid_to_obj_perms2(self, id):
-        try:
-            perms2_json = self._obj_uuid_cf.get(
-                id, columns=['prop:perms2'])['prop:perms2']
-            perms2 = json.loads(perms2_json)
-        except pycassa.NotFoundException:
-            raise NoIdError(id)
-        return perms2
+        return self.get_one_row(self._OBJ_UUID_CF_NAME, id, 'prop:perms2')
     # end uuid_to_obj_perms2
 
     def useragent_kv_store(self, key, value):

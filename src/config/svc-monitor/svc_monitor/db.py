@@ -48,8 +48,11 @@ class ServiceMonitorDB(VncCassandraClient):
     # db CRUD
     def _db_get(self, table, key):
         try:
-            entry = table.get(key)
+            entry = self.get_one_row(table.column_family, key)
         except Exception:
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_row method.
+            #                 Probably need to be cleaned
             self._db_logger.log("DB: %s %s get failed" %
                              (inspect.stack()[1][3], key))
             return None
