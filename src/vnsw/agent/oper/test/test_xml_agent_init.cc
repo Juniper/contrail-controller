@@ -79,7 +79,6 @@ TestClient *PhysicalDeviceTestInit(const char *init_file, bool ksync_init) {
     client->Init();
     client->WaitForIdle();
     client->SetFlowFlushExclusionPolicy();
-    client->SetFlowAgeExclusionPolicy();
 
     AsioRun();
 

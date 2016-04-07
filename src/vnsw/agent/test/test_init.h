@@ -139,7 +139,7 @@ public:
 
 class FlowAge : public Task {
 public:
-    FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowAge")), 0) {
+    FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::StatsCollector")), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->flow_stats_manager()->
@@ -548,16 +548,6 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         FlowFlush *task = new FlowFlush();
         scheduler->Enqueue(task);
-    }
-
-    void SetFlowAgeExclusionPolicy() {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        TaskPolicy policy;
-        policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::StatsCollector")));
-        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowEvent)));
-        policy.push_back(TaskExclusion(scheduler->GetTaskId(kTaskFlowUpdate)));
-        policy.push_back(TaskExclusion(scheduler->GetTaskId("Agent::KSync")));
-        scheduler->SetPolicy(scheduler->GetTaskId("FlowAge"), policy);
     }
 
     void EnqueueFlowAge() {

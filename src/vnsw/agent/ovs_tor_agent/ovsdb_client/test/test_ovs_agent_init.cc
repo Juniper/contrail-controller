@@ -323,7 +323,6 @@ TestClient *OvsTestInit(const char *init_file, bool ovs_init, bool use_ssl) {
     client->Init();
     client->WaitForIdle();
     client->SetFlowFlushExclusionPolicy();
-    client->SetFlowAgeExclusionPolicy();
 
     AsioRun();
 
