@@ -10,7 +10,7 @@ from pycassa.pool import AllServersUnavailable
 import gevent
 
 from vnc_api import vnc_api
-from exceptions import NoIdError, DatabaseUnavailableError
+from exceptions import NoIdError, DatabaseUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -43,7 +43,8 @@ class VncCassandraClient(object):
         [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
          (_OBJ_SHARED_CF_NAME, None)]}
 
-    _MAX_COL = 10000000
+    # Upper than 10k column, cassandra thrift inteface raise an error
+    _MAX_COL = 10000
 
     @classmethod
     def get_db_info(cls):
@@ -124,6 +125,28 @@ class VncCassandraClient(object):
         except:
             return None
     #end
+
+    def _get_one_row(self, cf, key, column):
+        start = column
+        if not column.endswith(':'):
+            start += ':'
+
+        finish = column
+        if not column.endswith(';'):
+            if column.endswith(':'):
+                finish = column[:-1]
+            finish += ';'
+
+        rows = list(cf.xget(key,
+                            column_start=start,
+                            column_finish=finish,
+                            column_count=self._MAX_COL))
+
+        if len(rows) == 0:
+            raise NoIdError(key)
+        elif len(rows) > 1:
+            raise VncError('Multi match %s for %s' % (column, key))
+        return json.loads(rows[0][1])
 
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
         bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
@@ -504,121 +527,126 @@ class VncCassandraClient(object):
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
 
+        if not obj_uuids[0]:
+            import ipdb; ipdb.set_trace()
+        if len(obj_uuids) == 1 and obj_uuid_cf.get_count(obj_uuids[0]) == 0:
+            raise NoIdError(obj_uuids[0])
+
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
-        if (field_names is None or
-            (set(field_names) & (obj_class.backref_fields |
-                                 obj_class.children_fields))):
-            # atleast one backref/children field is needed
-            obj_rows = obj_uuid_cf.multiget(obj_uuids,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-        else: # ignore reading backref + children columns
-            obj_rows = obj_uuid_cf.multiget(obj_uuids,
-                                       column_start='d',
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
-
-        if (len(obj_uuids) == 1) and not obj_rows:
-            raise NoIdError(obj_uuids[0])
+        column_start = ''
+        if (field_names and
+            not (set(field_names) & (obj_class.backref_fields |
+                                     obj_class.children_fields))):
+            # ignore reading backref + children columns
+            column_start = 'd'
 
         results = []
-        for row_key in obj_rows:
-            obj_uuid = row_key
-            obj_cols = obj_rows[obj_uuid]
-            result = {}
-            result['uuid'] = obj_uuid
-            result['fq_name'] = json.loads(obj_cols['fq_name'][0])
-            for col_name in obj_cols.keys():
-                if self._re_match_parent.match(col_name):
-                    # non config-root child
-                    (_, _, parent_uuid) = col_name.split(':')
-                    parent_type = json.loads(obj_cols['parent_type'][0])
-                    result['parent_type'] = parent_type
-                    try:
-                        result['parent_uuid'] = parent_uuid
-                        result['parent_href'] = self._generate_url(parent_type,
-                                                                   parent_uuid)
-                    except NoIdError:
-                        err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
-                        return (False, err_msg)
-
-                if self._re_match_prop.match(col_name):
-                    (_, prop_name) = col_name.split(':')
-                    result[prop_name] = json.loads(obj_cols[col_name][0])
-
-                if (self._re_match_prop_list.match(col_name) or
-                    self._re_match_prop_map.match(col_name)):
-                    (_, prop_name, prop_elem_position) = col_name.split(':')
-                    if self._re_match_prop_list.match(col_name):
-                        has_wrapper = \
-                            obj_class.prop_list_field_has_wrappers[prop_name]
-                    else:
-                        has_wrapper = \
-                            obj_class.prop_map_field_has_wrappers[prop_name]
-                    if has_wrapper:
-                        prop_field_types = obj_class.prop_field_types[prop_name]
-                        wrapper_type = prop_field_types['xsd_type']
-                        wrapper_cls = self._get_xsd_class(wrapper_type)
-                        wrapper_field = wrapper_cls.attr_fields[0]
-                        if prop_name not in result:
-                            result[prop_name] = {wrapper_field: []}
-                        result[prop_name][wrapper_field].append(
-                            json.loads(obj_cols[col_name][0]))
-                    else:
-                        if prop_name not in result:
-                            result[prop_name] = []
-                        result[prop_name].append(
-                            json.loads(obj_cols[col_name][0]))
-
-                if self._re_match_children.match(col_name):
-                    (_, child_type, child_uuid) = col_name.split(':')
-                    if field_names and '%ss' %(child_type) not in field_names:
-                        continue
-
-                    child_tstamp = obj_cols[col_name][1]
-                    try:
-                        self._read_child(result, obj_uuid, child_type,
-                                         child_uuid, child_tstamp)
-                    except NoIdError:
-                        continue
-
-                if self._re_match_ref.match(col_name):
-                    (_, ref_type, ref_uuid) = col_name.split(':')
-                    self._read_ref(result, obj_uuid, ref_type, ref_uuid,
-                                   obj_cols[col_name][0])
-
-                if self._re_match_backref.match(col_name):
-                    (_, back_ref_type, back_ref_uuid) = col_name.split(':')
-                    if (field_names and
-                        '%s_back_refs' %(back_ref_type) not in field_names):
-                        continue
-
-                    try:
-                        self._read_back_ref(result, obj_uuid, back_ref_type,
-                                            back_ref_uuid, obj_cols[col_name][0])
-                    except NoIdError:
-                        continue
-
-            # for all column names
-
-            # sort children by creation time
-            for child_field in obj_class.children_fields:
-                if child_field not in result:
-                    continue
-                sorted_children = sorted(result[child_field],
-                    key = itemgetter('tstamp'))
-                # re-write result's children without timestamp
-                result[child_field] = sorted_children
-                [child.pop('tstamp') for child in result[child_field]]
-            # for all children
-
+        for obj_uuid in obj_uuids:
+            obj_rows = obj_uuid_cf.xget(obj_uuid,
+                                        column_start=column_start,
+                                        column_count=self._MAX_COL,
+                                        include_timestamp=True)
+            ok, result = self.object_construct(
+                obj_uuid, {k: v for k, v in obj_rows}, field_names)
+            if not ok:
+                return (False, result)
             results.append(result)
-        # end for all rows
 
         return (True, results)
-    # end object_read
+
+    def object_construct(self, obj_uuid, obj_cols, field_names=None):
+        obj_class = self._get_resource_class(json.loads(obj_cols['type'][0]))
+        result = {}
+        result['uuid'] = obj_uuid
+        result['fq_name'] = json.loads(obj_cols['fq_name'][0])
+        for col_name in obj_cols.keys():
+            if self._re_match_parent.match(col_name):
+                # non config-root child
+                (_, _, parent_uuid) = col_name.split(':')
+                parent_type = json.loads(obj_cols['parent_type'][0])
+                result['parent_type'] = parent_type
+                try:
+                    result['parent_uuid'] = parent_uuid
+                    result['parent_href'] = self._generate_url(parent_type,
+                                                               parent_uuid)
+                except NoIdError:
+                    err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
+                    return (False, err_msg)
+
+            if self._re_match_prop.match(col_name):
+                (_, prop_name) = col_name.split(':')
+                result[prop_name] = json.loads(obj_cols[col_name][0])
+
+            if (self._re_match_prop_list.match(col_name) or
+                self._re_match_prop_map.match(col_name)):
+                (_, prop_name, prop_elem_position) = col_name.split(':')
+                if self._re_match_prop_list.match(col_name):
+                    has_wrapper = \
+                        obj_class.prop_list_field_has_wrappers[prop_name]
+                else:
+                    has_wrapper = \
+                        obj_class.prop_map_field_has_wrappers[prop_name]
+                if has_wrapper:
+                    prop_field_types = obj_class.prop_field_types[prop_name]
+                    wrapper_type = prop_field_types['xsd_type']
+                    wrapper_cls = self._get_xsd_class(wrapper_type)
+                    wrapper_field = wrapper_cls.attr_fields[0]
+                    if prop_name not in result:
+                        result[prop_name] = {wrapper_field: []}
+                    result[prop_name][wrapper_field].append(
+                        json.loads(obj_cols[col_name][0]))
+                else:
+                    if prop_name not in result:
+                        result[prop_name] = []
+                    result[prop_name].append(
+                        json.loads(obj_cols[col_name][0]))
+
+            if self._re_match_children.match(col_name):
+                (_, child_type, child_uuid) = col_name.split(':')
+                if field_names and '%ss' %(child_type) not in field_names:
+                    continue
+
+                child_tstamp = obj_cols[col_name][1]
+                try:
+                    self._read_child(result, obj_uuid, child_type,
+                                     child_uuid, child_tstamp)
+                except NoIdError:
+                    continue
+
+            if self._re_match_ref.match(col_name):
+                (_, ref_type, ref_uuid) = col_name.split(':')
+                self._read_ref(result, obj_uuid, ref_type, ref_uuid,
+                               obj_cols[col_name][0])
+
+            if self._re_match_backref.match(col_name):
+                (_, back_ref_type, back_ref_uuid) = col_name.split(':')
+                if (field_names and
+                    '%s_back_refs' %(back_ref_type) not in field_names):
+                    continue
+
+                try:
+                    self._read_back_ref(result, obj_uuid, back_ref_type,
+                                        back_ref_uuid, obj_cols[col_name][0])
+                except NoIdError:
+                    continue
+
+        # for all column names
+
+        # sort children by creation time
+        for child_field in obj_class.children_fields:
+            if child_field not in result:
+                continue
+            sorted_children = sorted(result[child_field],
+                key = itemgetter('tstamp'))
+            # re-write result's children without timestamp
+            result[child_field] = sorted_children
+            [child.pop('tstamp') for child in result[child_field]]
+        # for all children
+    # end for all rows
+
+        return (True, result)
 
     def object_count_children(self, res_type, obj_uuid, child_type):
         if child_type is None:
@@ -642,9 +670,9 @@ class VncCassandraClient(object):
 
     def update_last_modified(self, bch, obj_uuid, id_perms=None):
         if id_perms is None:
-            id_perms = json.loads(
-                 self._obj_uuid_cf.get(obj_uuid,
-                                       ['prop:id_perms'])['prop:id_perms'])
+            id_perms = self._get_one_row(self._obj_uuid_cf,
+                                         obj_uuid,
+                                         'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
@@ -784,19 +812,19 @@ class VncCassandraClient(object):
 
         def filter_rows(coll_infos, filter_cols, filter_params):
             filt_infos = {}
-            coll_rows = obj_uuid_cf.multiget(coll_infos.keys(),
-                                   columns=filter_cols,
-                                   column_count=self._MAX_COL)
-            for row in coll_rows:
-                # give chance for zk heartbeat/ping
-                gevent.sleep(0)
-                full_match = True
-                for fname, fval in filter_params:
-                    if coll_rows[row]['prop:%s' %(fname)] != fval:
-                        full_match = False
+            for obj_uuid in coll_infos.keys():
+                coll_rows = obj_uuid_cf.xget(obj_uuid,
+                                             columns=filter_cols,
+                                             column_count=self._MAX_COL)
+
+                for prop_name, val in coll_rows:
+                    # give chance for zk heartbeat/ping
+                    gevent.sleep(0)
+                    name = prop_name.partition(':')[-1]
+                    if name in filter_params and val != filter_params[name]:
                         break
-                if full_match:
-                    filt_infos[row] = coll_infos[row]
+                else:
+                    filt_infos[obj_uuid] = coll_infos[row]
             return filt_infos
         # end filter_rows
 
@@ -817,11 +845,14 @@ class VncCassandraClient(object):
             col_start = 'children:%s:' %(obj_type)
             col_fin = 'children:%s;' %(obj_type)
             try:
-                obj_rows = obj_uuid_cf.multiget(parent_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
+                obj_rows = {}
+                for parent_uuid in parent_uuids:
+                    obj_row = obj_uuid_cf.xget(parent_uuid,
+                                               column_start=col_start,
+                                               column_finish=col_fin,
+                                               column_count=self._MAX_COL,
+                                               include_timestamp=True)
+                    obj_rows[parent_uuid] = {k: v for k, v in obj_row}
             except pycassa.NotFoundException:
                 if count:
                     return (True, 0)
@@ -869,11 +900,13 @@ class VncCassandraClient(object):
             col_start = 'backref:%s:' %(obj_type)
             col_fin = 'backref:%s;' %(obj_type)
             try:
-                obj_rows = obj_uuid_cf.multiget(back_ref_uuids,
-                                       column_start=col_start,
-                                       column_finish=col_fin,
-                                       column_count=self._MAX_COL,
-                                       include_timestamp=True)
+                for back_ref_uuid in back_ref_uuids:
+                    obj_row = obj_uuid_cf.xget(back_ref_uuid,
+                                               column_start=col_start,
+                                               column_finish=col_fin,
+                                               column_count=self._MAX_COL,
+                                               include_timestamp=True)
+                    obj_rows[back_ref_uuid] = {k: v for k, v in obj_row}
             except pycassa.NotFoundException:
                 if count:
                     return (True, 0)
@@ -977,11 +1010,7 @@ class VncCassandraClient(object):
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
-        try:
-            fq_name = json.loads(
-                obj_uuid_cf.get(obj_uuid, columns=['fq_name'])['fq_name'])
-        except pycassa.NotFoundException:
-            raise NoIdError(obj_uuid)
+        fq_name = self._get_one_row(obj_uuid_cf, obj_uuid, 'fq_name')
         bch = obj_uuid_cf.batch()
 
         # unlink from parent
@@ -1028,14 +1057,9 @@ class VncCassandraClient(object):
 
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
-        try:
-            col_name = 'prop:id_perms'
-            obj_cols = self._obj_uuid_cf.get(obj_uuid,
-                columns=[col_name],
-                column_count=self._MAX_COL)
-            result['id_perms'] = json.loads(obj_cols[col_name])
-        except pycassa.NotFoundException:
-            raise NoIdError(obj_uuid)
+        result['id_perms'] = self._get_one_row(self._obj_uuid_cf,
+                                               obj_uuid,
+                                               'prop:id_perms')
 
         # read in prop-list or prop-map fields
         for field in obj_fields:
@@ -1050,19 +1074,16 @@ class VncCassandraClient(object):
                 col_start = '%s:%s:' %(prop_pfx, field)
                 col_end = '%s:%s;' %(prop_pfx, field)
 
-            obj_cols = self._obj_uuid_cf.get(obj_uuid,
-                column_start=col_start,
-                column_finish=col_end,
-                column_count=self._MAX_COL,
-                include_timestamp=True)
+            rows = self.xget(obj_uuid,
+                             column_start=col_start,
+                             column_finish=col_end,
+                             column_count=self._MAX_COL)
 
             result[field] = []
-            for col_name in obj_cols.keys():
+            for name, value in rows:
                 # tuple of col_value, position. result is already sorted
                 # lexically by position
-                result[field].append(
-                    (json.loads(obj_cols[col_name][0]),
-                     col_name.split(':')[-1]) )
+                result[field].append((json.loads(value), name.split(':')[-1]))
 
         return (True, result)
     # end prop_collection_read
@@ -1082,13 +1103,8 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][0]
         except KeyError:
-            try:
-                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
-            except pycassa.NotFoundException:
-                raise NoIdError(id)
-
-            fq_name = json.loads(obj['fq_name'])
-            obj_type = json.loads(obj['type'])
+            fq_name = self._get_one_row(self._obj_uuid_cf, id, 'fq_name')
+            obj_type = self._get_one_row(self._obj_uuid_cf, id, 'type')
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return fq_name
     # end uuid_to_fq_name
@@ -1097,13 +1113,8 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][1]
         except KeyError:
-            try:
-                obj = self._obj_uuid_cf.get(id, columns=['fq_name', 'type'])
-            except pycassa.NotFoundException:
-                raise NoIdError(id)
-
-            fq_name = json.loads(obj['fq_name'])
-            obj_type = json.loads(obj['type'])
+            fq_name = self._get_one_row(self._obj_uuid_cf, id, 'fq_name')
+            obj_type = self._get_one_row(self._obj_uuid_cf, id, 'type')
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return obj_type
     # end uuid_to_obj_type
