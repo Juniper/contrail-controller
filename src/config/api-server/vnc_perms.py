@@ -81,7 +81,7 @@ class VncPermissions(object):
         # retrieve object and permissions
         try:
             config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
-            perms2 = json.loads(config.get('prop:perms2'))
+            perms2 = config.get('prop:perms2')
             obj_name = config.get("fq_name")
             obj_type = config.get("type")
         except NoIdError:
@@ -206,5 +206,3 @@ class VncPermissions(object):
 
         return perms if ok else ''
     # end obj_perms
-
-

@@ -331,7 +331,7 @@ class InstanceIpServer(Resource, InstanceIp):
             if not cls._is_gateway_ip(vn_dict, req_ip):
                 return (False, (403, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
-                return (False, 
+                return (False,
                     (403, 'Gateway IP cannot be used by VM port'))
         # end if request has ip addr
 
@@ -705,7 +705,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         global_asn = config.get('prop:autonomous_system')
         if not global_asn:
             return (True, '')
-        global_asn = json.loads(global_asn)
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
             return (True, '')
@@ -1753,4 +1752,3 @@ class RouteAggregateServer(Resource, RouteAggregate):
         return cls._check(obj_dict, db_conn)
 
 # end class RouteAggregateServer
-

@@ -259,6 +259,7 @@ class FakeCF(object):
         if key in self._rows:
             col_names = self._rows[key].keys()
 
+        col_dict = {}
         for col_name in col_names:
             if not self._column_within_range(col_name,
                                 column_start, column_finish):
@@ -273,10 +274,14 @@ class FakeCF(object):
                 if include_ttl:
                     col_ttl = self._rows[key][col_name][2]
                     ret += (col_ttl,)
-                yield (col_name, ret)
+                col_dict[col_name] = ret
             else:
-                yield (col_name, col_value)
+                col_dict[col_name] = col_value
 
+        sorted_col_dict = OrderedDict(
+            (k, col_dict[k]) for k in sorted(col_dict))
+        for k, v in sorted_col_dict.items():
+            yield (k, v)
     # end xget
 
     def get_count(self, key, column_start=None, column_finish=None):
@@ -644,7 +649,7 @@ class FakeIfmapClient(object):
                         r_item.append(cls._graph[ident_name]['ident'])
                         r_item.append(link_info['meta'])
 
-                    if (result_filter != 'all' and 
+                    if (result_filter != 'all' and
                         meta_name not in result_filter):
                         continue
                     result_items.append(copy.deepcopy(r_item))
@@ -948,7 +953,7 @@ class FakeExtensionManager(object):
         self._ep_name = ep_name
         for cls in classes or []:
             ext_obj = FakeExtensionManager.FakeExtObj(
-                ep_name, cls, **kwargs) 
+                ep_name, cls, **kwargs)
             self._ext_objs.append(ext_obj)
     # end __init__
 
@@ -996,7 +1001,7 @@ class FakeAuthProtocol(object):
     def __init__(self, app, conf, *args, **kwargs):
         self.app = app
         self.conf = conf
- 
+
         auth_protocol = conf['auth_protocol']
         auth_host = conf['auth_host']
         auth_port = conf['auth_port']
@@ -1397,7 +1402,7 @@ class ZookeeperClientMock(object):
 
 # end Class ZookeeperClientMock
 
-  
+
 class FakeNetconfManager(object):
     def __init__(self, *args, **kwargs):
         self.configs = []
