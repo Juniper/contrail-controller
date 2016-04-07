@@ -8,7 +8,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
-from cfgm_common.uve.greenlets import ttypes as sandesh 
+from cfgm_common.uve.greenlets import ttypes as sandesh
 import gc
 import gevent
 import traceback
@@ -63,11 +63,9 @@ class VncGreenlet(Greenlet):
                 greenlet_resp.greenlets.append(sandesh_greenlet)
 
         if anonymous_cnt > 0:
-            greenlet_resp.greenlets.append(VncGreenlet(
-                                               build_greenlet_sandesh(
-                                                   'Anonymous',
-                                                   'Not Applicable', 
-                                                   anonymous_cnt)))
+            sandesh_greenlet = VncGreenlet.build_greenlet_sandesh(
+                'Anonymous', 'Not Applicable', anonymous_cnt)
+            greenlet_resp.greenlets.append(sandesh_greenlet)
         greenlet_resp.response(req.context())
     #end sandesh_greenlet_object_handle_request
 # end class VncGreenlet
