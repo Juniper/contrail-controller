@@ -37,6 +37,7 @@ public:
     uint64_t update_links_sent() const { return update_links_sent_; }
     uint64_t delete_links_sent() const { return delete_links_sent_; }
     bool send_is_blocked() const { return send_is_blocked_; }
+    uint64_t created_at() const { return created_at_; }
 
     void incr_msgs_sent() { ++msgs_sent_; }
     void incr_msgs_blocked() { ++msgs_blocked_; }
@@ -86,6 +87,7 @@ private:
     bool send_is_blocked_;
     VmMap vm_map_;
     std::string name_;
+    uint64_t created_at_;
 };
 
 #endif
