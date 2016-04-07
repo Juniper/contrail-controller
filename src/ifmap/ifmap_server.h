@@ -6,6 +6,7 @@
 #define __ctrlplane__ifmap_server__
 
 #include <map>
+#include <deque>
 #include <vector>
 
 #include <boost/asio/io_service.hpp>
@@ -30,14 +31,32 @@ class IFMapUpdateSender;
 class IFMapVmUuidMapper;
 class IFMapServerShowClientMap;
 class IFMapServerShowIndexMap;
+class IFMapServerClientHistoryList;
 class IFMapTableListEntry;
 class IFMapNodeTableListShowEntry;
 class IFMapServerInfoUI;
 
 class IFMapServer {
 public:
+    struct ClientHistoryInfo {
+        ClientHistoryInfo(const std::string &name, int id, uint64_t ctime,
+                          uint64_t htime)
+            : client_name(name), client_index(id), client_created_at(ctime),
+              history_created_at(htime) {
+        }
+        const std::string client_created_at_str() const;
+        const std::string history_created_at_str() const;
+
+        std::string client_name;
+        int client_index;
+        uint64_t client_created_at;
+        uint64_t history_created_at;
+    };
+
+    static const int kClientHistorySize = 5000;
     typedef std::map<std::string, IFMapClient *> ClientMap;
     typedef std::map<int, IFMapClient *> IndexMap;
+    typedef std::deque<ClientHistoryInfo> ClientHistory;
     typedef ClientMap::size_type CmSz_t;
     typedef IndexMap::size_type ImSz_t;
     IFMapServer(DB *db, DBGraph *graph, boost::asio::io_service *io_service);
@@ -93,8 +112,12 @@ public:
                                bool subscribe);
     IFMapNode *GetVmNodeByUuid(const std::string &vm_uuid);
 
-    void FillClientMap(IFMapServerShowClientMap *out_map);
-    void FillIndexMap(IFMapServerShowIndexMap *out_map);
+    void FillClientMap(IFMapServerShowClientMap *out_map,
+                       const std::string &search_string);
+    void FillIndexMap(IFMapServerShowIndexMap *out_map,
+                      const std::string &search_string);
+    void FillClientHistory(IFMapServerClientHistoryList *out_list,
+                           const std::string &search_string);
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
@@ -124,6 +147,7 @@ private:
     void ClientExporterCleanup(IFMapClient *client);
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);
+    void SaveClientHistory(IFMapClient *client);
 
     DB *db_;
     DBGraph *graph_;
@@ -138,6 +162,7 @@ private:
     boost::asio::io_service *io_service_;
     IFMapManager *ifmap_manager_;
     IFMapChannelManager *ifmap_channel_manager_;
+    ClientHistory client_history_;
 };
 
 #endif /* defined(__ctrlplane__ifmap_server__) */
