@@ -46,10 +46,13 @@ class ServiceMonitorDB(VncCassandraClient):
         self._lb_cf = self._cf_dict[self._LB_CF]
 
     # db CRUD
-    def _db_get(self, table, key):
+    def _db_get(self, table, key, column):
         try:
-            entry = table.get(key)
+            entry = self.get_one_col(table.column_family, key, column)
         except Exception:
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
             self._db_logger.log("DB: %s %s get failed" %
                              (inspect.stack()[1][3], key))
             return None
@@ -125,18 +128,10 @@ class ServiceMonitorDB(VncCassandraClient):
         return self._db_list(self._svc_si_cf)
 
     def pool_config_get(self, pool_id):
-        json_str = self._db_get(self._lb_cf, pool_id)
-        if json_str and 'config_info' in json_str:
-            return json.loads(json_str['config_info'])
-        else:
-            return None
+        return self._db_get(self._lb_cf, pool_id, 'config_info')
 
     def pool_driver_info_get(self, pool_id):
-        json_str = self._db_get(self._lb_cf, pool_id)
-        if json_str and 'driver_info' in json_str:
-            return json.loads(json_str['driver_info'])
-        else:
-            return None
+        return self._db_get(self._lb_cf, pool_id, 'driver_info')
 
     def pool_config_insert(self, pool_id, pool_obj):
         entry = json.dumps(pool_obj)

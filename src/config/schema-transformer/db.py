@@ -9,6 +9,7 @@ Schema transformer DB to store ids allocated by it
 from pycassa import NotFoundException
 
 import cfgm_common as common
+from cfgm_common.exceptions import VncError, NoIdError
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
@@ -138,12 +139,15 @@ class SchemaTransformerDB(VncCassandraClient):
         vlan_ia = self._sc_vlan_allocator_dict[service_vm]
 
         try:
-            vlan = int(
-                self._service_chain_cf.get(service_vm)[service_chain])
+            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
+                                        service_vm, service_chain))
             db_sc = vlan_ia.read(vlan)
             if (db_sc is None) or (db_sc != service_chain):
                 alloc_new = True
-        except (KeyError, NotFoundException):
+        except (KeyError, VncError, NoIdError):
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
             alloc_new = True
 
         if alloc_new:
@@ -158,19 +162,26 @@ class SchemaTransformerDB(VncCassandraClient):
     def free_service_chain_vlan(self, service_vm, service_chain):
         try:
             vlan_ia = self._sc_vlan_allocator_dict[service_vm]
-            vlan = int(self._service_chain_cf.get(service_vm)[service_chain])
+            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
+                                        service_vm, service_chain))
             self._service_chain_cf.remove(service_vm, [service_chain])
             vlan_ia.delete(vlan)
             if vlan_ia.empty():
                 del self._sc_vlan_allocator_dict[service_vm]
-        except (KeyError, NotFoundException):
+        except (KeyError, VncError, NoIdError):
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
             pass
     # end free_service_chain_vlan
 
     def get_route_target(self, ri_fq_name):
         try:
-            return int(self._rt_cf.get(ri_fq_name)['rtgt_num'])
-        except NotFoundException:
+            return int(self.get_one_col(self._RT_CF, ri_fq_name, 'rtgt_num'))
+        except (VncError, NoIdError):
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
             return 0
 
     def alloc_route_target(self, ri_fq_name, zk_only=False):
@@ -207,10 +218,10 @@ class SchemaTransformerDB(VncCassandraClient):
     # end free_route_target
 
     def get_service_chain_ip(self, sc_name):
-        try:
-            addresses = self._sc_ip_cf.get(sc_name)
+        addresses = self.get(self._SC_IP_CF, sc_name)
+        if addresses:
             return addresses.get('ip_address'), addresses.get('ipv6_address')
-        except NotFoundException:
+        else:
             return None, None
 
     def add_service_chain_ip(self, sc_name, ip, ipv6):
@@ -268,4 +279,3 @@ class SchemaTransformerDB(VncCassandraClient):
 
     def free_bgpaas_port(self, port):
         self._bgpaas_port_allocator.delete(port)
-
