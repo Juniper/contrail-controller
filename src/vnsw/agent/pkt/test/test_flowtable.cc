@@ -48,9 +48,7 @@ struct TestFlowKey {
         key->family = key->src_addr.is_v4() ? Address::INET : Address::INET6;
     }
     FlowTable *GetFlowTable(FlowProto *proto) {
-        FlowKey key;
-        InitFlowKey(&key);
-        return proto->GetFlowTable(key);
+        return proto->GetTable(0);
     }
 };
 
@@ -97,7 +95,7 @@ static void FlowAdd(FlowEntryPtr fwd, FlowEntryPtr rev) {
     fwd->set_reverse_flow_entry(rev.get());
     rev->set_reverse_flow_entry(fwd.get());
     FlowTable *table =
-        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(fwd->key());
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetTable(0);
     table->Add(fwd.get(), rev.get());
 }
 
@@ -170,7 +168,7 @@ public:
         bool ret = true;
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = proto->Find(key);
+        FlowEntry *flow = proto->Find(key, 0);
         EXPECT_TRUE(flow != NULL);
         if (flow == NULL) {
             return false;
@@ -179,7 +177,7 @@ public:
         FlowEntry *rflow = NULL;
         if (rev) {
             rev->InitFlowKey(&key);
-            rflow = proto->Find(key);
+            rflow = proto->Find(key, 0);
             WAIT_FOR(1000, 100, (flow->reverse_flow_entry() == rflow));
             if (flow->reverse_flow_entry() != rflow) {
                 ret = false;
@@ -269,7 +267,7 @@ public:
         FlowKey key;
         flow->InitFlowKey(&key);
         FlowTable *table =
-            Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key);
+            Agent::GetInstance()->pkt()->get_flow_proto()->GetTable(0);
         table->Delete(key, true);
         client->WaitForIdle();
     }
@@ -278,12 +276,12 @@ public:
         FlowKey key;
         t->InitFlowKey(&key);
         FlowEntry *flow = FlowEntry::Allocate
-            (key,proto->GetFlowTable(key));
+            (key,proto->GetTable(0));
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0,
                                                         PktHandler::FLOW, 0));
         pkt_info->family = Address::INET;
-        PktFlowInfo info(agent, pkt_info, proto->GetFlowTable(key));
+        PktFlowInfo info(agent, pkt_info, proto->GetTable(0));
         PktInfo *pkt = pkt_info.get();
 
         PktControlInfo ctrl;

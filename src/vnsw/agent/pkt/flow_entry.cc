@@ -2083,6 +2083,10 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         info.set_allow(true);
     }
 
+    if (reverse_flow_entry_.get()) {
+        info.set_reverse_index(reverse_flow_entry_->flow_handle());
+    }
+
     if (is_flags_set(FlowEntry::NatFlow)) {
         info.set_nat(true);
         FlowEntry *nat_flow = reverse_flow_entry_.get();
@@ -2115,7 +2119,6 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
             }
             info.set_nat_protocol(nat_flow->key().protocol);
             info.set_nat_vrf(data_.dest_vrf);
-            info.set_reverse_index(nat_flow->flow_handle());
             info.set_nat_mirror_vrf(nat_flow->data().mirror_vrf);
         }
     }
