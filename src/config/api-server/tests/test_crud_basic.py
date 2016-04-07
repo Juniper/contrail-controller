@@ -1794,7 +1794,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
 
 class TestStaleLockRemoval(test_case.ApiServerTestCase):
-    STALE_LOCK_SECS = '0.1'
+    STALE_LOCK_SECS = '0.2'
     @classmethod
     def setUpClass(cls):
         super(TestStaleLockRemoval, cls).setUpClass(
