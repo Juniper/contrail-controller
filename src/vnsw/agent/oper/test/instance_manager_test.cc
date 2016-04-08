@@ -22,7 +22,6 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/instance_task.h"
-#include "oper/loadbalancer_pool.h"
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "schema/vnc_cfg_types.h"
@@ -117,89 +116,8 @@ protected:
         return instance_id;
     }
 
-    void AddLoadbalancerVip(const string &pool_name) {
-        string vip_name("vip" + pool_name);
-        autogen::VirtualIpType vip_attr;
-        vip_attr.protocol = "HTTP";
-        vip_attr.protocol_port = 80;
-        vip_attr.connection_limit = 100;
-        map<string, AutogenProperty *> pmap;
-        pmap.insert(make_pair("virtual-ip-properties", &vip_attr));
-        ifmap_test_util::IFMapMsgPropertySet(
-            agent_->db(), "virtual-ip", vip_name, pmap, 0);
-
-        ifmap_test_util::IFMapMsgLink(
-            agent_->db(), "loadbalancer-pool", pool_name,
-            "virtual-ip", vip_name,
-            "virtual-ip-loadbalancer-pool");
-    }
-
-
-   LoadbalancerPool *GetLoadbalancer(boost::uuids::uuid pool_id) {
-        LoadbalancerPoolKey key(pool_id);
-        return static_cast<LoadbalancerPool *>(
-            agent_->loadbalancer_pool_table()->Find(&key, true));
-    }
-
-    void AddLoadbalancerMember(std::string &pool_name,
-                               const char *ip_address, int port) {
-        boost::uuids::random_generator gen;
-        boost::uuids::uuid member_id = gen();
-        map<string, AutogenProperty *> pmap;
-        autogen::LoadbalancerMemberType attr;
-        attr.address = ip_address;
-        attr.protocol_port = port;
-        pmap.insert(make_pair("loadbalancer-member-properties", &attr));
-        ifmap_test_util::IFMapMsgPropertySet(
-            agent_->db(), "loadbalancer-member", UuidToString(member_id),
-            pmap, 0);
-
-        ifmap_test_util::IFMapMsgLink(
-            agent_->db(), "loadbalancer-pool", pool_name,
-            "loadbalancer-member", UuidToString(member_id),
-            "loadbalancer-pool-loadbalancer-member");
-    }
-
-
-    boost::uuids::uuid AddLoadbalancer(std::string pool_name) {
-
-        map<string, AutogenProperty *> pmap;
-        autogen::LoadbalancerPoolType pool_attr;
-        pool_attr.protocol = "HTTP";
-        pool_attr.loadbalancer_method = "ROUND_ROBIN";
-        pmap.insert(make_pair("loadbalancer-pool-properties", &pool_attr));
-        ifmap_test_util::IFMapMsgPropertySet(
-            agent_->db(), "loadbalancer-pool", pool_name, pmap, 0);
-
-        AddLoadbalancerVip(pool_name);
-
-        task_util::WaitForIdle();
-        IFMapTable *table = IFMapTable::FindTable(agent_->db(),
-                                                  "loadbalancer-pool");
-        IFMapNode *node = table->FindNode(pool_name);
-        if (node == NULL) {
-            return boost::uuids::nil_uuid();
-        }
-
-       AddLoadbalancerMember(pool_name, "127.0.0.1", 80);
-       AddLoadbalancerMember(pool_name, "127.0.0.2", 80);
-
-       task_util::WaitForIdle();
-        autogen::LoadbalancerPool *lb_object =
-                static_cast<autogen::LoadbalancerPool *>(node->GetObject());
-        const autogen::IdPermsType &id = lb_object->id_perms();
-        boost::uuids::uuid instance_id = IdPermsGetUuid(id);
-
-        return instance_id;
-    }
-
     void DeleteServiceInstance(const string &name) {
         ifmap_test_util::IFMapMsgNodeDelete(agent_->db(), "service-instance", name);
-    }
-
-    void DeleteLoadBalancer(const string &name) {
-        ifmap_test_util::IFMapMsgNodeDelete(agent_->db(),
-                "loadbalancer-pool", name);
     }
 
     void MarkServiceInstanceAsDeleted(boost::uuids::uuid id) {
@@ -557,54 +475,6 @@ TEST_F(InstanceManagerTest, Usable) {
     IFMapNode *node = table->FindNode("exec-usable");
     ASSERT_TRUE(node == NULL);
 }
-TEST_F(InstanceManagerTest, LoadbalancerConfig) {
-    agent_->oper_db()->instance_manager()->SetNetNSCmd("/bin/true");
-
-    boost::uuids::random_generator gen;
-    std::string pool_name(UuidToString(gen()));
-
-    boost::uuids::uuid lbid = AddLoadbalancer(pool_name);
-    task_util::WaitForIdle();
-
-    AddServiceInstance("/bin/true");
-    ifmap_test_util::IFMapMsgLink(
-            agent_->db(), "loadbalancer-pool", pool_name,
-            "service-instance", "/bin/true",
-            "loadbalancer-pool-service-instance");
-    task_util::WaitForIdle();
-
-    stringstream pathgen;
-    pathgen << loadbalancer_config_path() << lbid << "/conf.json";
-    boost::filesystem::path config(pathgen.str());
-    std::time_t old_time =
-        boost::filesystem::last_write_time(pathgen.str());
-    EXPECT_TRUE(boost::filesystem::exists(config));
-
-    std::string pool2_name(UuidToString(gen()));
-    lbid = AddLoadbalancer(pool2_name);
-    pathgen.str("");
-    pathgen.clear();
-    pathgen << loadbalancer_config_path() << lbid << "/conf.json";
-    boost::filesystem::path config1(pathgen.str());
-
-    //Make sure that both files exists
-    EXPECT_TRUE(boost::filesystem::exists(config1));
-    EXPECT_TRUE(boost::filesystem::exists(config));
-    task_util::WaitForIdle();
-
-    //Lets add a new member to Pool and verify that config file is
-    //updated
-    AddLoadbalancerMember(pool_name, "127.0.0.3", 80);
-    task_util::WaitForIdle();
-    std::time_t new_time =
-        boost::filesystem::last_write_time(pathgen.str());
-    EXPECT_TRUE(old_time <= new_time);
-
-    DeleteLoadBalancer(pool_name);
-    DeleteLoadBalancer(pool2_name);
-    DeleteServiceInstance("/bin/true");
-    task_util::WaitForIdle();
-}
 
 TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
 
@@ -628,12 +498,13 @@ TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
         }
     }
     store_path  = loadbalancer_config_path();
-    store_path += lb_uuid;
-
+    store_path += (lb_uuid + ".conf");
     if (!boost::filesystem::exists(store_path, error)) {
-        boost::filesystem::create_directories(store_path, error);
+        std::ofstream fs(store_path.c_str());
+        fs << "Test Config for " << lb_uuid;
+        fs.close();
         if (error) {
-            LOG(ERROR, "Error : " << error.message() << "in creating directory");
+            LOG(ERROR, "Error : " << error.message() << "in creating conf file");
         }
     }
     EXPECT_EQ(1, boost::filesystem::exists(store_path));

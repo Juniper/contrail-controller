@@ -88,18 +88,6 @@ env.Alias('agent:libvirt_instance_adapter_test', libvirt_instance_adapter_test)
 # optional; requires libvirt
 # oper_test_suite.append(libvirt_instance_adapter_test)
 
-loadbalancer_test = env.UnitTest(
-    'loadbalancer_test',
-    ['loadbalancer_test.cc'])
-env.Alias('agent:loadbalancer_test', loadbalancer_test)
-oper_test_suite.append(loadbalancer_test)
-
-loadbalancer_config_test = env.UnitTest(
-    'loadbalancer_config_test',
-    ['loadbalancer_config_test.cc'])
-env.Alias('agent:loadbalancer_config_test', loadbalancer_config_test)
-oper_test_suite.append(loadbalancer_config_test)
-
 test_physical_devices = AgentEnv.MakeTestCmdSrc(env, 'test_physical_devices',
                                                 [
                                                 'test_physical_devices.cc',
