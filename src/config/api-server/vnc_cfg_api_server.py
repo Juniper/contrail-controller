@@ -1282,6 +1282,7 @@ class VncApiServer(object):
         self.get_resource_class('bgp-as-a-service').generate_default_instance = False
         self.get_resource_class('routing-policy').generate_default_instance = False
         self.get_resource_class('route-aggregate').generate_default_instance = False
+        self.get_resource_class('alarm').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
