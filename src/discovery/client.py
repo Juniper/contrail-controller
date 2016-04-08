@@ -81,7 +81,7 @@ class Subscribe(object):
             'service': service_type,
             'instances': count,
             'client-type': dc._client_type,
-            'remote-addr': dc._myip,
+            'remote-addr': dc._remote_addr,
             'client': dc._myid
         }
         self.post_body = json.dumps(data)
@@ -198,8 +198,8 @@ class DiscoveryClient(object):
     def __init__(self, server_ip, server_port, client_type, pub_id = None):
         self._server_ip = server_ip
         self._server_port = server_port
-        self._myid = socket.gethostname() + ':' + client_type
         self._pub_id = pub_id or socket.gethostname()
+        self._myid = self._pub_id + ':' + client_type
         self._client_type = client_type
         self._headers = {
             'Content-type': 'application/json',
@@ -221,6 +221,7 @@ class DiscoveryClient(object):
             s.close()
         except Exception as e:
             self._myip = socket.gethostname()
+        self._remote_addr = self._myip
 
         # queue to publish information (sig => service data)
         self.pub_q = {}
@@ -245,6 +246,9 @@ class DiscoveryClient(object):
 
     def set_myip(self, ip):
         self._myip = ip
+
+    def set_remote_addr(self, remote_addr):
+        self._remote_addr = remote_addr
  
     def set_sandesh(self, sandesh):
         self._sandesh = sandesh
@@ -296,7 +300,7 @@ class DiscoveryClient(object):
         payload = {
             service        : data,
             'service-type' : service,
-            'remote-addr'  : self._myip
+            'remote-addr'  : self._remote_addr
         }
         emsg = None
         cookie = None
