@@ -6,7 +6,7 @@ import pycassa
 from pycassa import ColumnFamily
 from pycassa.batch import Mutator
 from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
-from pycassa.pool import AllServersUnavailable
+from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 
 from vnc_api import vnc_api
@@ -268,7 +268,7 @@ class VncCassandraClient(object):
                     self._cassandra_init_conn_pools()
 
                 return func(*args, **kwargs)
-            except AllServersUnavailable as e:
+            except (AllServersUnavailable, MaximumRetryException) as e:
                 if self._conn_state != ConnectionStatus.DOWN:
                     self._update_sandesh_status(ConnectionStatus.DOWN)
                     msg = 'Cassandra connection down. Exception in %s' %(
@@ -277,8 +277,7 @@ class VncCassandraClient(object):
 
                 self._conn_state = ConnectionStatus.DOWN
                 raise DatabaseUnavailableError(
-                    'Error, AllServersUnavailable: %s'
-                    %(utils.detailed_traceback()))
+                    'Error, %s: %s' %(str(e), utils.detailed_traceback()))
 
         return wrapper
     # end _handle_exceptions
@@ -384,7 +383,7 @@ class VncCassandraClient(object):
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=-1, use_threadlocal=True,
                 prefill=True, pool_size=20, pool_timeout=120,
-                max_retries=-1, timeout=5, credentials=self._credential)
+                max_retries=30, timeout=5, credentials=self._credential)
 
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
