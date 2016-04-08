@@ -2037,7 +2037,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref'], 'optional', 'CRUD',
           'Reference to virtual DNS used by this IPAM.') -->
 
-<xsd:complexType name="CommunityAttributes">
+<xsd:simpleType name="CommunityAttribute">
     <xsd:annotation>
         <xsd:documentation>
           List of Community attributes
@@ -2053,14 +2053,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                  "no-reoriginate"
         </xsd:documentation>
     </xsd:annotation>
-    <xsd:all>
-        <xsd:element name="community-attribute" type="xsd:string" maxOccurs="unbounded" 
+    <xsd:restriction base="xsd:string"
              description_1='List of Community attributes, it indicates the attributes with which the routes are tagged while publishing.'
              description_2='The attributes will be represented as bgp community in the path attribute.'
              description_3='Each attribute is indicated as string.'
              description_4='    1. String with two integers separated by ":". E.g. "64512:123"'
              description_5='    2. Well-known community as string.'
              description_6='       Possible values are "no-export" "accept-own" "no-advertise" "no-export-subconfed" "no-reoriginate"'/>
+</xsd:simpleType>
+
+<xsd:complexType name="CommunityAttributes">
+    <xsd:all>
+        <xsd:element name="community-attribute" type="CommunityAttribute" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
