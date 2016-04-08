@@ -100,6 +100,22 @@ class VerifyBgp(VerifyRouteTarget):
         self.assertEqual(router_obj.get_bgp_router_parameters().identifier,
                          ip)
 
+    @retries(5)
+    def check_v4_bgp_gateway(self, router_name, gateway):
+        bgpaas_client_obj = self._vnc_lib.bgp_router_read(
+                fq_name_str=router_name)
+        self.assertEqual(
+                bgpaas_client_obj.get_bgp_router_parameters().gateway_address,
+                gateway)
+
+    @retries(5)
+    def check_v6_bgp_gateway(self, router_name, gateway):
+        bgpaas_client_obj = self._vnc_lib.bgp_router_read(
+                fq_name_str=router_name)
+        self.assertEqual(
+                bgpaas_client_obj.get_bgp_router_parameters().ipv6_gateway_address,
+                gateway)
+
 
 class TestBgp(STTestCase, VerifyBgp):
     # test logical router functionality
@@ -293,6 +309,33 @@ class TestBgp(STTestCase, VerifyBgp):
                          '10.0.0.252')
 
         self.check_bgp_peering(server_router_obj, router1_obj, 1)
+        self.check_v4_bgp_gateway(router1_name, '10.0.0.254')
+        self.check_v6_bgp_gateway(router1_name,
+            '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffe')
+        # Set suppress_route_advertisement; and expect the gateways
+        # to be reset to None in bgpaas-client router
+        bgpaas.set_bgpaas_suppress_route_advertisement(True)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self.check_v4_bgp_gateway(router1_name, None)
+        self.check_v6_bgp_gateway(router1_name, None)
+        # Unset suppress_route_advertisement; and expect the gateways
+        # to be set to gateway addresses in bgpaas-client router
+        bgpaas.set_bgpaas_suppress_route_advertisement(False)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self.check_v4_bgp_gateway(router1_name, '10.0.0.254')
+        self.check_v6_bgp_gateway(router1_name,
+            '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffe')
+        # Set bgpaas_ipv4_mapped_ipv6_nexthop and expect the
+        # ipv4-mapped ipv6 address is set as gateway
+        bgpaas.set_bgpaas_ipv4_mapped_ipv6_nexthop(True)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self.check_v6_bgp_gateway(router1_name, '::ffff:10.0.0.254')
+        # unset bgpaas_ipv4_mapped_ipv6_nexthop and expect the
+        # subnets ipv6 gateway address is set as gateway
+        bgpaas.set_bgpaas_ipv4_mapped_ipv6_nexthop(False)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self.check_v6_bgp_gateway(router1_name,
+            '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffe')
 
         v4_obj.set_instance_ip_address('10.0.0.60')
         self._vnc_lib.instance_ip_update(v4_obj)
