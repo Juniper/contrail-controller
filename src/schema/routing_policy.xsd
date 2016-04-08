@@ -22,7 +22,7 @@
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name='CommunityListType'>
+<xsd:simpleType name="CommunityAttribute">
     <xsd:annotation>
         <xsd:documentation>
           List of Community attributes
@@ -38,7 +38,17 @@
                  "no-reoriginate"
         </xsd:documentation>
     </xsd:annotation>
-    <xsd:element name='community' type='xsd:string' maxOccurs='unbounded'/>
+    <xsd:restriction base="xsd:string"
+             description_1='List of Community attributes, it indicates the attributes with which the routes are tagged while publishing.'
+             description_2='The attributes will be represented as bgp community in the path attribute.'
+             description_3='Each attribute is indicated as string.'
+             description_4='    1. String with two integers separated by ":". E.g. "64512:123"'
+             description_5='    2. Well-known community as string.'
+             description_6='       Possible values are "no-export" "accept-own" "no-advertise" "no-export-subconfed" "no-reoriginate"'/>
+</xsd:simpleType>
+
+<xsd:complexType name='CommunityListType'>
+    <xsd:element name='community' type='CommunityAttribute' maxOccurs='unbounded'/>
 </xsd:complexType>
 
 <xsd:complexType name="ActionCommunityType">

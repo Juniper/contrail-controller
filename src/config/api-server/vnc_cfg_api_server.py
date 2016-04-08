@@ -23,6 +23,7 @@ import logging
 import logging.config
 import signal
 import os
+import re
 import socket
 from cfgm_common import jsonutils as json
 import uuid
@@ -214,12 +215,37 @@ class VncApiServer(object):
                 for item in values:
                     cls._validate_complex_type(attr_cls, item)
             else:
+                simple_type = attr_type_vals['simple_type']
                 for item in values:
-                    cls._validate_simple_type(key, attr_type, item, restrictions)
+                    cls._validate_simple_type(key, attr_type,
+                                              simple_type, item, 
+                                              restrictions)
     # end _validate_complex_type
 
     @classmethod
-    def _validate_simple_type(cls, type_name, xsd_type, value, restrictions=None):
+    def _validate_communityattribute_type(cls, value):
+        poss_values = ["no-export",
+                       "accept-own",
+                       "no-advertise",
+                       "no-export-subconfed",
+                       "no-reoriginate"]
+        if value in poss_values:
+            return
+
+        res = re.match('[0-9]+:[0-9]+', value)
+        if res is None:
+            raise ValueError('Invalid community format %s. '
+                             'Change to \'number:number\''
+                              % value)
+
+        asn = value.split(':')
+        if int(asn[0]) > 65535:
+            raise ValueError('Out of range ASN value %s. '
+                             'ASN values cannot exceed 65535.'
+                             % value)
+
+    @classmethod
+    def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
         if value is None:
             return
         elif xsd_type in ('unsignedLong', 'integer'):
@@ -234,6 +260,8 @@ class VncApiServer(object):
             if not isinstance(value, bool):
                 raise ValueError('%s: true/false expected instead of %s' %(
                     type_name, value))
+        elif xsd_type == 'string' and simple_type == 'CommunityAttribute':
+            cls._validate_communityattribute_type(value)
         else:
             if not isinstance(value, basestring):
                 raise ValueError('%s: string value expected instead of %s' %(
@@ -249,6 +277,7 @@ class VncApiServer(object):
             is_simple = not prop_field_types['is_complex']
             prop_type = prop_field_types['xsd_type']
             restrictions = prop_field_types['restrictions']
+            simple_type = prop_field_types['simple_type']
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
@@ -272,8 +301,9 @@ class VncApiServer(object):
                 for elem in prop_value:
                     try:
                         if is_simple:
-                            self._validate_simple_type(prop_name, prop_type,
-                                                       elem, restrictions)
+                            self._validate_simple_type(prop_name, prop_type, 
+                                                       simple_type, elem, 
+                                                       restrictions)
                         else:
                             self._validate_complex_type(prop_cls, elem)
                     except Exception as e:
@@ -1067,13 +1097,14 @@ class VncApiServer(object):
                 return (ok, result)
             obj_ids = result
 
-            if not ok:
-                return (ok, result)
-            self._db_conn.dbe_create(child_type, obj_ids, child_dict)
+            (ok, result) = self._db_conn.dbe_create(child_type, obj_ids, child_dict)
 
             if not ok:
-                # Create is done, log to system, no point in informing user
+                # DB Create failed, log and stop further child creation.
+                err_msg = "DB Create failed creating %s" % child_type
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                return (ok, result)
+
             # recurse down type hierarchy
             self.create_default_children(child_type, child_obj)
     # end create_default_children
