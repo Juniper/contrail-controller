@@ -1771,8 +1771,9 @@ class VncDbClient(object):
         (ok, result) = self._cassandra_db.object_create(
             obj_type, obj_ids['uuid'], obj_dict)
 
-        # publish to ifmap via msgbus
-        self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
+        if ok:
+            # publish to ifmap via msgbus
+            self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
 
         return (ok, result)
     # end dbe_create
