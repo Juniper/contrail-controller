@@ -2423,4 +2423,108 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'discovery-service-assignment', 'dsa-rule', ['has'], 'optional', 'CRUD',
               'Discovery service rule for assigning subscriber to publisher. (set of subscriber) can be assigned to (set of publisher).') -->
 
+<!-- Alarm config -->
+
+<xsd:simpleType name="AlarmOperation">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="=="/>
+        <xsd:enumeration value="!="/>
+        <xsd:enumeration value="&lt;="/>
+        <xsd:enumeration value="&gt;="/>
+        <xsd:enumeration value="in"/>
+        <xsd:enumeration value="not in"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="AlarmOperand1">
+    <xsd:all>
+        <xsd:element name="key" type="xsd:string" required="true"
+            description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmOperand2">
+    <xsd:choice>
+        <xsd:element name="key" type="xsd:string" required="optional"
+            description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
+        <xsd:element name="json_value" type="xsd:string" required="optional"
+            description="string representing a json value. null value is used to check if the AlarmOperand1.key exists using the operator != (or) =="/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmElement">
+    <xsd:all>
+        <xsd:element name="operation" type="AlarmOperation" required="true" description="operation to compare operand1 and operand2"/>
+        <xsd:element name="operand1" type="AlarmOperand1" required="true" description="contains the UVE attribute that needs to be examined"/>
+        <xsd:element name="operand2" type="AlarmOperand2" required="true" description="contains either a UVE attribute or a json value to compare with the UVE attribute in operand1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmRule">
+    <xsd:all>
+        <xsd:element name="rule" type="AlarmElement"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmAllOf">
+    <xsd:all>
+        <xsd:element name="all-of" type="AlarmRule" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmAnyOf">
+    <xsd:all>
+        <xsd:element name="any-of" type="AlarmAllOf" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="AlarmSeverity">
+    <xsd:restriction base="xsd:integer" required="true" description="value 0 denotes highest severity and 7 denotes the lowest severity level">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="7"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="AlarmConfig">
+    <xsd:all>
+        <xsd:element name="enable" type="xsd:boolean" default="true" required="optional" description="Flag to enable/disable alarms"/>
+        <xsd:element name="severity" type="AlarmSeverity" required="optional" description="Process/Raise alarm only if the alarm's severity is less than or equal to this severity level"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="alarm-config" type="AlarmConfig"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-config', 'global-system-config', 'optional', 'CRUD',
+              'Global alarm configuration applicable to all the alarms configured in the system.') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-config', 'project', 'optional', 'CRUD',
+              'Alarm configuration applicable to all the alarms configured under a project.') -->
+
+<xsd:element name="alarm" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-alarm"/>
+<xsd:element name="project-alarm"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-alarm',
+          'global-system-config', 'alarm', ['has'], 'optional', 'CRUD',
+          'Global alarm configuration applicable to all the alarms configured in the system.');
+     Link('project-alarm', 'project', 'alarm', ['has'], 'optional', 'CRUD',
+          'Alarm configuration applicable to all the alarms configured under a project.') -->
+
+<xsd:element name="alarm-object-types" type="xsd:string" maxOccurs="unbounded"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-object-types', 'alarm', 'required', 'CRUD',
+              'List of object types where this alarm config should be applied. For example, rules based on NodeStatus UVE can be applied to multiple object types such as analytics-node, config-node, control-node, etc.,') -->
+<xsd:element name="alarm-type" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-type', 'alarm', 'required', 'CRD',
+              'User defined name to identify the alarm type.') -->
+<xsd:element name="alarm-severity" type="AlarmSeverity"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-severity', 'alarm', 'required', 'CRUD',
+              'Severity level for the alarm.') -->
+<xsd:element name="alarm-rules" type="AlarmAnyOf"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alarm-rules', 'alarm', 'required', 'CRUD',
+              'Rules based on the UVE attributes specified as OR-of-ANDs of AlarmRule template. Example: "alarm_rules": {"any_of": [{"all_of": [{AlarmRule1}, {AlarmRule2}, ...]}, {"all_of": [{AlarmRule3}, {AlarmRule4}, ...]}]}') -->
+
 </xsd:schema>
