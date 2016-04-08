@@ -181,6 +181,10 @@ public:
                   SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG);
     bool HoldTimerExpired();
 
+protected:
+    virtual void OnNotificationMessage(BgpSession *session,
+                                       BgpProto::BgpMessage *msg);
+
 private:
     friend class StateMachineTest;
     friend class StateMachineUnitTest;

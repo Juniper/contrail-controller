@@ -141,7 +141,7 @@ public:
         return manager_.get();
     }
     virtual const int GetGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultGracefulRestartTimeMsecs;
+        return PeerCloseManager::kDefaultGracefulRestartTimeSecs * 1000;
     }
 
     // Mark all current subscription as 'stale'

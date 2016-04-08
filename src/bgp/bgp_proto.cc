@@ -192,6 +192,80 @@ bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
     return result;
 }
 
+BgpProto::OpenMessage::Capability *
+BgpProto::OpenMessage::Capability::LLGR::Encode(uint32_t llgr_time,
+        uint8_t llgr_afi_flags, const vector<Address::Family> &llgr_families) {
+    assert((llgr_time & ~((1 << RestartTimeBitSize) - 1)) == 0);
+    vector<uint8_t> llgr_cap;
+    BOOST_FOREACH(const Address::Family family, llgr_families) {
+        uint16_t afi;
+        uint8_t safi;
+        tie(afi, safi) = BgpAf::FamilyToAfiSafi(family);
+        llgr_cap.push_back(0);
+        llgr_cap.push_back(afi);
+        llgr_cap.push_back(safi);
+        llgr_cap.push_back(llgr_afi_flags);
+        llgr_cap.push_back((llgr_time & 0x00FF0000) >> 16);
+        llgr_cap.push_back((llgr_time & 0x0000FF00) >>  8);
+        llgr_cap.push_back((llgr_time & 0x000000FF) >>  0);
+    }
+    return new Capability(LongLivedGracefulRestart, llgr_cap.data(),
+                          llgr_cap.size());
+}
+
+bool BgpProto::OpenMessage::Capability::LLGR::Decode(LLGR *llgr_params,
+        const vector<Capability *> &capabilities) {
+    llgr_params->Initialize();
+
+    // Find and process all LLGR capabilities. We are expected to receive only
+    // one. Otherwise, the only the last one should be taken into effect.
+    bool result = false;
+    for (vector<Capability *>::const_iterator cap_it = capabilities.begin();
+            cap_it != capabilities.end(); ++cap_it) {
+        if ((*cap_it)->code != LongLivedGracefulRestart)
+            continue;
+        result = true;
+        llgr_params->Initialize();
+
+        uint8_t *data = (*cap_it)->capability.data();
+        size_t offset = 0;
+        uint32_t max_time = 0;
+        while (offset < (*cap_it)->capability.size()) {
+            uint16_t afi = get_value(data + offset, 2);
+            uint8_t safi = get_value(data + offset + 2, 1);
+            uint8_t flags = get_value(data + offset + 3, 1);
+            uint32_t time = get_value(data + offset + 4, 3);
+            llgr_params->families.push_back(Family(afi, safi, flags, time));
+
+            if (time > max_time)
+                max_time = time;
+            offset += 7;
+        }
+        llgr_params->time = max_time;
+    }
+    return result;
+}
+
+void BgpProto::OpenMessage::Capability::LLGR::GetFamilies(
+        const LLGR &llgr_params, vector<string> *families) {
+    families->clear();
+    BOOST_FOREACH(Capability::LLGR::Family llgr_family, llgr_params.families) {
+        Address::Family family =
+            BgpAf::AfiSafiToFamily(llgr_family.afi, llgr_family.safi);
+        if (family == Address::UNSPEC) {
+            families->push_back(BgpAf::ToString(llgr_family.afi,
+                                                llgr_family.safi));
+        } else {
+            families->push_back(Address::FamilyToString(family));
+        }
+    }
+
+    // Keep the list sorted and unique.
+    sort(families->begin(), families->end());
+    families->erase(unique(families->begin(), families->end()),
+                    families->end() );
+}
+
 const string BgpProto::OpenMessage::ToString() const {
     std::ostringstream os;
 
@@ -233,6 +307,17 @@ const string BgpProto::OpenMessage::ToString() const {
                 os << ", GR_family " <<
                     BgpAf::AfiSafiToFamily(family.afi, family.safi);
                 os << ", GR_family_flags 0x" << std::hex << family.flags;
+            }
+        }
+
+        Capability::LLGR llgr_params = Capability::LLGR();
+        if (Capability::LLGR::Decode(&llgr_params, param->capabilities)) {
+            BOOST_FOREACH(Capability::LLGR::Family family,
+                          llgr_params.families) {
+                os << ", LLGR_family " <<
+                    BgpAf::AfiSafiToFamily(family.afi, family.safi);
+                os << ", LLGR_family_flags 0x" << std::hex << family.flags;
+                os << ", LLGR_Time 0x" << std::hex << family.time << " Seconds";
             }
         }
     }

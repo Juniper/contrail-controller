@@ -2568,7 +2568,7 @@ protected:
 
 // Old State: Established
 // Event:     EvTcpPassiveOpen
-// New State: Established
+// New State: Idle
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
@@ -2580,7 +2580,7 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
 
 // Old State: Established
 // Event:     EvTcpPassiveOpen + EvBgpOpen (on passive session)
-// New State: Established
+// New State: Idle
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();

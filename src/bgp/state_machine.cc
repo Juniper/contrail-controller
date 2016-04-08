@@ -1444,6 +1444,15 @@ bool StateMachine::PassiveOpen(BgpSession *session) {
     return true;
 }
 
+void StateMachine::OnNotificationMessage(BgpSession *session,
+                                         BgpProto::BgpMessage *msg) {
+    BgpPeer *peer = session->peer();
+    if (peer)
+        peer->inc_rx_notification();
+    Enqueue(fsm::EvBgpNotification(session,
+            static_cast<BgpProto::Notification *>(msg)));
+}
+
 //
 // Handle incoming message on the session.
 //
@@ -1471,11 +1480,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
         break;
     }
     case BgpProto::NOTIFICATION: {
-        BgpPeer *peer = session->peer();
-        if (peer)
-            peer->inc_rx_notification();
-        Enqueue(fsm::EvBgpNotification(session,
-                static_cast<BgpProto::Notification *>(msg)));
+        OnNotificationMessage(session, msg);
         msg = NULL;
         break;
     }
