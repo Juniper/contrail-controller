@@ -394,10 +394,12 @@ protected:
         sm_->Shutdown(BgpProto::Notification::AdminShutdown);
     }
     void EvAdminUp() {
+        ConcurrencyScope scope("bgp::Config");
         peer_->SetAdminState(false);
         sm_->set_idle_hold_time(1);
     }
     void EvAdminDown() {
+        ConcurrencyScope scope("bgp::Config");
         peer_->SetAdminState(true);
         sm_->set_idle_hold_time(1);
     }

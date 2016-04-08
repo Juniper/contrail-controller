@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-
+#include "base/task_annotations.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer_membership.h"
@@ -1224,6 +1224,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
 }
 
 TEST_F(BgpServerUnitTest, AdminDown) {
+    ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -1867,6 +1868,7 @@ TEST_F(BgpServerUnitTest, Passive2) {
 }
 
 TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
+    ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
     StateMachineTest::set_keepalive_time_msecs(10);
@@ -2650,6 +2652,7 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
 }
 
 TEST_F(BgpServerUnitTest, CloseInProgress) {
+    ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2702,6 +2705,7 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
 }
 
 TEST_F(BgpServerUnitTest, CloseDeferred) {
+    ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
     vector<string> families_a;

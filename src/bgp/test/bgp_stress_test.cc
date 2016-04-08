@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 
+#include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_config_parser.h"
@@ -2103,6 +2104,7 @@ void BgpStressTest::DeleteBgpPeers(int npeers) {
 }
 
 void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
+    ConcurrencyScope scope("bgp::Config");
     map<int, bool> established;
     map<int, uint32_t> flap_count;
 

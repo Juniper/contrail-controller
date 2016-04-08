@@ -1137,11 +1137,12 @@ void StateMachine::SetAdminState(bool down) {
     if (down) {
         Enqueue(fsm::EvStop(BgpProto::Notification::AdminShutdown));
     } else {
+        // Reset all previous state.
         reset_idle_hold_time();
-        peer_->reset_flap_count();
-        // On fresh restart of state machine, all previous state should be reset
         reset_last_info();
-        Enqueue(fsm::EvStart());
+        peer_->reset_flap_count();
+        if (!peer_->IsCloseInProgress())
+            Enqueue(fsm::EvStart());
     }
 }
 
