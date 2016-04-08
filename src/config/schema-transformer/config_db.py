@@ -1273,6 +1273,17 @@ class VirtualNetworkST(DBBaseST):
         ]
         return resp
     # end handle_st_object_req
+
+    def get_gateways(self, ip_version):
+        gateways = []
+        for ipam in self.ipams.values():
+            for ipam_subnet in ipam.ipam_subnets:
+                gateway = ipam_subnet.subnet.default_gateway
+                network = IPNetwork(gateway)
+                if network.version == ip_version:
+                    gateways.append(gateway)
+        return gateways
+    # end get_gateways
 # end class VirtualNetworkST
 
 
@@ -2863,6 +2874,17 @@ class BgpRouterST(DBBaseST):
         if params.identifier != ip:
             params.identifier = ip
             update = True
+        if not bgpaas.obj.bgpaas_suppress_route_advertisement:
+            v4_gateway = vmi.get_v4_default_gateway()
+            if params.gateway_address != v4_gateway:
+                params.gateway_address = v4_gateway
+                update = True
+            v6_gateway = vmi.get_v6_default_gateway()
+            if bgpaas.obj.bgpaas_ipv4_mapped_ipv6_nexthop:
+                v6_gateway = vmi.get_ipv4_mapped_ipv6_address()
+            if params.gateway_address != v6_gateway:
+                params.gateway_address = v6_gateway
+                update = True
         if update:
             self.obj.set_bgp_router_parameters(params)
         router_refs = self.obj.get_bgp_router_refs()
@@ -3338,6 +3360,28 @@ class VirtualMachineInterfaceST(DBBaseST):
         ]
         return resp
     # end handle_st_object_req
+
+    def get_v4_default_gateway(self):
+        v4_address = self.get_primary_instance_ip_address(ip_version=4)
+        vn = VirtualNetworkST.get(self.virtual_network)
+        for gateway in vn.get_gateways(ip_version=4) :
+            if (v4_address and IPNetwork(v4_address) == IPNetwork(gateway)):
+                return gateway
+        return None
+    # end get_v4_default_gateway
+
+    def get_v6_default_gateway(self):
+        v6_address = self.get_primary_instance_ip_address(ip_version=6)
+        vn = VirtualNetworkST.get(self.virtual_network)
+        for gateway in vn.get_gateways(ip_version=6) :
+            if (v6_address and IPNetwork(v6_address) == IPNetwork(gateway)):
+                return gateway
+        return None
+    # end get_v6_default_gateway
+
+    def get_ipv4_mapped_ipv6_address(self):
+        pass
+    # end get_ipv4_mapped_ipv6_address
 # end VirtualMachineInterfaceST
 
 
