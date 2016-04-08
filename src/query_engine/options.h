@@ -43,6 +43,7 @@ public:
     const std::string syslog_facility() const { return syslog_facility_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
     const bool test_mode() const { return test_mode_; }
+    const uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
 
 private:
 
@@ -86,6 +87,7 @@ private:
     int max_slice_;
     bool test_mode_;
     int analytics_data_ttl_;
+    uint32_t send_ratelimit_;
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> collector_server_list_;
 

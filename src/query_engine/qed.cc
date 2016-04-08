@@ -226,6 +226,7 @@ main(int argc, char *argv[]) {
             options.hostname(), module_name,
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
+    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success(Sandesh::InitGenerator(
             module_name,
             options.hostname(),
