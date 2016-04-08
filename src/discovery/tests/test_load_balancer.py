@@ -37,7 +37,7 @@ def validate_assignment_count(response, context):
 class DiscoveryServerTestCase(test_case.DsTestCase):
     def setUp(self):
         extra_config_knobs = [
-            ('SvcActiveLoadBalance', 'load-balance', 'True'),
+            ('SvcActiveLoadBalance', 'policy', 'dynamic-load-balance'),
         ]
         super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
 
@@ -213,7 +213,7 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         # set operational state down - new service
         payload = {
             'service-type' : '%s' % service_type,
-            'oper-state'   : 'down',
+            'admin-state'   : 'down',
         }
         (code, msg) = self._http_put(pub_url, json.dumps(payload))
         self.assertEqual(code, 200)
@@ -231,7 +231,7 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         # set operational state up - again
         payload = {
             'service-type' : '%s' % service_type,
-            'oper-state'   : 'up',
+            'admin-state'   : 'up',
         }
         (code, msg) = self._http_put(pub_url, json.dumps(payload))
         self.assertEqual(code, 200)
