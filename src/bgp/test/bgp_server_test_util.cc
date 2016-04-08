@@ -6,6 +6,7 @@
 
 #include <boost/foreach.hpp>
 
+#include "base/task_annotations.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
@@ -138,6 +139,7 @@ BgpPeer *BgpServerTest::FindMatchingPeer(const string &routing_instance,
 }
 
 void BgpServerTest::DisableAllPeers() {
+    ConcurrencyScope scope("bgp::Config");
     for (BgpPeerList::iterator it = peer_list_.begin();
          it != peer_list_.end(); ++it) {
         it->second->SetAdminState(true);
@@ -145,6 +147,7 @@ void BgpServerTest::DisableAllPeers() {
 }
 
 void BgpServerTest::EnableAllPeers() {
+    ConcurrencyScope scope("bgp::Config");
     for (BgpPeerList::iterator it = peer_list_.begin();
          it != peer_list_.end(); ++it) {
         it->second->SetAdminState(false);
