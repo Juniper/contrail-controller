@@ -131,7 +131,7 @@ private:
 class StateMachineTest : public StateMachine {
 public:
     explicit StateMachineTest(BgpPeer *peer)
-        : StateMachine(peer) {
+        : StateMachine(peer), skip_bgp_notification_msg_(false) {
     }
     virtual ~StateMachineTest() { }
 
@@ -179,7 +179,7 @@ public:
         keepalive_time_msecs_ = keepalive_time_msecs;
     }
 
-    static TcpSession::Event get_skip_tcp_event() { return skip_tcp_event_; }
+    static TcpSession::Event skip_tcp_event() { return skip_tcp_event_; }
     static void set_skip_tcp_event(TcpSession::Event event) {
         skip_tcp_event_ = event;
     }
@@ -191,10 +191,29 @@ public:
             skip_tcp_event_ = TcpSession::EVENT_NONE;
     }
 
+    virtual void OnNotificationMessage(BgpSession *session,
+                                       BgpProto::BgpMessage *msg) {
+        if (!skip_bgp_notification_msg_) {
+            StateMachine::OnNotificationMessage(session, msg);
+        } else {
+            skip_bgp_notification_msg_ = false;
+            delete msg;
+        }
+    }
+
+    bool skip_bgp_notification_msg() const {
+        return skip_bgp_notification_msg_;
+    }
+
+    void set_skip_bgp_notification_msg(bool flag) {
+        skip_bgp_notification_msg_ = flag;
+    }
+
 private:
     static int hold_time_msecs_;
     static int keepalive_time_msecs_;
     static TcpSession::Event skip_tcp_event_;
+    bool skip_bgp_notification_msg_;
 };
 
 class BgpServerTest : public BgpServer {

@@ -143,6 +143,42 @@ public:
                 std::vector<Family> families;
             };
 
+            struct LLGR {
+                enum {
+                    ForwardingStatePreserved = 0x80,
+                    RestartTimeBitSize = 24,
+                };
+                explicit LLGR() { Initialize(); }
+                void Initialize() {
+                    time = 0;
+                    families.clear();
+                }
+                struct Family {
+                    Family(uint16_t afi, uint8_t safi, uint8_t flags,
+                           uint32_t time) :
+                            afi(afi), safi(safi), flags(flags), time(time) {
+                    }
+                    uint16_t afi;
+                    uint8_t  safi;
+                    uint8_t  flags;
+                    uint32_t time; // 24 bits only
+
+                    bool forwarding_state_preserved() const {
+                        return (flags & ForwardingStatePreserved) != 0;
+                    }
+                };
+
+                static Capability *Encode(uint32_t llgr_time,
+                        uint8_t llgr_afi_flags,
+                        const std::vector<Address::Family> &llgr_families);
+                static bool Decode(LLGR *llgr_params,
+                        const std::vector<Capability *> &capabilities);
+                static void GetFamilies(const LLGR &llgr_params,
+                                        std::vector<std::string> *families);
+                uint32_t time;
+                std::vector<Family> families;
+            };
+
             int code;
             std::vector<uint8_t> capability;
         };

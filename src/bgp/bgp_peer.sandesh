@@ -88,6 +88,7 @@ struct BgpNeighborResp {
     38: optional list<string> configured_address_families;
     39: optional list<string> negotiated_address_families;
     56: optional list<string> graceful_restart_address_families;
+    57: optional list<string> long_lived_graceful_restart_address_families;
     49: optional list<ShowBgpNeighborFamily> family_attributes_list;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;
@@ -624,6 +625,7 @@ struct BgpPeerInfoData {
    14: optional list<string> families;
    22: optional list<string> negotiated_families;
    28: optional list<string> graceful_restart_families;
+   29: optional list<string> long_lived_graceful_restart_families;
    15: optional peer_info.PeerFlapInfo flap_info;
    16: optional peer_info.PeerStateInfo state_info;
    17: optional peer_info.PeerEventInfo event_info;
