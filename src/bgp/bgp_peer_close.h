@@ -38,8 +38,10 @@ public:
     enum State { NONE, STALE, GR_TIMER, SWEEP, DELETE };
 
     // RestartTime field in BGP GR capability is only 12 bits wide.
-    static const int kDefaultGracefulRestartTimeMsecs = 1000 *
-       (1 << BgpProto::OpenMessage::Capability::GR::RestartTimeBitPosition) - 1;
+    static const int kDefaultGracefulRestartTimeSecs =
+       ((1 << BgpProto::OpenMessage::Capability::GR::RestartTimeBitPosition)-1);
+    static const int kDefaultLongLivedGracefulRestartTimeSecs =
+       ((1 << BgpProto::OpenMessage::Capability::LLGR::RestartTimeBitSize) - 1);
 
     // thread: bgp::StateMachine
     explicit PeerCloseManager(IPeer *peer);
