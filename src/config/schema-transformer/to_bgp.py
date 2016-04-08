@@ -3205,6 +3205,8 @@ class SchemaTransformer(object):
         rt_list = RouteTargetList()
         rt_list.build(meta)
         vn = VirtualNetworkST.locate(vn_name)
+        if vn is None:
+            return
         vn.set_route_target_list(rt_list)
         self.current_network_set.add(vn_name)
     # end add_route_target_list
