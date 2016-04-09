@@ -139,6 +139,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Profile",
         "Agent::PktHandler",
         kTaskHealthCheck,
+        kTaskDBExclude,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
