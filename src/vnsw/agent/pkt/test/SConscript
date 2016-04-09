@@ -43,6 +43,13 @@ test_sg_flowv6 = AgentEnv.MakeTestCmd(env, 'test_sg_flowv6', pkt_test_suite)
 test_sg_tcp_flow = AgentEnv.MakeTestCmd(env, 'test_sg_tcp_flow', pkt_flaky_test_suite)
 test_vrf_assign_acl = AgentEnv.MakeTestCmd(env, 'test_vrf_assign_acl',
                                            pkt_flaky_test_suite)
+test_ecmp_mx = AgentEnv.MakeTestCmd(env, 'test_ecmp_mx', pkt_test_suite)
+test_fip_dst_ecmp = AgentEnv.MakeTestCmd(env, 'test_fip_dst_ecmp',
+                                         pkt_test_suite)
+test_fip_src_ecmp = AgentEnv.MakeTestCmd(env, 'test_fip_src_ecmp',
+                                         pkt_test_suite)
+test_ecmp_local = AgentEnv.MakeTestCmd(env, 'test_ecmp_local',
+                                       pkt_test_suite)
 
 test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
                                                 [
