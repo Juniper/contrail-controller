@@ -883,6 +883,11 @@ public:
     bool test_mode() const { return test_mode_; }
     void set_test_mode(bool test_mode) { test_mode_ = test_mode; }
 
+    bool xmpp_dns_test_mode() const { return xmpp_dns_test_mode_; }
+    void set_xmpp_dns_test_mode(bool xmpp_dns_test_mode) {
+        xmpp_dns_test_mode_ = xmpp_dns_test_mode;
+    }
+
     uint32_t flow_table_size() const { return flow_table_size_; }
     void set_flow_table_size(uint32_t count);
 
@@ -1142,6 +1147,7 @@ private:
     process::ConnectionState* connection_state_;
     bool debug_;
     bool test_mode_;
+    bool xmpp_dns_test_mode_;
     bool init_done_;
     bool simulate_evpn_tor_;
     bool tsn_enabled_;
