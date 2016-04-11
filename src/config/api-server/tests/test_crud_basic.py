@@ -2366,10 +2366,10 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_ff_proto = rd_vmi_obj.virtual_machine_interface_fat_flow_protocols
         self.assertIsNone(rd_ff_proto)
-        cols = uuid_cf.get(vmi_obj.uuid,
-            column_start='propl:virtual_machine_interface_fat_flow_protocols:',
-            column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
-        self.assertEqual(len(cols), 0)
+        with ExpectedException(pycassa.NotFoundException) as e:
+            cols = uuid_cf.get(vmi_obj.uuid,
+                    column_start='propl:virtual_machine_interface_fat_flow_protocols:',
+                    column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
     # end test_set_in_object
 
     def test_add_del_in_object(self):
@@ -2777,10 +2777,10 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
         self.assertIsNone(rd_bindings)
-        cols = uuid_cf.get(vmi_obj.uuid,
-            column_start='propm:virtual_machine_interface_bindings:',
-            column_finish='propm:virtual_machine_interface_bindings;')
-        self.assertEqual(len(cols), 0)
+        with ExpectedException(pycassa.NotFoundException) as e:
+            cols = uuid_cf.get(vmi_obj.uuid,
+                    column_start='propm:virtual_machine_interface_bindings:',
+                    column_finish='propm:virtual_machine_interface_bindings;')
     # end test_set_in_object
 
     def test_element_add_del_in_object(self):
