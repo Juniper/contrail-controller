@@ -980,6 +980,7 @@ private:
 class FlowMgmtManager {
 public:
     static const std::string kFlowMgmtTask;
+    typedef WorkQueue<boost::shared_ptr<FlowMgmtRequest> > FlowMgmtQueue;
     struct FlowEntryInfo {
         FlowMgmtKeyTree tree_;
         uint32_t count_; // Number of times tree modified
@@ -1040,6 +1041,7 @@ public:
         return flow_mgmt_dbclient_.get();
     }
 
+    const FlowMgmtQueue *request_queue() const { return &request_queue_; }
     void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
@@ -1087,7 +1089,7 @@ private:
     FlowEntryTree flow_tree_;
     boost::scoped_ptr<BgpAsAServiceFlowMgmtTree> bgp_as_a_service_flow_mgmt_tree_[MAX_XMPP_SERVERS];
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
-    WorkQueue<boost::shared_ptr<FlowMgmtRequest> > request_queue_;
+    FlowMgmtQueue request_queue_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
 };
 
