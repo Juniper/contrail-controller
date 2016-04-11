@@ -65,6 +65,8 @@ class CqlIf : public GenDb::GenDbIf {
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
+    virtual bool Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) const;
     virtual void Db_GetCqlMetrics(Metrics *metrics) const;
     virtual void Db_GetCqlStats(cass::cql::DbStats *db_stats) const;
     // Connection
@@ -91,7 +93,7 @@ class CqlIf : public GenDb::GenDbIf {
     CqlIfImpl *impl_;
     tbb::atomic<bool> initialized_;
     std::vector<GenDb::Endpoint> endpoints_;
-    tbb::mutex stats_mutex_;
+    mutable tbb::mutex stats_mutex_;
     GenDb::GenDbIfStats stats_;
     bool use_prepared_for_insert_;
 };
