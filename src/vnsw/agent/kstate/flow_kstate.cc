@@ -154,6 +154,8 @@ const std::string FlowKState::DropCodeToStr(uint8_t drop_code) const {
         return "RevSG";
     case VR_FLOW_DR_REVERSE_OUT_SG:
         return "RevOutSG";
+    case VR_FLOW_DR_SAME_FLOW_RFLOW_KEY:
+        return "SameFlowRflowKey";
     default:
         return "Unknown";
     }
