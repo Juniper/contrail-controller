@@ -87,7 +87,7 @@ class LoadbalancerListenerSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('loadbalancer', {})
-        obj.update_single_ref('loadbalancer_listener', {})
+        obj.update_single_ref('loadbalancer_pool', {})
         del cls._dict[uuid]
     # end delete
 # end class LoadbalancerListenerSM
