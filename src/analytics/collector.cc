@@ -739,3 +739,8 @@ void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
 }
+
+void Collector::GetDbCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
+    db_handler_->GetCumulativeStats(vdbti, dbe, vstats_dbti);
+}

@@ -429,6 +429,15 @@ bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
     return dbif_->Db_GetStats(vdbti, dbe);
 }
 
+bool DbHandler::GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+    GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.GetCumulative(vstats_dbti);
+    }
+    return dbif_->Db_GetCumulativeStats(vdbti, dbe);
+}
+
 bool DbHandler::GetCqlMetrics(cass::cql::Metrics *metrics) const {
     if (!UseCql()) {
         return false;

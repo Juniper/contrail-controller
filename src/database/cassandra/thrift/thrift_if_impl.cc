@@ -1669,6 +1669,13 @@ bool ThriftIfImpl::Db_GetStats(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
     return true;
 }
 
+bool ThriftIfImpl::Db_GetCumulativeStats(std::vector<DbTableInfo> *vdbti,
+    DbErrors *dbe) {
+    tbb::mutex::scoped_lock lock(smutex_);
+    stats_.GetCumulative(vdbti, dbe);
+    return true;
+}
+
 void ThriftIfImpl::UpdateCfWriteStats(const std::string &cf_name) {
     tbb::mutex::scoped_lock lock(smutex_);
     stats_.IncrementTableWrite(cf_name);
