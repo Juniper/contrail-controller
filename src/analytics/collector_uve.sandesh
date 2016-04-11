@@ -171,6 +171,9 @@ response sandesh ShowCollectorServerResp {
     4: list<GeneratorSummaryInfo>          generators
     5: CollectorStats                      stats
     6: optional cql.Metrics                cql_metrics
+    7: optional list<gendb.DbTableInfo>    table_info
+    8: optional gendb.DbErrors             errors
+    9: optional list<gendb.DbTableInfo>    statistics_table_info
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this
