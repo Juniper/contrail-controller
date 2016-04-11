@@ -65,6 +65,9 @@ public:
     OpServerProxy *GetOsp() const {
         return osp_.get();
     }
+    DbHandlerPtr GetDbHandler() const {
+        return db_initializer_->GetDbHandler();
+    }
     bool SendRemote(const std::string& destination, const std::string& dec_sandesh);
     void RedisUpdate(bool rsc) {
         collector_->RedisUpdate(rsc);

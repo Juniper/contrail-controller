@@ -137,6 +137,7 @@ public:
 
     std::string DbGlobalName(bool dup=false);
     bool UseGlobalDbHandler() const { return use_global_db_handler_; }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
