@@ -123,7 +123,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 6;
+    int argc = 7;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/contrail-dns.conf";
@@ -131,13 +131,14 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     char argv_3[] = "--DEFAULT.rndc_config_file=test.rndc";
     char argv_4[] = "--DEFAULT.rndc_secret=secret123";
     char argv_5[] = "--DEFAULT.log_property_file=log4cplus.prop";
-    char argv_5[] = "--DEFAULT.sandesh_send_rate_limit=5";
+    char argv_6[] = "--DEFAULT.sandesh_send_rate_limit=5";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
     argv[4] = argv_4;
     argv[5] = argv_5;
+    argv[6] = argv_6;
 
     options_.Parse(evm_, argc, argv);
 
