@@ -141,7 +141,10 @@ public:
         return manager_.get();
     }
     virtual const int GetGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultGracefulRestartTimeSecs * 1000;
+        return PeerCloseManager::kDefaultGracefulRestartTimeSecs;
+    }
+    virtual const int GetLongLivedGracefulRestartTime() const {
+        return PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
     }
 
     // Mark all current subscription as 'stale'
@@ -158,7 +161,7 @@ public:
             parent_->SweepCurrentSubscriptions();
     }
 
-    virtual bool IsCloseGraceful() {
+    virtual bool IsCloseGraceful() const {
         if (!parent_ || !parent_->channel_)
             return false;
 
@@ -171,6 +174,8 @@ public:
         return static_cast<XmppServer *>(
             connection->server())->IsPeerCloseGraceful();
     }
+
+    virtual bool IsCloseLongLivedGraceful() const { return IsCloseGraceful(); }
 
     // EoR from xmpp is afi independent at the moment.
     virtual void GetGracefulRestartFamilies(Families *families) const {

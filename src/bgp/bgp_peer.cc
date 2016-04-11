@@ -56,16 +56,23 @@ class BgpPeer::PeerClose : public IPeerClose {
     void Close() {
 
         // Process closure through close manager only if this is a flip.
-        if (manager_->state() != PeerCloseManager::GR_TIMER ||
+        if ((manager_->state() != PeerCloseManager::GR_TIMER &&
+             manager_->state() != PeerCloseManager::LLGR_TIMER) ||
             peer_->state_machine()->get_state() == StateMachine::ESTABLISHED) {
             manager_->Close();
+            return;
+        }
+
+        if (peer_->IsDeleted()) {
+            peer_->RetryDelete();
         } else {
-            Delete();
+            CloseComplete();
         }
     }
 
     virtual void Delete() {
         peer_->gr_params().Initialize();
+        peer_->llgr_params().Initialize();
         peer_->graceful_restart_families().clear();
         peer_->long_lived_graceful_restart_families().clear();
         if (peer_->IsDeleted()) {
@@ -75,14 +82,17 @@ class BgpPeer::PeerClose : public IPeerClose {
         }
     }
 
+    // Return the time to wait for, in seconds to exit GR_TIMER state.
     virtual const int GetGracefulRestartTime() const {
-        int time = peer_->gr_params_.time * 1000;
-        time += peer_->llgr_params_.time * 1000;
-
-        return time;
+        return  peer_->gr_params_.time;
     }
 
-    bool IsGRReady() {
+    // Return the time to wait for, in seconds to exit LLGR_TIMER state.
+    virtual const int GetLongLivedGracefulRestartTime() const {
+        return peer_->llgr_params_.time;
+    }
+
+    bool IsGRReady() const {
         // Check if GR is supported by the peer.
         if (peer_->gr_params().families.empty())
             return false;
@@ -115,12 +125,25 @@ class BgpPeer::PeerClose : public IPeerClose {
 
     // If the peer is deleted or administratively held down, do not attempt
     // graceful restart
-    virtual bool IsCloseGraceful() {
+    virtual bool IsCloseGraceful() const {
         if (peer_->IsDeleted() || peer_->IsAdminDown())
             return false;
         if (peer_->server()->IsDeleted())
             return false;
         if (!IsGRReady())
+            return false;
+        return true;
+    }
+
+    // Check if we need to trigger Long Lived Graceful Restart. In addition to
+    // normal GR checks, we also need to check LLGR capability was negotiated
+    // and non-zero restart time was inferred.
+    virtual bool IsCloseLongLivedGraceful() const {
+        if (!IsCloseGraceful())
+            return false;
+        if (peer_->llgr_params().families.empty())
+            return false;
+        if (!peer_->llgr_params().time)
             return false;
         return true;
     }
@@ -1198,8 +1221,9 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     // If GR is no longer supported, terminate GR right away. This can happen
     // due to mis-match between gr and llgr afis. For now, we expect an
     // identical set.
-    if (peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER &&
-            !peer_close_->IsGRReady()) {
+    if ((peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER ||
+         peer_close_->close_manager()->state() == PeerCloseManager::LLGR_TIMER)
+            && !peer_close_->IsGRReady()) {
         Close();
         return false;
     }
