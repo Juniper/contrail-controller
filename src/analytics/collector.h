@@ -137,6 +137,9 @@ public:
 
     std::string DbGlobalName(bool dup=false);
     bool UseGlobalDbHandler() const { return use_global_db_handler_; }
+    void GetDbCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);

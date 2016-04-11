@@ -140,6 +140,8 @@ public:
     bool GetStats(uint64_t *queue_count, uint64_t *enqueues) const;
     bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
+    bool GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
     void GetSandeshStats(std::string *drop_level,
         std::vector<SandeshStats> *vdropmstats) const;
     bool GetCqlMetrics(cass::cql::Metrics *metrics) const;
@@ -180,6 +182,7 @@ private:
     SandeshLevel::type drop_level_;
     VizMsgStatistics dropped_msg_stats_;
     GenDb::DbTableStatistics stable_stats_;
+    GenDb::DbTableStatistics cumulative_stable_stats_;
     mutable tbb::mutex smutex_;
     TtlMap ttl_map_;
     static uint32_t field_cache_t2_;

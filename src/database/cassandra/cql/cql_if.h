@@ -63,6 +63,8 @@ class CqlIf : public GenDb::GenDbIf {
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
+    virtual bool Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe);
     virtual void Db_GetCqlMetrics(Metrics *metrics) const;
     virtual void Db_GetCqlStats(cass::cql::DbStats *db_stats) const;
     // Connection

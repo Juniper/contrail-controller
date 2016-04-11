@@ -16,8 +16,9 @@ class DbTableStatistics {
     }
     void Update(const std::string &table_name, bool write, bool fail,
         uint64_t num);
-    void Get(std::vector<GenDb::DbTableInfo> *vdbti) const;
+    void Get(std::vector<GenDb::DbTableInfo> *vdbti, bool UseCumulativeMap) const;
     void GetDiffs(std::vector<GenDb::DbTableInfo> *vdbti);
+    void GetCumulative(std::vector<GenDb::DbTableInfo> *vdbti);
 
  private:
     struct TableStats {
@@ -39,6 +40,8 @@ class DbTableStatistics {
 
     typedef boost::ptr_map<const std::string, TableStats> TableStatsMap;
     TableStatsMap table_stats_map_;
+    // cumulative stats for introspect purpose
+    TableStatsMap table_stats_cumulative_map_;
 };
 
 class IfErrors {
@@ -64,6 +67,7 @@ class IfErrors {
     };
     void Get(GenDb::DbErrors *dbe) const;
     void GetDiffs(GenDb::DbErrors *dbe);
+    void GetCumulative(GenDb::DbErrors *dbe);
     void Clear();
     void Increment(Type type);
 
@@ -98,8 +102,8 @@ class GenDbIfStats {
     void IncrementTableRead(const std::string &table_name, uint64_t num_reads);
     void IncrementTableReadFail(const std::string &table_name);
     void IncrementTableReadFail(const std::string &table_name, uint64_t num_reads);
-    void Get(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe) const;
     void GetDiffs(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe);
+    void GetCumulative(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe);
 
  private:
     void IncrementTableStatsInternal(const std::string &table_name, bool write,

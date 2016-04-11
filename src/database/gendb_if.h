@@ -227,6 +227,8 @@ public:
     // Stats
     virtual bool Db_GetStats(std::vector<DbTableInfo> *vdbti,
         DbErrors *dbe) = 0;
+    virtual bool Db_GetCumulativeStats(std::vector<DbTableInfo> *vdbti,
+        DbErrors *dbe) = 0;
     // Connection
     virtual std::vector<Endpoint> Db_GetEndpoints() const = 0;
 };

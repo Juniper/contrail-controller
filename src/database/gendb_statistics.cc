@@ -41,11 +41,25 @@ void DbTableStatistics::Update(const std::string &table_name,
     }
     TableStats *table_stats = it->second;
     table_stats->Update(write, fail, num);
+    // Update cumulative table stats as well
+    it = table_stats_cumulative_map_.find(table_name);
+    if (it == table_stats_cumulative_map_.end()) {
+        it = (table_stats_cumulative_map_.insert(table_name, new TableStats)).first;
+    }
+    table_stats = it->second;
+    table_stats->Update(write, fail, num);
 }
 
-void DbTableStatistics::Get(std::vector<GenDb::DbTableInfo> *vdbti) const {
-    for (TableStatsMap::const_iterator it = table_stats_map_.begin();
-         it != table_stats_map_.end(); it++) {
+void DbTableStatistics::Get(std::vector<GenDb::DbTableInfo> *vdbti,
+    bool UseCumulativeMap) const {
+    TableStatsMap stats_map;
+    if (UseCumulativeMap) {
+        stats_map = table_stats_cumulative_map_ ;
+    } else {
+        stats_map = table_stats_map_;
+    }
+    for (TableStatsMap::const_iterator it = stats_map.begin();
+         it != stats_map.end(); it++) {
         const TableStats *table_stats(it->second);
         GenDb::DbTableInfo dbti;
         table_stats->Get(it->first, &dbti);
@@ -54,8 +68,12 @@ void DbTableStatistics::Get(std::vector<GenDb::DbTableInfo> *vdbti) const {
 }
 
 void DbTableStatistics::GetDiffs(std::vector<GenDb::DbTableInfo> *vdbti) {
-    Get(vdbti);
+    Get(vdbti, false);
     table_stats_map_.clear();
+}
+
+void DbTableStatistics::GetCumulative(std::vector<GenDb::DbTableInfo> *vdbti) {
+    Get(vdbti, true);
 }
 
 // IfErrors
@@ -83,6 +101,11 @@ void IfErrors::GetDiffs(DbErrors *db_errors) {
     Get(db_errors);
     Clear();
 }
+
+void IfErrors::GetCumulative(DbErrors *db_errors) {
+    Get(db_errors);
+}
+
 
 void IfErrors::Increment(IfErrors::Type type) {
     switch (type) {
@@ -187,11 +210,11 @@ void GenDbIfStats::GetDiffs(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
     errors_.GetDiffs(dbe);
 }
 
-void GenDbIfStats::Get(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) const {
-    // Get cfstats
-    table_stats_.Get(vdbti);
-    // Get errors
-    errors_.Get(dbe);
+void GenDbIfStats::GetCumulative(std::vector<DbTableInfo> *vdbti, DbErrors *dbe) {
+    // Get cumulative cfstats
+    table_stats_.GetCumulative(vdbti);
+    // Get cumulative errors
+    errors_.GetCumulative(dbe);
 }
 
 }  // namespace GenDb
