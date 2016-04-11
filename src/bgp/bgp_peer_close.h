@@ -35,13 +35,13 @@ class BgpTable;
 //
 class PeerCloseManager {
 public:
-    enum State { NONE, STALE, GR_TIMER, SWEEP, DELETE };
+    enum State { NONE, STALE, GR_TIMER, LLGR_STALE, LLGR_TIMER, SWEEP, DELETE };
 
-    // RestartTime field in BGP GR capability is only 12 bits wide.
-    static const int kDefaultGracefulRestartTimeSecs =
-       ((1 << BgpProto::OpenMessage::Capability::GR::RestartTimeBitPosition)-1);
-    static const int kDefaultLongLivedGracefulRestartTimeSecs =
-       ((1 << BgpProto::OpenMessage::Capability::LLGR::RestartTimeBitSize) - 1);
+    // Use 5 minutes as the default GR timer expiry duration.
+    static const int kDefaultGracefulRestartTimeSecs = 5 * 60;
+
+    // Use 12 hours as the default LLGR timer expiry duration.
+    static const int kDefaultLongLivedGracefulRestartTimeSecs = 12 * 60 * 60;
 
     // thread: bgp::StateMachine
     explicit PeerCloseManager(IPeer *peer);
@@ -55,7 +55,8 @@ public:
     int GetCloseAction(IPeerRib *peer_rib, State state);
     void ProcessRibIn(DBTablePartBase *root, BgpRoute *rt, BgpTable *table,
                       int action_mask);
-    bool IsCloseInProgress();
+    bool IsCloseInProgress() const;
+    bool IsInGracefulRestartTimerWait() const;
     void ProcessEORMarkerReceived(Address::Family family);
     void FillCloseInfo(BgpNeighborResp *resp);
     const State state() const { return state_; }
@@ -68,11 +69,14 @@ public:
         uint64_t nested;
         uint64_t deletes;
         uint64_t stale;
+        uint64_t llgr_stale;
         uint64_t sweep;
         uint64_t gr_timer;
+        uint64_t llgr_timer;
         uint64_t deleted_state_paths;
         uint64_t deleted_paths;
-        uint64_t marked_state_paths;
+        uint64_t marked_stale_paths;
+        uint64_t marked_llgr_stale_paths;
     };
     const Stats &stats() const { return stats_; }
 
@@ -93,7 +97,7 @@ private:
     bool close_again_;
     IPeerClose::Families families_;
     Stats stats_;
-    tbb::recursive_mutex mutex_;
+    mutable tbb::recursive_mutex mutex_;
 };
 
 #endif  // SRC_BGP_BGP_PEER_CLOSE_H_

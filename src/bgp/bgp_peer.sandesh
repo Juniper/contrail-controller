@@ -50,11 +50,14 @@ struct PeerCloseInfo {
     5: u64 nested;
     6: u64 deletes;
     7: u64 stale;
+    15: u64 llgr_stale;
     8: u64 sweep;
     9: u64 gr_timer;
+    14: u64 llgr_timer;
     10: u64 deleted_state_paths;
     11: u64 deleted_paths;
-    12: u64 marked_state_paths;
+    12: u64 marked_stale_paths;
+    13: u64 marked_llgr_stale_paths;
 }
 
 struct BgpNeighborResp {
@@ -87,8 +90,8 @@ struct BgpNeighborResp {
     45: optional list<string> auth_keys;
     38: optional list<string> configured_address_families;
     39: optional list<string> negotiated_address_families;
-    56: optional list<string> graceful_restart_address_families;
-    57: optional list<string> long_lived_graceful_restart_address_families;
+    57: optional list<string> graceful_restart_address_families;
+    58: optional list<string> long_lived_graceful_restart_address_families;
     49: optional list<ShowBgpNeighborFamily> family_attributes_list;
     40: optional u32 configured_hold_time;
     41: u32 negotiated_hold_time;

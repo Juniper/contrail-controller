@@ -21,6 +21,8 @@ static const map<string, CommunityType::WellKnownCommunity>
         ("no-advertise", CommunityType::NoAdvertise)
         ("no-export", CommunityType::NoExport)
         ("no-export-subconfed", CommunityType::NoExportSubconfed)
+        ("LlgrStale", CommunityType::LlgrStale)
+        ("NoLlgr", CommunityType::NoLlgr)
         ("no-reoriginate", CommunityType::NoReOriginate)
         ("accept-own", CommunityType::AcceptOwn)
         ("accept-own-nexthop", CommunityType::AcceptOwnNexthop);
@@ -30,6 +32,8 @@ static const map<CommunityType::WellKnownCommunity, string>
         (CommunityType::NoAdvertise, "no-advertise")
         (CommunityType::NoReOriginate, "no-reoriginate")
         (CommunityType::NoExportSubconfed, "no-export-subconfed")
+        (CommunityType::LlgrStale, "llgr-stale")
+        (CommunityType::NoLlgr, "no-llgr")
         (CommunityType::AcceptOwn, "accept-own")
         (CommunityType::AcceptOwnNexthop, "accept-own-nexthop")
         (CommunityType::NoExport, "no-export");

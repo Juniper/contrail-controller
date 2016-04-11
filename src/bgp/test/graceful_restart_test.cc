@@ -891,15 +891,37 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
                                BgpConfigManager::kMasterInstance));
 }
 
-// Invoke stale timer callbacks directly as evm is not running in this unit test
+// Invoke stale timer callbacks directly speed up the test.
 void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
+    if (channel->Peer()->peer_close()->close_manager()->state() !=
+            PeerCloseManager::GR_TIMER)
+        return;
+
+    task_util::WaitForIdle();
+    bool is_ready = channel->Peer()->IsReady();
     channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
+    if (!is_ready) {
+        TASK_UTIL_EXPECT_EQ(PeerCloseManager::LLGR_TIMER,
+                channel->Peer()->peer_close()->close_manager()->state());
+        channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
+    }
     task_util::WaitForIdle();
 }
 
 // Invoke stale timer callbacks directly as evm is not running in this unit test
 void GracefulRestartTest::CallStaleTimer(BgpPeerTest *peer) {
+    if (peer->peer_close()->close_manager()->state() !=
+            PeerCloseManager::GR_TIMER)
+        return;
+
+    task_util::WaitForIdle();
+    bool is_ready = peer->IsReady();
     peer->peer_close()->close_manager()->RestartTimerCallback();
+    if (!is_ready) {
+        TASK_UTIL_EXPECT_EQ(PeerCloseManager::LLGR_TIMER,
+                peer->peer_close()->close_manager()->state());
+        peer->peer_close()->close_manager()->RestartTimerCallback();
+    }
     task_util::WaitForIdle();
 }
 
@@ -1644,9 +1666,8 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_6) {
             nroutes.push_back(0);
         }
 
-        // TODO: Fix this test for BGP Peers with TcpSession::CLOSE
         n_flipped_peers_.push_back(GRTestParams(peer, instance_ids, nroutes,
-                                                TcpSession::EVENT_NONE));
+                                                TcpSession::CLOSE));
     }
     GracefulRestartTestRun();
 }

@@ -16,6 +16,8 @@ public:
         NoExport = 0xFFFFFF01,
         NoAdvertise = 0xFFFFFF02,
         NoExportSubconfed = 0xFFFFFF03,
+        LlgrStale = 0xFFFFFF06,
+        NoLlgr = 0xFFFFFF07,
         AcceptOwnNexthop = 0xFFFF0008,
     };
 

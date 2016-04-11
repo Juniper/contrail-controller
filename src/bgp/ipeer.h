@@ -122,7 +122,8 @@ public:
     // Printable name
     virtual std::string ToString() const = 0;
     virtual PeerCloseManager *close_manager() = 0;
-    virtual bool IsCloseGraceful() = 0;
+    virtual bool IsCloseGraceful() const = 0;
+    virtual bool IsCloseLongLivedGraceful() const = 0;
     virtual void CustomClose() = 0;
     virtual void CloseComplete() = 0;
     virtual void Delete() = 0;
@@ -130,6 +131,7 @@ public:
     virtual void GracefulRestartSweep() = 0;
     virtual void GetGracefulRestartFamilies(Families *) const = 0;
     virtual const int GetGracefulRestartTime() const = 0;
+    virtual const int GetLongLivedGracefulRestartTime() const = 0;
 };
 
 class IPeer : public IPeerUpdate {
