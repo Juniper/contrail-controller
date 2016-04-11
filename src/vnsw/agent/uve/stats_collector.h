@@ -66,6 +66,10 @@ public:
         }
     }
 
+    void RescheduleTimer(int time) {
+        timer_->Reschedule(time);
+    }
+
     int run_counter_; //used only in UT code
 
 private:
