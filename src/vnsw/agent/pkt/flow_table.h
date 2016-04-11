@@ -233,6 +233,12 @@ public:
     void UpdateKSync(FlowEntry *flow, bool update);
     void DeleteKSync(FlowEntry *flow);
 
+<<<<<<< Updated upstream
+=======
+    // FlowStatsCollector request queue events
+    void NotifyFlowStatsCollector(FlowEntry *fe);
+
+>>>>>>> Stashed changes
     // Free list
     void GrowFreeList();
     FlowEntryFreeList *free_list() { return &free_list_; }

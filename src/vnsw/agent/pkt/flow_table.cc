@@ -861,6 +861,18 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
         return;
     }
     mgr->Update(flow);
+<<<<<<< Updated upstream
+=======
+}
+
+void FlowTable::NotifyFlowStatsCollector(FlowEntry *fe) {
+    /* FlowMgmt Task does not do anything apart from notifying
+     * FlowStatsCollector on Flow Index change. We don't directly enqueue
+     * the index change event to FlowStatsCollector to avoid Flow Index change
+     * event reaching FlowStatsCollector before Flow Add
+     */
+    agent_->pkt()->flow_mgmt_manager()->FlowIndexUpdateEvent(fe);
+>>>>>>> Stashed changes
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -295,6 +295,14 @@ public:
         if (vsc->Analytics()->GetCqlMetrics(&cmetrics)) {
             resp->set_cql_metrics(cmetrics);
         }
+        // Get cumulative CollectorDbStats
+        std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
+        GenDb::DbErrors dbe;
+        DbHandlerPtr db_handler(vsc->Analytics()->GetDbHandler());
+        db_handler->GetCumulativeStats(&vdbti, &dbe, &vstats_dbti);
+        resp->set_table_info(vdbti);
+        resp->set_errors(dbe);
+        resp->set_statistics_table_info(vstats_dbti);
         // Send the response
         resp->set_context(req->context());
         resp->Response();

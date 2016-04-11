@@ -1965,6 +1965,13 @@ bool CqlIf::Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
     return true;
 }
 
+bool CqlIf::Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) const {
+    tbb::mutex::scoped_lock lock(stats_mutex_);
+    stats_.GetCumulative(vdbti, dbe);
+    return true;
+}
+
 void CqlIf::Db_GetCqlMetrics(Metrics *metrics) const {
     impl_->GetMetrics(metrics);
 }

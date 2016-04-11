@@ -533,10 +533,18 @@ class FlowEntry {
     }
     static std::string DropReasonStr(uint16_t reason);
     std::string KeyString() const;
+<<<<<<< Updated upstream
     void SetEventSandeshData(SandeshFlowIndexInfo *info);
     void LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
                  uint32_t flow_handle, uint8_t gen_id);
     void RevFlowDepInfo(RevFlowDepParams *params);
+=======
+
+    void SetEventSandeshData(SandeshFlowIndexInfo *info);
+    void LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
+                 uint32_t flow_handle, uint8_t gen_id);
+
+>>>>>>> Stashed changes
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;

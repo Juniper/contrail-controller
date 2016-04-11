@@ -304,6 +304,10 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::EVICT_FLOW:
+<<<<<<< Updated upstream
+=======
+    case FlowEvent::REVALUATE_FLOW:
+>>>>>>> Stashed changes
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
@@ -421,11 +425,17 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::AUDIT_FLOW: {
+<<<<<<< Updated upstream
         if (table->Find(req->get_flow_key()) == NULL) {
             FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
             flow->InitAuditFlow(req->flow_handle(), req->gen_id());
             flow->flow_table()->Add(flow.get(), NULL);
         }
+=======
+        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
+        flow->InitAuditFlow(req->flow_handle(), req->gen_id());
+        flow->flow_table()->Add(flow.get(), NULL);
+>>>>>>> Stashed changes
         break;
     }
 
