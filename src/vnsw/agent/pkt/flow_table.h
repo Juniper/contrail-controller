@@ -55,13 +55,24 @@ class FlowTableKSyncEntry;
 class FlowTableKSyncObject;
 class FlowEvent;
 
-#define FLOW_LOCK(flow, rflow) \
+#define FLOW_LOCK(flow, rflow, flow_event) \
+    bool is_flow_rflow_key_same = false; \
+    if (flow == rflow) { \
+        if (flow_event == FlowEvent::DELETE_FLOW) { \
+            assert(0); \
+        } \
+        is_flow_rflow_key_same = true; \
+        rflow = NULL; \
+    } \
     tbb::mutex tmp_mutex1, tmp_mutex2, *mutex_ptr_1, *mutex_ptr_2; \
-    FlowTable::GetMutexSeq(flow ? flow->mutex() : tmp_mutex1,      \
-                           rflow ? rflow->mutex() : tmp_mutex2,    \
-                           &mutex_ptr_1, &mutex_ptr_2);            \
-    tbb::mutex::scoped_lock lock1(*mutex_ptr_1);                   \
-    tbb::mutex::scoped_lock lock2(*mutex_ptr_2);
+    FlowTable::GetMutexSeq(flow ? flow->mutex() : tmp_mutex1, \
+                           rflow ? rflow->mutex() : tmp_mutex2, \
+                           &mutex_ptr_1, &mutex_ptr_2); \
+    tbb::mutex::scoped_lock lock1(*mutex_ptr_1); \
+    tbb::mutex::scoped_lock lock2(*mutex_ptr_2); \
+    if (is_flow_rflow_key_same) { \
+        flow->MakeShortFlow(FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY); \
+    }
 
 /////////////////////////////////////////////////////////////////////////////
 // Class to manage free-list of flow-entries

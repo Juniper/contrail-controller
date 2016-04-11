@@ -156,7 +156,7 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *new_flow = Locate(flow, time);
     FlowEntry *new_rflow = (rflow != NULL) ? Locate(rflow, time) : NULL;
 
-    FLOW_LOCK(new_flow, new_rflow);
+    FLOW_LOCK(new_flow, new_rflow, FlowEvent::FLOW_MESSAGE);
     AddInternal(flow, new_flow, rflow, new_rflow, false, false);
 }
 
@@ -172,7 +172,7 @@ void FlowTable::Update(FlowEntry *flow, FlowEntry *rflow) {
         rev_flow_update = false;
     }
 
-    FLOW_LOCK(new_flow, new_rflow);
+    FLOW_LOCK(new_flow, new_rflow, FlowEvent::FLOW_MESSAGE);
     AddInternal(flow, new_flow, rflow, new_rflow, fwd_flow_update,
                 rev_flow_update);
 }
@@ -372,7 +372,7 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow) {
     FlowEntry *rflow = NULL;
 
     PopulateFlowEntriesUsingKey(key, del_reverse_flow, &flow, &rflow);
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::DELETE_FLOW);
     return DeleteUnLocked(del_reverse_flow, flow, rflow);
 }
 
@@ -855,7 +855,7 @@ bool FlowTable::FlowResponseHandlerUnLocked(const FlowEvent *resp,
 bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
     FlowEntry *flow = resp->flow();
     FlowEntry *rflow = flow->reverse_flow_entry_.get();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, resp->event());
     return FlowResponseHandlerUnLocked(resp, flow, rflow);
 }
 
@@ -971,7 +971,7 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
                                          FlowEntry *flow,
                                          FlowEntry *rflow) {
     //Take lock
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, req->event());
 
     //Now process events.
     switch (req->event()) {

@@ -79,6 +79,7 @@ const std::map<uint16_t, const char*>
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "Short flow vrouter install failed")
         ((uint16_t)SHORT_INVALID_L2_FLOW,    "Short flow invalid L2 flow")
+        ((uint16_t)SHORT_SAME_FLOW_RFLOW_KEY,"Short flow same flow and rflow")
         ((uint16_t)DROP_POLICY,              "Flow drop Policy")
         ((uint16_t)DROP_OUT_POLICY,          "Flow drop Out Policy")
         ((uint16_t)DROP_SG,                  "Flow drop SG")
