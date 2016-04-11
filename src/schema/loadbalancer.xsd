@@ -201,6 +201,9 @@
         <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
         <xsd:element name='protocol-port' type='xsd:integer'/>
         <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+        <xsd:element name='connection-limit' type='xsd:integer'/>
+        <xsd:element name='default-tls-container' type='xsd:string'/>
+        <xsd:element name='sni-containers' type='xsd:string' maxOccurs='unbounded'/>
     </xsd:sequence>
 </xsd:complexType>
 
