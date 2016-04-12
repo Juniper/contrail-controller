@@ -198,7 +198,6 @@ class VirtualNetworkST(DBBase):
         self._route_target = 0
         self.route_table_refs = set()
         self.route_table = {}
-        self.service_chains = {}
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
@@ -235,6 +234,7 @@ class VirtualNetworkST(DBBase):
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
+        self.service_chains = ServiceChain.find_service_chains(self.name)
         self.uve_send()
     # end __init__
 
@@ -1535,6 +1535,20 @@ class ServiceChain(DBBase):
             return False
         return True
     # end __eq__
+
+    @classmethod
+    def find_service_chains(cls, vn):
+        sc_map = {}
+        for sc in ServiceChain.values():
+            remote_vn = None
+            if (vn == sc.left_vn):
+                remote_vn = sc.right_vn
+            if (vn == sc.right_vn):
+                remote_vn = sc.left_vn
+            if remote_vn and vn != remote_vn:
+                sc_map.setdefault(remote_vn, []).append(sc)
+        return sc_map
+    # end find_service_chains
 
     @classmethod
     def find(cls, left_vn, right_vn, direction, sp_list, dp_list, protocol):
@@ -3086,18 +3100,16 @@ class SchemaTransformer(object):
             vn1 = VirtualNetworkST.get(left_vn_str)
             if vn1:
                 self.current_network_set.add(left_vn_str)
-            if right_vn_str:
-                vn2 = VirtualNetworkST.get(right_vn_str)
-                if vn2:
-                    self.current_network_set.add(right_vn_str)
+            vn2 = VirtualNetworkST.get(right_vn_str)
+            if vn2:
+                self.current_network_set.add(right_vn_str)
+            if not siprops.auto_policy:
+                self.delete_service_instance_properties(idents, meta)
+                return
         except NoIdError:
             _sandesh._logger.error("NoIdError while reading service "
                                    "instance %s", si_name)
             return
-        if not si_props.auto_policy:
-            self.delete_service_instance_properties(idents, meta)
-            return
-        si_props = si.get_service_instance_properties()
         policy_name = "_internal_" + si_name
         policy = NetworkPolicyST.locate(policy_name)
         addr1 = AddressType(virtual_network=left_vn_str)
@@ -3114,10 +3126,8 @@ class SchemaTransformer(object):
         policy.network_back_ref = set([left_vn_str, right_vn_str])
         policy.internal = True
         policy.add_rules(pentry)
-        vn1 = VirtualNetworkST.get(left_vn_str)
         if vn1:
             vn1.add_policy(policy_name)
-        vn2 = VirtualNetworkST.get(right_vn_str)
         if vn2:
             vn2.add_policy(policy_name)
     # end add_service_instance_properties
