@@ -53,12 +53,14 @@ public:
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t) const;
     virtual std::string VrouterError(uint32_t error) const;
-
     uint8_t gen_id() { return gen_id_; }
     void set_gen_id(uint8_t gen_id) { gen_id_ = gen_id; }
     uint8_t evict_gen_id() { return evict_gen_id_; }
     void set_evict_gen_id(uint8_t gen_id) { evict_gen_id_ = gen_id; }
 
+    uint32_t old_first_mirror_index() {
+        return old_first_mirror_index_;
+    }
 private:
     friend class KSyncFlowEntryFreeList;
     friend class KSyncFlowIndexManager;
