@@ -129,13 +129,12 @@ std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
 
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
-    size_t expected_connections) {
+    const std::vector<ConnectionTypeName> &expected_connections) {
     // Determine if the number of connections is as expected.
     size_t num_connections(cinfos.size());
-    if (num_connections != expected_connections) {
+    if (num_connections != expected_connections.size()) {
+        GetConnectionInfoMessage(cinfos, expected_connections, message);
         state = ProcessState::NON_FUNCTIONAL;
-        message = "Number of connections:" + integerToString(num_connections) +
-                  ", Expected:" + integerToString(expected_connections);
         return;
     }
     std::string cup(g_process_info_constants.ConnectionStatusNames.
@@ -167,6 +166,66 @@ void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
         message += " connection down";
     }
     return;
+}
+
+void GetConnectionInfoMessage(const std::vector<ConnectionInfo> &cinfos,
+    const std::vector<ConnectionTypeName> &expected_connections,
+    std::string &message) {
+    size_t num_connections(cinfos.size());
+    message = "Number of connections:" + integerToString(num_connections) +
+              ", Expected:" + integerToString(expected_connections.size());
+    if (num_connections > expected_connections.size()) {
+        size_t i = 0;
+        message += " Extra connection: ";
+        // find the extra connection
+        for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+            it != cinfos.end(); it++) {
+            const ConnectionInfo &cinfo(*it);
+            ConnectionTypeName con_info(cinfo.get_type(), cinfo.get_name());
+            std::vector<ConnectionTypeName>::const_iterator position;
+            position = std::find(expected_connections.begin(),
+                                 expected_connections.end(), con_info);
+            if (position == expected_connections.end()) {
+                i++;
+                message += con_info.first;
+                if (!con_info.second.empty()) {
+                    message += ":" + con_info.second;
+                }
+                if (i != num_connections-expected_connections.size()) {
+                    message += ",";
+                }
+            }
+        }
+    } else {
+        // find the missing connection
+        size_t i = 0;
+        message += " Missing connection: ";
+        for (std::vector<ConnectionTypeName>::const_iterator it1 =
+             expected_connections.begin(); it1 != expected_connections.end();
+             it1++) {
+             bool con_found = false;
+             for (std::vector<ConnectionInfo>::const_iterator it2 =
+                  cinfos.begin(); it2 != cinfos.end(); it2++) {
+                 if (it1->first == it2->get_type() &&
+                     it1->second == it2->get_name()) {
+                     con_found = true;
+                     break;
+                 }
+             }
+             // If connection is not found in cinfo, its a missing
+             // connection
+             if (!con_found) {
+                 i++;
+                 message += it1->first;
+                 if (!it1->second.empty()) {
+                     message += ":" + it1->second;
+                 }
+                 if (i != expected_connections.size()-cinfos.size()) {
+                     message += ",";
+                 }
+            }
+        }
+    }
 }
 
 } // namespace process
