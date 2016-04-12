@@ -419,7 +419,8 @@ public:
     }
 
     uint32_t task_starts() const { return task_starts_; }
-    uint32_t max_queue_len() const { return max_queue_len_; }
+    //uint32_t max_queue_len() const { return max_queue_len_; }
+    size_t max_queue_len() const { return max_queue_len_; }
 private:
     // Returns true if pop is successful.
     bool DequeueInternal(QueueEntryT *entry) {
@@ -559,6 +560,7 @@ private:
             return true;
         }
         AtomicDecrementQueueCount(&entry);
+        max_queue_len_--;
         drops_++;
         return false;
     }
@@ -639,7 +641,8 @@ private:
     tbb::atomic<bool> hwater_mark_set_;
     tbb::atomic<bool> lwater_mark_set_;
     uint32_t task_starts_;
-    uint32_t max_queue_len_;
+    //uint32_t max_queue_len_;
+    size_t max_queue_len_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;
