@@ -486,6 +486,8 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.__init__ = mock.MagicMock(return_value=None)
         ServiceMonitorLogger.log = mock.MagicMock()
         ServiceMonitorLogger.info = mock.MagicMock()
+        ServiceMonitorLogger.notice = mock.MagicMock()
+        ServiceMonitorLogger.error = mock.MagicMock()
         ServiceMonitorLogger.uve_svc_instance = mock.MagicMock()
         VncCassandraClient.__init__ = mock.MagicMock()    
         VncCassandraClient._cf_dict = {'service_instance_table':None, 'pool_table':None}
@@ -519,6 +521,10 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.LoadbalancerPoolSM.reset()
         config_db.LoadbalancerMemberSM.reset()
         config_db.VirtualIpSM.reset()
+        ServiceMonitorLogger.log.reset_mock()
+        ServiceMonitorLogger.info.reset_mock()
+        ServiceMonitorLogger.notice.reset_mock()
+        ServiceMonitorLogger.error.reset_mock()
         del config_db.DBBaseSM._cassandra
         del self.vnc_mock
 
@@ -811,6 +817,26 @@ class SvcMonitorTest(unittest.TestCase):
         vm_obj = self.add_vm('fake-vm', 'fake-vm', si_obj)
         self._svc_monitor.upgrade()
         ServiceMonitorLogger.info.assert_any_call(test_utils.AnyStringWith('Deleting VM'))
+
+    def test_auto_policy_upgrade(self):
+        ServiceMonitorLogger.notice.reset_mock()
+        ServiceMonitorLogger.error.reset_mock()
+        st_obj = self.add_st('netns-snat-template', 'netns-snat-template')
+        st = config_db.ServiceTemplateSM.get('netns-snat-template')
+        st.virtualization_type = 'network-namespace'
+        si_obj = self.add_si('fake-snat-instance', 'fake-snat-instance', st_obj)
+        si = config_db.ServiceInstanceSM.get('fake-snat-instance')
+        si.params = {'auto_policy': True}
+        self._svc_monitor._upgrade_auto_policy(si, st)
+        ServiceMonitorLogger.notice.assert_called_with(test_utils.AnyStringWith('snat policy upgraded'))
+        ServiceMonitorLogger.error.assert_not_called()
+
+        ServiceMonitorLogger.notice.reset_mock()
+        ServiceMonitorLogger.error.reset_mock()
+        si.params = {'auto_policy': False}
+        self._svc_monitor._upgrade_auto_policy(si, st)
+        ServiceMonitorLogger.notice.assert_not_called()
+        ServiceMonitorLogger.error.assert_not_called()
 
     def test_svc_monitor_sas(self):
         def db_read(obj_type, uuids):
