@@ -149,7 +149,7 @@ uint32_t MirrorKSyncObject::GetIdx(std::string analyzer_name) {
     MirrorKSyncEntry key(this, analyzer_name);
     KSyncEntry *entry = Find(&key);
     if (entry) {
-        entry->GetIndex();
+        return entry->GetIndex();
     }
     return MirrorTable::kInvalidIndex;
 }
