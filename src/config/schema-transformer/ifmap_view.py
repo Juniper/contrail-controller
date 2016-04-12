@@ -173,13 +173,6 @@ class IfmapSearcher():
 # end IfmapSearcher
 
 def main():
-    searcher = IfmapSearcher()
-    searcher.search()
-    searcher.print_search_results()
-# end main
-
-if __name__ == '__main__':
-
      # Example usage:
      # python ifmap_search.py localhost 8443 <username> <password>
      #     --search-identifier contrail:virtual-network:default-domain:admin:test-net 
@@ -190,5 +183,12 @@ if __name__ == '__main__':
     stdout.setLevel('DEBUG')
     stdout.setFormatter(logformat)
     logger.addHandler(stdout)
+
+    searcher = IfmapSearcher()
+    searcher.search()
+    searcher.print_search_results()
+# end main
+
+if __name__ == '__main__':
 
     main()
