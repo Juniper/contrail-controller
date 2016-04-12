@@ -27,9 +27,10 @@ typedef boost::asio::ip::tcp::endpoint Endpoint;
 typedef boost::function<void (const std::vector<ConnectionInfo> &,
     ProcessState::type &, std::string &)> ProcessStateFn;
 
+typedef std::pair<std::string, std::string> ConnectionTypeName;
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
-    size_t expected_connections);
+    const std::vector<ConnectionTypeName> &expected_connections);
 
 // ConnectionState
 class ConnectionState {

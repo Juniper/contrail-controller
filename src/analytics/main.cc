@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
 #include <malloc.h>
+#include <fstream>
 #include "analytics/options.h"
 #include "analytics/viz_constants.h"
 #include "base/cpuinfo.h"
@@ -41,6 +42,8 @@ using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ConnectionType;
+using process::ConnectionTypeName;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
@@ -306,11 +309,19 @@ int main(int argc, char *argv[])
     // 5. Database global
     // 6. Kafka Pub
     // 7. Database protobuf if enabled
+
+    std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
+         (ConnectionTypeName("Collector", ""))
+         (ConnectionTypeName("Redis-UVE", "To"))
+         (ConnectionTypeName("Redis-UVE", "From"))
+         (ConnectionTypeName("Discovery", g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
+         (ConnectionTypeName("Database", hostname+":Global"))
+         (ConnectionTypeName("KafkaPub", kstr));
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            protobuf_server_enabled ? 7 : 6));
+            expected_connections));
 
     LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
     LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());
