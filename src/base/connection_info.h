@@ -27,9 +27,13 @@ typedef boost::asio::ip::tcp::endpoint Endpoint;
 typedef boost::function<void (const std::vector<ConnectionInfo> &,
     ProcessState::type &, std::string &)> ProcessStateFn;
 
+typedef std::pair<std::string, std::string> ConnectionTypeName;
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
-    size_t expected_connections);
+    const std::vector<ConnectionTypeName> &expected_connections);
+void GetConnectionInfoMessage(const std::vector<ConnectionInfo> &cinfos,
+    const std::vector<ConnectionTypeName> &expected_connections,
+    std::string &message);
 
 // ConnectionState
 class ConnectionState {
@@ -142,6 +146,23 @@ private:
 template <typename UVEType, typename UVEDataType>
 boost::scoped_ptr<ConnectionStateManager<UVEType, UVEDataType> > 
     ConnectionStateManager<UVEType, UVEDataType>::instance_;
+
+// Custom find function to compare ConnectionInfo and
+// expected connection structures
+struct CompareConnections : public std::unary_function<ConnectionTypeName,
+    bool > {
+    ConnectionTypeName expected_connection_;
+    explicit CompareConnections(const ConnectionTypeName exp_connection) :
+        expected_connection_(exp_connection) {}
+    bool operator() (const ConnectionInfo cinfo) {
+        if (expected_connection_.first == cinfo.get_type() &&
+            expected_connection_.second == cinfo.get_name()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
 
 } // namespace process
 
