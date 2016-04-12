@@ -364,7 +364,7 @@ void FlowStatsCollector::UpdateAndExportInternalLocked(FlowExportInfo *info,
                                                    const RevFlowDepParams *p) {
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
     UpdateAndExportInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
                             teardown_time, p);
 }
@@ -632,7 +632,7 @@ void FlowStatsCollector::ExportFlowLocked(FlowExportInfo *info,
                                           const RevFlowDepParams *params) {
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
     ExportFlow(info, diff_bytes, diff_pkts, params);
 }
 
@@ -825,7 +825,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     const FlowExportInfo &info = req->info();
     FlowEntry *flow = info.flow();
     FlowEntry *rflow = info.reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
 
     switch (req->event()) {
     case FlowExportReq::ADD_FLOW: {

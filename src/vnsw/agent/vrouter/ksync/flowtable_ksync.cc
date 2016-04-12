@@ -77,6 +77,8 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_FLOW_LIMIT;
     case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
         return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
+    case FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY:
+        return VR_FLOW_DR_SAME_FLOW_RFLOW_KEY;
     case FlowEntry::DROP_POLICY:
         return VR_FLOW_DR_POLICY;
     case FlowEntry::DROP_OUT_POLICY:
