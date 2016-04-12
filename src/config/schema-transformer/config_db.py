@@ -317,6 +317,8 @@ class VirtualNetworkST(DBBaseST):
             primary_ri = self.get_primary_routing_instance()
             service_ri_name = self.get_service_name(sc.name, si_name)
             service_ri = RoutingInstanceST.get(service_ri_name)
+            if service_ri is None:
+                return
             if (multi_policy_enabled and
                     service_ri_name in primary_ri.connections):
                 primary_ri.delete_connection(service_ri)
@@ -391,8 +393,8 @@ class VirtualNetworkST(DBBaseST):
             #         VNs that are referring to this SC.
             service_chain_list = old_scs[remote_vn_name]
             for service_chain in service_chain_list or []:
-                if new_scs and\
-                   service_chain in (new_scs.get(remote_vn_name) or []):
+                if new_scs and service_chain in (new_scs.get(remote_vn_name)
+                                                 or []):
                     continue
                 if service_chain in (remote_service_chain_list or []):
                     service_chain.destroy()
@@ -2492,11 +2494,21 @@ class ServiceChain(DBBaseST):
                 service_ri1.obj.add_route_target(rt_obj.obj,
                                                  InstanceTargetType('import'))
                 self._vnc_lib.routing_instance_update(service_ri1.obj)
-            ri_obj = RoutingInstanceST.create(service_name2, vn2_obj, has_pnf)
-            service_ri2 = RoutingInstanceST.locate(service_name2, ri_obj)
-            if service_ri2 is None:
-                self.log_error("service_ri2 is None")
-                return
+
+            mode = si_info[service]['mode']
+            nat_service = (mode == "in-network-nat")
+            transparent = (mode not in ["in-network", "in-network-nat"])
+            self._logger.info("service chain %s: creating %s chain",
+                              self.name, mode)
+
+            if not nat_service:
+                ri_obj = RoutingInstanceST.create(service_name2, vn2_obj, has_pnf)
+                service_ri2 = RoutingInstanceST.locate(service_name2, ri_obj)
+                if service_ri2 is None:
+                    self.log_error("service_ri2 is None")
+                    return
+            else:
+                service_ri2 = None
 
             if first_node:
                 first_node = False
@@ -2504,12 +2516,6 @@ class ServiceChain(DBBaseST):
                 if vn1_obj.allow_transit:
                     rt_list.add(vn1_obj.get_route_target())
                 service_ri1.update_route_target_list(rt_add_export=rt_list)
-
-            mode = si_info[service]['mode']
-            nat_service = (mode == "in-network-nat")
-            transparent = (mode not in ["in-network", "in-network-nat"])
-            self._logger.info("service chain %s: creating %s chain",
-                              self.name, mode)
 
             if transparent:
                 v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
@@ -2519,7 +2525,7 @@ class ServiceChain(DBBaseST):
                     return
                 service_ri1.add_service_info(vn2_obj, service, v4_address,
                                              v6_address)
-                if self.direction == "<>":
+                if service_ri2 and self.direction == "<>":
                     service_ri2.add_service_info(vn1_obj, service, v4_address,
                                                  v6_address)
 
@@ -2535,21 +2541,24 @@ class ServiceChain(DBBaseST):
                 if not result:
                     return
             self._vnc_lib.routing_instance_update(service_ri1.obj)
-            self._vnc_lib.routing_instance_update(service_ri2.obj)
+            if service_ri2:
+                self._vnc_lib.routing_instance_update(service_ri2.obj)
 
-        rt_list = set(vn2_obj.rt_list)
-        if vn2_obj.allow_transit:
-            rt_list.add(vn2_obj.get_route_target())
-        service_ri2.update_route_target_list(rt_add_export=rt_list)
+        if service_ri2:
+            rt_list = set(vn2_obj.rt_list)
+            if vn2_obj.allow_transit:
+                rt_list.add(vn2_obj.get_route_target())
+            service_ri2.update_route_target_list(rt_add_export=rt_list)
 
-        if not multi_policy_enabled:
-            service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
-        else:
-            # add primary ri's target to service ri
-            rt_obj = RouteTargetST.get(vn2_obj.get_route_target())
-            service_ri2.obj.add_route_target(rt_obj.obj,
-                                             InstanceTargetType('import'))
-            self._vnc_lib.routing_instance_update(service_ri2.obj)
+            if not multi_policy_enabled:
+                service_ri2.add_connection(
+                    vn2_obj.get_primary_routing_instance())
+            else:
+                # add primary ri's target to service ri
+                rt_obj = RouteTargetST.get(vn2_obj.get_route_target())
+                service_ri2.obj.add_route_target(rt_obj.obj,
+                                                 InstanceTargetType('import'))
+                self._vnc_lib.routing_instance_update(service_ri2.obj)
 
         self.created = True
         self.partially_created = False
@@ -3238,8 +3247,10 @@ class VirtualMachineInterfaceST(DBBaseST):
         if vn is None:
             return
         vm_pt = self.get_virtual_machine_or_port_tuple()
-        if not vm_pt or vm_pt.get_service_mode() not in ['in-network',
-                                                         'in-network-nat']:
+        if not vm_pt:
+            return
+        smode = vm_pt.get_service_mode()
+        if smode not in ['in-network', 'in-network-nat']:
             return
 
         vrf_table = VrfAssignTableType()
@@ -3270,7 +3281,12 @@ class VirtualMachineInterfaceST(DBBaseST):
 
         policy_rule_count = 0
         si_name = vm_pt.service_instance
-        for service_chain_list in vn.service_chains.values():
+        if smode == 'in-network-nat' and self.service_interface_type == 'right':
+            vn_service_chains = []
+        else:
+            vn_service_chains = vn.service_chains.values()
+
+        for service_chain_list in vn_service_chains:
             for service_chain in service_chain_list:
                 if not service_chain.created:
                     continue
@@ -3283,10 +3299,9 @@ class VirtualMachineInterfaceST(DBBaseST):
                                                 dst_port=dp,
                                                 protocol=service_chain.protocol)
 
-                        vrf_rule = VrfAssignRuleType(
-                            match_condition=mc,
-                            routing_instance=ri_name,
-                            ignore_acl=True)
+                        vrf_rule = VrfAssignRuleType(match_condition=mc,
+                                                     routing_instance=ri_name,
+                                                     ignore_acl=True)
                         vrf_table.add_vrf_assign_rule(vrf_rule)
                         policy_rule_count += 1
             # end for service_chain
