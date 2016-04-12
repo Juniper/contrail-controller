@@ -1464,7 +1464,6 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     return true;
 }
 
-
 std::ostream &operator<<(std::ostream &out, query_result_unit_t& res)
 {
     out << "T:" << res.timestamp << " : Need to extract other information";

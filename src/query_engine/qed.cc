@@ -39,6 +39,8 @@ using namespace boost::asio;
 using namespace std;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ConnectionType;
+using process::ConnectionTypeName;
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -222,18 +224,23 @@ main(int argc, char *argv[]) {
     // 2. Redis
     // 3. Cassandra
     // 4. Discovery (if collector list not configured)
-    int num_expected_connections = 4;
+    std::vector<ConnectionTypeName> expected_connections =
+        boost::assign::list_of
+         (ConnectionTypeName("Database", ""))
+         (ConnectionTypeName("Redis-Query", "Query"))
+         (ConnectionTypeName("Collector", ""));
     bool use_collector_list = false;
     if (options.collectors_configured() || !csf) {
-        num_expected_connections = 3;
         use_collector_list = true;
+        expected_connections.push_back(ConnectionTypeName("Discovery",
+            g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME));
     }
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*evm.io_service(),
             options.hostname(), module_name,
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            num_expected_connections));
+            expected_connections));
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
     // subscribe to the collector service with discovery only if the

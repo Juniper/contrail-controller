@@ -129,13 +129,38 @@ std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
 
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
-    size_t expected_connections) {
+    const std::vector<ConnectionTypeName> &expected_connections) {
     // Determine if the number of connections is as expected.
     size_t num_connections(cinfos.size());
-    if (num_connections != expected_connections) {
+    if (num_connections != expected_connections.size()) {
+        message += "Connection missing to end points:";
+        // Make a copy of the expected_connections and iterate through it
+        std::vector<ConnectionTypeName> cp_connections(expected_connections);
+        for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+            // Extract connectiontype and name from the iterator
+            // Remove the entry from the cp_connections list
+            const ConnectionInfo &cinfo(*it);
+            ConnectionTypeName con_info(cinfo.get_type(), cinfo.get_name());
+            std::vector<ConnectionTypeName>::iterator position;
+            position = std::find(cp_connections.begin(), cp_connections.end(), con_info);
+            if (position != cp_connections.end()) {
+                cp_connections.erase(position);
+            }
+        }
+        // The remaining connections in cp_connections are the NON_FUNCTIONAL
+        // ones
+        for (std::vector<ConnectionTypeName >::const_iterator it = cp_connections.begin();
+         it != cp_connections.end(); it++) {
+             message += "Connection type "+ it->first;
+             if (!it->second.empty()) {
+                 message += "(" + it->second +")";
+             }
+             if (it != --cp_connections.end()) {
+                 message += ",";
+             }
+        }
         state = ProcessState::NON_FUNCTIONAL;
-        message = "Number of connections:" + integerToString(num_connections) +
-                  ", Expected:" + integerToString(expected_connections);
         return;
     }
     std::string cup(g_process_info_constants.ConnectionStatusNames.
