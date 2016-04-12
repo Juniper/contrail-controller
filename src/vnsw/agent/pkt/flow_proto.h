@@ -65,7 +65,6 @@ public:
     bool AddFlow(FlowEntry *flow);
     bool UpdateFlow(FlowEntry *flow);
 
-    void EnqueueEvent(FlowEvent *event, FlowTable *table);
     void EnqueueFlowEvent(FlowEvent *event);
     void ForceEnqueueFreeFlowReference(FlowEntryPtr &flow);
     void DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
@@ -81,8 +80,8 @@ public:
     void MessageRequest(InterTaskMsg *msg);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
-    void DisableFlowMgmtQueue(bool disabled);
-    size_t FlowMgmtQueueLength();
+    void DisableFlowUpdateQueue(bool disabled);
+    size_t FlowUpdateQueueLength();
 
     const FlowStats *flow_stats() const { return &stats_; }
 
