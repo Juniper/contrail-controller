@@ -41,6 +41,9 @@ using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ConnectionType;
+using process::ConnectionTypeName;
+using process::g_process_info_constants;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
@@ -306,11 +309,27 @@ int main(int argc, char *argv[])
     // 5. Database global
     // 6. Kafka Pub
     // 7. Database protobuf if enabled
+
+    std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::COLLECTOR)->second, ""))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::REDIS_UVE)->second, "To"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::REDIS_UVE)->second, "From"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DISCOVERY)->second,
+                             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second,
+                             hostname+":Global"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::KAFKA_PUB)->second, kstr));
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            protobuf_server_enabled ? 7 : 6));
+            expected_connections));
 
     LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
     LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());
