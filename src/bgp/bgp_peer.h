@@ -292,10 +292,17 @@ public:
     void SetSessionSocketAuthKey(TcpSession *session);
     void AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
     bool SetGRCapabilities(BgpPeerInfoData *peer_info);
+    void AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
     const BgpProto::OpenMessage::Capability::GR &gr_params() const {
         return gr_params_;
     }
     BgpProto::OpenMessage::Capability::GR &gr_params() { return gr_params_; }
+    BgpProto::OpenMessage::Capability::LLGR &llgr_params() {
+        return llgr_params_;
+    }
+    const BgpProto::OpenMessage::Capability::LLGR &llgr_params() const {
+        return llgr_params_;
+    }
 
 protected:
     const std::vector<std::string> &negotiated_families() const {
@@ -306,6 +313,13 @@ protected:
     }
     std::vector<std::string> &graceful_restart_families() {
         return graceful_restart_families_;
+    }
+    const std::vector<std::string> &
+        long_lived_graceful_restart_families() const {
+        return long_lived_graceful_restart_families_;
+    }
+    std::vector<std::string> &long_lived_graceful_restart_families() {
+        return long_lived_graceful_restart_families_;
     }
     void SendEndOfRIB(Address::Family family);
 
@@ -422,6 +436,7 @@ private:
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
     std::vector<std::string> graceful_restart_families_;
+    std::vector<std::string> long_lived_graceful_restart_families_;
     BgpProto::BgpPeerType peer_type_;
     boost::scoped_ptr<StateMachine> state_machine_;
     boost::scoped_ptr<PeerClose> peer_close_;
@@ -436,6 +451,7 @@ private:
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;
     BgpProto::OpenMessage::Capability::GR gr_params_;
+    BgpProto::OpenMessage::Capability::LLGR llgr_params_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
