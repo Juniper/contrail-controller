@@ -20,9 +20,9 @@ static void UpdateStats(FlowEvent::Event event, FlowStats *stats);
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
-                       boost::bind(&FlowProto::FlowEventHandler, this, _1,
-                                   static_cast<FlowTable *>(NULL))),
+                       boost::bind(&FlowProto::FlowUpdateHandler, this, _1)),
     use_vrouter_hash_(false), stats_() {
+
     flow_update_queue_.set_name("Flow update queue");
     agent->SetFlowProto(this);
     set_trace(false);
@@ -38,18 +38,26 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
         char name[128];
         sprintf(name, "Flow Event Queue-%d", i);
         FlowEventQueue *queue =
-            new FlowEventQueue(task_id, i, boost::bind
-                               (&FlowProto::FlowEventHandler, this,
-                                _1, flow_table_list_[i]));
+            new FlowEventQueue(task_id, i,
+                               boost::bind(&FlowProto::FlowEventHandler, this,
+                                           _1, flow_table_list_[i]));
         queue->set_name(name);
         flow_event_queue_.push_back(queue);
 
         sprintf(name, "Flow Delete Queue-%d", i);
         queue = new FlowEventQueue(task_id, i,
-                                   boost::bind(&FlowProto::FlowEventHandler,
+                                   boost::bind(&FlowProto::FlowDeleteHandler,
                                                this, _1, flow_table_list_[i]));
         queue->set_name(name);
         flow_delete_queue_.push_back(queue);
+
+        sprintf(name, "Flow KSync Queue-%d", i);
+        queue = new FlowEventQueue(task_id, i,
+                                   boost::bind(&FlowProto::FlowKSyncMsgHandler,
+                                               this, _1, flow_table_list_[i]),
+                                   queue->kMaxSize, queue->kMaxIterations*2);
+        queue->set_name(name);
+        flow_ksync_queue_.push_back(queue);
     }
     if (::getenv("USE_VROUTER_HASH") != NULL) {
         string opt = ::getenv("USE_VROUTER_HASH");
@@ -63,6 +71,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
 FlowProto::~FlowProto() {
     STLDeleteValues(&flow_event_queue_);
     STLDeleteValues(&flow_delete_queue_);
+    STLDeleteValues(&flow_ksync_queue_);
     STLDeleteValues(&flow_table_list_);
 }
 
@@ -92,6 +101,7 @@ void FlowProto::Shutdown() {
     for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
         flow_event_queue_[i]->Shutdown();
         flow_delete_queue_[i]->Shutdown();
+        flow_ksync_queue_[i]->Shutdown();
     }
     flow_update_queue_.Shutdown();
 }
@@ -296,35 +306,11 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::DELETE_FLOW: {
-        FlowTable *table = GetTable(event->table_index());
-        flow_delete_queue_[table->table_index()]->Enqueue(event);
-        break;
-    }
-
-    case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::EVICT_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
         flow_event_queue_[table->table_index()]->Enqueue(event);
-        break;
-    }
-
-    case FlowEvent::FREE_DBENTRY: {
-        flow_update_queue_.Enqueue(event);
-        break;
-    }
-
-    case FlowEvent::REVALUATE_FLOW: {
-        FlowEntry *flow = event->flow();
-        FlowTable *table = flow->flow_table();
-        flow_event_queue_[table->table_index()]->Enqueue(event);
-        break;
-    }
-
-    case FlowEvent::REVALUATE_DBENTRY: {
-        flow_update_queue_.Enqueue(event);
         break;
     }
 
@@ -347,13 +333,27 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         FlowTableKSyncObject *ksync_obj = static_cast<FlowTableKSyncObject *>
             (event->ksync_entry()->GetObject());
         FlowTable *table = ksync_obj->flow_table();
-        flow_event_queue_[table->table_index()]->Enqueue(event);
+        flow_ksync_queue_[table->table_index()]->Enqueue(event);
         break;
     }
 
     case FlowEvent::REENTRANT: {
         uint32_t index = event->table_index();
         flow_event_queue_[index]->Enqueue(event);
+        break;
+    }
+
+    case FlowEvent::DELETE_FLOW: {
+        FlowTable *table = GetTable(event->table_index());
+        flow_delete_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
+
+    case FlowEvent::REVALUATE_DBENTRY:
+    case FlowEvent::REVALUATE_FLOW:
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::FREE_DBENTRY: {
+        flow_update_queue_.Enqueue(event);
         break;
     }
 
@@ -368,11 +368,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     std::auto_ptr<FlowEvent> req_ptr(req);
     // concurrency check to ensure all request are in right partitions
-    // flow-update-queue doenst happen table pointer. Skip concurrency check
-    // for flow-update-queue
-    if (table) {
-        assert(table->ConcurrencyCheck() == true);
-    }
+    assert(table->ConcurrencyCheck() == true);
 
     switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
@@ -402,19 +398,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     case FlowEvent::FREE_FLOW_REF:
         break;
 
-    case FlowEvent::FREE_DBENTRY: {
-        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
-        mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
-        break;
-    }
-
-    case FlowEvent::DELETE_DBENTRY:
-    case FlowEvent::REVALUATE_DBENTRY: {
-        FlowEntry *flow = req->flow();
-        flow->flow_table()->FlowResponseHandler(req);
-        break;
-    }
-
     case FlowEvent::GROW_FREE_LIST: {
         table->GrowFreeList();
         break;
@@ -429,21 +412,24 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
-    case FlowEvent::DELETE_FLOW: {
-        table->ProcessFlowEvent(req);
+    // Check if flow-handle changed. This can happen if vrouter tries to
+    // setup the flow which was evicted earlier
+    case FlowEvent::EVICT_FLOW: {
+        FlowEntry *flow = req->flow();
+        flow->flow_table()->ProcessFlowEvent(req, flow,
+                                             flow->reverse_flow_entry());
         break;
     }
 
-    // Check if flow-handle changed. This can happen if vrouter tries to
-    // setup the flow which was evicted earlier
-    case FlowEvent::EVICT_FLOW:
     // Flow was waiting for an index. Index is available now. Retry acquiring
     // the index
     case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::REVALUATE_FLOW:
     case FlowEvent::KSYNC_EVENT:
     case FlowEvent::KSYNC_VROUTER_ERROR: {
-        table->ProcessFlowEvent(req);
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+        FlowEntry *flow = ksync_entry->flow_entry().get();
+        table->ProcessFlowEvent(req, flow, flow->reverse_flow_entry());
         break;
     }
 
@@ -456,6 +442,101 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     return true;
 }
 
+bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
+    std::auto_ptr<FlowEvent> req_ptr(req);
+
+    // concurrency check to ensure all request are in right partitions
+    assert(table->ConcurrencyCheck() == true);
+
+    switch (req->event()) {
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+    case FlowEvent::KSYNC_EVENT:
+    case FlowEvent::KSYNC_VROUTER_ERROR: {
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+        FlowEntry *flow = ksync_entry->flow_entry().get();
+        flow->flow_table()->ProcessFlowEvent(req, flow,
+                                             flow->reverse_flow_entry());
+        break;
+    }
+
+    default: {
+        assert(0);
+        break;
+    }
+    }
+
+    return true;
+}
+
+bool FlowProto::FlowUpdateHandler(FlowEvent *req) {
+    std::auto_ptr<FlowEvent> req_ptr(req);
+
+    switch (req->event()) {
+    case FlowEvent::FREE_DBENTRY: {
+        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
+        mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
+        break;
+    }
+
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::REVALUATE_DBENTRY: {
+        FlowEntry *flow = req->flow();
+        flow->flow_table()->ProcessFlowEvent(req, flow,
+                                             flow->reverse_flow_entry());
+        break;
+    }
+
+    case FlowEvent::REVALUATE_FLOW: {
+        FlowEntry *flow = req->flow();
+        flow->flow_table()->ProcessFlowEvent(req, flow,
+                                             flow->reverse_flow_entry());
+        break;
+    }
+
+    default: {
+        assert(0);
+        break;
+    }
+    }
+
+    return true;
+}
+
+bool FlowProto::FlowDeleteHandler(FlowEvent *req, FlowTable *table) {
+    std::auto_ptr<FlowEvent> req_ptr(req);
+    // concurrency check to ensure all request are in right partitions
+    // flow-update-queue doenst happen table pointer. Skip concurrency check
+    // for flow-update-queue
+    if (table) {
+        assert(table->ConcurrencyCheck() == true);
+    }
+
+    switch (req->event()) {
+    case FlowEvent::DELETE_FLOW: {
+        FlowEntry *flow = NULL;
+        FlowEntry *rflow = NULL;
+        table->PopulateFlowEntriesUsingKey(req->get_flow_key(),
+                                           req->get_del_rev_flow(), &flow,
+                                           &rflow);
+        if (flow == NULL)
+            break;
+        table->ProcessFlowEvent(req, flow, rflow);
+        break;
+    }
+
+    default: {
+        assert(0);
+        break;
+    }
+    }
+
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Utility methods to generate events
+//////////////////////////////////////////////////////////////////////////////
 void FlowProto::DeleteFlowRequest(const FlowKey &flow_key, bool del_rev_flow,
                                   uint32_t table_index) {
     EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow_key,
@@ -613,13 +694,17 @@ void FlowProto::SetProfileData(ProfileData *data) {
 
     data->flow_.flow_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_delete_queue_.resize(flow_table_list_.size());
+    data->flow_.flow_ksync_queue_.resize(flow_table_list_.size());
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
         SetFlowEventQueueStats(flow_event_queue_[i],
                                &data->flow_.flow_event_queue_[i]);
         SetFlowEventQueueStats(flow_delete_queue_[i],
                                &data->flow_.flow_delete_queue_[i]);
+        SetFlowEventQueueStats(flow_ksync_queue_[i],
+                               &data->flow_.flow_ksync_queue_[i]);
     }
-    SetFlowEventQueueStats(&flow_update_queue_, &data->flow_.flow_update_queue_);
+    SetFlowEventQueueStats(&flow_update_queue_,
+                           &data->flow_.flow_update_queue_);
     const PktHandler::PktHandlerQueue *pkt_queue =
         pkt->pkt_handler()->work_queue();
     SetPktHandlerQueueStats(pkt_queue, &data->flow_.pkt_handler_queue_);
