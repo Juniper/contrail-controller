@@ -207,19 +207,24 @@ class SchemaTransformer(object):
                                          rabbit_vhost, rabbit_ha_mode,
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
-        self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
-        DBBaseST.init(self, self._sandesh.logger(), self._cassandra)
-        DBBaseST._sandesh = self._sandesh
-        DBBaseST._vnc_lib = _vnc_lib
-        ServiceChain.init()
-        self.reinit()
-        # create cpu_info object to send periodic updates
-        sysinfo_req = False
-        cpu_info = vnc_cpu_info.CpuInfo(
-            module_name, instance_id, sysinfo_req, self._sandesh, 60)
-        self._cpu_info = cpu_info
-        self._db_resync_done.set()
-
+        try:
+            self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
+            DBBaseST.init(self, self._sandesh.logger(), self._cassandra)
+            DBBaseST._sandesh = self._sandesh
+            DBBaseST._vnc_lib = _vnc_lib
+            ServiceChain.init()
+            self.reinit()
+            # create cpu_info object to send periodic updates
+            sysinfo_req = False
+            cpu_info = vnc_cpu_info.CpuInfo(
+                module_name, instance_id, sysinfo_req, self._sandesh, 60)
+            self._cpu_info = cpu_info
+            self._db_resync_done.set()
+        except Exception as e:
+            # If any of the above tasks like CassandraDB read fails, cleanup
+            # the RMQ constructs created earlier and then give up.
+            self._vnc_kombu.shutdown()
+            raise e
     # end __init__
 
     def config_log(self, msg, level):
