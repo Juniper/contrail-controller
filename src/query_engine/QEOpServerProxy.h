@@ -13,7 +13,9 @@
 #include <memory>
 #include <boost/variant.hpp>
 #include <boost/uuid/uuid.hpp>
-
+extern "C" {
+#include <base/tdigest.h>
+};
 class EventManager;
 class QueryEngine;
 class QueryResultMetaData;
@@ -68,13 +70,14 @@ public:
     typedef std::pair<OutRowT, MetadataT> ResultRowT; 
     typedef std::vector<ResultRowT> BufferT;
 
-    typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid> SubVal;
+    typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid, boost::shared_ptr<TDigest> > SubVal;
     enum VarType {
         BLANK=0,
         STRING=1,
         UINT64=2,
         DOUBLE=3,
-        UUID=4
+        UUID=4,
+        TDIGEST=5,
     };
     enum AggOper {
         INVALID = 0,
@@ -82,7 +85,8 @@ public:
         COUNT = 2,
         CLASS = 3,
         MAX = 4,
-        MIN = 5
+        MIN = 5,
+        PERCENTILES = 6,
     };
 
     // This is a map of aggregations for an output row
