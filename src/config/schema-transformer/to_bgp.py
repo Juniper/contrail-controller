@@ -207,7 +207,13 @@ class SchemaTransformer(object):
                                          rabbit_vhost, rabbit_ha_mode,
                                          q_name, self._vnc_subscribe_callback,
                                          self.config_log)
-        self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
+        try:
+            self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
+        except Exception as e:
+            # If the CassandraDB read fails for any reason, cleanup the
+            # RMQ constructs created earlier and then give up.
+            self._vnc_kombu.shutdown()
+            raise e
         DBBaseST.init(self, self._sandesh.logger(), self._cassandra)
         DBBaseST._sandesh = self._sandesh
         DBBaseST._vnc_lib = _vnc_lib
