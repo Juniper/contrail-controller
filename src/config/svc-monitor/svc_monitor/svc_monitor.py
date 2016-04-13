@@ -367,11 +367,32 @@ class SvcMonitor(object):
 
         self._db_resync_done.set()
 
+    def _upgrade_auto_policy(self, si, st):
+        if st.name != 'netns-snat-template':
+            return
+        if not si.params['auto_policy']:
+            return
+
+        si_obj = ServiceInstance()
+        si_obj.uuid = si.uuid
+        si_obj.fq_name = si.fq_name
+        si_props = ServiceInstanceType(**si.params)
+        si_props.set_auto_policy(False)
+        si_obj.set_service_instance_properties(si_props)
+        try:
+            self._vnc_lib.service_instance_update(si_obj)
+            self.logger.notice("snat policy upgraded for %s" % (si.name))
+        except NoIdError:
+            self.logger.error("snat policy upgrade failed for %s" % (si.name))
+            return
+
     def upgrade(self):
         for si in ServiceInstanceSM.values():
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
+
+            self._upgrade_auto_policy(si, st)
 
             vm_id_list = list(si.virtual_machines)
             for vm_id in vm_id_list:
