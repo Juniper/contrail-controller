@@ -63,6 +63,7 @@
                     ".*/bgp/test/bgp_authentication_test$",
                     ".*/bgp/test/bgp_evpn_manager_test$",
                     ".*/bgp/test/bgp_server_test$",
+                    ".*/bgp/test/bgp_stress_test$",
                     ".*/bgp/test/bgp_show_neighbor_test$",
                     ".*/bgp/test/bgp_show_evpn_table_test$",
                     ".*/bgp/test/bgp_show_route_summary_test$",

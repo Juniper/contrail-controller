@@ -93,3 +93,47 @@ pair<uint16_t, uint8_t> BgpAf::FamilyToAfiSafi(Address::Family family) {
         return make_pair(BgpAf::UnknownAfi, BgpAf::UnknownSafi);
     }
 }
+
+BgpAf::Afi BgpAf::FamilyToAfi(Address::Family family) {
+    switch (family) {
+    case Address::INET:
+        return BgpAf::IPv4;
+    case Address::INETVPN:
+        return BgpAf::IPv4;
+    case Address::RTARGET:
+        return BgpAf::IPv4;
+    case Address::ERMVPN:
+        return BgpAf::IPv4;
+    case Address::INET6:
+        return BgpAf::IPv6;
+    case Address::INET6VPN:
+        return BgpAf::IPv6;
+    case Address::EVPN:
+        return BgpAf::L2Vpn;
+    default:
+        assert(false);
+        return BgpAf::UnknownAfi;
+    }
+}
+
+BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
+    switch (family) {
+    case Address::INET:
+        return BgpAf::Unicast;
+    case Address::INETVPN:
+        return BgpAf::Vpn;
+    case Address::RTARGET:
+        return BgpAf::RTarget;
+    case Address::ERMVPN:
+        return BgpAf::ErmVpn;
+    case Address::INET6:
+        return BgpAf::Unicast;
+    case Address::INET6VPN:
+        return BgpAf::Vpn;
+    case Address::EVPN:
+        return BgpAf::EVpn;
+    default:
+        assert(false);
+        return BgpAf::UnknownSafi;
+    }
+}
