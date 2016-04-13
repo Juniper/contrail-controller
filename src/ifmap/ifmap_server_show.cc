@@ -1831,14 +1831,18 @@ static bool IFMapServerClientShowReqHandleRequest(const Sandesh *sr,
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapServerClientShowResp *response = new IFMapServerClientShowResp();
+    string search_string = request->get_search_string();
 
     IFMapServerShowClientMap name_list;
-    sctx->ifmap_server()->FillClientMap(&name_list);
+    sctx->ifmap_server()->FillClientMap(&name_list, search_string);
     IFMapServerShowIndexMap index_list;
-    sctx->ifmap_server()->FillIndexMap(&index_list);
+    sctx->ifmap_server()->FillIndexMap(&index_list, search_string);
+    IFMapServerClientHistoryList history_list;
+    sctx->ifmap_server()->FillClientHistory(&history_list, search_string);
 
     response->set_name_list(name_list);
     response->set_index_list(index_list);
+    response->set_history_list(history_list);
     response->set_context(request->context());
     response->set_more(false);
     response->Response();

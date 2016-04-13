@@ -111,8 +111,9 @@ struct IFMapServerClientMapShowEntry {
 }
 
 struct IFMapServerShowClientMap {
-    1: i32 count;
-    2: list<IFMapServerClientMapShowEntry> clients;
+    1: i32 table_count;
+    2: i32 print_count;
+    3: list<IFMapServerClientMapShowEntry> clients;
 }
 
 struct IFMapServerIndexMapShowEntry {
@@ -121,16 +122,32 @@ struct IFMapServerIndexMapShowEntry {
 }
 
 struct IFMapServerShowIndexMap {
-    1: i32 count;
-    2: list<IFMapServerIndexMapShowEntry> clients;
+    1: i32 table_count;
+    2: i32 print_count;
+    3: list<IFMapServerIndexMapShowEntry> clients;
+}
+
+struct IFMapServerClientHistoryEntry {
+    1: string client_name;
+    2: i32 client_index;
+    3: string creation_time_ago;
+    4: string deletion_time_ago;
+}
+
+struct IFMapServerClientHistoryList {
+    1: i32 table_count;
+    2: i32 print_count;
+    3: list<IFMapServerClientHistoryEntry> clients;
 }
 
 request sandesh IFMapServerClientShowReq {
+    1: string search_string;
 }
 
 response sandesh IFMapServerClientShowResp {
     1: IFMapServerShowClientMap name_list;
     2: IFMapServerShowIndexMap index_list;
+    3: IFMapServerClientHistoryList history_list;
 }
 
 /** Definitions for showing all the nodes that should have gone to a client **/
