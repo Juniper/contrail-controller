@@ -29,7 +29,8 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
     db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
-                   boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1)),
+                    boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
+                    db_event_queue_.kMaxSize, 1),
     log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 2,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
     request_queue_.set_name("Flow management");
@@ -59,6 +60,7 @@ void FlowMgmtManager::Init() {
 void FlowMgmtManager::Shutdown() {
     request_queue_.Shutdown();
     db_event_queue_.Shutdown();
+    log_queue_.Shutdown();
     flow_mgmt_dbclient_->Shutdown();
 }
 
