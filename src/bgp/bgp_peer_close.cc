@@ -27,7 +27,7 @@
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeer *peer) :
         peer_(peer), stale_timer_(NULL), sweep_timer_(NULL), state_(NONE),
-        close_again_(false) {
+        close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
     stats_.init++;
     if (peer->server()) {
         stale_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
@@ -119,12 +119,14 @@ void PeerCloseManager::Close() {
     case GR_TIMER:
         PEER_CLOSE_MANAGER_LOG("Nested close: Restart GR");
         close_again_ = true;
+        gr_elapsed_ += stale_timer_->GetElapsedTime();
         CloseComplete();
         break;
 
     case LLGR_TIMER:
         PEER_CLOSE_MANAGER_LOG("Nested close: Restart LLGR");
         close_again_ = true;
+        llgr_elapsed_ += stale_timer_->GetElapsedTime();
         CloseComplete();
         break;
 
@@ -257,6 +259,8 @@ bool PeerCloseManager::ProcessSweepStateActions() {
 
     // Notify clients to trigger sweep as appropriate.
     peer_->peer_close()->GracefulRestartSweep();
+    gr_elapsed_ = 0;
+    llgr_elapsed_ = 0;
     CloseComplete();
     return false;
 }
@@ -281,6 +285,8 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
 
     if (state_ == DELETE) {
         peer_->peer_close()->Delete();
+        gr_elapsed_ = 0;
+        llgr_elapsed_ = 0;
         MOVE_TO_STATE(NONE);
         stats_.init++;
         close_again_ = false;
@@ -293,7 +299,13 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         peer_->peer_close()->CloseComplete();
         MOVE_TO_STATE(GR_TIMER);
         peer_->peer_close()->GetGracefulRestartFamilies(&families_);
-        StartRestartTimer(1000 * peer_->peer_close()->GetGracefulRestartTime());
+
+        // Offset restart time with elapsed time during nested closures.
+        int time = peer_->peer_close()->GetGracefulRestartTime() * 1000;
+        time -= gr_elapsed_;
+        if (time < 0)
+            time = 0;
+        StartRestartTimer(time);
         stats_.gr_timer++;
         return;
     }
@@ -306,6 +318,13 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         peer_->peer_close()->GetGracefulRestartFamilies(&families_);
         StartRestartTimer(1000 *
                 peer_->peer_close()->GetLongLivedGracefulRestartTime());
+
+        // Offset restart time with elapsed time during nested closures.
+        int time = peer_->peer_close()->GetLongLivedGracefulRestartTime() *1000;
+        time -= llgr_elapsed_;
+        if (time < 0)
+            time = 0;
+        StartRestartTimer(time);
         stats_.llgr_timer++;
         return;
     }
