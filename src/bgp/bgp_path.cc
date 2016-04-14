@@ -63,10 +63,11 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     KEY_COMPARE(rattr->sequence_number(), attr_->sequence_number());
 
     // Route without LLGR_STALE community is always preferred over one with.
-    KEY_COMPARE(attr_->community() &&
-                attr_->community()->ContainsValue(CommunityType::LlgrStale),
-                rattr->community() && rattr->community()->ContainsValue(
-                    CommunityType::LlgrStale));
+    bool llgr_stale = attr_->community() && attr_->community()->ContainsValue(
+                                                CommunityType::LlgrStale);
+    bool rllgr_stale = rattr->community() && rattr->community()->ContainsValue(
+                                                 CommunityType::LlgrStale);
+    KEY_COMPARE(llgr_stale, rllgr_stale);
 
     // For ECMP paths, above checks should suffice
     if (allow_ecmp)

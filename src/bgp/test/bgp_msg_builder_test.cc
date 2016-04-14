@@ -48,6 +48,7 @@ protected:
         server_.Shutdown();
         task_util::WaitForIdle();
     }
+    void TestSkipNotificationSend(int code, int subcode) const;
 
     EventManager evm_;
     BgpServer server_;
@@ -177,6 +178,130 @@ TEST_F(BgpMsgBuilderTest, Build) {
     delete community;
     delete ext_community;
     delete result;
+}
+
+void BgpMsgBuilderTest::TestSkipNotificationSend(int code, int subcode) const {
+    if (code > 6)
+        return;
+
+    bool skip = peer_->SkipNotificationSend(code, subcode);
+    switch (static_cast<BgpProto::Notification::Code>(code)) {
+        case BgpProto::Notification::MsgHdrErr:
+            if (subcode > 3)
+                break;
+            switch (static_cast<BgpProto::Notification::MsgHdrSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::ConnNotSync:
+                break;
+            case BgpProto::Notification::BadMsgLength:
+                break;
+            case BgpProto::Notification::BadMsgType:
+                break;
+            }
+            break;
+        case BgpProto::Notification::OpenMsgErr:
+            if (subcode > 7)
+                break;
+            switch (static_cast<BgpProto::Notification::OpenMsgSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::UnsupportedVersion:
+                break;
+            case BgpProto::Notification::BadPeerAS:
+                break;
+            case BgpProto::Notification::BadBgpId:
+                break;
+            case BgpProto::Notification::UnsupportedOptionalParam:
+                break;
+            case BgpProto::Notification::AuthenticationFailure:
+                break;
+            case BgpProto::Notification::UnacceptableHoldTime:
+                break;
+            case BgpProto::Notification::UnsupportedCapability:
+                break;
+            }
+            break;
+        case BgpProto::Notification::UpdateMsgErr:
+            if (subcode > 11)
+                break;
+            switch (static_cast<BgpProto::Notification::UpdateMsgSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::MalformedAttributeList:
+                break;
+            case BgpProto::Notification::UnrecognizedWellKnownAttrib:
+                break;
+            case BgpProto::Notification::MissingWellKnownAttrib:
+                break;
+            case BgpProto::Notification::AttribFlagsError:
+                break;
+            case BgpProto::Notification::AttribLengthError:
+                break;
+            case BgpProto::Notification::InvalidOrigin:
+                break;
+            case BgpProto::Notification::InvalidNH:
+                break;
+            case BgpProto::Notification::OptionalAttribError:
+                break;
+            case BgpProto::Notification::InvalidNetworkField:
+                break;
+            case BgpProto::Notification::MalformedASPath:
+                break;
+            }
+            break;
+        case BgpProto::Notification::HoldTimerExp:
+            break;
+        case BgpProto::Notification::FSMErr:
+            if (subcode > 3)
+                break;
+            switch (static_cast<BgpProto::Notification::FsmSubcode>(subcode)) {
+            case BgpProto::Notification::UnspecifiedError:
+                break;
+            case BgpProto::Notification::OpenSentError:
+                break;
+            case BgpProto::Notification::OpenConfirmError:
+                break;
+            case BgpProto::Notification::EstablishedError:
+                break;
+            }
+            break;
+        case BgpProto::Notification::Cease:
+            if (subcode > 8)
+                break;
+            switch (static_cast<BgpProto::Notification::CeaseSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::Unknown:
+                EXPECT_TRUE(skip);
+                return;
+            case BgpProto::Notification::MaxPrefixes:
+                EXPECT_TRUE(skip);
+                return;
+            case BgpProto::Notification::AdminShutdown:
+                break;
+            case BgpProto::Notification::PeerDeconfigured:
+                break;
+            case BgpProto::Notification::AdminReset:
+                break;
+            case BgpProto::Notification::ConnectionRejected:
+                break;
+            case BgpProto::Notification::OtherConfigChange:
+                EXPECT_TRUE(skip);
+                return;
+            case BgpProto::Notification::ConnectionCollision:
+                break;
+            case BgpProto::Notification::OutOfResources:
+                EXPECT_TRUE(skip);
+                return;
+            }
+            break;
+    }
+    EXPECT_FALSE(skip);
+}
+
+TEST_F(BgpMsgBuilderTest, SkipNotificationsSend) {
+    for (int code = 1; code <= 10; code++) {
+        for (int subcode = 1; subcode <= 12; subcode++) {
+            TestSkipNotificationSend(code, subcode);
+        }
+    }
 }
 }  // namespace
 
