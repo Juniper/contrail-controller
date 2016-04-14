@@ -167,6 +167,127 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
     EXPECT_EQ(expected_qstring1, actual_qstring1);
 }
 
+TEST_F(CqlIfTest, StaticCfInsertIntoTablePrepare) {
+    GenDb::NewCf static_cf(
+        "InsertIntoStaticCf", // name
+        boost::assign::list_of // partition key
+            (GenDb::DbDataType::LexicalUUIDType),
+        boost::assign::map_list_of // columns
+            ("columnA", GenDb::DbDataType::AsciiType)
+            ("columnB", GenDb::DbDataType::LexicalUUIDType)
+            ("columnC", GenDb::DbDataType::TimeUUIDType)
+            ("columnD", GenDb::DbDataType::Unsigned8Type)
+            ("columnE", GenDb::DbDataType::Unsigned16Type)
+            ("columnF", GenDb::DbDataType::Unsigned32Type)
+            ("columnG", GenDb::DbDataType::Unsigned64Type)
+            ("columnH", GenDb::DbDataType::DoubleType)
+            ("columnI", GenDb::DbDataType::UTF8Type)
+            ("columnJ", GenDb::DbDataType::InetType)
+            ("columnK", GenDb::DbDataType::IntegerType));
+    std::string actual_qstring(
+        cass::cql::impl::StaticCf2CassPrepareInsertIntoTable(static_cf));
+    std::string expected_qstring(
+        "INSERT INTO InsertIntoStaticCf ("
+         "key, "
+         "\"columnA\", "
+         "\"columnB\", "
+         "\"columnC\", "
+         "\"columnD\", "
+         "\"columnE\", "
+         "\"columnF\", "
+         "\"columnG\", "
+         "\"columnH\", "
+         "\"columnI\", "
+         "\"columnJ\", "
+         "\"columnK\") VALUES ("
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?, "
+         "?) USING TTL ?");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+}
+
+TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
+    // Multiple elements in partition key, column name, and single in value
+    GenDb::DbDataTypeVec all_types = boost::assign::list_of
+        (GenDb::DbDataType::AsciiType)
+        (GenDb::DbDataType::LexicalUUIDType)
+        (GenDb::DbDataType::TimeUUIDType)
+        (GenDb::DbDataType::Unsigned8Type)
+        (GenDb::DbDataType::Unsigned16Type)
+        (GenDb::DbDataType::Unsigned32Type)
+        (GenDb::DbDataType::Unsigned64Type)
+        (GenDb::DbDataType::DoubleType)
+        (GenDb::DbDataType::UTF8Type)
+        (GenDb::DbDataType::InetType)
+        (GenDb::DbDataType::IntegerType);
+    GenDb::NewCf dynamic_cf(
+        "InsertIntoDynamicCf", // name
+        all_types, // partition key
+        all_types, // column name comparator
+        boost::assign::list_of // column value validation class
+            (GenDb::DbDataType::UTF8Type));
+    std::string actual_qstring(
+        cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf));
+    std::string expected_qstring(
+        "INSERT INTO InsertIntoDynamicCf ("
+        "key, "
+        "key2, "
+        "key3, "
+        "key4, "
+        "key5, "
+        "key6, "
+        "key7, "
+        "key8, "
+        "key9, "
+        "key10, "
+        "key11, "
+        "column1, "
+        "column2, "
+        "column3, "
+        "column4, "
+        "column5, "
+        "column6, "
+        "column7, "
+        "column8, "
+        "column9, "
+        "column10, "
+        "column11, "
+        "value) VALUES ("
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?) USING TTL ?");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+}
+
 static const std::string tstring_("Test");
 static const uint64_t tu64_(123456789ULL);
 static const uint32_t tu32_(123456789);

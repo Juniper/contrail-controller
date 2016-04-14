@@ -40,50 +40,6 @@ typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 std::string DbDataValueVecToString(const GenDb::DbDataValueVec &v_db_value);
 std::string DbDataValueToString(const GenDb::DbDataValue &db_value);
 
-class DbDataValueCqlPrinter : public boost::static_visitor<> {
- public:
-    DbDataValueCqlPrinter(std::ostream &os, bool quote_strings) :
-        os_(os),
-        quote_strings_(quote_strings) {
-    }
-    DbDataValueCqlPrinter(std::ostream &os) :
-        os_(os),
-        quote_strings_(true) {
-    }
-    template<typename T>
-    void operator()(const T &t) const {
-        os_ << t;
-    }
-    void operator()(const boost::uuids::uuid &tuuid) const {
-        os_ << to_string(tuuid);
-    }
-    // uint8_t must be handled specially because ostream sees
-    // uint8_t as a text type instead of an integer type
-    void operator()(const uint8_t &t8) const {
-        os_ << (uint16_t)t8;
-    }
-    void operator()(const std::string &tstring) const {
-        if (quote_strings_) {
-            os_ << "'" << tstring << "'";
-        } else {
-            os_ << tstring;
-        }
-    }
-    // CQL int is 32 bit signed integer
-    void operator()(const uint32_t &tu32) const {
-        os_ << (int32_t)tu32;
-    }
-    // CQL bigint is 64 bit signed long
-    void operator()(const uint64_t &tu64) const {
-        os_ << (int64_t)tu64;
-    }
-    void operator()(const IpAddress &tipaddr) const {
-        os_ << "'" << tipaddr << "'";
-    }
-    std::ostream &os_;
-    bool quote_strings_;
-};
-
 struct NewCf {
     enum ColumnFamilyType {
         COLUMN_FAMILY_INVALID = 0,
@@ -190,6 +146,7 @@ class GenDbIf {
 public:
     typedef boost::function<void(void)> DbErrorHandler;
     typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
+    typedef boost::function<void(bool)> DbAddColumnCb;
 
     GenDbIf() {}
     virtual ~GenDbIf() {}
@@ -209,6 +166,8 @@ public:
     virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<ColList> cl) = 0;
+    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl,
+        DbAddColumnCb cb) = 0;
     virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
     // Read/Get
     virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
