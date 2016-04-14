@@ -399,6 +399,10 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
     };
     CreateFlow(flow, 1);
 
+    FlowEntry *entry = FlowGet(VmPortGet(1)->flow_key_nh()->id(),  "1.1.1.1",
+                               "2.1.1.1", IPPROTO_TCP, 10, 20);
+    EXPECT_TRUE(entry->ksync_entry()->old_first_mirror_index() == 0);
+
     DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     DelAcl("Acl");
     client->WaitForIdle();
