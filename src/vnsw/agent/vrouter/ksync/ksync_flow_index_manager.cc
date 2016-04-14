@@ -122,11 +122,16 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
         // ksync entry only
         assert(kentry == flow->ksync_entry_);
         FlowEntry *rflow = flow->reverse_flow_entry();
-        if (flow->flow_handle() == index &&
-            flow->gen_id() == gen_id) {
+        // Check if index and gen id is corresponding to the info sent
+        // to vrouter, if vrouter has allocated flow index, following
+        // check will fail and it will follow through
+        if (kentry->hash_id() == index &&
+            kentry->vrouter_gen_id() == gen_id) {
             return;
         }
 
+        // Index allocation should happen only if flow_handle is
+        // kInvalidFlowHandle
         assert(flow->flow_handle() == FlowEntry::kInvalidFlowHandle);
         INDEX_LOCK(index);
         flow->LogFlow(FlowEventLog::FLOW_HANDLE_ASSIGN, kentry, index, gen_id);
