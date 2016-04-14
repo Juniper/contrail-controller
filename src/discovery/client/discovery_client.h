@@ -18,6 +18,7 @@
 #include "base/timer.h"
 
 #include "http/client/http_client.h"
+#include "http/client/http_curl.h"
 
 class ServiceType;
 class DiscoveryServiceClient;
@@ -103,6 +104,7 @@ struct DSPublishResponse {
     int pub_hb_sent_;
     int pub_hb_fail_;
     int pub_hb_rcvd_;
+    int pub_hb_timeout_;
 
     bool publish_cb_called_;
     bool heartbeat_cb_called_;
