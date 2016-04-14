@@ -15,7 +15,7 @@ from cfgm_common import svc_info
 from cfgm_common import vnc_cpu_info
 from cfgm_common.uve.service_instance.ttypes import *
 
-from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -202,6 +202,10 @@ class ServiceMonitorLogger(object):
     # init sandesh
     def _sandesh_init(self, discovery):
         sandesh_instance = Sandesh()
+        # Reset the sandesh send rate limit value
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
         sandesh_instance.init_generator(
