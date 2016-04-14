@@ -51,6 +51,8 @@ test_fip_src_ecmp = AgentEnv.MakeTestCmd(env, 'test_fip_src_ecmp',
                                          pkt_test_suite)
 test_ecmp_local = AgentEnv.MakeTestCmd(env, 'test_ecmp_local',
                                        pkt_test_suite)
+test_bgp_service = AgentEnv.MakeTestCmd(env, 'test_bgp_service',
+                                       pkt_test_suite)
 
 test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
                                                 [
