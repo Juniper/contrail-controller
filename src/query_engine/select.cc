@@ -472,10 +472,7 @@ query_status_t SelectQuery::process_query() {
                             se.value = (uint64_t)itr->value.GetUint64();
                         }
                     } else if (tname == 'd') {
-                        if (itr->value.IsDouble())
-                            se.value = (double) itr->value.GetDouble();
-                        else
-                            se.value = (double) itr->value.GetUint64();
+                        se.value = (double) itr->value.GetDouble();
                     } else {
                         QE_ASSERT(0);
                     }
