@@ -8,12 +8,14 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/unordered_map.hpp>
 
 #include <cassandra.h>
 
 #include <base/logging.h>
 #include <base/task.h>
 #include <base/timer.h>
+#include <base/string_util.h>
 #include <io/event_manager.h>
 #include <database/gendb_if.h>
 #include <database/cassandra/cql/cql_if.h>
@@ -150,7 +152,7 @@ struct CassString {
     size_t length;
 };
 
-// CassUuid encode
+// CassUuid encode and decode
 static inline void encode_uuid(char* output, const CassUuid &uuid) {
     uint64_t time_and_version = uuid.time_and_version;
     output[3] = static_cast<char>(time_and_version & 0x00000000000000FFLL);
@@ -176,6 +178,25 @@ static inline void encode_uuid(char* output, const CassUuid &uuid) {
         output[15 - i] = static_cast<char>(clock_seq_and_node & 0x00000000000000FFL);
         clock_seq_and_node >>= 8;
     }
+}
+
+static inline char* decode_uuid(char* input, CassUuid* output) {
+  output->time_and_version  = static_cast<uint64_t>(static_cast<uint8_t>(input[3]));
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[2])) << 8;
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[1])) << 16;
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[0])) << 24;
+
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[5])) << 32;
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[4])) << 40;
+
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[7])) << 48;
+  output->time_and_version |= static_cast<uint64_t>(static_cast<uint8_t>(input[6])) << 56;
+
+  output->clock_seq_and_node = 0;
+  for (size_t i = 0; i < 8; ++i) {
+    output->clock_seq_and_node |= static_cast<uint64_t>(static_cast<uint8_t>(input[15 - i])) << (8 * i);
+  }
+  return input + 16;
 }
 
 static const char * DbDataType2CassType(
@@ -215,10 +236,183 @@ static std::string DbDataTypes2CassTypes(
     return std::string(DbDataType2CassType(v_db_types[0]));
 }
 
+// Cass Query Printer
+class CassQueryPrinter : public boost::static_visitor<> {
+ public:
+    CassQueryPrinter(std::ostream &os, bool quote_strings) :
+        os_(os),
+        quote_strings_(quote_strings) {
+    }
+    CassQueryPrinter(std::ostream &os) :
+        os_(os),
+        quote_strings_(true) {
+    }
+    template<typename T>
+    void operator()(const T &t) const {
+        os_ << t;
+    }
+    void operator()(const boost::uuids::uuid &tuuid) const {
+        os_ << to_string(tuuid);
+    }
+    // uint8_t must be handled specially because ostream sees
+    // uint8_t as a text type instead of an integer type
+    void operator()(const uint8_t &tu8) const {
+        os_ << (uint16_t)tu8;
+    }
+    void operator()(const std::string &tstring) const {
+        if (quote_strings_) {
+            os_ << "'" << tstring << "'";
+        } else {
+            os_ << tstring;
+        }
+    }
+    // CQL int is 32 bit signed integer
+    void operator()(const uint32_t &tu32) const {
+        os_ << (int32_t)tu32;
+    }
+    // CQL bigint is 64 bit signed long
+    void operator()(const uint64_t &tu64) const {
+        os_ << (int64_t)tu64;
+    }
+    void operator()(const IpAddress &tipaddr) const {
+        os_ << "'" << tipaddr << "'";
+    }
+    std::ostream &os_;
+    bool quote_strings_;
+};
+
+//
+// CassStatement bind
+//
+class CassStatementIndexBinder : public boost::static_visitor<> {
+ public:
+    CassStatementIndexBinder(CassStatement *statement) :
+        statement_(statement) {
+    }
+    void operator()(const boost::blank &tblank, size_t index) const {
+        assert(false && "CassStatement bind to boost::blank not supported");
+    }
+    void operator()(const std::string &tstring, size_t index) const {
+        CassError rc(cass_statement_bind_string_n(statement_, index,
+            tstring.c_str(), tstring.length()));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const boost::uuids::uuid &tuuid, size_t index) const {
+        CassUuid cuuid;
+        decode_uuid((char *)&tuuid, &cuuid);
+        CassError rc(cass_statement_bind_uuid(statement_, index, cuuid));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint8_t &tu8, size_t index) const {
+        CassError rc(cass_statement_bind_int32(statement_, index,
+            (cass_int8_t)tu8));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint16_t &tu16, size_t index) const {
+        CassError rc(cass_statement_bind_int32(statement_, index,
+            (cass_int16_t)tu16));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint32_t &tu32, size_t index) const {
+        CassError rc(cass_statement_bind_int32(statement_, index,
+            (cass_int32_t)tu32));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint64_t &tu64, size_t index) const {
+        CassError rc(cass_statement_bind_int64(statement_, index,
+            (cass_int64_t)tu64));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const double &tdouble, size_t index) const {
+        CassError rc(cass_statement_bind_double(statement_, index,
+            (cass_double_t)tdouble));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const IpAddress &tipaddr, size_t index) const {
+        CassInet cinet;
+        if (tipaddr.is_v4()) {
+            boost::asio::ip::address_v4 tv4(tipaddr.to_v4());
+            cinet = cass_inet_init_v4(tv4.to_bytes().c_array());
+        } else {
+            boost::asio::ip::address_v6 tv6(tipaddr.to_v6());
+            cinet = cass_inet_init_v6(tv6.to_bytes().c_array());
+        }
+        CassError rc(cass_statement_bind_inet(statement_, index,
+            cinet));
+        assert(rc == CASS_OK);
+    }
+    CassStatement *statement_;
+};
+
+class CassStatementNameBinder : public boost::static_visitor<> {
+ public:
+    CassStatementNameBinder(CassStatement *statement) :
+        statement_(statement) {
+    }
+    void operator()(const boost::blank &tblank, const char *name) const {
+        assert(false && "CassStatement bind to boost::blank not supported");
+    }
+    void operator()(const std::string &tstring, const char *name) const {
+        CassError rc(cass_statement_bind_string_by_name_n(statement_, name,
+            strlen(name), tstring.c_str(), tstring.length()));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const boost::uuids::uuid &tuuid, const char *name) const {
+        CassUuid cuuid;
+        decode_uuid((char *)&tuuid, &cuuid);
+        CassError rc(cass_statement_bind_uuid_by_name(statement_, name,
+            cuuid));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint8_t &tu8, const char *name) const {
+        CassError rc(cass_statement_bind_int32_by_name(statement_, name,
+            (cass_int8_t)tu8));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint16_t &tu16, const char *name) const {
+        CassError rc(cass_statement_bind_int32_by_name(statement_, name,
+            (cass_int16_t)tu16));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint32_t &tu32, const char *name) const {
+        CassError rc(cass_statement_bind_int32_by_name(statement_, name,
+            (cass_int32_t)tu32));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const uint64_t &tu64, const char *name) const {
+        CassError rc(cass_statement_bind_int64_by_name(statement_, name,
+            (cass_int64_t)tu64));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const double &tdouble, const char *name) const {
+        CassError rc(cass_statement_bind_double_by_name(statement_, name,
+            (cass_double_t)tdouble));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const IpAddress &tipaddr, const char *name) const {
+        CassInet cinet;
+        if (tipaddr.is_v4()) {
+            boost::asio::ip::address_v4 tv4(tipaddr.to_v4());
+            cinet = cass_inet_init_v4(tv4.to_bytes().c_array());
+        } else {
+            boost::asio::ip::address_v6 tv6(tipaddr.to_v6());
+            cinet = cass_inet_init_v6(tv6.to_bytes().c_array());
+        }
+        CassError rc(cass_statement_bind_inet_by_name(statement_, name,
+            cinet));
+        assert(rc == CASS_OK);
+    }
+    CassStatement *statement_;
+};
+
 static const std::string kQCompactionStrategy(
     "compaction = {'class': "
     "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}");
 static const std::string kQGCGraceSeconds("gc_grace_seconds = 0");
+
+//
+// Cf2CassCreateTableIfNotExists
+//
 
 std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
     std::ostringstream query;
@@ -299,6 +493,63 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf) {
     return query.str();
 }
 
+//
+// Cf2CassInsertIntoTable
+//
+
+std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
+    std::ostringstream query;
+    // Table
+    const std::string &table(v_columns->cfname_);
+    query << "INSERT INTO " << table << " (";
+    std::ostringstream values_ss;
+    values_ss << "VALUES (";
+    CassQueryPrinter values_printer(values_ss);
+    // Row keys
+    const GenDb::DbDataValueVec &rkeys(v_columns->rowkey_);
+    int rk_size(rkeys.size());
+    for (int i = 0; i < rk_size; i++) {
+        if (i) {
+            int key_num(i + 1);
+            query << ", key" << key_num;
+        } else {
+            query << "key";
+        }
+        if (i) {
+            values_ss << ", ";
+        }
+        boost::apply_visitor(values_printer, rkeys[i]);
+    }
+    // Columns
+    int cttl(-1);
+    CassQueryPrinter cnames_printer(query, false);
+    BOOST_FOREACH(const GenDb::NewCol &column, v_columns->columns_) {
+        assert(column.cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL);
+        // Column Name
+        query << ", ";
+        const GenDb::DbDataValueVec &cnames(*column.name.get());
+        assert(cnames.size() == 1);
+        // Double quote column name strings
+        query << "\"";
+        boost::apply_visitor(cnames_printer, cnames[0]);
+        query << "\"";
+        // Column Values
+        values_ss << ", ";
+        const GenDb::DbDataValueVec &cvalues(*column.value.get());
+        assert(cvalues.size() == 1);
+        boost::apply_visitor(values_printer, cvalues[0]);
+        // Column TTL
+        cttl = column.ttl;
+    }
+    query << ") ";
+    values_ss << ")";
+    query << values_ss.str();
+    if (cttl > 0) {
+        query << " USING TTL " << cttl;
+    }
+    return query.str();
+}
+
 std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     std::ostringstream query;
     // Table
@@ -308,7 +559,7 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     // Row keys
     const GenDb::DbDataValueVec &rkeys(v_columns->rowkey_);
     int rk_size(rkeys.size());
-    GenDb::DbDataValueCqlPrinter values_printer(values_ss);
+    CassQueryPrinter values_printer(values_ss);
     for (int i = 0; i < rk_size; i++) {
         if (i) {
             int key_num(i + 1);
@@ -352,57 +603,151 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     return query.str();
 }
 
-std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
-    std::ostringstream query;
-    // Table
-    const std::string &table(v_columns->cfname_);
-    query << "INSERT INTO " << table << " (";
+//
+// Cf2CassPrepareInsertIntoTable
+//
+
+std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
+   std::ostringstream query;
+    // Table name
+    query << "INSERT INTO " << cf.cfname_ << " ";
+    // Row key
+    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
+    assert(rkeys.size() == 1);
     std::ostringstream values_ss;
-    values_ss << "VALUES (";
-    GenDb::DbDataValueCqlPrinter values_printer(values_ss);
-    // Row keys
-    const GenDb::DbDataValueVec &rkeys(v_columns->rowkey_);
+    query << "(key";
+    values_ss << ") VALUES (?";
+    // Columns
+    const GenDb::NewCf::SqlColumnMap &columns(cf.cfcolumns_);
+    assert(!columns.empty());
+    BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
+        columns) {
+        query << ", \"" << column.first << "\"";
+        values_ss << ", ?";
+    }
+    query << values_ss.str();
+    query << ") USING TTL ?";
+    return query.str();
+}
+
+std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
+    std::ostringstream query;
+    // Table name
+    query << "INSERT INTO " << cf.cfname_ << " (";
+    // Row key
+    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
     int rk_size(rkeys.size());
+    std::ostringstream values_ss;
     for (int i = 0; i < rk_size; i++) {
         if (i) {
             int key_num(i + 1);
-            query << ", key" << key_num;
+            query << "key" << key_num;
         } else {
             query << "key";
         }
-        if (i) {
+        query << ", ";
+        values_ss << "?, ";
+    }
+    // Column name
+    const GenDb::DbDataTypeVec &cnames(cf.comparator_type);
+    int cn_size(cnames.size());
+    for (int i = 0; i < cn_size; i++) {
+        int cnum(i + 1);
+        query << "column" << cnum;
+        values_ss << "?";
+        if (i != cn_size - 1) {
+            query << ", ";
             values_ss << ", ";
         }
-        boost::apply_visitor(values_printer, rkeys[i]);
+    }
+    // Value
+    const GenDb::DbDataTypeVec &values(cf.default_validation_class);
+    if (values.size() > 0) {
+        query << ", value";
+        values_ss << ", ?";
+    }
+    query << ") VALUES (";
+    values_ss << ")";
+    query << values_ss.str();
+    query << " USING TTL ?";
+    return query.str();
+}
+
+//
+// Cf2CassPrepareBind
+//
+
+bool StaticCf2CassPrepareBind(CassStatement *statement,
+    const GenDb::ColList *v_columns) {
+    CassStatementNameBinder values_binder(statement);
+    // Row keys
+    const GenDb::DbDataValueVec &rkeys(v_columns->rowkey_);
+    int rk_size(rkeys.size());
+    size_t idx(0);
+    for (; (int) idx < rk_size; idx++) {
+        std::string rk_name;
+        if (idx) {
+            int key_num(idx + 1);
+            rk_name = "key" + integerToString(key_num);
+        } else {
+            rk_name = "key";
+        }
+        boost::apply_visitor(boost::bind(values_binder, _1, rk_name.c_str()),
+            rkeys[idx]);
     }
     // Columns
     int cttl(-1);
-    GenDb::DbDataValueCqlPrinter cnames_printer(query, false);
     BOOST_FOREACH(const GenDb::NewCol &column, v_columns->columns_) {
         assert(column.cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL);
-        // Column Name
-        query << ", ";
         const GenDb::DbDataValueVec &cnames(*column.name.get());
         assert(cnames.size() == 1);
-        // Double quote column name strings
-        query << "\"";
-        boost::apply_visitor(cnames_printer, cnames[0]);
-        query << "\"";
-        // Column Values
-        values_ss << ", ";
+        assert(cnames[0].which() == GenDb::DB_VALUE_STRING);
+        std::string cname(boost::get<std::string>(cnames[0]));
         const GenDb::DbDataValueVec &cvalues(*column.value.get());
         assert(cvalues.size() == 1);
-        boost::apply_visitor(values_printer, cvalues[0]);
+        boost::apply_visitor(boost::bind(values_binder, _1, cname.c_str()),
+            cvalues[0]);
         // Column TTL
         cttl = column.ttl;
+        idx++;
     }
-    query << ") ";
-    values_ss << ")";
-    query << values_ss.str();
-    if (cttl > 0) {
-        query << " USING TTL " << cttl;
+    CassError rc(cass_statement_bind_int32(statement, idx++,
+        (cass_int32_t)cttl));
+    assert(rc == CASS_OK);
+    return true;
+}
+
+bool DynamicCf2CassPrepareBind(CassStatement *statement,
+    const GenDb::ColList *v_columns) {
+    CassStatementIndexBinder values_binder(statement);
+    // Row keys
+    const GenDb::DbDataValueVec &rkeys(v_columns->rowkey_);
+    int rk_size(rkeys.size());
+    size_t idx(0);
+    for (; (int) idx < rk_size; idx++) {
+        boost::apply_visitor(boost::bind(values_binder, _1, idx), rkeys[idx]);
     }
-    return query.str();
+    // Columns
+    const GenDb::NewColVec &columns(v_columns->columns_);
+    assert(columns.size() == 1);
+    const GenDb::NewCol &column(columns[0]);
+    assert(column.cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL);
+    // Column Names
+    const GenDb::DbDataValueVec &cnames(*column.name.get());
+    int cn_size(cnames.size());
+    for (int i = 0; i < cn_size; i++, idx++) {
+        boost::apply_visitor(boost::bind(values_binder, _1, idx), cnames[i]);
+    }
+    // Column Values
+    const GenDb::DbDataValueVec &cvalues(*column.value.get());
+    if (cvalues.size() > 0) {
+        boost::apply_visitor(boost::bind(values_binder, _1, idx++),
+            cvalues[0]);
+    }
+    CassError rc(cass_statement_bind_int32(statement, idx++,
+        (cass_int32_t)column.ttl));
+    assert(rc == CASS_OK);
+    return true;
 }
 
 static std::string CassSelectFromTableInternal(const std::string &table,
@@ -412,7 +757,7 @@ static std::string CassSelectFromTableInternal(const std::string &table,
     // Table
     query << "SELECT * FROM " << table << " WHERE ";
     int rk_size(rkeys.size());
-    GenDb::DbDataValueCqlPrinter cprinter(query);
+    CassQueryPrinter cprinter(query);
     for (int i = 0; i < rk_size; i++) {
         if (i) {
             int key_num(i + 1);
@@ -427,7 +772,7 @@ static std::string CassSelectFromTableInternal(const std::string &table,
             int ck_start_size(ck_range.start_.size());
             std::ostringstream start_ss;
             start_ss << " >= (";
-            GenDb::DbDataValueCqlPrinter start_vprinter(start_ss);
+            CassQueryPrinter start_vprinter(start_ss);
             query << " AND (";
             for (int i = 0; i < ck_start_size; i++) {
                 if (i) {
@@ -446,7 +791,7 @@ static std::string CassSelectFromTableInternal(const std::string &table,
             int ck_finish_size(ck_range.finish_.size());
             std::ostringstream finish_ss;
             finish_ss << " <= (";
-            GenDb::DbDataValueCqlPrinter finish_vprinter(finish_ss);
+            CassQueryPrinter finish_vprinter(finish_ss);
             query << " AND (";
             for (int i = 0; i < ck_finish_size; i++) {
                 if (i) {
@@ -559,19 +904,35 @@ static GenDb::DbDataValue CassValue2DbDataValue(const CassValue *cvalue) {
     }
 }
 
-static bool ExecuteQuerySyncInternal(CassSession *session, const char* query,
-    CassResultPtr *result, CassConsistency consistency) {
-    CQLIF_LOG(DEBUG, "SyncQuery: " << query);
-    CassStatementPtr statement(cass_statement_new(query, 0));
-    cass_statement_set_consistency(statement.get(), consistency);
-    CassFuturePtr future(cass_session_execute(session, statement.get()));
+static bool PrepareSync(CassSession *session, const char* query,
+    CassPreparedPtr *prepared) {
+    CQLIF_LOG(DEBUG, "PrepareSync: " << query);
+    CassFuturePtr future(cass_session_prepare(session, query));
     cass_future_wait(future.get());
 
     CassError rc(cass_future_error_code(future.get()));
     if (rc != CASS_OK) {
         CassString err;
         cass_future_error_message(future.get(), &err.data, &err.length);
-        CQLIF_LOG_ERR("SyncQuery: " << query << " FAILED: " << err.data);
+        CQLIF_LOG_ERR("PrepareSync: " << query << " FAILED: " << err.data);
+    } else {
+        *prepared = CassPreparedPtr(cass_future_get_prepared(future.get()));
+    }
+    return rc == CASS_OK;
+}
+
+static bool ExecuteQuerySyncInternal(CassSession *session,
+    CassStatement *qstatement, CassResultPtr *result,
+    CassConsistency consistency) {
+    cass_statement_set_consistency(qstatement, consistency);
+    CassFuturePtr future(cass_session_execute(session, qstatement));
+    cass_future_wait(future.get());
+
+    CassError rc(cass_future_error_code(future.get()));
+    if (rc != CASS_OK) {
+        CassString err;
+        cass_future_error_message(future.get(), &err.data, &err.length);
+        CQLIF_LOG_ERR("SyncQuery: FAILED: " << err.data);
     } else {
         if (result) {
             *result = CassResultPtr(cass_future_get_result(future.get()));
@@ -582,14 +943,79 @@ static bool ExecuteQuerySyncInternal(CassSession *session, const char* query,
 
 static bool ExecuteQuerySync(CassSession *session, const char *query,
     CassConsistency consistency) {
-    return ExecuteQuerySyncInternal(session, query, NULL, consistency);
+    CQLIF_LOG(DEBUG, "SyncQuery: " << query);
+    CassStatementPtr statement(cass_statement_new(query, 0));
+    return ExecuteQuerySyncInternal(session, statement.get(), NULL,
+        consistency);
+}
+
+static bool ExecuteQueryResultSync(CassSession *session, const char *query,
+    CassResultPtr *result, CassConsistency consistency) {
+    CQLIF_LOG(DEBUG, "SyncQuery: " << query);
+    CassStatementPtr statement(cass_statement_new(query, 0));
+    return ExecuteQuerySyncInternal(session, statement.get(), result,
+        consistency);
+}
+
+static bool ExecuteQueryStatementSync(CassSession *session,
+    CassStatement *statement, CassConsistency consistency) {
+    return ExecuteQuerySyncInternal(session, statement, NULL, consistency);
+}
+
+typedef boost::function<void(bool)> CassAsyncQueryCallback;
+
+struct CassAsyncQueryContext {
+    CassAsyncQueryContext(const char *query_id, CassAsyncQueryCallback cb) :
+        query_id_(query_id),
+        cb_(cb) {
+    }
+    std::string query_id_;
+    CassAsyncQueryCallback cb_;
+};
+
+static void OnExecuteQueryAsync(CassFuture *future, void *data) {
+    assert(data);
+    std::auto_ptr<CassAsyncQueryContext> ctx(
+        boost::reinterpret_pointer_cast<CassAsyncQueryContext>(data));
+    CassError rc(cass_future_error_code(future));
+    if (rc != CASS_OK) {
+        CassString err;
+        cass_future_error_message(future, &err.data, &err.length);
+        CQLIF_LOG_ERR("AsyncQuery: " << ctx->query_id_ << " FAILED: "
+            << err.data);
+    }
+    ctx->cb_(rc == CASS_OK);
+}
+
+static void ExecuteQueryAsyncInternal(CassSession *session,
+    const char *qid, CassStatement *qstatement,
+    CassConsistency consistency, CassAsyncQueryCallback cb) {
+    cass_statement_set_consistency(qstatement, consistency);
+    CassFuturePtr future(cass_session_execute(session, qstatement));
+    std::auto_ptr<CassAsyncQueryContext> ctx(new CassAsyncQueryContext(qid, cb));
+    cass_future_set_callback(future.get(), OnExecuteQueryAsync, ctx.release());
+}
+
+static void ExecuteQueryAsync(CassSession *session, const char *query,
+    CassConsistency consistency, CassAsyncQueryCallback cb) {
+    CQLIF_LOG(DEBUG, "AsyncQuery: " << query);
+    CassStatementPtr statement(cass_statement_new(query, 0));
+    ExecuteQueryAsyncInternal(session, query, statement.get(), consistency,
+        cb);
+}
+
+static void ExecuteQueryStatementAsync(CassSession *session,
+    const char *query_id, CassStatement *qstatement,
+    CassConsistency consistency, CassAsyncQueryCallback cb) {
+    ExecuteQueryAsyncInternal(session, query_id, qstatement, consistency,
+        cb);
 }
 
 static bool DynamicCfGetResultSync(CassSession *session, const char *query,
     size_t rk_count, size_t ck_count, CassConsistency consistency,
     GenDb::NewColVec *v_columns) {
     CassResultPtr result;
-    bool success(ExecuteQuerySyncInternal(session, query, &result,
+    bool success(ExecuteQueryResultSync(session, query, &result,
         consistency));
     if (!success) {
         return success;
@@ -625,7 +1051,7 @@ static bool DynamicCfGetResultSync(CassSession *session, const char *query,
 static bool StaticCfGetResultSync(CassSession *session, const char *query,
     CassConsistency consistency, GenDb::NewColVec *v_columns) {
     CassResultPtr result;
-    bool success(ExecuteQuerySyncInternal(session, query, &result,
+    bool success(ExecuteQueryResultSync(session, query, &result,
         consistency));
     if (!success) {
         return success;
@@ -921,6 +1347,34 @@ class CqlIf::CqlIfImpl {
             consistency);
     }
 
+    bool AddPrepareInsertIntoTable(const GenDb::NewCf &cf) {
+        impl::CassPreparedPtr prepared;
+        bool success(PrepareInsertIntoTableSync(cf, &prepared));
+        if (!success) {
+            return success;
+        }
+        const std::string &table_name(cf.cfname_);
+        // Store the prepared statement into the map
+        tbb::mutex::scoped_lock lock(map_mutex_);
+        success = (insert_prepared_map_.insert(
+            std::make_pair(table_name, prepared))).second;
+        assert(success);
+        return success;
+    }
+
+    bool GetPrepareInsertIntoTable(const std::string &table_name,
+        impl::CassPreparedPtr *prepared) const {
+        tbb::mutex::scoped_lock lock(map_mutex_);
+        CassPreparedMapType::const_iterator it(
+            insert_prepared_map_.find(table_name));
+        if (it == insert_prepared_map_.end()) {
+            CQLIF_LOG_ERR("CassPrepared statement NOT found: " << table_name);
+            return false;
+        }
+        *prepared = it->second;
+        return true;
+    }
+
     bool IsTablePresent(const GenDb::NewCf &cf) {
         if (session_state_ != SessionState::CONNECTED) {
             return false;
@@ -945,17 +1399,22 @@ class CqlIf::CqlIfImpl {
 
     bool InsertIntoTableSync(std::auto_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency) {
-        if (session_state_ != SessionState::CONNECTED) {
-            return false;
-        }
-        std::string query;
-        if (IsTableStatic(v_columns->cfname_)) {
-            query = impl::StaticCf2CassInsertIntoTable(v_columns.get());
-        } else {
-            query = impl::DynamicCf2CassInsertIntoTable(v_columns.get());
-        }
-        return impl::ExecuteQuerySync(session_.get(), query.c_str(),
-            consistency);
+        return InsertIntoTableInternal(v_columns, consistency, true, NULL);
+    }
+
+    bool InsertIntoTableAsync(std::auto_ptr<GenDb::ColList> v_columns,
+        CassConsistency consistency, impl::CassAsyncQueryCallback cb) {
+        return InsertIntoTableInternal(v_columns, consistency, false, cb);
+    }
+
+    bool InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_columns,
+        CassConsistency consistency, impl::CassAsyncQueryCallback cb) {
+        return InsertIntoTablePrepareInternal(v_columns, consistency, false,
+            cb);
+    }
+
+    bool IsInsertIntoTablePrepareSupported(const std::string &table) {
+        return IsTableDynamic(table);
     }
 
     bool SelectFromTableSync(const std::string &cfname,
@@ -1144,6 +1603,81 @@ class CqlIf::CqlIfImpl {
         session_state_ = SessionState::DISCONNECTED;
     }
 
+    bool InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
+        CassConsistency consistency, bool sync,
+        impl::CassAsyncQueryCallback cb) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
+        std::string query;
+        if (IsTableStatic(v_columns->cfname_)) {
+            query = impl::StaticCf2CassInsertIntoTable(v_columns.get());
+        } else {
+            query = impl::DynamicCf2CassInsertIntoTable(v_columns.get());
+        }
+        if (sync) {
+            return impl::ExecuteQuerySync(session_.get(), query.c_str(),
+                consistency);
+        } else {
+            impl::ExecuteQueryAsync(session_.get(), query.c_str(),
+                consistency, cb);
+            return true;
+        }
+    }
+
+    bool PrepareInsertIntoTableSync(const GenDb::NewCf &cf,
+        impl::CassPreparedPtr *prepared) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
+        std::string query;
+        switch (cf.cftype_) {
+          case GenDb::NewCf::COLUMN_FAMILY_SQL:
+            query = impl::StaticCf2CassPrepareInsertIntoTable(cf);
+            break;
+          case GenDb::NewCf::COLUMN_FAMILY_NOSQL:
+            query = impl::DynamicCf2CassPrepareInsertIntoTable(cf);
+            break;
+          default:
+            return false;
+        }
+        return impl::PrepareSync(session_.get(), query.c_str(),
+            prepared);
+    }
+
+    bool InsertIntoTablePrepareInternal(std::auto_ptr<GenDb::ColList> v_columns,
+        CassConsistency consistency, bool sync,
+        impl::CassAsyncQueryCallback cb) {
+        if (session_state_ != SessionState::CONNECTED) {
+            return false;
+        }
+        impl::CassPreparedPtr prepared;
+        bool success(GetPrepareInsertIntoTable(v_columns->cfname_, &prepared));
+        if (!success) {
+            return false;
+        }
+        impl::CassStatementPtr qstatement(cass_prepared_bind(prepared.get()));
+        if (IsTableStatic(v_columns->cfname_)) {
+            success = impl::StaticCf2CassPrepareBind(qstatement.get(),
+                v_columns.get());
+        } else {
+            success = impl::DynamicCf2CassPrepareBind(qstatement.get(),
+                v_columns.get());
+        }
+        if (!success) {
+            return false;
+        }
+        if (sync) {
+            return impl::ExecuteQueryStatementSync(session_.get(),
+                qstatement.get(), consistency);
+        } else {
+            std::string qid("Prepare: " + v_columns->cfname_);
+            impl::ExecuteQueryStatementAsync(session_.get(), qid.c_str(),
+                qstatement.get(), consistency, cb);
+            return true;
+        }
+    }
+
     static const char * kQCreateKeyspaceIfNotExists;
     static const char * kQUseKeyspace;
     static const char * kTaskName;
@@ -1169,6 +1703,10 @@ class CqlIf::CqlIfImpl {
     DisconnectCbFn disconnect_cb_;
     std::string keyspace_;
     int io_thread_count_;
+    typedef boost::unordered_map<std::string, impl::CassPreparedPtr>
+        CassPreparedMapType;
+    CassPreparedMapType insert_prepared_map_;
+    mutable tbb::mutex map_mutex_;
 };
 
 const char * CqlIf::CqlIfImpl::kQCreateKeyspaceIfNotExists(
@@ -1184,7 +1722,9 @@ CqlIf::CqlIf(EventManager *evm,
              const std::vector<std::string> &cassandra_ips,
              int cassandra_port,
              const std::string &cassandra_user,
-             const std::string &cassandra_password) {
+             const std::string &cassandra_password) :
+    impl_(NULL),
+    use_prepared_for_insert_(true) {
     // Setup library logging
     cass_log_set_level(impl::Log4Level2CassLogLevel(
         log4cplus::Logger::getRoot().getLogLevel()));
@@ -1263,6 +1803,13 @@ bool CqlIf::Db_AddColumnfamily(const GenDb::NewCf &cf) {
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
         return success;
     }
+    // Add INSERT INTO prepare statement
+    success = impl_->AddPrepareInsertIntoTable(cf);
+    if (!success) {
+        IncrementTableWriteFailStats(cf.cfname_);
+        IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
+        return success;
+    }
     IncrementTableWriteStats(cf.cfname_);
     return success;
 }
@@ -1280,13 +1827,48 @@ bool CqlIf::Db_UseColumnfamily(const GenDb::NewCf &cf) {
 }
 
 // Column
+void CqlIf::OnAsyncColumnAddCompletion(bool success, std::string cfname,
+    GenDb::GenDbIf::DbAddColumnCb cb) {
+    if (success) {
+        IncrementTableWriteStats(cfname);
+    } else {
+        IncrementTableWriteFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
+    }
+    if (!cb.empty()) {
+        cb(success);
+    }
+}
+
 bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    return Db_AddColumn(cl, GenDb::GenDbIf::DbAddColumnCb());
+}
+
+bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+    GenDb::GenDbIf::DbAddColumnCb cb) {
+    std::string cfname(cl->cfname_);
     if (!initialized_) {
-        IncrementTableWriteFailStats(cl->cfname_);
+        IncrementTableWriteFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
         return false;
     }
-    return Db_AddColumnSync(cl);
+    bool success;
+    if (use_prepared_for_insert_ &&
+        impl_->IsInsertIntoTablePrepareSupported(cfname)) {
+        success = impl_->InsertIntoTablePrepareAsync(cl, CASS_CONSISTENCY_ONE,
+            boost::bind(&CqlIf::OnAsyncColumnAddCompletion, this, _1, cfname,
+            cb));
+    } else {
+        success = impl_->InsertIntoTableAsync(cl, CASS_CONSISTENCY_ONE,
+            boost::bind(&CqlIf::OnAsyncColumnAddCompletion, this, _1, cfname,
+            cb));
+    }
+    if (!success) {
+        IncrementTableWriteFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
+        return success;
+    }
+    return success;
 }
 
 bool CqlIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
