@@ -378,6 +378,7 @@ private:
     void FillCloseInfo(BgpNeighborResp *resp) const;
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
+    bool SkipNotificationSend(int code, int subcode) const;
 
     static const std::vector<Address::Family> supported_families_;
     BgpServer *server_;
