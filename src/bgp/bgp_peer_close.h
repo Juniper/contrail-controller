@@ -95,6 +95,8 @@ private:
     Timer *sweep_timer_;
     State state_;
     bool close_again_;
+    int gr_elapsed_;
+    int llgr_elapsed_;
     IPeerClose::Families families_;
     Stats stats_;
     mutable tbb::recursive_mutex mutex_;

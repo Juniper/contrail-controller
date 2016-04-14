@@ -36,15 +36,11 @@ public:
 #endif
 
     template <typename WaitHandler>
-    void async_wait(WaitHandler handler) {
-        timer_.async_wait(handler);
-    }
-
-    void cancel(boost::system::error_code &ec) {
-        timer_.cancel(ec);
-    }
+    void async_wait(WaitHandler handler) { timer_.async_wait(handler); }
+    void cancel(boost::system::error_code &ec) { timer_.cancel(ec); }
 
 private:
+    friend class Timer;
     TimerType timer_;
 };
 

@@ -115,6 +115,7 @@ bool Timer::Start(int time, Handler handler, ErrorHandler error_handler) {
     }
 
     // Restart the timer
+    time_ = time;
     handler_ = handler;
     seq_no_++;
     error_handler_ = error_handler;
@@ -186,7 +187,6 @@ void Timer::StartTimerTask(TimerPtr reference, int time, uint32_t seq_no,
     // Start a task and add Task reference.
     assert(timer_task_ == NULL);
     timer_task_ = new TimerTask(reference, ec);
-    time_ = time;
     TaskScheduler::GetInstance()->Enqueue(timer_task_);
 }
 
@@ -229,3 +229,14 @@ bool TimerManager::DeleteTimer(Timer *timer) {
     return true;
 }
 
+// Get timer's already elapsed time in milliseconds.
+int Timer::GetElapsedTime() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    boost::chrono::duration<double> secs =
+        boost::chrono::nanoseconds(impl_->timer_.expires_from_now());
+    int elapsed = time_ - secs.count()*1000;
+    if (elapsed < 0)
+        elapsed = 0;
+    return elapsed;
+}
