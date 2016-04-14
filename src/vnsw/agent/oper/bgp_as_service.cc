@@ -248,8 +248,9 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
     const VnEntry *vn = vm_intf->vn();
     if (vn == NULL) return false;
 
-    if ((vn->GetGatewayFromIpam(source_ip) == dest_ip) ||
-        (vn->GetDnsFromIpam(source_ip) == dest_ip)) {
+    const IpAddress &vm_ip = vm_intf->primary_ip_addr();
+    if ((vn->GetGatewayFromIpam(vm_ip) == dest_ip) ||
+        (vn->GetDnsFromIpam(vm_ip) == dest_ip)) {
         ret = true;
     }
     return ret;
@@ -263,8 +264,9 @@ bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
     const VnEntry *vn = vm_intf->vn();
     if (vn == NULL) return false;
 
-    const IpAddress &gw = vn->GetGatewayFromIpam(source_ip);
-    const IpAddress &dns = vn->GetDnsFromIpam(source_ip);
+    const IpAddress &vm_ip = vm_intf->primary_ip_addr();
+    const IpAddress &gw = vn->GetGatewayFromIpam(vm_ip);
+    const IpAddress &dns = vn->GetDnsFromIpam(vm_ip);
 
     boost::system::error_code ec;
     BgpAsAServiceEntryMapConstIterator map_it =
