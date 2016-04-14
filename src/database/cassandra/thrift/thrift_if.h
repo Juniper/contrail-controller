@@ -32,6 +32,8 @@ class ThriftIf : public GenDb::GenDbIf {
     virtual bool Db_UseColumnfamily(const GenDb::NewCf& cf);
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::GenDbIf::DbAddColumnCb cb);
     virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
     // Read
     virtual bool Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
