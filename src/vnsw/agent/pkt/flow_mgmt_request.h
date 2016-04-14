@@ -20,7 +20,6 @@ public:
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
         RETRY_DELETE_VRF,
-        UPDATE_FLOW_INDEX,
         DELETE_BGP_AAS_FLOWS,
         UPDATE_FLOW_STATS,
         DUMMY
@@ -29,22 +28,28 @@ public:
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(), packets_(), oflow_bytes_() {
+        bytes_(), packets_(), oflow_bytes_(), params_() {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
+    }
+
+    FlowMgmtRequest(Event event, FlowEntryPtr &flow,
+                    const RevFlowDepParams &params) :
+        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
+        bytes_(), packets_(), oflow_bytes_(), params_(params) {
     }
 
     FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint32_t bytes,
                     uint32_t packets, uint32_t oflow_bytes) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes) {
+        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_() {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
     }
 
     FlowMgmtRequest(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), db_entry_(db_entry), vrf_id_(0),
-        gen_id_(gen_id), bytes_(), packets_(), oflow_bytes_() {
+        gen_id_(gen_id), bytes_(), packets_(), oflow_bytes_(), params_() {
             if (event == RETRY_DELETE_VRF) {
                 const VrfEntry *vrf = dynamic_cast<const VrfEntry *>(db_entry);
                 assert(vrf);
@@ -54,7 +59,7 @@ public:
 
     FlowMgmtRequest(Event event) :
         event_(event), flow_(NULL), db_entry_(NULL), vrf_id_(),
-        gen_id_(), bytes_(), packets_(), oflow_bytes_() {
+        gen_id_(), bytes_(), packets_(), oflow_bytes_(), params_() {
     }
 
     virtual ~FlowMgmtRequest() { }
@@ -102,6 +107,7 @@ public:
     uint32_t bytes() const { return bytes_;}
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
+    const RevFlowDepParams& params() const { return params_; }
 
 private:
     Event event_;
@@ -115,6 +121,7 @@ private:
     uint32_t bytes_;
     uint32_t packets_;
     uint32_t oflow_bytes_;
+    RevFlowDepParams params_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };
