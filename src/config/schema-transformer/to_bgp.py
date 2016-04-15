@@ -90,6 +90,8 @@ def get_si_vns(si_obj, si_props):
         si_if_list = si_props.get_interface_list()
         for idx in range(0, len(st_if_list)):
             st_if = st_if_list[idx]
+            if not si_if_list or len(si_if_list) <= idx:
+                break
             si_if = si_if_list[idx]
             if st_if.get_service_interface_type() == 'left':
                 left_vn = si_if.get_virtual_network()
@@ -3212,6 +3214,7 @@ class SchemaTransformer(object):
 
     def process_poll_result(self, poll_result_str):
         something_done = False
+        initial_search = False
         result_list = parse_poll_result(poll_result_str)
         self.current_network_set = set()
 
@@ -3219,9 +3222,9 @@ class SchemaTransformer(object):
         for (result_type, idents, metas) in result_list:
             if result_type != 'searchResult' and not self.ifmap_search_done:
                 self.ifmap_search_done = True
-                self.process_stale_objects()
                 self.current_network_set = set(VirtualNetworkST.keys())
                 something_done = True
+                initial_search = True
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
                 if result_type == 'deleteResult':
@@ -3247,6 +3250,8 @@ class SchemaTransformer(object):
             return
         if self.ifmap_search_done:
             self.process_networks()
+        if initial_search:
+            self.process_stale_objects()
     # end process_poll_results
 
     def process_networks(self):
@@ -3535,9 +3540,9 @@ class SchemaTransformer(object):
 def set_ifmap_search_done(transformer):
     gevent.sleep(60)
     transformer.ifmap_search_done = True
-    transformer.process_stale_objects()
     transformer.current_network_set = set(VirtualNetworkST.keys())
     transformer.process_networks()
+    transformer.process_stale_objects()
 # end set_ifmap_search_done
 
 def launch_arc(transformer, ssrc_mapc):
