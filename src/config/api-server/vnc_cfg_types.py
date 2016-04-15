@@ -440,6 +440,66 @@ class LogicalRouterServer(Resource, LogicalRouter):
     generate_default_instance = False
 
     @classmethod
+    def is_port_in_use_by_vm(cls, obj_dict, db_conn):
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
+            vmi_id = vmi_ref['uuid']
+            ok, read_result = cls.dbe_read(
+                  db_conn, 'virtual-machine-interface', vmi_ref['uuid'])
+            if not ok:
+                return ok, read_result
+            if (read_result['parent_type'] == 'virtual-machine' or
+                    read_result.get('virtual_machine_refs', None)):
+                msg = "Port(%s) already in use by virtual-machine(%s)" %\
+                      (vmi_id, read_result['parent_uuid'])
+                return (False, (403, msg))
+        return (True, '')
+
+    @classmethod
+    def is_port_gateway_in_same_network(cls, db_conn, vmi_refs, vn_refs):
+        interface_vn_uuids = []
+        for vmi_ref in vmi_refs:
+            ok, vmi_result = cls.dbe_read(
+                  db_conn, 'virtual-machine-interface', vmi_ref['uuid'])
+            if not ok:
+                return ok, vmi_result
+            interface_vn_uuids.append(
+                    vmi_result['virtual_network_refs'][0]['uuid'])
+            for vn_ref in vn_refs:
+                if vn_ref['uuid'] in interface_vn_uuids:
+                    msg = "Logical router interface and gateway cannot be in VN(%s)" %\
+                          (vn_ref['uuid'])
+                    return (False, (403, msg))
+        return (True, '')
+
+    @classmethod
+    def check_port_gateway_not_in_same_network(cls, db_conn, lr_id, obj_dict):
+        if ('virtual_network_refs' in obj_dict and
+                'virtual_machine_interface_refs' in obj_dict):
+            ok, result = cls.is_port_gateway_in_same_network(db_conn,
+                             obj_dict['virtual_machine_interface_refs'],
+                             obj_dict['virtual_network_refs'])
+            if not ok:
+                return ok, result
+        if ('virtual_network_refs' in obj_dict or
+                'virtual_machine_interface_refs' in obj_dict):
+            ok, read_result = cls.dbe_read(db_conn, 'logical-router', lr_id)
+            if not ok:
+                return ok, read_result
+        if 'virtual_network_refs' in obj_dict:
+            ok, result = cls.is_port_gateway_in_same_network(db_conn,
+                             read_result.get('virtual_machine_interface_refs', []),
+                             obj_dict['virtual_network_refs'])
+            if not ok:
+                return ok, result
+        if 'virtual_machine_interface_refs' in obj_dict:
+            ok, result = cls.is_port_gateway_in_same_network(db_conn,
+                             obj_dict['virtual_machine_interface_refs'],
+                             read_result.get('virtual_network_refs', []))
+            if not ok:
+                return ok, result
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
@@ -449,6 +509,15 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                'user_visibility': user_visibility}
 
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_port_gateway_not_in_same_network(db_conn, id,
+                                                                obj_dict)
+        if not ok:
+            return (ok, result)
+        return cls.is_port_in_use_by_vm(obj_dict, db_conn)
     # end pre_dbe_create
 
 # end class LogicalRouterServer
@@ -619,6 +688,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not ok:
             return ok, read_result
 
+        # check if the vmi is a internal interface of a logical
+        # router
+        if (read_result.get('logical_router_back_refs', None) and
+                obj_dict.get('virtual_machine_refs', None)):
+            return (False,
+                    (403, 'Logical router interface cannot be used by VM'))
         # check if vmi is going to point to vm and if its using
         # gateway address in iip, disallow
         for iip_ref in read_result.get('instance_ip_back_refs') or []:
