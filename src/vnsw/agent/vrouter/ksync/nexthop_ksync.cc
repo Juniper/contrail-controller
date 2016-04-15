@@ -758,6 +758,17 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
 
         case NextHop::RESOLVE:
+            if (policy_) {
+                //Policy bit is used in agent to copy over the
+                //field to ARP nexthop that gets created from
+                //resolve NH in case of gateway interface,
+                //but the same is not needed in vrouter.
+                //If policy bit is enabled then first packet
+                //resulting flow with key NH of resolve NH
+                //followed by next packet with ARP NH as key
+                //resulting in flow drops
+                flags &= ~NH_FLAG_POLICY_ENABLED;
+            }
             encoder.set_nhr_type(NH_RESOLVE);
             break;
 
