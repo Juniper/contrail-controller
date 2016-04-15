@@ -325,6 +325,52 @@ private:
     TrafficAction::Action action_;
 };
 
+class VerifySrcDstVrf : public FlowVerify {
+public:
+    VerifySrcDstVrf(std::string fwd_flow_src_vrf, std::string fwd_flow_dest_vrf,
+                    std::string rev_flow_src_vrf, std::string rev_flow_dest_vrf):
+        fwd_flow_src_vrf_(fwd_flow_src_vrf),
+        fwd_flow_dest_vrf_(fwd_flow_dest_vrf),
+        rev_flow_src_vrf_(rev_flow_src_vrf),
+        rev_flow_dest_vrf_(rev_flow_dest_vrf) {};
+
+    virtual ~VerifySrcDstVrf() {};
+
+    void Verify(FlowEntry *fe) {
+        Agent *agent = Agent::GetInstance();
+        const VrfEntry *src_vrf =
+            agent->vrf_table()->FindVrfFromName(fwd_flow_src_vrf_);
+        EXPECT_TRUE(src_vrf != NULL);
+
+        const VrfEntry *dest_vrf =
+            agent->vrf_table()->FindVrfFromName(fwd_flow_dest_vrf_);
+        EXPECT_TRUE(dest_vrf != NULL);
+
+        EXPECT_TRUE(fe->data().vrf == src_vrf->vrf_id());
+        EXPECT_TRUE(fe->data().dest_vrf = dest_vrf->vrf_id());
+
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev != NULL);
+
+        src_vrf =
+            agent->vrf_table()->FindVrfFromName(rev_flow_src_vrf_);
+        EXPECT_TRUE(src_vrf != NULL);
+
+        dest_vrf =
+            agent->vrf_table()->FindVrfFromName(rev_flow_dest_vrf_);
+        EXPECT_TRUE(dest_vrf != NULL);
+
+        EXPECT_TRUE(rev->data().vrf == src_vrf->vrf_id());
+        EXPECT_TRUE(rev->data().dest_vrf = dest_vrf->vrf_id());
+    }
+
+private:
+    std::string fwd_flow_src_vrf_;
+    std::string fwd_flow_dest_vrf_;
+    std::string rev_flow_src_vrf_;
+    std::string rev_flow_dest_vrf_;
+};
+
 class VerifyVrf : public FlowVerify {
 public:
     VerifyVrf(std::string src_vrf, std::string dest_vrf):

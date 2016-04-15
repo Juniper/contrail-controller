@@ -1952,12 +1952,54 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
             "                        </assign-routing-instance>"
             "                    </action-list>\n"
             "                </acl-rule>\n"
+            "                <acl-rule>\n"
+            "                    <match-condition>\n"
+            "                        <protocol>\n"
+            "                            any\n"
+            "                        </protocol>\n"
+            "                        <src-address>\n"
+            "                            <virtual-network>\n"
+            "                                %s\n"
+            "                            </virtual-network>\n"
+            "                        </src-address>\n"
+            "                        <src-port>\n"
+            "                            <start-port>\n"
+            "                                10\n"
+            "                            </start-port>\n"
+            "                            <end-port>\n"
+            "                                20\n"
+            "                            </end-port>\n"
+            "                        </src-port>\n"
+            "                        <dst-address>\n"
+            "                            <virtual-network>\n"
+            "                                %s\n"
+            "                            </virtual-network>\n"
+            "                        </dst-address>\n"
+            "                        <dst-port>\n"
+            "                            <start-port>\n"
+            "                                 10\n"
+            "                            </start-port>\n"
+            "                            <end-port>\n"
+            "                                 20\n"
+            "                            </end-port>\n"
+            "                        </dst-port>\n"
+            "                    </match-condition>\n"
+            "                    <action-list>\n"
+            "                        <simple-action>\n"
+            "                            %s\n"
+            "                        </simple-action>\n"
+            "                            %s\n"
+            "                        <assign-routing-instance>"
+            "                            %s\n"
+            "                        </assign-routing-instance>"
+            "                    </action-list>\n"
+            "                </acl-rule>\n"
             "           </access-control-list-entries>\n"
             "       </node>\n"
             "   </update>\n"
             "</config>\n", node_name, name, id, src_vn, dest_vn, action,
-            mirror.str().c_str(),
-            vrf_assign.c_str());
+            mirror.str().c_str(), vrf_assign.c_str(), dest_vn, src_vn, action,
+            mirror.str().c_str(), vrf_assign.c_str());
     string s(buff);
     return s;
 }
@@ -3929,5 +3971,65 @@ void SendBgpServiceConfig(const std::string &ip,
     client->WaitForIdle();
     AddLink("virtual-machine-interface", vmi_name.c_str(),
             "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+}
+
+void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
+                            const char *sip, const char *dip, int proto,
+                            int sport_start, int sport_end, int dport_start,
+                            int dport_end, const char *vrf, const char *ignore_acl) {
+    char buf[3000];
+    sprintf(buf,
+            "    <vrf-assign-table>\n"
+            "        <vrf-assign-rule>\n"
+            "            <match-condition>\n"
+            "                 <protocol>\n"
+            "                     %d\n"
+            "                 </protocol>\n"
+            "                 <src-address>\n"
+            "                     <subnet>\n"
+            "                        <ip-prefix>\n"
+            "                         %s\n"
+            "                        </ip-prefix>\n"
+            "                        <ip-prefix-len>\n"
+            "                         24\n"
+            "                        </ip-prefix-len>\n"
+            "                     </subnet>\n"
+            "                 </src-address>\n"
+            "                 <src-port>\n"
+            "                     <start-port>\n"
+            "                         %d\n"
+            "                     </start-port>\n"
+            "                     <end-port>\n"
+            "                         %d\n"
+            "                     </end-port>\n"
+            "                 </src-port>\n"
+            "                 <dst-address>\n"
+            "                     <subnet>\n"
+            "                        <ip-prefix>\n"
+            "                         %s\n"
+            "                        </ip-prefix>\n"
+            "                        <ip-prefix-len>\n"
+            "                         24\n"
+            "                        </ip-prefix-len>\n"
+            "                     </subnet>\n"
+            "                 </dst-address>\n"
+            "                 <dst-port>\n"
+            "                     <start-port>\n"
+            "                        %d\n"
+            "                     </start-port>\n"
+            "                     <end-port>\n"
+            "                        %d\n"
+            "                     </end-port>\n"
+            "                 </dst-port>\n"
+            "             </match-condition>\n"
+            "             <vlan-tag>0</vlan-tag>\n"
+            "             <routing-instance>%s</routing-instance>\n"
+            "             <ignore-acl>%s</ignore-acl>\n"
+            "         </vrf-assign-rule>\n"
+            "    </vrf-assign-table>\n",
+        proto, sip, sport_start, sport_end, dip, dport_start, dport_end, vrf,
+        ignore_acl);
+    AddNode("virtual-machine-interface", intf_name, intf_id, buf);
     client->WaitForIdle();
 }

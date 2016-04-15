@@ -500,4 +500,8 @@ void SendBgpServiceConfig(const std::string &ip,
                           const std::string &vrf_name,
                           const std::string &bgp_router_type,
                           bool deleted);
+void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
+                            const char *sip, const char *dip, int proto,
+                            int sport_start, int sport_end, int dport_start,
+                            int dport_end, const char *vrf, const char *ignore_acl);
 #endif // vnsw_agent_test_cmn_util_h
