@@ -85,17 +85,27 @@ struct SandeshFlowQueueSummaryOneInfo {
     4: u64 max_qlen;
 }
 
+struct SandeshFlowTokenInfo {
+    1: u32 add_tokens;
+    2: u32 add_token_full;
+    3: u32 update_tokens;
+    4: u32 update_token_full;
+    5: u32 delete_tokens;
+    6: u32 delete_token_full;
+}
+
 struct SandeshFlowQueueSummaryInfo {
     1: u32 index;
     2: string time_str;
-    3: SandeshFlowQueueSummaryOneInfo flow_event_queue;
-    4: SandeshFlowQueueSummaryOneInfo flow_ksync_queue;
-    5: SandeshFlowQueueSummaryOneInfo flow_delete_queue;
-    6: SandeshFlowQueueSummaryOneInfo flow_update_queue;
-    7: SandeshFlowQueueSummaryOneInfo flow_mgmt_queue;
-    8: SandeshFlowQueueSummaryOneInfo pkt_handler_queue;
-    9: SandeshFlowQueueSummaryOneInfo ksync_tx_queue;
-   10: SandeshFlowQueueSummaryOneInfo ksync_rx_queue;
+    3: SandeshFlowTokenInfo token_stats;
+    4: SandeshFlowQueueSummaryOneInfo flow_event_queue;
+    5: SandeshFlowQueueSummaryOneInfo flow_ksync_queue;
+    6: SandeshFlowQueueSummaryOneInfo flow_delete_queue;
+    7: SandeshFlowQueueSummaryOneInfo flow_update_queue;
+    8: SandeshFlowQueueSummaryOneInfo flow_mgmt_queue;
+    9: SandeshFlowQueueSummaryOneInfo pkt_handler_queue;
+   10: SandeshFlowQueueSummaryOneInfo ksync_tx_queue;
+   11: SandeshFlowQueueSummaryOneInfo ksync_rx_queue;
 }
 
 /**

@@ -128,6 +128,8 @@ void FlowTableKSyncEntry::Reset() {
     old_drop_reason_ = 0;
     ecmp_ = false;
     src_nh_id_ = NextHopTable::kRpfDiscardIndex;
+    last_event_ = FlowEvent::INVALID;
+    token_.reset();
 }
 
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
@@ -138,6 +140,11 @@ void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
 
 KSyncObject *FlowTableKSyncEntry::GetObject() {
     return ksync_obj_;
+}
+
+void FlowTableKSyncEntry::ReleaseToken() {
+    if (token_.get())
+        token_.reset();
 }
 
 void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe, 
@@ -216,6 +223,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         req.set_fr_flags(0);
+        // Sync() is not called in case of delete. Copy the event to use
+        // the right token
+        last_event_ = (FlowEvent::Event)flow_entry_->last_event();
     } else {
         FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
         if (rev_flow &&
@@ -349,6 +359,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_drop_reason(drop_reason);
     }
 
+    FlowProto *proto = ksync_obj_->ksync()->agent()->pkt()->get_flow_proto();
+    token_ = proto->GetToken(last_event_);
     encode_len = req.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
@@ -356,6 +368,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 bool FlowTableKSyncEntry::Sync() {
     bool changed = false;
     
+    last_event_ = (FlowEvent::Event)flow_entry_->last_event();
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();   
     if (rev_flow) {
         if (old_reverse_flow_id_ != rev_flow->flow_handle()) {

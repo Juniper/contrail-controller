@@ -21,9 +21,15 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
                        boost::bind(&FlowProto::FlowUpdateHandler, this, _1)),
-    use_vrouter_hash_(false), stats_() {
+    use_vrouter_hash_(false),
+    add_tokens_("Add Tokens", this, kFlowAddTokens),
+    del_tokens_("Delete Tokens", this, kFlowDelTokens),
+    update_tokens_("Update Tokens", this, kFlowUpdateTokens),
+    stats_() {
 
     flow_update_queue_.set_name("Flow update queue");
+    flow_update_queue_.SetStartRunnerFunc(boost::bind(&FlowProto::TokenCheck,
+                                                      this, &update_tokens_));
     agent->SetFlowProto(this);
     set_trace(false);
     uint16_t table_count = agent->flow_thread_count();
@@ -42,6 +48,8 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
                                boost::bind(&FlowProto::FlowEventHandler, this,
                                            _1, flow_table_list_[i]));
         queue->set_name(name);
+        queue->SetStartRunnerFunc(boost::bind(&FlowProto::TokenCheck, this,
+                                              &add_tokens_));
         flow_event_queue_.push_back(queue);
 
         sprintf(name, "Flow Delete Queue-%d", i);
@@ -49,6 +57,8 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
                                    boost::bind(&FlowProto::FlowDeleteHandler,
                                                this, _1, flow_table_list_[i]));
         queue->set_name(name);
+        queue->SetStartRunnerFunc(boost::bind(&FlowProto::TokenCheck, this,
+                                              &del_tokens_));
         flow_delete_queue_.push_back(queue);
 
         sprintf(name, "Flow KSync Queue-%d", i);
@@ -617,6 +627,65 @@ bool FlowProto::EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// Token Management routines
+//////////////////////////////////////////////////////////////////////////////
+FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
+    switch (event) {
+    case FlowEvent::VROUTER_FLOW_MSG:
+    case FlowEvent::FLOW_MESSAGE:
+    case FlowEvent::AUDIT_FLOW:
+    case FlowEvent::FLOW_HANDLE_UPDATE:
+    case FlowEvent::KSYNC_VROUTER_ERROR:
+    case FlowEvent::KSYNC_EVENT:
+    case FlowEvent::REENTRANT:
+        return add_tokens_.GetToken(NULL);
+        break;
+
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::REVALUATE_DBENTRY:
+    case FlowEvent::REVALUATE_FLOW:
+        return update_tokens_.GetToken(NULL);
+        break;
+
+    case FlowEvent::DELETE_FLOW:
+        return del_tokens_.GetToken(NULL);
+        break;
+
+        // FIXME: Remove this post testing
+    case FlowEvent::INVALID:
+        break;
+
+    default:
+        assert(0);
+        break;
+    }
+
+    return FlowTokenPtr(NULL);
+}
+
+bool FlowProto::TokenCheck(const FlowTokenPool *pool) {
+    return pool->TokenCheck();
+}
+
+void FlowProto::TokenAvailable(FlowTokenPool *pool) {
+    if (pool == &add_tokens_) {
+        for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
+            flow_event_queue_[i]->MayBeStartRunner();
+        }
+    }
+
+    if (pool == &del_tokens_) {
+        for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
+            flow_delete_queue_[i]->MayBeStartRunner();
+        }
+    }
+
+    if (pool == &update_tokens_) {
+        flow_update_queue_.MayBeStartRunner();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // Set profile information
 //////////////////////////////////////////////////////////////////////////////
 void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
@@ -707,4 +776,11 @@ void FlowProto::SetProfileData(ProfileData *data) {
     const PktHandler::PktHandlerQueue *pkt_queue =
         pkt->pkt_handler()->work_queue();
     SetPktHandlerQueueStats(pkt_queue, &data->flow_.pkt_handler_queue_);
+
+    data->flow_.token_stats_.add_tokens_ = add_tokens_.token_count();
+    data->flow_.token_stats_.add_failures_ = add_tokens_.failures();
+    data->flow_.token_stats_.update_tokens_ = update_tokens_.token_count();
+    data->flow_.token_stats_.update_failures_ = update_tokens_.failures();
+    data->flow_.token_stats_.del_tokens_ = del_tokens_.token_count();
+    data->flow_.token_stats_.del_failures_ = del_tokens_.failures();
 }

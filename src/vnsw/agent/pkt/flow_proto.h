@@ -13,6 +13,7 @@
 #include "flow_table.h"
 #include "flow_handler.h"
 #include "flow_event.h"
+#include "flow_token.h"
 
 class ProfileData;
 
@@ -37,6 +38,16 @@ public:
     typedef WorkQueue<FlowEvent *> FlowEventQueue;
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
+    static const int kFlowAddTokens = 800;
+    static const int kFlowDelTokens = 800;
+    static const int kFlowUpdateTokens = 400;
+
+    enum OperationType {
+        INVALID_OP,
+        ADD,
+        UPDATE,
+        DELETE
+    };
 
     FlowProto(Agent *agent, boost::asio::io_service &io);
     virtual ~FlowProto();
@@ -99,9 +110,12 @@ public:
     }
     bool EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
                           uint8_t table_index);
+    FlowTokenPtr GetToken(FlowEvent::Event event);
+    void TokenAvailable(FlowTokenPool *pool);
 
 private:
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
+    bool TokenCheck(const FlowTokenPool *pool);
 
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowEventQueue *> flow_delete_queue_;
@@ -110,6 +124,9 @@ private:
     FlowEventQueue flow_update_queue_;
     tbb::atomic<int> linklocal_flow_count_;
     bool use_vrouter_hash_;
+    FlowTokenPool add_tokens_;
+    FlowTokenPool del_tokens_;
+    FlowTokenPool update_tokens_;
     FlowStats stats_;
 };
 
