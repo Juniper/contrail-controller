@@ -440,6 +440,44 @@ class LogicalRouterServer(Resource, LogicalRouter):
     generate_default_instance = False
 
     @classmethod
+    def is_port_in_use_by_vm(cls, obj_dict, db_conn):
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
+            vmi_id = vmi_ref['uuid']
+            ok, read_result = cls.dbe_read(
+                  db_conn, 'virtual-machine-interface', vmi_ref['uuid'])
+            if not ok:
+                return ok, read_result
+            if (read_result['parent_type'] == 'virtual-machine' or
+                    read_result.get('virtual_machine_refs', None)):
+                msg = "Port(%s) already in use by virtual-machine(%s)" %\
+                      (vmi_id, read_result['parent_uuid'])
+                return (False, (403, msg))
+        return (True, '')
+
+    @classmethod
+    def is_network_attached_to_router(cls, lr_id, obj_dict, db_conn):
+        if 'virtual_network_refs' in obj_dict:
+            ok, read_result = cls.dbe_read(db_conn, 'logical-router', lr_id)
+            if not ok:
+                return ok, read_result
+            internal_vn_uuids = []
+            for vmi_ref in read_result.get(
+                    'virtual_machine_interface_refs', []):
+                ok, vmi_result = cls.dbe_read(
+                      db_conn, 'virtual-machine-interface', vmi_ref['uuid'])
+                if not ok:
+                    return ok, vmi_result
+                internal_vn_uuids.append(
+                        vmi_result['virtual_network_refs'][0]['uuid'])
+
+            for vn_ref in obj_dict['virtual_network_refs']:
+                if vn_ref['uuid'] in internal_vn_uuids:
+                    msg = "Logical router already has interface in VN(%s)" %\
+                          (vn_ref['uuid'])
+                    return (False, (403, msg))
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
@@ -449,6 +487,14 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                'user_visibility': user_visibility}
 
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.is_network_attached_to_router(id, obj_dict, db_conn)
+        if not ok:
+            return (ok, result)
+        return cls.is_port_in_use_by_vm(obj_dict, db_conn)
     # end pre_dbe_create
 
 # end class LogicalRouterServer
