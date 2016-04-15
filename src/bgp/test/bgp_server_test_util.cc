@@ -186,7 +186,9 @@ void BgpPeerTest::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
 //
 BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
                          const BgpNeighborConfig *config)
-        : BgpPeer(server, rtinst, config), id_(0) {
+        : BgpPeer(server, rtinst, config), id_(0),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+                      boost::bind(&BgpPeerTest::ProcessRequest, this, _1)) {
     SendUpdate_fnc_ = boost::bind(&BgpPeerTest::BgpPeerSendUpdate, this,
                                   _1, _2);
     MpNlriAllowed_fnc_ = boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed, this,
@@ -195,6 +197,26 @@ BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
 }
 
 BgpPeerTest::~BgpPeerTest() {
+}
+
+// Process requests and run them off bgp::Config exclusive task
+bool BgpPeerTest::ProcessRequest(Request *request) {
+    CHECK_CONCURRENCY("bgp::Config");
+    switch (request->type) {
+        case ADMIN_UP:
+            BgpPeer::SetAdminState(false);
+            request->result = true;
+            break;
+        case ADMIN_DOWN:
+            BgpPeer::SetAdminState(true);
+            request->result = true;
+            break;
+    }
+
+    // Notify waiting caller with the result
+    tbb::mutex::scoped_lock lock(work_mutex_);
+    cond_var_.notify_all();
+    return true;
 }
 
 //
