@@ -58,6 +58,7 @@ public:
     void set_gen_id(uint8_t gen_id) { gen_id_ = gen_id; }
     uint8_t evict_gen_id() { return evict_gen_id_; }
     void set_evict_gen_id(uint8_t gen_id) { evict_gen_id_ = gen_id; }
+    uint8_t vrouter_gen_id() { return vrouter_gen_id_; }
 
 private:
     friend class KSyncFlowEntryFreeList;
