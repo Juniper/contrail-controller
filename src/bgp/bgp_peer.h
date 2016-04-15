@@ -99,7 +99,7 @@ public:
 
     BgpSession *CreateSession();
 
-    void SetAdminState(bool down);
+    virtual void SetAdminState(bool down);
 
     // Messages
 

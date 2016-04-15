@@ -8,9 +8,12 @@
 #include <boost/any.hpp>
 #include <boost/foreach.hpp>
 #include <boost/shared_ptr.hpp>
+#include <tbb/compat/condition_variable>
+#include <tbb/mutex.h>
 
-#include "base/util.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "base/util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
@@ -309,6 +312,21 @@ public:
     const int id() const { return id_; }
     void set_id(int id) { id_ = id; }
 
+    virtual void SetAdminState(bool down) {
+        if (!ConcurrencyChecker::IsInMainThr()) {
+            BgpPeer::SetAdminState(down);
+            return;
+        }
+        tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
+
+        Request request;
+        request.type = down ? ADMIN_DOWN : ADMIN_UP;
+        work_queue_.Enqueue(&request);
+
+        // Wait for the request to get processed.
+        cond_var_.wait(lock);
+    }
+
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;
@@ -316,8 +334,19 @@ public:
     BgpTestUtil util_;
 
 private:
+    enum RequestType { ADMIN_UP, ADMIN_DOWN };
+    struct Request {
+        Request() : result(false) { }
+        RequestType type;
+        bool        result;
+    };
+    bool ProcessRequest(Request *request);
+
     static bool verbose_name_;
     int id_;
+    WorkQueue<Request *> work_queue_;
+    tbb::mutex work_mutex_;
+    tbb::interface5::condition_variable cond_var_;
 };
 
 class PeerManagerTest : public PeerManager {
