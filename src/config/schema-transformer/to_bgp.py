@@ -3382,7 +3382,6 @@ class SchemaTransformer(object):
         for (result_type, idents, metas) in result_list:
             if result_type != 'searchResult' and not self.ifmap_search_done:
                 self.ifmap_search_done = True
-                self.process_stale_objects()
                 self.current_network_set = VirtualNetworkST.keys()
                 something_done = True
             for meta in metas:
@@ -3410,6 +3409,7 @@ class SchemaTransformer(object):
             return
         if self.ifmap_search_done:
             self.process_networks()
+            self.process_stale_objects()
     # end process_poll_results
 
     def process_networks(self):
@@ -3799,9 +3799,9 @@ class SchemaTransformer(object):
 def set_ifmap_search_done(transformer):
     gevent.sleep(60)
     transformer.ifmap_search_done = True
-    transformer.process_stale_objects()
     transformer.current_network_set = list(VirtualNetworkST.keys())
     transformer.process_networks()
+    transformer.process_stale_objects()
 # end set_ifmap_search_done
 
 def launch_arc(transformer, ssrc_mapc):
