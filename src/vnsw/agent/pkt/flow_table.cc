@@ -196,6 +196,21 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         }
     }
 
+    if (flow) {
+        if (fwd_flow_update) {
+            flow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
+        } else {
+            flow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        }
+    }
+    if (rflow) {
+        if (rev_flow_update) {
+            rflow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
+        } else {
+            rflow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        }
+    }
+
     if (flow_req != flow) {
         if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle &&
             !flow->deleted()) {
@@ -915,6 +930,10 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
     //Take lock
     FLOW_LOCK(flow, rflow, req->event());
 
+    if (flow)
+        flow->set_last_event(req->event());
+    if (rflow)
+        rflow->set_last_event(req->event());
     bool active_flow = true;
     bool deleted_flow = flow->deleted();
     if (deleted_flow || flow->is_flags_set(FlowEntry::ShortFlow))
