@@ -224,6 +224,8 @@ private:
     TaskDeferList           deferq_;    // Tasks deferred till run_count_ is 0
     TaskEntry               *task_entry_;// Task entry for instance(-1)
     TaskEntryList           task_entry_db_;  // task-entries in this group
+    uint32_t                execute_delay_;
+    uint32_t                schedule_delay_;
 
     TaskStats               stats_;
     DISALLOW_COPY_AND_ASSIGN(TaskGroup);
@@ -244,7 +246,8 @@ tbb::task *TaskImpl::execute() {
         if (parent_->enqueue_time() != 0) {
             t = ClockMonotonicUsec();
             TaskScheduler *scheduler = TaskScheduler::GetInstance();
-            if ((t - parent_->enqueue_time()) > scheduler->schedule_delay()) {
+            if ((t - parent_->enqueue_time()) >
+                scheduler->schedule_delay(parent_)) {
                 TASK_TRACE(scheduler, parent_, "TBB schedule time(in usec) ",
                            (t - parent_->enqueue_time()));
             }
@@ -254,7 +257,7 @@ tbb::task *TaskImpl::execute() {
         if (t != 0) {
             int64_t delay = ClockMonotonicUsec() - t;
             TaskScheduler *scheduler = TaskScheduler::GetInstance();
-            if (delay > scheduler->execute_delay()) {
+            if (delay > scheduler->execute_delay(parent_)) {
                 TASK_TRACE(scheduler, parent_, "Run time(in usec) ", delay);
             }
         }
@@ -375,6 +378,18 @@ void TaskScheduler::RegisterLog(LogFn fn) {
     log_fn_ = fn;
 }
 
+uint32_t TaskScheduler::schedule_delay(Task *task) const {
+    if (task->schedule_delay() > schedule_delay_)
+        return task->schedule_delay();
+    return schedule_delay_;
+}
+
+uint32_t TaskScheduler::execute_delay(Task *task) const {
+    if (task->execute_delay() > execute_delay_)
+        return task->execute_delay();
+    return execute_delay_;
+}
+
 TaskScheduler *TaskScheduler::GetInstance() {
     if (singleton_.get() == NULL) {
         singleton_.reset(new TaskScheduler());
@@ -423,6 +438,14 @@ void TaskScheduler::EnableLatencyThresholds(uint32_t execute,
     execute_delay_ = execute;
     schedule_delay_ = schedule;
     measure_delay_ = (execute_delay_ != 0 || schedule_delay_ != 0);
+}
+
+void TaskScheduler::SetLatencyThreshold(const std::string &name,
+                                        uint32_t execute, uint32_t schedule) {
+    int task_id = GetTaskId(name);
+    TaskGroup *group = GetTaskGroup(task_id);
+    group->execute_delay_ = execute;
+    group->schedule_delay_ = schedule;
 }
 
 // Sets Policy for a task.
@@ -477,6 +500,8 @@ void TaskScheduler::EnqueueUnLocked(Task *t) {
     enqueue_count_++;
     t->SetSeqNo(++seqno_);
     TaskGroup *group = GetTaskGroup(t->GetTaskId());
+    t->schedule_delay_ = group->schedule_delay_;
+    t->execute_delay_ = group->execute_delay_;
     group->stats_.enqueue_count_++;
 
     TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
@@ -853,7 +878,7 @@ void TaskScheduler::SetThreadAmpFactor(int n) {
 ////////////////////////////////////////////////////////////////////////////
 
 TaskGroup::TaskGroup(int task_id) : task_id_(task_id), policy_set_(false), 
-    run_count_(0) {
+    run_count_(0), execute_delay_(0), schedule_delay_(0) {
     task_entry_db_.resize(TaskGroup::kVectorGrowSize);
     task_entry_ = new TaskEntry(task_id);
     memset(&stats_, 0, sizeof(stats_));
@@ -1297,13 +1322,13 @@ int TaskEntry::GetTaskDeferEntrySeqno() const {
 Task::Task(int task_id, int task_instance) : task_id_(task_id),
     task_instance_(task_instance), task_impl_(NULL), state_(INIT), seqno_(0),
     task_recycle_(false), task_cancel_(false), enqueue_time_(0),
-    schedule_time_(0) {
+    schedule_time_(0), execute_delay_(0), schedule_delay_(0) {
 }
 
 Task::Task(int task_id) : task_id_(task_id),
     task_instance_(-1), task_impl_(NULL), state_(INIT), seqno_(0),
     task_recycle_(false), task_cancel_(false), enqueue_time_(0),
-    schedule_time_(0) {
+    schedule_time_(0), execute_delay_(0), schedule_delay_(0) {
 }
 
 // Start execution of task
@@ -1311,7 +1336,8 @@ void Task::StartTask() {
     if (enqueue_time_ != 0) {
         schedule_time_ = ClockMonotonicUsec();
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        if ((schedule_time_ - enqueue_time_) > scheduler->schedule_delay()) {
+        if ((schedule_time_ - enqueue_time_) >
+            scheduler->schedule_delay(this)) {
             TASK_TRACE(scheduler, this, "Schedule delay(in usec) ",
                        (schedule_time_ - enqueue_time_));
         }
