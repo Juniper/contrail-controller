@@ -129,14 +129,14 @@ InstanceManager::~InstanceManager() {
 InstanceManager::InstanceManager(Agent *agent)
         : si_listener_(DBTableBase::kInvalidId),
           netns_timeout_(-1),
-          work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId(INSTANCE_MANAGER_TASK_NAME), 0,
                       boost::bind(&InstanceManager::DequeueEvent, this, _1)),
           loadbalancer_config_path_(loadbalancer_config_path_default),
           namespace_store_path_(namespace_store_path_default),
           stale_timer_interval_(5 * 60 * 1000),
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
-                      GetTaskId("db::DBTable"), 0)), agent_(agent) {
+                      GetTaskId(INSTANCE_MANAGER_TASK_NAME), 0)), agent_(agent) {
           work_queue_.set_name("Instance Manager");
 
 }
