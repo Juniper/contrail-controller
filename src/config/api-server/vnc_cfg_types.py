@@ -451,6 +451,22 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
     # end pre_dbe_create
 
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'virtual_machine_interface_refs' in obj_dict:
+            for vmi_ref in obj_dict['virtual_machine_interface_refs']:
+                vmi_id = vmi_ref['uuid']
+                ok, read_result = cls.dbe_read(
+                      db_conn, 'virtual-machine-interface', vmi_id)
+                if not ok:
+                    return ok, read_result
+                if read_result['parent_type'] == 'virtual-machine':
+                    msg = "Port(%s) already in use by virtual-machine(%s)" %\
+                          (vmi_id, read_result['parent_uuid'])
+                    return (False, (403, msg))
+        return (True, '')
+    # end pre_dbe_create
+
 # end class LogicalRouterServer
 
 

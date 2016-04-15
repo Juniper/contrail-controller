@@ -382,6 +382,74 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             pass
     #end test_route_table_prefixes
 
+    def test_vm_port_not_added_to_lr(self):
+        logger.debug("*** test interface-add not allowing vm's port to be"
+                     "attached to logical router ***")
+
+        # Create Domain
+        domain = Domain('my-lr-domain')
+        self._vnc_lib.domain_create(domain)
+        logger.debug('Created domain ')
+
+        # Create Project
+        project = Project('my-lr-proj', domain)
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        logger.debug('Created network ipam')
+
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-lr-domain', 'my-lr-proj',
+                                                        'default-network-ipam'])
+        logger.debug('Read network ipam')
+
+        # Create subnets
+        ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+
+        # Create VN my-vn
+        vn = VirtualNetwork('my-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object for my-vn: %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip object
+        ip_obj = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ip_obj.uuid = ip_obj.name
+        logger.debug('Created Instance IP object 1 %s', ip_obj.uuid)
+
+        # Create VM
+        vm_inst_obj = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj.uuid = vm_inst_obj.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj, id_perms=id_perms)
+        port_obj.uuid = port_obj.name
+        port_obj.set_virtual_network(vn)
+        ip_obj.set_virtual_machine_interface(port_obj)
+        ip_obj.set_virtual_network(net_obj)
+        port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
+
+        logger.debug('Allocating an IP4 address for VM')
+        ip_id = self._vnc_lib.instance_ip_create(ip_obj)
+
+        # Create Logical Router
+        lr = LogicalRouter('router-test-v4', project)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        logger.debug('Created Logical Router ')
+
+        # Add Router Interface (test being subnet)
+        lr.add_virtual_machine_interface(port_obj)
+        logger.debug("Trying to Link VM's VMI objectand LR object")
+        with ExpectedException(cfgm_common.exceptions.PermissionDenied) as e:
+            self._vnc_lib.logical_router_update(lr)
+        logger.debug("Linking VM's VMI objectand LR object failed as expected")
+    # end test_vm_port_not_added_to_lr
+
 #end 
 
 #end class TestLogicalRouter
