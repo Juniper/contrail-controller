@@ -98,8 +98,11 @@ public:
 
     bool task_cancelled() const { return task_cancel_; };
     virtual std::string Description() const  = 0;
+
     uint64_t enqueue_time() const { return enqueue_time_; }
     uint64_t schedule_time() const { return schedule_time_; }
+    uint32_t execute_delay() const { return execute_delay_; }
+    uint32_t schedule_delay() const { return schedule_delay_; }
 
 private:
     friend class TaskEntry;
@@ -120,6 +123,8 @@ private:
     bool                task_cancel_;
     uint64_t            enqueue_time_;
     uint64_t            schedule_time_;
+    uint32_t            execute_delay_;
+    uint32_t            schedule_delay_;
     // Hook in intrusive list for TaskEntry::waitq_
     boost::intrusive::list_member_hook<> waitq_hook_;
 
@@ -205,8 +210,10 @@ public:
     // Enable logging of tasks exceeding configured latency
     void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
     bool measure_delay() const { return measure_delay_; }
-    uint32_t schedule_delay() const { return schedule_delay_; }
-    uint32_t execute_delay() const { return execute_delay_; }
+    void SetLatencyThreshold(const std::string &name, uint32_t execute,
+                             uint32_t schedule);
+    uint32_t schedule_delay(Task *task) const;
+    uint32_t execute_delay(Task *task) const;
 
     // following function allows one to increase max num of threads used by
     // TBB
