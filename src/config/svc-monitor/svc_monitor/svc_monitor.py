@@ -295,9 +295,14 @@ class SvcMonitor(object):
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
 
-        # Invoke the loadbalancer pools
+        # Invoke the LBAAS v1
         for lb_pool in LoadbalancerPoolSM.values():
-            lb_pool.add()
+            if not lb_pool.loadbalancer_listener:
+                lb_pool.evaluate()
+
+        # Invoke the LBAAS v2
+        for lb in LoadbalancerSM.values():
+            lb.evaluate()
 
         # Audit the lb pools
         self.loadbalancer_agent.audit_lb_pools()
