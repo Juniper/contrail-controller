@@ -180,6 +180,8 @@ class LoadbalancerAgent(Agent):
         p = self.loadbalancer_pool_get_reqdict(pool)
         driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
+            if p['loadbalancer_id']:
+                driver.set_config_v2(p['loadbalancer_id'])
             if not pool.last_sent:
                 driver.create_pool(p)
             #elif p != pool.last_sent:
@@ -241,8 +243,8 @@ class LoadbalancerAgent(Agent):
         return lb
 
     def delete_loadbalancer(self, obj):
-        lb = obj.last_sent
-        driver = self._get_driver_for_pool(lb['pool_id'])
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
         try:
             driver.delete_loadbalancer(lb)
         except Exception:
@@ -252,6 +254,7 @@ class LoadbalancerAgent(Agent):
         ll = self.listener_get_reqdict(listener)
         driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
         try:
+            driver.set_config_v2(loadbalancer.uuid)
             if not listener.last_sent:
                 driver.create_listener(ll)
             elif ll != listener.last_sent:
@@ -261,8 +264,8 @@ class LoadbalancerAgent(Agent):
         return ll
 
     def delete_listener(self, obj):
-        ll = obj.last_sent
-        driver = self._get_driver_for_pool(ll['pool_id'])
+        ll = self.listener_get_reqdict(listener)
+        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
         try:
             driver.delete_listener(ll)
         except Exception:
@@ -479,6 +482,7 @@ class LoadbalancerAgent(Agent):
     def loadbalancer_pool_get_reqdict(self, pool):
         res = {
             'id': pool.uuid,
+            'loadbalancer_id': pool.loadbalancer_id,
             'tenant_id': pool.parent_uuid.replace('-', ''),
             'name': pool.display_name,
             'description': self._get_object_description(pool),
