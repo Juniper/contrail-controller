@@ -2433,4 +2433,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'discovery-service-assignment', 'dsa-rule', ['has'], 'optional', 'CRUD',
               'Discovery service rule for assigning subscriber to publisher. (set of subscriber) can be assigned to (set of publisher).') -->
 
+<!-- Alarm config -->
+<xsd:include schemaLocation='alarm.xsd'/>
+
 </xsd:schema>
