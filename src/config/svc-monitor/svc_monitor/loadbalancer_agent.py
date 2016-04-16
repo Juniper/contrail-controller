@@ -105,15 +105,6 @@ class LoadbalancerAgent(Agent):
                                               self._cassandra, self._args)
     # end load_drivers
 
-    def audit_lb_pools(self):
-        for pool_id, config_data, driver_data in self._cassandra.pool_list():
-            if LoadbalancerPoolSM.get(pool_id):
-                continue
-            # Delete the pool from the driver
-            driver = self._get_driver_for_provider(config_data['provider'])
-            driver.delete_pool(config_data)
-            self._cassandra.pool_remove(pool_id)
-
     def load_driver(self, sas):
         if sas.name in self._loadbalancer_driver:
             del(self._loadbalancer_driver[sas.name])
@@ -175,199 +166,6 @@ class LoadbalancerAgent(Agent):
         self._loadbalancer_driver[lb_id] = driver
         return driver
 
-    # Loadbalancer
-    def loadbalancer_pool_add(self, pool):
-        p = self.loadbalancer_pool_get_reqdict(pool)
-        driver = self._get_driver_for_pool(p['id'], p['provider'])
-        try:
-            if not pool.last_sent:
-                driver.create_pool(p)
-            #elif p != pool.last_sent:
-            else:
-                driver.update_pool(pool.last_sent, p)
-        except Exception:
-            pass
-        self._cassandra.pool_config_insert(p['id'], p)
-        return p
-    # end loadbalancer_pool_add
-
-    def loadbalancer_member_add(self, member):
-        m = self.loadbalancer_member_get_reqdict(member)
-        driver = self._get_driver_for_pool(m['pool_id'])
-        try:
-            if not member.last_sent:
-                driver.create_member(m)
-            elif m != member.last_sent:
-                driver.update_member(member.last_sent, m)
-        except Exception:
-            pass
-        return m
-    # end loadbalancer_member_add
-
-    def virtual_ip_add(self, vip):
-        v = self.virtual_ip_get_reqdict(vip)
-        driver = self._get_driver_for_pool(v['pool_id'])
-        try:
-            driver.set_config_v1(vip.loadbalancer_pool)
-            if not vip.last_sent:
-                driver.create_vip(v)
-            elif v != vip.last_sent:
-                driver.update_vip(vip.last_sent, v)
-        except Exception:
-            pass
-        return v
-    # end  virtual_ip_add
-
-    def delete_virtual_ip(self, obj):
-        v = obj.last_sent
-        driver = self._get_driver_for_pool(v['pool_id'])
-        try:
-            driver.delete_vip(v)
-        except Exception:
-            pass
-    # end delete_virtual_ip
-
-    def loadbalancer_add(self, loadbalancer):
-        lb = self.loadbalancer_get_reqdict(loadbalancer)
-        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
-        try:
-            driver.set_config_v2(loadbalancer.uuid)
-            if not loadbalancer.last_sent:
-                driver.create_loadbalancer(lb)
-            elif lb != loadbalancer.last_sent:
-                driver.update_loadbalancer(loadbalancer.last_sent, lb)
-        except Exception:
-            pass
-        return lb
-
-    def delete_loadbalancer(self, obj):
-        lb = obj.last_sent
-        driver = self._get_driver_for_pool(lb['pool_id'])
-        try:
-            driver.delete_loadbalancer(lb)
-        except Exception:
-            pass
-
-    def listener_add(self, listener):
-        ll = self.listener_get_reqdict(listener)
-        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
-        try:
-            if not listener.last_sent:
-                driver.create_listener(ll)
-            elif ll != listener.last_sent:
-                driver.update_listener(listener.last_sent, ll)
-        except Exception:
-            pass
-        return ll
-
-    def delete_listener(self, obj):
-        ll = obj.last_sent
-        driver = self._get_driver_for_pool(ll['pool_id'])
-        try:
-            driver.delete_listener(ll)
-        except Exception:
-            pass
-
-    def delete_loadbalancer_member(self, obj):
-        m = obj.last_sent
-        driver = self._get_driver_for_pool(m['pool_id'])
-        try:
-            driver.delete_member(m)
-        except Exception:
-            pass
-    # end delete_loadbalancer_member
-
-    def delete_loadbalancer_pool(self, obj):
-        p = obj.last_sent
-        driver = self._get_driver_for_pool(p['id'])
-        try:
-            driver.delete_pool(p)
-        except Exception:
-            pass
-        self._cassandra.pool_remove(p['id'])
-    # end delete_loadbalancer_pool
-
-    def update_hm(self, obj):
-        hm = self.hm_get_reqdict(obj)
-        current_pools = hm['pools'] or []
-        old_pools = []
-        if obj.last_sent:
-            old_pools = hm['pools'] or []
-
-        set_current_pools = set()
-        set_old_pools = set()
-        for i in current_pools:
-            set_current_pools.add(i['pool_id'])
-        for i in old_pools:
-            set_old_pools.add(i['pool_id'])
-        update_pools = set_current_pools & set_old_pools
-        delete_pools = set_old_pools - set_current_pools
-        add_pools = set_current_pools - set_old_pools
-        try:
-            for pool in add_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.create_pool_health_monitor(hm, pool)
-            for pool in delete_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.delete_pool_health_monitor(hm, pool)
-            for pool in update_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.update_health_monitor(obj.last_sent,
-                                             hm, pool)
-        except Exception:
-            pass
-    # end update_hm
-
-    def _get_vip_pool_id(self, vip):
-        pool_refs = vip.loadbalancer_pool
-        if pool_refs is None:
-            return None
-        return pool_refs
-    # end _get_vip_pool_id
-
-    def _get_interface_params(self, port_id, props):
-        if port_id is None:
-            return None
-
-        if not props['address']:
-            vmi = VirtualMachineInterfaceSM.get(port_id)
-            for iip_id in vmi.instance_ips:
-                iip = InstanceIpSM.get(iip_id)
-                props['address'] = iip.address
-                break
-
-        return port_id
-    # end _get_interface_params
-
-    def virtual_ip_get_reqdict(self, vip):
-        props = vip.params
-        port_id = self._get_interface_params(vip.virtual_machine_interface,
-            props)
-
-        res = {'id': vip.uuid,
-               'tenant_id': vip.parent_uuid.replace('-', ''),
-               'name': vip.display_name,
-               'description': self._get_object_description(vip),
-               'subnet_id': props['subnet_id'],
-               'address': props['address'],
-               'port_id': port_id,
-               'protocol_port': props['protocol_port'],
-               'protocol': props['protocol'],
-               'pool_id': self._get_vip_pool_id(vip),
-               'session_persistence': None,
-               'connection_limit': props['connection_limit'],
-               'admin_state_up': props['admin_state'],
-               'status': self._get_object_status(vip)}
-
-        if props['persistence_type']:
-            sp = {'type': props['persistence_type']}
-            if props['persistence_type'] == 'APP_COOKIE':
-                sp['cookie_name'] = props['persistence_cookie_name']
-            res['session_persistence'] = sp
-
-        return res
-    # end virtual_ip_get_reqdict
-
     def loadbalancer_get_reqdict(self, lb):
         props = lb.params
         res = {'id': lb.uuid,
@@ -381,6 +179,27 @@ class LoadbalancerAgent(Agent):
 
         return res
     # end loadbalancer_get_reqdict
+
+    def loadbalancer_add(self, loadbalancer):
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
+        try:
+            driver.set_config_v2(lb['id'])
+            if not loadbalancer.last_sent:
+                driver.create_loadbalancer(lb)
+            elif lb != loadbalancer.last_sent:
+                driver.update_loadbalancer(loadbalancer.last_sent, lb)
+        except Exception:
+            pass
+        return lb
+
+    def delete_loadbalancer(self, loadbalancer):
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
+        try:
+            driver.delete_loadbalancer(lb)
+        except Exception:
+            pass
 
     def listener_get_reqdict(self, listener):
         props = listener.params
@@ -397,63 +216,35 @@ class LoadbalancerAgent(Agent):
 
         return res
 
-    _loadbalancer_health_type_mapping = {
-        'admin_state': 'admin_state_up',
-        'monitor_type': 'type',
-        'delay': 'delay',
-        'timeout': 'timeout',
-        'max_retries': 'max_retries',
-        'http_method': 'http_method',
-        'url_path': 'url_path',
-        'expected_codes': 'expected_codes'
-    }
+    def listener_add(self, listener):
+        ll = self.listener_get_reqdict(listener)
+        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
+        try:
+            driver.set_config_v2(ll['loadbalancer_id'])
+            if not listener.last_sent:
+                driver.create_listener(ll)
+            elif ll != listener.last_sent:
+                driver.update_listener(listener.last_sent, ll)
+        except Exception:
+            pass
+        return ll
 
-    def hm_get_reqdict(self, health_monitor):
-        res = {'id': health_monitor.uuid,
-               'tenant_id': health_monitor.parent_uuid.replace('-', ''),
-               'status': self._get_object_status(health_monitor)}
+    def delete_listener(self, listener):
+        ll = self.listener_get_reqdict(listener)
+        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
+        try:
+            driver.delete_listener(ll)
+        except Exception:
+            pass
 
-        props = health_monitor.params
-        for key, mapping in self._loadbalancer_health_type_mapping.iteritems():
-            value = props[key]
-            if value is not None:
-                res[mapping] = value
-
-        pool_ids = []
-        pool_back_refs = health_monitor.loadbalancer_pools
-        for pool_back_ref in pool_back_refs or []:
-            pool_id = {}
-            pool_id['pool_id'] = pool_back_ref
-            pool_ids.append(pool_id)
-        res['pools'] = pool_ids
-
-        return res
-    # end hm_get_reqdict
-
-    _loadbalancer_member_type_mapping = {
-        'admin_state': 'admin_state_up',
-        'status': 'status',
-        'protocol_port': 'protocol_port',
-        'weight': 'weight',
-        'address': 'address',
-    }
-
-    def loadbalancer_member_get_reqdict(self, member):
-        res = {'id': member.uuid,
-               'pool_id': member.loadbalancer_pool,
-               'status': self._get_object_status(member)}
-
-        pool = LoadbalancerPoolSM.get(member.loadbalancer_pool)
-        res['tenant_id'] = pool.parent_uuid.replace('-', '')
-
-        props = member.params
-        for key, mapping in self._loadbalancer_member_type_mapping.iteritems():
-            value = props[key]
-            if value is not None:
-                res[mapping] = value
-
-        return res
-    # end loadbalancer_member_get_reqdict
+    def audit_lb_pools(self):
+        for pool_id, config_data, driver_data in self._cassandra.pool_list():
+            if LoadbalancerPoolSM.get(pool_id):
+                continue
+            # Delete the pool from the driver
+            driver = self._get_driver_for_provider(config_data['provider'])
+            driver.delete_pool(config_data)
+            self._cassandra.pool_remove(pool_id)
 
     _loadbalancer_pool_type_mapping = {
         'admin_state': 'admin_state_up',
@@ -462,23 +253,10 @@ class LoadbalancerAgent(Agent):
         'subnet_id': 'subnet_id'
     }
 
-    def _get_object_description(self, obj):
-        id_perms = obj.id_perms
-        if id_perms is None:
-            return None
-        return id_perms['description']
-    # end _get_object_description
-
-    def _get_object_status(self, obj):
-        id_perms = obj.id_perms
-        if id_perms and id_perms['enable']:
-            return "ACTIVE"
-        return "PENDING_DELETE"
-    # end _get_object_status
-
     def loadbalancer_pool_get_reqdict(self, pool):
         res = {
             'id': pool.uuid,
+            'loadbalancer_id': pool.loadbalancer_id,
             'tenant_id': pool.parent_uuid.replace('-', ''),
             'name': pool.display_name,
             'description': self._get_object_description(pool),
@@ -517,3 +295,233 @@ class LoadbalancerAgent(Agent):
         res['health_monitors_status'] = []
         return res
     # end loadbalancer_pool_get_reqdict
+
+    def loadbalancer_pool_add(self, pool):
+        lbaas_type = "v1"
+        p = self.loadbalancer_pool_get_reqdict(pool)
+        driver = self._get_driver_for_pool(p['id'], p['provider'])
+        try:
+            if p['loadbalancer_id']:
+                lbaas_type = "v2"
+                driver.set_config_v2(p['loadbalancer_id'])
+            if not pool.last_sent:
+                driver.create_pool(p)
+            #elif p != pool.last_sent:
+            else:
+                driver.update_pool(pool.last_sent, p)
+        except Exception:
+            pass
+        self._cassandra.pool_config_insert(p['id'], p)
+        return p
+    # end loadbalancer_pool_add
+
+    def delete_loadbalancer_pool(self, obj):
+        lbaas_type = "v1"
+        p = obj.last_sent
+        driver = self._get_driver_for_pool(p['id'])
+        try:
+            if p['loadbalancer_id']:
+                lbaas_type = "v2"
+            driver.delete_pool(p)
+        except Exception:
+            pass
+        self._cassandra.pool_remove(p['id'])
+    # end delete_loadbalancer_pool
+
+    def _get_object_status(self, obj):
+        id_perms = obj.id_perms
+        if id_perms and id_perms['enable']:
+            return "ACTIVE"
+        return "PENDING_DELETE"
+    # end _get_object_status
+
+    _loadbalancer_member_type_mapping = {
+        'admin_state': 'admin_state_up',
+        'status': 'status',
+        'protocol_port': 'protocol_port',
+        'weight': 'weight',
+        'address': 'address',
+    }
+    # end loadbalancer_member_get_reqdict
+
+    def loadbalancer_member_get_reqdict(self, member):
+        res = {'id': member.uuid,
+               'pool_id': member.loadbalancer_pool,
+               'status': self._get_object_status(member)}
+
+        pool = LoadbalancerPoolSM.get(member.loadbalancer_pool)
+        res['tenant_id'] = pool.parent_uuid.replace('-', '')
+
+        props = member.params
+        for key, mapping in self._loadbalancer_member_type_mapping.iteritems():
+            value = props[key]
+            if value is not None:
+                res[mapping] = value
+
+        return res
+
+    def loadbalancer_member_add(self, member):
+        m = self.loadbalancer_member_get_reqdict(member)
+        driver = self._get_driver_for_pool(m['pool_id'])
+        try:
+            if not member.last_sent:
+                driver.create_member(m)
+            elif m != member.last_sent:
+                driver.update_member(member.last_sent, m)
+        except Exception:
+            pass
+        return m
+    # end loadbalancer_member_add
+
+    def delete_loadbalancer_member(self, obj):
+        m = obj.last_sent
+        driver = self._get_driver_for_pool(m['pool_id'])
+        try:
+            driver.delete_member(m)
+        except Exception:
+            pass
+    # end delete_loadbalancer_member
+
+    def _get_vip_pool_id(self, vip):
+        pool_refs = vip.loadbalancer_pool
+        if pool_refs is None:
+            return None
+        return pool_refs
+    # end _get_vip_pool_id
+
+    def _get_interface_params(self, port_id, props):
+        if port_id is None:
+            return None
+
+        if not props['address']:
+            vmi = VirtualMachineInterfaceSM.get(port_id)
+            for iip_id in vmi.instance_ips:
+                iip = InstanceIpSM.get(iip_id)
+                props['address'] = iip.address
+                break
+
+        return port_id
+    # end _get_interface_params
+
+    def _get_object_description(self, obj):
+        id_perms = obj.id_perms
+        if id_perms is None:
+            return None
+        return id_perms['description']
+    # end _get_object_description
+
+    def virtual_ip_get_reqdict(self, vip):
+        props = vip.params
+        port_id = self._get_interface_params(vip.virtual_machine_interface,
+            props)
+
+        res = {'id': vip.uuid,
+               'tenant_id': vip.parent_uuid.replace('-', ''),
+               'name': vip.display_name,
+               'description': self._get_object_description(vip),
+               'subnet_id': props['subnet_id'],
+               'address': props['address'],
+               'port_id': port_id,
+               'protocol_port': props['protocol_port'],
+               'protocol': props['protocol'],
+               'pool_id': self._get_vip_pool_id(vip),
+               'session_persistence': None,
+               'connection_limit': props['connection_limit'],
+               'admin_state_up': props['admin_state'],
+               'status': self._get_object_status(vip)}
+
+        if props['persistence_type']:
+            sp = {'type': props['persistence_type']}
+            if props['persistence_type'] == 'APP_COOKIE':
+                sp['cookie_name'] = props['persistence_cookie_name']
+            res['session_persistence'] = sp
+
+        return res
+    # end virtual_ip_get_reqdict
+
+    def virtual_ip_add(self, vip):
+        v = self.virtual_ip_get_reqdict(vip)
+        driver = self._get_driver_for_pool(v['pool_id'])
+        try:
+            driver.set_config_v1(vip.loadbalancer_pool)
+            if not vip.last_sent:
+                driver.create_vip(v)
+            elif v != vip.last_sent:
+                driver.update_vip(vip.last_sent, v)
+        except Exception:
+            pass
+        return v
+    # end  virtual_ip_add
+
+    def delete_virtual_ip(self, obj):
+        v = obj.last_sent
+        driver = self._get_driver_for_pool(v['pool_id'])
+        try:
+            driver.delete_vip(v)
+        except Exception:
+            pass
+    # end delete_virtual_ip
+
+    _loadbalancer_health_type_mapping = {
+        'admin_state': 'admin_state_up',
+        'monitor_type': 'type',
+        'delay': 'delay',
+        'timeout': 'timeout',
+        'max_retries': 'max_retries',
+        'http_method': 'http_method',
+        'url_path': 'url_path',
+        'expected_codes': 'expected_codes'
+    }
+
+    def hm_get_reqdict(self, health_monitor):
+        res = {'id': health_monitor.uuid,
+               'tenant_id': health_monitor.parent_uuid.replace('-', ''),
+               'status': self._get_object_status(health_monitor)}
+
+        props = health_monitor.params
+        for key, mapping in self._loadbalancer_health_type_mapping.iteritems():
+            value = props[key]
+            if value is not None:
+                res[mapping] = value
+
+        pool_ids = []
+        pool_back_refs = health_monitor.loadbalancer_pools
+        for pool_back_ref in pool_back_refs or []:
+            pool_id = {}
+            pool_id['pool_id'] = pool_back_ref
+            pool_ids.append(pool_id)
+        res['pools'] = pool_ids
+
+        return res
+    # end hm_get_reqdict
+
+    def update_hm(self, obj):
+        hm = self.hm_get_reqdict(obj)
+        current_pools = hm['pools'] or []
+        old_pools = []
+        if obj.last_sent:
+            old_pools = hm['pools'] or []
+
+        set_current_pools = set()
+        set_old_pools = set()
+        for i in current_pools:
+            set_current_pools.add(i['pool_id'])
+        for i in old_pools:
+            set_old_pools.add(i['pool_id'])
+        update_pools = set_current_pools & set_old_pools
+        delete_pools = set_old_pools - set_current_pools
+        add_pools = set_current_pools - set_old_pools
+        try:
+            for pool in add_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.create_pool_health_monitor(hm, pool)
+            for pool in delete_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.delete_pool_health_monitor(hm, pool)
+            for pool in update_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.update_health_monitor(obj.last_sent,
+                                             hm, pool)
+        except Exception:
+            pass
+    # end update_hm
