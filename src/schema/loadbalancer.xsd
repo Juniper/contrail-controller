@@ -26,6 +26,7 @@
         <xsd:enumeration value="HTTP"/>
         <xsd:enumeration value="HTTPS"/>
         <xsd:enumeration value="TCP"/>
+        <xsd:enumeration value="TERMINATED_HTTPS"/>
     </xsd:restriction>
 </xsd:simpleType>
 
