@@ -9,6 +9,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <tbb/mutex.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
@@ -54,6 +55,8 @@ protected:
     bool changed_;
     bool deleted_;
     bool renewed_;
+    /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
+    tbb::mutex mutex_;
 private:
     bool UveVmInterfaceListChanged
         (const std::vector<std::string> &new_l) const;

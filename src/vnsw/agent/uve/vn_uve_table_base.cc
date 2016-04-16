@@ -6,7 +6,7 @@
 #include <uve/agent_uve_base.h>
 
 VnUveTableBase::VnUveTableBase(Agent *agent, uint32_t default_intvl)
-    : uve_vn_map_(), agent_(agent),
+    : uve_vn_map_(), agent_(agent), uve_vn_map_mutex_(),
       vn_listener_id_(DBTableBase::kInvalidId),
       intf_listener_id_(DBTableBase::kInvalidId),
       timer_last_visited_(""),
@@ -148,6 +148,7 @@ void VnUveTableBase::SendDeleteVnMsg(const string &vn) {
 void VnUveTableBase::Delete(const std::string &name) {
     UveVnMap::iterator it = uve_vn_map_.find(name);
     if (it != uve_vn_map_.end()) {
+        tbb::mutex::scoped_lock lock(uve_vn_map_mutex_);
         uve_vn_map_.erase(it);
     }
 }

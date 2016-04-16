@@ -86,6 +86,7 @@ void VnUveTable::SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats) {
 
 void VnUveTable::UpdateBitmap(const string &vn, uint8_t proto, uint16_t sport,
                               uint16_t dport) {
+    tbb::mutex::scoped_lock lock(uve_vn_map_mutex_);
     UveVnMap::iterator it = uve_vn_map_.find(vn);
     if (it == uve_vn_map_.end()) {
         return;
@@ -98,6 +99,7 @@ void VnUveTable::UpdateBitmap(const string &vn, uint8_t proto, uint16_t sport,
 void VnUveTable::UpdateInterVnStats(const string &src, const string &dst,
                                     uint64_t bytes, uint64_t pkts,
                                     bool outgoing) {
+    tbb::mutex::scoped_lock lock(uve_vn_map_mutex_);
     UveVnMap::iterator it = uve_vn_map_.find(src);
     if (it == uve_vn_map_.end()) {
         return;
