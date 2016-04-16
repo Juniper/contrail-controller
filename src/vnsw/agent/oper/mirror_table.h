@@ -73,6 +73,7 @@ private:
 class MirrorTable : public AgentDBTable {
 public:
     const static unsigned bufLen = 512;
+    const static uint8_t kInvalidIndex = 0xFF;
     typedef std::vector<MirrorEntry *> MirrorEntryList;
     typedef std::map<std::string , MirrorEntryList> VrfMirrorEntryList;
     typedef std::pair<std::string , MirrorEntryList> VrfMirrorEntry;

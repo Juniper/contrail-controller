@@ -323,7 +323,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         if (fe_action & (1 << TrafficAction::VRF_TRANSLATE)) {
             flags |= VR_FLOW_FLAG_VRFT;
-            req.set_fr_flow_dvrf(flow_entry_->acl_assigned_vrf_index());
+            req.set_fr_flow_dvrf(flow_entry_->data().dest_vrf);
         }
 
         if (flow_entry_->is_flags_set(FlowEntry::Trap)) {

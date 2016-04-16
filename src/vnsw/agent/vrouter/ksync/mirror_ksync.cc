@@ -147,7 +147,11 @@ KSyncEntry *MirrorKSyncObject::DBToKSyncEntry(const DBEntry *e) {
 
 uint32_t MirrorKSyncObject::GetIdx(std::string analyzer_name) {
     MirrorKSyncEntry key(this, analyzer_name);
-    return Find(&key)->GetIndex();
+    KSyncEntry *entry = Find(&key);
+    if (entry) {
+        return entry->GetIndex();
+    }
+    return MirrorTable::kInvalidIndex;
 }
 
 void vr_mirror_req::Process(SandeshContext *context) {

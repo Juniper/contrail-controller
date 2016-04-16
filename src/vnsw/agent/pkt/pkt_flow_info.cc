@@ -869,6 +869,9 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
                 flow_dest_plen_map);
     out->vn_ = it->vn_.get();
     dest_vrf = out->intf_->vrf()->vrf_id();
+    if (VrfTranslate(pkt, in, out, pkt->ip_saddr, true) == false) {
+        return;
+    }
 
     // Translate the Dest-IP
     if (nat_done == false)
