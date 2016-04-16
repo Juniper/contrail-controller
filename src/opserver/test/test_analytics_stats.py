@@ -95,6 +95,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         generator_obj.send_test_stat_dynamic("t00","samp1",1,1);
         generator_obj.send_test_stat_dynamic("t00","samp2",2,1.1);
+        generator_obj.send_test_stat_dynamic("t00","samp3",1,-5062);
         generator_obj.send_test_stat_dynamic("t00&t01","samp1&samp2",2,1.1);
         generator_obj.send_test_stat_dynamic("t00>t01>","samp1&samp2",2,1.1,
                                              "&test_s2>");
@@ -103,9 +104,10 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
             "-2m", select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
-            where_clause = 'name="t00"', num = 2, check_rows =
+            where_clause = 'name="t00"', num = 3, check_rows =
             [{ "ts.s1":"samp2", "ts.i1":2, "ts.d1":1.1},
-             { "ts.s1":"samp1", "ts.i1":1, "ts.d1":1}]);
+             { "ts.s1":"samp1", "ts.i1":1, "ts.d1":1},
+             { "ts.s1":"samp3", "ts.i1":1, "ts.d1":-5062}]);
         assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
             "-2m", select_fields = [ "UUID", "ts.s1", "ts.s2" ],
             where_clause = 'name="t00&t01"', num = 1, check_rows =
