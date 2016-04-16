@@ -26,8 +26,8 @@ class LoadbalancerSM(DBBaseSM):
         self.virtual_machine_interface = None
         self.service_instance = None
         self.loadbalancer_listeners = set()
-        self.update(obj_dict)
         self.last_sent = None
+        self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -45,11 +45,21 @@ class LoadbalancerSM(DBBaseSM):
         self.update_multiple_refs('loadbalancer_listener', obj)
     # end update
 
+    def add(self):
+        self.last_sent = \
+            self._manager.loadbalancer_agent.loadbalancer_add(self)
+    # end add
+
+    def evaluate(self):
+        self.add()
+    # end evaluate
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        cls._manager.loadbalancer_agent.delete_loadbalancer(obj)
         obj.update_single_ref('virtual_machine_interface', {})
         obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('loadbalancer_listener', {})
@@ -65,8 +75,8 @@ class LoadbalancerListenerSM(DBBaseSM):
         self.uuid = uuid
         self.loadbalancer = None
         self.loadbalancer_pool = None
-        self.update(obj_dict)
         self.last_sent = None
+        self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -81,11 +91,21 @@ class LoadbalancerListenerSM(DBBaseSM):
         self.update_single_ref('loadbalancer_pool', obj)
     # end update
 
+    def add(self):
+        self.last_sent = \
+            self._manager.loadbalancer_agent.listener_add(self)
+    # end add
+
+    def evaluate(self):
+        self.add()
+    # end evaluate
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        cls._manager.loadbalancer_agent.delete_listener(obj)
         obj.update_single_ref('loadbalancer', {})
         obj.update_single_ref('loadbalancer_pool', {})
         del cls._dict[uuid]
@@ -104,8 +124,9 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.virtual_machine_interface = None
         self.virtual_ip = None
         self.loadbalancer_listener = None
-        self.update(obj_dict)
+        self.loadbalancer_id = None
         self.last_sent = None
+        self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -127,6 +148,33 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.update_multiple_refs('loadbalancer_healthmonitor', obj)
     # end update
 
+    def add(self):
+        if self.loadbalancer_listener:
+            ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
+            self.loadbalancer_id = ll_obj.loadbalancer
+
+        self.last_sent = \
+            self._manager.loadbalancer_agent.loadbalancer_pool_add(self)
+
+        if len(self.members):
+            for member in self.members:
+                member_obj = LoadbalancerMemberSM.get(member)
+                if member_obj:
+                    member_obj.last_sent = \
+                        self._manager.loadbalancer_agent.loadbalancer_member_add(
+                            member_obj)
+
+        if self.virtual_ip:
+            vip_obj = VirtualIpSM.get(self.virtual_ip)
+            if vip_obj:
+                vip_obj.last_sent = \
+                    self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
+    # end add
+
+    def evaluate(self):
+        self.add()
+    # end evaluate
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
@@ -140,39 +188,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         obj.update_multiple_refs('loadbalancer_healthmonitor', {})
         del cls._dict[uuid]
     # end delete
-
-    def add(self):
-        self.last_sent = \
-            self._manager.loadbalancer_agent.loadbalancer_pool_add(self)
-        if len(self.members):
-            for member in self.members:
-                member_obj = LoadbalancerMemberSM.get(member)
-                if member_obj:
-                    member_obj.last_sent = \
-                        self._manager.loadbalancer_agent.loadbalancer_member_add(
-                            member_obj)
-        if self.virtual_ip:
-            vip_obj = VirtualIpSM.get(self.virtual_ip)
-            if vip_obj:
-                vip_obj.last_sent = \
-                    self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
-
-        if self.loadbalancer_listener:
-            ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
-            lb_obj = LoadbalancerSM.get(ll_obj.loadbalancer)
-            if lb_obj:
-                lb_obj.last_sent = \
-                    self._manager.loadbalancer_agent.loadbalancer_add(lb_obj)
-            if ll_obj:
-                ll_obj.last_sent = \
-                    self._manager.loadbalancer_agent.listener_add(ll_obj)
-    # end add
-
-    def evaluate(self):
-        self.add()
-
 # end class LoadbalancerPoolSM
-
 
 class LoadbalancerMemberSM(DBBaseSM):
     _dict = {}
@@ -181,8 +197,8 @@ class LoadbalancerMemberSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.loadbalancer_pool = {}
-        self.update(obj_dict)
         self.last_sent = None
+        self.update(obj_dict)
         if self.loadbalancer_pool:
             parent = LoadbalancerPoolSM.get(self.loadbalancer_pool)
             parent.members.add(self.uuid)
@@ -211,7 +227,6 @@ class LoadbalancerMemberSM(DBBaseSM):
     # end delete
 # end class LoadbalancerMemberSM
 
-
 class VirtualIpSM(DBBaseSM):
     _dict = {}
     obj_type = 'virtual_ip'
@@ -220,8 +235,8 @@ class VirtualIpSM(DBBaseSM):
         self.uuid = uuid
         self.virtual_machine_interface = None
         self.loadbalancer_pool = None
-        self.update(obj_dict)
         self.last_sent = None
+        self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
@@ -246,9 +261,7 @@ class VirtualIpSM(DBBaseSM):
         obj.update_single_ref('loadbalancer_pool', {})
         del cls._dict[uuid]
     # end delete
-
 # end class VirtualIpSM
-
 
 class HealthMonitorSM(DBBaseSM):
     _dict = {}
@@ -282,7 +295,6 @@ class HealthMonitorSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 # end class HealthMonitorSM
-
 
 class VirtualMachineSM(DBBaseSM):
     _dict = {}
