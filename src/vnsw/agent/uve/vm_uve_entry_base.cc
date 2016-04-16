@@ -9,7 +9,7 @@ using namespace std;
 
 VmUveEntryBase::VmUveEntryBase(Agent *agent, const string &vm_name)
     : agent_(agent), interface_tree_(), uve_info_(), changed_(true),
-    deleted_(false), renewed_(false), add_by_vm_notify_(false),
+    deleted_(false), renewed_(false), mutex_(), add_by_vm_notify_(false),
     vm_config_name_(vm_name), vm_name_() {
 }
 

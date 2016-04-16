@@ -7,7 +7,7 @@
 #include <uve/agent_uve_base.h>
 
 VmUveTableBase::VmUveTableBase(Agent *agent, uint32_t default_intvl)
-    : uve_vm_map_(), agent_(agent),
+    : uve_vm_map_(), agent_(agent), uve_vm_map_mutex_(),
       intf_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId), timer_last_visited_(nil_uuid()),
       timer_(TimerManager::CreateTimer
@@ -40,6 +40,7 @@ bool VmUveTableBase::TimerExpiry() {
         if (entry->deleted()) {
             SendVmDeleteMsg(entry->vm_config_name());
             if (!entry->renewed()) {
+                tbb::mutex::scoped_lock lock(uve_vm_map_mutex_);
                 uve_vm_map_.erase(prev);
             } else {
                 entry->set_deleted(false);

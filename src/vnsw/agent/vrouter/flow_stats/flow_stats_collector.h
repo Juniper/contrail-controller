@@ -27,7 +27,7 @@ class FlowStatsManager;
 //Defines the functionality to periodically read flow stats from
 //shared memory (between agent and Kernel) and export this stats info to
 //collector. Also responsible for aging of flow entries. Runs in the context
-//of "Agent::StatsCollector" which has exclusion with "db::DBTable",
+//of kTaskFlowStatsCollector which has exclusion with "db::DBTable",
 class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
