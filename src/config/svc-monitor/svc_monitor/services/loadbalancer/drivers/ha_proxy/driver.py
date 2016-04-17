@@ -176,6 +176,7 @@ class OpencontrailLoadbalancerDriver(
         if si_obj:
             self._service_instance_update_props(si_obj, props)
         else:
+            self._get_template()
             si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
@@ -234,6 +235,7 @@ class OpencontrailLoadbalancerDriver(
         if si_obj:
             self._service_instance_update_props(si_obj, props)
         else:
+            self._get_template()
             si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
@@ -245,22 +247,26 @@ class OpencontrailLoadbalancerDriver(
                 'service_instance_refs', si_obj.uuid, None, 'ADD')
 
     def _clear_loadbalancer_instance_v2(self, lb_id):
-        driver_data = self.db.loadbalancer_driver_info_get(lb_id)
-        if driver_data is None:
-            return
-        si_id = driver_data['service_instance']
-        si = ServiceInstanceSM.get(si_id)
-        if si is None:
+        lb = LoadbalancerSM.get(lb_id)
+        if lb is None:
+            msg = ('Unable to retrieve loadbalancer %s' % lb_id)
+            self._svc_manager.logger.error(msg)
             return
 
-        lb_id = si.loadbalancer
-        lb = LoadbalancerSM.get(lb_id)
-        if lb:
-            self._api.ref_update('loadbalancer', lb_id,
-                  'service_instance_refs', si_id, None, 'DELETE')
+        si_refs = lb.service_instance
+        si_obj = ServiceInstanceSM.get(si_refs)
+        if si_obj is None:
+            return
+
+        if si_refs:
+            try:
+                self._api.ref_update('loadbalancer', lb.uuid,
+                    'service_instance_refs', si_obj.uuid, None, 'DELETE')
+            except:
+                pass
         try:
-            self._api.service_instance_delete(id=si_id)
-            ServiceInstanceSM.delete(si_id)
+            self._api.service_instance_delete(id=si_obj.uuid)
+            ServiceInstanceSM.delete(si_obj.uuid)
         except RefsExistError as ex:
             self._svc_manager.logger.error(str(ex))
 
@@ -289,7 +295,6 @@ class OpencontrailLoadbalancerDriver(
         self.plugin.update_status(Vip, vip["id"],
                                   constants.ACTIVE)
         """
-        self._get_template()
         if vip['pool_id']:
             self._update_loadbalancer_instance(vip['pool_id'], vip['id'])
 
@@ -318,9 +323,8 @@ class OpencontrailLoadbalancerDriver(
         self.plugin.update_status(Pool, pool["id"],
                                   constants.ACTIVE)
         """
-        self._get_template()
         if pool.get('loadbalancer_id', None):
-            self._update_loadbalancer_instance_v2(pool['id'], pool['loadbalancer_id'])
+            self._update_loadbalancer_instance_v2(pool['loadbalancer_id'])
         elif pool.get('vip_id', None):
             self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
 
@@ -331,7 +335,7 @@ class OpencontrailLoadbalancerDriver(
                                   pool["id"], constants.ACTIVE)
         """
         if pool.get('loadbalancer_id', None):
-            self._update_loadbalancer_instance_v2(pool['id'], pool['loadbalancer_id'])
+            self._update_loadbalancer_instance_v2(pool['loadbalancer_id'])
         elif pool.get('vip_id', None):
             self._update_loadbalancer_instance(pool['id'], pool['vip_id'])
 
@@ -340,7 +344,9 @@ class OpencontrailLoadbalancerDriver(
         self.plugin._delete_db_pool(pool["id"])
         or set the status to ERROR if deletion failed
         """
-        if pool['vip_id']:
+        if pool.get('loadbalancer_id', None):
+            self._update_loadbalancer_instance_v2(pool['loadbalancer_id'])
+        elif pool['vip_id']:
             self._clear_loadbalancer_instance(pool['tenant_id'], pool['id'])
 
     def stats(self, pool_id):
