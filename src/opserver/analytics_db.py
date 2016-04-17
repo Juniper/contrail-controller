@@ -240,8 +240,6 @@ class AnalyticsDb(object):
             # Extract the server_list and port number seperately
             server_list = [i.split(":")[0] for i in self._cassandra_server_list]
             cql_port = self._cassandra_server_list[0].split(":")[1]
-            if cql_port == '9160':
-                cql_port = '9042'
             cluster = Cluster(contact_points = server_list,
                 auth_provider = creds, port = cql_port)
             self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)

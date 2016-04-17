@@ -1261,14 +1261,6 @@ class CqlIf::CqlIfImpl {
         // Set contact points and port
         std::string contact_points(boost::algorithm::join(cassandra_ips, ","));
         cass_cluster_set_contact_points(cluster_.get(), contact_points.c_str());
-        // XXX START
-        // Temporary hack to workaround provisioning dependency
-        #define CASSANDRA_DEFAULT_THRIFT_PORT 9160
-        #define CASSANDRA_DEFAULT_CQL_PORT 9042
-        if (cassandra_port == CASSANDRA_DEFAULT_THRIFT_PORT) {
-            cassandra_port = CASSANDRA_DEFAULT_CQL_PORT;
-        }
-        // XXX END
         cass_cluster_set_port(cluster_.get(), cassandra_port);
         // Set credentials for plain text authentication
         if (!cassandra_user.empty() && !cassandra_password.empty()) {
