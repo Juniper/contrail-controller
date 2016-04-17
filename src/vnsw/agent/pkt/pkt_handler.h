@@ -382,6 +382,8 @@ struct PktInfo {
     void set_len(uint32_t len);
     void reset_packet_buffer();
 
+    uint32_t GetUdpPayloadLength() const;
+
 private:
     PacketBufferPtr     packet_buffer_;
 };

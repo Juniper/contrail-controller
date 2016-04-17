@@ -308,7 +308,7 @@ public:
         for (int i = 0; i < numAdd; i++)
             ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
 
-        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
+        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf, len);
     }
 
     void FillDnsUpdateData(DnsUpdateData &data, int count) {

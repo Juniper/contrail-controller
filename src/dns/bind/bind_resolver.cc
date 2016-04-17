@@ -120,7 +120,7 @@ void BindResolver::DnsRcvHandler(const boost::system::error_code &error,
     bool del = false;
     if (!error) {
         if (cb_)
-            cb_(pkt_buf_);
+            cb_(pkt_buf_, length);
         else
             del = true;
     } else {
