@@ -18,6 +18,7 @@ public:
     ConcurrencyChecker(const char *task_ids[], size_t count);
     void Check();
     void CheckIfMainThr();
+    static bool IsInMainThr() { return (Task::Running() == NULL); }
 private:
     typedef std::set<int> TaskIdSet;
     TaskIdSet id_set_;
