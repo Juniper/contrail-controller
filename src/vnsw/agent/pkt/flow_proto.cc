@@ -15,7 +15,7 @@
 #include "flow_mgmt.h"
 #include "flow_event.h"
 
-static void UpdateStats(FlowEvent::Event event, FlowStats *stats);
+static void UpdateStats(FlowEvent *event, FlowStats *stats);
 
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
@@ -297,7 +297,7 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 /////////////////////////////////////////////////////////////////////////////
 void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     // Keep UpdateStats in-sync on add of new events
-    UpdateStats(event->event(), &stats_);
+    UpdateStats(event, &stats_);
     switch (event->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
         PktInfo *info = event->pkt_info().get();
@@ -337,11 +337,10 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::KSYNC_VROUTER_ERROR:
     case FlowEvent::KSYNC_EVENT: {
+        FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(event);
         FlowTableKSyncObject *ksync_obj = static_cast<FlowTableKSyncObject *>
-            (event->ksync_entry()->GetObject());
+            (ksync_event->ksync_entry()->GetObject());
         FlowTable *table = ksync_obj->flow_table();
         flow_ksync_queue_[table->table_index()]->Enqueue(event);
         break;
@@ -433,11 +432,10 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     // Flow was waiting for an index. Index is available now. Retry acquiring
     // the index
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::KSYNC_EVENT:
-    case FlowEvent::KSYNC_VROUTER_ERROR: {
+    case FlowEvent::KSYNC_EVENT: {
+        FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
         FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+            (static_cast<FlowTableKSyncEntry *> (ksync_event->ksync_entry()));
         FlowEntry *flow = ksync_entry->flow_entry().get();
         table->ProcessFlowEvent(req, flow, flow->reverse_flow_entry());
         break;
@@ -453,17 +451,16 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 }
 
 bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
+    FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
     std::auto_ptr<FlowEvent> req_ptr(req);
 
     // concurrency check to ensure all request are in right partitions
     assert(table->ConcurrencyCheck() == true);
 
     switch (req->event()) {
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::KSYNC_EVENT:
-    case FlowEvent::KSYNC_VROUTER_ERROR: {
+    case FlowEvent::KSYNC_EVENT: {
         FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+            (static_cast<FlowTableKSyncEntry *> (ksync_event->ksync_entry()));
         FlowEntry *flow = ksync_entry->flow_entry().get();
         flow->flow_table()->ProcessFlowEvent(req, flow,
                                              flow->reverse_flow_entry());
@@ -577,23 +574,14 @@ void FlowProto::GrowFreeListRequest(const FlowKey &key, FlowTable *table) {
 }
 
 void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
-                                  KSyncEntry::KSyncEvent event) {
-    EnqueueFlowEvent(new FlowEvent(ksync_entry, event));
-    return;
-}
-
-void FlowProto::KSyncFlowHandleRequest(KSyncEntry *ksync_entry,
-                                       uint32_t flow_handle,
-                                       uint8_t gen_id) {
-    EnqueueFlowEvent(new FlowEvent(ksync_entry, flow_handle, gen_id));
-    return;
-}
-
-void FlowProto::KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error) {
-    FlowEvent *event = new FlowEvent(ksync_entry);
-    event->set_ksync_error(error);
-    EnqueueFlowEvent(event);
-    return;
+                                  KSyncEntry::KSyncEvent event,
+                                  uint32_t flow_handle, uint8_t gen_id,
+                                  int ksync_error, uint64_t evict_flow_bytes,
+                                  uint64_t evict_flow_packets,
+                                  int32_t evict_flow_oflow) {
+    EnqueueFlowEvent(new FlowEventKSync(ksync_entry, event, flow_handle,
+                                        gen_id, ksync_error, evict_flow_bytes,
+                                        evict_flow_packets, evict_flow_oflow));
 }
 
 void FlowProto::MessageRequest(InterTaskMsg *msg) {
@@ -635,8 +623,6 @@ FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
     case FlowEvent::VROUTER_FLOW_MSG:
     case FlowEvent::FLOW_MESSAGE:
     case FlowEvent::AUDIT_FLOW:
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::KSYNC_VROUTER_ERROR:
     case FlowEvent::KSYNC_EVENT:
     case FlowEvent::REENTRANT:
         return add_tokens_.GetToken(NULL);
@@ -689,8 +675,8 @@ void FlowProto::TokenAvailable(FlowTokenPool *pool) {
 //////////////////////////////////////////////////////////////////////////////
 // Set profile information
 //////////////////////////////////////////////////////////////////////////////
-void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
-    switch (event) {
+void UpdateStats(FlowEvent *req, FlowStats *stats) {
+    switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG:
         stats->add_count_++;
         break;
@@ -706,12 +692,13 @@ void UpdateStats(FlowEvent::Event event, FlowStats *stats) {
     case FlowEvent::REVALUATE_FLOW:
         stats->revaluate_count_++;
         break;
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-        stats->handle_update_++;
+    case FlowEvent::KSYNC_EVENT: {
+        stats->vrouter_responses_++;
+        FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
+        if (ksync_event->ksync_error())
+            stats->vrouter_error_++;
         break;
-    case FlowEvent::KSYNC_VROUTER_ERROR:
-        stats->vrouter_error_++;
-        break;
+    }
     default:
         break;
     }
@@ -753,7 +740,7 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.del_count_ = stats_.delete_count_;
     data->flow_.audit_count_ = stats_.audit_count_;
     data->flow_.reval_count_ = stats_.revaluate_count_;
-    data->flow_.handle_update_ = stats_.handle_update_;
+    data->flow_.vrouter_responses_ = stats_.vrouter_responses_;
     data->flow_.vrouter_error_ = stats_.vrouter_error_;
 
     PktModule *pkt = agent()->pkt();
