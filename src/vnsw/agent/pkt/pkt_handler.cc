@@ -932,6 +932,13 @@ std::size_t PktInfo::hash() const {
     return seed;
 }
 
+uint32_t PktInfo::GetUdpPayloadLength() const {
+    if (ip_proto == IPPROTO_UDP) {
+        return ntohs(transp.udp->uh_ulen) - sizeof(udphdr);
+    }
+    return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 void PktTrace::Pkt::Copy(Direction d, std::size_t l, uint8_t *msg,
                          std::size_t pkt_trace_size, const AgentHdr *hdr) {
