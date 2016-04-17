@@ -30,8 +30,9 @@ public:
     };
 
     struct DnsIpc : InterTaskMsg {
-        DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h, InterTaskMessage cmd)
-            : InterTaskMsg(cmd), resp(msg), xid(id), handler(h) {}
+        DnsIpc(uint8_t *msg, std::size_t len, uint16_t id,
+               DnsHandler *h, InterTaskMessage cmd)
+            : InterTaskMsg(cmd), resp(msg), length(len), xid(id), handler(h) {}
 
         virtual ~DnsIpc() {
             if (resp)
@@ -41,6 +42,7 @@ public:
         }
 
         uint8_t *resp;
+        std::size_t length;
         uint16_t xid;
         DnsHandler *handler;
     };
@@ -161,7 +163,7 @@ public:
     void VdnsNotify(IFMapNode *node);
     uint16_t GetTransId();
 
-    void SendDnsIpc(uint8_t *pkt);
+    void SendDnsIpc(uint8_t *pkt, std::size_t length);
     void SendDnsIpc(InterTaskMessage cmd, uint16_t xid,
                     uint8_t *msg, DnsHandler *handler);
     void SendDnsUpdateIpc(DnsUpdateData *data, DnsAgentXmpp::XmppType type,
