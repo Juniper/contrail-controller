@@ -22,6 +22,7 @@ VmUveTable::~VmUveTable() {
 
 void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto,
                               uint16_t sport, uint16_t dport) {
+    tbb::mutex::scoped_lock lock(uve_vm_map_mutex_);
     UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntry *entry = static_cast<VmUveEntry *>(it->second.get());

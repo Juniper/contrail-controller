@@ -113,6 +113,7 @@ private:
     void BuildArpStats(const StatsManager::VrfStats *s,
                        UveVrfStats &vrf_stats) const;
 
+    /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
     tbb::mutex mutex_;
     uint64_t in_bytes_;
     uint64_t out_bytes_;

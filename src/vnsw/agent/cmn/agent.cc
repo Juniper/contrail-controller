@@ -271,6 +271,15 @@ void Agent::SetAgentTaskPolicy() {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->RegisterLog(boost::bind(&Agent::TaskTrace, this,
                                        _1, _2, _3, _4, _5));
+
+    const char *db_exclude_task_exclude_list[] = {
+        "Agent::Uve",
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne(kTaskDBExclude, db_exclude_task_exclude_list,
+                     sizeof(db_exclude_task_exclude_list) / sizeof(char *));
+
 }
 
 void Agent::CreateLifetimeManager() {
