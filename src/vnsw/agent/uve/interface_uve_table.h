@@ -115,7 +115,7 @@ public:
         bool ace_stats_changed_;
         UveVMInterfaceAgent uve_info_;
         AceStatsSet ace_set_;
-        /* For exclusion between Agent::StatsCollector and Agent::Uve tasks */
+        /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
         tbb::mutex mutex_;
 
         UveInterfaceEntry(const VmInterface *i) : intf_(i),
@@ -149,6 +149,7 @@ public:
         void SetVnVmInfo(UveVMInterfaceAgent *uve) const;
         void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();
+        void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 
@@ -170,6 +171,8 @@ protected:
 
     Agent *agent_;
     InterfaceMap interface_tree_;
+    /* For exclusion between kTaskFlowStatsCollector and kTaskDBExclude */
+    tbb::mutex interface_tree_mutex_;
 private:
     virtual UveInterfaceEntryPtr Allocate(const VmInterface *vm);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);

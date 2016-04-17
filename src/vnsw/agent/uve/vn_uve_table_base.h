@@ -39,6 +39,7 @@ public:
     void Shutdown(void);
     void SendVnAclRuleCount();
     bool TimerExpiry();
+    void DeleteVnEntry(const UveVnMap::iterator &it);
 
 protected:
     void Delete(const std::string &name);
@@ -51,6 +52,8 @@ protected:
 
     UveVnMap uve_vn_map_;
     Agent *agent_;
+    /* For exclusion between kTaskFlowStatsCollector and kTaskDBExclude */
+    tbb::mutex uve_vn_map_mutex_;
 private:
     VnUveEntryBase* Add(const VnEntry *vn);
     void Add(const std::string &vn);

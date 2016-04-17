@@ -22,12 +22,21 @@ VnUveEntry::~VnUveEntry() {
 
 void VnUveEntry::UpdatePortBitmap(uint8_t proto, uint16_t sport,
                                   uint16_t dport) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (deleted_ && !renewed_) {
+        /* Skip updates on VnUveEntry if it is marked for delete */
+        return;
+    }
     port_bitmap_.AddPort(proto, sport, dport);
 }
 
 void VnUveEntry::UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
                                     uint64_t pkts, bool outgoing) {
     tbb::mutex::scoped_lock lock(mutex_);
+    if (deleted_ && !renewed_) {
+        /* Skip updates on VnUveEntry if it is marked for delete */
+        return;
+    }
     VnStatsPtr key(new VnStats(dst_vn, 0, 0, false));
     VnStatsSet::iterator stats_it = inter_vn_stats_.find(key);
     if (stats_it == inter_vn_stats_.end()) {
@@ -64,6 +73,7 @@ void VnUveEntry::ClearInterVnStats() {
 
 bool VnUveEntry::SetVnPortBitmap(UveVirtualNetworkAgent &uve) {
     bool changed = false;
+    tbb::mutex::scoped_lock lock(mutex_);
 
     vector<uint32_t> tcp_sport;
     if (port_bitmap_.tcp_sport_.Sync(tcp_sport)) {

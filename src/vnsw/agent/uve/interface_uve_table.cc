@@ -8,7 +8,7 @@
 #include <uve/agent_uve_base.h>
 
 InterfaceUveTable::InterfaceUveTable(Agent *agent, uint32_t default_intvl)
-    : agent_(agent), interface_tree_(),
+    : agent_(agent), interface_tree_(), interface_tree_mutex_(),
       intf_listener_id_(DBTableBase::kInvalidId),
       timer_last_visited_(""),
       timer_(TimerManager::CreateTimer
@@ -42,6 +42,7 @@ bool InterfaceUveTable::TimerExpiry() {
         if (entry->deleted_) {
             SendInterfaceDeleteMsg(cfg_name);
             if (!entry->renewed_) {
+                tbb::mutex::scoped_lock lock(interface_tree_mutex_);
                 interface_tree_.erase(prev);
             } else {
                 entry->deleted_ = false;
@@ -182,6 +183,17 @@ void InterfaceUveTable::UveInterfaceEntry::Reset() {
     ace_stats_changed_ = false;
     deleted_ = true;
     renewed_ = false;
+}
+
+void InterfaceUveTable::UveInterfaceEntry::UpdatePortBitmap
+    (uint8_t proto, uint16_t sport, uint16_t dport) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    /* No need to update stats if the entry is marked for delete and not
+     * renewed */
+    if (deleted_ && !renewed_) {
+        return;
+    }
+    port_bitmap_.AddPort(proto, sport, dport);
 }
 
 bool InterfaceUveTable::UveInterfaceEntry::FipAggStatsChanged
@@ -393,6 +405,11 @@ bool InterfaceUveTable::UveInterfaceEntry::OutBandChanged(uint64_t out_band)
 void InterfaceUveTable::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
     tbb::mutex::scoped_lock lock(mutex_);
+    /* No need to update stats if the entry is marked for delete and not
+     * renewed */
+    if (deleted_ && !renewed_) {
+        return;
+    }
     FloatingIp *entry = FipEntry(fip_info.fip_, fip_info.vn_);
     /* Ignore stats update request if it comes after entry is removed */
     if (entry == NULL) {
@@ -546,7 +563,6 @@ void InterfaceUveTable::UveInterfaceEntry::SetStats
 
 void InterfaceUveTable::UveInterfaceEntry::AddFloatingIp
     (const VmInterface::FloatingIp &fip) {
-    tbb::mutex::scoped_lock lock(mutex_);
     FloatingIpPtr key(new FloatingIp(fip.floating_ip_,
                                      fip.vn_.get()->GetName()));
     FloatingIpSet::iterator it = fip_tree_.find(key);
@@ -558,7 +574,6 @@ void InterfaceUveTable::UveInterfaceEntry::AddFloatingIp
 
 void InterfaceUveTable::UveInterfaceEntry::RemoveFloatingIp
     (const VmInterface::FloatingIp &fip) {
-    tbb::mutex::scoped_lock lock(mutex_);
     FloatingIpPtr key(new FloatingIp(fip.floating_ip_, fip.vn_.get()->GetName()));
     FloatingIpSet::iterator it = fip_tree_.find(key);
     if (it != fip_tree_.end()) {

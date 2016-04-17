@@ -146,6 +146,7 @@ void InterfaceUveStatsTable::UpdateFloatingIpStats(const FipInfo &fip_info) {
     if (intf == NULL) {
         return;
     }
+    tbb::mutex::scoped_lock lock(interface_tree_mutex_);
     VmInterface *vmi = static_cast<VmInterface *>(intf);
     InterfaceMap::iterator intf_it = interface_tree_.find(vmi->cfg_name());
 
@@ -185,11 +186,12 @@ bool InterfaceUveStatsTable::FrameFipStatsMsg(const VmInterface *itf,
 
 void InterfaceUveStatsTable::UpdatePortBitmap
     (const string &name, uint8_t proto, uint16_t sport, uint16_t dport) {
+    tbb::mutex::scoped_lock lock(interface_tree_mutex_);
     InterfaceMap::const_iterator it = interface_tree_.find(name);
 
     if (it != interface_tree_.end()) {
         UveInterfaceEntry *entry = it->second.get();
-        entry->port_bitmap_.AddPort(proto, sport, dport);
+        entry->UpdatePortBitmap(proto, sport, dport);
     }
 }
 
