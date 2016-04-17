@@ -110,17 +110,12 @@ void FlowMgmtManager::AddEvent(FlowEntry *flow) {
     request_queue_.Enqueue(req);
 }
 
-void FlowMgmtManager::DeleteEvent(FlowEntry *flow) {
+void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
+                                  const RevFlowDepParams &params) {
     FlowEntryPtr flow_ptr(flow);
     boost::shared_ptr<FlowMgmtRequest>
-        req(new FlowMgmtRequest(FlowMgmtRequest::DELETE_FLOW, flow_ptr));
-    request_queue_.Enqueue(req);
-}
-
-void FlowMgmtManager::FlowIndexUpdateEvent(FlowEntry *flow) {
-    FlowEntryPtr flow_ptr(flow);
-    boost::shared_ptr<FlowMgmtRequest>
-        req(new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW_INDEX, flow_ptr));
+        req(new FlowMgmtRequest(FlowMgmtRequest::DELETE_FLOW, flow_ptr,
+                                params));
     request_queue_.Enqueue(req);
 }
 
@@ -360,13 +355,7 @@ bool FlowMgmtManager::RequestHandler(boost::shared_ptr<FlowMgmtRequest> req) {
 
     case FlowMgmtRequest::DELETE_FLOW: {
         //Handle the Delete request for flow-mgmt
-        DeleteFlow(req->flow());
-        break;
-    }
-
-    case FlowMgmtRequest::UPDATE_FLOW_INDEX: {
-        //Handle Flow index update for flow-mgmt
-        UpdateFlowIndex(req->flow());
+        DeleteFlow(req->flow(), req->params());
         break;
     }
 
@@ -532,11 +521,12 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
 
 }
 
-void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow) {
+void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
+                                 const RevFlowDepParams &params) {
     LogFlow(flow.get(), "DEL");
 
     //Enqueue Delete request to flow-stats-collector
-    agent_->flow_stats_manager()->DeleteEvent(flow.get());
+    agent_->flow_stats_manager()->DeleteEvent(flow.get(), params);
 
     // Delete entries for flow from the tree
     FlowEntryInfo *old_info = FindFlowEntryInfo(flow);
@@ -561,11 +551,6 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow) {
 
     assert(old_tree->size() == 0);
     DeleteFlowEntryInfo(flow);
-}
-
-void FlowMgmtManager::UpdateFlowIndex(FlowEntryPtr &flow) {
-    //Enqueue Flow Index Update Event request to flow-stats-collector
-    agent_->flow_stats_manager()->FlowIndexUpdateEvent(flow);
 }
 
 void FlowMgmtManager::UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes,

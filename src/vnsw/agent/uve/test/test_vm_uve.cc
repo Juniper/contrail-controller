@@ -993,8 +993,8 @@ TEST_F(UveVmUveTest, SIP_override) {
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
         (Agent::GetInstance()->flow_stats_manager()->
          default_flow_stats_collector());
-    FlowExportInfo *info = f->FindFlowExportInfo(f1->uuid());
-    FlowExportInfo *rinfo = f->FindFlowExportInfo(rev->uuid());
+    FlowExportInfo *info = f->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = f->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 

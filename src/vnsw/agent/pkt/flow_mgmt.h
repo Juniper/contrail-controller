@@ -1020,8 +1020,7 @@ public:
 
     Agent *agent() const { return agent_; }
     void AddEvent(FlowEntry *low);
-    void DeleteEvent(FlowEntry *flow);
-    void FlowIndexUpdateEvent(FlowEntry *flow);
+    void DeleteEvent(FlowEntry *flow, const RevFlowDepParams &params);
     void FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes, uint32_t packets,
                               uint32_t oflow_bytes);
     void AddEvent(const DBEntry *entry, uint32_t gen_id);
@@ -1053,8 +1052,7 @@ private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
     // Handle Delete of a flow. Updates FlowMgmtKeyTree for all objects
-    void DeleteFlow(FlowEntryPtr &flow);
-    void UpdateFlowIndex(FlowEntryPtr &flow);
+    void DeleteFlow(FlowEntryPtr &flow, const RevFlowDepParams &p);
     void UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes, uint32_t packets,
                          uint32_t oflow_bytes);
 

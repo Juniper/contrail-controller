@@ -141,7 +141,6 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
                                             flow->gen_id(), flow);
         kentry->set_gen_id(gen_id);
         kentry->set_evict_gen_id(evict_gen_id);
-        flow->flow_table()->NotifyFlowStatsCollector(flow);
         if (rflow) {
             rflow->flow_table()->UpdateKSync(rflow, true);
         }
