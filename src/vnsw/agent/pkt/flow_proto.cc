@@ -419,9 +419,11 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::AUDIT_FLOW: {
-        FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
-        flow->InitAuditFlow(req->flow_handle(), req->gen_id());
-        flow->flow_table()->Add(flow.get(), NULL);
+        if (table->Find(req->get_flow_key()) == NULL) {
+            FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
+            flow->InitAuditFlow(req->flow_handle(), req->gen_id());
+            flow->flow_table()->Add(flow.get(), NULL);
+        }
         break;
     }
 
