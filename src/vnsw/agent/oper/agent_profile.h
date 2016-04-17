@@ -49,7 +49,7 @@ public:
         uint64_t del_count_;
         uint64_t audit_count_;
         uint64_t reval_count_;
-        uint64_t handle_update_;
+        uint64_t vrouter_responses_;
         uint64_t vrouter_error_;
         FlowTokenStats token_stats_;
         WorkQueueStats pkt_handler_queue_;
