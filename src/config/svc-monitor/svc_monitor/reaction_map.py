@@ -7,38 +7,31 @@ REACTION_MAP = {
         'self': ['service_appliance_set','physical_interface'],
         'service_appliance_set': []
     },
-    "loadbalancer_pool": {
-        'self': ['service_instance'],
-        'virtual_ip': [],
-        'service_instance': [],
-        'loadbalancer_listener': [],
-        'loadbalancer_member': [],
-        'loadbalancer_healthmonitor': [],
+    "loadbalancer_healthmonitor": {
+        'self': ['loadbalancer_pool'],
     },
     "loadbalancer_member": {
         'self': ['loadbalancer_pool'],
-        'loadbalancer_pool': []
     },
     "virtual_ip": {
         'self': ['loadbalancer_pool'],
-        'loadbalancer_pool': []
+    },
+    "loadbalancer_pool": {
+        'self': ['loadbalancer_listener'],
+        'virtual_ip': [],
+        'loadbalancer_member': ['loadbalancer_listener'],
+        'loadbalancer_healthmonitor': ['loadbalancer_listener'],
     },
     "loadbalancer_listener": {
-        'self': ['loadbalancer_pool'],
-        'loadbalancer_pool': [],
-        'loadbalancer': []
+        'self': ['loadbalancer'],
+        'loadbalancer_pool': ['loadbalancer']
     },
     "loadbalancer": {
-        'self': ['loadbalancer_listener'],
-        'loadbalancer_listener': []
-    },
-    "loadbalancer_healthmonitor": {
-        'self': ['loadbalancer_pool'],
-        'loadbalancer_pool': []
+        'self': [],
+        'loadbalancer_listener': [],
     },
     "service_instance": {
         'self': ['virtual_machine', 'port_tuple','instance_ip'],
-        'loadbalancer_pool': [],
         'virtual_machine': [],
         'port_tuple': [],
         'virtual_machine_interface' : [],

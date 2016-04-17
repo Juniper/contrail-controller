@@ -180,10 +180,11 @@ class LoadbalancerAgent(Agent):
         p = self.loadbalancer_pool_get_reqdict(pool)
         driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
+            if p['loadbalancer_id']:
+                driver.set_config_v2(p['loadbalancer_id'])
             if not pool.last_sent:
                 driver.create_pool(p)
-            #elif p != pool.last_sent:
-            else:
+            elif p != pool.last_sent:
                 driver.update_pool(pool.last_sent, p)
         except Exception:
             pass
@@ -231,7 +232,8 @@ class LoadbalancerAgent(Agent):
         lb = self.loadbalancer_get_reqdict(loadbalancer)
         driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
         try:
-            driver.set_config_v2(loadbalancer.uuid)
+            lbaas_config = driver.set_config_v2(loadbalancer.uuid)
+            lb['config'] = lbaas_config
             if not loadbalancer.last_sent:
                 driver.create_loadbalancer(lb)
             elif lb != loadbalancer.last_sent:
@@ -240,9 +242,9 @@ class LoadbalancerAgent(Agent):
             pass
         return lb
 
-    def delete_loadbalancer(self, obj):
-        lb = obj.last_sent
-        driver = self._get_driver_for_pool(lb['pool_id'])
+    def delete_loadbalancer(self, loadbalancer):
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
         try:
             driver.delete_loadbalancer(lb)
         except Exception:
@@ -260,9 +262,9 @@ class LoadbalancerAgent(Agent):
             pass
         return ll
 
-    def delete_listener(self, obj):
-        ll = obj.last_sent
-        driver = self._get_driver_for_pool(ll['pool_id'])
+    def delete_listener(self, listener):
+        ll = self.listener_get_reqdict(listener)
+        driver = self._get_driver_for_loadbalancer(ll['loadbalancer_id'])
         try:
             driver.delete_listener(ll)
         except Exception:
@@ -371,6 +373,7 @@ class LoadbalancerAgent(Agent):
     def loadbalancer_get_reqdict(self, lb):
         props = lb.params
         res = {'id': lb.uuid,
+               'config': None,
                'tenant_id': lb.parent_uuid.replace('-', ''),
                'name': lb.display_name,
                'description': self._get_object_description(lb),
@@ -479,6 +482,7 @@ class LoadbalancerAgent(Agent):
     def loadbalancer_pool_get_reqdict(self, pool):
         res = {
             'id': pool.uuid,
+            'loadbalancer_id': pool.loadbalancer_id,
             'tenant_id': pool.parent_uuid.replace('-', ''),
             'name': pool.display_name,
             'description': self._get_object_description(pool),
