@@ -800,6 +800,263 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
     }
 }
 
+TEST_F(DnsBindTest, DnsClassTest) {
+    std::string cl = BindUtil::DnsClass(4);
+    EXPECT_TRUE(cl == "");
+}
+
+#define MAX_ITEMS 3
+std::string names[MAX_ITEMS] = {"www.google.com",
+                                "www.cnn.com",
+                                "test.example.com",
+                               };
+std::string addresses[MAX_ITEMS] = {"1.2.3.4",
+                                    "5.6.7.8",
+                                    "1.1.2.2",
+                                   };
+std::string auth_names[MAX_ITEMS] = {"ns.google.com",
+                                     "ns.cnn.com",
+                                     "ns1.test.example.com"
+                                    };
+
+// Check the parsing of a DNS Request
+TEST_F(DnsBindTest, DnsRequestParse) {
+    uint8_t buf[1024];
+    DnsItems in, out;
+    for (int i = 0; i < 3; i++) {
+        DnsItem item;
+        item.type = DNS_A_RECORD;
+        item.name = names[i];
+        in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY,
+                             1, 0, 0, in.size());
+
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ques = (uint8_t *) (dns + 1);
+    for (DnsItems::const_iterator it = in.begin(); it != in.end(); ++it) {
+        ques = BindUtil::AddQuestionSection(ques, (*it).name, (*it).type,
+                                            (*it).eclass, len);
+    }
+
+    uint16_t parselen;
+    EXPECT_TRUE(BindUtil::ParseDnsQuery(buf, len, &parselen, out));
+    EXPECT_TRUE(parselen == len);
+    EXPECT_TRUE(in == out);
+}
+
+// Check parsing when request has no sections
+TEST_F(DnsBindTest, DnsRequestZeroSections) {
+    uint8_t buf[1024];
+    DnsItems out;
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY,
+                             0, 0, 0, 0);
+
+    uint16_t len = sizeof(dnshdr);
+    uint16_t parselen;
+    // Parsing should fail as there is no data
+    EXPECT_FALSE(BindUtil::ParseDnsQuery(buf, len, &parselen, out));
+}
+
+// Check the parsing of an error DNS Request
+TEST_F(DnsBindTest, DnsRequestErrorParse) {
+    uint8_t buf[1024];
+    DnsItems in, out;
+    for (int i = 0; i < 3; i++) {
+        DnsItem item;
+        item.type  = DNS_A_RECORD;
+        item.name = names[i];
+        in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    // set the request count to 5000, but dont send that data
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY,
+                             1, 0, 0, 5000);
+
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ques = (uint8_t *) (dns + 1);
+    for (DnsItems::const_iterator it = in.begin(); it != in.end(); ++it) {
+        ques = BindUtil::AddQuestionSection(ques, (*it).name, (*it).type,
+                                            (*it).eclass, len);
+    }
+
+    uint16_t parselen;
+    // Parsing should fail as data is not correct
+    EXPECT_FALSE(BindUtil::ParseDnsQuery(buf, len, &parselen, out));
+}
+
+// Check the parsing of a DNS Response
+TEST_F(DnsBindTest, DnsResponseParse) {
+    uint8_t buf[1024];
+    DnsItems out;
+    int count = 3;
+    DnsItems ans_in, auth_in, add_in;
+    for (int i = 0; i < count; i++) {
+        DnsItem item;
+        item.eclass = DNS_CLASS_IN;
+        item.type = DNS_A_RECORD;
+        item.ttl = 100;
+        item.name = names[i];
+        item.data = addresses[i];
+        ans_in.push_back(item);
+
+        item.type = DNS_NS_RECORD;
+        item.name = auth_names[i];
+        auth_in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_RESPONSE, DNS_OPCODE_QUERY,
+                             0, 0, 0, 0);
+    dns->ques_rrcount = htons(count);
+    dns->ans_rrcount = htons(count);
+    dns->auth_rrcount = htons(3);
+    dns->add_rrcount = htons(1);
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ptr = (uint8_t *) (dns + 1);
+    for (int i = 0; i < count; i++)
+        ptr = BindUtil::AddQuestionSection(ptr, names[i],
+                                           DNS_A_RECORD, DNS_CLASS_IN, len);
+    for (DnsItems::iterator it = ans_in.begin(); it != ans_in.end(); it++)
+        ptr = BindUtil::AddAnswerSection(ptr, *it, len);
+
+    for (DnsItems::iterator it = auth_in.begin(); it != auth_in.end(); it++)
+        ptr = BindUtil::AddAnswerSection(ptr, *it, len);
+
+    DnsItem add_item;
+    add_item.eclass = DNS_CLASS_IN;
+    add_item.type = DNS_TYPE_SOA;
+    add_item.ttl = 2000;
+    add_item.soa.primary_ns = auth_names[0];
+    add_item.soa.mailbox = "mx" + auth_names[0];
+    add_item.soa.serial = 100;
+    add_item.soa.refresh = 500;
+    add_item.soa.expiry = 1000;
+    add_in.push_back(add_item);
+    ptr = BindUtil::AddAnswerSection(ptr, add_item, len);
+
+    uint16_t xid;
+    dns_flags flags;
+    DnsItems ques, ans, auth, add;
+    EXPECT_TRUE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
+                ques, ans, auth, add));
+    EXPECT_TRUE(ans == ans_in);
+    EXPECT_TRUE(auth == auth_in);
+    EXPECT_TRUE(add == add_in);
+}
+
+// Check the parsing of an error DNS Response
+TEST_F(DnsBindTest, DnsResponseErrorParse) {
+    uint8_t buf[1024];
+    int count = 3;
+    DnsItems ans_in, auth_in, add_in;
+    for (int i = 0; i < count; i++) {
+        DnsItem item;
+        item.eclass = DNS_CLASS_IN;
+        item.type = DNS_A_RECORD;
+        item.ttl = 100;
+        item.name = names[i];
+        item.data = addresses[i];
+        ans_in.push_back(item);
+
+        item.type = DNS_NS_RECORD;
+        item.name = auth_names[i];
+        auth_in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_RESPONSE, DNS_OPCODE_QUERY,
+                             0, 0, 0, 0);
+    dns->ques_rrcount = htons(count);
+    // send wrong count for answer
+    dns->ans_rrcount = htons(10);
+    dns->auth_rrcount = htons(3);
+    dns->add_rrcount = htons(1);
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ptr = (uint8_t *) (dns + 1);
+    for (int i = 0; i < count; i++)
+        ptr = BindUtil::AddQuestionSection(ptr, names[i],
+                                           DNS_A_RECORD, DNS_CLASS_IN, len);
+    for (DnsItems::iterator it = ans_in.begin(); it != ans_in.end(); it++)
+        ptr = BindUtil::AddAnswerSection(ptr, *it, len);
+
+    uint16_t xid;
+    dns_flags flags;
+    DnsItems ques, ans, auth, add;
+    EXPECT_FALSE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
+                 ques, ans, auth, add));
+}
+
+// Check the parsing of a DNS Update
+TEST_F(DnsBindTest, DnsUpdateParse) {
+    uint8_t buf[1024];
+    int count = 2;
+    DnsItems in;
+    for (int i = 0; i < count; i++) {
+        DnsItem item;
+        item.eclass = DNS_CLASS_IN;
+        item.type = DNS_A_RECORD;
+        item.ttl = 100;
+        item.name = names[i];
+        item.data = addresses[i];
+        in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_REQUEST, DNS_OPCODE_UPDATE,
+                             0, 0, 0, 0);
+    dns->ques_rrcount = htons(1);
+    dns->auth_rrcount = htons(2);
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ptr = (uint8_t *) (dns + 1);
+    ptr = BindUtil::AddQuestionSection(ptr, "new.zone",
+                                       DNS_TYPE_SOA, DNS_CLASS_IN, len);
+    for (DnsItems::iterator it = in.begin(); it != in.end(); it++)
+        ptr = BindUtil::AddUpdate(ptr, *it, (*it).eclass, (*it).ttl, len);
+
+    DnsUpdateData data;
+    EXPECT_TRUE(BindUtil::ParseDnsUpdate(buf, len, data));
+    EXPECT_TRUE(data.zone == "new.zone");
+    EXPECT_TRUE(data.items == in);
+}
+
+// Check the parsing of an erroneous DNS Update
+TEST_F(DnsBindTest, DnsUpdateErrorParse) {
+    uint8_t buf[1024];
+    int count = 2;
+    DnsItems in;
+    for (int i = 0; i < count; i++) {
+        DnsItem item;
+        item.eclass = DNS_CLASS_IN;
+        item.type = DNS_A_RECORD;
+        item.ttl = 100;
+        item.name = names[i];
+        item.data = addresses[i];
+        in.push_back(item);
+    }
+
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_REQUEST, DNS_OPCODE_UPDATE,
+                             0, 0, 0, 0);
+    dns->ques_rrcount = htons(1);
+    // add auth count as 3, with only 2 added in the packet
+    dns->auth_rrcount = htons(3);
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ptr = (uint8_t *) (dns + 1);
+    ptr = BindUtil::AddQuestionSection(ptr, "new.zone",
+                                       DNS_TYPE_SOA, DNS_CLASS_IN, len);
+    for (DnsItems::iterator it = in.begin(); it != in.end(); it++)
+        ptr = BindUtil::AddUpdate(ptr, *it, (*it).eclass, (*it).ttl, len);
+
+    DnsUpdateData data;
+    EXPECT_FALSE(BindUtil::ParseDnsUpdate(buf, len, data));
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
