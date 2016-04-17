@@ -61,9 +61,8 @@ test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
                                                 pkt_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', pkt_flaky_test_suite)
-env.Alias('controller/src/vnsw/agent/pkt:flaky_test', flaky_test)
+env.TestSuite('agent:pkt-flaky-test', pkt_flaky_test_suite)
 
 test = env.TestSuite('agent-test', pkt_test_suite)
-env.Alias('agent:pkt', test)
-env.Alias('controller/src/vnsw/agent/pkt:test', test)
+env.TestSuite('agent:pkt', pkt_test_suite)
 Return('pkt_test_suite')
