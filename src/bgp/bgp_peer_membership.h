@@ -39,6 +39,7 @@ public:
         RIBIN_SWEEP   = 1 << 3,
         RIBOUT_ADD    = 1 << 4,
         RIBOUT_DELETE = 1 << 5,
+        RIBIN_LLGR_STALE = 1 << 6,
     };
 
     MembershipRequest();

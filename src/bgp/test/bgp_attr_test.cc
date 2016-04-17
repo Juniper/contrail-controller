@@ -515,12 +515,15 @@ TEST_F(BgpAttrTest, CommunityBuildStringList1) {
     spec.communities.push_back(CommunityType::NoExport);
     spec.communities.push_back(CommunityType::NoAdvertise);
     spec.communities.push_back(CommunityType::NoExportSubconfed);
+    spec.communities.push_back(CommunityType::LlgrStale);
+    spec.communities.push_back(CommunityType::NoLlgr);
     spec.communities.push_back(CommunityType::AcceptOwnNexthop);
     Community comm(comm_db_, spec);
 
     vector<string> expected_list = list_of("65535:0")
         ("accept-own")("accept-own-nexthop")
-        ("no-export")("no-advertise")("no-export-subconfed");
+        ("no-export")("no-advertise")("no-export-subconfed")
+        ("llgr-stale")("no-llgr");
     vector<string> result_list;
     comm.BuildStringList(&result_list);
     EXPECT_EQ(expected_list, result_list);
@@ -530,6 +533,8 @@ TEST_F(BgpAttrTest, CommunityBuildStringList2) {
     CommunitySpec spec;
     spec.communities.push_back(CommunityType::AcceptOwnNexthop);
     spec.communities.push_back(CommunityType::NoExportSubconfed);
+    spec.communities.push_back(CommunityType::LlgrStale);
+    spec.communities.push_back(CommunityType::NoLlgr);
     spec.communities.push_back(CommunityType::NoAdvertise);
     spec.communities.push_back(CommunityType::NoExport);
     spec.communities.push_back(CommunityType::AcceptOwn);
@@ -538,7 +543,8 @@ TEST_F(BgpAttrTest, CommunityBuildStringList2) {
 
     vector<string> expected_list = list_of("65535:0")
         ("accept-own")("accept-own-nexthop")
-        ("no-export")("no-advertise")("no-export-subconfed");
+        ("no-export")("no-advertise")("no-export-subconfed")
+        ("llgr-stale")("no-llgr");
     vector<string> result_list;
     comm.BuildStringList(&result_list);
     EXPECT_EQ(expected_list, result_list);

@@ -6,6 +6,7 @@
 
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_peer.h"
+#include "net/community_type.h"
 
 using std::string;
 using std::vector;
@@ -60,6 +61,12 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 
     // Compare sequence_number in reverse order as larger is better.
     KEY_COMPARE(rattr->sequence_number(), attr_->sequence_number());
+
+    // Route without LLGR_STALE community is always preferred over one with.
+    KEY_COMPARE(attr_->community() &&
+                attr_->community()->ContainsValue(CommunityType::LlgrStale),
+                rattr->community() && rattr->community()->ContainsValue(
+                    CommunityType::LlgrStale));
 
     // For ECMP paths, above checks should suffice
     if (allow_ecmp)
