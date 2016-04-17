@@ -57,7 +57,7 @@ public:
     void DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
                     DnsConfig::DnsConfigEvent ev);
     void DnsRecord(const DnsConfig *config, DnsConfig::DnsConfigEvent ev);
-    void HandleUpdateResponse(uint8_t *pkt);
+    void HandleUpdateResponse(uint8_t *pkt, std::size_t length);
     DnsConfigManager &GetConfigManager() { return config_mgr_; }
     void SendUpdate(BindUtil::Operation op, const std::string &view,
                     const std::string &zone, DnsItems &items);
