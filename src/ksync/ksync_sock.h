@@ -224,6 +224,7 @@ public:
     typedef std::pair<int, KSyncBulkSandeshContext> WaitTreePair;
     typedef boost::function<void(const boost::system::error_code &, size_t)>
         HandlerCb;
+    typedef WorkQueue<char *> KSyncReceiveQueue;
 
     KSyncSock();
     virtual ~KSyncSock();
@@ -265,6 +266,11 @@ public:
     static void SetAgentSandeshContext(AgentSandeshContext *ctx) {
         agent_sandesh_ctx_ = ctx;
     }
+
+    const KSyncTxQueue *send_queue() const { return &send_queue_; }
+    const KSyncReceiveQueue *get_receive_work_queue(uint16_t index) const {
+        return receive_work_queue[index];
+    }
 protected:
     static void Init(bool use_work_queue);
     static void SetSockTableEntry(KSyncSock *sock);
@@ -275,7 +281,7 @@ protected:
     WaitTree wait_tree_;
     KSyncTxQueue send_queue_;
     tbb::mutex mutex_;
-    WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
+    KSyncReceiveQueue *receive_work_queue[IoContext::MAX_WORK_QUEUES];
 
     // Information maintained for bulk processing
 

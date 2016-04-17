@@ -426,5 +426,8 @@ struct SandeshFlowTableInfo {
  * Response message for flow tables
  */
 response sandesh SandeshFlowTableInfoResp {
-    1: list<SandeshFlowTableInfo> table_list;
+    1: u64 flow_count;
+    2: u64 total_added;
+    3: u64 total_deleted;
+    4: list<SandeshFlowTableInfo> table_list;
 }

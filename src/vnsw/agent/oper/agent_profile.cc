@@ -51,6 +51,9 @@ bool AgentProfile::TimerRun() {
     if (pkt_flow_stats_cb_.empty() == false) {
         pkt_flow_stats_cb_(data);
     }
+    if (ksync_stats_cb_.empty() == false) {
+        ksync_stats_cb_(data);
+    }
     Log();
     return true;
 }
@@ -107,6 +110,7 @@ void ProfileData::DBTableStats::Accumulate(const DBTableBase *table) {
 void ProfileData::WorkQueueStats::Reset() {
     queue_count_ = 0;
     enqueue_count_ = 0;
+    dequeue_count_ = 0;
     max_queue_count_ = 0;
     task_start_count_ = 0;
 }
@@ -117,7 +121,15 @@ void ProfileData::FlowStats::Reset() {
      del_count_= 0;
      audit_count_ = 0;
      reval_count_ = 0;
-     pkt_flow_queue_count_.Reset();
+     pkt_handler_queue_.Reset();
+     flow_mgmt_queue_.Reset();
+     flow_update_queue_.Reset();
+     for (uint16_t i = 0; i < flow_event_queue_.size(); i++) {
+         flow_event_queue_[i].Reset();
+     }
+     for (uint16_t i = 0; i < flow_delete_queue_.size(); i++) {
+         flow_delete_queue_[i].Reset();
+     }
 }
 
 void ProfileData::PktStats::Reset() {
@@ -384,5 +396,108 @@ void SandeshTaskStatsRequest::HandleRequest() const {
         stats_list.push_back(stats);
     }
     resp->set_stats(stats_list);
+    resp->Response();
+}
+
+static void GetOneQueueSummary(SandeshFlowQueueSummaryOneInfo *one,
+                               ProfileData::WorkQueueStats *stats) {
+    one->set_qcount(stats->queue_count_);
+    one->set_enqueues(stats->enqueue_count_);
+    one->set_dequeues(stats->dequeue_count_);
+    one->set_max_qlen(stats->max_queue_count_);
+}
+
+static void GetQueueSummaryInfo(SandeshFlowQueueSummaryInfo *info, int index,
+                                ProfileData *data) {
+    ProfileData::FlowStats *flow_stats = &data->flow_;
+
+    info->set_index(index);
+    info->set_time_str(data->time_);
+    // flow_event_queue
+    uint64_t qcount = 0;
+    uint64_t enqueues = 0;
+    uint64_t dequeues = 0;
+    uint64_t max_qlen = 0;
+    std::vector<ProfileData::WorkQueueStats>::const_iterator it =
+        flow_stats->flow_event_queue_.begin();
+    while (it != flow_stats->flow_event_queue_.end()) {
+        qcount += it->queue_count_;
+        enqueues += it->enqueue_count_;
+        dequeues += it->dequeue_count_;
+        if (it->max_queue_count_ > max_qlen) {
+            max_qlen = it->max_queue_count_;
+        }
+        it++;
+    }
+    SandeshFlowQueueSummaryOneInfo one;
+    one.set_qcount(qcount);
+    one.set_enqueues(enqueues);
+    one.set_dequeues(dequeues);
+    one.set_max_qlen(max_qlen);
+    info->set_flow_event_queue(one);
+
+    // flow_delete_queue
+    qcount = 0;
+    enqueues = 0;
+    dequeues = 0;
+    max_qlen = 0;
+    it = flow_stats->flow_delete_queue_.begin();
+    while (it != flow_stats->flow_delete_queue_.end()) {
+        qcount += it->queue_count_;
+        enqueues += it->enqueue_count_;
+        dequeues += it->dequeue_count_;
+        if (it->max_queue_count_ > max_qlen) {
+            max_qlen = it->max_queue_count_;
+        }
+        it++;
+    }
+    one.set_qcount(qcount);
+    one.set_enqueues(enqueues);
+    one.set_dequeues(dequeues);
+    one.set_max_qlen(max_qlen);
+    info->set_flow_delete_queue(one);
+
+    // flow_mgmt_queue
+    GetOneQueueSummary(&one, &flow_stats->flow_mgmt_queue_);
+    info->set_flow_mgmt_queue(one);
+
+    // flow_update_queue
+    GetOneQueueSummary(&one, &flow_stats->flow_update_queue_);
+    info->set_flow_update_queue(one);
+
+    // pkt_handler queue
+    GetOneQueueSummary(&one, &flow_stats->pkt_handler_queue_);
+    info->set_pkt_handler_queue(one);
+
+    // ksync_tx_queue
+    GetOneQueueSummary(&one, &data->ksync_tx_queue_count_);
+    info->set_ksync_tx_queue(one);
+
+    // ksync_rx_queue
+    GetOneQueueSummary(&one, &data->ksync_rx_queue_count_);
+    info->set_ksync_rx_queue(one);
+}
+
+void SandeshFlowQueueSummaryRequest::HandleRequest() const {
+    SandeshFlowQueueSummaryResp *resp = new SandeshFlowQueueSummaryResp();
+
+    Agent *agent = Agent::GetInstance();
+    AgentProfile *profile = agent->oper_db()->agent_profile();
+    uint16_t end = profile->seconds_history_index();
+    uint16_t start = 0;
+    if (end > AgentProfile::kSecondsHistoryCount)
+        start = end - AgentProfile::kSecondsHistoryCount;
+
+    std::vector<SandeshFlowQueueSummaryInfo> info_list;
+    for (uint16_t i = start; i < end; i++) {
+        uint16_t index = i % AgentProfile::kSecondsHistoryCount;
+        ProfileData *data = profile->GetProfileData(index);
+        SandeshFlowQueueSummaryInfo info;
+        GetQueueSummaryInfo(&info, index, data);
+        info_list.push_back(info);
+    }
+
+    resp->set_summary(info_list);
+    resp->set_context(context());
     resp->Response();
 }
