@@ -31,7 +31,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
                     boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
                     db_event_queue_.kMaxSize, 1),
-    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 2,
+    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
     request_queue_.set_name("Flow management");
     db_event_queue_.set_name("Flow DB Event Queue");
@@ -436,7 +436,8 @@ bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     tbb::mutex::scoped_lock mutex(flow->mutex());
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
-        LogFlowUnlocked(flow, "ADD");
+        if (flow->trace())
+            LogFlowUnlocked(flow, "ADD");
 
         //Enqueue Add request to flow-stats-collector
         agent_->flow_stats_manager()->AddEvent(req->flow());
@@ -448,7 +449,8 @@ bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     }
 
     case FlowMgmtRequest::DELETE_FLOW: {
-        LogFlowUnlocked(flow, "DEL");
+        if (flow->trace())
+            LogFlowUnlocked(flow, "DEL");
 
         //Enqueue Delete request to flow-stats-collector
         agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
