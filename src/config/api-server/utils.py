@@ -67,6 +67,7 @@ def parse_args(args_str):
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
         'max_requests': 1024,
+        'region_name': 'RegionOne',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'ifmap_health_check_interval': '60', # in seconds
         'stale_lock_seconds': '5', # lock but no resource past this => stale
