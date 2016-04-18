@@ -26,6 +26,8 @@ class KSyncFlowIndexManager;
 
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
 public:
+     // flow dependency timer on mirror entry in msec
+    static const uint32_t kFlowDepSyncTimeout = 500;
     FlowTableKSyncEntry(FlowTableKSyncObject *obj);
     FlowTableKSyncEntry(FlowTableKSyncObject *obj, FlowEntry *flow,
                         uint32_t hash_id);
@@ -62,6 +64,8 @@ public:
     uint32_t old_first_mirror_index() {
         return old_first_mirror_index_;
     }
+    void StartTimer();
+    bool TimerExpiry();
 private:
     friend class KSyncFlowEntryFreeList;
     friend class KSyncFlowIndexManager;
@@ -85,6 +89,8 @@ private:
     uint32_t src_nh_id_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
+    std::list<FlowEntryPtr> unresolved_flow_list_;
+    Timer * timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 
