@@ -78,8 +78,10 @@ protected:
         DeleteVmportFIpEnv(input1, 2, true);
         DeleteVmportFIpEnv(input2, 2, true);
         client->WaitForIdle();
+        WAIT_FOR(1000, 1000, (0U == flow_proto_->FlowCount()));
         EXPECT_FALSE(VmPortFindRetDel(1));
         EXPECT_FALSE(VmPortFindRetDel(2));
+        client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(3));
         EXPECT_FALSE(VmPortFindRetDel(4));
         EXPECT_FALSE(VmPortFindRetDel(5));
@@ -398,13 +400,70 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
         }
     };
     CreateFlow(flow, 1);
-
     FlowEntry *entry = FlowGet(VmPortGet(1)->flow_key_nh()->id(),  "1.1.1.1",
                                "2.1.1.1", IPPROTO_TCP, 10, 20);
+    EXPECT_TRUE(entry != NULL);
+    if (entry != NULL) {
+        WAIT_FOR(1000, 1000, (entry->IsInUnresolvedList() == false));
+    }
     EXPECT_TRUE(entry->ksync_entry()->old_first_mirror_index() == 0);
-
     DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     DelAcl("Acl");
+    client->WaitForIdle();
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+}
+
+TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true");
+
+    VnListType vn_list;
+    vn_list.insert(std::string("default-project:vn2"));
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           vn_list, 16, SecurityGroupList(),
+                           CommunityList(), false,
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
+
+    client->WaitForIdle();
+    // pushing more DB Request so just before addin mirror entry 
+    // so its creation gets delayed
+    for (int i =0; i<500; i++) {
+        std::ostringstream stream;
+        stream << "Vn" << i;
+        AddVn(stream.str().c_str(), i, false);
+    }
+
+    AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
+                 "10.1.1.1");
+    AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    FlowEntry *entry = FlowGet(VmPortGet(1)->flow_key_nh()->id(),  "1.1.1.1",
+                               "2.1.1.1", IPPROTO_TCP, 10, 20);
+    EXPECT_TRUE(entry != NULL);
+    if (entry != NULL) {
+        WAIT_FOR(1000, 1000, (entry->IsInUnresolvedList() == false));
+    }
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    DelAcl("Acl");
+    for (int i =0; i<500; i++) {
+        std::ostringstream stream;
+        stream<<"Vn"<<i;
+        DelVn(stream.str().c_str());
+    }
     client->WaitForIdle();
 }
 
