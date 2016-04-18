@@ -181,7 +181,7 @@ public:
         deleting_count_--;
     }
 
-    uint32_t get_output_queue_depth() const;
+    virtual uint32_t get_output_queue_depth() const;
 
     uint32_t num_service_chains() const;
     uint32_t num_down_service_chains() const;

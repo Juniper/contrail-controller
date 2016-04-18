@@ -337,8 +337,8 @@ protected:
     void AddXmppRoutes(int instance_id, int agent_id, int nroutes);
     void AddAllXmppRoutes(int ninstances, int nagents, int nroutes);
 
-    void AddAllRoutes(int ninstances, int npeers, int nagents, int nroutes,
-                      int ntargets);
+    void AddAllXmppRoutesAndVerify(int ninstances, int npeers, int nagents,
+                                   int nroutes, int ntargets);
 
     void DeleteBgpInetRoute(int family, int peer_id, int route_id,
                             int ntargets);
@@ -360,7 +360,8 @@ protected:
     void DeleteAllRoutes(int ninstances, int npeers, int nagents, int nroutes,
                          int ntargets);
 
-    void VerifyControllerRoutes(int ninstances, int nagents, int count);
+    void VerifyControllerRoutes(int ninstances, int nagents, int count,
+                                bool count_xmpp_routes = true);
     void VerifyAgentRoutes(int nagents, int ninstances, int routes);
     size_t GetAllAgentRouteCount(int nagents, int ninstances);
     void VerifyXmppRouteNextHops();

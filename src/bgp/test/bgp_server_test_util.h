@@ -261,13 +261,37 @@ public:
 
     boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
 
+    virtual uint32_t get_output_queue_depth() const {
+        if (!ConcurrencyChecker::IsInMainThr())
+            return BgpServer::get_output_queue_depth();
+
+        tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
+        Request request;
+        request.type = GET_OUTPUT_QUEUE_DEPTH;
+        work_queue_.Enqueue(&request);
+
+        // Wait for the request to get processed.
+        cond_var_.wait(lock);
+        return request.result;
+    }
+
 private:
+    enum RequestType { GET_OUTPUT_QUEUE_DEPTH };
+    struct Request {
+        Request() : result(0) { }
+        RequestType type;
+        uint32_t    result;
+    };
+    bool ProcessRequest(Request *request);
     void PostShutdown();
 
     std::string name_;
     boost::scoped_ptr<DB> config_db_;
     boost::scoped_ptr<DBGraph> config_graph_;
     bool cleanup_config_;
+    mutable WorkQueue<Request *> work_queue_;
+    mutable tbb::mutex work_mutex_;
+    mutable tbb::interface5::condition_variable cond_var_;
 };
 
 typedef boost::shared_ptr<BgpServerTest> BgpServerTestPtr;
