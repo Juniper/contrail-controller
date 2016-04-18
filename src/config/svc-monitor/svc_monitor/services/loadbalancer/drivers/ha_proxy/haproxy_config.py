@@ -2,12 +2,13 @@ from svc_monitor.config_db import *
 
 PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
+PROTO_TERMINATED_HTTPS = 'TERMINATED_HTTPS'
 
 PROTO_MAP = {
     'TCP': 'tcp',
     'HTTP': 'http',
     'HTTPS': 'http',
-    'TERMINATED_HTTPS': 'terminated_https'
+    'TERMINATED_HTTPS': 'http'
 }
 
 LB_METHOD_MAP = {
@@ -121,8 +122,8 @@ def set_v2_frontend_backend(lb):
             continue
 
         ssl = ''
-        if ll.params['protocol'] == PROTO_HTTPS:
-            ssl = 'ssl crt %s no-sslv3' % crt_file
+        if ll.params['protocol'] == PROTO_TERMINATED_HTTPS:
+            ssl = 'ssl crt %s no-sslv3' % ll.params['default_tls_container']
 
         lconf = [
             'frontend %s' % ll.uuid,
