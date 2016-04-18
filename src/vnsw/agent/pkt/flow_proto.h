@@ -97,7 +97,7 @@ public:
     }
     bool EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
                           uint8_t table_index);
-
+    void EnqueueUnResolvedFlowEntry(FlowEntry *flow_entry);
 private:
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
 

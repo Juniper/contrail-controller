@@ -355,6 +355,11 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY: {
+        uint32_t index = event->table_index();
+        flow_event_queue_[index]->Enqueue(event);
+        break;
+    }
     default:
         assert(0);
         break;
@@ -444,7 +449,22 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         table->ProcessFlowEvent(req);
         break;
     }
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY: {
+       FlowKey key = req->get_flow_key();
+       FlowEntry *flow_entry = table->Find(key);
+       if(!flow_entry) {
+          break;
+       }
 
+       if (flow_entry->GetMaxRetryAttempts() < FlowEntry::kFlowRetryAttempts) {
+           flow_entry->IncrementRetrycount();
+       } else {
+           flow_entry->MakeShortFlow(FlowEntry::SHORT_NO_MIRROR_ENTRY);
+           flow_entry->ResetRetryCount();
+       }
+       UpdateFlow(flow_entry);
+       break;
+    }
     default: {
         assert(0);
         break;
@@ -532,6 +552,14 @@ bool FlowProto::EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
     EnqueueFlowEvent(new FlowEvent(FlowEvent::REENTRANT,
                                    msg, table_index));
     return true;
+}
+
+void FlowProto::EnqueueUnResolvedFlowEntry(FlowEntry *flow_entry) {
+
+    FlowEvent *event = new FlowEvent(FlowEvent::UNRESOLVED_FLOW_ENTRY,
+                                     flow_entry->key(),
+                                     flow_entry->flow_table()->table_index());
+    EnqueueFlowEvent(event);
 }
 
 //////////////////////////////////////////////////////////////////////////////

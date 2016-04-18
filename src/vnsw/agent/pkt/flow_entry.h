@@ -331,6 +331,7 @@ class FlowEntry {
         SHORT_LINKLOCAL_SRC_NAT,
         SHORT_FAILED_VROUTER_INSTALL,
         SHORT_INVALID_L2_FLOW,
+        SHORT_NO_MIRROR_ENTRY,
         SHORT_MAX
     };
 
@@ -361,7 +362,7 @@ class FlowEntry {
     static const uint8_t kMaxMirrorsPerFlow=0x2;
     static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
     static const std::map<uint16_t, const char*> FlowDropReasonStr;
-
+    static const uint32_t kFlowRetryAttempts = 5;
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
         PCAP_CAPTURE_HOST = 1,
@@ -537,6 +538,11 @@ class FlowEntry {
     void LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
                  uint32_t flow_handle, uint8_t gen_id);
     void RevFlowDepInfo(RevFlowDepParams *params);
+    uint8_t GetMaxRetryAttempts() { return flow_retry_attempts_; }
+    void  IncrementRetrycount() { flow_retry_attempts_++;}
+    void ResetRetryCount(){ flow_retry_attempts_ = 0; }
+    bool IsInUnresolvedList(){ return is_flow_in_unresolved_list;};
+    void SetUnResolvedList(bool added){ is_flow_in_unresolved_list = added;};
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -598,6 +604,8 @@ private:
     static SecurityGroupList default_sg_list_;
     boost::scoped_array<FlowEventLog> event_logs_;
     uint16_t event_log_index_;
+    uint8_t flow_retry_attempts_;
+    bool is_flow_in_unresolved_list;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
