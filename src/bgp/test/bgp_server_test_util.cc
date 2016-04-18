@@ -40,7 +40,10 @@ typedef ip::tcp::socket Socket;
 
 BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
                              DB *config_db, DBGraph *config_graph) :
-    BgpServer(evm), config_db_(config_db), config_graph_(config_graph) {
+    BgpServer(evm), config_db_(config_db), config_graph_(config_graph),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+                      boost::bind(&BgpServerTest::ProcessRequest, this, _1)) {
+
     BgpIfmapConfigManager *config_manager =
             static_cast<BgpIfmapConfigManager *>(config_mgr_.get());
     config_manager->Initialize(config_db_.get(), config_graph_.get(),
@@ -55,7 +58,9 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
         : BgpServer(evm),
           name_(localname),
           config_db_(new DB()),
-          config_graph_(new DBGraph()) {
+          config_graph_(new DBGraph()),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+                      boost::bind(&BgpServerTest::ProcessRequest, this, _1)) {
     cleanup_config_ = true;
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
@@ -102,6 +107,21 @@ BgpServerTest::~BgpServerTest() {
 bool BgpServerTest::Configure(const string &config) {
     BgpConfigParser parser(config_db_.get());
     return parser.Parse(config);
+}
+
+// Process requests and run them off bgp::Config exclusive task
+bool BgpServerTest::ProcessRequest(Request *request) {
+    CHECK_CONCURRENCY("bgp::Config");
+    switch (request->type) {
+        case GET_OUTPUT_QUEUE_DEPTH:
+            request->result = get_output_queue_depth();
+            break;
+    }
+
+    // Notify waiting caller with the result
+    tbb::mutex::scoped_lock lock(work_mutex_);
+    cond_var_.notify_all();
+    return true;
 }
 
 BgpPeerTest *BgpServerTest::FindPeerByUuid(const char *routing_instance,

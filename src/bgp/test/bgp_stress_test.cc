@@ -165,7 +165,7 @@ static string d_instance_name_ = "";
 static int d_xmpp_port_ = 0;
 static int d_http_port_ = 0;
 static string d_feed_events_file_ = "";
-static string d_routes_send_trigger_ = "";
+static bool d_routes_send_trigger_ = false;
 static string d_log_category_ = "";
 static string d_log_level_ = "SYS_DEBUG";
 static bool d_log_local_disable_ = false;
@@ -756,7 +756,8 @@ void BgpStressTest::VerifyNoPeers() {
 // Sum: n_peers_ + nagents * ninstances * (1 + 1 + n_peers_/2)
 // Expected: nroutes * (n_peers_ + nagents * ninstances * (2 + n_peers_/2))
 void BgpStressTest::VerifyControllerRoutes(int ninstances, int nagents,
-                                           int nroutes) {
+                                           int nroutes,
+                                           bool count_xmpp_routes) {
     if (!n_peers_) return;
 
     for (int i = 0; i < n_families_; ++i) {
@@ -771,8 +772,11 @@ void BgpStressTest::VerifyControllerRoutes(int ninstances, int nagents,
             int npeers = n_peers_;
             npeers += nagents;
 
-            BGP_VERIFY_ROUTE_COUNT(tb,
-                nroutes * (n_peers_ + nagents * ninstances * (2 + n_peers_/2)));
+            BGP_VERIFY_ROUTE_COUNT(tb, nroutes *
+                (n_peers_ +                 // BGP Route
+                 nagents * ninstances * 1 + // XPPP Route
+                 count_xmpp_routes * (nagents * ninstances * 1) + // BGP Route
+                 nagents * ninstances * n_peers_/2)); // BGP Route
         } else {
             BGP_VERIFY_ROUTE_COUNT(tb, nroutes);
         }
@@ -2281,45 +2285,9 @@ void BgpStressTest::DeleteRoutingInstances() {
         "Waiting for the completion of routing-instances' deletion");
 }
 
-void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
-                                 int nroutes, int ntargets) {
-    // Add XmppPeers with routes as well
-    BGP_STRESS_TEST_LOG("Start subscribing all XMPP Agents");
-    SubscribeAgents(ninstances, nagents);
-    BGP_STRESS_TEST_LOG("End subscribing all XMPP Agents");
-
-    if (d_vms_count_) {
-        BGP_STRESS_TEST_LOG("Start subscribing all agents' "
-                            "IFMAP configuration");
-        SubscribeAgentsConfiguration(nagents, true);
-        BGP_STRESS_TEST_LOG("End subscribing all agents' "
-                            "IFMAP configuration");
-    }
-
-    // Wait for subscription processing to complete
-    TASK_UTIL_EXPECT_NE(0, server_->membership_mgr()->total_jobs_count());
-    TASK_UTIL_EXPECT_EQ(0, server_->membership_mgr()->current_jobs_count());
-    WaitForIdle();
-
-    BGP_STRESS_TEST_LOG("Start injecting BGP and/or XMPP routes");
-    AddAllBgpRoutes(nroutes, ntargets);
-    BGP_STRESS_TEST_LOG("End injecting BGP and/or XMPP routes");
-
-    if (!d_routes_send_trigger_.empty()) {
-
-        // Wait for external trigger, before sending routes.
-        while(access(d_routes_send_trigger_.c_str(), F_OK)) {
-            BGP_STRESS_TEST_LOG("Trigger route sends by doing "
-                                "('touch " << d_routes_send_trigger_ << "')");
-            sleep(3);
-        }
-
-        // Remove the trigger file.
-        remove(d_routes_send_trigger_.c_str());
-    }
-
+void BgpStressTest::AddAllXmppRoutesAndVerify(int ninstances, int npeers,
+        int nagents, int nroutes, int ntargets) {
     BGP_STRESS_TEST_LOG("Start feeding all routes from all XMPP agents");
-    usleep(10000);
     AddAllXmppRoutes(ninstances, nagents, nroutes);
     BGP_STRESS_TEST_LOG("End feeding all routes from all XMPP agents");
 
@@ -2343,6 +2311,15 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
     BGP_STRESS_TEST_LOG("End verifying XMPP routes nexthops at the agents");
 
     VerifyRibOutCreationCompletion();
+
+    for (int i = 0; i < 10; i++) {
+        TASK_UTIL_EXPECT_EQ(0,
+                            rtinstance_->server()->get_output_queue_depth());
+        usleep(100000);
+    }
+
+    // Verify that all updated have been sent out.
+    WaitForIdle();
 }
 
 void BgpStressTest::DeleteAllRoutes(int ninstances, int npeers, int nagents,
@@ -2526,17 +2503,56 @@ TEST_P(BgpStressTest, RandomEvents) {
     boost::posix_time::ptime time_start(
                                  boost::posix_time::second_clock::local_time());
     AddBgpPeers(n_peers_);
+
+    BGP_STRESS_TEST_LOG("Start injecting BGP routes");
+    AddAllBgpRoutes(n_routes_, n_targets_);
+    BGP_STRESS_TEST_LOG("End injecting BGP routes");
+
+    // Make sure that all bgp routes get installed in the route tables.
+    VerifyControllerRoutes(n_instances_, n_agents_, n_routes_, false);
+    WaitForIdle();
+    boost::posix_time::ptime bgp_time_end(
+                                 boost::posix_time::second_clock::local_time());
+    BGP_STRESS_TEST_LOG("Time taken for BGP routes reception: " <<
+        boost::posix_time::time_duration(bgp_time_end - time_start));
+
     BringUpXmppAgents(n_agents_);
-    AddAllRoutes(n_instances_, n_peers_, n_agents_, n_routes_, n_targets_);
+    if (d_routes_send_trigger_)
+        Pause();
+
+    boost::posix_time::ptime agent_time_start(
+                                 boost::posix_time::second_clock::local_time());
+    BGP_STRESS_TEST_LOG("Start subscribing all XMPP Agents");
+    SubscribeAgents(n_instances_, n_agents_);
+    BGP_STRESS_TEST_LOG("End subscribing all XMPP Agents");
+
+    if (d_vms_count_) {
+        BGP_STRESS_TEST_LOG("Start subscribing all agents' "
+                            "IFMAP configuration");
+        SubscribeAgentsConfiguration(n_agents_, true);
+        BGP_STRESS_TEST_LOG("End subscribing all agents' "
+                            "IFMAP configuration");
+    }
+
+    // Wait for subscription processing to complete
+    TASK_UTIL_EXPECT_NE(0, server_->membership_mgr()->total_jobs_count());
+    // TASK_UTIL_EXPECT_EQ(0, server_->membership_mgr()->current_jobs_count());
+    WaitForIdle();
+
+    AddAllXmppRoutesAndVerify(n_instances_, n_peers_, n_agents_, n_routes_,
+                              n_targets_);
     boost::posix_time::ptime time_end(
                                  boost::posix_time::second_clock::local_time());
+    BGP_STRESS_TEST_LOG("Time taken for XMPP routes reception: " <<
+        boost::posix_time::time_duration(time_end - agent_time_start));
     BGP_STRESS_TEST_LOG("Time taken for initial setup: " <<
         boost::posix_time::time_duration(time_end - time_start));
 
-    ShowAllRoutes();
-    ShowNeighborStatistics();
     if (d_pause_after_initial_setup_)
         Pause();
+
+    ShowAllRoutes();
+    ShowNeighborStatistics();
 
     HEAP_PROFILER_DUMP("bgp_stress_test");
 
@@ -2804,9 +2820,8 @@ static void process_command_line_args(int argc, const char **argv) {
              "Pause after initial setup, before injecting events")
         ("profile-heap", bool_switch(&d_profile_heap_),
              "Profile heap memory")
-        ("routes-send-trigger",
-             value<string>()->default_value(d_routes_send_trigger_),
-             "File whose presence triggers the start of routes sending process")
+        ("routes-send-trigger", bool_switch(&d_routes_send_trigger_),
+             "Pause before starting xmpp routes send process")
 
         ("wait-for-idle-time", value<int>()->default_value(d_wait_for_idle_),
              "WaitForIdle() wait time, 0 for no wait")
@@ -3021,10 +3036,6 @@ static void process_command_line_args(int argc, const char **argv) {
     if (vm.count("feed-events")) {
         d_feed_events_file_ = vm["feed-events"].as<string>();
         BgpStressTestEvent::ReadEventsFromFile(d_feed_events_file_);
-    }
-
-    if (vm.count("routes-send-trigger")) {
-        d_routes_send_trigger_ = vm["routes-send-trigger"].as<string>();
     }
 
     if (vm.count("weight-add-bgp-route")) {
