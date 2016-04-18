@@ -1202,6 +1202,10 @@ void FlowEntry::GetSgList(const Interface *intf) {
 // Function takes care of copying right rules
 static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
                           std::list<MatchAclParams> &list) {
+    /* If policy is NOT enabled on VMI, do not copy SG rules */
+    if (!vm_port->policy_enabled()) {
+        return false;
+    }
     bool ret = false;
     for (VmInterface::SecurityGroupEntrySet::const_iterator it =
          vm_port->sg_list().list_.begin();
