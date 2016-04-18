@@ -171,12 +171,12 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     // Look for DHCP packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow and forwarding configuration
     if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
-        if (pkt_info->dport == DHCP_SERVER_PORT ||
-            pkt_info->sport == DHCP_CLIENT_PORT) {
+        if (pkt_info->ip && (pkt_info->dport == DHCP_SERVER_PORT ||
+                             pkt_info->sport == DHCP_CLIENT_PORT)) {
             return DHCP;
         }
-        if (pkt_info->dport == DHCPV6_SERVER_PORT ||
-            pkt_info->sport == DHCPV6_CLIENT_PORT) {
+        if (pkt_info->ip6 && (pkt_info->dport == DHCPV6_SERVER_PORT ||
+                              pkt_info->sport == DHCPV6_CLIENT_PORT)) {
             return DHCPV6;
         }
     }
