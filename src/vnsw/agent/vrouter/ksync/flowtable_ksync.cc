@@ -77,6 +77,8 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_FLOW_LIMIT;
     case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
         return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
+    case FlowEntry::SHORT_NO_MIRROR_ENTRY:
+        return VR_FLOW_DR_NO_MIRROR_ENTRY;
     case FlowEntry::DROP_POLICY:
         return VR_FLOW_DR_POLICY;
     case FlowEntry::DROP_OUT_POLICY:
@@ -387,14 +389,22 @@ bool FlowTableKSyncEntry::Sync() {
     it = flow_entry_->match_p().action_info.mirror_l.begin();
     if (it != flow_entry_->match_p().action_info.mirror_l.end()) { 
         uint16_t idx = obj->GetIdx((*it).analyzer_name);
-        if (old_first_mirror_index_ != idx) {
+        if (!((*it).analyzer_name.empty()) &&
+            (idx == MirrorTable::kInvalidIndex)) {
+            // runn timer to update flow entry
+            ksync_obj_->UpdateUnresolvedFlowEntry(flow_entry_);
+        } else if (old_first_mirror_index_ != idx) {
             old_first_mirror_index_ = idx;
             changed = true;
         }
         ++it;
         if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
             idx = obj->GetIdx((*it).analyzer_name);
-            if (old_second_mirror_index_ != idx) {
+            if (!((*it).analyzer_name.empty()) && 
+                (idx == MirrorTable::kInvalidIndex)) {
+                // run time and to update  flow entry;
+                ksync_obj_->UpdateUnresolvedFlowEntry(flow_entry_);
+            } else if (old_second_mirror_index_ != idx) {
                 old_second_mirror_index_ = idx;
                 changed = true;
             }
@@ -507,8 +517,63 @@ std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
     else return KSyncEntry::VrouterError(error);
 }
 
-FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
-    KSyncObject("KSync FlowTable"), ksync_(ksync), free_list_(this) {
+void FlowTableKSyncObject::UpdateUnresolvedFlowEntry(FlowEntryPtr flowptr) {
+    FlowEntry *flow_entry = flowptr.get();
+    if (!flow_entry->IsShortFlow() && !flow_entry->IsInUnresolvedList()) {
+        unresolved_flow_list_.push_back(flow_entry);
+        flow_entry->SetUnResolvedList(true);
+        StartTimer();
+    }
+}
+/*
+ * timer will be triggred once after adding unresolved entry.
+ *  will be stoped once after list becomes empty.
+ */
+void FlowTableKSyncObject::StartTimer() {
+    if (timer_ == NULL) {
+        timer_ = TimerManager::CreateTimer(
+                *(ksync_->agent()->event_manager())->io_service(),
+                "flow dep sync timer",
+                 ksync_->agent()->task_scheduler()->GetTaskId(kTaskFlowUpdate),
+                 flow_table()->table_index());
+    }
+    timer_->Start(kFlowDepSyncTimeout, 
+                  boost::bind(&FlowTableKSyncObject::TimerExpiry, this));
+}
+
+/*
+ * This fuction will be triggred on 1 sec delay
+ * if the entry marked deleted will not call the ksync update
+ * if the number attempts are more than 4 times will mark the flow as shortflow
+ */
+
+bool FlowTableKSyncObject::TimerExpiry () {
+    uint16_t count = 0;
+    while (!unresolved_flow_list_.empty() && count <30) {
+        FlowEntry *flow_entry = unresolved_flow_list_.front().get();
+        FlowEntry *rflow_entry = flow_entry->reverse_flow_entry();
+        unresolved_flow_list_.pop_front();
+        FLOW_LOCK(flow_entry, rflow_entry);
+        flow_entry->SetUnResolvedList(false);
+        count++;
+        if (!flow_entry->deleted()) { 
+            if (flow_entry->GetMaxRetryAttempts() > kFlowRetryAtteps) {
+                flow_entry->MakeShortFlow(FlowEntry::SHORT_NO_MIRROR_ENTRY);
+                flow_entry->ResetRetryCount();
+            } else {
+                flow_entry->IncrementRetrycount();
+            }
+            flow_entry->flow_table()->UpdateKSync(flow_entry, true);
+        }
+    }
+    if (!unresolved_flow_list_.empty())
+        return true;
+    return false;
+}
+
+FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) :
+    KSyncObject("KSync FlowTable"), ksync_(ksync), free_list_(this),
+    timer_(NULL) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
@@ -516,6 +581,7 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
 }
 
 FlowTableKSyncObject::~FlowTableKSyncObject() {
+    TimerManager::DeleteTimer(timer_);
 }
 
 KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
