@@ -393,6 +393,7 @@ void FlowEntry::Reset() {
     fsc_ = NULL;
     event_logs_.reset();
     event_log_index_ = 0;
+    last_event_ = FlowEvent::INVALID;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
@@ -440,6 +441,7 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     tunnel_type_ = rhs->tunnel_type_;
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
+    last_event_ = rhs->last_event_;
     if (update == false) {
         gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;

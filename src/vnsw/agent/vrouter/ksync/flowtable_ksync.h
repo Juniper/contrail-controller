@@ -17,6 +17,7 @@
 #include <ksync/ksync_netlink.h>
 #include <vrouter/ksync/agent_ksync_types.h>
 #include <vrouter/ksync/ksync_flow_memory.h>
+#include <pkt/flow_proto.h>
 #include <pkt/flow_table.h>
 #include <vr_types.h>
 #include <vr_flow.h>
@@ -59,6 +60,8 @@ public:
     uint8_t evict_gen_id() { return evict_gen_id_; }
     void set_evict_gen_id(uint8_t gen_id) { evict_gen_id_ = gen_id; }
     uint8_t vrouter_gen_id() { return vrouter_gen_id_; }
+    FlowEvent::Event last_event() const { return last_event_; }
+    void ReleaseToken();
 
 private:
     friend class KSyncFlowEntryFreeList;
@@ -81,6 +84,8 @@ private:
     bool ecmp_;
     bool enable_rpf_;
     uint32_t src_nh_id_;
+    FlowEvent::Event last_event_;
+    std::auto_ptr<FlowToken> token_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);

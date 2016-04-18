@@ -37,6 +37,7 @@ class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
 class FlowStatsCollector;
+class FlowToken;
 
 ////////////////////////////////////////////////////////////////////////////
 // This is helper struct to carry parameters of reverse-flow. When flow is
@@ -538,6 +539,8 @@ class FlowEntry {
     void SetEventSandeshData(SandeshFlowIndexInfo *info);
     void LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
                  uint32_t flow_handle, uint8_t gen_id);
+    uint32_t last_event() const { return last_event_; }
+    void set_last_event(uint32_t event) { last_event_ = event; }
 
 private:
     friend class FlowTable;
@@ -597,9 +600,10 @@ private:
     tbb::mutex mutex_;
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
-    static SecurityGroupList default_sg_list_;
+    uint32_t last_event_;
     boost::scoped_array<FlowEventLog> event_logs_;
     uint16_t event_log_index_;
+    static SecurityGroupList default_sg_list_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };

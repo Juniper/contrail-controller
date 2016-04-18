@@ -15,6 +15,7 @@
 #include <oper/mirror_table.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <pkt/flow_proto.h>
+#include <pkt/flow_token.h>
 
 void vr_interface_req::Process(SandeshContext *context) {
      AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
@@ -83,21 +84,22 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         return;
     } 
 
+    const KSyncIoContext *ioc = ksync_io_ctx();
+    FlowTableKSyncEntry *ksync_entry =
+        dynamic_cast<FlowTableKSyncEntry *>(ioc->GetKSyncEntry());
+    assert(ksync_entry != NULL);
+    ksync_entry->ReleaseToken();
+
     assert(r->get_fr_op() == flow_op::FLOW_SET);
     int err = GetErrno();
     if (err == EBADF) {
         LogFlowError(r, err);
     }
 
-    const KSyncIoContext *ioc = ksync_io_ctx();
     // Skip delete operation.
     if (ioc->event() == KSyncEntry::DEL_ACK) {
         return;
     }
-
-    FlowTableKSyncEntry *ksync_entry =
-        dynamic_cast<FlowTableKSyncEntry *>(ioc->GetKSyncEntry());
-    assert(ksync_entry != NULL);
 
     FlowEntry *flow = ksync_entry->flow_entry().get();
     if (flow == NULL)
