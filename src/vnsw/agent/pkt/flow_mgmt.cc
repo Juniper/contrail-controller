@@ -31,7 +31,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
                     boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
                     db_event_queue_.kMaxSize, 1),
-    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 2,
+    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
     request_queue_.set_name("Flow management");
     db_event_queue_.set_name("Flow DB Event Queue");
@@ -477,6 +477,8 @@ void FlowMgmtManager::RetryVrfDelete(uint32_t vrf_id) {
 
 // Extract all the FlowMgmtKey for a flow
 void FlowMgmtManager::LogFlowUnlocked(FlowEntry *flow, const std::string &op) {
+    if (flow->trace() == false)
+        return;
     FlowInfo trace;
     flow->FillFlowInfo(trace);
     FLOW_TRACE(Trace, op, trace);
