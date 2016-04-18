@@ -77,6 +77,8 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_FLOW_LIMIT;
     case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
         return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
+    case FlowEntry::SHORT_NO_MIRROR_ENTRY:
+        return VR_FLOW_DR_NO_MIRROR_ENTRY;
     case FlowEntry::DROP_POLICY:
         return VR_FLOW_DR_POLICY;
     case FlowEntry::DROP_OUT_POLICY:
@@ -266,7 +268,15 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             ++it;
             if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
                 uint16_t idx_2 = obj->GetIdx((*it).analyzer_name);
-                if (idx_1 != idx_2) {
+                if (!((*it).analyzer_name.empty()) &&
+                    (idx_2 == MirrorTable::kInvalidIndex)) {
+                   // enqueu the flow entry
+                   // start the timer
+                    FLOW_TRACE(Err, hash_id_, 
+                               "there is no mirror entry created at "
+                               "the second mirror dest.");
+
+                } else if (idx_1 != idx_2) {
                     req.set_fr_sec_mir_id(idx_2);
                     FLOW_TRACE(ModuleInfo, "Mirror index second: " + 
                                integerToString(idx_2));
@@ -387,14 +397,26 @@ bool FlowTableKSyncEntry::Sync() {
     it = flow_entry_->match_p().action_info.mirror_l.begin();
     if (it != flow_entry_->match_p().action_info.mirror_l.end()) { 
         uint16_t idx = obj->GetIdx((*it).analyzer_name);
-        if (old_first_mirror_index_ != idx) {
+        if (!((*it).analyzer_name.empty()) &&
+            (idx == MirrorTable::kInvalidIndex)) {
+            // runn timer to update flow entry
+            if (!flow_entry_->IsShortFlow()) {
+                ksync_obj_->UpdateUnresolvedFlowEntry(flow_entry_);
+            }
+        } else if (old_first_mirror_index_ != idx) {
             old_first_mirror_index_ = idx;
             changed = true;
         }
         ++it;
         if (it != flow_entry_->match_p().action_info.mirror_l.end()) {
             idx = obj->GetIdx((*it).analyzer_name);
-            if (old_second_mirror_index_ != idx) {
+            if (!((*it).analyzer_name.empty()) && 
+                (idx == MirrorTable::kInvalidIndex)) {
+                // run time and to update  flow entry;
+                if (!flow_entry_->IsShortFlow()) {
+                    ksync_obj_->UpdateUnresolvedFlowEntry(flow_entry_);
+                }
+            } else if (old_second_mirror_index_ != idx) {
                 old_second_mirror_index_ = idx;
                 changed = true;
             }
@@ -507,8 +529,53 @@ std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
     else return KSyncEntry::VrouterError(error);
 }
 
+void FlowTableKSyncObject::UpdateUnresolvedFlowEntry(FlowEntryPtr flow_entry) {
+     unresolved_flow_list_.push_front(flow_entry);
+     StartTimer(); 
+}
+/*
+ * timer will be triggred once after adding unresolved entry.
+ *  will be stoped once after list becomes empty.
+ */
+void FlowTableKSyncObject::StartTimer() {
+    if (timer_ == NULL) {
+        timer_ = TimerManager::CreateTimer(
+                *(ksync_->agent()->event_manager())->io_service(),
+                "flow dep sync timer",
+                 ksync_->agent()->task_scheduler()->GetTaskId(kTaskFlowUpdate),
+                0);
+    }
+    timer_->Start(kFlowDepSyncTimeout, 
+                  boost::bind(&FlowTableKSyncObject::TimerExpiry, this));
+}
+
+/*
+ * This fuction will be triggred on 1 sec delay
+ * if the entry marked deleted will not call the ksync update
+ * if the number attempts are more than 4 times will mark the flow as shortflow
+ */
+
+bool FlowTableKSyncObject::TimerExpiry () {
+
+    while (!unresolved_flow_list_.empty()) {
+        FlowEntry *flow_entry = unresolved_flow_list_.back().get();
+        tbb::mutex::scoped_lock mutex(flow_entry->mutex());
+        if (!flow_entry->deleted()) { 
+            if (flow_entry->GetMaxRetryAttempts() > 4) {
+                flow_entry->MakeShortFlow(FlowEntry::SHORT_NO_MIRROR_ENTRY);
+            } else {
+                flow_entry->IncrementRetrycount();
+            }
+            flow_entry->flow_table()->UpdateKSync(flow_entry, true);
+        }
+        unresolved_flow_list_.pop_back();
+    }
+    return false;
+}
+
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
-    KSyncObject("KSync FlowTable"), ksync_(ksync), free_list_(this) {
+    KSyncObject("KSync FlowTable"), ksync_(ksync), free_list_(this), 
+    timer_(NULL) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
@@ -516,6 +583,7 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
 }
 
 FlowTableKSyncObject::~FlowTableKSyncObject() {
+    TimerManager::DeleteTimer(timer_);
 }
 
 KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {

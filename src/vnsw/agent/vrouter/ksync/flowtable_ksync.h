@@ -62,6 +62,7 @@ public:
     uint32_t old_first_mirror_index() {
         return old_first_mirror_index_;
     }
+
 private:
     friend class KSyncFlowEntryFreeList;
     friend class KSyncFlowIndexManager;
@@ -139,6 +140,8 @@ private:
 
 class FlowTableKSyncObject : public KSyncObject {
 public:
+     // flow dependency timer on mirror entry in msec
+    static const uint32_t kFlowDepSyncTimeout = 1000;
     FlowTableKSyncObject(KSync *ksync);
     FlowTableKSyncObject(KSync *ksync, int max_index);
     virtual ~FlowTableKSyncObject();
@@ -165,6 +168,9 @@ public:
     void NetlinkAck(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void GenerateKSyncEvent(FlowTableKSyncEntry *entry,
                             KSyncEntry::KSyncEvent event);
+    void StartTimer();
+    bool TimerExpiry();
+    void UpdateUnresolvedFlowEntry(FlowEntryPtr flow_entry);
 private:
     friend class KSyncSandeshContext;
     friend class FlowTable;
@@ -172,6 +178,8 @@ private:
     FlowTable *flow_table_;
     vr_flow_req flow_req_;
     KSyncFlowEntryFreeList free_list_;
+    std::list<FlowEntryPtr> unresolved_flow_list_;
+    Timer * timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };
 
