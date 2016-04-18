@@ -431,3 +431,66 @@ response sandesh SandeshFlowTableInfoResp {
     3: u64 total_deleted;
     4: list<SandeshFlowTableInfo> table_list;
 }
+
+/**
+ * Request message to set filters for IPv4 Flow logging
+ */
+request sandesh SandeshIPv4FlowFilterRequest {
+    1: bool enabled;
+    2: string src_address;
+    3: u16 src_prefix_len;
+    4: string dst_address;
+    5: u16 dst_prefix_len;
+    6: u16 proto_start;
+    7: u16 proto_end;
+    8: u16 src_port_start;
+    9: u16 src_port_end;
+   10: u16 dst_port_start;
+   11: u16 dst_port_end;
+}
+
+/**
+ * Request message to set filters for IPv6 Flow logging
+ */
+request sandesh SandeshIPv6FlowFilterRequest {
+    1: bool enabled;
+    2: string src_address;
+    3: u16 src_prefix_len;
+    4: string dst_address;
+    5: u16 dst_prefix_len;
+    6: u16 proto_start;
+    7: u16 proto_end;
+    8: u16 src_port_start;
+    9: u16 src_port_end;
+   10: u16 dst_port_start;
+   11: u16 dst_port_end;
+}
+
+/**
+ * Request message to show flow logging filters
+ */
+request sandesh SandeshShowFlowFilterRequest {
+}
+
+/**
+ * Response message showing flow logging filters
+ */
+struct SandeshFlowFilterInfo {
+    1: bool enabled;
+    2: string src_address;
+    3: string src_mask;
+    4: string dst_address;
+    5: string dst_mask;
+    6: u16 proto_start;
+    7: u16 proto_end;
+    8: u16 src_port_start;
+    9: u16 src_port_end;
+   10: u16 dst_port_start;
+   11: u16 dst_port_end;
+   12: u64 flow_hit;
+}
+
+response sandesh SandeshFlowFilterResponse {
+    1: SandeshFlowFilterInfo ipv4_filter;
+    2: SandeshFlowFilterInfo ipv6_filter;
+}

@@ -541,6 +541,8 @@ class FlowEntry {
                  uint32_t flow_handle, uint8_t gen_id);
     uint32_t last_event() const { return last_event_; }
     void set_last_event(uint32_t event) { last_event_ = event; }
+    bool trace() const { return trace_; }
+    void set_trace(bool val) { trace_ = val; }
 
 private:
     friend class FlowTable;
@@ -601,6 +603,7 @@ private:
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
     uint32_t last_event_;
+    bool trace_;
     boost::scoped_array<FlowEventLog> event_logs_;
     uint16_t event_log_index_;
     static SecurityGroupList default_sg_list_;

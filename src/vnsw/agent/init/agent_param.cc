@@ -520,6 +520,10 @@ void AgentParam::ParseFlows() {
         flow_thread_count_ = Agent::kDefaultFlowThreadCount;
     }
 
+    if (!GetValueFromTree<bool>(flow_trace_enable_, "FLOWS.trace_enable")) {
+        flow_trace_enable_ = true;
+    }
+
     if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float) 100;
     }
@@ -770,6 +774,7 @@ void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<uint16_t>(var_map, flow_thread_count_,
                           "FLOWS.thread_count");
+    GetOptValue<bool>(var_map, flow_trace_enable_, "FLOWS.trace_enable");
     uint16_t val = 0;
     if (GetOptValue<uint16_t>(var_map, val, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float)val;
@@ -1257,6 +1262,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_base_dir_(),
         send_ratelimit_(sandesh_send_rate_limit()),
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
+        flow_trace_enable_(true),
         subnet_hosts_resolvable_(true),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
@@ -1370,6 +1376,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Maximum number of link-local flows allowed across all VMs")
             ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(),
              "Maximum number of link-local flows allowed per VM")
+            ("FLOWS.trace_enable", opt::value<bool>(),
+             "Enable flow tracing")
             ;
         options_.add(flow);
     }

@@ -180,6 +180,12 @@ void FlowTable::Update(FlowEntry *flow, FlowEntry *rflow) {
 void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
                             FlowEntry *rflow_req, FlowEntry *rflow,
                             bool fwd_flow_update, bool rev_flow_update) {
+    // Set trace flags for a flow
+    bool trace = agent_->pkt()->get_flow_proto()->ShouldTrace(flow, rflow);
+    flow->set_trace(trace);
+    if (rflow)
+        rflow->set_trace(trace);
+
     // The forward and reverse flow in request are linked. Unlink the flows
     // first. Flow table processing will link them if necessary
     flow_req->set_reverse_flow_entry(NULL);

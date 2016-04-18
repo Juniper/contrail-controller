@@ -250,6 +250,9 @@ public:
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
 
+    bool flow_trace_enable() const { return flow_trace_enable_; }
+    void set_flow_trace_enable(bool val) { flow_trace_enable_ = val; }
+
     uint32_t tbb_thread_count() const { return tbb_thread_count_; }
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
@@ -460,6 +463,7 @@ private:
     std::string agent_base_dir_;
     uint32_t send_ratelimit_;
     uint16_t flow_thread_count_;
+    bool flow_trace_enable_;
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
 

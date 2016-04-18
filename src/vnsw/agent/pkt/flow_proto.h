@@ -14,6 +14,7 @@
 #include "flow_handler.h"
 #include "flow_event.h"
 #include "flow_token.h"
+#include "flow_trace_filter.h"
 
 class ProfileData;
 
@@ -113,7 +114,15 @@ public:
     FlowTokenPtr GetToken(FlowEvent::Event event);
     void TokenAvailable(FlowTokenPool *pool);
 
+    bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);
 private:
+    friend class SandeshIPv4FlowFilterRequest;
+    friend class SandeshIPv6FlowFilterRequest;
+    friend class SandeshShowFlowFilterRequest;
+    friend class FlowTraceFilterTest;
+    FlowTraceFilter *ipv4_trace_filter() { return &ipv4_trace_filter_; }
+    FlowTraceFilter *ipv6_trace_filter() { return &ipv6_trace_filter_; }
+
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
     bool TokenCheck(const FlowTokenPool *pool);
 
@@ -124,6 +133,8 @@ private:
     FlowEventQueue flow_update_queue_;
     tbb::atomic<int> linklocal_flow_count_;
     bool use_vrouter_hash_;
+    FlowTraceFilter ipv4_trace_filter_;
+    FlowTraceFilter ipv6_trace_filter_;
     FlowTokenPool add_tokens_;
     FlowTokenPool del_tokens_;
     FlowTokenPool update_tokens_;

@@ -63,6 +63,9 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
     EXPECT_EQ(param.subnet_hosts_resolvable(), true);
+
+    // By default, flow-tracing must be enabled
+    EXPECT_TRUE(param.flow_trace_enable());
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -103,16 +106,18 @@ TEST_F(FlowTest, Agent_Flows_Option_1) {
     EXPECT_EQ(param.max_vm_flows(), 50);
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
+    EXPECT_FALSE(param.flow_trace_enable());
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
-    int argc = 9;
+    int argc = 11;
     char *argv[] = {
         (char *) "",
         (char *) "--FLOWS.thread_count",                   (char *)"8",
         (char *) "--FLOWS.max_vm_flows",                   (char *)"100",
         (char *) "--FLOWS.max_system_linklocal_flows",     (char *)"24",
         (char *) "--FLOWS.max_vm_linklocal_flows",         (char *)"20",
+        (char *) "--FLOWS.trace_enable",                   (char *)"true",
     };
 
     AgentParam param;
@@ -123,6 +128,7 @@ TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
     EXPECT_EQ(param.max_vm_flows(), 100);
     EXPECT_EQ(param.linklocal_system_flows(), 24);
     EXPECT_EQ(param.linklocal_vm_flows(), 20);
+    EXPECT_TRUE(param.flow_trace_enable());
 }
 
 TEST_F(FlowTest, Agent_Tbb_Option_1) {

@@ -872,6 +872,8 @@ public:
     void set_flow_table_size(uint32_t count);
 
     uint16_t flow_thread_count() const { return flow_thread_count_; }
+    bool flow_trace_enable() const { return flow_trace_enable_; }
+
     uint32_t max_vm_flows() const { return max_vm_flows_; }
     void set_max_vm_flows(uint32_t count) { max_vm_flows_ = count; }
 
@@ -1134,6 +1136,7 @@ private:
     // Flow information
     uint32_t flow_table_size_;
     uint16_t flow_thread_count_;
+    bool flow_trace_enable_;
     uint32_t max_vm_flows_;
 
     // OVSDB client ptr

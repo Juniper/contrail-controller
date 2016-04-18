@@ -21,12 +21,11 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
     flow_update_queue_(agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
                        boost::bind(&FlowProto::FlowUpdateHandler, this, _1)),
-    use_vrouter_hash_(false),
+    use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),
     add_tokens_("Add Tokens", this, kFlowAddTokens),
     del_tokens_("Delete Tokens", this, kFlowDelTokens),
     update_tokens_("Update Tokens", this, kFlowUpdateTokens),
     stats_() {
-
     flow_update_queue_.set_name("Flow update queue");
     flow_update_queue_.SetStartRunnerFunc(boost::bind(&FlowProto::TokenCheck,
                                                       this, &update_tokens_));
@@ -95,7 +94,9 @@ void FlowProto::Init() {
     AgentProfile *profile = agent_->oper_db()->agent_profile();
     profile->RegisterPktFlowStatsCb(boost::bind(&FlowProto::SetProfileData,
                                                 this, _1));
- 
+
+    ipv4_trace_filter_.Init(agent_->flow_trace_enable(), Address::INET);
+    ipv6_trace_filter_.Init(agent_->flow_trace_enable(), Address::INET6);
 }
 
 void FlowProto::InitDone() {
@@ -625,6 +626,30 @@ bool FlowProto::EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
     EnqueueFlowEvent(new FlowEvent(FlowEvent::REENTRANT,
                                    msg, table_index));
     return true;
+}
+
+// Apply trace-filter for flow. Will not allow true-false transistions.
+// That is, if flows are already marked for tracing, action is retained
+bool FlowProto::ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow) {
+    bool trace = flow->trace();
+    if (rflow)
+        trace |= rflow->trace();
+
+    if (trace == false) {
+        FlowTraceFilter *filter;
+        if (flow->key().family == Address::INET) {
+            filter = &ipv4_trace_filter_;
+        } else {
+            filter = &ipv6_trace_filter_;
+        }
+
+        trace = filter->Match(&flow->key());
+        if (rflow && trace == false) {
+            trace = filter->Match(&rflow->key());
+        }
+    }
+
+    return trace;
 }
 
 //////////////////////////////////////////////////////////////////////////////
