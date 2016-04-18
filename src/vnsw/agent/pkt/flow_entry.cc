@@ -392,6 +392,7 @@ void FlowEntry::Reset() {
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     fsc_ = NULL;
+    trace_ = false;
     event_logs_.reset();
     event_log_index_ = 0;
     last_event_ = FlowEvent::INVALID;
@@ -446,6 +447,7 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     fip_vmi_ = rhs->fip_vmi_;
     last_event_ = rhs->last_event_;
     flow_retry_attempts_ = rhs->flow_retry_attempts_;
+    trace_ = rhs->trace_;
     if (update == false) {
         gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;

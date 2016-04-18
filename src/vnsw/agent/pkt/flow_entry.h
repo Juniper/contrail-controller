@@ -548,6 +548,9 @@ class FlowEntry {
     void ResetRetryCount(){ flow_retry_attempts_ = 0; }
     bool IsOnUnresolvedList(){ return is_flow_on_unresolved_list;}
     void SetUnResolvedList(bool added){ is_flow_on_unresolved_list = added;}
+    bool trace() const { return trace_; }
+    void set_trace(bool val) { trace_ = val; }
+
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -607,6 +610,7 @@ private:
     boost::intrusive::list_member_hook<> free_list_node_;
     FlowStatsCollector *fsc_;
     uint32_t last_event_;
+    bool trace_;
     boost::scoped_array<FlowEventLog> event_logs_;
     uint16_t event_log_index_;
     static SecurityGroupList default_sg_list_;
