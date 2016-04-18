@@ -206,6 +206,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define AGENT_INIT_TASKNAME "Agent::Init"
 #define AGENT_SHUTDOWN_TASKNAME "Agent::Shutdown"
 #define AGENT_FLOW_STATS_MANAGER_TASK "Agent::FlowStatsManager"
+#define AGENT_SANDESH_TASKNAME "Agent::Sandesh"
 #define IPV4_MULTICAST_BASE_ADDRESS "224.0.0.0"
 #define IPV6_MULTICAST_BASE_ADDRESS "ff00::"
 #define MULTICAST_BASE_ADDRESS_PLEN 8

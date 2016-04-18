@@ -370,7 +370,7 @@ class ConfigPhysicalDeviceVnSandesh : public Task {
  public:
     ConfigPhysicalDeviceVnSandesh(Agent *agent, PhysicalDeviceVnTable *table,
                                   const string &key, const string &context) :
-        Task(agent->task_scheduler()->GetTaskId("db::DBTable"), 0),
+        Task(agent->task_scheduler()->GetTaskId(AGENT_SANDESH_TASKNAME), 0),
         table_(table), key_(key), context_(context) { }
     ~ConfigPhysicalDeviceVnSandesh() { }
     virtual bool Run();
