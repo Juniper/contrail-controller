@@ -432,10 +432,11 @@ bool FlowMgmtManager::DBRequestHandler(FlowMgmtRequestPtr req) {
 }
 
 bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
+    FlowEntry *flow = req->flow().get();
+    tbb::mutex::scoped_lock mutex(flow->mutex());
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
-        FlowEntry *flow = req->flow().get();
-        LogFlow(flow, "ADD");
+        LogFlowUnlocked(flow, "ADD");
 
         //Enqueue Add request to flow-stats-collector
         agent_->flow_stats_manager()->AddEvent(req->flow());
@@ -447,8 +448,7 @@ bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     }
 
     case FlowMgmtRequest::DELETE_FLOW: {
-        FlowEntry *flow = req->flow().get();
-        LogFlow(flow, "DEL");
+        LogFlowUnlocked(flow, "DEL");
 
         //Enqueue Delete request to flow-stats-collector
         agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
@@ -472,9 +472,8 @@ void FlowMgmtManager::RetryVrfDelete(uint32_t vrf_id) {
 }
 
 // Extract all the FlowMgmtKey for a flow
-void FlowMgmtManager::LogFlow(FlowEntry *flow, const std::string &op) {
+void FlowMgmtManager::LogFlowUnlocked(FlowEntry *flow, const std::string &op) {
     FlowInfo trace;
-    tbb::mutex::scoped_lock mutex(flow->mutex());
     flow->FillFlowInfo(trace);
     FLOW_TRACE(Trace, op, trace);
 }
