@@ -393,6 +393,9 @@ class LoadbalancerAgent(Agent):
                'protocol': props['protocol'],
                'loadbalancer_id': listener.loadbalancer,
                'admin_state_up': props['admin_state'],
+               'connection_limit': props['connection_limit'],
+               'default_tls_container': props['default_tls_container'],
+               'sni_containers': props['sni_containers'],
                'status': self._get_object_status(listener)}
 
         return res
