@@ -27,6 +27,7 @@ pkt_srcs = [
                 'flow_mgmt.cc',
                 'flow_mgmt_dbclient.cc',
                 'flow_proto.cc',
+                'flow_trace_filter.cc',
                 'packet_buffer.cc',
                 'pkt_init.cc',
                 'pkt_init.cc',
