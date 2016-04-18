@@ -215,6 +215,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_level=SYS_DEBUG\n"
         "log_local=1\n"
         "test_mode=1\n"
+        "optimize_snat=1\n"
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
@@ -271,6 +272,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
+    EXPECT_EQ(options_.optimize_snat(), true);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
