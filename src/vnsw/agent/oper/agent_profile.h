@@ -46,6 +46,7 @@ public:
         WorkQueueStats flow_update_queue_;
         std::vector<WorkQueueStats> flow_event_queue_;
         std::vector<WorkQueueStats> flow_delete_queue_;
+        std::vector<WorkQueueStats> flow_ksync_queue_;
         void Get();
         void Reset();
     };

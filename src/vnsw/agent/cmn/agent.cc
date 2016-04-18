@@ -127,6 +127,7 @@ void Agent::SetAgentTaskPolicy() {
 
     const char *db_exclude_list[] = {
         kTaskFlowEvent,
+        kTaskFlowKSync,
         kTaskFlowUpdate,
         kTaskFlowAudit,
         "Agent::Services",
@@ -147,15 +148,18 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(db_exclude_list) / sizeof(char *));
 
     const char *flow_table_exclude_list[] = {
-         "Agent::PktFlowResponder",
-         "sandesh::RecvQueue",
-         AGENT_SHUTDOWN_TASKNAME,
+        "Agent::PktFlowResponder",
+        kTaskFlowKSync,
+        kTaskFlowUpdate,
+        AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskFlowEvent, flow_table_exclude_list,
                      sizeof(flow_table_exclude_list) / sizeof(char *));
 
     const char *flow_exclude_list[] = {
+        "Agent::PktFlowResponder",
+        kTaskFlowKSync,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
@@ -737,7 +741,7 @@ void Agent::ConcurrencyCheck() {
     if (test_mode_) {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
                          "Flow::Management", kTaskFlowUpdate,
-                         kTaskFlowEvent);
+                         kTaskFlowEvent, kTaskFlowKSync);
     }
 }
 

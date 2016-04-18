@@ -786,77 +786,85 @@ void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
     }
 }
 
-// Handle events from Flow Management module for a flow
-bool FlowTable::FlowResponseHandlerUnLocked(const FlowEvent *resp,
-                                            FlowEntry *flow,
-                                            FlowEntry *rflow) {
-    const DBEntry *entry = resp->db_entry();
-
-    bool active_flow = true;
-    bool deleted_flow = flow->deleted();
-    if (deleted_flow || flow->is_flags_set(FlowEntry::ShortFlow))
-        active_flow = false;
-
-    switch (resp->event()) {
-    case FlowEvent::REVALUATE_FLOW: {
-        if (active_flow)
-            RevaluateFlow(flow);
-        break;
+void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
+                                       bool active_flow, bool deleted_flow) {
+    const Interface *intf = dynamic_cast<const Interface *>(entry);
+    if (intf && active_flow) {
+        RevaluateInterface(flow);
+        return;
     }
 
-    case FlowEvent::REVALUATE_DBENTRY: {
-        const Interface *intf = dynamic_cast<const Interface *>(entry);
-        if (intf && active_flow) {
-            RevaluateInterface(flow);
-            break;
-        }
-
-        const VnEntry *vn = dynamic_cast<const VnEntry *>(entry);
-        // TODO: check if the following need not be done for short flows
-        if (vn && (deleted_flow == false)) {
-            RevaluateVn(flow);
-            break;
-        }
-
-        const AclDBEntry *acl = dynamic_cast<const AclDBEntry *>(entry);
-        if (acl && active_flow) {
-            RevaluateAcl(flow);
-            break;
-        }
-
-        const NextHop *nh = dynamic_cast<const NextHop *>(entry);
-        if (nh && active_flow) {
-            RevaluateNh(flow);
-            break;
-        }
-
-        const AgentRoute *rt = dynamic_cast<const AgentRoute *>(entry);
-        if (rt && active_flow) {
-            RevaluateRoute(flow, rt);
-            break;
-        }
-
-        assert(active_flow == false);
-        break;
+    const VnEntry *vn = dynamic_cast<const VnEntry *>(entry);
+    // TODO: check if the following need not be done for short flows
+    if (vn && (deleted_flow == false)) {
+        RevaluateVn(flow);
+        return;
     }
 
-    case FlowEvent::DELETE_DBENTRY: {
-        DeleteMessage(flow);
-        break;
+    const AclDBEntry *acl = dynamic_cast<const AclDBEntry *>(entry);
+    if (acl && active_flow) {
+        RevaluateAcl(flow);
+        return;
     }
 
-    default:
-        assert(0);
+    const NextHop *nh = dynamic_cast<const NextHop *>(entry);
+    if (nh && active_flow) {
+        RevaluateNh(flow);
+        return;
     }
 
-    return true;
+    const AgentRoute *rt = dynamic_cast<const AgentRoute *>(entry);
+    if (rt && active_flow) {
+        RevaluateRoute(flow, rt);
+        return;
+    }
+
+    assert(active_flow == false);
+    return;
 }
 
-bool FlowTable::FlowResponseHandler(const FlowEvent *resp) {
-    FlowEntry *flow = resp->flow();
-    FlowEntry *rflow = flow->reverse_flow_entry_.get();
-    FLOW_LOCK(flow, rflow, resp->event());
-    return FlowResponseHandlerUnLocked(resp, flow, rflow);
+void FlowTable::HandleKSyncError(FlowTableKSyncEntry *ksync_entry,
+                                 int error, FlowEntry *flow) {
+    if (flow != ksync_entry->flow_entry()) {
+        // flow is not using the ksync entry for which error is
+        // return, ignore the error
+        return;
+    }
+
+    // Mark the flow entry as short flow and update ksync error event
+    // to ksync index manager
+    // For EEXIST error donot mark the flow as ShortFlow since Vrouter
+    // generates EEXIST only for cases where another add should be
+    // coming from the pkt trap from Vrouter
+    //
+    // FIXME : We dont have good scheme to handle following scenario,
+    // - VM1 in VN1 has floating-ip FIP1 in VN2
+    // - VM2 in VN2
+    // - VM1 pings VM2 (using floating-ip)
+    // The forward and reverse flows go to different partitions.
+    //
+    // If packets for both forward and reverse flows are trapped together
+    // we try to setup following flows from different partitions,
+    // FlowPair-1
+    //    - VM1 to VM2
+    //    - VM2 to FIP1
+    // FlowPair-2
+    //    - VM2 to FIP1
+    //    - VM1 to VM2
+    //
+    // The reverse flows for both FlowPair-1 and FlowPair-2 are not
+    // installed due to EEXIST error. We are converting flows to
+    // short-flow till this case is handled properly
+    if (error != EEXIST ||
+        flow->is_flags_set(FlowEntry::NatFlow)) {
+        flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+        // Enqueue Add request to flow-stats-collector
+        // to update flow flags in stats collector
+        FlowEntryPtr flow_ptr(flow);
+        agent()->flow_stats_manager()->AddEvent(flow_ptr);
+    }
+
+    return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -900,63 +908,39 @@ void FlowTable::DelLinkLocalFlowInfo(int fd) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// FlowEntryFreeList implementation
+// Event handler routines
 /////////////////////////////////////////////////////////////////////////////
-void FlowTable::GrowFreeList() {
-    free_list_.Grow();
-    ksync_object_->GrowFreeList();
-}
-
-bool FlowTable::PopulateFlowPointersFromRequest(const FlowEvent *req,
-                                                FlowEntry **flow,
-                                                FlowEntry **rflow) {
-    //First identify flow and rflow, to take lock.
-    switch (req->event()) {
-    case FlowEvent::DELETE_FLOW: {
-        PopulateFlowEntriesUsingKey(req->get_flow_key(),
-                                    req->get_del_rev_flow(),
-                                    flow, rflow);
-        if (!(*flow)) {
-            return false;
-        }
-        break;
-    }
-
-    case FlowEvent::REVALUATE_FLOW:
-    case FlowEvent::EVICT_FLOW: {
-        *flow = req->flow();
-        *rflow = (*flow)->reverse_flow_entry();
-        break;
-    }
-
-    case FlowEvent::FLOW_HANDLE_UPDATE:
-    case FlowEvent::KSYNC_EVENT:
-    case FlowEvent::KSYNC_VROUTER_ERROR: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        *flow = ksync_entry->flow_entry().get();
-        *rflow = (*flow)->reverse_flow_entry();
-        break;
-    }
-
-    default: {
-        assert(0);
-        break;
-    }
-    }
-    return true;
-}
-
-bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
-                                         FlowEntry *flow,
-                                         FlowEntry *rflow) {
+bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
+                                 FlowEntry *rflow) {
     //Take lock
     FLOW_LOCK(flow, rflow, req->event());
+
+    bool active_flow = true;
+    bool deleted_flow = flow->deleted();
+    if (deleted_flow || flow->is_flags_set(FlowEntry::ShortFlow))
+        active_flow = false;
 
     //Now process events.
     switch (req->event()) {
     case FlowEvent::DELETE_FLOW: {
         DeleteUnLocked(req->get_del_rev_flow(), flow, rflow);
+        break;
+    }
+
+    case FlowEvent::DELETE_DBENTRY: {
+        DeleteMessage(flow);
+        break;
+    }
+
+    case FlowEvent::REVALUATE_DBENTRY: {
+        const DBEntry *entry = req->db_entry();
+        HandleRevaluateDBEntry(entry, flow, active_flow, deleted_flow);
+        break;
+    }
+
+    case FlowEvent::REVALUATE_FLOW: {
+        if (active_flow)
+            RevaluateFlow(flow);
         break;
     }
 
@@ -981,56 +965,16 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
     case FlowEvent::KSYNC_VROUTER_ERROR: {
         FlowTableKSyncEntry *ksync_entry =
             (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        if (flow != ksync_entry->flow_entry()) {
-            // flow is not using the ksync entry for which error is
-            // return, ignore the error
-            break;
-        }
-        // Mark the flow entry as short flow and update ksync error event
-        // to ksync index manager
-        // For EEXIST error donot mark the flow as ShortFlow since Vrouter
-        // generates EEXIST only for cases where another add should be
-        // coming from the pkt trap from Vrouter
-        //
-        // FIXME : We dont have good scheme to handle following scenario,
-        // - VM1 in VN1 has floating-ip FIP1 in VN2
-        // - VM2 in VN2
-        // - VM1 pings VM2 (using floating-ip)
-        // The forward and reverse flows go to different partitions.
-        //
-        // If packets for both forward and reverse flows are trapped together
-        // we try to setup following flows from different partitions,
-        // FlowPair-1
-        //    - VM1 to VM2
-        //    - VM2 to FIP1
-        // FlowPair-2
-        //    - VM2 to FIP1
-        //    - VM1 to VM2
-        //
-        // The reverse flows for both FlowPair-1 and FlowPair-2 are not
-        // installed due to EEXIST error. We are converting flows to
-        // short-flow till this case is handled properly
-        if (req->ksync_error() != EEXIST ||
-            flow->is_flags_set(FlowEntry::NatFlow)) {
-            flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-            // Enqueue Add request to flow-stats-collector
-            // to update flow flags in stats collector
-            FlowEntryPtr flow_ptr(flow);
-            agent()->flow_stats_manager()->AddEvent(flow_ptr);
-        }
+        HandleKSyncError(ksync_entry, req->ksync_error(), flow);
         break;
     }
 
     case FlowEvent::KSYNC_EVENT: {
         FlowTableKSyncEntry *ksync_entry =
             (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+        KSyncFlowIndexManager *mgr =
+            agent()->ksync()->ksync_flow_index_manager();
         mgr->TriggerKSyncEvent(ksync_entry, req->ksync_event());
-        break;
-    }
-
-    case FlowEvent::REVALUATE_FLOW: {
-        FlowResponseHandlerUnLocked(req, flow, rflow);
         break;
     }
 
@@ -1042,17 +986,12 @@ bool FlowTable::ProcessFlowEventInternal(const FlowEvent *req,
     return true;
 }
 
-bool FlowTable::ProcessFlowEvent(const FlowEvent *req) {
-    FlowEntry *flow = NULL;
-    FlowEntry *rflow = NULL;
-    if (PopulateFlowPointersFromRequest(req, &flow, &rflow) == false) {
-        return false;
-    }
-    //Take reference of flow and rflow before operating,
-    //especially meant for delete of flow eentry
-    FlowEntryPtr flow_ref_ptr(flow);
-    FlowEntryPtr rflow_ref_ptr(rflow);
-    return ProcessFlowEventInternal(req, flow, rflow);
+/////////////////////////////////////////////////////////////////////////////
+// FlowEntryFreeList implementation
+/////////////////////////////////////////////////////////////////////////////
+void FlowTable::GrowFreeList() {
+    free_list_.Grow();
+    ksync_object_->GrowFreeList();
 }
 
 FlowEntryFreeList::FlowEntryFreeList(FlowTable *table) :
