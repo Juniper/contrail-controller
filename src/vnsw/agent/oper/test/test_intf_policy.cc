@@ -48,15 +48,155 @@
 #include <controller/controller_export.h>
 #include <ksync/ksync_sock_user.h>
 #include <boost/assign/list_of.hpp>
+#include "pkt/test/test_flow_util.h"
 #include "uve/test/test_uve_util.h"
 
+#define vm1_ip "11.1.1.1"
+#define vm2_ip "11.1.1.2"
+
 void RouterIdDepInit(Agent *agent) {
+}
+
+typedef enum {
+    INGRESS = 0,
+    EGRESS = 1,
+    BIDIRECTION = 2
+} AclDirection;
+
+static string AddAclXmlString(const char *node_name, const char *name, int id,
+                              int proto, const char *action) {
+    char buff[10240];
+    sprintf(buff,
+    "<?xml version=\"1.0\"?>\n"
+    "<config>\n"
+    "   <update>\n"
+    "       <node type=\"%s\">\n"
+    "           <name>%s</name>\n"
+    "           <id-perms>\n"
+    "               <permissions>\n"
+    "                   <owner></owner>\n"
+    "                   <owner_access>0</owner_access>\n"
+    "                   <group></group>\n"
+    "                   <group_access>0</group_access>\n"
+    "                   <other_access>0</other_access>\n"
+    "               </permissions>\n"
+    "               <uuid>\n"
+    "                   <uuid-mslong>0</uuid-mslong>\n"
+    "                   <uuid-lslong>%d</uuid-lslong>\n"
+    "               </uuid>\n"
+    "           </id-perms>\n"
+    "           <access-control-list-entries>\n"
+    "                <acl-rule>\n"
+    "                    <match-condition>\n"
+    "                        <src-address>\n"
+    "                            <virtual-network> any </virtual-network>\n"
+    "                        </src-address>\n"
+    "                        <protocol>%d</protocol>\n"
+    "                        <src-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </src-port>\n"
+    "                        <dst-address>\n"
+    "                            <virtual-network> any </virtual-network>\n"
+    "                        </dst-address>\n"
+    "                        <dst-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </dst-port>\n"
+    "                    </match-condition>\n"
+    "                    <action-list>\n"
+    "                        <simple-action>\n"
+    "                            %s\n"
+    "                        </simple-action>\n"
+    "                    </action-list>\n"
+    "                </acl-rule>\n"
+    "                <acl-rule>\n"
+    "                    <match-condition>\n"
+    "                        <src-address>\n"
+    "                            <virtual-network> any </virtual-network>\n"
+    "                        </src-address>\n"
+    "                        <protocol>any</protocol>\n"
+    "                        <src-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 60000 </end-port>\n"
+    "                        </src-port>\n"
+    "                        <dst-address>\n"
+    "                            <virtual-network> any </virtual-network>\n"
+    "                        </dst-address>\n"
+    "                        <dst-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 60000 </end-port>\n"
+    "                        </dst-port>\n"
+    "                    </match-condition>\n"
+    "                    <action-list>\n"
+    "                        <simple-action>\n"
+    "                            deny\n"
+    "                        </simple-action>\n"
+    "                    </action-list>\n"
+    "                </acl-rule>\n"
+    "           </access-control-list-entries>\n"
+    "       </node>\n"
+    "   </update>\n"
+    "</config>\n", node_name, name, id, proto, action);
+    string s(buff);
+    return s;
+}
+
+static void AddAclEntry(const char *name, int id, int proto,
+                        const char *action, AclDirection direction) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    if (direction == EGRESS) {
+        strncat(acl_name, "egress-access-control-list", max_len);
+    } else {
+        strncat(acl_name, "ingress-access-control-list", max_len);
+    }
+    std::string s = AddAclXmlString("access-control-list", acl_name, id, proto,
+                                    action);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(s.c_str());
+    EXPECT_TRUE(result);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    client->WaitForIdle();
+}
+
+static void AddSgEntry(const char *sg_name, const char *name, int id,
+                       int proto, const char *action, AclDirection direction) {
+
+    AddSg(sg_name, 1);
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    switch (direction) {
+        case INGRESS:
+            AddAclEntry(name, id, proto, action, direction);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+        case EGRESS:
+            AddAclEntry(name, id, proto, action, direction);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+        case BIDIRECTION:
+            AddAclEntry(name, id, proto, action, EGRESS);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+
+            strncpy(acl_name, name, max_len);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddAclEntry(name, id+1, proto, action, INGRESS);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+    }
 }
 
 class PolicyTest : public ::testing::Test {
 public:
     PolicyTest() : util_() {
         agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
     }
 
     void SetPolicyDisabledStatus(struct PortInfo *input, bool status) {
@@ -76,6 +216,7 @@ public:
 
     TestUveUtil util_;
     Agent *agent_;
+    FlowProto *flow_proto_;
 };
 
 TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
@@ -421,6 +562,85 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     //clear counters at the end of test case
     client->Reset();
 }
+
+TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
+    struct PortInfo input[] = {
+        {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
+        {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
+    };
+
+    VmInterface *flow0, *flow1;
+
+    CreateVmportEnv(input, 2, 1);
+    client->WaitForIdle(5);
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortActive(input, 1));
+    WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 0)));
+    WAIT_FOR(100, 1000, (VmPortPolicyEnable(input, 1)));
+
+    flow0 = VmInterfaceGet(input[0].intf_id);
+    assert(flow0);
+    flow1 = VmInterfaceGet(input[1].intf_id);
+    assert(flow1);
+
+    AddSgEntry("sg1", "sg_acl1", 10, 1, "pass", BIDIRECTION);
+    AddLink("virtual-machine-interface", "flow1", "security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_EQ(flow1->sg_list().list_.size(), 1U);
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                       flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
+
+    //Since policy is enabled on reverse flow's VMI, verify that out SG rules
+    //are present
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_TRUE(fe->data().match_p.out_sg_rule_present);
+
+    //Delete all the flows
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+
+    //Disable policy on flow1 VMI
+    SetPolicyDisabledStatus(&input[1], true);
+    client->WaitForIdle();
+
+    //Verify that policy status of interfaces
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 0)) == true));
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 1)) == false));
+
+    //Setup flows again
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
+
+    //Since policy is disabled on reverse flow's VMI, verify that out SG rules
+    //are not present
+    fe = flow[0].pkt_.FlowFetch();
+    EXPECT_FALSE(fe->data().match_p.out_sg_rule_present);
+
+    //Cleanup
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+    client->Reset();
+    DeleteVmportEnv(input, 2, true, 1);
+    client->WaitForIdle(3);
+    WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
+    WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+}
+
 
 int main(int argc, char **argv) {
     GETUSERARGS();
