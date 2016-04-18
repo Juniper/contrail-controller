@@ -207,6 +207,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Flow records for traffic matching this rule are sent at higher priority'/>
         <xsd:element name="alert" type="xsd:boolean" default="false"              required='optional'
              description='For internal use only'/>
+        <xsd:element name="qos-action" type="xsd:string" required='optional'
+             description='Name of Qos configuration object for QoS marking'/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
@@ -747,6 +749,42 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="IdValuePair">
+    <xsd:all>
+        <xsd:element name="key" type="xsd:integer"/>
+        <xsd:element name="value" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="IdValuePairs">
+    <xsd:all>
+        <xsd:element name="key-value-pair" type="IdValuePair" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingClassData">
+    <xsd:all>
+        <xsd:element name="dscp" type="xsd:integer"/>
+        <xsd:element name="vlan-priority" type="xsd:integer"/>
+        <xsd:element name="mpls-exp" type="xsd:integer"/>
+        <xsd:element name="qos-queue" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingClassIdValuePair">
+    <xsd:all>
+        <xsd:element name="key" type="xsd:integer"/>
+        <xsd:element name="value" type="ForwardingClassData"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingClassIdValuePairs">
+    <xsd:all>
+        <xsd:element name="key-value-pair" type="ForwardingClassIdValuePair" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all', 'optional', 'CRUD',
                                   'Display name user configured string(name) that can be updated any time. Used as openstack name.') -->
@@ -818,6 +856,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="QosConfigLinkType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="vhost"/>
+        <xsd:enumeration value="fabric"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="GlobalQosConfigLinkType">
+    <xsd:element name="qos-rule" type="QosRuleType" required='true'
+        description='List of QoS rule entries'/>
+</xsd:complexType>
+
 <xsd:element name="global-vrouter-config"        type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-global-vrouter-config"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -864,6 +914,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('flow-aging-timeout-list', 'global-vrouter-config', 'optional', 'CRUD',
               'Flow aging timeout per application (protocol, port) list.') -->
+
+<xsd:element name="global-qos-config" type="ifmap:IdentityType"/>
+<!--Identifier "global-qos-config" is used to hang global QoS properties
+    for vhost interface and fabric traffic
+  -->
+<xsd:element name="global-system-config-global-qos-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-global-qos-config',
+          'global-system-config', 'global-qos-config', ['has'], 'required', 'R',
+          'Global QoS system config is object where all global system QoS configuration is present.') -->
+<xsd:element name="global-qos-config-qos-config" type="GlobalQosConfigLinkType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-qos-config-qos-config',
+          'global-qos-config', 'qos-config', ['has'], 'optional', 'CRUD',
+          'Global system QoS config for vhost and fabric traffic .') -->
+<xsd:element name="global-qos-config-forwarding-classes" type="ForwardingClassIdValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('global-qos-config-forwarding-classes', 'global-qos-config', 'key', 'CRUD',
+                 'Map of forwarding class with data value of rewrite for DSCP, .1p and MPLS EXP bits.') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
@@ -924,11 +993,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'Virtual network is collection of end points (interface or ip(s) or MAC(s)) that can talk to each other by default. It is collection of subnets connected by implicit router which default gateway in each subnet.') -->
 
 <xsd:element name="qos-queue" type="ifmap:IdentityType"/>
-<xsd:element name="project-qos-queue"/>
+<xsd:element name="global-qos-config-qos-queue"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('project-qos-queue',
-          'project', 'qos-queue', ['has'], 'optional', 'CRUD',
+     Link('global-qos-config-qos-queue',
+          'global-qos-config', 'qos-queue', ['has'], 'optional', 'CRUD',
           'QOS queue config object in this project.') -->
+<xsd:element name="id" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('id', 'qos-queue', 'required', 'CRUD',
+              'Minimum bandwidth for this queue.') -->
 <xsd:element name="min-bandwidth" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('min-bandwidth', 'qos-queue', 'required', 'CRUD',
@@ -938,35 +1011,39 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('max-bandwidth', 'qos-queue', 'required', 'CRUD',
               'Maximum bandwidth for this queue.') -->
 
-<xsd:element name="qos-forwarding-class" type="ifmap:IdentityType"/>
-<xsd:element name="project-qos-forwarding-class"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('project-qos-forwarding-class',
-          'project', 'qos-forwarding-class', ['has'], 'optional', 'CRUD'
-          'QOS forwarding class is object which represent Marking rules and queueing rules. It is modeled after JUNOS qos forwarding class.') -->
-<xsd:element name="dscp" type="xsd:integer"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Property('dscp', 'qos-forwarding-class', 'optional', 'CRUD',
-              'DSCP value for this qos forwding class.') -->
+<xsd:element name="qos-config" type="ifmap:IdentityType"/>
+<xsd:element name="project-qos-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-qos-config',
+          'project', 'qos-config', ['has'], 'optional', 'CRUD'
+          'QOS configuration specifying marking and queueing value for various QoS values') -->
+<xsd:element name="dscp-entries" type="IdValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('dscp-entries', 'qos-config', 'key', 'CRUD',
+                 'Map of DSCP match condition and applicable forwarding class for packet.') -->
+<xsd:element name="vlan-priority-entries" type="IdValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('vlan-priority-entries', 'qos-config', 'key', 'CRUD',
+                 'Map of .1p priority code to applicable forwarding class for packet.') -->
+<xsd:element name="mpls-exp-entries" type="IdValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('mpls-exp-entries', 'qos-config', 'key', 'CRUD',
+                 'Map of MPLS EXP values to applicable forwarding class for packet.') -->
 <xsd:element name="trusted" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('trusted', 'qos-forwarding-class', 'optional', 'CRUD',
-              'When trusted is true, original DSCP value is copied to overlay header.') -->
-<xsd:element name="qos-forwarding-class-qos-queue"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('qos-forwarding-class-qos-queue',
-          'qos-forwarding-class', 'qos-queue', ['ref'], 'optional', 'CRUD',
-          'Refernce to queue(qos-queue) used by this forwarding class.') -->
-<xsd:element name="virtual-network-qos-forwarding-class"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('virtual-network-qos-forwarding-class',
-          'virtual-network', 'qos-forwarding-class', ['ref'], 'optional', 'CRUD',
-          'Reference to qos-forwarding-class for this virtual network.') -->
-<xsd:element name="virtual-machine-interface-qos-forwarding-class"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('virtual-machine-interface-qos-forwarding-class',
-          'virtual-machine-interface', 'qos-forwarding-class', ['ref'], 'optional', 'CRUD',
-          'Reference to qos-forwarding-class for this virtual machine interface.') -->
+     Property('trusted', 'qos-config', 'CRUD',
+              'Mode specifying if QoS bits in packet should be honoured or not.') -->
+
+<xsd:element name="virtual-network-qos-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-qos-config',
+          'virtual-network', 'qos-config', ['ref'], 'optional', 'CRUD',
+          'Reference to QoS configuration for this virtual network.') -->
+<xsd:element name="virtual-machine-interface-qos-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-qos-config',
+          'virtual-machine-interface', 'qos-config', ['ref'], 'optional', 'CRUD',
+          'Reference to QoS config for this virtual machine interface.') -->
 
 <xsd:simpleType name="VxlanNetworkIdentifierType">
      <xsd:restriction base="xsd:integer">
@@ -1354,8 +1431,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="fat-flow-protocol" type="ProtocolType" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
-  
-  
 
 <!--
     The protocols for which flows on the virtual-machine-interface fall
@@ -2258,6 +2333,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="key-value-pair" type="KeyValuePair" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
+
 <!--
     Service appliance Set
         This is the collection of service appliances.
