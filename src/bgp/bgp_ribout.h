@@ -261,7 +261,8 @@ public:
     const RibPeerSet &PeerSet() const;
     void GetSubsetPeerSet(RibPeerSet *peerset, const IPeerUpdate *cpeer) const;
 
-    BgpTable* table() const { return table_; }
+    BgpTable* table() { return table_; }
+    const BgpTable* table() const { return table_; }
 
     const RibExportPolicy &ExportPolicy() const { return policy_; }
 
@@ -277,6 +278,7 @@ public:
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
     as_t peer_as() const { return policy_.as_number; }
     bool as_override() const { return policy_.as_override; }
+    bool llgr() const { return policy_.llgr; }
     const IpAddress &nexthop() const { return policy_.nexthop; }
     bool IsEncodingXmpp() const {
         return (policy_.encoding == RibExportPolicy::XMPP);

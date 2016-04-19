@@ -43,6 +43,7 @@ struct CommunitySpec : public BgpAttribute {
 
 class Community {
 public:
+    typedef std::vector<uint32_t> CommunityList;
     explicit Community(CommunityDB *comm_db)
         : comm_db_(comm_db) {
         refcount_ = 0;
@@ -125,6 +126,7 @@ public:
                               const std::vector<uint32_t> &value);
     CommunityPtr RemoveAndLocate(const Community *src,
                                  const std::vector<uint32_t> &value);
+    CommunityPtr RemoveAndLocate(const Community *src, uint32_t value);
 
 private:
 };

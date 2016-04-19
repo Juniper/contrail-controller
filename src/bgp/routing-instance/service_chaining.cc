@@ -532,6 +532,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             service_chain_route->FindPath(BgpPath::ServiceChain, NULL,
                                           path_id);
         bool is_stale = false;
+        bool is_llgr_stale = false;
         bool path_updated = false;
         if (existing_path != NULL) {
             // Existing path can be reused.
@@ -544,6 +545,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             // Remove existing path, new path will be added below.
             path_updated = true;
             is_stale = existing_path->IsStale();
+            is_llgr_stale = existing_path->IsLlgrStale();
             service_chain_route->RemovePath(
                 BgpPath::ServiceChain, NULL, path_id);
         }
@@ -553,6 +555,8 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
                         connected_path->GetFlags(), connected_path->GetLabel());
         if (is_stale)
             new_path->SetStale();
+        if (is_llgr_stale)
+            new_path->SetLlgrStale();
 
         new_path_ids.insert(path_id);
         service_chain_route->InsertPath(new_path);

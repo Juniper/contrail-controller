@@ -83,8 +83,6 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
         RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
-    BgpTable *table = ribout_->table();
-
     // Go through all UpdateInfo elements for the RouteUpdate.
     RibPeerSet rt_blocked;
     for (UpdateInfoSList::List::iterator iter = rt_update->Updates()->begin();
@@ -116,7 +114,7 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
         RibPeerSet msg_blocked;
         bool msg_sent = false;
         auto_ptr<Message> message(
-            builder_->Create(table, &uinfo->roattr, rt_update->route()));
+            builder_->Create(ribout_, &uinfo->roattr, rt_update->route()));
         if (message.get() != NULL) {
             UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
             message->Finish();

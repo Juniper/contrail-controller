@@ -330,11 +330,12 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
     if (!family_attributes ||
         family_attributes->gateway_address.is_unspecified()) {
         return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
-            as_override_, -1, 0);
+            as_override_, peer_close_->IsCloseLongLivedGraceful(), -1, 0);
     } else {
         IpAddress nexthop = family_attributes->gateway_address;
         return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
-            as_override_, nexthop, -1, 0);
+            as_override_, peer_close_->IsCloseLongLivedGraceful(), nexthop,
+            -1, 0);
     }
 }
 

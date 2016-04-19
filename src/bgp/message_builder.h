@@ -13,6 +13,7 @@ class BgpTable;
 class BgpXmppMessageBuilder;
 class IPeerUpdate;
 class RibOutAttr;
+class RibOut;
 
 class Message {
 public:
@@ -40,7 +41,7 @@ private:
 
 class MessageBuilder {
 public:
-    virtual Message *Create(const BgpTable *table,
+    virtual Message *Create(const RibOut *ribout,
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const = 0;
     static MessageBuilder *GetInstance(RibExportPolicy::Encoding encoding);
