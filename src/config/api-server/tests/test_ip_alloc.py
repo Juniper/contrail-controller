@@ -658,7 +658,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
- 
 #end class TestIpAlloc
 
 if __name__ == '__main__':

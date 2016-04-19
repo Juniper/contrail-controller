@@ -240,6 +240,11 @@ def setup_common_flexmock():
 
     flexmock(disc_client.DiscoveryClient, __init__=stub)
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
+    flexmock(disc_client.DiscoveryClient, publish=stub)
+    flexmock(disc_client.DiscoveryClient, subscribe=stub)
+    flexmock(disc_client.DiscoveryClient, syslog=stub)
+    flexmock(disc_client.DiscoveryClient, def_pub=stub)
+
     flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
     flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
 

@@ -8,6 +8,7 @@ from vnc_quota import *
 from pprint import pformat
 from cfgm_common import jsonutils as json
 import cfgm_common.exceptions
+import cfgm_common.utils
 try:
     #python2.7
     from collections import OrderedDict
@@ -364,6 +365,7 @@ class AddrMgmt(object):
                                 obj_type='virtual-network',
                                 obj_ids={'uuid': vn_uuid},
                                 obj_fields=['network_ipam_refs'])
+
             if not ok:
                 raise VncError(result)
 
@@ -734,11 +736,18 @@ class AddrMgmt(object):
                     'instance-ip', {'uuid': ref['uuid']})
             except cfgm_common.exceptions.NoIdError:
                 continue
-
             if not ok:
-                continue
+                self.config_log(
+                    "Error in subnet delete instance-ip check: %s" %(result),
+                    level=SandeshLevel.SYS_ERR)
+                return False, result
 
-            inst_ip = result.get('instance_ip_address', None)
+            inst_ip = result.get('instance_ip_address')
+            if not inst_ip:
+                self.config_log(
+                    "Error in subnet delete ip null: %s" %(ref['uuid']),
+                    level=SandeshLevel.SYS_ERR)
+                continue
             if not all_matching_cidrs(inst_ip, requested_subnets):
                 return False,\
                     "Cannot Delete IP Block, IP(%s) is in use"\
@@ -751,9 +760,12 @@ class AddrMgmt(object):
                     'floating-ip-pool', {'uuid': ref['uuid']})
             except cfgm_common.exceptions.NoIdError:
                 continue
-
             if not ok:
-                continue
+                self.config_log(
+                    "Error in subnet delete floating-ip-pool check: %s"
+                        %(result),
+                    level=SandeshLevel.SYS_ERR)
+                return False, result
 
             floating_ips = result.get('floating_ips', [])
             for floating_ip in floating_ips:
@@ -764,11 +776,20 @@ class AddrMgmt(object):
                         'floating-ip', {'uuid': floating_ip['uuid']})
                 except cfgm_common.exceptions.NoIdError:
                     continue
+                if not read_ok:
+                    self.config_log(
+                        "Error in subnet delete floating-ip check: %s"
+                            %(read_result),
+                        level=SandeshLevel.SYS_ERR)
+                    return False, result
 
-                if not ok:
+                fip_addr = read_result.get('floating_ip_address')
+                if not fip_addr:
+                    self.config_log(
+                        "Error in subnet delete fip null: %s"
+                        %(floating_ip['uuid']),
+                        level=SandeshLevel.SYS_ERR)
                     continue
-
-                fip_addr = read_result.get('floating_ip_address', None)
                 if not all_matching_cidrs(fip_addr, requested_subnets):
                     return False,\
                         "Cannot Delete IP Block, Floating IP(%s) is in use"\
@@ -848,7 +869,11 @@ class AddrMgmt(object):
 
     def ip_alloc_notify(self, ip_addr, vn_fq_name):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        subnet_dicts = self._get_subnet_dicts(vn_fq_name)
+        try:
+            subnet_dicts = self._get_subnet_dicts(vn_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return
+
         for subnet_name in subnet_dicts:
             # create subnet_obj internally if it was created by some other
             # api-server before
@@ -956,6 +981,41 @@ class AddrMgmt(object):
                 subnet_obj.ip_free(IPAddress(ip_addr))
                 break
     # end ip_free_notify
+
+    # Given IP address count on given virtual network, subnet/List of subnet
+    def ip_count(self, obj_dict, subnet=None):
+        db_conn = self._get_db_conn()
+        addr_num = 0
+        if not subnet:
+            return addr_num
+
+        instip_refs = obj_dict.get('instance_ip_back_refs', None)
+        if instip_refs:
+            for ref in instip_refs:
+                uuid = ref['uuid']
+                try:
+                    (ok, result) = db_conn.dbe_read(
+                        'instance-ip', {'uuid': uuid})
+                    inst_ip = result.get('instance_ip_address')
+                    if not inst_ip:
+                        self.config_log(
+                            "Error in ip_count, ip null: %s" %(uuid),
+                            level=SandeshLevel.SYS_ERR)
+                        continue
+                    if IPAddress(inst_ip) in IPNetwork(subnet):
+                        addr_num += 1
+                except cfgm_common.exceptions.NoIdError:
+                    continue
+                except Exception as e:
+                    ok = False
+                    result = cfgm_common.utils.detailed_traceback()
+                if not ok:
+                    self.config_log(result, level=SandeshLevel.SYS_ERR)
+                    continue
+
+
+        return addr_num
+    # end ip_count
 
     def mac_alloc(self, obj_dict):
         uid = obj_dict['uuid']
