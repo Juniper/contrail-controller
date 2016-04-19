@@ -54,14 +54,12 @@ bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
         return true;
     } 
 
+    // When ID_PERMS is not present, ignore the request
     IFMapAgentTable::RequestKey *key =
         static_cast<IFMapAgentTable::RequestKey *>(req->key.get());
     LOG(ERROR, "ID-PERM not set for object <" << key->id_name << "> Table <" <<
-        table->name() << ">. Converting to DELETE");
-
-    // Convert operation to DELETE if ID_PERMS is not present
-    req->oper = DBRequest::DB_ENTRY_DELETE;
-    return true;
+        table->name() << ">. Ignoring it");
+    return false;
 }
 
 void CfgFilter::Init() {
