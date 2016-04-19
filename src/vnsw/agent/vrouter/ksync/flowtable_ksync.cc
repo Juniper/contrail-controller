@@ -187,6 +187,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     // Index Manager
     if (gen_id_ != evict_gen_id_) {
         // skip sending update to vrouter for evicted entry
+        flow_entry_->LogFlow(FlowEventLog::FLOW_MSG_SKIP_EVICTED, this,
+                             hash_id_, evict_gen_id_);
         return 0;
     }
 
