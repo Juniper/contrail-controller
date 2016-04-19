@@ -130,10 +130,10 @@ class DictST(object):
     # end get
 
     @classmethod
-    def locate(cls, name, *args):
+    def locate(cls, name, *args, **kwargs):
         if name not in cls._dict:
             try:
-                cls._dict[name] = cls(name, *args)
+                cls._dict[name] = cls(name, *args, **kwargs)
             except NoIdError as e:
                 _sandesh._logger.error("Exception %s while creating %s for %s",
                                        e, cls.__name__, name)
@@ -2513,7 +2513,9 @@ class FloatingIpST(DictST):
 class VirtualMachineST(DictST):
     _dict = {}
     _si_dict = {}
-    def __init__(self, name, si):
+
+    def __init__(self, name, si, obj=None):
+        self.obj = obj or _vnc_lib.virtual_machine_read(fq_name_str=name)
         self.name = name
         self.interfaces = set()
         self.service_instance = si
@@ -2521,7 +2523,6 @@ class VirtualMachineST(DictST):
         for vmi in VirtualMachineInterfaceST.values():
             if vmi.virtual_machine == name:
                 self.add_interface(vmi.name)
-        self.obj = _vnc_lib.virtual_machine_read(fq_name_str=name)
         self.uuid = self.obj.uuid
     # end __init__
 
@@ -2898,7 +2899,7 @@ class SchemaTransformer(object):
             if si_refs:
                 si_fq_name_str = ':'.join(si_refs[0]['to'])
                 VirtualMachineST.locate(vm.get_fq_name_str(), 
-                   si_fq_name_str)
+                   si_fq_name_str, obj=vm)
             if not index % 100:
                 gevent.sleep(_SLEEP_TIMEOUT)
         elapsed_time = time.time() - start_time
