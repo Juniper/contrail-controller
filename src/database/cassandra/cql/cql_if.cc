@@ -828,8 +828,7 @@ class CqlIf::CqlIfImpl {
         connect_cb_(NULL),
         disconnect_cb_(NULL),
         keyspace_(),
-        io_thread_count_(TaskScheduler::GetInstance()->HardwareThreadCount()
-            /2) {
+        io_thread_count_(2) {
         // Set session state to INIT
         session_state_ = SessionState::INIT;
         // Set contact points and port
@@ -851,6 +850,10 @@ class CqlIf::CqlIfImpl {
         }
         // Set number of IO threads to half the number of cores
         cass_cluster_set_num_threads_io(cluster_.get(), io_thread_count_);
+        cass_cluster_set_pending_requests_high_water_mark(cluster_.get(), 10000);
+        cass_cluster_set_pending_requests_low_water_mark(cluster_.get(), 5000);
+        cass_cluster_set_write_bytes_high_water_mark(cluster_.get(), 128000);
+        cass_cluster_set_write_bytes_low_water_mark(cluster_.get(), 96000);
     }
 
     virtual ~CqlIfImpl() {
