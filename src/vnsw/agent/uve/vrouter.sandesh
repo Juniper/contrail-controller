@@ -175,6 +175,7 @@ struct VrouterFlowRate {
     4: u32 deleted_flows;
     5: u32 max_flow_deletes_per_second;
     6: u32 min_flow_deletes_per_second;
+    7: optional u64 active_flows; //'dial' type. So no diff. Always aggregate
 }
 
 struct VrouterStatsAgent {  // Agent stats
@@ -214,7 +215,6 @@ struct VrouterStatsAgent {  // Agent stats
     18: optional u64 exception_packets_denied; 
     19: optional u64 exception_packets_allowed; 
     20: optional u64 total_flows; 
-    21: optional u64 active_flows; 
     22: optional u64 aged_flows; 
     23: optional u64 aged_flows_dp; 
     24: optional u64 active_flows_dp; 
