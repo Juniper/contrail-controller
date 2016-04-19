@@ -568,12 +568,11 @@ void AgentRouteTable::SquashStalePaths(AgentRoute *route,
         if (path->is_stale() && (path != exception_path)) {
             // Since we squash stales, at any point of time there should be only
             // one stale other than exception_path in list
-            break;
+            DeletePathFromPeer(route->get_table_partition(), route, path);
+            return;
         }
         it++;
     }
-    DeletePathFromPeer(route->get_table_partition(), route, path);
-    return;
 }
 
 uint32_t AgentRoute::GetActiveLabel() const {

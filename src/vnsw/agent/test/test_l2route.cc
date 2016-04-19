@@ -1595,6 +1595,62 @@ TEST_F(RouteTest, StalePathDeleteRouteDelete) {
     client->WaitForIdle();
 }
 
+class SetupTask : public Task {
+    public:
+        SetupTask(RouteTest *test, std::string name) :
+            Task((TaskScheduler::GetInstance()->
+                  GetTaskId("db::DBTable")), 0), test_(test),
+            test_name_(name) {
+        }
+
+        virtual bool Run() {
+            if (test_name_ == "SquashPathTest_1") {
+                char local_vm_mac_str_[100];
+                MacAddress  local_vm_mac_;
+                Ip4Address  local_vm_ip4_;
+                char local_vm_ip4_str_[100];
+                strcpy(local_vm_ip4_str_, "1.1.1.10");
+                local_vm_ip4_ = Ip4Address::from_string(local_vm_ip4_str_);
+                strcpy(local_vm_mac_str_, "00:00:01:01:01:10");
+                local_vm_mac_ = MacAddress::FromString(local_vm_mac_str_);
+                EvpnRouteEntry *rt = EvpnRouteGet("vrf1",
+                                                  local_vm_mac_,
+                                                  local_vm_ip4_,
+                                                  0);
+                const VrfEntry *vrf = VrfGet("vrf1");
+                vrf->GetEvpnRouteTable()->SquashStalePaths(rt, NULL);
+            }
+            return true;
+        }
+    std::string Description() const { return "SetupTask"; }
+    private:
+        RouteTest *test_;
+        std::string test_name_;
+};
+
+//Bug# 1571598 
+TEST_F(RouteTest, SquashPathTest_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    EvpnRouteEntry *rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(rt->GetActivePath() != NULL);
+    SetupTask * task = new SetupTask(this, "SquashPathTest_1");
+    TaskScheduler::GetInstance()->Enqueue(task);
+    client->WaitForIdle();
+    rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
+    EXPECT_TRUE(rt != NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
