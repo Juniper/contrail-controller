@@ -16,6 +16,7 @@
 #include <net/address.h>
 #include <base/task.h>
 #include <base/logging.h>
+#include <base/timer.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/common/vns_constants.h>
@@ -128,8 +129,10 @@ private:
             }
             // Send the flows periodically
             int lflow_cnt = 0;
+            uint64_t diff_time = 0;
             for (std::vector<FlowLogData>::iterator it = mgen_->flows_.begin() +
                  mgen_->flow_counter_; it != mgen_->flows_.end(); ++it) {
+                uint64_t stime = UTCTimestampUsec();
                 FlowLogData &flow_data(*it);
                 uint64_t new_packets(mgen_->dFlowPktsPerSec(mgen_->rgen_));
                 uint64_t new_bytes(new_packets *
@@ -145,7 +148,16 @@ private:
                 FLOW_LOG_DATA_OBJECT_SEND(v);
                 lflow_cnt++;
                 mgen_->flow_counter_++;
+                diff_time += UTCTimestampUsec() - stime;
+                if (diff_time >= 1000000) {
+                    if (lflow_cnt < mgen_->num_flows_in_iteration_) {
+                        LOG(ERROR, "Unable to send at " <<
+                            mgen_->num_flows_in_iteration_ << " rate");
+                        return false;
+                    }
+                }
                 if (lflow_cnt == mgen_->num_flows_in_iteration_) {
+                    usleep(1000000-diff_time);
                     return false;
                 }
             }
