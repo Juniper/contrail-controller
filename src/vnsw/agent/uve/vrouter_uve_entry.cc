@@ -110,13 +110,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    uint64_t active_flow_count = agent_->pkt()->flow_table()->Size();
-    if (prev_stats_.get_active_flows() != active_flow_count || first) {
-        stats.set_active_flows(active_flow_count);
-        prev_stats_.set_active_flows(active_flow_count);
-        change = true;
-    }
-
     if (prev_stats_.get_aged_flows() !=
             agent_->stats()->flow_aged() || first) {
         stats.set_aged_flows(agent_->stats()->flow_aged());
@@ -244,6 +237,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
             flow_rate.set_deleted_flows(aged_flows);
             flow_rate.set_max_flow_deletes_per_second(max_del_rate);
             flow_rate.set_min_flow_deletes_per_second(min_del_rate);
+            flow_rate.set_active_flows(agent_->pkt()->flow_table()->Size());
             stats.set_flow_rate(flow_rate);
             change = true;
             agent_->stats()->ResetFlowAddMinMaxStats(cur_time);
