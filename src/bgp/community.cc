@@ -163,6 +163,13 @@ CommunityPtr CommunityDB::RemoveAndLocate(const Community *src,
     return Locate(clone);
 }
 
+CommunityPtr CommunityDB::RemoveAndLocate(const Community *src,
+                                          uint32_t value) {
+    Community::CommunityList communities;
+    communities.push_back(value);
+    return RemoveAndLocate(src, communities);
+}
+
 string ExtCommunitySpec::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "ExtCommunity <code: %d, flags: %02x>:%d",

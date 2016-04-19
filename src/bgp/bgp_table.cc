@@ -125,6 +125,57 @@ void BgpTable::RibOutDelete(const RibExportPolicy &policy) {
     ribout_map_.erase(loc);
 }
 
+//
+// Process Long Lived Graceful Restart state information.
+//
+// For LLGR_STALE paths, if the peer supports LLGR then attach LLGR_STALE
+// community. Otherwise, strip LLGR_STALE community, reduce LOCAL_PREF and
+// attach NO_EXPORT community instead.
+//
+void BgpTable::ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
+                                BgpAttr *attr) {
+    if (!server() || !server()->comm_db())
+        return;
+
+    bool llgr_stale_comm = attr->community() &&
+        attr->community()->ContainsValue(CommunityType::LlgrStale);
+
+    // If the path is not marked as llgr_stale or if it does not have the
+    // LLGR_STALE community, then no action is necessary.
+    if (!path->IsLlgrStale() && !llgr_stale_comm)
+        return;
+
+    // If peers support LLGR, then attach LLGR_STALE community and return.
+    if (ribout->llgr()) {
+        if (!llgr_stale_comm) {
+            CommunityPtr comm = server()->comm_db()->AppendAndLocate(
+                    attr->community(), CommunityType::LlgrStale);
+            attr->set_community(comm);
+        }
+        return;
+    }
+
+    // Peers do not understand LLGR. Bring down local preference instead to
+    // make the advertised path less preferred.
+    attr->set_local_pref(0);
+
+    // Remove LLGR_STALE community as the peers do not support LLGR.
+    if (llgr_stale_comm) {
+        CommunityPtr comm = server()->comm_db()->RemoveAndLocate(
+                                attr->community(), CommunityType::LlgrStale);
+        attr->set_community(comm);
+    }
+
+    // Attach NO_EXPORT community as well to make sure that this path does not
+    // exits local AS, unless it is already present.
+    if (!attr->community() ||
+        !attr->community()->ContainsValue(CommunityType::NoExport)) {
+        CommunityPtr comm = server()->comm_db()->AppendAndLocate(
+                                attr->community(), CommunityType::NoExport);
+        attr->set_community(comm);
+    }
+}
+
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         const RibPeerSet &peerset) {
     const BgpPath *path = route->BestPath();
@@ -146,11 +197,15 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     const BgpAttr *attr = path->GetAttr();
 
     RibPeerSet new_peerset = peerset;
+    BgpAttr *clone;
 
     // LocalPref, Med and AsPath manipulation is needed only if the RibOut
     // has BGP encoding. Similarly, well-known communities do not apply if
     // the encoding is not BGP.
-    if (ribout->IsEncodingBgp()) {
+    if (!ribout->IsEncodingBgp()) {
+        clone = new BgpAttr(*attr);
+    } else {
+
         // Handle well-known communities.
         if (attr->community() != NULL &&
             attr->community()->communities().size()) {
@@ -180,7 +235,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     return NULL;
             }
 
-            BgpAttr *clone = new BgpAttr(*attr);
+            clone = new BgpAttr(*attr);
 
             // Retain LocalPref value if set, else set default to 100.
             if (clone->local_pref() == 0)
@@ -194,9 +249,6 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 AsPathSpec as_path;
                 clone->set_as_path(&as_path);
             }
-
-            attr_ptr = clone->attr_db()->Locate(clone);
-            attr = attr_ptr.get();
         } else if (ribout->peer_type() == BgpProto::EBGP) {
             // Don't advertise routes from non-master instances if there's
             // no nexthop. The ribout has to be for bgpaas-clients because
@@ -228,7 +280,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 }
             }
 
-            BgpAttr *clone = new BgpAttr(*attr);
+            clone = new BgpAttr(*attr);
 
             // Remove non-transitive attributes.
             // Note that med is handled further down.
@@ -274,15 +326,14 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 clone->set_as_path(as_path_ptr);
                 delete as_path_ptr;
             }
-
-            attr_ptr = clone->attr_db()->Locate(clone);
-            attr = attr_ptr.get();
         }
     }
 
+    ProcessLlgrState(ribout, path, clone);
+    attr_ptr = clone->attr_db()->Locate(clone);
     UpdateInfo *uinfo = new UpdateInfo;
     uinfo->target = new_peerset;
-    uinfo->roattr = RibOutAttr(route, attr, ribout->IsEncodingXmpp());
+    uinfo->roattr = RibOutAttr(route, attr_ptr.get(), ribout->IsEncodingXmpp());
     return uinfo;
 }
 

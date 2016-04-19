@@ -8,17 +8,21 @@
 #include "bgp/bgp_proto.h"
 #include "bgp/message_builder.h"
 
+class RibOut;
+
 class BgpMessage : public Message {
 public:
     explicit BgpMessage(const BgpTable *table = NULL);
     virtual ~BgpMessage();
-    bool Start(const RibOutAttr *roattr, const BgpRoute *route);
+    bool Start(const RibOut *ribout, const RibOutAttr *roattr,
+               const BgpRoute *route);
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual void Finish();
     virtual const uint8_t *GetData(IPeerUpdate *ipeer_update, size_t *lenp);
 
 private:
-    bool StartReach(const RibOutAttr *roattr, const BgpRoute *route);
+    bool StartReach(const RibOut *ribout, const RibOutAttr *roattr,
+                    const BgpRoute *route);
     bool StartUnreach(const BgpRoute *route);
     bool UpdateLength(const char *tag, int size, int delta);
 
@@ -33,7 +37,7 @@ private:
 class BgpMessageBuilder : public MessageBuilder {
 public:
     BgpMessageBuilder();
-    virtual Message *Create(const BgpTable *table,
+    virtual Message *Create(const RibOut *ribout,
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const;
 

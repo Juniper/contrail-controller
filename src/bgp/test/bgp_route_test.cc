@@ -8,6 +8,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_route.h"
 #include "control-node/control_node.h"
+#include "net/community_type.h"
 
 
 using std::string;
@@ -493,6 +494,166 @@ TEST_F(BgpRouteTest, PathCompareMed4) {
 
     EXPECT_EQ(1, path1.PathCompare(path2, false));
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
+}
+
+//
+// LlgrStale path is considered worse.
+// Path2 is marked as LlgrStale
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+    path2.SetLlgrStale();
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// LlgrStale path is considered worse.
+// Path2 is tagged with LLGR_STALE community
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    CommunitySpec comm_spec1;
+    comm_spec1.communities.push_back(CommunityType::LlgrStale);
+    spec1.push_back(&comm_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    CommunitySpec comm_spec2;
+    comm_spec2.communities.push_back(CommunityType::LlgrStale);
+    spec2.push_back(&comm_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// LlgrStale path is considered worse.
+// Path2 is both marked LlgrStale and is tagged with LLGR_STALE community
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    CommunitySpec comm_spec2;
+    comm_spec2.communities.push_back(CommunityType::LlgrStale);
+    spec2.push_back(&comm_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+    path2.SetLlgrStale();
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Llgr Paths with same router id are considered are equal.
+// Both Path1 and Path2 are marked LlgrStale
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale4) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+    path1.SetLlgrStale();
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+    path2.SetLlgrStale();
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+}
+
+//
+// Llgr Paths with same router id are considered are equal.
+// Both Path1 and Path2 are tagged with LLGR_STALE community
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale5) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    CommunitySpec comm_spec1;
+    comm_spec1.communities.push_back(CommunityType::LlgrStale);
+    spec1.push_back(&comm_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    CommunitySpec comm_spec2;
+    comm_spec2.communities.push_back(CommunityType::LlgrStale);
+    spec2.push_back(&comm_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+}
+
+//
+// Llgr Paths with same router id are considered are equal.
+// Both Path1 and Path2 are marked LlgrStale and
+// Both Path1 and Path2 are tagged with LLGR_STALE community
+//
+TEST_F(BgpRouteTest, PathCompareLlgrStale6) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    CommunitySpec comm_spec1;
+    comm_spec1.communities.push_back(CommunityType::LlgrStale);
+    spec1.push_back(&comm_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+    path1.SetLlgrStale();
+
+    BgpAttrSpec spec2;
+    CommunitySpec comm_spec2;
+    comm_spec2.communities.push_back(CommunityType::LlgrStale);
+    spec1.push_back(&comm_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+    path2.SetLlgrStale();
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
 }
 
 static void SetUp() {

@@ -540,7 +540,8 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
 
         // Skip if the source peer is down.
-        if (!path->IsStale() && path->GetPeer() && !path->GetPeer()->IsReady())
+        if (!path->IsStale() && !path->IsLlgrStale() && path->GetPeer() &&
+                !path->GetPeer()->IsReady())
             continue;
 
         // No need to replicate the replicated path.
