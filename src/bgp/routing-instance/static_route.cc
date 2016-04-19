@@ -512,11 +512,13 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         BgpPath *existing_path = static_route->FindPath(BgpPath::StaticRoute,
                                                         NULL, path_id);
         bool is_stale = false;
+        bool is_llgr_stale = false;
         if (existing_path != NULL) {
             if ((new_attr.get() != existing_path->GetAttr()) ||
                 (nexthop_route_path->GetLabel() != existing_path->GetLabel())) {
                 // Update Attributes and notify (if needed)
                 is_stale = existing_path->IsStale();
+                is_llgr_stale = existing_path->IsLlgrStale();
                 static_route->RemovePath(BgpPath::StaticRoute, NULL, path_id);
             } else {
                 continue;
@@ -528,6 +530,8 @@ void StaticRoute<T>::AddStaticRoute(NexthopPathIdList *old_path_ids) {
                 nexthop_route_path->GetFlags(), nexthop_route_path->GetLabel());
         if (is_stale)
             new_path->SetStale();
+        if (is_llgr_stale)
+            new_path->SetLlgrStale();
 
         static_route->InsertPath(new_path);
         partition->Notify(static_route);

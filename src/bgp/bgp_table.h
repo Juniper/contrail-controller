@@ -153,6 +153,9 @@ public:
     bool IsContributingRoute(const BgpRoute *route) const;
 
 private:
+    BgpAttrPtr ProcessLlgrState(const RibOut *ribout, BgpAttrPtr attr_ptr,
+                                bool path_llgr);
+
     class DeleteActor;
     friend class BgpTableTest;
     virtual BgpRoute *TableFind(DBTablePartition *rtp,

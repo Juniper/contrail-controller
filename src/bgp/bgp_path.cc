@@ -65,8 +65,12 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Route without LLGR_STALE community is always preferred over one with.
     bool llgr_stale = attr_->community() && attr_->community()->ContainsValue(
                                                 CommunityType::LlgrStale);
+    llgr_stale |= IsLlgrStale();
+
     bool rllgr_stale = rattr->community() && rattr->community()->ContainsValue(
                                                  CommunityType::LlgrStale);
+    rllgr_stale |= rhs.IsLlgrStale();
+
     KEY_COMPARE(llgr_stale, rllgr_stale);
 
     // For ECMP paths, above checks should suffice
