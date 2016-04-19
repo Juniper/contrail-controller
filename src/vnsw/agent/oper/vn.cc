@@ -940,6 +940,7 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
 
             if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
                 (*it_old).dhcp_enable = (*it_new).dhcp_enable;
+                change = true;
             }
 
             it_old++;
