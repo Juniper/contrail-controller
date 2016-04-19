@@ -870,8 +870,11 @@ TEST_F(CfgTest, CfgUuidNullDelete) {
     //Ensure that Oper exists
     ASSERT_TRUE(VnFind(1));
 
+    //We no longer consider absence of id-perms as a delete trigger.
+    //So modifying the following to DelVn
     //Send Uuid zero and verify that node is deleted
-    AddVn("vn1", 0);
+    //AddVn("vn1", 0);
+    DelVn("vn1");
     client->WaitForIdle();
 
     node = table->FindNode("vn1");
