@@ -30,10 +30,14 @@ PeerCloseManager::PeerCloseManager(IPeer *peer) :
         close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
     stats_.init++;
     if (peer->server()) {
-        stale_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
-                                                 "Graceful Restart StaleTimer");
-        sweep_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
-                                                 "Graceful Restart SweepTimer");
+        stale_timer_ =
+            TimerManager::CreateTimer(*peer->server()->ioservice(),
+                "Graceful Restart StaleTimer",
+                TaskScheduler::GetInstance()->GetTaskId("bgp::Config"));
+        sweep_timer_ =
+            TimerManager::CreateTimer(*peer->server()->ioservice(),
+                "Graceful Restart SweepTimer",
+                TaskScheduler::GetInstance()->GetTaskId("bgp::Config"));
     }
 }
 
@@ -424,9 +428,10 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
             case MembershipRequest::RIBIN_SWEEP:
 
                 // Stale paths must be deleted.
-                if (!path->IsStale())
+                if (!path->IsStale() && !path->IsLlgrStale())
                     return;
                 path->ResetStale();
+                path->ResetLlgrStale();
                 stats_.deleted_state_paths++;
                 oper = DBRequest::DB_ENTRY_DELETE;
                 attrs = NULL;
@@ -441,6 +446,12 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                 break;
 
             case MembershipRequest::RIBIN_STALE:
+
+                // If path is already marked as stale, then there is no need to
+                // process again. This can happen if the session flips while in
+                // GR_TIMER state.
+                if (path->IsStale())
+                    continue;
 
                 // This path must be marked for staling. Update the local
                 // preference and update the route accordingly.
@@ -462,21 +473,14 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                     break;
                 }
 
-                // Attach LLGR_STALE community to the route in order to
-                // depreference this path in the network.
+                // If path is already marked as llgr_stale, then there is no
+                // need to process again. This can happen if the session flips
+                // while in LLGR_TIMER state.
+                if (path->IsLlgrStale())
+                    continue;
+
                 attrs = path->GetAttr();
-                if (!path->GetAttr()->community() ||
-                    !path->GetAttr()->community()->ContainsValue(
-                        CommunityType::LlgrStale)) {
-                    CommunityPtr new_community =
-                        peer_->server()->comm_db()->AppendAndLocate(
-                                path->GetAttr()->community(),
-                                CommunityType::LlgrStale);
-                    attrs =
-                        peer_->server()->attr_db()->ReplaceCommunityAndLocate(
-                                path->GetAttr(), new_community);
-                }
-                stale = BgpPath::Stale;
+                stale = BgpPath::LlgrStale;
                 oper = DBRequest::DB_ENTRY_ADD_CHANGE;
                 stats_.marked_llgr_stale_paths++;
                 break;

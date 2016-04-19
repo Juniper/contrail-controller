@@ -214,7 +214,7 @@ protected:
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0) {
-        RibExportPolicy policy(type, encoding, as_number, false, -1, 0);
+        RibExportPolicy policy(type, encoding, as_number, false, false, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
         RegisterRibOutPeers();
     }
@@ -223,7 +223,15 @@ protected:
             RibExportPolicy::Encoding encoding, as_t as_number,
             bool as_override, IpAddress nexthop) {
         RibExportPolicy policy(
-            type, encoding, as_number, as_override, nexthop, -1, 0);
+            type, encoding, as_number, as_override, false, nexthop, -1, 0);
+        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        RegisterRibOutPeers();
+    }
+
+    void CreateRibOut(BgpProto::BgpPeerType type,
+            RibExportPolicy::Encoding encoding, as_t as_number, bool llgr) {
+        RibExportPolicy policy(
+            type, encoding, as_number, false, llgr, -1, 0);
         ribout_ = table_->RibOutLocate(&mgr_, policy);
         RegisterRibOutPeers();
     }
@@ -317,10 +325,11 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    void AddPath() {
+    BgpPath *AddPath() {
         BgpPath *path =
             new BgpPath(peer_.get(), BgpPath::BGP_XMPP, attr_ptr_, 0, 0);
         rt_.InsertPath(path);
+        return path;
     }
 
     void AddInfeasiblePath() {
@@ -1136,6 +1145,94 @@ TEST_P(BgpTableExportParamTest5, NoStripExtendedCommunity2) {
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest5,
     ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Bool()));
+
+//
+// Long Lived Graceful Restart related tests.
+//
+typedef std::tr1::tuple<bool, bool, bool, bool> TestParams6;
+class BgpTableExportParamTest6 :
+    public BgpTableExportTest,
+    public ::testing::WithParamInterface<TestParams6> {
+    virtual void SetUp() {
+        table_name_ = "bgp.l3vpn.0";
+        peer_llgr_ = std::tr1::get<0>(GetParam());
+        path_llgr_ = std::tr1::get<1>(GetParam());
+        comm_llgr_ = std::tr1::get<2>(GetParam());
+        BgpTableExportTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        BgpTableExportTest::TearDown();
+    }
+
+public:
+    void VerifyLlgrState() {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+
+        // If path is not llgr_stale or if path has no llgr_stale community,
+        // then do not expect any change.
+        if (!path_llgr_ && !comm_llgr_) {
+            EXPECT_EQ(static_cast<Community *>(NULL), attr->community());
+            EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
+            return;
+        }
+
+        // Some community is expected for LLGR_STALE paths.
+        EXPECT_NE(static_cast<Community *>(NULL), attr->community());
+
+        // If peer supports LLGR, then expect attribute with LLGR_STALE
+        // bgp community. Local preference should remain intact. (for ibgp)
+        if (peer_llgr_) {
+            EXPECT_TRUE(
+                    attr->community()->ContainsValue(CommunityType::LlgrStale));
+            EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
+            return;
+        }
+
+        // Since peer does not support LLGR, expect NoExport community.
+        // Local preference should be down as well to 1. (for ibgp)
+        EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::NoExport));
+        EXPECT_EQ(internal_ ? 1 : 0, attr->local_pref());
+    }
+
+    bool peer_llgr_;
+    bool path_llgr_;
+    bool comm_llgr_;
+    bool internal_;
+};
+
+TEST_P(BgpTableExportParamTest6, Llgr) {
+
+    // Create RibOut internal/external with peer support for LLGR (or not)
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, 300, peer_llgr_);
+
+    // If the attribute needs to be tagged with LLGR_STALE, do so.
+    if (comm_llgr_) {
+        CommunityPtr comm = server_.comm_db()->AppendAndLocate(
+                attr_ptr_->community(), CommunityType::LlgrStale);
+        attr_ptr_ = server_.attr_db()->ReplaceCommunityAndLocate(
+                attr_ptr_.get(), comm);
+    }
+
+    // Create path with desired community in the attribute.
+    BgpPath *path = AddPath();
+
+    // Set the llgr stale flag in the path.
+    path_llgr_ ? path->SetLlgrStale() : path->ResetLlgrStale();
+
+    // Run through the export routine and verify generated LLGR attributes.
+    RunExport();
+    VerifyExportAccept();
+    VerifyLlgrState();
+}
+
+INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest6,
+    ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Bool(),
         ::testing::Bool(),
         ::testing::Bool()));
 

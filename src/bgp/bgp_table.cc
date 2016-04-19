@@ -125,6 +125,66 @@ void BgpTable::RibOutDelete(const RibExportPolicy &policy) {
     ribout_map_.erase(loc);
 }
 
+//
+// Process Long Lived Graceful Restart state information.
+//
+// For LLGR_STALE paths, if the peer supports LLGR then attach LLGR_STALE
+// community. Otherwise, strip LLGR_STALE community, reduce LOCAL_PREF and
+// attach NO_EXPORT community instead.
+//
+BgpAttrPtr BgpTable::ProcessLlgrState(const RibOut *ribout, BgpAttrPtr attr_ptr,
+                                      bool path_llgr) {
+    if (!server() || !server()->attr_db() || !server()->comm_db())
+        return attr_ptr;
+
+    bool llgr_stale_comm = attr_ptr->community() &&
+        attr_ptr->community()->ContainsValue(CommunityType::LlgrStale);
+
+    // If the path is not marked as llgr_stale or if it does not have the
+    // LLGR_STALE community, then no action is necessary.
+    if (!path_llgr && !llgr_stale_comm)
+        return attr_ptr;
+
+    // If peers support LLGR, then attach LLGR_STALE community and return.
+    if (ribout->llgr()) {
+        if (!llgr_stale_comm) {
+            CommunityPtr comm = server()->comm_db()->AppendAndLocate(
+                    attr_ptr->community(), CommunityType::LlgrStale);
+            attr_ptr = server()->attr_db()->ReplaceCommunityAndLocate(
+                           attr_ptr.get(), comm);
+
+            // TODO Add support for adding NO_LLGR community based on policy.
+        }
+        return attr_ptr;
+    }
+
+    // Peers do not understand LLGR. Bring down local preference instead to
+    // make the advertised path less preferred.
+    BgpAttr *clone = new BgpAttr(*(attr_ptr.get()));
+    clone->set_local_pref(1);
+
+    // Remove LLGR_STALE community as the peers do not support LLGR.
+    if (llgr_stale_comm) {
+        Community::CommunityList communities;
+        communities.push_back(CommunityType::LlgrStale);
+        clone->set_community(server()->comm_db()->RemoveAndLocate(
+                                 clone->community(), communities));
+    }
+
+    attr_ptr = server()->attr_db()->Locate(clone);
+
+    // Attach NO_EXPORT community as well to make sure that this path does not
+    // exits local AS, unless it is already present.
+    if (!attr_ptr->community() ||
+        !attr_ptr->community()->ContainsValue(CommunityType::NoExport)) {
+        CommunityPtr comm = server()->comm_db()->AppendAndLocate(
+                                attr_ptr->community(), CommunityType::NoExport);
+        attr_ptr = server()->attr_db()->ReplaceCommunityAndLocate(
+                       attr_ptr.get(), comm);
+    }
+    return attr_ptr;
+}
+
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         const RibPeerSet &peerset) {
     const BgpPath *path = route->BestPath();
@@ -165,6 +225,10 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 }
             }
         }
+
+        attr_ptr = ProcessLlgrState(ribout, BgpAttrPtr(attr),
+                                    path->IsLlgrStale());
+        attr = attr_ptr.get();
 
         const IPeer *peer = path->GetPeer();
         if (ribout->peer_type() == BgpProto::IBGP) {
