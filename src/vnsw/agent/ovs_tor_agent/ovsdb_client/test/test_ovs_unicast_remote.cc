@@ -202,7 +202,8 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     req.key.reset(new EvpnRouteKey(agent_->local_peer(),
                                    std::string("test-vrf1"), mac,
                                    zero_ip, 0));
-    req.data.reset(new L2ReceiveRoute(std::string("test-vn1"), 0, 101));
+    req.data.reset(new L2ReceiveRoute(std::string("test-vn1"), 0, 101,
+                                      PathPreference()));
     if (agent_->fabric_evpn_table()) {
         agent_->fabric_evpn_table()->Enqueue(&req);
     }
