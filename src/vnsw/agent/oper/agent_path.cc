@@ -507,11 +507,26 @@ bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (path->path_preference().ConfigChanged(path_preference_)) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
+    if (path->peer() && path->peer()->GetType() == Peer::BGP_PEER) {
+        //Copy entire path preference for BGP peer path,
+        //since allowed-address pair config doesn't modify
+        //preference on BGP path
+        if (path->path_preference() != path_preference_) {
+            path->set_path_preference(path_preference_);
+            ret = true;
+        }
+    }
+
     if (path->ChangeNH(agent, agent->nexthop_table()->l2_receive_nh()) == true)
         ret = true;
 
     return ret;
-} 
+}
 
 bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
     bool ret = false;
