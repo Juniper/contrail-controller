@@ -154,8 +154,7 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
         INDEX_LOCK(index);
         flow->LogFlow(FlowEventLog::FLOW_HANDLE_ASSIGN, kentry, index, gen_id);
         object->UpdateFlowHandle(kentry, index);
-        evict_gen_id = AcquireIndexUnLocked(flow->flow_handle(),
-                                            flow->gen_id(), NULL);
+        evict_gen_id = AcquireIndexUnLocked(index, gen_id, NULL);
         kentry->set_gen_id(gen_id);
         kentry->set_evict_gen_id(evict_gen_id);
     }
