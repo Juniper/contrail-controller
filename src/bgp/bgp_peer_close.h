@@ -5,8 +5,6 @@
 #ifndef SRC_BGP_BGP_PEER_CLOSE_H_
 #define SRC_BGP_BGP_PEER_CLOSE_H_
 
-#include <tbb/recursive_mutex.h>
-
 #include "base/timer.h"
 #include "base/util.h"
 #include "base/queue_task.h"
@@ -89,6 +87,7 @@ private:
     bool ProcessSweepStateActions();
     void TriggerSweepStateActions();
     const std::string GetStateName(State state) const;
+    void CloseInternal();
 
     IPeer *peer_;
     Timer *stale_timer_;
@@ -99,7 +98,7 @@ private:
     int llgr_elapsed_;
     IPeerClose::Families families_;
     Stats stats_;
-    mutable tbb::recursive_mutex mutex_;
+    mutable tbb::mutex mutex_;
 };
 
 #endif  // SRC_BGP_BGP_PEER_CLOSE_H_

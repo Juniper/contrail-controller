@@ -108,7 +108,7 @@ public:
             return NULL;
         }
     };
-    virtual Message *Create(const BgpTable *table,
+    virtual Message *Create(const RibOut *ribout,
                             const RibOutAttr *attr,
                             const BgpRoute *route) const {
         return new MessageMock();
@@ -129,15 +129,16 @@ static RouteUpdate *BuildUpdate(BgpRoute *route, const RibOut &ribout,
 }
 
 static RouteUpdate *BuildWithdraw(BgpRoute *route, const RibOut &ribout) {
-    DBState *state = route->GetState(ribout.table(), ribout.listener_id());
-    RouteState *rs = dynamic_cast<RouteState *>(state);
+    const DBState *state =
+        route->GetState(ribout.table(), ribout.listener_id());
+    const RouteState *rs = dynamic_cast<const RouteState *>(state);
     RouteUpdate *update = new RouteUpdate(route, RibOutUpdates::QUPDATE);
     UpdateInfoSList ulist;
     UpdateInfo *info = new UpdateInfo();
     info->target = ribout.PeerSet();
     ulist->push_front(*info);
     update->SetUpdateInfo(ulist);
-    rs->MoveHistory(update);
+    const_cast<RouteState *>(rs)->MoveHistory(update);
     delete rs;
     return update;
 }
