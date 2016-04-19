@@ -158,7 +158,7 @@ class MockGenerator(object):
                 flow_data.bytes += new_bytes
                 flow_data.diff_packets = new_packets
                 flow_data.diff_bytes = new_bytes
-                flow_object = FlowLogDataObject(flowdata = flow_data,
+                flow_object = FlowLogDataObject(flowdata = [flow_data],
                                   sandesh = self._sandesh_instance)
                 flow_object.send(sandesh = self._sandesh_instance)
                 flow_cnt += 1
