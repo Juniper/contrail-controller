@@ -2007,6 +2007,80 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     EXPECT_FALSE(VrfFind("vrf2"));
 }
 
+/* Test to verify behavior of ServiceVlan activation when service-vrf is
+ * delete marked. This should be treated as DeActivation of  ServiceVlan */
+TEST_F(IntfTest, VmPortServiceVlanVrfDelete_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    client->WaitForIdle();
+
+    //Mark service VRF as deleted
+    VrfEntry *vrf = VrfGet("vrf2", false);
+    EXPECT_TRUE(vrf != NULL);
+    vrf->MarkDelete();
+
+    //Trigger change on VMI (we are doing this by associating secondary IP)
+    AddInstanceIp("instance2", input[0].vm_id, "3.1.1.10");
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance2");
+    client->WaitForIdle();
+
+    //Clear the delete flag from service VRF so that it can be deleted
+    vrf->ClearDelete();
+
+    //Verify that service vlan count is still 1, but it has been deactivated
+    //Deactivation is checked by verifying that service_ip route doesn't exist
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
+
+    //Clean-up
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance2");
+    DelInstanceIp("instance2");
+    //Delete config for vnet1, forcing interface to deactivate
+    //verify that route and service vlan map gets cleaned up
+    DelNode("virtual-machine-interface", input[0].name);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
 //Add and delete static route
 TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {

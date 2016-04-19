@@ -4194,7 +4194,13 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
     VrfEntry *vrf = table->FindVrfRef(vrf_name_);
-    assert(vrf);
+    if (!vrf) {
+        if (!installed_) {
+            return;
+        }
+        DeActivate(interface);
+        return;
+    }
 
     if (label_ == MplsTable::kInvalidLabel) {
         VlanNH::Create(interface->GetUuid(), tag_, vrf_name_, smac_, dmac_);
