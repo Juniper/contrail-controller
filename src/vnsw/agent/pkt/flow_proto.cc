@@ -652,7 +652,7 @@ FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
         return del_tokens_.GetToken(NULL);
         break;
 
-        // FIXME: Remove this post testing
+    case FlowEvent::EVICT_FLOW:
     case FlowEvent::INVALID:
         break;
 
