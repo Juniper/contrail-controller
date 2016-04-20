@@ -32,6 +32,7 @@ from netaddr import IPNetwork, IPAddress, IPSet, IPRange
 
 import bottle
 
+from disc_chash import *
 from disc_utils import *
 import disc_consts
 import disc_exceptions
@@ -76,11 +77,14 @@ class DiscoveryServer():
             'policy_rr': 0,
             'policy_lb': 0,
             'policy_fi': 0,
+            'policy_chash': 0,
             'db_upd_hb': 0,
             'throttle_subs':0,
             '503': 0,
             'lb_count': 0,
             'lb_auto': 0,
+            'lb_partial': 0,
+            'lb_full': 0,
             'db_exc_unknown': 0,
             'db_exc_info': '',
             'wl_rejects_pub': 0,
@@ -179,6 +183,7 @@ class DiscoveryServer():
             LinkObject(
                 'action',
                 self._base_url , '/stats', 'show discovery service stats'))
+        bottle.route('/stats.json', 'GET', self.api_stats_json)
 
         # cleanup
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
@@ -582,35 +587,46 @@ class DiscoveryServer():
         return master_list
 
     # round-robin
-    def service_list_round_robin(self, pubs):
+    def service_list_round_robin(self, client_id, pubs):
         self._debug['policy_rr'] += 1
         return sorted(pubs, key=lambda service: service['ts_use'])
     # end
 
     # load-balance
-    def service_list_load_balance(self, pubs):
+    def service_list_load_balance(self, client_id, pubs):
         self._debug['policy_lb'] += 1
         temp = sorted(pubs, key=lambda service: service['in_use'])
         return self.disco_shuffle(temp)
     # end
 
     # master election
-    def service_list_fixed(self, pubs):
+    def service_list_fixed(self, client_id, pubs):
         self._debug['policy_fi'] += 1
         return sorted(pubs, key=lambda service: service['sequence'])
     # end
 
-    def service_list(self, service_type, pubs):
+    # consistent hash
+    def service_list_chash(self, client_id, pubs):
+        self._debug['policy_chash'] += 1
+        pubs_sid = [pub['service_id'] for pub in pubs]
+        pubs_dict = {pub['service_id']:pub for pub in pubs}
+        ch = ConsistentHash(resource_list=pubs_sid, num_replicas=5)
+        pubs = [pubs_dict[sid] for sid in ch.get_resources(client_id)]
+        return pubs
+
+    def service_list(self, client_id, service_type, pubs):
         policy = self.get_service_config(service_type, 'policy') or 'load-balance'
 
         if 'load-balance' in policy:
             f = self.service_list_load_balance
         elif policy == 'fixed':
             f = self.service_list_fixed
+        elif policy == 'chash':
+            f = self.service_list_chash
         else:
             f = self.service_list_round_robin
 
-        return f(pubs)
+        return f(client_id, pubs)
     # end
 
     """
@@ -761,6 +777,9 @@ class DiscoveryServer():
                 'client_id': client_id,
             }
             self.create_sub_data(client_id, service_type)
+        # honor one-time load-balance if enabled OOB
+        lb_oob = cl_entry.get('load-balance', None)
+        cl_entry['load-balance'] = None
         cl_entry['remote'] = remote
         cl_entry['version'] = version
         cl_entry['ep_type'] = client_type
@@ -775,7 +794,7 @@ class DiscoveryServer():
         pubs = self._db_conn.lookup_service(service_type, include_count=True) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
         pubs_active = self.apply_dsa_config(service_type, pubs_active, cl_entry)
-        pubs_active = self.service_list(service_type, pubs_active)
+        pubs_active = self.service_list(client_id, service_type, pubs_active)
         plist = dict((entry['service_id'],entry) for entry in pubs_active)
         plist_all = dict((entry['service_id'],entry) for entry in pubs)
 
@@ -804,18 +823,28 @@ class DiscoveryServer():
         if count == 0:
             count = len(pubs_active)
 
-        expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
         policy = self.get_service_config(service_type, 'policy')
 
         # Auto load-balance is triggered if enabled and some servers are
-        # more than 5% off expected average allocation.
-        load_balance = (policy == 'dynamic-load-balance')
-        if load_balance:
+        # more than 5% off expected average allocation. If multiple spots
+        # are impacted, we pick one randomly for replacement
+        if len(subs) and (policy == 'dynamic-load-balance' or lb_oob == "partial"):
             total_subs = sum([entry['in_use'] for entry in pubs_active])
             avg = total_subs/len(pubs_active)
+            impacted = [entry['service_id'] for entry in pubs_active if entry['in_use'] > int(1.05*avg)]
+            candidate_list = [(index, item[0]) for index, item in enumerate(subs) if item[0] in impacted]
+            if (len(candidate_list) > 0):
+                index = random.randint(0, len(candidate_list) - 1)
+                self.syslog("impacted %s, candidate_list %s, replace %d" % (impacted, candidate_list, index))
+                replace_candidate = candidate_list[index]
+                subs[replace_candidate[0]] = (replace_candidate[1], True)
+                self._debug['lb_auto'] += 1
+        elif len(subs) and (lb_oob == "full" or policy == 'chash'):
+           subs = [(service_id, True) for service_id, expiry in subs]
 
         # if subscriber in-use-list present, forget previous assignments
         if len(inuse_list):
+            expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
             subs = [(service_id, expiry_dict.get(service_id, False)) for service_id in inuse_list]
 
         if subs and count:
@@ -824,14 +853,17 @@ class DiscoveryServer():
                 # previously published service is gone
                 # force renew for fixed policy since some service may have flapped
                 entry = plist.get(service_id, None)
-                if entry is None or expired or policy == 'fixed' or (load_balance and entry['in_use'] > int(1.05*avg)):
-                    self.syslog("%s del sub, lb=%s, policy=%s, expired=%s" % (cid, load_balance, policy, expired))
+                if entry is None or expired or policy == 'fixed':
+                    # purge previous assignment
+                    self.syslog("%s del sid %s, policy=%s, expired=%s" % (cid, service_id, policy, expired))
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
-                    # load-balance one at at time to avoid churn
-                    if load_balance and entry and entry['in_use'] > int(1.05*avg):
-                        self._debug['lb_auto'] += 1
-                        load_balance = False
-                    continue
+                    if policy == 'fixed':
+                        continue
+                    # replace publisher
+                    if len(pubs_active) == 0:
+                        continue
+                    entry = pubs_active.pop(0)
+                    service_id = entry['service_id']
                 msg = ' subs service=%s, assign=%d, count=%d' % (service_id, assign, count)
                 m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
                 m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
@@ -891,41 +923,34 @@ class DiscoveryServer():
         if service_type is None:
             bottle.abort(405, "Missing service")
 
-        pubs = self._db_conn.lookup_service(service_type, include_count=True) or []
-        if pubs is None:
-            bottle.abort(405, 'Unknown service')
-        pubs_active = [item for item in pubs if not self.service_expired(item)]
+        # load-balance type can be partial or full. Partial replaces one
+        # publisher randomly while latter replaces all.
+        lb_type = "partial"
+        try:
+            json_req = bottle.request.json
+            lb_type = json_req['type'].lower()
+        except Exception as e:
+            pass
+        self.syslog("oob load-balance: %s" % lb_type)
+        self._debug['lb_%s' % lb_type] += 1
+        lb_partial = (lb_type == "partial")
 
-        # only load balance if over 5% deviation from average to avoid churn
-        avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
-        lb_list = dict((item['service_id'],(item['in_use']-int(avg_per_pub))) for item in pubs_active if item['in_use'] > int(1.05*avg_per_pub))
-        if len(lb_list) == 0:
-            return
-
-        clients = self._db_conn.get_all_clients(service_type=service_type)
+        clients = self._db_conn.get_all_clients(service_type = service_type, 
+                      unique_clients = lb_partial)
         if clients is None:
             return
 
-        self.syslog('%s: Initial load-balance server-list: %s, avg-per-pub %d, clients %d' \
-            % (service_type, lb_list, avg_per_pub, len(clients)))
-
-        """
-        Walk through all subscribers and mark one publisher per subscriber down
-        for deletion later. We could have deleted subscription right here.
-        However the discovery server view of subscribers will not match with actual
-        subscribers till respective TTL expire. Note that we only mark down ONE
-        publisher per subscriber to avoid much churn at the subscriber end.
-            self._db_conn.delete_subscription(service_type, client_id, service_id)
-        """
-        clients_lb_done = []
+        # enable one-time load-balancing event for clients of service_type (ref: lb_oob)
         for client in clients:
-            (service_type, client_id, service_id, mtime, ttl) = client
-            if client_id not in clients_lb_done and service_id in lb_list and lb_list[service_id] > 0:
-                self.syslog('expire client=%s, service=%s, ttl=%d' % (client_id, service_id, ttl))
-                self._db_conn.mark_delete_subscription(service_type, client_id, service_id)
-                clients_lb_done.append(client_id)
-                lb_list[service_id] -= 1
-                self._debug['lb_count'] += 1
+            if lb_partial:
+                (service_type, client_id, cl_entry) = client
+                cl_entry['load-balance'] = lb_type
+                self._db_conn.insert_client_data(service_type, client_id, cl_entry)
+                self.syslog('load-balance client=%s, service=%s' % (client_id, service_type))
+            else:
+                (service_type, client_id, service_id, mtime, ttl) = client
+                self._db_conn.delete_subscription(service_type, client_id, service_id)
+                self.syslog('expire client=%s, service=%s' % (client_id, service_id))
         return {}
     # end api_lb_service
 
@@ -974,7 +999,7 @@ class DiscoveryServer():
         if 'application/xml' in ctype:
             response = xmltodict.unparse({'response': response})
         return response
-    # end api_subscribe
+    # end api_query
 
     @db_error_handler
     def show_all_services(self, service_type=None):
@@ -1255,6 +1280,12 @@ class DiscoveryServer():
             rsp += '    </tr>\n'
         return rsp
     # end show_stats
+
+    def api_stats_json(self):
+        stats = self._debug
+        stats.update(self._db_conn.get_debug_stats())
+        return stats
+    # end show_stats_json
 
 # end class DiscoveryServer
 
