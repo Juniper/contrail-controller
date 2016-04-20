@@ -9,16 +9,20 @@ import test_case
 
 import discoveryclient.client as client
 
+server_list = {}
 def info_callback(info, client_id):
     # print 'In subscribe callback handler'
-    print 'client-id %s info %s' % (client_id, info)
-    pass
+    # print 'client-id %s info %s' % (client_id, info)
+    global server_list
+    server_list[client_id] = [entry['@publisher-id'] for entry in info]
+    # print '%32s => %s' % (client_id, server_list[client_id])
 
 """
 Validate publisher in-use count is reasonable (typically
 after load-balance event. Discovery server will try to keep
 in-use count with 5% of expected average. To provide some
-buffer around server calculations, we allow 10% deviation
+buffer around server calculations, we allow 20% deviation,
+specially for small numbers we use in the test
 """
 def validate_assignment_count(response, context):
     services = response['services']
@@ -32,7 +36,21 @@ def validate_assignment_count(response, context):
     avg = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
 
     # return failure status
-    return True in [e['in_use'] > int(1.1*avg) for e in pubs_active]
+    return True in [e['in_use'] > int(1.2*avg) for e in pubs_active]
+
+def validate_lb_position(context):
+    print context
+    position0_servers = {}
+    position1_servers = {}
+    for client_id, slist in server_list.items():
+        if not slist[0] in position0_servers:
+            position0_servers[slist[0]] = 0
+        if not slist[1] in position1_servers:
+            position1_servers[slist[1]] = 0
+        position0_servers[slist[0]] += 1
+        position1_servers[slist[1]] += 1
+    print 'position 0 counters: %s' % position0_servers
+    print 'position 1 counters: %s' % position1_servers
 
 class DiscoveryServerTestCase(test_case.DsTestCase):
     def setUp(self):
@@ -41,7 +59,15 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         ]
         super(DiscoveryServerTestCase, self).setUp(extra_disc_server_config_knobs=extra_config_knobs)
 
+    def tearDown(self):
+        # clear subscriber's server list for every test
+        global server_list
+        server_list = {}
+        super(DiscoveryServerTestCase, self).tearDown()
+
     def test_load_balance(self):
+        global server_list
+
         # publish 3 instances
         tasks = []
         service_type = 'SvcLoadBalance'
@@ -85,6 +111,17 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         response = json.loads(msg)
         self.assertEqual(len(response['services']), subcount*service_count)
 
+        # total subscriptions (must be subscount * service_count)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        subs = sum([item['in_use'] for item in response['services']])
+        self.assertEqual(subs, subcount*service_count)
+
+        validate_lb_position("Server Positions after 3 publishers and initial subscribe")
+        failure = validate_assignment_count(response, 'In-use count after initial subscribe')
+        self.assertEqual(failure, False)
+
         # start one more publisher
         pub_id = 'test_discovery-3'
         pub_data = {service_type : '%s-3' % service_type}
@@ -119,6 +156,7 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         self.assertEqual(entry['in_use'], 0)
 
         # Issue load-balance command
+        print 'Sending load-balance command'
         (code, msg) = self._http_post('/load-balance/%s' % service_type, '')
         self.assertEqual(code, 200)
 
@@ -134,12 +172,10 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         subs = sum([item['in_use'] for item in response['services']])
         self.assertEqual(subs, subcount*service_count)
 
-        # verify newly added in-use count is 10
-        data = [item for item in response['services'] if item['service_id'] == 'test_discovery-3:%s' % service_type]
-        entry = data[0]
-        self.assertEqual(len(data), 1)
-        print 'After LB entry %s' % entry
-        self.assertEqual(entry['in_use'], 10)
+        # verify all servers are load balanced
+        validate_lb_position("Server Positions after LB command")
+        failure = validate_assignment_count(response, 'In-use count after initial subscribe')
+        self.assertEqual(failure, False)
 
     def test_active_load_balance(self):
         # publish 3 instances of service. Active LB must be enabled!
@@ -190,6 +226,8 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         failure = validate_assignment_count(response, 'In-use count just after initial subscribe')
         self.assertEqual(failure, False)
 
+        validate_lb_position("Server Positions after 3 publishers")
+
         # start one more publisher
         pub_id = 'test_discovery-3'
         pub_data = {service_type : '%s-3' % service_type}
@@ -200,6 +238,13 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         task = disc.publish(service_type, pub_data)
         tasks.append(task)
 
+        # ensure all are up
+        time.sleep(1)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 4)
+
         # wait for all TTL to expire before looking at publisher's counters
         print 'Waiting for all client TTL to expire (1 min)'
         time.sleep(1*60)
@@ -209,6 +254,8 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         response = json.loads(msg)
         failure = validate_assignment_count(response, 'In-use count just after bringing up one more publisher')
         self.assertEqual(failure, False)
+
+        validate_lb_position("Server Positions: additional publisher up")
 
         # set operational state down - new service
         payload = {
@@ -228,6 +275,8 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         failure = validate_assignment_count(response, 'In-use count just after publisher-3 down')
         self.assertEqual(failure, False)
 
+        validate_lb_position("Server Positions: additional publisher down")
+
         # set operational state up - again
         payload = {
             'service-type' : '%s' % service_type,
@@ -239,6 +288,8 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         # wait for all TTL to expire before looking at publisher's counters
         print 'Waiting for all client TTL to expire (1 min)'
         time.sleep(1*60)
+
+        validate_lb_position("Server Positions: additional publisher up again")
 
         # total subscriptions must be subscount * service_count
         (code, msg) = self._http_get('/services.json')
@@ -378,9 +429,11 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
             (code, msg) = self._http_post(suburl, json.dumps(payload))
             self.assertEqual(code, 200)
 
+        # verify newly added in-use count is 0
         (code, msg) = self._http_get('/services.json')
         self.assertEqual(code, 200)
         response = json.loads(msg)
-        print response
-        failure = validate_assignment_count(response, 'In-use count after LB command')
-        self.assertEqual(failure, False)
+        data = [item for item in response['services'] if item['service_id'] == '%s:%s' % (pub_id, service_type)]
+        entry = data[0]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(entry['in_use'], 0)

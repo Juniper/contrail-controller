@@ -798,18 +798,25 @@ class DiscoveryServer():
         if count == 0:
             count = len(pubs_active)
 
-        expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
         policy = self.get_service_config(service_type, 'policy')
 
         # Auto load-balance is triggered if enabled and some servers are
         # more than 5% off expected average allocation.
-        load_balance = (policy == 'dynamic-load-balance')
-        if load_balance:
+        replace_candidate = None
+        if len(subs) and policy == 'dynamic-load-balance':
             total_subs = sum([entry['in_use'] for entry in pubs_active])
             avg = total_subs/len(pubs_active)
+            impacted = [entry['service_id'] for entry in pubs_active if entry['in_use'] > int(1.05*avg)]
+            candidate_list = [sid for sid, expiry in subs if sid in impacted]
+            if (len(candidate_list) > 0):
+                index = random.randint(0, len(candidate_list) - 1)
+                self.syslog("impacted %s, candidate_list %s, replace %d" % (impacted, candidate_list, index))
+                replace_candidate = candidate_list[index]
+                self._debug['lb_auto'] += 1
 
         # if subscriber in-use-list present, forget previous assignments
         if len(inuse_list):
+            expiry_dict = dict((service_id,expiry) for service_id, expiry in subs or [])
             subs = [(service_id, expiry_dict.get(service_id, False)) for service_id in inuse_list]
 
         if subs and count:
@@ -818,14 +825,15 @@ class DiscoveryServer():
                 # previously published service is gone
                 # force renew for fixed policy since some service may have flapped
                 entry = plist.get(service_id, None)
-                if entry is None or expired or policy == 'fixed' or (load_balance and entry['in_use'] > int(1.05*avg)):
-                    self.syslog("%s del sub, lb=%s, policy=%s, expired=%s" % (cid, load_balance, policy, expired))
+                if entry is None or expired or policy == 'fixed' or service_id == replace_candidate:
+                    # purge previous assignment
+                    self.syslog("%s del sid %s, policy=%s, expired=%s" % (cid, service_id, policy, expired))
                     self._db_conn.delete_subscription(service_type, client_id, service_id)
-                    # load-balance one at at time to avoid churn
-                    if load_balance and entry and entry['in_use'] > int(1.05*avg):
-                        self._debug['lb_auto'] += 1
-                        load_balance = False
-                    continue
+                    if policy == 'fixed':
+                        continue
+                    # replace publisher
+                    entry = pubs_active.pop(0)
+                    service_id = entry['service_id']
                 msg = ' subs service=%s, assign=%d, count=%d' % (service_id, assign, count)
                 m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
                 m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
@@ -885,41 +893,15 @@ class DiscoveryServer():
         if service_type is None:
             bottle.abort(405, "Missing service")
 
-        pubs = self._db_conn.lookup_service(service_type, include_count=True) or []
-        if pubs is None:
-            bottle.abort(405, 'Unknown service')
-        pubs_active = [item for item in pubs if not self.service_expired(item)]
-
-        # only load balance if over 5% deviation from average to avoid churn
-        avg_per_pub = sum([entry['in_use'] for entry in pubs_active])/len(pubs_active)
-        lb_list = dict((item['service_id'],(item['in_use']-int(avg_per_pub))) for item in pubs_active if item['in_use'] > int(1.05*avg_per_pub))
-        if len(lb_list) == 0:
-            return
-
         clients = self._db_conn.get_all_clients(service_type=service_type)
         if clients is None:
             return
 
-        self.syslog('%s: Initial load-balance server-list: %s, avg-per-pub %d, clients %d' \
-            % (service_type, lb_list, avg_per_pub, len(clients)))
-
-        """
-        Walk through all subscribers and mark one publisher per subscriber down
-        for deletion later. We could have deleted subscription right here.
-        However the discovery server view of subscribers will not match with actual
-        subscribers till respective TTL expire. Note that we only mark down ONE
-        publisher per subscriber to avoid much churn at the subscriber end.
-            self._db_conn.delete_subscription(service_type, client_id, service_id)
-        """
-        clients_lb_done = []
         for client in clients:
             (service_type, client_id, service_id, mtime, ttl) = client
-            if client_id not in clients_lb_done and service_id in lb_list and lb_list[service_id] > 0:
-                self.syslog('expire client=%s, service=%s, ttl=%d' % (client_id, service_id, ttl))
-                self._db_conn.mark_delete_subscription(service_type, client_id, service_id)
-                clients_lb_done.append(client_id)
-                lb_list[service_id] -= 1
-                self._debug['lb_count'] += 1
+            self._db_conn.delete_subscription(service_type, client_id, service_id)
+            self.syslog('expire client=%s, service=%s, ttl=%d' % (client_id, service_id, ttl))
+            self._debug['lb_count'] += 1
         return {}
     # end api_lb_service
 
