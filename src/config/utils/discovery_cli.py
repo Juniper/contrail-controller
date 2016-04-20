@@ -160,7 +160,8 @@ def parse_args():
         '--api-server', help="API server address in the form IP:Port",
         default = '127.0.0.1:8082')
     parser.add_argument(
-        '--load-balance',  help="Load balance specified service type", action="store_true")
+        '--load-balance',  help="Load balance type",
+        choices = ["partial", "full"], default = "partial")
     parser.add_argument(
         '--admin-state', choices = ['up', 'down'],
         help="Set administrative state of a service")
@@ -274,14 +275,15 @@ if args.admin_state:
     if r.status_code != 200:
         print "Operation status %d" % r.status_code
     sys.exit(0)
-elif args.load_balance or args.op == 'load-balance':
+elif args.op == 'load-balance':
     if not args.service_type:
         print 'Please specify service type'
         sys.exit(1)
     if args.service_id:
         print 'Specific service id %s ignored for this operation' % args.service_id
     url = "http://%s:%s/load-balance/%s" % (server_ip, server_port, args.service_type)
-    r = requests.post(url, headers=headers)
+    payload = { 'type': args.load_balance }
+    r = requests.post(url, headers=headers, data=payload)
     if r.status_code != 200:
         print "Operation status %d" % r.status_code
     sys.exit(0)
