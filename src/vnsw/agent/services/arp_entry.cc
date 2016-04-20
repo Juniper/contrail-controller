@@ -40,7 +40,10 @@ void ArpEntry::HandleDerivedArpRequest() {
     } else {
         entry = new ArpEntry(io_, handler_.get(), key, nh_vrf_, ArpEntry::INITING,
                              interface_);
-        arp_proto->AddArpEntry(entry);
+        if (arp_proto->AddArpEntry(entry) == false) {
+            delete entry;
+            return;
+        }
         entry->HandleArpRequest();
     }
 }
