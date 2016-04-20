@@ -3413,11 +3413,6 @@ void FlowTable::SetComponentIndex(FlowEntry *fe, const NextHopKey *nh_key,
     }
 
     const NextHop *nh = rt->GetActiveNextHop();
-    if (nh->GetType() != NextHop::COMPOSITE) {
-        rflow->set_ecmp_rpf_nh(this, 0);
-        return;
-    }
-
     //Set composite NH based on local mpls label flow
     if (mpls_path_select) {
         nh = rt->GetLocalNextHop();
