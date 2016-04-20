@@ -26,6 +26,7 @@ struct SandeshTaskEntry {
 struct SandeshTaskGroup {
     1: string name;
     2: u32 task_id;
+    5: string total_run_time;
     3: list <SandeshTaskEntry> task_entry_list;
     4: optional list <SandeshTaskPolicyEntry> task_policy_list;
 }
