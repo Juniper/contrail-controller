@@ -475,6 +475,10 @@ class OpServer(object):
         if self._args.dup:
             self._hostname += 'dup'
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
+        # Reset the sandesh send rate limit value
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._args.collectors, 'opserver_context',
@@ -759,7 +763,9 @@ class OpServer(object):
             'analytics_data_ttl' : 48,
             'analytics_config_audit_ttl' : -1,
             'analytics_statistics_ttl' : -1,
-            'analytics_flow_ttl' : -1
+            'analytics_flow_ttl' : -1,
+            'sandesh_send_rate_limit': SandeshSystem. \
+                 get_sandesh_send_rate_limit(),
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -851,7 +857,8 @@ class OpServer(object):
             nargs="+")
         parser.add_argument("--auto_db_purge", action="store_true",
             help="Automatically purge database if disk usage cross threshold")
-
+        parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()

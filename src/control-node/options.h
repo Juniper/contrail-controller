@@ -44,6 +44,7 @@ public:
     const bool collectors_configured() const { return collectors_configured_; }
     const int tcp_hold_time() const { return tcp_hold_time_; }
     const bool optimize_snat() const { return optimize_snat_; }
+    const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
 
 private:
 
@@ -94,7 +95,7 @@ private:
     bool collectors_configured_;
     int tcp_hold_time_;
     bool optimize_snat_;
-
+    uint32_t sandesh_ratelimit_;
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };

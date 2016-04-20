@@ -176,6 +176,9 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        if self._args.sandesh_send_rate_limit is not None:
+            SandeshSystem.set_sandesh_send_rate_limit( \
+                self._args.sandesh_send_rate_limit)
         module = Module.DISCOVERY_SERVICE
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -1084,6 +1087,7 @@ def parse_args(args_str):
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
         'worker_id': '0',
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
 
     # per service options
@@ -1170,6 +1174,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
+    parser.add_argument("--sandesh_send_rate_limit", type=int,
+            help="Sandesh send rate limit in messages/sec")
+
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config

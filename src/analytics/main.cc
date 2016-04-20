@@ -356,6 +356,7 @@ int main(int argc, char *argv[])
 
     unsigned short coll_port = analytics.GetCollector()->GetPort();
     VizSandeshContext vsc(&analytics);
+    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     Sandesh::InitCollector(
             module_id,
             analytics.name(),

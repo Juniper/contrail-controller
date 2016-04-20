@@ -131,6 +131,10 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.xmpp_server_key",
              opt::value<string>()->default_value("/etc/contrail/ssl/private/server.key"),
              "XMPP Server ssl private key")
+        ("DEFAULT.sandesh_send_rate_limit",
+              opt::value<uint32_t>()->default_value(
+              Sandesh::get_send_rate_limit()),
+              "Sandesh send rate limit in messages/sec")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -262,6 +266,8 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
+    GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
+                              "DEFAULT.sandesh_send_rate_limit");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
