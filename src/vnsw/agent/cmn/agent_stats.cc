@@ -65,8 +65,10 @@ void AgentStatsReq::HandleRequest() const {
                 stats->flow_drop_due_to_linklocal_limit());
         flow->set_flow_max_system_flows(agent->flow_table_size());
         flow->set_flow_max_vm_flows(agent->max_vm_flows());
-        flow->set_flow_export_msg_drops(
-                agent->flow_stats_manager()->flow_export_msg_drops());
+        flow->set_flow_export_disable_drops(
+                agent->flow_stats_manager()->flow_export_disable_drops());
+        flow->set_flow_export_sampling_drops(
+                agent->flow_stats_manager()->flow_export_sampling_drops());
         flow->set_context(context());
         flow->set_more(true);
         flow->Response();

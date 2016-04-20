@@ -655,9 +655,14 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     /* We should always try to export flows with Action as LOG regardless of
      * configured flow-export-rate */
     if (!info->IsActionLog() && !cfg_rate) {
-        flow_stats_manager_->flow_export_msg_drops_++;
+        flow_stats_manager_->flow_export_disable_drops_++;
         return;
     }
+
+    /* Compute diff stats by adding the previous diff stats of sample that
+     * was dropped */
+    diff_bytes += info->prev_diff_bytes();
+    diff_pkts += info->prev_diff_packets();
 
     /* Subject a flow to sampling algorithm only when all of below is met:-
      * a. if Log is not configured as action for flow
@@ -676,7 +681,9 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         if (num > diff_bytes) {
             /* Do not export the flow, if the random number generated is more
              * than the diff_bytes */
-            flow_stats_manager_->flow_export_msg_drops_++;
+            flow_stats_manager_->flow_export_sampling_drops_++;
+            info->set_prev_diff_bytes(diff_bytes);
+            info->set_prev_diff_packets(diff_pkts);
             return;
         }
         /* Normalize the diff_bytes and diff_packets reported using the
@@ -688,6 +695,10 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             diff_pkts = diff_pkts/probability;
         }
     }
+    /* Reset diff stats since flow will be exported now */
+    info->set_prev_diff_bytes(0);
+    info->set_prev_diff_packets(0);
+
     FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
     s_flow.set_flowuuid(to_string(flow->uuid()));
