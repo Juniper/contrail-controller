@@ -226,7 +226,8 @@ public:
     void SendDhcp(short ifindex, uint16_t flags, uint8_t msg_type,
                   uint8_t *options, int num_options, bool error = false,
                   bool response = false, uint32_t yiaddr = 0,
-                  uint32_t vmifindex = 0) {
+                  uint32_t vmifindex = 0,
+                  uint16_t server_port = DHCP_SERVER_PORT) {
         int len = 512;
         uint8_t *buf = new uint8_t[len];
         memset(buf, 0, len);
@@ -265,11 +266,11 @@ public:
 
         udphdr *udp = (udphdr *) (ip + 1);
         if (response) {
-            udp->uh_sport = htons(DHCP_SERVER_PORT);
-            udp->uh_dport = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(server_port);
+            udp->uh_dport = htons(server_port + 1);
         } else {
-            udp->uh_sport = htons(DHCP_CLIENT_PORT);
-            udp->uh_dport = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(server_port + 1);
+            udp->uh_dport = htons(server_port);
         }
         udp->uh_sum = 0;
 
@@ -2433,6 +2434,57 @@ TEST_F(DhcpTest, GatewayDhcpLeaseTimeout) {
     ClearPktTrace();
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
     remove("./dhcp.00000000-0000-0000-0000-000000000001.leases");
+}
+
+// Send DHCP request to v6 port
+TEST_F(DhcpTest, DhcpReqv6PortTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    ClearPktTrace();
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4,
+             false, false, 0, 0, DHCPV6_SERVER_PORT);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4,
+             false, false, 0, 0, DHCPV6_SERVER_PORT);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, stats.discover);
+    EXPECT_EQ(0U, stats.request);
+    EXPECT_EQ(0U, stats.offers);
+    EXPECT_EQ(0U, stats.acks);
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 void RouterIdDepInit(Agent *agent) {
