@@ -155,7 +155,7 @@ public:
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
     void SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
                     const VrfEntry *vrf, const Interface* itf);
-    void ValidateAndClearVrfState(VrfEntry *vrf);
+    bool ValidateAndClearVrfState(VrfEntry *vrf);
     ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
     ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
 
