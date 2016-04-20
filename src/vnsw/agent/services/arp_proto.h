@@ -14,6 +14,8 @@ do {                                                                        \
     Arp##obj::TraceMsg(ArpTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
 } while (false)                                                             \
 
+struct ArpVrfState;
+
 class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
@@ -154,7 +156,7 @@ public:
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
     void SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
                     const VrfEntry *vrf, const Interface* itf);
-    void ValidateAndClearVrfState(VrfEntry *vrf);
+    bool ValidateAndClearVrfState(VrfEntry *vrf, const ArpVrfState *vrf_state);
     ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
     ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
 
