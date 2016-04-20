@@ -1302,7 +1302,8 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'flow_rate.min_flow_adds_per_second', 'datatype' : 'int', 'index' : false },
           { 'name' : 'flow_rate.deleted_flows', 'datatype' : 'int', 'index' : false },
           { 'name' : 'flow_rate.max_flow_deletes_per_second', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'flow_rate.min_flow_deletes_per_second', 'datatype' : 'int', 'index' : false }
+          { 'name' : 'flow_rate.min_flow_deletes_per_second', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'flow_rate.active_flows', 'datatype' : 'int', 'index' : false }
         ]
     }
 ]
