@@ -54,6 +54,7 @@ local_sources = [
            'disc_cassdb.py',
            'output.py',
            'disc_auth_keystone.py',
+           'disc_chash.py',
           ]
 local_sources_rules = []
 for file in local_sources:
