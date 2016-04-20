@@ -15,7 +15,8 @@ public:
     static const uint64_t kInvalidFlowCount = 0xFFFFFFFFFFFFFFFF;
     AgentStats(Agent *agent)
         : agent_(agent), xmpp_reconnect_(), xmpp_in_msgs_(), xmpp_out_msgs_(),
-        sandesh_reconnects_(0U), sandesh_in_msgs_(0U), sandesh_out_msgs_(0U),
+        xmpp_config_in_msgs_(), sandesh_reconnects_(0U),
+        sandesh_in_msgs_(0U), sandesh_out_msgs_(0U),
         sandesh_http_sessions_(0U), nh_count_(0U), pkt_exceptions_(0U),
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
@@ -48,6 +49,11 @@ public:
 
     void incr_xmpp_out_msgs(uint8_t idx) {xmpp_out_msgs_[idx]++;}
     uint64_t xmpp_out_msgs(uint8_t idx) const {return xmpp_out_msgs_[idx];}
+
+    void incr_xmpp_config_in_msgs(uint8_t idx) {xmpp_config_in_msgs_[idx]++;}
+    uint64_t xmpp_config_in_msgs(uint8_t idx) const {
+        return xmpp_config_in_msgs_[idx];
+    }
 
     void incr_sandesh_reconnects() {sandesh_reconnects_++;}
     uint32_t sandesh_reconnects() const {return sandesh_reconnects_;}
@@ -167,6 +173,7 @@ private:
     uint32_t xmpp_reconnect_[MAX_XMPP_SERVERS];
     uint64_t xmpp_in_msgs_[MAX_XMPP_SERVERS];
     uint64_t xmpp_out_msgs_[MAX_XMPP_SERVERS];
+    uint64_t xmpp_config_in_msgs_[MAX_XMPP_SERVERS];
 
     uint32_t sandesh_reconnects_;
     uint64_t sandesh_in_msgs_;

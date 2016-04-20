@@ -89,6 +89,7 @@ void AgentStatsReq::HandleRequest() const {
             peer.set_reconnect(stats->xmpp_reconnects(count));
             peer.set_in_msgs(stats->xmpp_in_msgs(count));
             peer.set_out_msgs(stats->xmpp_out_msgs(count));
+            peer.set_config_in_msgs(stats->xmpp_config_in_msgs(count));
             list.push_back(peer);
         }
     }

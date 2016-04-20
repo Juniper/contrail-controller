@@ -41,7 +41,7 @@ using namespace boost::property_tree;
 using namespace boost::uuids;
 using boost::optional;
 
-void IFMapAgentSandeshInit(DB *db);
+void IFMapAgentSandeshInit(DB *, IFMapAgentParser *);
 
 SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
 
@@ -93,7 +93,7 @@ void AgentConfig::CreateDBTables(DB *db) {
         new IFMapAgentStaleCleaner(db, cfg_graph_.get());
     agent_->set_ifmap_stale_cleaner(cl);
 
-    IFMapAgentSandeshInit(db);
+    IFMapAgentSandeshInit(db, cfg_parser_.get());
 }
 
 void AgentConfig::Register(const char *node_name, AgentDBTable *table,

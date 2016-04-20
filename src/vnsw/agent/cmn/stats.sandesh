@@ -61,6 +61,7 @@ struct XmppStatsInfo {
     2: u64 in_msgs;
     3: u64 out_msgs;
     4: u16 reconnect;
+    5: u64 config_in_msgs;
 }
 
 /**

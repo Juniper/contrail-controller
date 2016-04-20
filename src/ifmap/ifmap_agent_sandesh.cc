@@ -21,6 +21,7 @@
 #include <ifmap/ifmap_agent_table.h>
 #include <ifmap/ifmap_node.h>
 #include <ifmap/ifmap_agent_types.h>
+#include <ifmap/ifmap_agent_parser.h>
 #include <pugixml/pugixml.hpp>
 
 using namespace boost::assign;
@@ -29,6 +30,7 @@ using namespace std;
 class ShowIFMapAgentTable {
 public:
     static DB *db_;
+    static IFMapAgentParser *parser_;
     struct ShowData : public RequestPipeline::InstData {
         vector<string> send_buffer;
     };
@@ -56,6 +58,7 @@ public:
 };
 
 DB* ShowIFMapAgentTable::db_;
+IFMapAgentParser* ShowIFMapAgentTable::parser_;
 
 static inline void to_uuid(uint64_t ms_long, uint64_t ls_long,
                               boost::uuids::uuid &u) {
@@ -356,6 +359,31 @@ void ShowIFMapAgentDefLinkReq::HandleRequest() const {
     return;
 }
 
-void IFMapAgentSandeshInit(DB *db) {
+void ShowIFMapAgentStatsReq::HandleRequest() const {
+
+    IFMapAgentParser *parser = ShowIFMapAgentTable::parser_;
+
+    if (!parser)
+        return;
+
+    ShowIFMapAgentStatsResp *resp;
+    resp = new ShowIFMapAgentStatsResp();
+
+    resp->set_node_updates_processed(parser->node_updates());
+    resp->set_node_deletes_processed(parser->node_deletes());
+    resp->set_link_updates_processed(parser->link_updates());
+    resp->set_link_deletes_processed(parser->link_deletes());
+    resp->set_node_update_parse_errors(parser->node_update_parse_errors());
+    resp->set_link_update_parse_errors(parser->link_update_parse_errors());
+    resp->set_node_delete_parse_errors(parser->node_delete_parse_errors());
+    resp->set_link_delete_parse_errors(parser->link_delete_parse_errors());
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void IFMapAgentSandeshInit(DB *db, IFMapAgentParser *parser) {
     ShowIFMapAgentTable::db_ = db;
+    ShowIFMapAgentTable::parser_ = parser;
 }
