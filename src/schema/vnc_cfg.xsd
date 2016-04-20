@@ -1543,6 +1543,53 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('floating-ip-virtual-machine-interface',
           'floating-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
           'Reference to virtual machine interface to which this floating ip is attached.') -->
+
+<xsd:element name="alias-ip-pool" type="ifmap:IdentityType"/>
+<xsd:element name="alias-ip-pool-prefixes" type="FloatingIpPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('alias-ip-pool-prefixes', ['backend']);
+     Property('alias-ip-pool-prefixes', 'alias-ip-pool', 'optional', 'CRUD',
+              'List of ip prefixes that restrict foating ip allocation from the corresponding virtual network.(Not yet implemented).') -->
+<xsd:element name="virtual-network-alias-ip-pool"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('virtual-network-alias-ip-pool', ['backend']);
+     Link('virtual-network-alias-ip-pool',
+          'virtual-network', 'alias-ip-pool', ['has'], 'optional', 'CRUD',
+          'Alias ip pool is set of ip address that are carved out of a given network. Ip(s) from this set can be assigned to (virtual machine interface, ip) so that they become members of this network using one:one NAT.') -->
+<xsd:element name="project-alias-ip-pool"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('project-alias-ip-pool', ['backend']);
+     Link('project-alias-ip-pool',
+          'project', 'alias-ip-pool', ['ref'], 'optional', 'CRUD',
+          'Reference to alias ip pool in this project.') -->
+
+<xsd:element name="alias-ip" type="ifmap:IdentityType"/>
+<xsd:element name="alias-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('alias-ip-address', 'alias-ip', 'required', 'CR',
+              'Alias ip address.') -->
+<xsd:element name="alias-ip-address-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('alias-ip-address-family', 'alias-ip', 'optional', 'CRUD',
+              'Ip address family of the alias ip, IpV4 or IpV6') -->
+<xsd:element name="alias-ip-project"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('alias-ip-project',
+          'alias-ip', 'project', ['ref'], 'required', 'CRUD',
+          'Reference to project is which this alias ip was allocated.') -->
+<xsd:element name="alias-ip-pool-alias-ip"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('alias-ip-pool-alias-ip', ['backend']);
+     Link('alias-ip-pool-alias-ip',
+          'alias-ip-pool', 'alias-ip', ['has'], 'optional', 'CRUD',
+          'alias ip is a ip that can be assigned to (virtual machine interface(VMI), ip), By doing so VMI can no be part of the alias ip network and alias ip is used as one:one to NAT for doing so.') -->
+<xsd:element name="alias-ip-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('alias-ip-virtual-machine-interface', ['backend']);
+     Link('alias-ip-virtual-machine-interface',
+          'alias-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
+          'Reference to virtual machine interface to which this alias ip is attached.') -->
+
 <xsd:element name="physical-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-physical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
