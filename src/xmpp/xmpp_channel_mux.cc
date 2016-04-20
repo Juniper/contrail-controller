@@ -94,6 +94,10 @@ bool XmppChannelMux::Send(const uint8_t *msg, size_t msgsize,
     return res;
 }
 
+int XmppChannelMux::GetTaskInstance() const {
+    return connection_->GetTaskInstance();
+}
+
 void XmppChannelMux::RegisterReceive(xmps::PeerId id, ReceiveCb cb) {
     rxmap_.insert(make_pair(id, cb));
 }

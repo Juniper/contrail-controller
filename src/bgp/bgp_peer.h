@@ -180,9 +180,8 @@ public:
         return rtinstance_;
     }
 
-    int GetIndex() const {
-        return index_;
-    }
+    int GetIndex() const { return index_; }
+    int GetTaskInstance() const;
 
     virtual BgpProto::BgpPeerType PeerType() const {
         return peer_type_;

@@ -46,6 +46,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     const XmppConnection *connection = bx_channel->channel()->connection();
     bnr->set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
     bnr->set_primary_path_count(bx_channel->Peer()->GetPrimaryPathCount());
+    bnr->set_task_instance(connection->GetTaskInstance());
     bnr->set_auth_type(connection->GetXmppAuthenticationType());
     if (summary)
         return;

@@ -586,6 +586,7 @@ void BgpPeerCloseTest::AddRoutes(BgpTable *table, BgpNullPeer *npeer) {
 }
 
 void BgpPeerCloseTest::AddAllRoutes() {
+    ConcurrencyScope scope("bgp::StateMachine");
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP, 1, 0);
 
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {

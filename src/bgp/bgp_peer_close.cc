@@ -31,9 +31,11 @@ PeerCloseManager::PeerCloseManager(IPeer *peer) :
     stats_.init++;
     if (peer->server()) {
         stale_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
-                                                 "Graceful Restart StaleTimer");
+            "Graceful Restart StaleTimer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
         sweep_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
-                                                 "Graceful Restart SweepTimer");
+            "Graceful Restart SweepTimer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
     }
 }
 

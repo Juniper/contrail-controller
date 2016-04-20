@@ -43,7 +43,7 @@ BgpSession::BgpSession(BgpSessionManager *session_mgr, Socket *socket)
     : TcpSession(session_mgr, socket),
       session_mgr_(session_mgr),
       peer_(NULL),
-      index_(-1),
+      task_instance_(-1),
       reader_(new BgpMessageReader(this,
               boost::bind(&BgpSession::ReceiveMsg, this, _1, _2))) {
 }
@@ -55,7 +55,7 @@ BgpSession::~BgpSession() {
 // Concurrency: called in the context of io::Reader task.
 //
 bool BgpSession::ReceiveMsg(const u_int8_t *msg, size_t size) {
-    return peer_->ReceiveMsg(this, msg, size);
+    return (peer_ ? peer_->ReceiveMsg(this, msg, size) : false);
 }
 
 //
@@ -120,10 +120,14 @@ void BgpSession::SendNotification(int code, int subcode,
 
 void BgpSession::set_peer(BgpPeer *peer) {
     peer_ = peer;
-    index_ = peer_->GetIndex();
+    task_instance_ = peer_->GetTaskInstance();
 }
 
+//
+// Dissociate the peer from the this BgpSession.
+// Do not invalidate the task_instance since it can be used to spawn an
+// io::ReaderTask while this method is being executed.
+//
 void BgpSession::clear_peer() {
     peer_ = NULL;
-    index_ = -1;
 }

@@ -34,6 +34,7 @@ public:
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }
+    int GetTaskInstance() const { return 0; }
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
     MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));

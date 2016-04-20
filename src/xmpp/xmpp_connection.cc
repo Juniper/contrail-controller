@@ -46,6 +46,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       keepalive_timer_(TimerManager::CreateTimer(
                            *server->event_manager()->io_service(),
                            "Xmpp keepalive timer")),
+      is_client_(config->ClientOnly()),
       log_uve_(config->logUVE),
       admin_down_(false), 
       disable_read_(false),
@@ -120,6 +121,25 @@ XmppSession *XmppConnection::CreateSession() {
     XmppSession *xmpp_session = static_cast<XmppSession *>(session);
     xmpp_session->SetConnection(this);
     return xmpp_session;
+}
+
+//
+// Return the task instance for this XmppConnection.
+// Calculate from the remote IpAddress so that a restarting session uses the
+// same value as before.
+// Do not make this method virtual since it gets called from the constructor.
+//
+int XmppConnection::GetTaskInstance() const {
+    if (is_client_)
+        return 0;
+
+    IpAddress address = endpoint().address();
+    int thread_count = TaskScheduler::GetInstance()->HardwareThreadCount();
+    if (address.is_v4()) {
+        return address.to_v4().to_ulong() % thread_count;
+    } else {
+        return 0;
+    }
 }
 
 xmsm::XmState XmppConnection::GetStateMcState() const {
@@ -690,10 +710,6 @@ void XmppServerConnection::RetryDelete() {
     deleter()->RetryDelete();
 }
 
-bool XmppServerConnection::IsClient() const {
-    return false;
-}
-
 LifetimeManager *XmppServerConnection::lifetime_manager() {
     return server()->lifetime_manager();
 }
@@ -828,10 +844,6 @@ void XmppClientConnection::RetryDelete() {
     if (!deleter()->IsDeleted())
         return;
     deleter()->RetryDelete();
-}
-
-bool XmppClientConnection::IsClient() const {
-    return true;
 }
 
 LifetimeManager *XmppClientConnection::lifetime_manager() {
