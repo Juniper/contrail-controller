@@ -2334,6 +2334,9 @@ static std::string EventToString(FlowEventLog::Event event,
     case FlowEventLog::FLOW_HANDLE_ASSIGN:
         event_str = "FlowHandleAssign";
         break;
+    case FlowEventLog::FLOW_MSG_SKIP_EVICTED:
+        event_str = "FlowMessageSkippedEvictedFlow";
+        break;
     default:
         event_str = "Unknown";
         break;
