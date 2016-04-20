@@ -26,16 +26,23 @@ void IFMapAgentParser::NodeClear() {
 void IFMapAgentParser::NodeParse(xml_node &node, DBRequest::DBOperation oper, uint64_t seq) {
 
     const char *name = node.attribute("type").value();
+    int msg_type;
+    if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
+        msg_type = UPDATE;
+    else
+        msg_type = DELETE;
 
     IFMapTable *table;
     table = IFMapTable::FindTable(db_, name);
     if(!table) {
+        node_parse_errors_[msg_type]++;
         return;
     }
 
     // Locate the decode function using id_name
     NodeParseMap::const_iterator loc = node_map_.find(name);
     if (loc == node_map_.end()) {
+        node_parse_errors_[msg_type]++;
         return;
     }
            
@@ -47,6 +54,7 @@ void IFMapAgentParser::NodeParse(xml_node &node, DBRequest::DBOperation oper, ui
     req_key->id_seq_num = seq;
     obj = loc->second(node, db_, &req_key->id_name);
     if (!obj) {
+        node_parse_errors_[msg_type]++;
         delete req_key;
         return;
     }
@@ -72,6 +80,12 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     IFMapTable *table;
     IFMapAgentLinkTable *link_table;
   
+    int msg_type;
+    if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
+        msg_type = UPDATE;
+    else
+        msg_type = DELETE;
+
     link_table = static_cast<IFMapAgentLinkTable *>(
         db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
  
@@ -80,42 +94,50 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     // Get both first and second node and its corresponding tables
     first_node = link.first_child();
     if (!first_node) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     second_node = first_node.next_sibling();
     if (!second_node) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     name1 = first_node.attribute("type").value();
     table = IFMapTable::FindTable(db_, name1);
     if(!table) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     name2 = second_node.attribute("type").value();
     table = IFMapTable::FindTable(db_, name2);
     if(!table) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     // Get id_name of both the nodes
     name_node1 = first_node.first_child();
     if (!name_node1) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     if (strcmp(name_node1.name(), "name") != 0) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     name_node2 = second_node.first_child();
     if (!name_node2) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
     if (strcmp(name_node2.name(), "name") != 0) {
+        link_parse_errors_[msg_type]++;
         return;
     }
 
@@ -148,10 +170,13 @@ void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
     for (xml_node node = config.first_child(); node;
          node = node.next_sibling()) {
 
+        int msg_type;
         if (strcmp(node.name(), "update") == 0) {
             oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            msg_type = UPDATE;
 	    } else if (strcmp(node.name(), "delete") == 0) { 
             oper = DBRequest::DB_ENTRY_DELETE;
+            msg_type = DELETE;
 	    } else {
             continue;
         }
@@ -160,11 +185,13 @@ void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
  
             // Handle the links between the nodes
             if (strcmp(chld.name(), "link") == 0) {
+                links_processed_[msg_type]++;
                 LinkParse(chld, oper, seq);
                 continue;
             }
 
             if (strcmp(chld.name(), "node") == 0) {
+                nodes_processed_[msg_type]++;
                 NodeParse(chld, oper, seq);
             }
         }        
