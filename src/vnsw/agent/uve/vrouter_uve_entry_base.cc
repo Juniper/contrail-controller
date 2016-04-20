@@ -592,20 +592,6 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
     if (first) {
         //Physical interface list
         vnsConstants vnsVrouterType;
-        vector<AgentInterface> phy_if_list;
-        PhysicalInterfaceSet::iterator it = phy_intf_set_.begin();
-        while (it != phy_intf_set_.end()) {
-            AgentInterface pitf;
-            const Interface *intf = *it;
-            const PhysicalInterface *port = static_cast
-                                            <const PhysicalInterface *>(intf);
-            pitf.set_name(intf->name());
-            pitf.set_mac_address(GetMacAddress(port->mac()));
-            phy_if_list.push_back(pitf);
-            ++it;
-        }
-        vrouter_agent.set_phy_if(phy_if_list);
-
         //vhost attributes
         InetInterfaceKey key(agent_->vhost_interface_name());
         const Interface *vhost = static_cast<const Interface *>(
@@ -663,6 +649,24 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
             changed = true;
         }
 
+    }
+
+    vector<AgentInterface> phy_if_list;
+    PhysicalInterfaceSet::iterator it = phy_intf_set_.begin();
+    while (it != phy_intf_set_.end()) {
+        AgentInterface pitf;
+        const Interface *intf = *it;
+        const PhysicalInterface *port = static_cast
+            <const PhysicalInterface *>(intf);
+        pitf.set_name(intf->name());
+        pitf.set_mac_address(GetMacAddress(port->mac()));
+        phy_if_list.push_back(pitf);
+        ++it;
+    }
+    if (prev_vrouter_.get_phy_if() != phy_if_list) {
+        vrouter_agent.set_phy_if(phy_if_list);
+        prev_vrouter_.set_phy_if(phy_if_list);
+        changed = true;
     }
 
     std::vector<AgentXmppPeer> xmpp_list;
