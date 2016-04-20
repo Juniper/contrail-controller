@@ -147,7 +147,10 @@ bool ArpHandler::HandlePacket() {
             } else {
                 entry = new ArpEntry(io_, this, key, nh_vrf, ArpEntry::INITING,
                                      itf);
-                arp_proto->AddArpEntry(entry);
+                if (arp_proto->AddArpEntry(entry) == false) {
+                    delete entry;
+                    return true;
+                }
                 entry->HandleArpRequest();
                 return false;
             }
@@ -176,7 +179,10 @@ bool ArpHandler::HandlePacket() {
             } else { 
                 entry = new ArpEntry(io_, this, key, nh_vrf, ArpEntry::INITING,
                                      itf);
-                arp_proto->AddArpEntry(entry);
+                if (arp_proto->AddArpEntry(entry) == false) {
+                    delete entry;
+                    return true;
+                }
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 arp_ = NULL;
                 return false;
@@ -228,7 +234,10 @@ bool ArpHandler::HandleMessage() {
             if (!entry) {
                 entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
                                      ArpEntry::INITING, ipc->interface);
-                arp_proto->AddArpEntry(entry);
+                if (arp_proto->AddArpEntry(entry) == false) {
+                    delete entry;
+                    break;
+                }
                 ret = false;
             }
             arp_proto->IncrementStatsArpReq();
