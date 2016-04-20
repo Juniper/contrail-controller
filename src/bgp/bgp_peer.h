@@ -302,6 +302,7 @@ public:
     const BgpProto::OpenMessage::Capability::LLGR &llgr_params() const {
         return llgr_params_;
     }
+    bool SkipNotificationSend(int code, int subcode) const;
 
 protected:
     const std::vector<std::string> &negotiated_families() const {
