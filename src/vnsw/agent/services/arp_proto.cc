@@ -57,7 +57,7 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     state = static_cast<ArpVrfState *>(entry->GetState(part->parent(),
                                                    vrf_table_listener_id_));
     if (entry->IsDeleted()) {
-        if (state) {
+        if (state && !state->deleted) {
             for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
                 ArpEntry *arp_entry = it->second;
@@ -310,7 +310,9 @@ void ArpVrfState::Delete() {
 }
 
 void ArpVrfState::WalkDone(DBTableBase *partition, ArpVrfState *state) {
-    arp_proto->ValidateAndClearVrfState(vrf);
+    if (arp_proto->ValidateAndClearVrfState(vrf, state) == false)
+        return;
+
     state->rt_table->Unregister(route_table_listener_id);
     state->table_delete_ref.Reset(NULL);
     delete state;
@@ -466,6 +468,14 @@ void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
 }
 
 bool ArpProto::AddArpEntry(ArpEntry *entry) {
+    const VrfEntry *vrf = entry->key().vrf;
+    const ArpVrfState *state = static_cast<const ArpVrfState *>
+                         (vrf->GetState(vrf->get_table_partition()->parent(),
+                          vrf_table_listener_id_));
+    // If VRF is delete marked, do not add ARP entries to cache
+    if (state == NULL || state->deleted == true)
+        return false;
+
     bool ret = arp_cache_.insert(ArpCachePair(entry->key(), entry)).second;
     uint32_t intf_id = entry->interface()->id();
     InterfaceArpMap::iterator it = interface_arp_map_.find(intf_id);
@@ -511,14 +521,12 @@ ArpEntry *ArpProto::FindArpEntry(const ArpKey &key) {
     return it->second;
 }
 
-void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
-    if (!vrf->IsDeleted())
-        return;
-
-    ArpKey key(0, vrf);
-    ArpProto::ArpIterator it = arp_cache_.upper_bound(key);
-    if (it != arp_cache_.end() && it->first.vrf == vrf) {
-        return;
+bool ArpProto::ValidateAndClearVrfState(VrfEntry *vrf,
+                                        const ArpVrfState *vrf_state) {
+    if (!vrf_state->deleted) {
+        ARP_TRACE(Trace, "ARP state not cleared - VRF is not delete marked",
+                  "", vrf->GetName(), "");
+        return false;
     }
 
     DBState *state = static_cast<DBState *>
@@ -528,6 +536,7 @@ void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
         vrf->ClearState(vrf->get_table_partition()->parent(),
                         vrf_table_listener_id_);
     }
+    return true;
 }
 
 ArpProto::ArpIterator
