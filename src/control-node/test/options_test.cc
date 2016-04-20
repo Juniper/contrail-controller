@@ -215,6 +215,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_level=SYS_DEBUG\n"
         "log_local=false\n"
         "test_mode=0\n"
+        "optimize_snat=1\n"
         "xmpp_auth_enable=true\n"
         "xmpp_server_cert=/etc/server.pem\n"
         "xmpp_server_key=/etc/server.key\n"
@@ -275,6 +276,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_EQ(options_.optimize_snat(), true);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
