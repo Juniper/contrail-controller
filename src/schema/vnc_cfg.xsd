@@ -1461,6 +1461,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('service-instance-ip', 'instance-ip', 'system-only', 'CRUD',
               'This instance ip is used as service chain next hop',) -->
+<xsd:element name="service-health-check-ip" type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-health-check-ip', 'instance-ip', 'system-only', 'CRUD',
+              'This instance ip is used as service health check source ip',) -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
