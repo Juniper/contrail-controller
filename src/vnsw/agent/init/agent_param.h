@@ -255,6 +255,9 @@ public:
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
     uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
 
+    // pkt0 tx buffer
+    uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
+    void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -377,6 +380,9 @@ private:
 
     Agent *agent_;
     PortInfo vhost_;
+    // Number of tx-buffers on pkt0 device
+    uint32_t pkt0_tx_buffer_count_;
+
     std::string agent_name_;
     std::string eth_port_;
     bool eth_port_no_arp_;

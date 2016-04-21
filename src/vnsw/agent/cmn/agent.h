@@ -248,6 +248,8 @@ public:
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
+    // Default number of tx-buffers on pkt0 interface
+    static const uint32_t kPkt0TxBufferCount = 1000;
 
     enum ForwardingMode {
         NONE,

@@ -16,6 +16,7 @@
 
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
@@ -102,6 +103,25 @@ void Pkt0Interface::InitControlInterface() {
         assert(0);
     }
 
+    // Set tx-buffer count
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    if (ioctl(raw, SIOCGIFTXQLEN, (void *)&ifr) < 0) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " << strerror(errno) <<
+            "> getting tx-buffer size");
+        assert(0);
+    }
+    
+    uint32_t qlen = pkt_handler()->agent()->params()->pkt0_tx_buffer_count();
+    if (ifr.ifr_qlen < (int)qlen) {
+        ifr.ifr_qlen = qlen;
+        if (ioctl(raw, SIOCSIFTXQLEN, (void *)&ifr) < 0) {
+            LOG(ERROR, "Packet Tap Error <" << errno << ": "
+                << strerror(errno) << "> setting tx-buffer size");
+            assert(0);
+        }
+    }
+    
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
     if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
