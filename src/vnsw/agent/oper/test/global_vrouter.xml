@@ -3,10 +3,10 @@
 <test name="vrouter-basic-1">
     <!-- Virtual-router with flow-export-rate -->
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"
-     flow-export-rate="100"
+     flow-export-rate="500"
     />
     <validate name="vrouter-basic-validate-1">
-        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="100" />
+        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="500" />
     </validate>
 
     <!-- Change flow-export-rate to 200 -->
@@ -20,7 +20,7 @@
     <!-- Remove flow-export-rate attribute. It should be set to default. -->
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" />
     <validate name="change-flow-export-rate-2">
-        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="1000" />
+        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="100" />
     </validate>
 </test>
 
