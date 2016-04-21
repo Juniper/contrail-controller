@@ -486,6 +486,11 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.mirror_client_port")) {
         mirror_client_port_ = ContrailPorts::VrouterAgentMirrorClientUdpPort();
     }
+
+    if (!GetValueFromTree<uint32_t>(pkt0_tx_buffer_count_,
+                                    "DEFAULT.pkt0_tx_buffers")) {
+        pkt0_tx_buffer_count_ = Agent::kPkt0TxBufferCount;
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -732,6 +737,8 @@ void AgentParam::ParseDefaultSectionArguments
                       "DEFAULT.subnet_hosts_resolvable");
     GetOptValue<uint16_t>(var_map, mirror_client_port_,
                           "DEFAULT.mirror_client_port");
+    GetOptValue<uint32_t>(var_map, pkt0_tx_buffer_count_,
+                          "DEFAULT.pkt0_tx_buffers");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1205,6 +1212,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
         agent_mode_(agent_mode), vhost_(),
+        pkt0_tx_buffer_count_(Agent::kPkt0TxBufferCount),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
@@ -1319,6 +1327,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Sandesh send rate limit in messages/sec")
         ("DEFAULT.subnet_hosts_resolvable",
           opt::value<bool>()->default_value(true))
+        ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>(),
+         "Number of tx-buffers for pkt0 interface")
         ;
     options_.add(generic);
 
