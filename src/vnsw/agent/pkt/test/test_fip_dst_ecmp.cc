@@ -27,7 +27,6 @@ class FipEcmpTest : public ::testing::Test {
                                  "xmpp channel");
         client->WaitForIdle();
 
-        flow_proto_ = agent_->pkt()->get_flow_proto();
         CreateVmportWithEcmp(input1, 1);
         AddVn(VN2, 2);
         AddVrf(VRF2);
@@ -37,7 +36,7 @@ class FipEcmpTest : public ::testing::Test {
         //Attach floating-ip
         //Add floating IP for vnet1
         AddFloatingIpPool("fip-pool1", 1);
-        AddFloatingIp("fip1", 1, "2.1.1.1", "1.1.1.1");
+        AddFloatingIp("fip1", 1, "2.1.1.1");
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
         AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
                 VN2);
@@ -75,7 +74,7 @@ class FipEcmpTest : public ::testing::Test {
         client->WaitForIdle();
         EXPECT_FALSE(VrfFind("vrf1", true));
         EXPECT_FALSE(VrfFind("vrf2", true));
-        WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
+        WAIT_FOR(1000, 1000, (agent_->pkt()->flow_table()->Size() == 0));
         client->WaitForIdle();
     }
 public:
@@ -110,10 +109,8 @@ public:
                            PathPreference());
     }
 
-    FlowProto *get_flow_proto() const { return flow_proto_; }
     Agent *agent_;
     Peer *bgp_peer;
-    FlowProto *flow_proto_;
     AgentXmppChannel *channel;
     char router_id[80];
     char MX_0[80];
@@ -140,7 +137,7 @@ TEST_F(FipEcmpTest, Test_1) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
 
     rt = RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0);
@@ -148,11 +145,11 @@ TEST_F(FipEcmpTest, Test_1) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle(); 
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Packet from external ECMP source to fip
@@ -168,17 +165,17 @@ TEST_F(FipEcmpTest, Test_2) {
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 2);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     rt = RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 int main(int argc, char *argv[]) {
