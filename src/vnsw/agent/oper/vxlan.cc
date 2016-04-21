@@ -272,7 +272,7 @@ class VxLanConfigSandeshTask : public Task {
  public:
     VxLanConfigSandeshTask(Agent *agent, uint32_t vxlan_id, const string &vn,
                            const string &active, const string &context) :
-        Task(agent->task_scheduler()->GetTaskId("db::DBTable"), 0),
+        Task(agent->task_scheduler()->GetTaskId(AGENT_SANDESH_TASKNAME), 0),
         agent_(agent), vxlan_id_(vxlan_id), vn_(vn), active_(active),
         context_(context) { }
     ~VxLanConfigSandeshTask() { }

@@ -142,7 +142,8 @@ void Agent::SetAgentTaskPolicy() {
         kTaskHealthCheck,
         kTaskDBExclude,
         AGENT_SHUTDOWN_TASKNAME,
-        AGENT_INIT_TASKNAME
+        AGENT_INIT_TASKNAME,
+        AGENT_SANDESH_TASKNAME
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
@@ -173,7 +174,8 @@ void Agent::SetAgentTaskPolicy() {
         "io::ReaderTask",
         "Agent::PktFlowResponder",
         AGENT_SHUTDOWN_TASKNAME,
-        AGENT_INIT_TASKNAME
+        AGENT_INIT_TASKNAME,
+        AGENT_SANDESH_TASKNAME
     };
     SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list, 
                      sizeof(sandesh_exclude_list) / sizeof(char *));
@@ -256,6 +258,7 @@ void Agent::SetAgentTaskPolicy() {
         "xmpp::StateMachine",
         "http client",
         "db::DBTable",
+        AGENT_SANDESH_TASKNAME,
         AGENT_SHUTDOWN_TASKNAME
     };
     SetTaskPolicyOne(AGENT_INIT_TASKNAME, agent_init_exclude_list,
