@@ -537,6 +537,8 @@ int main(int argc, char *argv[]) {
     }
 
     TaskScheduler::Initialize();
+    TaskScheduler::GetInstance()->SetTrackRunTime(
+        options.task_track_run_time());
     ControlNode::SetDefaultSchedulingPolicy();
 
     /* If Sandesh initialization is not being done via discovery we need to

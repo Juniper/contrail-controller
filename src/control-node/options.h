@@ -32,6 +32,7 @@ public:
     const bool log_local() const { return log_local_; }
     const bool use_syslog() const { return use_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
+    const bool task_track_run_time() const { return task_track_run_time_; }
     const std::string ifmap_server_url() const { return ifmap_server_url_; }
     const std::string ifmap_password() const { return ifmap_password_; }
     const std::string ifmap_user() const { return ifmap_user_; }
@@ -84,6 +85,7 @@ private:
     bool log_local_;
     bool use_syslog_;
     std::string syslog_facility_;
+    bool task_track_run_time_;
     std::string ifmap_server_url_;
     std::string ifmap_password_;
     std::string ifmap_user_;
