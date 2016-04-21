@@ -202,6 +202,9 @@ public:
              const char *description, uint32_t delay);
     void RegisterLog(LogFn fn);
 
+    void SetTrackRunTime(bool value) { track_run_time_ = value; }
+    bool track_run_time() const { return track_run_time_; }
+
     // Enable logging of tasks exceeding configured latency
     void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
     bool measure_delay() const { return measure_delay_; }
@@ -245,6 +248,7 @@ private:
     LogFn                   log_fn_;
     int                     hw_thread_count_;
 
+    bool                    track_run_time_;
     bool                    measure_delay_;
     // Log if time between enqueue and task-execute exceeds the delay
     uint32_t                schedule_delay_;
