@@ -3802,6 +3802,23 @@ class DBInterface(object):
         return nports
     #end port_count
 
+    def populate_default_rule(self, ethertype = 'IPv4'):
+        def_rule = {}
+        def_rule['port_range_min'] = 0
+        def_rule['port_range_max'] = 65535
+        def_rule['direction'] = 'egress'
+        def_rule['remote_group_id'] = None
+        def_rule['protocol'] = 'any'
+
+        if ethertype == 'IPv4':
+            def_rule['ethertype'] = 'IPv4'
+            def_rule['remote_ip_prefix'] = '0.0.0.0/0'
+        else:
+            def_rule['ethertype'] = 'IPv6'
+            def_rule['remote_ip_prefix'] = '::/0'
+
+        return def_rule
+
     # security group api handlers
     @wait_for_api_server_connection
     def security_group_create(self, sg_q):
@@ -3814,15 +3831,13 @@ class DBInterface(object):
 
         sg_uuid = self._resource_create('security_group', sg_obj)
 
-        #allow all egress traffic
-        def_rule = {}
-        def_rule['port_range_min'] = 0
-        def_rule['port_range_max'] = 65535
-        def_rule['direction'] = 'egress'
-        def_rule['remote_ip_prefix'] = '0.0.0.0/0'
-        def_rule['remote_group_id'] = None
-        def_rule['protocol'] = 'any'
-        def_rule['ethertype'] = 'IPv4'
+        #allow all IPv4 egress traffic
+        def_rule = self.populate_default_rule('IPv4')
+        rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
+        self._security_group_rule_create(sg_uuid, rule)
+
+        #allow all IPv6 egress traffic
+        def_rule = self.populate_default_rule('IPv6')
         rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
         self._security_group_rule_create(sg_uuid, rule)
 
@@ -4047,7 +4062,7 @@ class DBInterface(object):
                 resource='route_table', msg=str(e))
         ret_rt_q = self._route_table_vnc_to_neutron(rt_obj)
         return ret_rt_q
-    #end security_group_create
+    #end route_table_create
 
     @wait_for_api_server_connection
     def route_table_read(self, rt_id):
