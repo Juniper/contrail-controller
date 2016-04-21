@@ -196,6 +196,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
             return INVALID;
         }
     }
+   
 
     // Handle ARP packet
     if (pkt_type == PktType::ARP) {
@@ -328,9 +329,15 @@ void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
         return;
     }
     struct ip *ip_hdr = (struct ip *)pkt;
-    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->ip_src.s_addr);
-    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->ip_dst.s_addr);
+    pkt_info->tunnel.ip = ip_hdr;
 }
+
+void PktHandler::SetOuterMac(PktInfo *pkt_info) {
+    if (pkt_info->ether_type != ETHERTYPE_IP) 
+        return;
+    pkt_info->tunnel.eth = pkt_info->eth;
+}
+
 
 static bool InterestedIPv6Protocol(uint8_t proto) {
     if (proto == IPPROTO_UDP || proto == IPPROTO_TCP ||
@@ -632,14 +639,14 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         pkt_type = PktType::NON_IP;
         return len;
     }
-
     // Copy IP fields from outer header assuming tunnel is present. If tunnel
     // is not present, the values here will be ignored
+    SetOuterMac(pkt_info);
     SetOuterIp(pkt_info, (pkt + len));
 
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
-
+    
     // If packet is an IP fragment and not flow trap, ignore it
     if (IgnoreFragmentedPacket(pkt_info)) {
         agent_->stats()->incr_pkt_fragments_dropped();
@@ -654,7 +661,8 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     // If tunneling is not enabled on interface or if it is a DHCP packet,
     // dont parse any further
     if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info) ||
-        IsDiagPacket(pkt_info)) {
+        (IsDiagPacket(pkt_info) && 
+         (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ROUTER_ALERT))) {
         return len;
     }
 
@@ -876,7 +884,8 @@ bool PktHandler::IsFlowPacket(const AgentHdr &agent_hdr) {
 
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
-        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR)
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR 
+        || pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ROUTER_ALERT)
         return true;
     return false;
 }

@@ -149,7 +149,7 @@ void Ping::RequestTimedOut(uint32_t seqno) {
     resp->Response();
 }
 
-static void time_duration_to_string(time_duration &td, std::string &str) {
+void time_duration_to_string(time_duration &td, std::string &str) {
     ostringstream td_str;
 
     if (td.minutes()) {
@@ -168,7 +168,7 @@ static void time_duration_to_string(time_duration &td, std::string &str) {
 void Ping::HandleReply(DiagPktHandler *handler) {
     //Send reply
     PingResp *resp = new PingResp();
-    AgentDiagPktData *ad = handler->GetData();
+    AgentDiagPktData *ad = (AgentDiagPktData *)handler->GetData();
 
     resp->set_seq_no(ntohl(ad->seq_no_));
 

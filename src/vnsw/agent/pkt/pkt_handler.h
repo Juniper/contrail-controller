@@ -123,6 +123,7 @@ struct AgentHdr {
         TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
         TRAP_HOLD_ACTION = AGENT_TRAP_FLOW_ACTION_HOLD,
         TRAP_FLOW_ACTION_HOLD = AGENT_TRAP_FLOW_ACTION_HOLD,
+        TRAP_ROUTER_ALERT = AGENT_TRAP_ROUTER_ALERT,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -178,6 +179,8 @@ struct TunnelInfo {
         src_port = 0;
         ip_saddr = 0;
         ip_daddr = 0;
+        eth = 0;
+        ip = 0;
     }
 
     TunnelType          type;
@@ -186,6 +189,8 @@ struct TunnelInfo {
     uint16_t            src_port;   // Valid only for VXLAN and MPLSoUDP
     uint32_t            ip_saddr;
     uint32_t            ip_daddr;
+    struct ether_header *eth;
+    struct ip           *ip;
 };
 
 // Receive packets from the pkt0 (tap) interface, parse and send the packet to
@@ -300,6 +305,7 @@ private:
     bool ComputeForwardingMode(PktInfo *pkt_info) const;
 
     void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
+    void SetOuterMac(PktInfo *pkt_info);
     bool IgnoreFragmentedPacket(PktInfo *pkt_info);
     bool IsDHCPPacket(PktInfo *pkt_info);
     bool IsValidInterface(uint32_t ifindex, Interface **interface);

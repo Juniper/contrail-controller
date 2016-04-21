@@ -9,9 +9,10 @@
 #include <net/address.h>
 #include <base/timer.h>
 #include "boost/date_time/posix_time/posix_time.hpp"
-
-#include"diag/diag_pkt_handler.h"
+#include "diag/diag_pkt_handler.h"
 struct AgentDiagPktData;
+struct VxLanOamTlv;
+struct OverlayOamPktData;
 class DiagProto;
 class DiagTable;
 class DiagPktHandler;
@@ -109,5 +110,38 @@ private:
     boost::scoped_ptr<DiagProto> diag_proto_;
     WorkQueue<DiagEntryOp *> *entry_op_queue_;
     Agent *agent_;
+};
+
+struct VxLanOamTlv{
+    uint16_t type;
+    uint16_t length;
+    uint32_t vxlan_id;
+    Ip4Address sip_;
+};
+
+struct OverlayOamPktData{
+   enum Returncode {
+    NO_RETURN_CODE = 0,
+    MALFORMED_ECHO_REQUEST = 1,
+    OVERLAY_SEGMENT_NOT_PRESET =2,
+    OVERLAY_SEGMENT_NOT_OPERATIONAL =3,
+    RETURN_CODE_OK = 4, 
+   };
+   enum Replymode {
+    DONT_REPLY = 1,
+    REPLY_IPV4ORV6_UDP = 2,
+    REPLY_OVERLAY_SEGMENT =3,
+   }; 
+   uint8_t msgtype;
+   uint8_t replymode;
+   uint8_t returncode;
+   uint8_t returnsubcode;
+   uint32_t orghandle;
+   uint32_t seq_no_;
+   boost::posix_time::ptime timesent_sec;
+   boost::posix_time::ptime timesent_misec;
+   boost::posix_time::ptime timerecv_sec;
+   boost::posix_time::ptime timerecv_misec;
+   VxLanOamTlv vxlanoamtlv;
 };
 #endif

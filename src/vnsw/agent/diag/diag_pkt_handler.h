@@ -36,9 +36,10 @@ public:
     void SetReply();
     void SetDiagChkSum();
     void Reply();
+    void ReplyOverlayPing();
     const std::string &GetAddress() const { return address_; }
-    AgentDiagPktData* GetData() {
-        return (AgentDiagPktData *)(pkt_info_->data);
+    uint8_t* GetData() {
+        return (pkt_info_->data);
     }
     bool IsDone() const { return done_; }
     void set_done(bool done) { done_ = done; }
@@ -46,6 +47,8 @@ public:
 
 private:
     bool IsTraceRoutePacket();
+    bool IsOverlayPingPacket();
+    void SetReturnCode(uint8_t &retcode);
     bool HandleTraceRoutePacket();
     void SendTimeExceededPacket();
     bool HandleTraceRouteResponse();
@@ -53,6 +56,7 @@ private:
                        uint16_t *key);
     uint16_t TcpCsum(in_addr_t, in_addr_t, uint16_t , tcphdr *);
     void Swap();
+    void TunnelHdrSwap();
     void SwapL4();
     void SwapIpHdr();
     void SwapEthHdr();

@@ -40,6 +40,24 @@ request sandesh TraceRouteReq {
 }
 
 /**
+ * Request for Overlay ping statistics in agent introspect 
+ *
+ */
+
+request sandesh OverlayPingReq {
+    1: string source_ip;
+    2: string dest_ip;
+    3: i16    protocol;
+    4: string   vn_uuid;
+    5: string vm_remote_mac;
+    6: i32 source_port;
+    7: i32    dest_port;
+    8: optional i16 max_hops = 30;
+    9: optional i16 max_attempts = 3;
+    10: optional i32 interval = 1;
+}
+
+/**
  * Ping response statistics
  */
 response sandesh PingResp {
