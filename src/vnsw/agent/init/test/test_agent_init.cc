@@ -64,6 +64,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
     EXPECT_EQ(param.subnet_hosts_resolvable(), true);
     EXPECT_TRUE(param.debug());
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -89,6 +90,8 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.metadata_proxy_port(), 8097);
     EXPECT_EQ(param.dns_client_port(), 8098);
     EXPECT_EQ(param.mirror_client_port(), 8097);
+    // Default value for pkt0_tx_buffer_count
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_1) {
@@ -204,7 +207,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 21;
+    int argc = 23;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -219,6 +222,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
         (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
+        (char *) "--DEFAULT.pkt0_tx_buffers",  (char *)"3000",
     };
 
     AgentParam param;
@@ -238,6 +242,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
     EXPECT_EQ(param.subnet_hosts_resolvable(), false);
+    EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000);
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
