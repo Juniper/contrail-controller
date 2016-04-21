@@ -218,7 +218,7 @@ class VncApiServer(object):
                 simple_type = attr_type_vals['simple_type']
                 for item in values:
                     cls._validate_simple_type(key, attr_type,
-                                              simple_type, item, 
+                                              simple_type, item,
                                               restrictions)
     # end _validate_complex_type
 
@@ -301,8 +301,8 @@ class VncApiServer(object):
                 for elem in prop_value:
                     try:
                         if is_simple:
-                            self._validate_simple_type(prop_name, prop_type, 
-                                                       simple_type, elem, 
+                            self._validate_simple_type(prop_name, prop_type,
+                                                       simple_type, elem,
                                                        restrictions)
                         else:
                             self._validate_complex_type(prop_cls, elem)
@@ -2345,6 +2345,7 @@ class VncApiServer(object):
                                          --listen_ip_addr 127.0.0.1
                                          --listen_port 8082
                                          --admin_port 8095
+                                         --region_name RegionOne
                                          --log_local
                                          --log_level SYS_DEBUG
                                          --logging_level DEBUG
@@ -2688,7 +2689,7 @@ class VncApiServer(object):
         obj_dicts = []
         if not is_detail:
             if not self.is_admin_request():
-                obj_ids_list = [{'uuid': obj_uuid} 
+                obj_ids_list = [{'uuid': obj_uuid}
                                 for _, obj_uuid in fq_names_uuids]
                 obj_fields = [u'id_perms']
                 if req_fields:

@@ -143,6 +143,7 @@ class AuthServiceKeystone(object):
             'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
+            'region_name': args.region_name,
             'insecure':args.insecure,
         }
         try:

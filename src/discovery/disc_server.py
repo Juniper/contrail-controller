@@ -47,7 +47,7 @@ from pysandesh.connection_info import ConnectionState
 from sandesh.discovery_introspect import ttypes as sandesh
 from sandesh.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
-    INSTANCE_ID_DEFAULT    
+    INSTANCE_ID_DEFAULT
 
 from gevent.coros import BoundedSemaphore
 from cfgm_common.rest import LinkObject
@@ -180,7 +180,7 @@ class DiscoveryServer():
                 'action',
                 self._base_url , '/stats', 'show discovery service stats'))
 
-        # cleanup 
+        # cleanup
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
         self._homepage_links.append(LinkObject('action',
             self._base_url , '/cleanup', 'Purge inactive publishers'))
@@ -203,7 +203,7 @@ class DiscoveryServer():
             ModuleNames[Module.DISCOVERY_SERVICE])
         self._sandesh.init_generator(
             module_name, socket.gethostname(), node_type_name, instance_id,
-            self._args.collectors, 'discovery_context', 
+            self._args.collectors, 'discovery_context',
             int(self._args.http_server_port), ['discovery.sandesh'], disc_client,
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
@@ -218,7 +218,7 @@ class DiscoveryServer():
                                           size=1000)
         self._sandesh.trace_buffer_create(name="dsSubscribeTraceBuf",
                                           size=1000)
-        ConnectionState.init(self._sandesh, socket.gethostname(), module_name, 
+        ConnectionState.init(self._sandesh, socket.gethostname(), module_name,
                 instance_id, staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
 
@@ -251,6 +251,7 @@ class DiscoveryServer():
                 'admin_user': self._args.admin_user,
                 'admin_password': self._args.admin_password,
                 'admin_tenant_name': self._args.admin_tenant_name,
+                'region_name': self._args.region_name,
             }
             self._auth_svc = disc_auth_keystone.AuthServiceKeystone(ks_conf)
     # end __init__
@@ -455,7 +456,7 @@ class DiscoveryServer():
             self.syslog('Unable to parse heartbeat')
             self.syslog(bottle.request.body.buf)
             bottle.abort(400, 'Unable to parse heartbeat')
-            
+
         status = self.heartbeat(data['cookie'])
         return status
 
@@ -565,7 +566,7 @@ class DiscoveryServer():
         master_list = []
         working_list = []
         previous_use_count = list[0]['in_use']
-        list.append({'in_use': -1}) 
+        list.append({'in_use': -1})
         for item in list:
             if item['in_use'] != previous_use_count:
                 random.shuffle(working_list)
@@ -1004,7 +1005,7 @@ class DiscoveryServer():
                 oper_state_str += '/' + pub['oper_state_msg']
             rsp += '        <td>' + oper_state_str + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
-            link = do_html_url("/clients/%s/%s" % (service_type, service_id), 
+            link = do_html_url("/clients/%s/%s" % (service_type, service_id),
                 str(pub['in_use']))
             rsp += '        <td>' + link + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
@@ -1121,7 +1122,7 @@ class DiscoveryServer():
             if self.service_expired(entry):
                 self._db_conn.delete_service(entry)
         return self.show_all_services()
-    #end 
+    #end
 
     @db_error_handler
     def show_all_clients(self, service_type=None, service_id=None):
@@ -1140,7 +1141,7 @@ class DiscoveryServer():
         rsp += '    </tr>\n'
 
         # lookup subscribers of the service
-        clients = self._db_conn.get_all_clients(service_type=service_type, 
+        clients = self._db_conn.get_all_clients(service_type=service_type,
             service_id=service_id)
 
         if not clients:
@@ -1323,6 +1324,7 @@ def parse_args(args_str):
         'admin_user': '',
         'admin_password': '',
         'admin_tenant_name': '',
+        'region_name': 'RegionOne',
     }
 
     service_config = {}
@@ -1431,7 +1433,7 @@ def parse_args(args_str):
     parser.add_argument(
         "--auth", choices=['keystone'],
         help="Type of authentication for user-requests")
- 
+
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
     args.service_config = service_config
