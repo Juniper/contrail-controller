@@ -257,6 +257,22 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
 
+class ControllerL2ReceiveRoute : public L2ReceiveRoute {
+public:
+    ControllerL2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
+                           uint32_t mpls_label,
+                           const PathPreference &path_preference,
+                           uint64_t sequence_number,
+                           const AgentXmppChannel *channel);
+    virtual ~ControllerL2ReceiveRoute() { }
+    virtual bool IsPeerValid(const AgentRouteKey *key) const;
+
+private:
+    uint64_t sequence_number_;
+    const AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerL2ReceiveRoute);
+};
+
 class ControllerMulticastRoute : public MulticastRoute {
 public:
     ControllerMulticastRoute(const string &vn_name,
@@ -276,5 +292,4 @@ private:
     const AgentXmppChannel *channel_;
     DISALLOW_COPY_AND_ASSIGN(ControllerMulticastRoute);
 };
-
 #endif //controller_route_path_hpp
