@@ -121,7 +121,7 @@ static std::size_t HashCombine(std::size_t hash, uint64_t val) {
     return hash;
 }
 
-static std::size_t HashIp(const IpAddress &ip, std::size_t hash) {
+static std::size_t HashIp(std::size_t hash, const IpAddress &ip) {
     if (ip.is_v6()) {
         uint64_t val[2];
         Ip6AddressToU64Array(ip.to_v6(), val, 2);
@@ -162,21 +162,21 @@ uint16_t FlowProto::FlowTableIndex(const IpAddress &sip, const IpAddress &dip,
 
     std::size_t hash = 0;
     if (sip < dip) {
-        hash = HashIp(sip, hash);
-        hash = HashIp(dip, hash);
+        hash = HashIp(hash, sip);
+        hash = HashIp(hash, dip);
     } else {
-        hash = HashIp(dip, hash);
-        hash = HashIp(sip, hash);
+        hash = HashIp(hash, dip);
+        hash = HashIp(hash, sip);
     }
 
     if (sport < dport) {
-        HashCombine(hash, sport);
-        HashCombine(hash, dport);
+        hash = HashCombine(hash, sport);
+        hash = HashCombine(hash, dport);
     } else {
-        HashCombine(hash, dport);
-        HashCombine(hash, sport);
+        hash = HashCombine(hash, dport);
+        hash = HashCombine(hash, sport);
     }
-    HashCombine(hash, proto);
+    hash = HashCombine(hash, proto);
     return (hash % (flow_event_queue_.size()));
 }
 
