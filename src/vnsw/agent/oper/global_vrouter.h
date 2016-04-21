@@ -38,7 +38,7 @@ class GlobalVrouter {
 public:
     static const std::string kMetadataService;
     static const Ip4Address kLoopBackIp;
-    static const uint32_t kDefaultFlowExportRate = 1000;
+    static const uint32_t kDefaultFlowExportRate = 100;
 
     struct LinkLocalServiceKey {
         Ip4Address linklocal_service_ip;
