@@ -204,6 +204,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define METADATA_PORT 8775
 #define METADATA_NAT_PORT 80
 #define AGENT_INIT_TASKNAME "Agent::Init"
+#define INSTANCE_MANAGER_TASK_NAME "Agent::InstanceManager"
 #define AGENT_SHUTDOWN_TASKNAME "Agent::Shutdown"
 #define AGENT_FLOW_STATS_MANAGER_TASK "Agent::FlowStatsManager"
 #define AGENT_SANDESH_TASKNAME "Agent::Sandesh"

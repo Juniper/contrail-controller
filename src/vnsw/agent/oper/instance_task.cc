@@ -137,7 +137,7 @@ InstanceTaskQueue::InstanceTaskQueue(EventManager *evm) : evm_(evm),
                                *evm_->io_service(),
                                "Instance Manager Task Timeout",
                                TaskScheduler::GetInstance()->GetTaskId(
-                                               "db::DBTable"), 0)) {
+                                               INSTANCE_MANAGER_TASK_NAME), 0)) {
 }
 
 InstanceTaskQueue::~InstanceTaskQueue() {
