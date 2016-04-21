@@ -823,43 +823,50 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     return;
 }
 
-void FlowTable::HandleKSyncError(FlowTableKSyncEntry *ksync_entry,
-                                 int error, FlowEntry *flow) {
-    if (flow != ksync_entry->flow_entry()) {
-        // flow is not using the ksync entry for which error is
-        // return, ignore the error
+void FlowTable::HandleKSyncError(FlowEntry *flow,
+                                 FlowTableKSyncEntry *ksync_entry,
+                                 int ksync_error, uint32_t flow_handle,
+                                 uint32_t gen_id) {
+    // flow not associated with ksync anymore. Ignore the message
+    if (flow == NULL || flow != ksync_entry->flow_entry()) {
         return;
     }
 
-    // Mark the flow entry as short flow and update ksync error event
-    // to ksync index manager
+    // VRouter can return EBADF and ENONENT error if flow-handle changed before
+    // getting KSync response back. Avoid making short-flow in such case
+    if ((ksync_error == EBADF || ksync_error == ENOENT)) {
+        if (flow->flow_handle() != flow_handle || flow->gen_id() != gen_id) {
+            return;
+        }
+    }
+
+    // If VRouter returns error, mark the flow entry as short flow and
+    // update ksync error event to ksync index manager
+    //
     // For EEXIST error donot mark the flow as ShortFlow since Vrouter
     // generates EEXIST only for cases where another add should be
     // coming from the pkt trap from Vrouter
-    //
-    // FIXME : We dont have good scheme to handle following scenario,
-    // - VM1 in VN1 has floating-ip FIP1 in VN2
-    // - VM2 in VN2
-    // - VM1 pings VM2 (using floating-ip)
-    // The forward and reverse flows go to different partitions.
-    //
-    // If packets for both forward and reverse flows are trapped together
-    // we try to setup following flows from different partitions,
-    // FlowPair-1
-    //    - VM1 to VM2
-    //    - VM2 to FIP1
-    // FlowPair-2
-    //    - VM2 to FIP1
-    //    - VM1 to VM2
-    //
-    // The reverse flows for both FlowPair-1 and FlowPair-2 are not
-    // installed due to EEXIST error. We are converting flows to
-    // short-flow till this case is handled properly
-    if (error != EEXIST ||
-        flow->is_flags_set(FlowEntry::NatFlow)) {
+    if (ksync_error != EEXIST || flow->is_flags_set(FlowEntry::NatFlow)) {
+        // FIXME : We dont have good scheme to handle following scenario,
+        // - VM1 in VN1 has floating-ip FIP1 in VN2
+        // - VM2 in VN2
+        // - VM1 pings VM2 (using floating-ip)
+        // The forward and reverse flows go to different partitions.
+        //
+        // If packets for both forward and reverse flows are trapped together
+        // we try to setup following flows from different partitions,
+        // FlowPair-1
+        //    - VM1 to VM2
+        //    - VM2 to FIP1
+        // FlowPair-2
+        //    - VM2 to FIP1
+        //    - VM1 to VM2
+        //
+        // The reverse flows for both FlowPair-1 and FlowPair-2 are not
+        // installed due to EEXIST error. We are converting flows to
+        // short-flow till this case is handled properly
         flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
-
     return;
 }
 
@@ -906,6 +913,63 @@ void FlowTable::DelLinkLocalFlowInfo(int fd) {
 /////////////////////////////////////////////////////////////////////////////
 // Event handler routines
 /////////////////////////////////////////////////////////////////////////////
+
+// KSync flow event handler. Handles response for both vr_flow message only
+void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
+                                      FlowEntry *flow) {
+    FlowTableKSyncEntry *ksync_entry =
+        (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
+    KSyncFlowIndexManager *imgr = agent()->ksync()->ksync_flow_index_manager();
+
+    // flow not associated with ksync anymore. Ignore the message
+    if (flow == NULL) {
+        return;
+    }
+
+    // Ignore error for Delete messages
+    if (req->ksync_event() == KSyncEntry::DEL_ACK) {
+        return;
+    }
+
+    if (req->ksync_error() != 0) {
+        // Handle KSync Errors
+        HandleKSyncError(flow, ksync_entry, req->ksync_error(),
+                         req->flow_handle(), req->gen_id());
+    } else {
+        // Operation succeeded. Update flow-handle if not assigned
+        KSyncFlowIndexManager *mgr =
+            agent()->ksync()->ksync_flow_index_manager();
+        mgr->UpdateFlowHandle(ksync_entry, req->flow_handle(),
+                              req->gen_id());
+    }
+
+    // Log message if flow-handle change
+    if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+        if (flow->flow_handle() != req->flow_handle()) {
+            LOG(DEBUG, "Flow index changed from <"
+                << flow->flow_handle() << "> to <"
+                << req->flow_handle() << ">");
+        }
+    }
+
+    // When vrouter allocates a flow-index or changes flow-handle, its
+    // possible that a flow in vrouter is evicted. Update stats for
+    // evicted flow
+    if (req->flow_handle() != FlowEntry::kInvalidFlowHandle &&
+        req->flow_handle() != flow->flow_handle()) {
+        FlowEntryPtr evicted_flow = imgr->FindByIndex(req->flow_handle());
+        if (evicted_flow.get() && evicted_flow->deleted() == false) {
+            FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
+            mgr->FlowStatsUpdateEvent(evicted_flow.get(),
+                                      req->evict_flow_bytes(),
+                                      req->evict_flow_packets(),
+                                      req->evict_flow_oflow());
+        }
+    }
+
+    return;
+}
+
 bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
                                  FlowEntry *rflow) {
     //Take lock
@@ -954,30 +1018,20 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         break;
     }
 
-    case FlowEvent::FLOW_HANDLE_UPDATE: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
-        mgr->UpdateFlowHandle(ksync_entry, req->flow_handle(), req->gen_id());
-        break;
-    }
-
-    case FlowEvent::KSYNC_VROUTER_ERROR: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        HandleKSyncError(ksync_entry, req->ksync_error(), flow);
-        break;
-    }
-
     case FlowEvent::KSYNC_EVENT: {
-        FlowTableKSyncEntry *ksync_entry =
-            (static_cast<FlowTableKSyncEntry *> (req->ksync_entry()));
-        KSyncFlowIndexManager *mgr =
+        const FlowEventKSync *ksync_event =
+            static_cast<const FlowEventKSync *>(req);
+        // Handle vr_flow message
+        ProcessKSyncFlowEvent(ksync_event, flow);
+        // Handle vr_response message
+        // Trigger the ksync flow event to move ksync state-machine
+        KSyncFlowIndexManager *imgr =
             agent()->ksync()->ksync_flow_index_manager();
-        mgr->TriggerKSyncEvent(ksync_entry, req->ksync_event());
+        FlowTableKSyncEntry *ksync_entry = static_cast<FlowTableKSyncEntry *>
+            (ksync_event->ksync_entry());
+        imgr->TriggerKSyncEvent(ksync_entry, ksync_event->ksync_event());
         break;
     }
-
     default: {
         assert(0);
         break;

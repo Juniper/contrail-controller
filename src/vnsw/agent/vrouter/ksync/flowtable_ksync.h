@@ -25,6 +25,27 @@
 class FlowTableKSyncObject;
 class KSyncFlowIndexManager;
 
+struct FlowKSyncResponseInfo {
+    int ksync_error_;
+    uint32_t flow_handle_;
+    uint32_t gen_id_;
+    uint64_t evict_flow_bytes_;
+    uint64_t evict_flow_packets_;
+    int32_t evict_flow_oflow_;
+
+    void Reset() {
+        ksync_error_ = 0;
+        flow_handle_ = FlowEntry::kInvalidFlowHandle;
+        gen_id_ = 0;
+        evict_flow_bytes_ = 0;
+        evict_flow_packets_ = 0;
+        evict_flow_oflow_ = 0;
+    }
+    FlowKSyncResponseInfo() {
+        Reset();
+    }
+};
+
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
 public:
     FlowTableKSyncEntry(FlowTableKSyncObject *obj);
@@ -62,6 +83,23 @@ public:
     uint8_t vrouter_gen_id() { return vrouter_gen_id_; }
     FlowEvent::Event last_event() const { return last_event_; }
     void ReleaseToken();
+    void ResetKSyncResponseInfo() {
+        ksync_response_info_.Reset();
+    }
+    void SetKSyncResponseInfo(int ksync_error, uint32_t flow_handle,
+                              uint32_t gen_id, uint64_t evict_flow_bytes,
+                              uint64_t evict_flow_packets,
+                              int32_t evict_flow_oflow) {
+        ksync_response_info_.ksync_error_ = ksync_error;
+        ksync_response_info_.flow_handle_ = flow_handle;
+        ksync_response_info_.gen_id_ = gen_id;
+        ksync_response_info_.evict_flow_bytes_ = evict_flow_bytes;
+        ksync_response_info_.evict_flow_packets_ = evict_flow_packets;
+        ksync_response_info_.evict_flow_oflow_ = evict_flow_oflow;
+    }
+    const FlowKSyncResponseInfo *ksync_response_info() const {
+        return &ksync_response_info_;
+    }
 
 private:
     friend class KSyncFlowEntryFreeList;
@@ -86,6 +124,7 @@ private:
     uint32_t src_nh_id_;
     FlowEvent::Event last_event_;
     std::auto_ptr<FlowToken> token_;
+    FlowKSyncResponseInfo ksync_response_info_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);

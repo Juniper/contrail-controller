@@ -54,6 +54,7 @@ class FlowTable;
 class FlowTableKSyncEntry;
 class FlowTableKSyncObject;
 class FlowEvent;
+class FlowEventKSync;
 
 #define FLOW_LOCK(flow, rflow, flow_event) \
     bool is_flow_rflow_key_same = false; \
@@ -240,8 +241,9 @@ public:
     bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
     void HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
                                 bool active_flow, bool deleted_flow);
-    void HandleKSyncError(FlowTableKSyncEntry *ksync_entry, int error,
-                          FlowEntry *flow);
+    void HandleKSyncError(FlowEntry *flow, FlowTableKSyncEntry *ksync_entry,
+                          int ksync_error, uint32_t flow_handle,
+                          uint32_t gen_id);
     boost::uuids::uuid rand_gen();
 
     void UpdateKSync(FlowEntry *flow, bool update);
@@ -250,6 +252,9 @@ public:
     // Free list
     void GrowFreeList();
     FlowEntryFreeList *free_list() { return &free_list_; }
+
+    void ProcessKSyncFlowEvent(const FlowEventKSync *req, FlowEntry *flow);
+
     bool ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
                           FlowEntry *rflow);
     void PopulateFlowEntriesUsingKey(const FlowKey &key, bool reverse_flow,

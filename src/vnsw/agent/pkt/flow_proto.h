@@ -23,12 +23,12 @@ struct FlowStats {
     uint64_t flow_messages_;
     uint64_t revaluate_count_;
     uint64_t audit_count_;
-    uint64_t handle_update_;
+    uint64_t vrouter_responses_;
     uint64_t vrouter_error_;
 
     FlowStats() :
         add_count_(0), delete_count_(0), flow_messages_(0),
-        revaluate_count_(0), audit_count_(0), handle_update_(0),
+        revaluate_count_(0), audit_count_(0), vrouter_responses_(0),
         vrouter_error_(0) {
     }
 };
@@ -89,10 +89,12 @@ public:
     bool FlowDeleteHandler(FlowEvent *req, FlowTable *table);
     bool FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table);
     void GrowFreeListRequest(const FlowKey &key, FlowTable *table);
-    void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
-    void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle,
-                                uint8_t gen_id);
-    void KSyncFlowErrorRequest(KSyncEntry *ksync_entry, int error);
+    void KSyncEventRequest(KSyncEntry *ksync_entry,
+                           KSyncEntry::KSyncEvent event, uint32_t flow_handle,
+                           uint8_t gen_id, int ksync_error,
+                           uint64_t evict_flow_bytes,
+                           uint64_t evict_flow_packets,
+                           int32_t evict_flow_oflow);
     void MessageRequest(InterTaskMsg *msg);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);

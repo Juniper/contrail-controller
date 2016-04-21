@@ -130,6 +130,7 @@ void FlowTableKSyncEntry::Reset() {
     src_nh_id_ = NextHopTable::kRpfDiscardIndex;
     last_event_ = FlowEvent::INVALID;
     token_.reset();
+    ksync_response_info_.Reset();
 }
 
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
@@ -647,10 +648,18 @@ void FlowTableKSyncObject::GrowFreeList() {
     free_list_.Grow();
 }
 
+// We want to handle KSync transitions for flow from Flow task context.
+// KSync allows the NetlinkAck API to be over-ridden for custom handling.
+// Provide an implementation to enqueue an request
 void FlowTableKSyncObject::NetlinkAck(KSyncEntry *entry,
                                       KSyncEntry::KSyncEvent event) {
     FlowProto *proto = ksync()->agent()->pkt()->get_flow_proto();
-    proto->KSyncEventRequest(entry, event);
+    const FlowKSyncResponseInfo *resp =
+        static_cast<const FlowTableKSyncEntry *>(entry)->ksync_response_info();
+    proto->KSyncEventRequest(entry, event, resp->flow_handle_,
+                             resp->gen_id_, resp->ksync_error_,
+                             resp->evict_flow_bytes_, resp->evict_flow_packets_,
+                             resp->evict_flow_oflow_);
 }
 
 void FlowTableKSyncObject::GenerateKSyncEvent(FlowTableKSyncEntry *entry,
