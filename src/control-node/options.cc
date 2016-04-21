@@ -117,6 +117,8 @@ void Options::Initialize(EventManager &evm,
              "Enable control-node to run in test-mode")
         ("DEFAULT.tcp_hold_time", opt::value<int>()->default_value(30),
              "Configurable TCP hold time")
+        ("DEFAULT.optimize_snat", opt::bool_switch(&optimize_snat_),
+             "Enable control-node optimizations for SNAT (deprecated)")
 
         ("DEFAULT.xmpp_server_port",
              opt::value<uint16_t>()->default_value(default_xmpp_port),
