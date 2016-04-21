@@ -8,6 +8,7 @@
 #include <iostream>
 #include <boost/intrusive/set.hpp>
 
+#include "tbb/atomic.h"
 #include "tbb/task.h"
 #include "tbb/enumerable_thread_specific.h"
 #include "base/logging.h"
@@ -181,6 +182,7 @@ public:
     void TaskExited(Task *t);
     void PolicySet();
     void TaskStarted() {run_count_++;};
+    void IncrementTotalRunTime(int64_t rtime) { total_run_time_ += rtime; }
     TaskStats *GetTaskGroupStats();
     TaskStats *GetTaskStats();
     TaskStats *GetTaskStats(int task_instance);
@@ -220,6 +222,7 @@ private:
     int                     task_id_;
     bool                    policy_set_;// policy already set?
     int                     run_count_; // # of tasks running in the group
+    tbb::atomic<uint64_t>   total_run_time_;
 
     TaskGroupPolicyList     policy_;    // Policy rules for the group
     TaskDeferList           deferq_;    // Tasks deferred till run_count_ is 0
@@ -258,6 +261,8 @@ tbb::task *TaskImpl::execute() {
             if (delay > scheduler->execute_delay()) {
                 TASK_TRACE(scheduler, parent_, "Run time(in usec) ", delay);
             }
+            TaskGroup *group = scheduler->QueryTaskGroup(parent_->GetTaskId());
+            group->IncrementTotalRunTime(delay);
         }
 
         running = NULL;
@@ -868,6 +873,7 @@ void TaskScheduler::SetThreadAmpFactor(int n) {
 
 TaskGroup::TaskGroup(int task_id) : task_id_(task_id), policy_set_(false), 
     run_count_(0) {
+    total_run_time_ = 0;
     task_entry_db_.resize(TaskGroup::kVectorGrowSize);
     task_entry_ = new TaskEntry(task_id);
     memset(&stats_, 0, sizeof(stats_));
@@ -1359,7 +1365,9 @@ void TaskEntry::GetSandeshData(SandeshTaskEntry *resp) const {
     resp->set_deferq_size(deferq_->size());
 }
 void TaskGroup::GetSandeshData(SandeshTaskGroup *resp, bool summary) const {
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    if (total_run_time_)
+        resp->set_total_run_time(duration_usecs_to_string(total_run_time_));
+
     std::vector<SandeshTaskEntry> list;
     TaskEntry *task_entry = QueryTaskEntry(-1);
     if (task_entry) {
@@ -1367,8 +1375,6 @@ void TaskGroup::GetSandeshData(SandeshTaskGroup *resp, bool summary) const {
         task_entry->GetSandeshData(&entry_resp);
         list.push_back(entry_resp);
     }
-
-    std::vector<SandeshTaskEntry> entry_list;
     for (TaskEntryList::const_iterator it = task_entry_db_.begin();
          it != task_entry_db_.end(); ++it) {
         task_entry = *it;
@@ -1383,6 +1389,7 @@ void TaskGroup::GetSandeshData(SandeshTaskGroup *resp, bool summary) const {
     if (summary)
         return;
 
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
     std::vector<SandeshTaskPolicyEntry> policy_list;
     for (TaskGroupPolicyList::const_iterator it = policy_.begin();
          it != policy_.end(); ++it) {
