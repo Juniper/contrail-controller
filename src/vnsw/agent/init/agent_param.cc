@@ -417,12 +417,7 @@ void AgentParam::ParseDefaultSection() {
         log_local_ = false;
     }
 
-    if (optional<bool> debug_opt =
-        tree_.get_optional<bool>("DEFAULT.debug")) {
-        debug_ = true;
-    } else {
-        debug_ = false;
-    }
+    GetValueFromTree<bool>(debug_, "DEFAULT.debug");
 
     GetValueFromTree<bool>(use_syslog_, "DEFAULT.use_syslog");
     if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
@@ -652,14 +647,12 @@ void AgentParam::ParseDefaultSectionArguments
     GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    GetOptValue<bool>(var_map, debug_, "DEFAULT.debug");
     if (var_map.count("DEFAULT.use_syslog")) {
         use_syslog_ = true;
     }
     if (var_map.count("DEFAULT.log_local")) {
          log_local_ = true;
-    }
-    if (var_map.count("DEFAULT.debug")) {
-        debug_ = true;
     }
     if (var_map.count("DEFAULT.log_flow")) {
          log_flow_ = true;
@@ -1172,7 +1165,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")
-        ("DEFAULT.debug", "Enable debug logging")
+        ("DEFAULT.debug", opt::value<bool>(), "Enable / Disable debug logging")
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(agent->kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
