@@ -102,8 +102,11 @@ const std::string PeerCloseManager::GetStateName(State state) const {
 // TODO: If Close is restarted, account for elapsed time and skip GR (jump
 //       directly into LLGR) as apropraite
 void PeerCloseManager::Close() {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
+    CloseInternal();
+}
 
+void PeerCloseManager::CloseInternal() {
     stats_.close++;
 
     // Ignore nested closures
@@ -143,7 +146,7 @@ void PeerCloseManager::Close() {
 }
 
 void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if ((state_ == GR_TIMER || state_ == LLGR_TIMER) && !families_.empty()) {
         if (family == Address::UNSPEC) {
             families_.clear();
@@ -166,7 +169,7 @@ void PeerCloseManager::StartRestartTimer(int time) {
 }
 
 bool PeerCloseManager::RestartTimerCallback() {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     PEER_CLOSE_MANAGER_LOG("GR Timer callback started");
     if (state_ == GR_TIMER || state_ == LLGR_TIMER)
@@ -232,12 +235,12 @@ void PeerCloseManager::ProcessClosure() {
 }
 
 bool PeerCloseManager::IsCloseInProgress() const {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     return state_ != NONE;
 }
 
 bool PeerCloseManager::IsInGracefulRestartTimerWait() const {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     return state_ == GR_TIMER || state_ == LLGR_TIMER;
 }
 
@@ -252,7 +255,7 @@ void PeerCloseManager::CloseComplete() {
     // Nested closures trigger fresh GR
     if (close_again_) {
         close_again_ = false;
-        Close();
+        CloseInternal();
     }
 }
 
@@ -279,7 +282,7 @@ void PeerCloseManager::TriggerSweepStateActions() {
 // Close process for this peer in terms of walking RibIns and RibOuts are
 // complete. Do the final cleanups necessary and notify interested party
 void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     assert(state_ == STALE || LLGR_STALE || state_ == SWEEP ||
            state_ == DELETE);
@@ -426,9 +429,10 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
             case MembershipRequest::RIBIN_SWEEP:
 
                 // Stale paths must be deleted.
-                if (!path->IsStale())
+                if (!path->IsStale() && !path->IsLlgrStale())
                     return;
                 path->ResetStale();
+                path->ResetLlgrStale();
                 stats_.deleted_state_paths++;
                 oper = DBRequest::DB_ENTRY_DELETE;
                 attrs = NULL;
@@ -443,6 +447,12 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                 break;
 
             case MembershipRequest::RIBIN_STALE:
+
+                // If path is already marked as stale, then there is no need to
+                // process again. This can happen if the session flips while in
+                // GR_TIMER state.
+                if (path->IsStale())
+                    continue;
 
                 // This path must be marked for staling. Update the local
                 // preference and update the route accordingly.
@@ -464,21 +474,14 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                     break;
                 }
 
-                // Attach LLGR_STALE community to the route in order to
-                // depreference this path in the network.
+                // If path is already marked as llgr_stale, then there is no
+                // need to process again. This can happen if the session flips
+                // while in LLGR_TIMER state.
+                if (path->IsLlgrStale())
+                    continue;
+
                 attrs = path->GetAttr();
-                if (!path->GetAttr()->community() ||
-                    !path->GetAttr()->community()->ContainsValue(
-                        CommunityType::LlgrStale)) {
-                    CommunityPtr new_community =
-                        peer_->server()->comm_db()->AppendAndLocate(
-                                path->GetAttr()->community(),
-                                CommunityType::LlgrStale);
-                    attrs =
-                        peer_->server()->attr_db()->ReplaceCommunityAndLocate(
-                                path->GetAttr(), new_community);
-                }
-                stale = BgpPath::Stale;
+                stale = BgpPath::LlgrStale;
                 oper = DBRequest::DB_ENTRY_ADD_CHANGE;
                 stats_.marked_llgr_stale_paths++;
                 break;
@@ -499,7 +502,7 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
 }
 
 void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) {
-    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     PeerCloseInfo peer_close_info;
     peer_close_info.state = GetStateName(state_);

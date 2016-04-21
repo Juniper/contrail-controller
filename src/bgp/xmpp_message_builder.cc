@@ -468,10 +468,10 @@ string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route,
     }
 }
 
-Message *BgpXmppMessageBuilder::Create(const BgpTable *table,
+Message *BgpXmppMessageBuilder::Create(const RibOut *ribout,
                                        const RibOutAttr *roattr,
                                        const BgpRoute *route) const {
-    BgpXmppMessage *msg = new BgpXmppMessage(table, roattr);
+    BgpXmppMessage *msg = new BgpXmppMessage(ribout->table(), roattr);
     msg->Start(roattr, route);
     return msg;
 }

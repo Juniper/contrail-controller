@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_path.h"
 
+#include <boost/foreach.hpp>
+
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_peer.h"
 #include "net/community_type.h"
@@ -65,8 +67,12 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Route without LLGR_STALE community is always preferred over one with.
     bool llgr_stale = attr_->community() && attr_->community()->ContainsValue(
                                                 CommunityType::LlgrStale);
+    llgr_stale |= IsLlgrStale();
+
     bool rllgr_stale = rattr->community() && rattr->community()->ContainsValue(
                                                  CommunityType::LlgrStale);
+    rllgr_stale |= rhs.IsLlgrStale();
+
     KEY_COMPARE(llgr_stale, rllgr_stale);
 
     // For ECMP paths, above checks should suffice
@@ -149,23 +155,62 @@ vector<string> BgpPath::GetFlagsStringList() const {
     vector<string> flag_names;
     if (flags_ == 0) {
         flag_names.push_back("None");
-    } else {
-        if (flags_ & AsPathLooped)
+        return flag_names;
+    }
+
+    // First we form a list of enums and then iterate over it to get their
+    // string forms using switch. This lets compiler tell us when ever we add a
+    // new enumeration to PathFlag.
+    vector<PathFlag> flags;
+    if (flags_ & AsPathLooped)
+        flags.push_back(AsPathLooped);
+    if (flags_ & NoNeighborAs)
+        flags.push_back(NoNeighborAs);
+    if (flags_ & Stale)
+        flags.push_back(Stale);
+    if (flags_ & NoTunnelEncap)
+        flags.push_back(NoTunnelEncap);
+    if (flags_ & OriginatorIdLooped)
+        flags.push_back(OriginatorIdLooped);
+    if (flags_ & ResolveNexthop)
+        flags.push_back(ResolveNexthop);
+    if (flags_ & ResolvedPath)
+        flags.push_back(ResolvedPath);
+    if (flags_ & RoutingPolicyReject)
+        flags.push_back(RoutingPolicyReject);
+    if (flags_ & LlgrStale)
+        flags.push_back(LlgrStale);
+
+    BOOST_FOREACH(PathFlag flag, flags) {
+        switch (flag) {
+        case AsPathLooped:
             flag_names.push_back("AsPathLooped");
-        if (flags_ & NoNeighborAs)
+            break;
+        case NoNeighborAs:
             flag_names.push_back("NoNeighborAs");
-        if (flags_ & Stale)
+            break;
+        case Stale:
             flag_names.push_back("Stale");
-        if (flags_ & NoTunnelEncap)
+            break;
+        case NoTunnelEncap:
             flag_names.push_back("NoTunnelEncap");
-        if (flags_ & OriginatorIdLooped)
+            break;
+        case OriginatorIdLooped:
             flag_names.push_back("OriginatorIdLooped");
-        if (flags_ & ResolveNexthop)
+            break;
+        case ResolveNexthop:
             flag_names.push_back("ResolveNexthop");
-        if (flags_ & ResolvedPath)
+            break;
+        case ResolvedPath:
             flag_names.push_back("ResolvedPath");
-        if (flags_ & RoutingPolicyReject)
+            break;
+        case RoutingPolicyReject:
             flag_names.push_back("RoutingPolicyReject");
+            break;
+        case LlgrStale:
+            flag_names.push_back("LlgrStale");
+            break;
+        }
     }
     return flag_names;
 }

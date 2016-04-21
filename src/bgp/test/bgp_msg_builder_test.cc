@@ -103,7 +103,8 @@ TEST_F(BgpMsgBuilderTest, Build) {
         new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
     route.InsertPath(path);
     BgpMessage message;
-    message.Start(&rib_out_attr, &route);
+    RibOut ribout(NULL, NULL, RibExportPolicy());
+    message.Start(&ribout, &rib_out_attr, &route);
 
     size_t length;
     const uint8_t *data = message.GetData(NULL, &length);

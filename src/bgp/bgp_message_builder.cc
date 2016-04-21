@@ -20,7 +20,8 @@ BgpMessage::BgpMessage(const BgpTable *table) : table_(table), datalen_(0) {
 BgpMessage::~BgpMessage() {
 }
 
-bool BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
+bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
+                            const BgpRoute *route) {
     BgpProto::Update update;
     const BgpAttr *attr = roattr->attr();
 
@@ -38,7 +39,7 @@ bool BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(med);
     }
 
-    if (attr->local_pref()) {
+    if (ribout->peer_type() == BgpProto::IBGP) {
         BgpAttrLocalPref *lp = new BgpAttrLocalPref(attr->local_pref());
         update.path_attributes.push_back(lp);
     }
@@ -173,9 +174,10 @@ bool BgpMessage::StartUnreach(const BgpRoute *route) {
     return true;
 }
 
-bool BgpMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
+bool BgpMessage::Start(const RibOut *ribout, const RibOutAttr *roattr,
+                       const BgpRoute *route) {
     if (roattr->IsReachable()) {
-        return StartReach(roattr, route);
+        return StartReach(ribout, roattr, route);
     } else {
         return StartUnreach(route);
     }
@@ -245,10 +247,10 @@ const uint8_t *BgpMessage::GetData(IPeerUpdate *ipeer_update, size_t *lenp) {
     return data_;
 }
 
-Message *BgpMessageBuilder::Create(const BgpTable *table,
+Message *BgpMessageBuilder::Create(const RibOut *ribout,
         const RibOutAttr *roattr, const BgpRoute *route) const {
-    auto_ptr<BgpMessage> msg(new BgpMessage(table));
-    if (msg->Start(roattr, route)) {
+    auto_ptr<BgpMessage> msg(new BgpMessage(ribout->table()));
+    if (msg->Start(ribout, roattr, route)) {
         return msg.release();
     } else {
         return NULL;

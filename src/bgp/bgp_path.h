@@ -26,7 +26,8 @@ public:
         OriginatorIdLooped = 1 << 4,
         ResolveNexthop = 1 << 5,
         ResolvedPath = 1 << 6,
-        RoutingPolicyReject = 1 << 7
+        RoutingPolicyReject = 1 << 7,
+        LlgrStale = 1 << 8,
     };
 
     // Ordered in the ascending order of path preference
@@ -66,13 +67,9 @@ public:
         return true;
     }
 
-    const IPeer *GetPeer() const {
-        return peer_;
-    }
-
-    const uint32_t GetPathId() const {
-        return path_id_;
-    }
+    IPeer *GetPeer() { return const_cast<IPeer *>(peer_); }
+    const IPeer *GetPeer() const { return peer_; }
+    const uint32_t GetPathId() const { return path_id_; }
 
     void UpdatePeerRefCount(int count) const;
 
@@ -81,72 +78,47 @@ public:
         original_attr_ = original_attr;
     }
 
-    const BgpAttr *GetAttr() const {
-        return attr_.get();
-    }
-
-    const BgpAttr *GetOriginalAttr() const {
-        return original_attr_.get();
-    }
-
-    uint32_t GetLabel() const {
-        return label_;
-    }
-
-    virtual bool IsReplicated() const {
-        return false;
-    }
-
-    bool IsFeasible() const {
-        return ((flags_ & INFEASIBLE_MASK) == 0);
-    }
+    const BgpAttr *GetAttr() const { return attr_.get(); }
+    const BgpAttr *GetOriginalAttr() const { return original_attr_.get(); }
+    uint32_t GetLabel() const { return label_; }
+    virtual bool IsReplicated() const { return false; }
+    bool IsFeasible() const { return ((flags_ & INFEASIBLE_MASK) == 0); }
 
     bool IsResolutionFeasible() const {
         return ((flags_ & (INFEASIBLE_MASK & ~ResolveNexthop)) == 0);
     }
 
-    bool IsResolved() const {
-        return ((flags_ & ResolvedPath) != 0);
-    }
-
-    uint32_t GetFlags() const {
-        return flags_;
-    }
+    bool IsResolved() const { return ((flags_ & ResolvedPath) != 0); }
+    uint32_t GetFlags() const { return flags_; }
     std::vector<std::string> GetFlagsStringList() const;
 
-    PathSource GetSource() const {
-        return source_;
-    }
+    PathSource GetSource() const { return source_; }
     std::string GetSourceString(bool combine_bgp_and_xmpp = false) const;
 
     // Check if the path is stale
-    bool IsStale() const {
-        return ((flags_ & Stale) != 0);
-    }
+    bool IsStale() const { return ((flags_ & Stale) != 0); }
+
+    // Check if the path is stale
+    bool IsLlgrStale() const { return ((flags_ & LlgrStale) != 0); }
 
     // Mark a path as rejected by Routing policy
-    void SetPolicyReject() {
-        flags_ |= RoutingPolicyReject;
-    }
+    void SetPolicyReject() { flags_ |= RoutingPolicyReject; }
 
     // Reset a path as active from Routing Policy
-    void ResetPolicyReject() {
-        flags_ &= ~RoutingPolicyReject;
-    }
+    void ResetPolicyReject() { flags_ &= ~RoutingPolicyReject; }
 
     bool IsPolicyReject() const {
         return ((flags_ & RoutingPolicyReject) != 0);
     }
 
     // Mark a path as stale
-    void SetStale() {
-        flags_ |= Stale;
-    }
+    void SetStale() { flags_ |= Stale; }
 
     // Reset a path as active (not stale)
-    void ResetStale() {
-        flags_ &= ~Stale;
-    }
+    void ResetStale() { flags_ &= ~Stale; }
+
+    void SetLlgrStale() { flags_ |= LlgrStale; }
+    void ResetLlgrStale() { flags_ &= ~LlgrStale; }
 
     bool NeedsResolution() const { return ((flags_ & ResolveNexthop) != 0); }
 
