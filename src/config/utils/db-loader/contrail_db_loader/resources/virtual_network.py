@@ -154,10 +154,10 @@ class VirtualNetwork(Resource):
                 rts.append([])
                 for resource_idx in range(self._amount_per_project):
                     fq_name = [
-                        'target',
-                        str(self._default_gsc['autonomous_system']),
-                        str(self._RT_ID_ALLOC_START_IDX +
-                            self._rt_id_allocator),
+                        'target:%s:%s' %
+                        (str(self._default_gsc['autonomous_system']),
+                         str(self._RT_ID_ALLOC_START_IDX +
+                             self._rt_id_allocator)),
                     ]
                     id_str = "%(#)010d" % {'#': self._RT_ID_ALLOC_START_IDX +
                                            self._rt_id_allocator}
