@@ -92,7 +92,7 @@ bool FlowTable::ConcurrencyCheck() {
     }
     if (current->GetTaskId() != flow_task_id_)
         return false;
-    if (current->GetTaskId() != flow_task_id_)
+    if (current->GetTaskInstance() != table_index_)
         return false;
     return true;
 }
@@ -1019,6 +1019,7 @@ FlowEntryFreeList::~FlowEntryFreeList() {
 
 // Allocate a chunk of FlowEntries
 void FlowEntryFreeList::Grow() {
+    assert(table_->ConcurrencyCheck() == true);
     grow_pending_ = false;
     if (free_list_.size() >= kMinThreshold)
         return;
