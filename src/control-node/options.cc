@@ -113,6 +113,8 @@ void Options::Initialize(EventManager &evm,
              "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
              "Syslog facility to receive log lines")
+        ("DEFAULT.task_track_run_time", opt::bool_switch(&task_track_run_time_),
+             "Enable tracking of run time per task id")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable control-node to run in test-mode")
         ("DEFAULT.tcp_hold_time", opt::value<int>()->default_value(30),
@@ -265,7 +267,6 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
-    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<int>(var_map, tcp_hold_time_, "DEFAULT.tcp_hold_time");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
