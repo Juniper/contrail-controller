@@ -1082,6 +1082,13 @@ std::size_t PktInfo::hash(const EcmpLoadBalance &ecmp_load_balance) const {
     return seed;
 }
 
+uint32_t PktInfo::GetUdpPayloadLength() const {
+    if (ip_proto == IPPROTO_UDP) {
+        return ntohs(transp.udp->uh_ulen) - sizeof(udphdr);
+    }
+    return 0;
+}
+
 void PktHandler::AddPktTrace(PktModuleName module, PktTrace::Direction dir,
                              const PktInfo *pkt) {
     pkt_trace_.at(module).AddPktTrace(PktTrace::In, pkt->len, pkt->pkt,

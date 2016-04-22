@@ -150,7 +150,15 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     }
     dns_proto->AddVmRequest(rkey_);
 
-    dns_resp_size_ = BindUtil::ParseDnsQuery((uint8_t *)dns_, items_);
+    if (BindUtil::ParseDnsQuery((uint8_t *)dns_,
+                                pkt_info_->GetUdpPayloadLength(),
+                                &dns_resp_size_, items_) == false) {
+        DNS_BIND_TRACE(DnsBindTrace, "Default DNS query parsing failed; "
+                       "interface = " << vmitf->vm_name() << " xid = " <<
+                       dns_->xid);
+        return true;
+    }
+
     resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
     action_ = DnsHandler::DNS_QUERY;
     BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
@@ -313,7 +321,14 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
     uint16_t ret = DNS_ERR_NO_ERROR;
     switch (dns_->flags.op) {
         case DNS_OPCODE_QUERY: {
-            dns_resp_size_ = BindUtil::ParseDnsQuery((uint8_t *)dns_, items_);
+            if (BindUtil::ParseDnsQuery((uint8_t *)dns_,
+                                        pkt_info_->GetUdpPayloadLength(),
+                                        &dns_resp_size_, items_) == false) {
+                DNS_BIND_TRACE(DnsBindTrace, "vDNS query parsing failed; "
+                               "interface = " << vmitf->vm_name() << " xid = " <<
+                               dns_->xid);
+                break;
+            }
             resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
             BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
                                      DNS_OPCODE_QUERY, 0, 1, ret, 
@@ -354,7 +369,9 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
                 DnsProto::DnsUpdateIpc *update =
                     new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update, 
                                                update_data, vmitf, false);
-                if (BindUtil::ParseDnsUpdate((uint8_t *)dns_, *update_data)) {
+                if (BindUtil::ParseDnsUpdate((uint8_t *)dns_,
+                                             pkt_info_->GetUdpPayloadLength(),
+                                             *update_data)) {
                     update_data->virtual_dns = ipam_type_.ipam_dns_server.
                                                virtual_dns_server_name;
                     Update(update);
@@ -544,7 +561,7 @@ bool DnsHandler::HandleBindResponse() {
     if (handler) {
         dns_flags flags;
         DnsItems ques, ans, auth, add;
-        if (BindUtil::ParseDnsResponse(ipc->resp, xid, flags,
+        if (BindUtil::ParseDnsResponse(ipc->resp, ipc->length, xid, flags,
                                        ques, ans, auth, add)) {
             switch(handler->action_) {
                 case DnsHandler::DNS_QUERY:
