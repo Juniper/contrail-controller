@@ -15,6 +15,7 @@
 #include <oper/mirror_table.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
+#include <controller/controller_route_path.h>
 #include <oper/agent_sandesh.h>
 #include <pkt/pkt_init.h>
 #include <pkt/pkt_handler.h>
@@ -145,6 +146,28 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteReq(const Peer *peer,
                                                       Ip4Address tsn,
                                                       Ip4Address tor_ip) {
     AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, true);
+}
+
+void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
+                                             const string &vrf_name,
+                                             uint32_t label,
+                                             const MacAddress &mac,
+                                             const IpAddress &ip_addr,
+                                             uint32_t ethernet_tag,
+                                             const string &vn_name,
+                                             const PathPreference &path_pref) {
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    assert(bgp_peer != NULL);
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   ethernet_tag));
+    req.data.reset(new ControllerL2ReceiveRoute(vn_name, ethernet_tag,
+                                              label, path_pref,
+                                              bgp_peer->GetBgpXmppPeerConst()->
+                                              unicast_sequence_number(),
+                                              bgp_peer->GetBgpXmppPeerConst()));
+    agent()->fabric_evpn_table()->Enqueue(&req);
 }
 
 void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,

@@ -441,3 +441,18 @@ string ControllerMulticastRoute::PeerInvalidMsg
 bool ControllerMulticastRoute::IsPeerValid(const AgentRouteKey *key) const {
     return CheckPeerValidity(channel_, sequence_number_);
 }
+
+ControllerL2ReceiveRoute::ControllerL2ReceiveRoute(const std::string &vn_name,
+                                                   uint32_t vxlan_id,
+                                                   uint32_t mpls_label,
+                                                   const PathPreference
+                                                   &path_preference,
+                                                   uint64_t sequence_number,
+                                                   const AgentXmppChannel
+                                                   *channel):
+    L2ReceiveRoute(vn_name, vxlan_id, mpls_label, path_preference),
+    sequence_number_(sequence_number), channel_(channel) { }
+
+bool ControllerL2ReceiveRoute::IsPeerValid(const AgentRouteKey *key) const {
+    return CheckPeerValidity(channel_, sequence_number_);
+}

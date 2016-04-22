@@ -47,6 +47,12 @@ public:
                          const IpAddress &ip_addr, uint32_t ethernet_tag,
                          const std::string &vn_name,
                          const PathPreference &pref);
+    void AddControllerReceiveRouteReq(const Peer *peer,
+                         const std::string &vrf_name,
+                         uint32_t label, const MacAddress &mac,
+                         const IpAddress &ip_addr, uint32_t ethernet_tag,
+                         const std::string &vn_name,
+                         const PathPreference &pref);
     void AddLocalVmRouteReq(const Peer *peer,
                             const std::string &vrf_name,
                             const MacAddress &mac,
