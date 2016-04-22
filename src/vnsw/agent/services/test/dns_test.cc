@@ -308,7 +308,7 @@ public:
         for (int i = 0; i < numAdd; i++)
             ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
 
-        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
+        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf, len);
     }
 
     void FillDnsUpdateData(DnsUpdateData &data, int count) {
@@ -1229,7 +1229,7 @@ TEST_F(DnsTest, DnsDropTest) {
     };
     IpamInfo ipam_info[] = {
         {"1.2.3.128", 27, "1.2.3.129", true, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12", true, "7.8.9.12},
+        {"7.8.9.0", 24, "7.8.9.12", true, "7.8.9.12"},
         {"1.1.1.0", 24, "1.1.1.200", true, "1.1.1.200"},
     };
     dns_flags flags = default_flags;

@@ -233,6 +233,7 @@ struct PktInfo {
     void AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
                            uint32_t mdata);
     void set_len(uint32_t len);
+    uint32_t GetUdpPayloadLength() const;
 
 private:
     PacketBufferPtr     packet_buffer_;
