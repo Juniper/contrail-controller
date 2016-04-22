@@ -23,7 +23,7 @@ from netaddr import IPNetwork
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
 from cfgm_common.ifmap.client import client
-from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest
+from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest, SearchRequest
 from cfgm_common.ifmap.id import Identity
 from cfgm_common.ifmap.operations import PublishUpdateOperation,\
     PublishDeleteOperation
@@ -117,6 +117,7 @@ class VncIfmapClient(object):
             name = 'IfMap', status = ConnectionStatus.INIT, message = '',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
+        self._is_ifmap_up = False
 
         self.reset()
 
@@ -454,6 +455,7 @@ class VncIfmapClient(object):
                               error_msg=msg)
             if publish_discovery and ok:
                 self._get_api_server().publish_ifmap_to_discovery()
+                self._is_ifmap_up = True
         # end _publish
 
         while True:
@@ -545,6 +547,7 @@ class VncIfmapClient(object):
 
                 self.reset()
                 self._get_api_server().un_publish_ifmap_to_discovery()
+                self._is_ifmap_up = False
                 # this will block till connection is re-established
                 self._init_conn()
                 self._publish_config_root()
@@ -705,9 +708,69 @@ class VncIfmapClient(object):
                         ns_prefix='contrail', elements='')
                 request_str = self._build_request('healthcheck', 'self', [meta])
                 self._publish_to_ifmap_enqueue('update', request_str, do_trace=False)
+
+                # Confirm the existence of the following default global entities in IFMAP.
+                search_list = ['contrail:global-system-config:default-global-system-config']
+                mapclient = self._mapclient
+                srch_params = {}
+                srch_params['max-depth'] = '0'
+                srch_params['max-size'] = '500000'
+                srch_params['result-filter'] = None
+
+                for each_entity in search_list:
+                    start_id = str(
+                        Identity(name = each_entity,
+                        type='other', other_type='extended'))
+
+                    srch_req = SearchRequest(mapclient.get_session_id(), start_id,
+                                             search_parameters = srch_params)
+
+                    result = mapclient.call('search', srch_req)
+                    soap_doc = etree.fromstring(result)
+                    result_items = soap_doc.xpath(
+                        '/env:Envelope/env:Body/ifmap:response/searchResult/resultItem',
+                        namespaces=self._NAMESPACES)
+
+                    # The above IFMAP search call does not return the success of
+                    # the search query. To determine the success of the query
+                    # we verify whether the response has a 'metadata' child
+                    # and that in turn has "perms" sub children, then we can assume
+                    # that the query has succeeded. If not, we raise an 
+                    # exception that the IFMAP does not contain basic Contrail
+                    # entities.
+                    for each_result in result_items:
+                        result_children = each_result.getchildren()
+                        metadata = [x for x in result_children if x.tag == 'metadata']
+                        if len(metadata) != 0:
+                            perms = [x for x in metadata[0] if "perms" in x.tag]
+                            if len(perms) != 0:
+                                continue
+                        raise Exception("%s not found in IFMAP DB" % each_entity)
+
+                # If we had unpublished the IFMAP server to discovery server earlier
+                # publish it back now since it is valid now.
+                if not self._is_ifmap_up:
+                    self._get_api_server().publish_ifmap_to_discovery('up', '')
+                    self._is_ifmap_up = True
+                    ConnectionState.update(conn_type = ConnType.IFMAP,
+                                           name = 'IfMap',
+                                           status = ConnectionStatus.UP,
+                                           message = '',
+                                           server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
+                                                                      self._ifmap_srv_port)])
             except Exception as e:
-                log_str = 'Healthcheck to IFMAP failed: %s' %(str(e))
+                log_str = 'IFMAP Healthcheck failed: %s' %(str(e))
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
+                if self._is_ifmap_up:
+                    self._get_api_server().publish_ifmap_to_discovery('down',
+                                                   'IFMAP DB - Invalid state')
+                    self._is_ifmap_up = False
+                    ConnectionState.update(conn_type = ConnType.IFMAP,
+                                           name = 'IfMap',
+                                           status = ConnectionStatus.DOWN,
+                                           message = 'Invalid DB State',
+                                           server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
+                                                                      self._ifmap_srv_port)])
             finally:
                 gevent.sleep(
                     self._get_api_server().get_ifmap_health_check_interval())

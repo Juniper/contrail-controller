@@ -295,12 +295,14 @@ class DiscoveryClient(object):
                               for k, v in obj.__dict__.iteritems()))
         return obj_json
 
-    def _publish_int(self, service, data):
+    def _publish_int(self, service, data, state = 'up', msg = ''):
         self.syslog('Publish service "%s", data "%s"' % (service, data))
         payload = {
-            service        : data,
-            'service-type' : service,
-            'remote-addr'  : self._remote_addr
+            service             : data,
+            'service-type'      : service,
+            'remote-addr'       : self._remote_addr,
+            'oper-state'        : oper_state,
+            'oper-state-reason' : msg
         }
         emsg = None
         cookie = None
@@ -366,9 +368,9 @@ class DiscoveryClient(object):
     # end publish
 
     # API publish service and data
-    def publish(self, service, data):
+    def publish(self, service, data, state = 'up', msg = ''):
         self.pub_data[service] = data
-        self._publish_int(service, data)
+        self._publish_int(service, data, state, msg)
         return self.hbtask
     # end
 
