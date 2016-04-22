@@ -3185,7 +3185,7 @@ class VncApiServer(object):
             self.api_server_task = self._disc.publish(
                 API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
-    def publish_ifmap_to_discovery(self):
+    def publish_ifmap_to_discovery(self, state = 'up', msg = ''):
         # publish ifmap server
         data = {
             'ip-address': self._args.ifmap_server_ip,
@@ -3193,7 +3193,8 @@ class VncApiServer(object):
         }
         if self._disc:
             self.ifmap_task = self._disc.publish(
-                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+                                  IFMAP_SERVER_DISCOVERY_SERVICE_NAME,
+                                  data, state, msg)
     # end publish_ifmap_to_discovery
 
     def un_publish_self_to_discovery(self):
