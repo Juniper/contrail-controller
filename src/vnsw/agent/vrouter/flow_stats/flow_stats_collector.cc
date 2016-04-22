@@ -388,7 +388,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         /* The knob disable_flow_collection is retained for backward
          * compatability purpose only. The recommended way is to use the knob
          * available in global-vrouter-config. */
-        flow_stats_manager_->flow_export_msg_drops_++;
+        flow_stats_manager_->flow_export_disable_drops_++;
         return;
     }
 
@@ -397,9 +397,14 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     /* We should always try to export flows with Action as LOG regardless of
      * configured flow-export-rate */
     if (!flow->IsActionLog() && !cfg_rate) {
-        flow_stats_manager_->flow_export_msg_drops_++;
+        flow_stats_manager_->flow_export_disable_drops_++;
         return;
     }
+
+    /* Compute diff stats by adding the previous diff stats of sample that
+     * was dropped */
+    diff_bytes += flow->prev_diff_bytes();
+    diff_pkts += flow->prev_diff_packets();
 
     /* Subject a flow to sampling algorithm only when all of below is met:-
      * a. if Log is not configured as action for flow
@@ -418,7 +423,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         if (num > diff_bytes) {
             /* Do not export the flow, if the random number generated is more
              * than the diff_bytes */
-            flow_stats_manager_->flow_export_msg_drops_++;
+            flow_stats_manager_->flow_export_sampling_drops_++;
+            flow->set_prev_diff_bytes(diff_bytes);
+            flow->set_prev_diff_packets(diff_pkts);
             return;
         }
         /* Normalize the diff_bytes and diff_packets reported using the
@@ -430,6 +437,10 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
             diff_pkts = diff_pkts/probability;
         }
     }
+    /* Reset diff stats since flow will be exported now */
+    flow->set_prev_diff_bytes(0);
+    flow->set_prev_diff_packets(0);
+
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_CRIT;
     FlowStats &stats = flow->stats_;

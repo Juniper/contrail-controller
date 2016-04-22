@@ -177,7 +177,8 @@ struct Inet4FlowKeyCmp {
 
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), exported(false), fip(0),
+        bytes(0), packets(0), prev_diff_bytes(0), prev_diff_packets(0),
+        intf_in(0), exported(false), fip(0),
         fip_vm_port_id(Interface::kInvalidIndex), fsc(NULL) {}
 
     uint64_t setup_time;
@@ -185,6 +186,12 @@ struct FlowStats {
     uint64_t last_modified_time; //used for aging
     uint64_t bytes;
     uint64_t packets;
+    /* When flow samples are dropped the diff stats for that sample is
+     * accumulated in the following fields. This used to compute aggregate diff
+     * when the flow is being sent again. On successful send the following
+     * fields are reset */
+    uint64_t prev_diff_bytes;
+    uint64_t prev_diff_packets;
     uint32_t intf_in;
     uint16_t tcp_flags;
     bool exported;
@@ -485,6 +492,12 @@ class FlowEntry {
     void SetActionLog();
     const FlowTableKSyncEntry* ksync_entry() const {
         return ksync_entry_;
+    }
+    uint64_t prev_diff_bytes() const { return stats_.prev_diff_bytes; }
+    void set_prev_diff_bytes(uint64_t value) { stats_.prev_diff_bytes = value; }
+    uint64_t prev_diff_packets() const { return stats_.prev_diff_packets; }
+    void set_prev_diff_packets(uint64_t value) {
+        stats_.prev_diff_packets = value;
     }
 
 private:
