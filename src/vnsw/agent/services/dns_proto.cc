@@ -42,7 +42,7 @@ void DnsProto::ConfigInit() {
     }
     BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
                        agent()->params()->dns_client_port(),
-                       boost::bind(&DnsProto::SendDnsIpc, this, _1));
+                       boost::bind(&DnsProto::SendDnsIpc, this, _1, _2));
 }
 
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
@@ -565,14 +565,14 @@ uint16_t DnsProto::GetTransId() {
     return (++xid_ == 0 ? ++xid_ : xid_);
 }
 
-void DnsProto::SendDnsIpc(uint8_t *pkt) {
-    DnsIpc *ipc = new DnsIpc(pkt, 0, NULL, DnsProto::DNS_BIND_RESPONSE);
+void DnsProto::SendDnsIpc(uint8_t *pkt, std::size_t length) {
+    DnsIpc *ipc = new DnsIpc(pkt, length, 0, NULL, DnsProto::DNS_BIND_RESPONSE);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
 void DnsProto::SendDnsIpc(InterTaskMessage cmd, uint16_t xid, uint8_t *msg,
                           DnsHandler *handler) {
-    DnsIpc *ipc = new DnsIpc(msg, xid, handler, cmd);
+    DnsIpc *ipc = new DnsIpc(msg, 0, xid, handler, cmd);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
