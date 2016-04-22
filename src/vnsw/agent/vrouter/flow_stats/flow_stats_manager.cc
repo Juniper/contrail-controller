@@ -121,7 +121,6 @@ void FlowStatsManager::AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
         it->second->set_flow_age_time_intvl(
                 1000000L * (uint64_t)req->flow_cache_timeout);
         it->second->set_deleted(false);
-        it->second->set_user_configured(req->user_configured);
         return;
     }
 
@@ -140,7 +139,6 @@ void FlowStatsManager::AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
     if (req->key.port == 0) {
         protocol_list_[req->key.proto] = aging_table.get();
     }
-    aging_table->set_user_configured(req->user_configured);
 }
 
 void FlowStatsManager::DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
@@ -179,13 +177,12 @@ void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
 }
 
 void FlowStatsManager::Add(const FlowAgingTableKey &key,
-                           uint64_t flow_stats_interval,
-                           uint64_t flow_cache_timeout, bool user_configured) {
+                          uint64_t flow_stats_interval,
+                          uint64_t flow_cache_timeout) {
     boost::shared_ptr<FlowStatsCollectorReq>
         req(new FlowStatsCollectorReq(
                     FlowStatsCollectorReq::ADD_FLOW_STATS_COLLECTOR,
-                    key, flow_stats_interval, flow_cache_timeout,
-                    user_configured));
+                    key, flow_stats_interval, flow_cache_timeout));
     request_queue_.Enqueue(req);
 }
 
@@ -193,20 +190,10 @@ void FlowStatsManager::Delete(const FlowAgingTableKey &key) {
     if (key.proto == kCatchAllProto) {
         return;
     }
-    boost::shared_ptr<FlowStatsCollectorReq> req;
-    if (key.proto == IPPROTO_TCP && key.port == 0) {
-        /* We should never delete flow-stats-collector with (IPPROTO_TCP, 0)
-         * key as it is implicitly added. If user has overwritten that and later
-         * sent delete request, we should only change the aging time back to
-         * default value. This is done by enqueuing ADD request */
-        req.reset(new FlowStatsCollectorReq(
-                    FlowStatsCollectorReq::ADD_FLOW_STATS_COLLECTOR,
-                    key, agent_->params()->flow_stats_interval(),
-                    agent_->params()->flow_cache_timeout(), false));
-    } else {
-        req.reset(new FlowStatsCollectorReq(
-                    FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR, key));
-    }
+    boost::shared_ptr<FlowStatsCollectorReq>
+        req(new FlowStatsCollectorReq(
+                    FlowStatsCollectorReq::DELETE_FLOW_STATS_COLLECTOR,
+                    key));
     request_queue_.Enqueue(req);
 }
 
@@ -325,7 +312,7 @@ void FlowStatsManager::FlowStatsReqHandler(Agent *agent,
     } else {
         agent->flow_stats_manager()->Add(
                 FlowAgingTableKey(protocol, port), 
-                agent->params()->flow_stats_interval(), timeout, true);
+                agent->params()->flow_stats_interval(), timeout);
     }
 }
 
@@ -333,10 +320,7 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
                            uint64_t flow_cache_timeout) {
     agent_->set_flow_stats_req_handler(&(FlowStatsManager::FlowStatsReqHandler));
     Add(FlowAgingTableKey(kCatchAllProto, 0),
-        flow_stats_interval,
-        flow_cache_timeout, false);
-    Add(FlowAgingTableKey(IPPROTO_TCP, 0), flow_stats_interval,
-        flow_cache_timeout, false);
+        flow_stats_interval, flow_cache_timeout);
     timer_->Start(FlowThresoldUpdateTime,
                   boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
 }
@@ -377,7 +361,7 @@ void ShowAgingConfig::HandleRequest() const {
 void AddAgingConfig::HandleRequest() const {
     FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
     fam->Add(FlowAgingTableKey(get_protocol(), get_port()),
-                               get_stats_interval(), get_cache_timeout(), true);
+                               get_stats_interval(), get_cache_timeout());
     SandeshResponse *resp = new FlowStatsCfgResp();
     resp->set_context(context());
     resp->Response();
