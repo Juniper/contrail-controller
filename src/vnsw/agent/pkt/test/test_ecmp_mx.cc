@@ -25,7 +25,6 @@ class EcmpTest : public ::testing::Test {
                                  "xmpp channel");
         client->WaitForIdle();
 
-        flow_proto_ = agent_->pkt()->get_flow_proto();
         CreateVmportWithEcmp(input1, 1);
         AddVn("vn2", 2);
         AddVrf("vrf2");
@@ -50,7 +49,7 @@ class EcmpTest : public ::testing::Test {
         client->WaitForIdle();
         EXPECT_FALSE(VrfFind("vrf1", true));
         EXPECT_FALSE(VrfFind("vrf2", true));
-        WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
+        WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
         client->WaitForIdle();
     }
 public:
@@ -85,10 +84,8 @@ public:
                            PathPreference());
     }
 
-    FlowProto *get_flow_proto() const { return flow_proto_; }
     Agent *agent_;
     Peer *bgp_peer;
-    FlowProto *flow_proto_;
     AgentXmppChannel *channel;
     char router_id[80];
     char MX_0[80];
@@ -120,11 +117,11 @@ TEST_F(EcmpTest, EcmpTest_1) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Send packet from ECMP MX to VM
@@ -150,11 +147,11 @@ TEST_F(EcmpTest, EcmpTest_2) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Send packet from MX3 to VM
@@ -176,11 +173,11 @@ TEST_F(EcmpTest, EcmpTest_3) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Send packet from MX1 to VM
@@ -202,17 +199,17 @@ TEST_F(EcmpTest, EcmpTest_4) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     TxIpMplsPacket(eth_intf_id, MX_2, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
     client->WaitForIdle(); 
     EXPECT_TRUE(entry->data().component_nh_idx == 2);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Send packet from MX to VM
@@ -244,14 +241,14 @@ TEST_F(EcmpTest, EcmpTest_5) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     DeleteRoute("vrf2", "0.0.0.0", 0, bgp_peer);
     DelLink("virtual-network", "vn1", "access-control-list", "Acl");
     DelAcl("Acl");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Floating IP traffic from VM going to ECMP MX
@@ -259,25 +256,31 @@ TEST_F(EcmpTest, EcmpTest_6) {
     //Setup
     //Add IP 2.1.1.1 as floating IP to 1.1.1.1
     //Make address 8.8.8.8 reachable on 4 MX
-    //Send traffic from MX3 to FIP
+    //Send traffic from MX3 to default-project:fip
     //Verify RPF nh and component index
-    AddVn("fip", 3);
-    AddVrf("fip:fip");
-    AddLink("virtual-network", "fip", "routing-instance", "fip:fip");
-    AddFloatingIpPool("fip-pool1", 1);
-    AddFloatingIp("fip1", 1, "2.1.1.1");
-    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "fip");
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddVn("default-project:fip", 3);
+    AddVrf("default-project:fip:fip");
+    AddLink("virtual-network", "default-project:fip",
+            "routing-instance", "default-project:fip:fip");
+    AddFloatingIpPool("default-project:fip-pool1", 1);
+    AddFloatingIp("default-project:fip1", 1, "2.1.1.1");
+    AddLink("floating-ip", "default-project:fip1",
+            "floating-ip-pool", "default-project:fip-pool1");
+    AddLink("floating-ip-pool", "default-project:fip-pool1", 
+            "virtual-network", "default-project:fip");
+    AddLink("virtual-machine-interface", "vnet1",
+            "floating-ip", "default-project:fip1");
     client->WaitForIdle();
-    AddRemoteEcmpRoute("fip:fip", "0.0.0.0", 0, "fip", 4);
+    AddRemoteEcmpRoute("default-project:fip:fip", 
+                       "0.0.0.0", 0, "default-project:fip", 4);
     client->WaitForIdle();
 
     TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
                    "8.8.8.8", "2.1.1.1", 1, 10);
     client->WaitForIdle();
 
-    AgentRoute *rt = RouteGet("fip:fip", Ip4Address::from_string("0.0.0.0"), 0);
+    AgentRoute *rt = RouteGet("default-project:fip:fip", 
+                              Ip4Address::from_string("0.0.0.0"), 0);
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
@@ -287,20 +290,23 @@ TEST_F(EcmpTest, EcmpTest_6) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     //Clean up
-    DeleteRoute("fip:fip", "0.0.0.0", 0, bgp_peer);
-    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "fip");
-    DelNode("floating-ip", "fip1");
-    DelNode("floating-ip-pool", "fip-pool1");
+    DeleteRoute("default-project:fip:fip", "0.0.0.0", 0, bgp_peer);
+    DelLink("virtual-machine-interface", "vnet1", 
+            "floating-ip", "default-project:fip1");
+    DelLink("floating-ip-pool", "default-project:fip-pool1", 
+            "virtual-network", "default-project:fip");
+    DelNode("floating-ip", "default-project:fip1");
+    DelNode("floating-ip-pool", "default-project:fip-pool1");
     client->WaitForIdle();
-    DelLink("virtual-network", "fip", "routing-instance", "fip:fip");
-    DelVrf("fip:fip");
-    DelVn("fip");
+    DelLink("virtual-network", "default-project:fip", 
+            "routing-instance", "default-project:fip:fip");
+    DelVrf("default-project:fip:fip");
+    DelVn("default-project:fip");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 //Floating IP traffic from VM going to ECMP MX with
@@ -309,24 +315,31 @@ TEST_F(EcmpTest, EcmpTest_7) {
     //Setup
     //Add IP 2.1.1.1 as floating IP to 1.1.1.1
     //Make address 8.8.8.8 reachable on 4 MX
-    //Send traffic from MX3 to FIP with vrf translation
+    //Send traffic from MX3 to default-project:fip with vrf translation
     //Verify RPF nh and component index
-    AddVn("fip", 3);
-    AddVrf("fip:fip");
-    AddLink("virtual-network", "fip", "routing-instance", "fip:fip");
-    AddFloatingIpPool("fip-pool1", 1);
-    AddFloatingIp("fip1", 1, "2.1.1.1");
-    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "fip");
-    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddVn("default-project:fip", 3);
+    AddVrf("default-project:fip:fip");
+    AddLink("virtual-network", "default-project:fip", 
+            "routing-instance", "default-project:fip:fip");
+    AddFloatingIpPool("default-project:fip-pool1", 1);
+    AddFloatingIp("default-project:fip1", 1, "2.1.1.1");
+    AddLink("floating-ip", "default-project:fip1", 
+            "floating-ip-pool", "default-project:fip-pool1");
+    AddLink("floating-ip-pool", "default-project:fip-pool1", 
+            "virtual-network", "default-project:fip");
+    AddLink("virtual-machine-interface", "vnet1", 
+            "floating-ip", "default-project:fip1");
     client->WaitForIdle();
-    AddRemoteEcmpRoute("fip:fip", "0.0.0.0", 0, "fip", 4);
+    AddRemoteEcmpRoute("default-project:fip:fip", "0.0.0.0", 
+                        0, "default-project:fip", 4);
     //Add the routes in vrf2 in reverese order
-    AddRemoteEcmpRoute("vrf2", "0.0.0.0", 0, "fip", 4, true);
+    AddRemoteEcmpRoute("vrf2", "0.0.0.0", 0, "default-project:fip", 4, true);
     client->WaitForIdle();
 
-    AddVrfAssignNetworkAcl("Acl", 10, "fip", "fip", "pass", "vrf2");
-    AddLink("virtual-network", "fip", "access-control-list", "Acl");
+    AddVrfAssignNetworkAcl("Acl", 10, "default-project:fip", 
+                           "default-project:fip", "pass", "vrf2");
+    AddLink("virtual-network", "default-project:fip", 
+            "access-control-list", "Acl");
     client->WaitForIdle();
 
     TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
@@ -343,20 +356,23 @@ TEST_F(EcmpTest, EcmpTest_7) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
 
     //Clean up
-    DeleteRoute("fip:fip", "0.0.0.0", 0, bgp_peer);
-    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "fip");
-    DelNode("floating-ip", "fip1");
-    DelNode("floating-ip-pool", "fip-pool1");
+    DeleteRoute("default-project:fip:fip", "0.0.0.0", 0, bgp_peer);
+    DelLink("virtual-machine-interface", "vnet1",
+            "floating-ip", "default-project:fip1");
+    DelLink("floating-ip-pool", "default-project:fip-pool1", 
+            "virtual-network", "default-project:fip");
+    DelNode("floating-ip", "default-project:fip1");
+    DelNode("floating-ip-pool", "default-project:fip-pool1");
     client->WaitForIdle();
-    DelLink("virtual-network", "fip", "routing-instance", "fip:fip");
-    DelVrf("fip:fip");
-    DelVn("fip");
+    DelLink("virtual-network", "default-project:fip", 
+            "routing-instance", "default-project:fip:fip");
+    DelVrf("default-project:fip:fip");
+    DelVn("default-project:fip");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
 }
 
 int main(int argc, char *argv[]) {
