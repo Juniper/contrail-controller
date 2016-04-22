@@ -73,13 +73,15 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
                    boost::bind(&FlowStatsManager::RequestHandler, this, _1)),
     flow_export_count_(), prev_flow_export_rate_compute_time_(0),
     flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
-    flow_export_msg_drops_(), prev_cfg_flow_export_rate_(0),
+    flow_export_disable_drops_(), flow_export_sampling_drops_(),
+    prev_cfg_flow_export_rate_(0),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
            "FlowThresholdTimer",
            TaskScheduler::GetInstance()->GetTaskId("Agent::FlowStatsManager"), 0)),
     delete_short_flow_(true) {
     flow_export_count_ = 0;
-    flow_export_msg_drops_ = 0;
+    flow_export_disable_drops_ = 0;
+    flow_export_sampling_drops_ = 0;
 }
 
 FlowStatsManager::~FlowStatsManager() {
