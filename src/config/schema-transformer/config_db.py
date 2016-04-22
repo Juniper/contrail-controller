@@ -3723,8 +3723,8 @@ class ServiceInstanceST(DBBaseST):
         st_obj = DBBaseST().read_vnc_obj(uuid, obj_type='service_template')
         st_props = st_obj.get_service_template_properties()
 
-        st_if_list = st_props.get_interface_type()
-        si_if_list = si_props.get_interface_list()
+        st_if_list = st_props.get_interface_type() or []
+        si_if_list = si_props.get_interface_list() or []
         for (st_if, si_if) in zip(st_if_list, si_if_list):
             if st_if.get_service_interface_type() == 'left':
                 left_vn = si_if.get_virtual_network()
