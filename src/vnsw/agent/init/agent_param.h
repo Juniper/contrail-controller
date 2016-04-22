@@ -259,7 +259,7 @@ protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
     virtual void InitFromConfig();
-    virtual void InitFromArguments();
+    virtual void ProcessArguments();
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
@@ -272,7 +272,7 @@ protected:
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
                          ValueType &var, const std::string &val, ValueType*) {
         // Check if the value is present.
-        if (var_map.count(val) && !var_map[val].defaulted()) {
+        if (var_map.count(val)) {
             var = var_map[val].as<ValueType>();
             return true;
         }
@@ -294,11 +294,8 @@ protected:
     }
     bool GetIpAddress(const std::string &str, Ip4Address *addr);
     bool ParseIp(const std::string &key, Ip4Address *server);
-    bool ParseServerList(const std::string &key, Ip4Address *s1, Ip4Address *s2);
     bool ParseAddress(const std::string &addr_string,
                       Ip4Address *server, uint16_t *port);
-    bool ParseServerList(const std::string &key, Ip4Address *server1,
-                         uint16_t *port1, Ip4Address *server2, uint16_t *port2);
     void ParseIpArgument(const boost::program_options::variables_map &var_map, 
                          Ip4Address &server, const std::string &key);
     bool ParseServerListArguments
@@ -312,24 +309,6 @@ protected:
 private:
     friend class AgentParamTest;
     void ComputeFlowLimits();
-    void ParseCollector();
-    void ParseVirtualHost();
-    void ParseDns();
-    void ParseDiscovery();
-    void ParseNetworks();
-    void ParseHypervisor();
-    void ParseDefaultSection();
-    void ParseTaskSection();
-    void ParseMetadataProxy();
-    void ParseFlows();
-    void ParseHeadlessMode();
-    void ParseDhcpRelayMode();
-    void ParseSimulateEvpnTor();
-    void ParseServiceInstance();
-    void ParseAgentInfo();
-    void ParseNexthopServer();
-    void ParsePlatform();
-    void ParseBgpAsAServicePortRange();
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -369,6 +348,7 @@ private:
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
+    boost::program_options::options_description config_file_options_;
     bool enable_flow_options_;
     bool enable_vhost_options_;
     bool enable_hypervisor_options_;
