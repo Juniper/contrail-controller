@@ -76,7 +76,6 @@ public:
     void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
     uint32_t flow_export_rate()  const { return flow_export_rate_; }
     uint32_t threshold()  const;
-    uint64_t flow_export_msg_drops() const { return flow_export_msg_drops_; }
     boost::uuids::uuid rand_gen();
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) {
@@ -207,7 +206,6 @@ private:
     uint32_t flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
-    uint64_t flow_export_msg_drops_;
     uint32_t prev_cfg_flow_export_rate_;
     std::vector<FlowLogData> msg_list_;
     uint8_t msg_index_;

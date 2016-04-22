@@ -129,13 +129,14 @@ public:
         return flow_export_count_.fetch_and_store(0);
     }
 
-    uint32_t flow_export_msg_drops() const {
-        return flow_export_msg_drops_;
+    uint32_t flow_export_disable_drops() const {
+        return flow_export_disable_drops_;
     }
 
-    void set_flow_export_msg_drops(uint32_t count) {
-        flow_export_msg_drops_ = count;
+    uint32_t flow_export_sampling_drops() const {
+        return flow_export_sampling_drops_;
     }
+
     uint32_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
@@ -165,7 +166,8 @@ private:
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
     uint32_t threshold_;
-    tbb::atomic<uint32_t> flow_export_msg_drops_;
+    tbb::atomic<uint64_t> flow_export_disable_drops_;
+    tbb::atomic<uint64_t> flow_export_sampling_drops_;
     uint32_t prev_cfg_flow_export_rate_;
     Timer* timer_;
     bool delete_short_flow_;
