@@ -64,6 +64,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
     EXPECT_EQ(param.subnet_hosts_resolvable(), true);
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
+    EXPECT_TRUE(param.debug());
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -316,6 +317,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
     EXPECT_STREQ(param.log_level().c_str(), "SYS_ERR");
     EXPECT_TRUE(param.isXenMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
+    EXPECT_FALSE(param.debug());
 }
 
 /* Some command line args have default values. If user has not passed these
