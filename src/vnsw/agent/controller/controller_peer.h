@@ -143,6 +143,8 @@ public:
                                        bool associate);
     bool ControllerSendMcastRouteCommon(AgentRoute *route,
                                         bool associate);
+    void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
+                      autogen::EnetItemType *item);
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
@@ -154,8 +156,6 @@ private:
     void AddMulticastEvpnRoute(const std::string &vrf_name,
                                const MacAddress &mac,
                                autogen::EnetItemType *item);
-    void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
-                      autogen::EnetItemType *item);
     void AddRemoteRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                         autogen::ItemType *item);
     void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,

@@ -464,9 +464,10 @@ private:
 class L2ReceiveRoute : public AgentRouteData {
 public:
     L2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
-                   uint32_t mpls_label) :
+                   uint32_t mpls_label, const PathPreference &path_preference) :
         AgentRouteData(false), dest_vn_name_(dest_vn_name),
-        vxlan_id_(vxlan_id), mpls_label_(mpls_label) {
+        vxlan_id_(vxlan_id), mpls_label_(mpls_label),
+        path_preference_(path_preference) {
     }
     virtual ~L2ReceiveRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
@@ -478,6 +479,7 @@ private:
     std::string dest_vn_name_;
     uint32_t vxlan_id_;
     uint32_t mpls_label_;
+    PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(L2ReceiveRoute);
 };
 

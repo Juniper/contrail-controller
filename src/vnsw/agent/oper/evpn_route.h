@@ -30,11 +30,21 @@ public:
     void AddReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
                             uint32_t label, const MacAddress &mac,
                             const IpAddress &ip_addr, uint32_t ethernet_tag,
-                            const std::string &vn_name);
+                            const std::string &vn_name,
+                            const PathPreference &path_pref);
+
+    void AddControllerReceiveRouteReq(const Peer *peer,
+                            const std::string &vrf_name,
+                            uint32_t label, const MacAddress &mac,
+                            const IpAddress &ip_addr, uint32_t ethernet_tag,
+                            const std::string &vn_name,
+                            const PathPreference &path_pref);
+
     void AddReceiveRoute(const Peer *peer, const std::string &vrf_name,
                          uint32_t label, const MacAddress &mac,
                          const IpAddress &ip_addr, uint32_t ethernet_tag,
-                         const std::string &vn_name);
+                         const std::string &vn_name,
+                         const PathPreference &path_pref);
     void AddLocalVmRouteReq(const Peer *peer,
                             const std::string &vrf_name,
                             const MacAddress &mac,

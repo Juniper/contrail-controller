@@ -3477,7 +3477,7 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
                                 interface->l2_label(),
                                 MacAddress::FromString(interface->vm_mac()),
                                 floating_ip_, interface->ethernet_tag(),
-                                vn_->GetName());
+                                vn_->GetName(), path_preference);
     l2_installed_ = true;
 }
 
