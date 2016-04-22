@@ -21,7 +21,7 @@ DnsManager::DnsManager()
                                                    Dns::GetDnsPort()));
     BindResolver::Init(*Dns::GetEventManager()->io_service(), bind_servers,
                        boost::bind(&DnsManager::HandleUpdateResponse,
-                                   this, _1));
+                                   this, _1, _2));
 
     Dns::SetDnsConfigManager(&config_mgr_);
     DnsConfigManager::Observers obs;
@@ -349,11 +349,12 @@ void DnsManager::UpdateAll() {
     }
 }
 
-void DnsManager::HandleUpdateResponse(uint8_t *pkt) {
+void DnsManager::HandleUpdateResponse(uint8_t *pkt, std::size_t length) {
     dns_flags flags;
     uint16_t xid;
     DnsItems ques, ans, auth, add;
-    if (BindUtil::ParseDnsResponse(pkt, xid, flags, ques, ans, auth, add)) {
+    if (BindUtil::ParseDnsResponse(pkt, length, xid, flags,
+                                   ques, ans, auth, add)) {
         if (flags.ret) {
             DNS_BIND_TRACE(DnsBindError, "Update failed : " <<
                            BindUtil::DnsResponseCode(flags.ret) <<

@@ -13,7 +13,7 @@
 
 class BindResolver {
 public:
-    typedef boost::function<void(uint8_t *)> Callback;
+    typedef boost::function<void(uint8_t *, std::size_t)> Callback;
     static const int max_pkt_size = 1024;
     static const uint8_t max_dns_servers = 2;
 
