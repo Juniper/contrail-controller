@@ -32,7 +32,7 @@ CleanupTimer::CleanupTimer(Agent *agent, const std::string &timer_name,
         TimerManager::CreateTimer(*(agent->event_manager()->
                                     io_service()), timer_name,
                                   TaskScheduler::GetInstance()->
-                                  GetTaskId("db::DBTable"), 0);
+                                  GetTaskId("Agent::ControllerXmpp"), 0);
 }
 
 CleanupTimer::~CleanupTimer() {
