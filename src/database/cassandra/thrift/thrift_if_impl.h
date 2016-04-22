@@ -59,6 +59,8 @@ class ThriftIfImpl {
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe);
+    virtual bool Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) const;
     // Connection
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
@@ -152,7 +154,7 @@ class ThriftIfImpl {
     typedef std::map<std::string, MutationList> CFMutationMap;
     typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
     CassandraMutationMap mutation_map_;
-    tbb::mutex smutex_;
+    mutable tbb::mutex smutex_;
     GenDb::GenDbIfStats stats_;
     std::vector<DbQueueWaterMarkInfo> q_wm_info_;
     std::string cassandra_user_;
