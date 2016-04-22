@@ -29,6 +29,23 @@ response sandesh ShowIFMapAgentDefLinkResp {
     1: list<IFMapAgentDefLink> def_list;
 }
 
+
+//Show IFMap statistics
+request sandesh ShowIFMapAgentStatsReq {
+}
+
+response sandesh ShowIFMapAgentStatsResp {
+    1: u64 node_updates_processed;
+    2: u64 node_deletes_processed;
+    3: u64 link_updates_processed;
+    4: u64 link_deletes_processed;
+    5: u64 node_update_parse_errors;
+    6: u64 link_update_parse_errors;
+    7: u64 node_delete_parse_errors;
+    8: u64 link_delete_parse_errors;
+}
+
+
 traceobject sandesh IFMapAgentTrace{
     1: i64 seq;
     2: string event;

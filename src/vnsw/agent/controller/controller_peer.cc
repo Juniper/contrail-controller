@@ -1385,6 +1385,7 @@ bool AgentXmppChannel::SetConfigPeer(AgentXmppChannel *peer) {
                                 peer->GetXmppServerIdx());
         //Generate a new sequence number for the configuration
         AgentIfMapXmppChannel::NewSeqNumber();
+        agent->ifmap_parser()->reset_statistics();
         agent->controller()->agent_ifmap_vm_export()->NotifyAll(peer);
         return true;
     }
@@ -1583,6 +1584,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                 // For old config peer increment sequence number and remove
                 // entries
                 AgentIfMapXmppChannel::NewSeqNumber();
+                agent->ifmap_parser()->reset_statistics();
                 AgentXmppChannel::CleanConfigStale(peer);
             }
         }
