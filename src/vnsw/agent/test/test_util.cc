@@ -3297,12 +3297,8 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     if (fe == NULL) {
         return false;
     }
-    FlowStatsCollector *fec = NULL;
-    if (proto == IPPROTO_TCP) {
-        fec = agent->flow_stats_manager()->tcp_flow_stats_collector();
-    } else {
-        fec = agent->flow_stats_manager()->default_flow_stats_collector();
-    }
+    FlowStatsCollector *fec = 
+        agent->flow_stats_manager()->default_flow_stats_collector();
     FlowExportInfo *info = fec->FindFlowExportInfo(fe);
     if (info) {
         LOG(DEBUG, " bytes " << info->bytes() << " pkts " << info->packets());
