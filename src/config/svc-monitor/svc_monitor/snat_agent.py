@@ -61,8 +61,6 @@ class SNATAgent(Agent):
             router_obj.virtual_machine_interfaces):
             if router_obj.service_instance is None:
                 self._add_snat_instance(router_obj)
-            else:
-                self._update_snat_instance(router_obj)
         else:
             if router_obj.service_instance:
                 self.delete_snat_instance(router_obj)
@@ -71,62 +69,6 @@ class SNATAgent(Agent):
             router_obj.virtual_machine_interfaces)
         return router_obj
     # end update_snat_instance
-
-    def _diff_virtual_interfaces(self, router_obj):
-        uuids = set([uuid for uuid in
-                     router_obj.virtual_machine_interfaces])
-
-        to_del = router_obj.last_virtual_machine_interfaces - uuids
-        to_add = uuids - router_obj.last_virtual_machine_interfaces
-
-        return to_del, to_add
-
-    def _get_net_uuids(self, vmi_uuids):
-         return [
-             VirtualMachineInterfaceSM.get(uuid).virtual_network
-             for uuid in vmi_uuids]
-
-    def _virtual_network_read(self, net_uuid):
-        return DBBaseSM().read_vnc_obj(obj_type="virtual_network", uuid=net_uuid)
-
-    def _add_route_table(self, net_uuid, rt_obj):
-        net_obj = self._virtual_network_read(net_uuid)
-        if not net_obj:
-            return
-        net_obj.set_route_table(rt_obj)
-        self._vnc_lib.virtual_network_update(net_obj)
-
-    def _add_route_tables(self, net_uuids, rt_obj):
-        for net_uuid in net_uuids:
-            self._add_route_table(net_uuid, rt_obj)
-
-    def _del_route_table(self, net_uuid, rt_obj):
-        net_obj = self._virtual_network_read(net_uuid)
-        if not net_obj:
-            return
-        net_obj.del_route_table(rt_obj)
-        self._vnc_lib.virtual_network_update(net_obj)
-
-    def _del_route_tables(self, net_uuids, rt_obj):
-        for net_uuid in net_uuids:
-            self._del_route_table(net_uuid, rt_obj)
-
-    def _update_snat_instance(self, router_obj):
-        to_del, to_add = self._diff_virtual_interfaces(router_obj)
-        if to_del or to_add:
-            project_obj = ProjectSM.get(router_obj.parent_uuid)
-
-            rt_obj = self._get_route_table(router_obj, project_obj)
-            if not rt_obj:
-                return
-
-            if to_add:
-                net_uuids = self._get_net_uuids(to_add)
-                self._add_route_tables(net_uuids, rt_obj)
-
-            if to_del:
-                net_uuids = self._get_net_uuids(to_del)
-                self._del_route_tables(net_uuids, rt_obj)
 
     def _get_route_table(self, router_obj, project_obj):
         rt_name = 'rt_' + router_obj.uuid
@@ -215,8 +157,7 @@ class SNATAgent(Agent):
 
         # Associate route table to all private networks connected onto
         # that router
-        net_uuids = self._get_net_uuids(router_obj.virtual_machine_interfaces)
-        self._add_route_tables(net_uuids, rt_obj)
+        vnc_rtr_obj.set_route_table(rt_obj)
 
         # Add logical gateway virtual network
         vnc_rtr_obj.set_service_instance(si_obj)
@@ -249,13 +190,8 @@ class SNATAgent(Agent):
 
         # Delete route table
         if rt_obj:
-            if (hasattr(rt_obj, 'virtual_network_back_refs') and
-                rt_obj.virtual_network_back_refs):
-                # Disassociate route table to all private networks connected
-                # onto that router
-                uuids = [ref['uuid'] for ref in
-                    rt_obj.virtual_network_back_refs]
-                self._del_route_tables(uuids, rt_obj)
+            if vnc_rtr_obj:
+                vnc_rtr_obj.del_route_table(rt_obj)
             self._vnc_lib.route_table_delete(id=rt_obj.uuid)
 
         if vnc_rtr_obj:
@@ -295,10 +231,15 @@ class SNATAgent(Agent):
         if rt_obj:
             # Disassociate route table to all private networks connected
             # onto that router
-            vn_back_refs = rt_obj.get_virtual_network_back_refs()
-            if vn_back_refs:
-                uuids = [ref['uuid'] for ref in vn_back_refs]
-                self._del_route_tables(uuids, rt_obj)
+            lr_back_refs = rt_obj.get_logical_router_back_refs()
+            if lr_back_refs:
+                try:
+                    uuid = lr_back_refs[0]['uuid']
+                    self._vnc_lib.ref_update(
+                           'logical-router', uuid, 'route-table',
+                           rt_obj.uuid, None, 'DELETE', None)
+                except vnc_exc.NoIdError:
+                    pass
             self._vnc_lib.route_table_delete(id=rt_obj.uuid)
 
         # Delete service instance
