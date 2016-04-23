@@ -43,6 +43,8 @@ class CqlIf : public GenDb::GenDbIf {
     virtual bool Db_UseColumnfamily(const GenDb::NewCf &cf);
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::GenDbIf::DbAddColumnCb cb);
     virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
     // Read
     virtual bool Db_GetRow(GenDb::ColList *out, const std::string &cfname,
@@ -69,6 +71,8 @@ class CqlIf : public GenDb::GenDbIf {
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
  private:
+    void OnAsyncColumnAddCompletion(bool success, std::string cfname,
+        GenDb::GenDbIf::DbAddColumnCb cb);
     void IncrementTableWriteStats(const std::string &table_name);
     void IncrementTableWriteStats(const std::string &table_name,
         uint64_t num_writes);
@@ -89,6 +93,7 @@ class CqlIf : public GenDb::GenDbIf {
     std::vector<GenDb::Endpoint> endpoints_;
     tbb::mutex stats_mutex_;
     GenDb::GenDbIfStats stats_;
+    bool use_prepared_for_insert_;
 };
 
 } // namespace cql
