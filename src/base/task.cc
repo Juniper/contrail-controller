@@ -254,17 +254,23 @@ tbb::task *TaskImpl::execute() {
                 TASK_TRACE(scheduler, parent_, "TBB schedule time(in usec) ",
                            (t - parent_->enqueue_time()));
             }
+        } else if (TaskScheduler::GetInstance()->track_run_time()) {
+            t = ClockMonotonicUsec();
         }
 
         bool is_complete = parent_->Run();
         if (t != 0) {
             int64_t delay = ClockMonotonicUsec() - t;
             TaskScheduler *scheduler = TaskScheduler::GetInstance();
-            if (delay > scheduler->execute_delay(parent_)) {
+            uint32_t execute_delay = scheduler->execute_delay(parent_);
+            if (execute_delay && delay > execute_delay) {
                 TASK_TRACE(scheduler, parent_, "Run time(in usec) ", delay);
             }
-            TaskGroup *group = scheduler->QueryTaskGroup(parent_->GetTaskId());
-            group->IncrementTotalRunTime(delay);
+            if (scheduler->track_run_time()) {
+                TaskGroup *group =
+                    scheduler->QueryTaskGroup(parent_->GetTaskId());
+                group->IncrementTotalRunTime(delay);
+            }
         }
 
         running = NULL;
@@ -334,9 +340,9 @@ int TaskScheduler::GetThreadCount(int thread_count) {
 // part of tbb. So, initialize TBB with one thread more than its default
 TaskScheduler::TaskScheduler(int task_count) : 
     task_scheduler_(GetThreadCount(task_count) + 1),
-    running_(true), seqno_(0), id_max_(0), log_fn_(), measure_delay_(false),
-    schedule_delay_(0), execute_delay_(0), enqueue_count_(0), done_count_(0),
-    cancel_count_(0) {
+    running_(true), seqno_(0), id_max_(0), log_fn_(), track_run_time_(false),
+    measure_delay_(false), schedule_delay_(0), execute_delay_(0),
+    enqueue_count_(0), done_count_(0), cancel_count_(0) {
     hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
