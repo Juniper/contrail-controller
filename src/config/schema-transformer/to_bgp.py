@@ -102,9 +102,9 @@ def get_si_vns(si_obj, si_props):
         right_vn = si_props.get_right_virtual_network()
 
     if left_vn == "":
-        left_vn = parent_str + ':' + svc_info.get_left_vn_name()
+        left_vn = si_obj.get_parent_fq_name_str() + ':' + svc_info.get_left_vn_name()
     if right_vn == "":
-        right_vn = parent_str + ':' + svc_info.get_right_vn_name()
+        right_vn = si_obj.get_parent_fq_name_str() + ':' + svc_info.get_right_vn_name()
 
     return left_vn, right_vn
 # end get_si_vns
