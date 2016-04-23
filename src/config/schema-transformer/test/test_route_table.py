@@ -9,7 +9,8 @@ try:
 except ImportError:
     from schema_transformer import to_bgp
 from vnc_api.vnc_api import (RouteTargetList, RouteTable, RouteTableType,
-        RouteType, CommunityAttributes)
+        VirtualNetwork, VirtualMachineInterface, NetworkIpam, VnSubnetsType, IpamSubnetType,
+        LogicalRouter, SubnetType, RouteType, CommunityAttributes)
 
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
@@ -21,120 +22,6 @@ class VerifyRouteTable(VerifyPolicy):
 
 
 class TestRouteTable(STTestCase, VerifyRouteTable):
-    def test_add_delete_route(self):
-        lvn_name = self.id() + 'lvn'
-        rvn_name = self.id() + 'rvn'
-        lvn = self.create_virtual_network(lvn_name, "10.0.0.0/24")
-        rvn = self.create_virtual_network(rvn_name, "20.0.0.0/24")
-
-        service_name = self.id() + 's1'
-        np = self.create_network_policy(lvn, rvn, [service_name], service_mode="in-network-nat")
-
-        vn_name = self.id() + 'vn100'
-        vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
-        rtgt_list = RouteTargetList(route_target=['target:1:1'])
-        vn.set_route_target_list(rtgt_list)
-        exp_rtgt_list = RouteTargetList(route_target=['target:2:1'])
-        vn.set_export_route_target_list(exp_rtgt_list)
-        imp_rtgt_list = RouteTargetList(route_target=['target:3:1'])
-        vn.set_import_route_target_list(imp_rtgt_list)
-        self._vnc_lib.virtual_network_update(vn)
-        rt = RouteTable("rt1")
-        self._vnc_lib.route_table_create(rt)
-        vn.add_route_table(rt)
-        self._vnc_lib.virtual_network_update(vn)
-        routes = RouteTableType()
-        route = RouteType(prefix="0.0.0.0/0",
-                          next_hop="default-domain:default-project:"+service_name)
-        routes.add_route(route)
-        rt.set_routes(routes)
-        self._vnc_lib.route_table_update(rt)
-
-        @retries(5)
-        def _match_route_table(rtgt_list):
-            lri = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(lvn))
-            sr = lri.get_static_route_entries()
-            if sr is None:
-                raise Exception("sr is None")
-            route = sr.route[0]
-            self.assertEqual(route.prefix, "0.0.0.0/0")
-            self.assertEqual(route.next_hop, "10.0.0.252")
-            for rtgt in rtgt_list:
-                self.assertIn(rtgt, route.route_target)
-            ri100 = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(vn))
-            rt100 = set(ref['to'][0] for ref in ri100.get_route_target_refs())
-            lrt = set(ref['to'][0] for ref in lri.get_route_target_refs() or [])
-            if rt100 & lrt:
-                return (rt100 & lrt)
-            raise Exception("rt100 route-target ref not found")
-
-        rt100 = _match_route_table(rtgt_list.get_route_target() +
-                                   imp_rtgt_list.get_route_target())
-
-        rtgt_list.add_route_target('target:1:2')
-        vn.set_route_target_list(rtgt_list)
-        exp_rtgt_list.add_route_target('target:2:2')
-        vn.set_export_route_target_list(exp_rtgt_list)
-        imp_rtgt_list.add_route_target('target:3:2')
-        vn.set_import_route_target_list(imp_rtgt_list)
-        self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target())
-
-        rtgt_list.delete_route_target('target:1:1')
-        vn.set_route_target_list(rtgt_list)
-        exp_rtgt_list.delete_route_target('target:2:1')
-        vn.set_export_route_target_list(exp_rtgt_list)
-        imp_rtgt_list.delete_route_target('target:3:1')
-        vn.set_import_route_target_list(imp_rtgt_list)
-        self._vnc_lib.virtual_network_update(vn)
-        _match_route_table(rtgt_list.get_route_target())
-
-        routes.set_route([])
-        rt.set_routes(routes)
-        self._vnc_lib.route_table_update(rt)
-
-        @retries(5)
-        def _match_route_table_cleanup(rt100):
-            lri = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(lvn))
-            sr = lri.get_static_route_entries()
-            if sr and sr.route:
-                raise Exception("sr has route")
-            ri = self._vnc_lib.routing_instance_read(
-                fq_name=self.get_ri_name(lvn))
-            rt_refs = ri.get_route_target_refs()
-            rt_set = set(ref['to'][0] for ref in ri.get_route_target_refs() or [])
-            if rt100 & rt_set:
-                raise Exception("route-target ref still found: %s" % (rt100 & rt_set))
-
-        _match_route_table_cleanup(rt100)
-
-        # add the route again, then delete the network without deleting the
-        # link to route table
-        route = RouteType(prefix="0.0.0.0/0",
-                          next_hop="default-domain:default-project:"+service_name)
-        routes.add_route(route)
-        rt.set_routes(routes)
-        self._vnc_lib.route_table_update(rt)
-        _match_route_table(rtgt_list.get_route_target())
-        self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
-        _match_route_table_cleanup(rt100)
-
-        self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
-        self.delete_network_policy(np, auto_policy=True)
-        gevent.sleep(1)
-        self._vnc_lib.virtual_network_delete(fq_name=lvn.get_fq_name())
-        self._vnc_lib.virtual_network_delete(fq_name=rvn.get_fq_name())
-        # check if vn is deleted
-        self.check_vn_is_deleted(uuid=lvn.uuid)
-        self.check_vn_is_deleted(uuid=rvn.uuid)
-        self.check_vn_is_deleted(uuid=vn.uuid)
-        self.check_ri_is_deleted(fq_name=lvn.fq_name+[lvn.name])
-        self.check_ri_is_deleted(fq_name=rvn.fq_name+[rvn.name])
-        self.check_ri_is_deleted(fq_name=vn.fq_name+[vn.name])
-    # test_add_delete_route
 
     def test_add_delete_static_route(self):
 
@@ -250,4 +137,101 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         gevent.sleep(2)
         self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
     # test_add_delete_static_route
+
+    def test_public_snat_routes(self):
+
+        #create private vn
+        vn_private_name = 'vn1'
+        vn_private = self.create_virtual_network(vn_private_name, "1.0.0.0/24")
+
+        # create virtual machine interface
+        vmi_name = self.id() + 'vmi1'
+        vmi = VirtualMachineInterface(vmi_name, parent_type='project',
+                        fq_name=['default-domain', 'default-project', vmi_name])
+        vmi.add_virtual_network(vn_private)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        #create public vn
+        vn_public_name = 'vn-public'
+        vn_public = VirtualNetwork(vn_public_name)
+        vn_public.set_router_external(True)
+        ipam_obj = NetworkIpam('ipam')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn_public.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+        self._vnc_lib.virtual_network_create(vn_public)
+
+        #create logical router, set route targets,
+        #add private network and extend lr to public network
+        lr_name = self.id() + 'lr1'
+        lr = LogicalRouter(lr_name)
+        rtgt_list = RouteTargetList(route_target=['target:1:1'])
+        lr.set_configured_route_target_list(rtgt_list)
+        lr.add_virtual_machine_interface(vmi)
+        lr.add_virtual_network(vn_private)
+        lr.add_virtual_network(vn_public)
+        self._vnc_lib.logical_router_create(lr)
+
+        @retries(5)
+        def _match_route_table(rtgt_list, ri_name):
+            lri = self._vnc_lib.routing_instance_read(
+                fq_name_str=ri_name)
+            sr = lri.get_static_route_entries()
+            if sr is None:
+                raise Exception("sr is None")
+            route = sr.route[0]
+            self.assertEqual(route.prefix, "0.0.0.0/0")
+            self.assertEqual(route.next_hop, "100.64.0.4")
+            for rtgt in rtgt_list:
+                self.assertIn(rtgt, route.route_target)
+
+        @retries(5)
+        def _wait_to_get_si():
+            si_list = self._vnc_lib.service_instances_list()
+            si = si_list.get("service-instances")[0]
+            si = self._vnc_lib.service_instance_read(id=si.get("uuid"))
+            return si
+
+        @retries(5)
+        def _wait_to_delete_si():
+            si_list = self._vnc_lib.service_instances_list()
+            try:
+                si = si_list.get("service-instances")[0]
+                si = self._vnc_lib.service_instance_read(id=si.get("uuid"))
+                raise
+            except:
+                pass
+
+        @retries(5)
+        def _wait_to_delete_ip(vn_fq_name):
+            vn = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+            ip_refs = vn.get_instance_ip_back_refs()
+            if ip_refs:
+                raise
+            return
+        # end
+
+        si = _wait_to_get_si()
+        si_props = si.get_service_instance_properties().get_interface_list()[1]
+        ri_name = si_props.virtual_network + ":" + si_props.virtual_network.split(':')[-1]
+        _match_route_table(['target:1:1'], ri_name)
+
+        rtgt_list = RouteTargetList(route_target=['target:2:2'])
+        lr.set_configured_route_target_list(rtgt_list)
+        self._vnc_lib.logical_router_update(lr)
+        _match_route_table(['target:2:2'], ri_name)
+
+        lr.del_virtual_network(vn_public)
+        self._vnc_lib.logical_router_update(lr)
+        _wait_to_delete_si()
+
+        #cleanup
+        self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi.get_fq_name())
+        _wait_to_delete_ip(vn_private.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn_private.get_fq_name())
+        _wait_to_delete_ip(vn_public.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn_public.get_fq_name())
+    # end
+
 # end class TestRouteTable
