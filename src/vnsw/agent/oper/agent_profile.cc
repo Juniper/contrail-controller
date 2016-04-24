@@ -118,10 +118,13 @@ void ProfileData::WorkQueueStats::Reset() {
 void ProfileData::FlowTokenStats::Reset() {
     add_tokens_ = 0;
     add_failures_ = 0;
+    add_restarts_ = 0;
     update_tokens_ = 0;
     update_failures_ = 0;
+    update_restarts_ = 0;
     del_tokens_ = 0;
     del_failures_ = 0;
+    del_restarts_ = 0;
 }
 
 void ProfileData::FlowStats::Reset() {
@@ -512,12 +515,16 @@ static void GetQueueSummaryInfo(SandeshFlowQueueSummaryInfo *info, int index,
     info->set_ksync_rx_queue(one);
 
     SandeshFlowTokenInfo token_info;
-    token_info.set_add_tokens(flow_stats->token_stats_.add_tokens_);
-    token_info.set_add_token_full(flow_stats->token_stats_.add_failures_);
-    token_info.set_update_tokens(flow_stats->token_stats_.update_tokens_);
-    token_info.set_update_token_full(flow_stats->token_stats_.update_failures_);
-    token_info.set_delete_tokens(flow_stats->token_stats_.del_tokens_);
-    token_info.set_delete_token_full(flow_stats->token_stats_.del_failures_);
+    ProfileData::FlowTokenStats *token_stats = &flow_stats->token_stats_;
+    token_info.set_add_tokens(token_stats->add_tokens_);
+    token_info.set_add_token_full(token_stats->add_failures_);
+    token_info.set_add_token_restarts(token_stats->add_restarts_);
+    token_info.set_update_tokens(token_stats->update_tokens_);
+    token_info.set_update_token_full(token_stats->update_failures_);
+    token_info.set_update_token_restarts(token_stats->update_restarts_);
+    token_info.set_delete_tokens(token_stats->del_tokens_);
+    token_info.set_delete_token_full(token_stats->del_failures_);
+    token_info.set_delete_token_restarts(token_stats->del_restarts_);
     info->set_token_stats(token_info);
 }
 
