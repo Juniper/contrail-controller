@@ -157,15 +157,6 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                "interface-route-table")));
     assert(cfg_route_table_);
 
-    cfg_loadbalancer_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(), "loadbalancer")));
-    assert(cfg_loadbalancer_table_);
-
-    cfg_loadbalancer_pool_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(),
-                               "loadbalancer_pool")));
-    assert(cfg_loadbalancer_pool_table_);
-
     cfg_service_instance_table_ = (static_cast<IFMapAgentTable *>
          (IFMapTable::FindTable(agent_->db(),
                                "service_instance")));
