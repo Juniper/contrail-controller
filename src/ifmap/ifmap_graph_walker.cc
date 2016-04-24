@@ -363,12 +363,6 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("network-ipam");
     traversal_white_list_->include_vertex.insert("virtual-DNS-record");
     traversal_white_list_->include_vertex.insert("interface-route-table");
-    traversal_white_list_->include_vertex.insert("virtual-ip");
-    traversal_white_list_->include_vertex.insert("loadbalancer");
-    traversal_white_list_->include_vertex.insert("loadbalancer-listener");
-    traversal_white_list_->include_vertex.insert("loadbalancer-pool");
-    traversal_white_list_->include_vertex.insert("loadbalancer-member");
-    traversal_white_list_->include_vertex.insert("loadbalancer-healthmonitor");
     traversal_white_list_->include_vertex.insert("subnet");
     traversal_white_list_->include_vertex.insert("service-health-check");
     traversal_white_list_->include_vertex.insert("bgp-as-a-service");
@@ -444,23 +438,7 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=security-group,target=access-control-list");
     traversal_white_list_->include_edge.insert(
-        "source=service-instance,target=loadbalancer-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=loadbalancer-pool,target=loadbalancer-healthmonitor");
-    traversal_white_list_->include_edge.insert(
-        "source=loadbalancer-pool,target=virtual-ip");
-    traversal_white_list_->include_edge.insert(
-        "source=loadbalancer-pool,target=loadbalancer-member");
-    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=subnet");
-    traversal_white_list_->include_edge.insert(
-        "source=service-instance,target=loadbalancer");
-    traversal_white_list_->include_edge.insert(
-        "source=loadbalancer,target=loadbalancer-listener");
-    traversal_white_list_->include_edge.insert(
-        "source=loadbalancer-listener,target=loadbalancer-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=loadbalancer");
 
     // Manually add required links not picked by the
     // IFMapGraphTraversalFilterCalculator
