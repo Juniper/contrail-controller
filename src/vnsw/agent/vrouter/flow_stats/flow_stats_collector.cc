@@ -74,6 +74,10 @@ boost::uuids::uuid FlowStatsCollector::rand_gen() {
     return rand_gen_();
 }
 
+uint64_t FlowStatsCollector::GetCurrentTime() {
+    return UTCTimestampUsec();
+}
+
 void FlowStatsCollector::Shutdown() {
     StatsCollector::Shutdown();
     request_queue_.Shutdown();
@@ -382,7 +386,7 @@ bool FlowStatsCollector::Run() {
     // Update aging parameters for this cycle
     UpdateAgingParameters();
 
-    uint64_t curr_time = UTCTimestampUsec();
+    uint64_t curr_time = GetCurrentTime();
     FlowEntryTree::iterator it = flow_tree_.lower_bound(flow_iteration_key_);
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
@@ -396,16 +400,19 @@ bool FlowStatsCollector::Run() {
         FlowEntry *fe = info->flow();
         FlowEntry *rfe = info->reverse_flow();
         it++;
-        count++;
 
         // if we come across deleted entry, retry flow deletion after some time
         // duplicate delete will be suppressed in flow_table
         uint64_t delete_time = info->delete_enqueue_time();
-        if (delete_time && ((curr_time - delete_time) > kFlowDeleteRetryTime)) {
-            FlowDeleteEnqueue(info, curr_time);
+        if (delete_time) {
+            if ((curr_time - delete_time) > kFlowDeleteRetryTime) {
+                FlowDeleteEnqueue(info, curr_time);
+                count++;
+            }
             continue;
         }
 
+        count++;
         FlowExportInfo *rev_info = NULL;
         // Delete short flows
         if ((flow_stats_manager_->delete_short_flow() == true) &&
@@ -488,7 +495,7 @@ bool FlowStatsCollector::Run() {
 
     // The flow processing above can have significant latency (>20msec)
     // adjust timer such that time between firing is kFlowStatsTimerInterval
-    int64_t latency = (UTCTimestampUsec() - curr_time)/1000;
+    int64_t latency = (GetCurrentTime() - curr_time)/1000;
     int next_interval = (int)kFlowStatsTimerInterval - latency;
     if (next_interval < (int)kFlowStatsTimerIntervalMin) {
         next_interval = (int)kFlowStatsTimerIntervalMin;
@@ -502,7 +509,7 @@ bool FlowStatsCollector::Run() {
 // Utility methods to enqueue events into work-queue
 /////////////////////////////////////////////////////////////////////////////
 void FlowStatsCollector::AddEvent(const FlowEntryPtr &flow) {
-    FlowExportInfo info(flow, UTCTimestampUsec());
+    FlowExportInfo info(flow, GetCurrentTime());
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::ADD_FLOW, info));
     request_queue_.Enqueue(req);
@@ -513,7 +520,7 @@ void FlowStatsCollector::DeleteEvent(const FlowEntryPtr &flow,
     FlowExportInfo info(flow);
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::DELETE_FLOW, info,
-                              UTCTimestampUsec(), params));
+                              GetCurrentTime(), params));
     request_queue_.Enqueue(req);
 }
 
@@ -769,7 +776,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
 }
 
 bool FlowStatsManager::UpdateFlowThreshold() {
-    uint64_t curr_time = UTCTimestampUsec();
+    uint64_t curr_time = FlowStatsCollector::GetCurrentTime();
     bool export_rate_calculated = false;
 
     /* If flows are not being exported, no need to update threshold */
@@ -972,7 +979,7 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
          * teardown time is set */
         UpdateAndExportInternal(info, bytes, oflow_bytes & 0xFFFF,
                                 packets, oflow_bytes & 0xFFFF0000,
-                                UTCTimestampUsec(), true, NULL);
+                                GetCurrentTime(), true, NULL);
     }
 }
 

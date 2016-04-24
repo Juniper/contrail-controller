@@ -44,7 +44,7 @@ public:
     // Flow timer interval
     static const uint32_t kFlowStatsInterval = 50;
     // Minimum flows to visit per interval
-    static const uint32_t kMinFlowsPerTimer = 500;
+    static const uint32_t kMinFlowsPerTimer = 2000;
 
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint8_t  kMaxFlowMsgsPerSend = 16;
@@ -121,6 +121,7 @@ protected:
     virtual void DispatchFlowMsg(const std::vector<FlowLogData> &lst);
 
 private:
+    static uint64_t GetCurrentTime();
     void ExportFlowLocked(FlowExportInfo *info, uint64_t diff_bytes,
                           uint64_t diff_pkts, const RevFlowDepParams *params);
     uint64_t GetScanTime();

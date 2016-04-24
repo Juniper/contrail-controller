@@ -662,6 +662,7 @@ bool FlowProto::TokenCheck(const FlowTokenPool *pool) {
 }
 
 void FlowProto::TokenAvailable(FlowTokenPool *pool) {
+    pool->IncrementRestarts();
     if (pool == &add_tokens_) {
         for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
             flow_event_queue_[i]->MayBeStartRunner();
@@ -780,8 +781,11 @@ void FlowProto::SetProfileData(ProfileData *data) {
 
     data->flow_.token_stats_.add_tokens_ = add_tokens_.token_count();
     data->flow_.token_stats_.add_failures_ = add_tokens_.failures();
+    data->flow_.token_stats_.add_restarts_ = add_tokens_.restarts();
     data->flow_.token_stats_.update_tokens_ = update_tokens_.token_count();
     data->flow_.token_stats_.update_failures_ = update_tokens_.failures();
+    data->flow_.token_stats_.update_restarts_ = update_tokens_.restarts();
     data->flow_.token_stats_.del_tokens_ = del_tokens_.token_count();
     data->flow_.token_stats_.del_failures_ = del_tokens_.failures();
+    data->flow_.token_stats_.del_restarts_ = del_tokens_.restarts();
 }

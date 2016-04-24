@@ -32,6 +32,8 @@ public:
     int token_count() const { return token_count_; }
     bool TokenCheck() const;
     uint64_t failures() const { return failures_; }
+    void IncrementRestarts() { restarts_++; }
+    uint64_t restarts() const { return restarts_; }
 private:
     friend class FlowToken;
 
@@ -41,8 +43,10 @@ private:
     std::string name_;
     int max_tokens_;
     int min_tokens_;
+    int low_water_mark_;
     tbb::atomic<int> token_count_;
     mutable uint64_t failures_;
+    uint64_t restarts_;
     FlowProto *proto_;
     DISALLOW_COPY_AND_ASSIGN(FlowTokenPool);
 };
