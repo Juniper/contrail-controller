@@ -82,19 +82,14 @@ void FlowStatsCollector::Shutdown() {
 // Get the time (in msec) in which one scan of flow-table is to be done
 uint64_t FlowStatsCollector::GetScanTime() {
     uint64_t scan_time_millisec;
-    /* Use Age Time itself as scan-time for non-tcp flows */
-    if (flow_aging_key_.proto == IPPROTO_TCP) {
-        /* Convert from seconds to milliseconds */
-        scan_time_millisec = agent_uve_->agent()->params()->
-            tcp_flow_scan_interval() * 1000;
-    } else {
-        // Convert aging-time configured in micro-sec to millisecond
-        scan_time_millisec = flow_age_time_intvl_ / 1000;
+    /* Use Age Time itself as scan-time for flows */
 
-        // Compute time in which we must scan the complete table to honor the
-        // kFlowScanTime
-        scan_time_millisec = (scan_time_millisec * kFlowScanTime) / 100;
-    }
+    // Convert aging-time configured in micro-sec to millisecond
+    scan_time_millisec = flow_age_time_intvl_ / 1000;
+
+    // Compute time in which we must scan the complete table to honor the
+    // kFlowScanTime
+    scan_time_millisec = (scan_time_millisec * kFlowScanTime) / 100;
 
     //  Enforce min value on scan-time. Aging timer run at kFlowStatsInterval
     if (scan_time_millisec < kFlowStatsInterval) {

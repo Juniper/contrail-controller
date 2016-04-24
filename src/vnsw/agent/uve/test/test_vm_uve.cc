@@ -90,11 +90,6 @@ public:
             (agent_->flow_stats_manager()->default_flow_stats_collector());
         f->ClearList();
         EXPECT_EQ(0U, f->ingress_flow_log_list().size());
-
-        f = static_cast<FlowStatsCollectorTest *>
-            (agent_->flow_stats_manager()->tcp_flow_stats_collector());
-        f->ClearList();
-        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
     }
 
     void FlowSetUp() {

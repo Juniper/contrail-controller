@@ -529,10 +529,6 @@ void AgentParam::ParseFlows() {
                                     "FLOWS.index_sm_log_count")) {
         flow_index_sm_log_count_ = Agent::kDefaultFlowIndexSmLogCount;
     }
-    if (!GetValueFromTree<uint16_t>(tcp_flow_scan_interval_,
-                                    "FLOWS.tcp_flow_scan_interval")) {
-        tcp_flow_scan_interval_ = kTcpFlowScanInterval;
-    }
 
 }
 
@@ -773,8 +769,6 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_vm_linklocal_flows");
     GetOptValue<uint16_t>(var_map, flow_index_sm_log_count_,
                           "FLOWS.index_sm_log_count");
-    GetOptValue<uint16_t>(var_map, tcp_flow_scan_interval_,
-                          "FLOWS.tcp_flow_scan_interval");
 }
 
 void AgentParam::ParseHeadlessModeArguments
@@ -1229,7 +1223,6 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
-        tcp_flow_scan_interval_(kTcpFlowScanInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         vgw_config_table_(new VirtualGatewayConfigTable() ),
         headless_mode_(false), dhcp_relay_mode_(false),
