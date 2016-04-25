@@ -336,6 +336,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors1) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
 
     TASK_UTIL_EXPECT_TRUE(
         rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
@@ -375,6 +377,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors1) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
@@ -387,6 +391,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
 
     TASK_UTIL_EXPECT_TRUE(
         rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
@@ -421,6 +427,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
@@ -433,6 +441,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
         server_.routing_instance_mgr()->GetRoutingInstance("test");
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
 
     // Verify that the port is set for test:vm1.
     TASK_UTIL_EXPECT_TRUE(
@@ -488,6 +498,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 }
 
 //
@@ -521,6 +533,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors4) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 
     // Remove peering between local and remote.
     router1 = master_instance + ":" + string("local");
@@ -537,6 +550,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors4) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");
@@ -575,7 +589,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors5) {
         new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(1, server_.num_bgpaas_peer());
 
     // Remove peering between server and client.
     router1 = test_instance + ":" + string("server");
@@ -592,6 +607,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors5) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");
@@ -629,7 +645,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors6) {
         new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(1, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(1, server_.num_bgpaas_peer());
 
     // Remove peering between server and client in same instance.
     router1 = string("test1") + ":" + string("server");
@@ -646,6 +663,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors6) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");

@@ -1027,7 +1027,7 @@ struct Established : sc::state<Established, StateMachine> {
     explicit Established(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
-        peer->server()->IncUpPeerCount();
+        peer->NotifyEstablished(true);
         state_machine->connect_attempts_clear();
         state_machine->StartHoldTimer();
         state_machine->set_state(StateMachine::ESTABLISHED);
@@ -1037,7 +1037,7 @@ struct Established : sc::state<Established, StateMachine> {
     ~Established() {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
-        peer->server()->DecUpPeerCount();
+        peer->NotifyEstablished(false);
         state_machine->CancelHoldTimer();
     }
 

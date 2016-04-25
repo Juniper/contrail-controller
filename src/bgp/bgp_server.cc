@@ -323,13 +323,18 @@ BgpServer::BgpServer(EventManager *evm)
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
+    bgp_count_ = 0;
     num_up_peer_ = 0;
     closing_count_ = 0;
+    bgpaas_count_ = 0;
+    num_up_bgpaas_peer_ = 0;
+    closing_bgpaas_count_ = 0;
     message_build_error_ = 0;
 }
 
 BgpServer::~BgpServer() {
     assert(closing_count_ == 0);
+    assert(closing_bgpaas_count_ == 0);
     assert(srt_manager_list_.empty());
 }
 
@@ -357,6 +362,13 @@ bool BgpServer::HasSelfConfiguration() const {
 
 int BgpServer::RegisterPeer(BgpPeer *peer) {
     CHECK_CONCURRENCY("bgp::Config");
+
+    if (peer->router_type() == "bgpaas-client") {
+        bgpaas_count_++;
+    } else {
+        bgp_count_++;
+    }
+
     BgpPeerList::iterator loc;
     bool result;
     tie(loc, result) = peer_list_.insert(make_pair(peer->peer_name(), peer));
@@ -374,6 +386,15 @@ int BgpServer::RegisterPeer(BgpPeer *peer) {
 
 void BgpServer::UnregisterPeer(BgpPeer *peer) {
     CHECK_CONCURRENCY("bgp::Config");
+
+    if (peer->router_type() == "bgpaas-client") {
+        assert(bgpaas_count_);
+        bgpaas_count_--;
+    } else {
+        assert(bgp_count_);
+        bgp_count_--;
+    }
+
     BgpPeerList::iterator loc = peer_list_.find(peer->peer_name());
     assert(loc != peer_list_.end());
     peer_list_.erase(loc);
