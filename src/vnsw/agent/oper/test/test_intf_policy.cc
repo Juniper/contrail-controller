@@ -232,8 +232,9 @@ TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
     EXPECT_TRUE(intf->policy_enabled());
 
+    uint32_t prev_label = intf->label();
     //Verify that interface's MPLS label points to policy-enabled NH
-    const NextHop *nh = MplsToNextHop(intf->label());
+    const NextHop *nh = MplsToNextHop(prev_label);
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->PolicyEnabled());
 
@@ -271,8 +272,12 @@ TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
     //Verify that policy is disabled on interface
     EXPECT_FALSE(intf->policy_enabled());
 
+    //Verify that interface's MPLS label has changed
+    EXPECT_TRUE (prev_label != intf->label());
+    prev_label = intf->label();
+
     //Verify that interface's MPLS label points to policy-disabled NH
-    nh = MplsToNextHop(intf->label());
+    nh = MplsToNextHop(prev_label);
     EXPECT_TRUE(nh != NULL);
     EXPECT_FALSE(nh->PolicyEnabled());
 
@@ -308,6 +313,9 @@ TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
 
     //Verify that policy is enabled
     EXPECT_TRUE(intf->policy_enabled());
+
+    //Verify that interface's MPLS label has changed
+    EXPECT_TRUE (prev_label != intf->label());
 
     //Verify that interface's MPLS label points to policy-enabled NH
     nh = MplsToNextHop(intf->label());
@@ -410,8 +418,9 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     WAIT_FOR(1000, 500, ((VmPortFloatingIpCount(1, 1) == true)));
     EXPECT_TRUE(intf->policy_enabled());
 
+    uint32_t prev_label = intf->label();
     //Verify that interface's MPLS label points to policy-enabled NH
-    const NextHop *nh = MplsToNextHop(intf->label());
+    const NextHop *nh = MplsToNextHop(prev_label);
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->PolicyEnabled());
 
@@ -449,8 +458,12 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     //Verify that policy is disabled on interface
     EXPECT_FALSE(intf->policy_enabled());
 
+    //Verify that interface's MPLS label has changed
+    EXPECT_TRUE (prev_label != intf->label());
+    prev_label = intf->label();
+
     //Verify that interface's MPLS label points to policy-disabled NH
-    nh = MplsToNextHop(intf->label());
+    nh = MplsToNextHop(prev_label);
     EXPECT_TRUE(nh != NULL);
     EXPECT_FALSE(nh->PolicyEnabled());
 
@@ -486,6 +499,9 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
 
     //Verify that policy is enabled
     EXPECT_TRUE(intf->policy_enabled());
+
+    //Verify that interface's MPLS label has changed
+    EXPECT_TRUE (prev_label != intf->label());
 
     //Verify that interface's MPLS label points to policy-enabled NH
     nh = MplsToNextHop(intf->label());

@@ -713,7 +713,8 @@ private:
     void UpdateL2(bool old_l2_active, bool policy_change);
     void DeleteL2(bool old_l2_active);
 
-    void AllocL3MplsLabel(bool force_update, bool policy_change);
+    void AllocL3MplsLabel(bool force_update, bool policy_change,
+                          uint32_t new_label);
     void DeleteL3MplsLabel();
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
