@@ -212,6 +212,8 @@ public:
     LifetimeActor *deleter();
     void Initialize();
 
+    void NotifyEstablished(bool established);
+
     void increment_flap_count();
     void reset_flap_count();
     uint64_t flap_count() const { return flap_count_; }

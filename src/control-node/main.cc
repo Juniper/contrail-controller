@@ -384,6 +384,28 @@ bool ControlNodeInfoLogger(BgpServer *server,
         change = true;
     }
 
+    uint32_t num_bgpaas = server->num_bgpaas_peer();
+    if (num_bgpaas != prev_state.get_num_bgpaas_peer() || first) {
+        state.set_num_bgpaas_peer(num_bgpaas);
+        prev_state.set_num_bgpaas_peer(num_bgpaas);
+        change = true;
+    }
+
+    uint32_t num_up_bgpaas_peer = server->NumUpBgpaasPeer();
+    if (num_up_bgpaas_peer != prev_state.get_num_up_bgpaas_peer() || first) {
+        state.set_num_up_bgpaas_peer(num_up_bgpaas_peer);
+        prev_state.set_num_up_bgpaas_peer(num_up_bgpaas_peer);
+        change = true;
+    }
+
+    uint32_t num_deleting_bgpaas_peer = server->num_deleting_bgpaas_peer();
+    if (num_deleting_bgpaas_peer != prev_state.get_num_deleting_bgpaas_peer() ||
+        first) {
+        state.set_num_deleting_bgpaas_peer(num_deleting_bgpaas_peer);
+        prev_state.set_num_deleting_bgpaas_peer(num_deleting_bgpaas_peer);
+        change = true;
+    }
+
     uint32_t num_ri = server->num_routing_instance();
     if (num_ri != prev_state.get_num_routing_instance() || first) {
         state.set_num_routing_instance(num_ri);
