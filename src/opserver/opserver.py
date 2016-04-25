@@ -444,7 +444,7 @@ class OpServer(object):
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
-        
+        self._uvepartitions_state = None
         # Trace buffer list
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000}
@@ -505,9 +505,11 @@ class OpServer(object):
         if self._usecache:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.INIT)
+            self._uvepartitions_state = ConnectionStatus.INIT
         else:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP)
+            self._uvepartitions_state = ConnectionStatus.UP
 
         if self._args.disc_server_ip:
             self.disc_publish()
@@ -1498,7 +1500,10 @@ class OpServer(object):
                 for uk, uv in av.iteritems():
                    ulist.append({'name':uk, 'value':uv})
                 alms[alm_type ] = ulist
-            return json.dumps(alms)
+            if self._uvepartitions_state == ConnectionStatus.UP:
+                return json.dumps(alms)
+            else:
+                return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(alms))
     # end alarms_http_get
 
     def dyn_list_http_get(self, tables):
@@ -1586,9 +1591,12 @@ class OpServer(object):
                 entry = obj_to_dict(LinkObject(rawname + 's',
                                     base_url + rawname + 's'))
                 uvetype_links.append(entry)
-            
+
         bottle.response.set_header('Content-Type', 'application/json')
-        return json.dumps(uvetype_links)
+        if self._uvepartitions_state == ConnectionStatus.UP:
+            return json.dumps(uvetype_links)
+        else:
+	    return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(uvetype_links))
     # end _uves_http_get
 
     def alarms_ack_http_post(self):
@@ -2138,10 +2146,12 @@ class OpServer(object):
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP,
                 message = 'Partitions:%d' % len(new_agp))
+            self._uvepartitions_state = ConnectionStatus.UP
         if self._usecache and len(new_agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.DOWN,
                 message = 'Partitions:%d' % len(new_agp))
+            self._uvepartitions_state = ConnectionStatus.DOWN
         self.agp = new_agp        
 
     def get_agp(self):
