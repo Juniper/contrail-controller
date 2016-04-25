@@ -40,6 +40,11 @@ struct IFMapTypenameWhiteList;
 // must come after the links that refer to the node have been deleted.
 class IFMapExporter {
 public:
+    enum TrackerType {
+        INTEREST,
+        ADVERTISED,
+        TT_END,
+    };
     typedef boost::unordered_set<IFMapState *> ConfigSet;
     typedef ConfigSet::size_type CsSz_t;
     typedef ConfigSet::const_iterator Cs_citer;
@@ -69,18 +74,22 @@ public:
     void AddClientConfigTracker(int index);
     void DeleteClientConfigTracker(int index);
     void UpdateClientConfigTracker(IFMapState *state, const BitSet& client_bits,
-                                   bool add);
+                                   bool add, TrackerType tracker_type);
     void CleanupClientConfigTrackedEntries(int index);
-    bool ClientHasConfigTracker(int index);
-    bool ClientConfigTrackerHasState(int index, IFMapState *state);
-    bool ClientConfigTrackerEmpty(int index);
-    size_t ClientConfigTrackerSize(int index);
-    Cs_citer ClientConfigTrackerBegin(int index) const;
-    Cs_citer ClientConfigTrackerEnd(int index) const;
+    bool ClientHasConfigTracker(TrackerType tracker_type, int index);
+    bool ClientConfigTrackerHasState(TrackerType tracker_type, int index,
+                                     IFMapState *state);
+    bool ClientConfigTrackerEmpty(TrackerType tracker_type, int index);
+    size_t ClientConfigTrackerSize(TrackerType tracker_type, int index);
+    Cs_citer ClientConfigTrackerBegin(TrackerType tracker_type, int index) const;
+    Cs_citer ClientConfigTrackerEnd(TrackerType tracker_type, int index) const;
 
     void StateInterestSet(IFMapState *state, const BitSet& interest_bits);
     void StateInterestOr(IFMapState *state, const BitSet& interest_bits);
     void StateInterestReset(IFMapState *state, const BitSet& interest_bits);
+    void StateAdvertisedOr(IFMapState *state, const BitSet& interest_bits);
+    void StateAdvertisedReset(IFMapState *state, const BitSet& interest_bits);
+
     const IFMapTypenameWhiteList &get_traversal_white_list() const;
     void ResetLinkDeleteClients(const BitSet &bset);
 
@@ -130,7 +139,7 @@ private:
     TableMap table_map_;
 
     DBTable *link_table_;
-    ClientConfigTracker client_config_tracker_;
+    ClientConfigTracker client_config_tracker_[TT_END];
 };
 
 #endif

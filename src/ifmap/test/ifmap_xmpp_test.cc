@@ -574,8 +574,9 @@ protected:
         exporter_->LinkTableExport(partition, link);
     }
 
-    size_t ClientConfigTrackerSize(int index) {
-        return exporter_->ClientConfigTrackerSize(index);
+    size_t InterestConfigTrackerSize(int index) {
+        return exporter_->ClientConfigTrackerSize(IFMapExporter::INTEREST,
+                                                  index);
     }
 
     DB db_;
@@ -1726,8 +1727,8 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     size_t cli_index = static_cast<size_t>(client->index());
     int walk_count = ClientGraphWalkVerify(client_name, cli_index, true, true);
-    EXPECT_EQ(ClientConfigTrackerSize(client->index()), walk_count);
-    EXPECT_EQ(ClientConfigTrackerSize(client->index()), 32);
+    EXPECT_EQ(InterestConfigTrackerSize(client->index()), walk_count);
+    EXPECT_EQ(InterestConfigTrackerSize(client->index()), 32);
 
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // client close generates a TcpClose event on server
