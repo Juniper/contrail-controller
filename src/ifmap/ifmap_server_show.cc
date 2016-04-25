@@ -939,15 +939,27 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
         } else {
             dest->sent = "No";
         }
-        if (server->exporter()->ClientHasConfigTracker(client_index)) {
-            if (server->exporter()->ClientConfigTrackerHasState(client_index,
-                                                                state)) {
-                dest->tracked = "Yes";
+        if (server->exporter()->ClientHasConfigTracker(
+                    IFMapExporter::INTEREST, client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(
+                        IFMapExporter::INTEREST, client_index, state)) {
+                dest->interest_tracked = "Yes";
             } else {
-                dest->tracked = "No";
+                dest->interest_tracked = "No";
             }
         } else {
-            dest->tracked = "No tracker";
+            dest->interest_tracked = "No tracker";
+        }
+        if (server->exporter()->ClientHasConfigTracker(
+                    IFMapExporter::ADVERTISED, client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(
+                        IFMapExporter::ADVERTISED, client_index, state)) {
+                dest->advertised_tracked = "Yes";
+            } else {
+                dest->advertised_tracked = "No";
+            }
+        } else {
+            dest->advertised_tracked = "No tracker";
         }
         return true;
     } else {
@@ -1236,15 +1248,27 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
         } else {
             dest->sent = "No";
         }
-        if (server->exporter()->ClientHasConfigTracker(client_index)) {
-            if (server->exporter()->ClientConfigTrackerHasState(client_index,
-                                                                state)) {
-                dest->tracked = "Yes";
+        if (server->exporter()->ClientHasConfigTracker(
+                    IFMapExporter::INTEREST, client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(
+                        IFMapExporter::INTEREST, client_index, state)) {
+                dest->interest_tracked = "Yes";
             } else {
-                dest->tracked = "No";
+                dest->interest_tracked = "No";
             }
         } else {
-            dest->tracked = "No tracker";
+            dest->interest_tracked = "No tracker";
+        }
+        if (server->exporter()->ClientHasConfigTracker(
+                    IFMapExporter::ADVERTISED, client_index)) {
+            if (server->exporter()->ClientConfigTrackerHasState(
+                        IFMapExporter::ADVERTISED, client_index, state)) {
+                dest->advertised_tracked = "Yes";
+            } else {
+                dest->advertised_tracked = "No";
+            }
+        } else {
+            dest->advertised_tracked = "No tracker";
         }
         return true;
     } else {

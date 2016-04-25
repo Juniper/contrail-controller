@@ -260,9 +260,12 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     } else {
         RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
-        ClientExporterCleanup(client);
         SaveClientHistory(client);
+        int index = client->index();
         ClientUnregister(client);
+        // Exporter cleanup must happen after ClientUnregister() which does
+        // Q-Leave which needs the config trackers in the exporters.
+        ClientExporterCleanup(index);
     }
     return true;
 }
@@ -356,12 +359,12 @@ void IFMapServer::ClientExporterSetup(IFMapClient *client) {
     exporter_->AddClientConfigTracker(client->index());
 }
 
-void IFMapServer::ClientExporterCleanup(IFMapClient *client) {
-    exporter_->CleanupClientConfigTrackedEntries(client->index());
-    exporter_->DeleteClientConfigTracker(client->index());
+void IFMapServer::ClientExporterCleanup(int index) {
+    exporter_->CleanupClientConfigTrackedEntries(index);
+    exporter_->DeleteClientConfigTracker(index);
 
     BitSet rm_bs;
-    rm_bs.set(client->index());
+    rm_bs.set(index);
     exporter_->ResetLinkDeleteClients(rm_bs);
 }
 
@@ -443,8 +446,10 @@ void IFMapServer::FillClientMap(IFMapServerShowClientMap *out_map,
         }
         IFMapServerClientMapShowEntry entry;
         entry.set_client_name(client->identifier());
-        entry.set_tracker_entries(
-            exporter_->ClientConfigTrackerSize(client->index()));
+        entry.set_interest_tracker_entries(exporter_->ClientConfigTrackerSize(
+                    IFMapExporter::INTEREST, client->index()));
+        entry.set_advertised_tracker_entries(exporter_->ClientConfigTrackerSize(
+                    IFMapExporter::ADVERTISED, client->index()));
         out_map->clients.push_back(entry);
     }
     out_map->set_print_count(out_map->clients.size());

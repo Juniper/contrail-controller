@@ -67,12 +67,14 @@ void IFMapExporter::Initialize(DB *db) {
 }
 
 void IFMapExporter::Shutdown() {
-    for (size_t index = 0; index < client_config_tracker_.size(); ++index) {
-        ConfigSet *set = client_config_tracker_[index];
-        if (set) {
-            set->clear();
-            delete set;
-            client_config_tracker_[index] = NULL;
+    for (int i = 0; i < TT_END; ++i) {
+        for (size_t index = 0; index < client_config_tracker_[i].size(); ++index) {
+            ConfigSet *set = client_config_tracker_[i][index];
+            if (set) {
+                set->clear();
+                delete set;
+                client_config_tracker_[i][index] = NULL;
+            }
         }
     }
     for (TableMap::iterator iter = table_map_.begin(); iter != table_map_.end();
@@ -555,9 +557,13 @@ void IFMapExporter::StateUpdateOnDequeue(IFMapUpdate *update,
     state = static_cast<IFMapState *>(
         db_entry->GetState(table, TableListenerId(table)));
     if (is_delete) {
-        state->AdvertisedReset(dequeue_set);
+        // For any bit in dequeue_set, its possible that advertised is not set.
+        // EG: update is UPDATE and we are called from UpdateQ.Leave(). Reset
+        // only the bits that are really set.
+        BitSet adv_bits = state->advertised() & dequeue_set;
+        StateAdvertisedReset(state, adv_bits);
     } else {
-        state->AdvertisedOr(dequeue_set);
+        StateAdvertisedOr(state, dequeue_set);
     }
 
     if (update->advertise().empty()) {
@@ -620,26 +626,30 @@ bool IFMapExporter::ConfigChanged(IFMapNode *node) {
 }
 
 void IFMapExporter::AddClientConfigTracker(int index) {
-    if (index >= (int)client_config_tracker_.size()) {
-        client_config_tracker_.resize(index + 1, NULL);
+    for (int tracker_type = 0; tracker_type < TT_END; ++tracker_type) {
+        if (index >= (int)client_config_tracker_[tracker_type].size()) {
+            client_config_tracker_[tracker_type].resize(index + 1, NULL);
+        }
+        assert(client_config_tracker_[tracker_type][index] == NULL);
+        ConfigSet *set = new ConfigSet();
+        client_config_tracker_[tracker_type][index] = set;
     }
-    assert(client_config_tracker_[index] == NULL);
-    ConfigSet *set = new ConfigSet();
-    client_config_tracker_[index] = set;
 }
 
 void IFMapExporter::DeleteClientConfigTracker(int index) {
-    ConfigSet *set = client_config_tracker_.at(index);
-    assert(set);
-    delete set;
-    client_config_tracker_[index] = NULL;
+    for (int tracker_type = 0; tracker_type < TT_END; ++tracker_type) {
+        ConfigSet *set = client_config_tracker_[tracker_type].at(index);
+        assert(set);
+        delete set;
+        client_config_tracker_[tracker_type][index] = NULL;
+    }
 }
 
 void IFMapExporter::UpdateClientConfigTracker(IFMapState *state,
-        const BitSet& client_bits, bool add) {
+        const BitSet& client_bits, bool add, TrackerType tracker_type) {
     for (size_t pos = client_bits.find_first(); pos != BitSet::npos;
             pos = client_bits.find_next(pos)) {
-        ConfigSet *set = client_config_tracker_.at(pos);
+        ConfigSet *set = client_config_tracker_[tracker_type].at(pos);
         assert(set);
         if (add) {
             set->insert(state);
@@ -651,51 +661,62 @@ void IFMapExporter::UpdateClientConfigTracker(IFMapState *state,
 }
 
 void IFMapExporter::CleanupClientConfigTrackedEntries(int index) {
-    ConfigSet *set = client_config_tracker_.at(index);
-    assert(set);
     BitSet rm_bs;
     rm_bs.set(index);
+
+    ConfigSet *set = client_config_tracker_[INTEREST].at(index);
+    assert(set);
     for (ConfigSet::iterator iter = set->begin(); iter != set->end(); ++iter) {
         IFMapState *state = *iter;
         state->InterestReset(rm_bs);
+    }
+
+    set = client_config_tracker_[ADVERTISED].at(index);
+    assert(set);
+    for (ConfigSet::iterator iter = set->begin(); iter != set->end(); ++iter) {
+        IFMapState *state = *iter;
         state->AdvertisedReset(rm_bs);
     }
 }
 
-bool IFMapExporter::ClientHasConfigTracker(int index) {
-    ConfigSet *set = client_config_tracker_.at(index);
+bool IFMapExporter::ClientHasConfigTracker(TrackerType tracker_type,
+        int index) {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     return ((set != NULL) ? true : false);
 }
 
-bool IFMapExporter::ClientConfigTrackerHasState(int index, IFMapState *state) {
-    ConfigSet *set = client_config_tracker_.at(index);
+bool IFMapExporter::ClientConfigTrackerHasState(TrackerType tracker_type,
+                                                int index, IFMapState *state) {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     assert(set);
     ConfigSet::iterator iter = set->find(state);
     return (iter == set->end() ? false : true);
 }
 
-bool IFMapExporter::ClientConfigTrackerEmpty(int index) {
-    ConfigSet *set = client_config_tracker_.at(index);
+bool IFMapExporter::ClientConfigTrackerEmpty(TrackerType tracker_type,
+        int index) {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     assert(set);
     return set->empty();
 }
 
-size_t IFMapExporter::ClientConfigTrackerSize(int index) {
-    ConfigSet *set = client_config_tracker_.at(index);
+size_t IFMapExporter::ClientConfigTrackerSize(TrackerType tracker_type,
+        int index) {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     assert(set);
     return set->size();
 }
 
-IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerBegin(int index)
-        const {
-    ConfigSet *set = client_config_tracker_.at(index);
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerBegin(
+        TrackerType tracker_type, int index) const {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     assert(set);
     return set->begin();
 }
 
-IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerEnd(int index)
-        const {
-    ConfigSet *set = client_config_tracker_.at(index);
+IFMapExporter::Cs_citer IFMapExporter::ClientConfigTrackerEnd(
+        TrackerType tracker_type, int index) const {
+    ConfigSet *set = client_config_tracker_[tracker_type].at(index);
     assert(set);
     return set->end();
 }
@@ -708,7 +729,7 @@ void IFMapExporter::StateInterestSet(IFMapState *state,
     BitSet new_clients;
     new_clients.BuildComplement(interest_bits, state->interest());
     if (!new_clients.empty()) {
-        UpdateClientConfigTracker(state, new_clients, add);
+        UpdateClientConfigTracker(state, new_clients, add, INTEREST);
     }
 
     // Remove the node from the config-tracker of all clients that are no longer
@@ -717,7 +738,7 @@ void IFMapExporter::StateInterestSet(IFMapState *state,
     BitSet old_clients;
     old_clients.BuildComplement(state->interest(), interest_bits);
     if (!old_clients.empty()) {
-        UpdateClientConfigTracker(state, old_clients, add);
+        UpdateClientConfigTracker(state, old_clients, add, INTEREST);
     }
 
     state->SetInterest(interest_bits);
@@ -728,7 +749,7 @@ void IFMapExporter::StateInterestSet(IFMapState *state,
 void IFMapExporter::StateInterestOr(IFMapState *state,
                                     const BitSet& interest_bits) {
     bool add = true;
-    UpdateClientConfigTracker(state, interest_bits, add);
+    UpdateClientConfigTracker(state, interest_bits, add, INTEREST);
     state->InterestOr(interest_bits);
 }
 
@@ -737,8 +758,25 @@ void IFMapExporter::StateInterestOr(IFMapState *state,
 void IFMapExporter::StateInterestReset(IFMapState *state,
                                        const BitSet& interest_bits) {
     bool add = false;
-    UpdateClientConfigTracker(state, interest_bits, add);
+    UpdateClientConfigTracker(state, interest_bits, add, INTEREST);
     state->InterestReset(interest_bits);
+}
+
+// Add the node to the config-tracker of all clients that just sent this node.
+void IFMapExporter::StateAdvertisedOr(IFMapState *state,
+                                      const BitSet& advertised_bits) {
+    bool add = true;
+    UpdateClientConfigTracker(state, advertised_bits, add, ADVERTISED);
+    state->AdvertisedOr(advertised_bits);
+}
+
+// Remove the node from the config-tracker of all clients from whom the node
+// was withdrawn.
+void IFMapExporter::StateAdvertisedReset(IFMapState *state,
+                                         const BitSet& advertised_bits) {
+    bool add = false;
+    UpdateClientConfigTracker(state, advertised_bits, add, ADVERTISED);
+    state->AdvertisedReset(advertised_bits);
 }
 
 const IFMapTypenameWhiteList &IFMapExporter::get_traversal_white_list() const {

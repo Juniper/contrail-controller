@@ -76,6 +76,7 @@ public:
 
     void AddClient(IFMapClient *client);
     void DeleteClient(IFMapClient *client);
+    void ClientExporterSetup(IFMapClient *client);
 
     DB *database() { return db_; }
     DBGraph *graph() { return graph_; }
@@ -143,8 +144,7 @@ private:
     void ClientGraphDownload(IFMapClient *client);
     void RemoveSelfAddedLinksAndObjects(IFMapClient *client);
     void CleanupUuidMapper(IFMapClient *client);
-    void ClientExporterSetup(IFMapClient *client);
-    void ClientExporterCleanup(IFMapClient *client);
+    void ClientExporterCleanup(int index);
     const ClientMap &GetClientMap() const { return client_map_; }
     void SimulateDeleteClient(IFMapClient *client);
     void SaveClientHistory(IFMapClient *client);
