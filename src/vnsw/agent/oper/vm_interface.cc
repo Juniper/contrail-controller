@@ -2454,14 +2454,19 @@ bool VmInterface::IsVxlanMode() const {
 }
 
 // Allocate MPLS Label for Layer3 routes
-void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change) {
+void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
+                                   uint32_t new_label) {
     if (fabric_port_)
         return;
 
     bool new_entry = false;
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     if (label_ == MplsTable::kInvalidLabel) {
-        label_ = agent->mpls_table()->AllocLabel();
+        if (new_label == MplsTable::kInvalidLabel) {
+            label_ = agent->mpls_table()->AllocLabel();
+        } else {
+            label_ = new_label;
+        }
         new_entry = true;
         UpdateMetaDataIpInfo();
     }
@@ -2513,7 +2518,21 @@ void VmInterface::DeleteL2MplsLabel() {
 void VmInterface::UpdateL3TunnelId(bool force_update, bool policy_change) {
     //Currently only MPLS encap ind no VXLAN is supported for L3.
     //Unconditionally create a label
-    AllocL3MplsLabel(force_update, policy_change);
+    if (policy_change && (label_ != MplsTable::kInvalidLabel)) {
+        /* We delete the existing label and add new one whenever policy changes
+         * to ensure that leaked routes point to NH with correct policy
+         * status. This is to handle the case when after leaking the route, if
+         * policy is disabled on VMI, the leaked route was still pointing to
+         * policy enabled NH */
+
+        /* Fetch new label before we delete the existing label */
+        Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+        uint32_t new_label = agent->mpls_table()->AllocLabel();
+        DeleteL3MplsLabel();
+        AllocL3MplsLabel(force_update, policy_change, new_label);
+    } else {
+        AllocL3MplsLabel(force_update, policy_change, MplsTable::kInvalidLabel);
+    }
 }
 
 void VmInterface::DeleteL3TunnelId() {
