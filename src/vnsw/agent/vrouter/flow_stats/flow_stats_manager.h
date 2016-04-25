@@ -44,10 +44,9 @@ struct FlowStatsCollectorReq {
     };
 
     FlowStatsCollectorReq(Event ev, const FlowAgingTableKey &k,
-                          uint64_t interval, uint64_t timeout,
-                          bool user_cfgd) :
+                          uint64_t interval, uint64_t timeout) :
         event(ev), key(k), flow_stats_interval(interval),
-        flow_cache_timeout(timeout), user_configured(user_cfgd) {}
+        flow_cache_timeout(timeout) {}
 
     FlowStatsCollectorReq(Event ev, const FlowAgingTableKey &k):
         event(ev), key(k) {}
@@ -56,7 +55,6 @@ struct FlowStatsCollectorReq {
     FlowAgingTableKey key;
     uint64_t flow_stats_interval;
     uint64_t flow_cache_timeout;
-    bool user_configured;
 };
 
 class FlowStatsManager {
@@ -79,14 +77,11 @@ public:
     FlowStatsCollector* default_flow_stats_collector() {
         return default_flow_stats_collector_.get();
     }
-    FlowStatsCollector* tcp_flow_stats_collector() {
-        return protocol_list_[IPPROTO_TCP];
-    }
 
     //Add protocol + port based flow aging table
     void Add(const FlowAgingTableKey &key,
              uint64_t flow_stats_interval,
-             uint64_t flow_cache_timeout, bool user_configured);
+             uint64_t flow_cache_timeout);
     void Delete(const FlowAgingTableKey &key);
     void Free(const FlowAgingTableKey &key);
 
