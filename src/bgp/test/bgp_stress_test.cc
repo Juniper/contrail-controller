@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 #include <string>
+#include <signal.h>
 
 #include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
@@ -59,7 +60,7 @@ do {                                                             \
 #undef __BGP_PROFILE__
 
 #if defined(__BGP_PROFILE__) && ! defined(__APPLE__)
-
+#include <valgrind/memcheck.h>
 
 #define HEAP_PROFILER_START(prefix)  \
     do {                             \
@@ -77,6 +78,7 @@ do {                                                             \
     do {                             \
         if (!d_profile_heap_) break; \
         HeapProfilerDump(reason);    \
+        VALGRIND_DO_LEAK_CHECK;      \
     } while (false)
 
 #else
@@ -199,14 +201,11 @@ static void WaitForIdle() {
     }
 }
 
-PeerCloseManagerTest::PeerCloseManagerTest(IPeer *peer) :
-        PeerCloseManager(peer) {
+PeerCloseManagerTest::PeerCloseManagerTest(IPeerClose *peer_close) :
+        PeerCloseManager(peer_close) {
 }
 
 PeerCloseManagerTest::~PeerCloseManagerTest() {
-}
-
-void PeerCloseManagerTest::StartStaleTimer() {
 }
 
 static string GetRouterName(int router_id) {
@@ -1573,6 +1572,14 @@ string BgpStressTest::GetAgentNexthop(int agent_id, int route_id) {
                 d_xmpp_rt_nexthop_vary_ ? route_id : 0).ip4_addr().to_string();
 }
 
+string BgpStressTest::GetEnetPrefix(string inet_prefix) const {
+    string enet_prefix = inet_prefix;
+    vector<string> elems;
+    boost::split(elems, enet_prefix, boost::is_any_of("/"));
+    replace(elems[0].begin(), elems[0].end(), '.', ':');
+    return elems[0] + ":0:0," + inet_prefix;
+}
+
 void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
@@ -1587,6 +1594,10 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
     xmpp_agents_[agent_id]->AddRoute(GetInstanceName(instance_id),
                                      prefix.ToString(),
                                      GetAgentNexthop(agent_id, route_id));
+
+    xmpp_agents_[agent_id]->AddEnetRoute(GetInstanceName(instance_id),
+                                         GetEnetPrefix(prefix.ToString()),
+                                         GetAgentNexthop(agent_id, route_id));
 
     if (instance_id == 0)
         return;
@@ -1684,6 +1695,8 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
     xmpp_agents_[agent_id]->DeleteRoute(GetInstanceName(instance_id),
                                         prefix.ToString());
+    xmpp_agents_[agent_id]->DeleteEnetRoute(GetInstanceName(instance_id),
+                                            GetEnetPrefix(prefix.ToString()));
 
     if (instance_id == 0)
         return;
@@ -2504,13 +2517,19 @@ void BgpStressTest::UpdateSocketBufferSize() {
 
 // Fork off python shell for pause. Use portable fork and exec instead of
 // system() call which is platform specific, wrt signal handling.
-void BgpStressTest::Pause() {
-    BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell to resume");
+void BgpStressTest::Pause(string message) {
+    BGP_STRESS_TEST_LOG("Test PAUSED. Exit (Ctrl-d) python shell to resume");
+    BGP_STRESS_TEST_LOG(message << endl);
+    if (!d_pause_after_initial_setup_)
+        return;
+    cout << message;
+    BGP_DEBUG_UT(message);
     pid_t pid;
     if (!(pid = fork()))
         execl("/usr/bin/python", "/usr/bin/python", NULL);
     int status;
     waitpid(pid, &status, 0);
+    HEAP_PROFILER_DUMP("bgp_stress_test");
 }
 
 TEST_P(BgpStressTest, RandomEvents) {
@@ -2535,10 +2554,7 @@ TEST_P(BgpStressTest, RandomEvents) {
 
     ShowAllRoutes();
     ShowNeighborStatistics();
-    if (d_pause_after_initial_setup_)
-        Pause();
-
-    HEAP_PROFILER_DUMP("bgp_stress_test");
+    Pause("Pause after initial setup is complete");
 
     while (!d_events_ || BgpStressTestEvent::count_ < d_events_) {
         switch (BgpStressTestEvent::GetTestEvent()) {
@@ -2687,12 +2703,11 @@ TEST_P(BgpStressTest, RandomEvents) {
 
             case BgpStressTestEvent::PAUSE:
                 BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::PAUSE);
-                BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell "
-                             "to resume");
-                Pause();
+                Pause("Pause");
                 break;
         }
     }
+    DeleteAllRoutes(n_instances_, n_peers_, n_agents_, n_routes_, n_targets_);
 }
 
 static void process_command_line_args(int argc, const char **argv) {
@@ -3302,7 +3317,14 @@ static void TearDown() {
     scheduler->Terminate();
 }
 
+static void SignalHandler (int sig) {
+    if (sig != SIGUSR1)
+        return;
+    HEAP_PROFILER_DUMP();
+}
+
 int bgp_stress_test_main(int argc, const char **argv) {
+    signal(SIGUSR1, SignalHandler);
     gargc = argc;
     gargv = argv;
 

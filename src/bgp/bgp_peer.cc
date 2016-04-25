@@ -44,7 +44,8 @@ class BgpPeer::PeerClose : public IPeerClose {
   public:
     explicit PeerClose(BgpPeer *peer)
         : peer_(peer),
-          manager_(BgpObjectFactory::Create<PeerCloseManager>(peer_)) { }
+          manager_(BgpObjectFactory::Create<PeerCloseManager>(this)) {
+    }
 
     virtual ~PeerClose() { }
     virtual string ToString() const { return peer_->ToString(); }
@@ -52,12 +53,13 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual void GracefulRestartStale() { }
     virtual void GracefulRestartSweep() { }
     virtual PeerCloseManager *close_manager() { return manager_.get(); }
+    virtual bool IsReady() const { return peer_->IsReady(); }
+    virtual IPeer *peer() const { return peer_; }
 
     void Close() {
 
         // Process closure through close manager only if this is a flip.
-        if ((manager_->state() != PeerCloseManager::GR_TIMER &&
-             manager_->state() != PeerCloseManager::LLGR_TIMER) ||
+        if (!manager_->IsInGracefulRestartTimerWait() ||
             peer_->state_machine()->get_state() == StateMachine::ESTABLISHED) {
             manager_->Close();
             return;
@@ -80,6 +82,11 @@ class BgpPeer::PeerClose : public IPeerClose {
         } else {
             CloseComplete();
         }
+    }
+
+    virtual void UnregisterPeer(
+            MembershipRequest::NotifyCompletionFn completion_fn) {
+        peer_->server()->membership_mgr()->UnregisterPeer(peer_, completion_fn);
     }
 
     // Return the time to wait for, in seconds to exit GR_TIMER state.
@@ -1331,9 +1338,8 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     // If GR is no longer supported, terminate GR right away. This can happen
     // due to mis-match between gr and llgr afis. For now, we expect an
     // identical set.
-    if ((peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER ||
-         peer_close_->close_manager()->state() == PeerCloseManager::LLGR_TIMER)
-            && !peer_close_->IsGRReady()) {
+    if (peer_close_->close_manager()->IsInGracefulRestartTimerWait() &&
+            !peer_close_->IsGRReady()) {
         Close();
         return false;
     }
