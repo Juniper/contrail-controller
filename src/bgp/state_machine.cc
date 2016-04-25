@@ -1603,7 +1603,7 @@ void StateMachine::LogEvent(string event_name, string msg,
     // Reduce log level for keepalive and update messages.
     if (get_state() == ESTABLISHED &&
         (event_name == "fsm::EvBgpKeepalive" ||
-             event_name == "fsm::EvBgpUpdate")) {
+         event_name == "fsm::EvBgpUpdate")) {
         log_level = Sandesh::LoggingUtLevel();
     }
     SM_LOG(log_level, msg << " " << event_name << " in state " << StateName());
@@ -1692,9 +1692,11 @@ void StateMachine::set_last_event(const std::string &event) {
     last_event_ = event;
     last_event_at_ = UTCTimestampUsec();
 
-    // Don't log keepalive events.
-    if (event == "fsm::EvBgpKeepalive")
+    // Skip keepalive and update events after we've reached established state.
+    if (state_ == ESTABLISHED &&
+        (event == "fsm::EvBgpKeepalive" || event == "fsm::EvBgpUpdate")) {
         return;
+    }
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
