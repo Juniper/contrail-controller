@@ -107,7 +107,8 @@ response sandesh IFMapXmppClientInfoShowResp {
 
 struct IFMapServerClientMapShowEntry {
     1: string client_name;
-    2: u64 tracker_entries;
+    2: u64 interest_tracker_entries;
+    3: u64 advertised_tracker_entries;
 }
 
 struct IFMapServerShowClientMap {
@@ -155,7 +156,8 @@ response sandesh IFMapServerClientShowResp {
 struct IFMapPerClientNodesShowInfo {
     1: string node_name (link="IFMapNodeShowReq")
     2: string sent;
-    3: string tracked;
+    3: string interest_tracked;
+    4: string advertised_tracked;
 }
 
 request sandesh IFMapPerClientNodesShowReq {
@@ -176,7 +178,8 @@ struct IFMapPerClientLinksShowInfo {
     2: string left (link="IFMapNodeShowReq")
     3: string right (link="IFMapNodeShowReq")
     4: string sent;
-    5: string tracked;
+    5: string interest_tracked;
+    6: string advertised_tracked;
 }
 
 request sandesh IFMapPerClientLinksShowReq {
