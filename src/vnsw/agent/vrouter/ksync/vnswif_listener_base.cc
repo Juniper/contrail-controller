@@ -50,9 +50,10 @@ void VnswInterfaceListenerBase::Init() {
         (boost::bind(&VnswInterfaceListenerBase::FabricRouteNotify,
                      this, _1, _2));
 
+
     /* Allocate Route Event Workqueue */
     revent_queue_ = new WorkQueue<Event *>
-                    (TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
+                    (TaskScheduler::GetInstance()->GetTaskId(kTaskDBExclude), 0,
                      boost::bind(&VnswInterfaceListenerBase::ProcessEvent,
                      this, _1));
     revent_queue_->set_name("Netlink interface listener");
