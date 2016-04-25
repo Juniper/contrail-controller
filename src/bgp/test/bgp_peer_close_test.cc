@@ -175,14 +175,10 @@ static void WaitForIdle() {
 
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
-    explicit PeerCloseManagerTest(IPeer *peer) : PeerCloseManager(peer) { }
+    explicit PeerCloseManagerTest(IPeerClose *peer_close) :
+            PeerCloseManager(peer_close) {
+    }
     ~PeerCloseManagerTest() { }
-
-    //
-    // Do not start the timer in test, as we right away call it in line from
-    // within the tests
-    //
-    void StartStaleTimer() { }
 };
 
 class BgpNullPeer {
@@ -245,15 +241,6 @@ public:
     }
 
     void DeleteRoutingInstance(RoutingInstance *rtinstance);
-    bool IsPeerCloseGraceful(bool graceful) { return graceful; }
-    void SetPeerCloseGraceful(bool graceful) {
-        server_->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&BgpPeerCloseTest::IsPeerCloseGraceful, this,
-                                graceful);
-        xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&BgpPeerCloseTest::IsPeerCloseGraceful, this,
-                                graceful);
-    }
 
 protected:
     BgpPeerCloseTest() : thread_(&evm_) { }
@@ -293,7 +280,6 @@ protected:
     }
 
     virtual void TearDown() {
-        SetPeerCloseGraceful(false);
         xmpp_server_->Shutdown();
         WaitForIdle();
         if (n_agents_) {
@@ -782,9 +768,7 @@ void BgpPeerCloseTest::VerifyRoutingInstances() {
 
 void BgpPeerCloseTest::AddPeersWithRoutes(
         const BgpInstanceConfig *instance_config) {
-
     Configure();
-    SetPeerCloseGraceful(false);
 
     //
     // Add XmppPeers with routes as well
@@ -864,9 +848,7 @@ void BgpPeerCloseTest::InitParams() {
 // Config modifications
 //
 // 1. Modify router-id
-// 2. Toggle graceful restart options for address families selectively
-// 3. Modify graceful restart timer values for address families selectively
-// 4. Neighbor inbound policy channge (In future..)
+// 2. Neighbor inbound policy channge (In future..)
 //
 // 1. Repeated close in each of the above case before the close is complete
 // 2. Repeated close in each of the above case after the close is complete (?)
@@ -879,8 +861,6 @@ TEST_P(BgpPeerCloseTest, ClosePeers) {
     VerifyPeers();
     VerifyRoutes(n_routes_);
     VerifyRibOutCreationCompletion();
-
-    // BgpShow::Instance(server_.get());
 
     // Trigger ribin deletes
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {

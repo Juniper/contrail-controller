@@ -28,7 +28,7 @@ class EventManager;
 class EvpnManager;
 class EvpnTable;
 class ErmVpnTable;
-class IPeer;
+class IPeerClose;
 class IRouteAggregator;
 class IServiceChainMgr;
 class IStaticRouteMgr;
@@ -52,7 +52,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);
     FACTORY_TYPE_N1(BgpObjectFactory, EvpnManager, EvpnTable *);
     FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, ErmVpnTable *);
-    FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeerClose *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerManager, RoutingInstance *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerRibMembershipManager, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RibOutUpdates, RibOut *);

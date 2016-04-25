@@ -179,9 +179,8 @@ void IPeerRib::RibInLeave(DBTablePartBase *root, DBEntryBase *db_entry,
     CHECK_CONCURRENCY("db::DBTable");
     BgpRoute *rt = static_cast<BgpRoute *>(db_entry);
 
-    if (!IsRibInRegistered()) return;
-    ipeer_->peer_close()->close_manager()->
-        ProcessRibIn(root, rt, table, action_mask);
+    if (IsRibInRegistered())
+        table->Input(root, ipeer_, rt, action_mask);
 }
 
 //
@@ -716,17 +715,56 @@ void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
 // Enqueue a request to peer rib membership manager
 //
 void PeerRibMembershipManager::UnregisterPeer(IPeer *ipeer,
-        MembershipRequest::ActionGetFn action_get_fn,
         MembershipRequest::NotifyCompletionFn notify_completion_fn) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
     IPeerRibEvent *event = new IPeerRibEvent(IPeerRibEvent::UNREGISTER_PEER,
                                              ipeer, NULL);
-
     current_jobs_count_++;
     total_jobs_count_++;
-    event->request.action_get_fn = action_get_fn;
     event->request.notify_completion_fn = notify_completion_fn;
     Enqueue(event);
+}
+
+// Get the type of RibIn close action at start (Not during graceful restart
+// timer callback, where in we walk the Rib again to sweep the routes)
+int PeerRibMembershipManager::GetUnregisterPeerActionMask(
+        IPeerRib *peer_rib) const {
+    int action = MembershipRequest::INVALID;
+    PeerCloseManager::State state =
+        peer_rib->ipeer()->peer_close()->close_manager()->state();
+
+    if ((state == PeerCloseManager::STALE ||
+         state == PeerCloseManager::LLGR_STALE ||
+         state == PeerCloseManager::DELETE) && peer_rib->IsRibOutRegistered())
+        action |= static_cast<int>(MembershipRequest::RIBOUT_DELETE);
+
+    if (!peer_rib->IsRibInRegistered())
+        return action;
+
+    // If graceful restart timer is already running, then this is a second
+    // close before previous restart has completed. Abort graceful restart
+    // and delete the routes instead
+    switch (state) {
+        case PeerCloseManager::NONE:
+        break;
+    case PeerCloseManager::STALE:
+        action |= static_cast<int>(MembershipRequest::RIBIN_STALE);
+        break;
+    case PeerCloseManager::LLGR_STALE:
+        action |= static_cast<int>(MembershipRequest::RIBIN_LLGR_STALE);
+        break;
+    case PeerCloseManager::GR_TIMER:
+        break;
+    case PeerCloseManager::LLGR_TIMER:
+        break;
+    case PeerCloseManager::SWEEP:
+        action |= static_cast<int>(MembershipRequest::RIBIN_SWEEP);
+        break;
+    case PeerCloseManager::DELETE:
+        action |= static_cast<int>(MembershipRequest::RIBIN_DELETE);
+        break;
+    }
+    return (action);
 }
 
 //
@@ -758,7 +796,7 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
         MembershipRequest request;
         request.ipeer = event->ipeer;
         request.action_mask = static_cast<MembershipRequest::Action>(
-            event->request.action_get_fn(peer_rib));
+                                  GetUnregisterPeerActionMask(peer_rib));
         request.notify_completion_fn = boost::bind(
             &PeerRibMembershipManager::UnregisterPeerDone,
             this, _1, _2, count, event->request.notify_completion_fn);

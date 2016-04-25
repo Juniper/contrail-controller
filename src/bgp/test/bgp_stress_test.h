@@ -175,14 +175,8 @@ private:
 
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
-    explicit PeerCloseManagerTest(IPeer *peer);
+    explicit PeerCloseManagerTest(IPeerClose *peer_close);
     ~PeerCloseManagerTest();
-
-    //
-    // Do not start the timer in test, as we right away call it in line from
-    // within the tests
-    //
-    void StartStaleTimer();
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
@@ -418,7 +412,7 @@ protected:
     void UpdateSocketBufferSize();
     void ShowAllRoutes();
     void ShowNeighborStatistics();
-    void Pause();
+    void Pause(std::string message);
     void ValidateShowNeighborStatisticsResponse(size_t expected_count,
                                                 Sandesh *sandesh);
     void ValidateShowRouteSandeshResponse(Sandesh *sandesh);
@@ -427,6 +421,7 @@ protected:
     std::string GetAgentVmConfigName(int agent_id, int vm_id);
     std::string GetAgentName(int agent_id);
     bool XmppClientIsEstablished(const std::string &client_name);
+    std::string GetEnetPrefix(std::string inet_prefix) const;
 
     EventManager evm_;
     ServerThread thread_;

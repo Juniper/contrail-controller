@@ -13,8 +13,9 @@
 #include "net/community_type.h"
 
 #define PEER_CLOSE_MANAGER_LOG(msg) \
-    BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,       \
-        BGP_PEER_DIR_NA, "PeerCloseManager: State " << GetStateName(state_) << \
+    BGP_LOG_PEER(Event, peer_close_->peer(), SandeshLevel::SYS_INFO,           \
+        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,                                     \
+        "PeerCloseManager: State " << GetStateName(state_) <<                  \
         ", CloseAgain? " << (close_again_ ? "Yes" : "No") << ": " << msg);
 
 #define MOVE_TO_STATE(state)                                                   \
@@ -25,15 +26,31 @@
     } while (false)
 
 // Create an instance of PeerCloseManager with back reference to parent IPeer
-PeerCloseManager::PeerCloseManager(IPeer *peer) :
-        peer_(peer), stale_timer_(NULL), sweep_timer_(NULL), state_(NONE),
-        close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
+PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
+                                   boost::asio::io_service &io_service) :
+        peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
+        state_(NONE), close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
     stats_.init++;
-    if (peer->server()) {
-        stale_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
+    stale_timer_ = TimerManager::CreateTimer(io_service,
+        "Graceful Restart StaleTimer",
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+    sweep_timer_ = TimerManager::CreateTimer(io_service,
+        "Graceful Restart SweepTimer",
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+}
+
+// Create an instance of PeerCloseManager with back reference to parent IPeer
+PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
+        peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
+        state_(NONE), close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
+    stats_.init++;
+    if (peer_close->peer() && peer_close->peer()->server()) {
+        stale_timer_ = TimerManager::CreateTimer(
+            *peer_close->peer()->server()->ioservice(),
             "Graceful Restart StaleTimer",
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
-        sweep_timer_ = TimerManager::CreateTimer(*peer->server()->ioservice(),
+        sweep_timer_ = TimerManager::CreateTimer(
+            *peer_close->peer()->server()->ioservice(),
             "Graceful Restart SweepTimer",
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
     }
@@ -185,22 +202,22 @@ void PeerCloseManager::ProcessClosure() {
     // sweep old paths which may not have come back in the new session
     switch (state_) {
         case NONE:
-            if (!peer_->peer_close()->IsCloseGraceful()) {
+            if (!peer_close_->IsCloseGraceful()) {
                 MOVE_TO_STATE(DELETE);
                 stats_.deletes++;
             } else {
                 MOVE_TO_STATE(STALE);
                 stats_.stale++;
-                peer_->peer_close()->GracefulRestartStale();
+                peer_close_->GracefulRestartStale();
             }
             break;
         case GR_TIMER:
-            if (peer_->IsReady()) {
+            if (peer_close_->IsReady()) {
                 MOVE_TO_STATE(SWEEP);
                 stats_.sweep++;
                 break;
             }
-            if (peer_->peer_close()->IsCloseLongLivedGraceful()) {
+            if (peer_close_->IsCloseLongLivedGraceful()) {
                 MOVE_TO_STATE(LLGR_STALE);
                 stats_.llgr_stale++;
                 break;
@@ -210,7 +227,7 @@ void PeerCloseManager::ProcessClosure() {
             break;
 
         case LLGR_TIMER:
-            if (peer_->IsReady()) {
+            if (peer_close_->IsReady()) {
                 MOVE_TO_STATE(SWEEP);
                 stats_.sweep++;
                 break;
@@ -228,20 +245,9 @@ void PeerCloseManager::ProcessClosure() {
     }
 
     if (state_ == DELETE)
-        peer_->peer_close()->CustomClose();
-    peer_->server()->membership_mgr()->UnregisterPeer(peer_,
-        boost::bind(&PeerCloseManager::GetCloseAction, this, _1, state_),
+        peer_close_->CustomClose();
+    peer_close_->UnregisterPeer(
         boost::bind(&PeerCloseManager::UnregisterPeerComplete, this, _1, _2));
-}
-
-bool PeerCloseManager::IsCloseInProgress() const {
-    tbb::mutex::scoped_lock lock(mutex_);
-    return state_ != NONE;
-}
-
-bool PeerCloseManager::IsInGracefulRestartTimerWait() const {
-    tbb::mutex::scoped_lock lock(mutex_);
-    return state_ == GR_TIMER || state_ == LLGR_TIMER;
 }
 
 void PeerCloseManager::CloseComplete() {
@@ -263,7 +269,7 @@ bool PeerCloseManager::ProcessSweepStateActions() {
     assert(state_ == SWEEP);
 
     // Notify clients to trigger sweep as appropriate.
-    peer_->peer_close()->GracefulRestartSweep();
+    peer_close_->GracefulRestartSweep();
     gr_elapsed_ = 0;
     llgr_elapsed_ = 0;
     CloseComplete();
@@ -289,7 +295,7 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
     PEER_CLOSE_MANAGER_LOG("RibWalk completed");
 
     if (state_ == DELETE) {
-        peer_->peer_close()->Delete();
+        peer_close_->Delete();
         gr_elapsed_ = 0;
         llgr_elapsed_ = 0;
         MOVE_TO_STATE(NONE);
@@ -301,12 +307,12 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
     // If any GR stale timer has to be launched, then to wait for some time
     // hoping for the peer (and the paths) to come back up.
     if (state_ == STALE) {
-        peer_->peer_close()->CloseComplete();
+        peer_close_->CloseComplete();
         MOVE_TO_STATE(GR_TIMER);
-        peer_->peer_close()->GetGracefulRestartFamilies(&families_);
+        peer_close_->GetGracefulRestartFamilies(&families_);
 
         // Offset restart time with elapsed time during nested closures.
-        int time = peer_->peer_close()->GetGracefulRestartTime() * 1000;
+        int time = peer_close_->GetGracefulRestartTime() * 1000;
         time -= gr_elapsed_;
         if (time < 0)
             time = 0;
@@ -320,12 +326,12 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
     // expires.
     if (state_ == LLGR_STALE) {
         MOVE_TO_STATE(LLGR_TIMER);
-        peer_->peer_close()->GetGracefulRestartFamilies(&families_);
+        peer_close_->GetGracefulRestartFamilies(&families_);
         StartRestartTimer(1000 *
-                peer_->peer_close()->GetLongLivedGracefulRestartTime());
+                peer_close_->GetLongLivedGracefulRestartTime());
 
         // Offset restart time with elapsed time during nested closures.
-        int time = peer_->peer_close()->GetLongLivedGracefulRestartTime() *1000;
+        int time = peer_close_->GetLongLivedGracefulRestartTime() *1000;
         time -= llgr_elapsed_;
         if (time < 0)
             time = 0;
@@ -337,171 +343,7 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
     TriggerSweepStateActions();
 }
 
-// Get the type of RibIn close action at start (Not during graceful restart
-// timer callback, where in we walk the Rib again to sweep the routes)
-int PeerCloseManager::GetCloseAction(IPeerRib *peer_rib, State state) {
-    int action = MembershipRequest::INVALID;
-
-    if ((state == STALE || state == LLGR_STALE || state == DELETE) &&
-            peer_rib->IsRibOutRegistered())
-        action |= static_cast<int>(MembershipRequest::RIBOUT_DELETE);
-
-    if (!peer_rib->IsRibInRegistered())
-        return action;
-
-    // If graceful restart timer is already running, then this is a second
-    // close before previous restart has completed. Abort graceful restart
-    // and delete the routes instead
-    switch (state) {
-    case NONE:
-        break;
-    case STALE:
-        action |= static_cast<int>(MembershipRequest::RIBIN_STALE);
-        break;
-    case LLGR_STALE:
-        action |= static_cast<int>(MembershipRequest::RIBIN_LLGR_STALE);
-        break;
-    case GR_TIMER:
-        break;
-    case LLGR_TIMER:
-        break;
-    case SWEEP:
-        action |= static_cast<int>(MembershipRequest::RIBIN_SWEEP);
-        break;
-    case DELETE:
-        action |= static_cast<int>(MembershipRequest::RIBIN_DELETE);
-        break;
-    }
-    return (action);
-}
-
-// For graceful-restart, we take mark-and-sweep approach instead of directly
-// deleting the paths. In the first walk, local-preference is lowered so that
-// the paths are least preferred and they are marked stale. After some time, if
-// the peer session does not come back up, we delete all the paths and the peer
-// itself. If the session did come back up, we flush only those paths that were
-// not learned again in the new session.
-//
-// Concurrency: Runs in the context of the DB Walker task launched by peer rib
-// membership manager
-//
-// DBWalker callback routine for each of the RibIn prefix.
-void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
-                                    BgpTable *table, int action_mask) {
-    DBRequest::DBOperation oper;
-    BgpAttrPtr attrs;
-    MembershipRequest::Action  action;
-
-    // Look for the flags that we care about
-    action = static_cast<MembershipRequest::Action>(action_mask &
-                (MembershipRequest::RIBIN_STALE |
-                 MembershipRequest::RIBIN_LLGR_STALE |
-                 MembershipRequest::RIBIN_SWEEP |
-                 MembershipRequest::RIBIN_DELETE));
-
-    if (action == MembershipRequest::INVALID)
-        return;
-
-    bool notify_rt = false;
-
-    // Process all paths sourced from this peer_. Multiple paths could exist
-    // in ecmp cases.
-    for (Route::PathList::iterator it = rt->GetPathList().begin(), next = it;
-         it != rt->GetPathList().end(); it = next) {
-        next++;
-
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-
-        // Skip paths from other peers.
-        if (path->GetPeer() != peer_)
-            continue;
-
-        // Skip resolved paths - PathResolver is responsible for them.
-        if (path->IsResolved())
-            continue;
-
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(path))
-            continue;
-
-        uint32_t stale = 0;
-        switch (action) {
-            case MembershipRequest::RIBIN_SWEEP:
-
-                // Stale paths must be deleted.
-                if (!path->IsStale() && !path->IsLlgrStale())
-                    return;
-                path->ResetStale();
-                path->ResetLlgrStale();
-                stats_.deleted_state_paths++;
-                oper = DBRequest::DB_ENTRY_DELETE;
-                attrs = NULL;
-                break;
-
-            case MembershipRequest::RIBIN_DELETE:
-
-                // This path must be deleted. Hence attr is not required.
-                stats_.deleted_paths++;
-                oper = DBRequest::DB_ENTRY_DELETE;
-                attrs = NULL;
-                break;
-
-            case MembershipRequest::RIBIN_STALE:
-
-                // If path is already marked as stale, then there is no need to
-                // process again. This can happen if the session flips while in
-                // GR_TIMER state.
-                if (path->IsStale())
-                    continue;
-
-                // This path must be marked for staling. Update the local
-                // preference and update the route accordingly.
-                oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                stats_.marked_stale_paths++;
-                attrs = path->GetAttr();
-                stale = BgpPath::Stale;
-                break;
-
-            case MembershipRequest::RIBIN_LLGR_STALE:
-
-                // If the path has NO_LLGR community, DELETE it.
-                if (path->GetAttr()->community() &&
-                    path->GetAttr()->community()->ContainsValue(
-                        CommunityType::NoLlgr)) {
-                    stats_.deleted_paths++;
-                    oper = DBRequest::DB_ENTRY_DELETE;
-                    attrs = NULL;
-                    break;
-                }
-
-                // If path is already marked as llgr_stale, then there is no
-                // need to process again. This can happen if the session flips
-                // while in LLGR_TIMER state.
-                if (path->IsLlgrStale())
-                    continue;
-
-                attrs = path->GetAttr();
-                stale = BgpPath::LlgrStale;
-                oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                stats_.marked_llgr_stale_paths++;
-                break;
-
-            default:
-                assert(false);
-                break;
-        }
-
-        // Feed the route modify/delete request to the table input process.
-        notify_rt |= table->InputCommon(root, rt, path, peer_, NULL, oper,
-                                        attrs, path->GetPathId(),
-                                        path->GetFlags() | stale,
-                                        path->GetLabel());
-    }
-
-    table->InputCommonPostProcess(root, rt, notify_rt);
-}
-
-void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) {
+void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     tbb::mutex::scoped_lock lock(mutex_);
 
     PeerCloseInfo peer_close_info;
@@ -514,10 +356,6 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) {
     peer_close_info.stale = stats_.stale;
     peer_close_info.sweep = stats_.sweep;
     peer_close_info.gr_timer = stats_.gr_timer;
-    peer_close_info.deleted_state_paths = stats_.deleted_state_paths;
-    peer_close_info.deleted_paths = stats_.deleted_paths;
-    peer_close_info.marked_stale_paths = stats_.marked_stale_paths;
-    peer_close_info.marked_llgr_stale_paths = stats_.marked_llgr_stale_paths;
 
     resp->set_peer_close_info(peer_close_info);
 }

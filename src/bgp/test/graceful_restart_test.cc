@@ -222,9 +222,11 @@ static vector<int> GetTargetParameters() {
 
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
-    explicit PeerCloseManagerTest(IPeer *peer) : PeerCloseManager(peer) { }
+    explicit PeerCloseManagerTest(IPeerClose *peer_close) :
+            PeerCloseManager(peer_close) {
+    }
     ~PeerCloseManagerTest() { }
-    void StartStaleTimer() { }
+    const State state() const { return state_; }
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
