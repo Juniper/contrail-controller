@@ -240,10 +240,10 @@ void IFMapGraphWalker::CleanupInterest(int client_index, IFMapNode *node,
 void IFMapGraphWalker::OldReachableNodesCleanupInterest(int client_index) {
     IFMapState *state = NULL;
     IFMapNode *node = NULL;
-    IFMapExporter::Cs_citer iter =
-        exporter_->ClientConfigTrackerBegin(client_index);
-    IFMapExporter::Cs_citer end_iter =
-        exporter_->ClientConfigTrackerEnd(client_index);
+    IFMapExporter::Cs_citer iter = exporter_->ClientConfigTrackerBegin(
+        IFMapExporter::INTEREST, client_index);
+    IFMapExporter::Cs_citer end_iter = exporter_->ClientConfigTrackerEnd(
+        IFMapExporter::INTEREST, client_index);
 
     while (iter != end_iter) {
         state = *iter;

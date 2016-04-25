@@ -170,16 +170,19 @@ protected:
         server_.ClientExporterSetup(client);
     }
 
-    bool ClientConfigTrackerHasState(int index, IFMapState *state) {
-        return exporter_->ClientConfigTrackerHasState(index, state);
+    bool ConfigTrackerHasInterestState(int index, IFMapState *state) {
+        return exporter_->ClientConfigTrackerHasState(IFMapExporter::INTEREST,
+                                                      index, state);
     }
 
-    bool ClientConfigTrackerEmpty(int index) {
-        return exporter_->ClientConfigTrackerEmpty(index);
+    bool InterestConfigTrackerEmpty(int index) {
+        return exporter_->ClientConfigTrackerEmpty(IFMapExporter::INTEREST,
+                                                   index);
     }
 
-    size_t ClientConfigTrackerSize(int index) {
-        return exporter_->ClientConfigTrackerSize(index);
+    size_t InterestConfigTrackerSize(int index) {
+        return exporter_->ClientConfigTrackerSize(IFMapExporter::INTEREST,
+                                                  index);
     }
 
     IFMapLink* VerifyLink(const string &ltype, const string &rtype,
@@ -1138,10 +1141,10 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(LinkTableSize(), 10);
 
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c1.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c2.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c3.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c4.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c1.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c2.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c3.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c4.index()));
 
     // Add the vr-vm link for c1. The state for VN 'blue' must have c1.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
@@ -1156,7 +1159,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     IFMapNodeState *state = exporter_->NodeStateLookup(blue);
     ASSERT_TRUE(state != NULL);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c1.index()));
-    TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c1.index(), state));
+    TASK_UTIL_EXPECT_TRUE(ConfigTrackerHasInterestState(c1.index(), state));
 
     // Add the vr-vm link for c2. The state for VN 'blue' must have c2.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
@@ -1164,7 +1167,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     VerifyLink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2",
                true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c2.index()));
-    TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c2.index(), state));
+    TASK_UTIL_EXPECT_TRUE(ConfigTrackerHasInterestState(c2.index(), state));
 
     // Add the vr-vm link for c3. The state for VN 'blue' must have c3.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
@@ -1172,7 +1175,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     VerifyLink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3",
                true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c3.index()));
-    TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c3.index(), state));
+    TASK_UTIL_EXPECT_TRUE(ConfigTrackerHasInterestState(c3.index(), state));
 
     // Add the vr-vm link for c4. The state for VN 'blue' must have c4.
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
@@ -1180,7 +1183,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     VerifyLink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4",
                true);
     TASK_UTIL_EXPECT_TRUE(state->interest().test(c4.index()));
-    TASK_UTIL_EXPECT_TRUE(ClientConfigTrackerHasState(c4.index(), state));
+    TASK_UTIL_EXPECT_TRUE(ConfigTrackerHasInterestState(c4.index(), state));
 
     // Check if all the bits are set for VN 'blue' and all the clients have
     // 'blue' in their config-tracker.
@@ -1188,15 +1191,15 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     EXPECT_TRUE(state->interest().test(c2.index()));
     EXPECT_TRUE(state->interest().test(c3.index()));
     EXPECT_TRUE(state->interest().test(c4.index()));
-    EXPECT_TRUE(ClientConfigTrackerHasState(c1.index(), state));
-    EXPECT_TRUE(ClientConfigTrackerHasState(c2.index(), state));
-    EXPECT_TRUE(ClientConfigTrackerHasState(c3.index(), state));
-    EXPECT_TRUE(ClientConfigTrackerHasState(c4.index(), state));
+    EXPECT_TRUE(ConfigTrackerHasInterestState(c1.index(), state));
+    EXPECT_TRUE(ConfigTrackerHasInterestState(c2.index(), state));
+    EXPECT_TRUE(ConfigTrackerHasInterestState(c3.index(), state));
+    EXPECT_TRUE(ConfigTrackerHasInterestState(c4.index(), state));
     // VR, VM, VMI, VN, VR-VM, VM-VMI, VMI-VN i.e. 7
-    EXPECT_EQ(ClientConfigTrackerSize(c1.index()), 7);
-    EXPECT_EQ(ClientConfigTrackerSize(c2.index()), 7);
-    EXPECT_EQ(ClientConfigTrackerSize(c3.index()), 7);
-    EXPECT_EQ(ClientConfigTrackerSize(c4.index()), 7);
+    EXPECT_EQ(InterestConfigTrackerSize(c1.index()), 7);
+    EXPECT_EQ(InterestConfigTrackerSize(c2.index()), 7);
+    EXPECT_EQ(InterestConfigTrackerSize(c3.index()), 7);
+    EXPECT_EQ(InterestConfigTrackerSize(c4.index()), 7);
 
     ProcessQueue();
     task_util::WaitForIdle();
@@ -1208,32 +1211,32 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_c1");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(state->interest().test(c1.index()));
-    TASK_UTIL_EXPECT_FALSE(ClientConfigTrackerHasState(c1.index(), state));
+    TASK_UTIL_EXPECT_FALSE(ConfigTrackerHasInterestState(c1.index(), state));
 
     // Remove the vr-vm link for c2.
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_c2");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(state->interest().test(c2.index()));
-    TASK_UTIL_EXPECT_FALSE(ClientConfigTrackerHasState(c2.index(), state));
+    TASK_UTIL_EXPECT_FALSE(ConfigTrackerHasInterestState(c2.index(), state));
 
     // Remove the vr-vm link for c3.
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_c3");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(state->interest().test(c3.index()));
-    TASK_UTIL_EXPECT_FALSE(ClientConfigTrackerHasState(c3.index(), state));
+    TASK_UTIL_EXPECT_FALSE(ConfigTrackerHasInterestState(c3.index(), state));
 
     // Remove the vr-vm link for c4.
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.4", "vm_c4");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(state->interest().test(c4.index()));
-    TASK_UTIL_EXPECT_FALSE(ClientConfigTrackerHasState(c4.index(), state));
+    TASK_UTIL_EXPECT_FALSE(ConfigTrackerHasInterestState(c4.index(), state));
 
     // The config-tracker must be empty for all clients.
     EXPECT_TRUE(state->interest().empty());
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c1.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c2.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c3.index()));
-    EXPECT_TRUE(ClientConfigTrackerEmpty(c4.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c1.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c2.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c3.index()));
+    EXPECT_TRUE(InterestConfigTrackerEmpty(c4.index()));
 
     ProcessQueue();
     task_util::WaitForIdle();
