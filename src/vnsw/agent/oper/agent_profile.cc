@@ -45,6 +45,10 @@ AgentProfile::~AgentProfile() {
     TimerManager::DeleteTimer(timer_);
 }
 
+void AgentProfile::Shutdown() {
+    timer_->Cancel();
+}
+
 bool AgentProfile::TimerRun() {
     ProfileData *data = GetLastProfileData();
     data->Get(agent_);

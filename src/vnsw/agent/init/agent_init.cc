@@ -20,6 +20,7 @@
 #include <oper/vm.h>
 #include <oper/interface.h>
 #include <oper/route_common.h>
+#include <oper/agent_profile.h>
 #include <filter/acl.h>
 #include <controller/controller_init.h>
 
@@ -460,6 +461,17 @@ static bool PktShutdownInternal(AgentInit *init) {
     return true;
 }
 
+void AgentInit::ProfileShutdownBase() {
+    if (agent_->oper_db() && agent_->oper_db()->agent_profile()) {
+        agent_->oper_db()->agent_profile()->Shutdown();
+    }
+}
+
+static bool ProfileShutdownInternal(AgentInit *init) {
+    init->ProfileShutdownBase();
+    return true;
+}
+
 void AgentInit::ModulesShutdownBase() {
     ModulesShutdown();
     if (agent_->oper_db()) {
@@ -522,6 +534,7 @@ void AgentInit::Shutdown() {
     int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&IoShutdownInternal, this));
+    RunInTaskContext(this, task_id, boost::bind(&ProfileShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&FlushFlowsInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&VgwShutdownInternal, this));
     DeleteDBEntriesBase();

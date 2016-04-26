@@ -283,6 +283,12 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne(kTaskDBExclude, db_exclude_task_exclude_list,
                      sizeof(db_exclude_task_exclude_list) / sizeof(char *));
 
+    const char *profile_task_exclude_list[] = {
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne("Agent::Profile", profile_task_exclude_list,
+                     sizeof(profile_task_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {
