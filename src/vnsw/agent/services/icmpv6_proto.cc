@@ -190,17 +190,24 @@ bool Icmpv6VrfState::DeleteRouteState(DBTablePartBase *part, DBEntryBase *ent) {
 }
 
 void Icmpv6VrfState::Delete() {
+    if (walk_id_ != DBTableWalker::kInvalidWalkerId)
+        return;
     deleted_ = true;
     DBTableWalker *walker = agent_->db()->GetWalker();
-    walker->WalkTable(rt_table_, NULL,
+    walk_id_ = walker->WalkTable(rt_table_, NULL,
             boost::bind(&Icmpv6VrfState::DeleteRouteState, this, _1, _2),
-            boost::bind(&Icmpv6VrfState::WalkDone, this, _1, this));
+            boost::bind(&Icmpv6VrfState::WalkDone, _1, this));
 }
 
-void Icmpv6VrfState::WalkDone(DBTableBase *partition, Icmpv6VrfState *state) {
+void Icmpv6VrfState::PreWalkDone(DBTableBase *partition) {
     icmp_proto_->ValidateAndClearVrfState(vrf_);
     rt_table_->Unregister(route_table_listener_id_);
     table_delete_ref_.Reset(NULL);
+    walk_id_ = DBTableWalker::kInvalidWalkerId;
+}
+
+void Icmpv6VrfState::WalkDone(DBTableBase *partition, Icmpv6VrfState *state) {
+    state->PreWalkDone(partition);
     delete state;
 }
 
@@ -209,7 +216,7 @@ Icmpv6VrfState::Icmpv6VrfState(Agent *agent_ptr, Icmpv6Proto *proto,
     agent_(agent_ptr), icmp_proto_(proto), vrf_(vrf_entry), rt_table_(table),
     route_table_listener_id_(DBTableBase::kInvalidId),
     table_delete_ref_(this, table->deleter()), deleted_(false),
-    default_routes_added_(false) {
+    default_routes_added_(false), walk_id_(DBTableWalker::kInvalidWalkerId) {
 }
 
 Icmpv6VrfState::~Icmpv6VrfState() {

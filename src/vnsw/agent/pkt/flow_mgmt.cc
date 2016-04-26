@@ -1566,7 +1566,10 @@ void VrfFlowMgmtTree::RetryDelete(uint32_t vrf_id) {
         return;
 
     VrfFlowMgmtKey key(it->second);
-    FlowMgmtTree::RetryDelete(&key);
+    const VrfEntry *vrf = dynamic_cast<const VrfEntry *>(key.db_entry());
+    if (vrf && vrf->AllRouteTablesEmpty()) {
+        FlowMgmtTree::RetryDelete(&key);
+    }
 }
 
 VrfFlowMgmtEntry::VrfFlowMgmtEntry(VrfFlowMgmtTree *vrf_tree,

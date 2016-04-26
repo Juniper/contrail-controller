@@ -99,7 +99,9 @@ public:
     void ManagedDelete() { deleted_ = true;}
     void Delete();
     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
-    void WalkDone(DBTableBase *partition, Icmpv6VrfState *state);
+    void PreWalkDone(DBTableBase *partition);
+    static void WalkDone(DBTableBase *partition, Icmpv6VrfState *state);
+    bool deleted() const {return deleted_;}
 
 private:
     Agent *agent_;
@@ -110,6 +112,7 @@ private:
     LifetimeRef<Icmpv6VrfState> table_delete_ref_;
     bool deleted_;
     bool default_routes_added_;
+    DBTableWalker::WalkId walk_id_;
     DISALLOW_COPY_AND_ASSIGN(Icmpv6VrfState);
 };
 
