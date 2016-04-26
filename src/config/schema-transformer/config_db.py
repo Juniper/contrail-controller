@@ -2794,6 +2794,8 @@ class BgpRouterST(DBBaseST):
     def update_global_asn(self, asn):
         if self.vendor != 'contrail' or self.asn == int(asn):
             return
+        if self.router_type in ('bgpaas-client', 'bgpaas-server'):
+            return
         router_obj = self.read_vnc_obj(fq_name=self.name)
         params = router_obj.get_bgp_router_parameters()
         params.autonomous_system = int(asn)
@@ -2999,6 +3001,7 @@ class BgpAsAServiceST(DBBaseST):
         router_fq_name = ri.obj.get_fq_name_str() + ':' + vmi.obj.name
         bgpr = BgpRouterST.get(router_fq_name)
         create = False
+        update = False
         src_port = None
         if not bgpr:
             bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
@@ -3014,11 +3017,13 @@ class BgpAsAServiceST(DBBaseST):
             identifier=ip,
             source_port=src_port,
             router_type='bgpaas-client')
-        bgp_router.set_bgp_router_parameters(params)
-        bgp_router.set_bgp_router(server_router, self.peering_attribs)
-        if not create:
+        if bgp_router.get_bgp_router_parameters() != params:
+            bgp_router.set_bgp_router_parameters(params)
+            bgp_router.set_bgp_router(server_router, self.peering_attribs)
+            update = True
+        if update:
             self._vnc_lib.bgp_router_update(bgp_router)
-        else:
+        elif create:
             self._vnc_lib.bgp_router_create(bgp_router)
             bgpr = BgpRouterST.locate(router_fq_name, bgp_router)
             self.obj.add_bgp_router(bgp_router)
