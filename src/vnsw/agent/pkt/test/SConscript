@@ -21,6 +21,7 @@ pkt_flaky_test_suite = []
 
 test_flow_mgmt_route = AgentEnv.MakeTestCmd(env, 'test_flow_mgmt_route',
                                             pkt_test_suite)
+test_tsn_flow = AgentEnv.MakeTestCmd(env, 'test_tsn_flow', pkt_test_suite)
 test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_flaky_test_suite)
 test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
                                           pkt_flaky_test_suite)

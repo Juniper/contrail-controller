@@ -642,6 +642,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
                                     uint64_t diff_bytes,
                                     uint64_t diff_pkts,
                                     const RevFlowDepParams *params) {
+    assert((agent_uve_->agent()->tsn_enabled() == false));
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
 
@@ -834,23 +835,26 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     }
 
     case FlowExportReq::DELETE_FLOW: {
-        /* Fetch the update stats and export the flow with teardown_time */
-        FlowExportInfo *info = FindFlowExportInfo(flow);
-        if (!info) {
-            break;
+        /* We don't export flows in TSN mode */
+        if (agent_uve_->agent()->tsn_enabled() == false) {
+            /* Fetch the update stats and export the flow with teardown_time */
+            FlowExportInfo *info = FindFlowExportInfo(flow);
+            if (!info) {
+                break;
+            }
+            /* While updating stats for evicted flows, we set the teardown_time
+             * and export the flow. So delete handling for evicted flows need
+             * not update stats and export flow */
+            RevFlowDepParams params = req->params();
+            if (!info->teardown_time()) {
+                UpdateStatsAndExportFlow(info, req->time(), &params);
+            }
+            /* ExportFlow will enqueue FlowLog message for send. If we have not
+             * hit max messages to be sent, it will not dispatch. Invoke
+             * DispatchPendingFlowMsg to send any enqueued messages in the queue
+             * even if we don't have max messages to be sent */
+            DispatchPendingFlowMsg();
         }
-        /* While updating stats for evicted flows, we set the teardown_time
-         * and export the flow. So delete handling for evicted flows need not
-         * update stats and export flow */
-        RevFlowDepParams params = req->params();
-        if (!info->teardown_time()) {
-            UpdateStatsAndExportFlow(info, req->time(), &params);
-        }
-        /* ExportFlow will enqueue FlowLog message for send. If we have not hit
-         * max messages to be sent, it will not dispatch. Invoke
-         * DispatchPendingFlowMsg to send any enqueued messages in the queue
-         * even if we don't have max messages to be sent */
-        DispatchPendingFlowMsg();
         /* Remove the entry from our tree */
         DeleteFlow(flow);
         break;
