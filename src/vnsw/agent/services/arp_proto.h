@@ -194,7 +194,8 @@ public:
     void ManagedDelete() { deleted = true;}
     void Delete();
     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
-    void WalkDone(DBTableBase *partition, ArpVrfState *state);
+    void PreWalkDone(DBTableBase *partition);
+    static void WalkDone(DBTableBase *partition, ArpVrfState *state);
 
     Agent *agent;
     ArpProto *arp_proto;
@@ -203,6 +204,7 @@ public:
     DBTableBase::ListenerId route_table_listener_id;
     LifetimeRef<ArpVrfState> table_delete_ref;
     bool deleted;
+    DBTableWalker::WalkId walk_id_;
     friend class ArpProto;
 };
 
