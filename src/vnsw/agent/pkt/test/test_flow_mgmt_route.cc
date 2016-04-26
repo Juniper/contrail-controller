@@ -25,6 +25,7 @@ public:
     FlowMgmtRouteTest() : peer_(NULL), agent_(Agent::GetInstance()) {
         flow_proto_ = agent_->pkt()->get_flow_proto();
         flow_mgmt_ = agent_->pkt()->flow_mgmt_manager();
+        flow_mgmt_dbclient_ = flow_mgmt_->flow_mgmt_dbclient();
         eth = EthInterfaceGet("vnet0");
         EXPECT_TRUE(eth != NULL);
     }
@@ -105,6 +106,7 @@ protected:
         Agent::GetInstance()->nexthop_table()->Enqueue(&req);
     }
 
+    FlowMgmtManager *flow_mgmt() {return flow_mgmt_;}
     Agent *agent() {return agent_;}
 
 protected:
@@ -112,6 +114,7 @@ protected:
     Agent *agent_;
     FlowProto *flow_proto_;
     FlowMgmtManager *flow_mgmt_;
+    FlowMgmtDbClient *flow_mgmt_dbclient_;
     VmInterface *vif0;
     VmInterface *vif1;
     PhysicalInterface *eth;
@@ -369,6 +372,32 @@ TEST_F(FlowMgmtRouteTest, DB_Entry_Reuse) {
     // Enable flow-mgmt queue
     flow_mgmt_->FlowUpdateQueueDisable(false);
     WAIT_FOR(1000, 1000, (flow_mgmt_->FlowUpdateQueueLength() == 0));
+}
+
+TEST_F(FlowMgmtRouteTest, FlowEntry_dbstate_1) {
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+
+    boost::system::error_code ec;
+    Ip4Address remote_subnet = Ip4Address::from_string("10.10.10.0", ec);
+    Ip4Address remote_compute = Ip4Address::from_string("1.1.1.100", ec);
+
+    string vrf_name = vif0->vrf()->GetName();
+    string vn_name = vif0->vn()->GetName();
+    Inet4TunnelRouteAdd(agent_->local_peer(), "vrf1", remote_subnet, 24, remote_compute,
+                        TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
+                        PathPreference());
+    client->WaitForIdle();
+    VrfEntry *vrf = VrfGet("vrf1");
+    agent_->vrf_table()->DeleteVrfReq("vrf1", 0xFF);
+    client->WaitForIdle();
+    flow_mgmt_dbclient_->FreeVrfState(vrf, 0xFFFFFFFF);
+    client->WaitForIdle();
+    //Time for final cleanup
+    DelVrf("vrf1");
+    client->WaitForIdle();
+    DeleteRoute(vrf_name.c_str(), remote_subnet.to_string().c_str(), 24,
+                agent_->local_peer());
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

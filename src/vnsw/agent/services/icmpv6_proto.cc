@@ -104,7 +104,10 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     Icmpv6VrfState *state = static_cast<Icmpv6VrfState *>(vrf->GetState(
                              vrf->get_table_partition()->parent(),
                              vrf_table_listener_id_));
-    if (state && entry->IsDeleted()) {
+    if (entry->IsDeleted()) {
+        if (!state) {
+            return;
+        }
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
         // enqueue delete request on fabric VRF
@@ -117,6 +120,7 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                                                         addr, 128, NULL);
         state->set_default_routes_added(false);
         state->Delete();
+        return;
     }
     if (!state) {
         CreateAndSetVrfState(vrf);

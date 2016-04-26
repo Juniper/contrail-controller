@@ -505,6 +505,9 @@ void AgentRouteTable::RetryDelete() {
     if (!deleter()->IsDeleted()) {
         return;
     }
+    if (empty()) {
+        vrf_entry()->RetryDelete();
+    }
     deleter()->RetryDelete();
 }
 

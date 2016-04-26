@@ -363,6 +363,27 @@ void VrfEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(this);
 }
 
+void VrfEntry::RetryDelete() {
+    if (AllRouteTablesEmpty() == false)
+        return;
+    Agent *agent = (static_cast<VrfTable *>(get_table()))->agent();
+    agent->ConcurrencyCheck();
+    DBTablePartBase *tpart =
+        static_cast<DBTablePartition *>(get_table()->GetTablePartition(this));
+    tpart->Notify(this);
+}
+
+bool VrfEntry::AllRouteTablesEmpty() const {
+    for (uint8_t type = (Agent::INVALID + 1);
+         type < Agent::ROUTE_TABLE_MAX;
+         type++) {
+        if (rt_table_db_[type]->empty() == false) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
