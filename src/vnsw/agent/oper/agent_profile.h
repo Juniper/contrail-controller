@@ -22,6 +22,16 @@ public:
         void Get();
     };
 
+    struct FlowTokenStats {
+        uint32_t add_tokens_;
+        uint64_t add_failures_;
+        uint32_t update_tokens_;
+        uint64_t update_failures_;
+        uint32_t del_tokens_;
+        uint64_t del_failures_;
+        void Reset();
+    };
+
     struct DBTableStats {
         uint64_t db_entry_count_;
         uint64_t walker_count_;
@@ -41,6 +51,7 @@ public:
         uint64_t reval_count_;
         uint64_t handle_update_;
         uint64_t vrouter_error_;
+        FlowTokenStats token_stats_;
         WorkQueueStats pkt_handler_queue_;
         WorkQueueStats flow_mgmt_queue_;
         WorkQueueStats flow_update_queue_;

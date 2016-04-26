@@ -115,25 +115,35 @@ void ProfileData::WorkQueueStats::Reset() {
     task_start_count_ = 0;
 }
 
-void ProfileData::FlowStats::Reset() {
-     flow_count_ = 0;
-     add_count_ = 0;
-     del_count_= 0;
-     audit_count_ = 0;
-     reval_count_ = 0;
-     pkt_handler_queue_.Reset();
-     flow_mgmt_queue_.Reset();
-     flow_update_queue_.Reset();
-     for (uint16_t i = 0; i < flow_event_queue_.size(); i++) {
-         flow_event_queue_[i].Reset();
-     }
-     for (uint16_t i = 0; i < flow_delete_queue_.size(); i++) {
-         flow_delete_queue_[i].Reset();
-     }
+void ProfileData::FlowTokenStats::Reset() {
+    add_tokens_ = 0;
+    add_failures_ = 0;
+    update_tokens_ = 0;
+    update_failures_ = 0;
+    del_tokens_ = 0;
+    del_failures_ = 0;
+}
 
-     for (uint16_t i = 0; i < flow_ksync_queue_.size(); i++) {
-         flow_ksync_queue_[i].Reset();
-     }
+void ProfileData::FlowStats::Reset() {
+    flow_count_ = 0;
+    add_count_ = 0;
+    del_count_= 0;
+    audit_count_ = 0;
+    reval_count_ = 0;
+    pkt_handler_queue_.Reset();
+    flow_mgmt_queue_.Reset();
+    flow_update_queue_.Reset();
+    for (uint16_t i = 0; i < flow_event_queue_.size(); i++) {
+        flow_event_queue_[i].Reset();
+    }
+    for (uint16_t i = 0; i < flow_delete_queue_.size(); i++) {
+        flow_delete_queue_[i].Reset();
+    }
+
+    for (uint16_t i = 0; i < flow_ksync_queue_.size(); i++) {
+        flow_ksync_queue_[i].Reset();
+    }
+    token_stats_.Reset();
 }
 
 void ProfileData::PktStats::Reset() {
@@ -165,7 +175,6 @@ ProfileData::ProfileData():time_() {
     tx_stats_.Reset();
     ksync_tx_queue_count_.Reset();
     ksync_rx_queue_count_.Reset();
-
 }
 
 void ProfileData::Get(Agent *agent) {
@@ -501,6 +510,15 @@ static void GetQueueSummaryInfo(SandeshFlowQueueSummaryInfo *info, int index,
     // ksync_rx_queue
     GetOneQueueSummary(&one, &data->ksync_rx_queue_count_);
     info->set_ksync_rx_queue(one);
+
+    SandeshFlowTokenInfo token_info;
+    token_info.set_add_tokens(flow_stats->token_stats_.add_tokens_);
+    token_info.set_add_token_full(flow_stats->token_stats_.add_failures_);
+    token_info.set_update_tokens(flow_stats->token_stats_.update_tokens_);
+    token_info.set_update_token_full(flow_stats->token_stats_.update_failures_);
+    token_info.set_delete_tokens(flow_stats->token_stats_.del_tokens_);
+    token_info.set_delete_token_full(flow_stats->token_stats_.del_failures_);
+    info->set_token_stats(token_info);
 }
 
 void SandeshFlowQueueSummaryRequest::HandleRequest() const {
