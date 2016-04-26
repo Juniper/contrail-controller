@@ -1080,7 +1080,7 @@ private:
     FlowEntryInfo *LocateFlowEntryInfo(FlowEntryPtr &flow);
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
-    void LogFlow(FlowEntry *flow, const std::string &op);
+    void LogFlowUnlocked(FlowEntry *flow, const std::string &op);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
