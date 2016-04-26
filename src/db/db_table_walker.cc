@@ -14,6 +14,7 @@
 #include "db/db_table_partition.h"
 
 int DBTableWalker::walker_task_id_ = -1;
+int DBTableWalker::max_iteration_to_yield_ = kIterationToYield;
 
 class DBTableWalker::Walker {
 public:
