@@ -137,6 +137,9 @@ public:
     virtual void PktShutdownBase();
     virtual void PktShutdown() { }
 
+    // Shutdown agent profiling
+    virtual void ProfileShutdownBase();
+
     // Shutdown other modules
     virtual void ModulesShutdownBase();
     virtual void ModulesShutdown() { }
