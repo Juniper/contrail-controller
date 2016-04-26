@@ -305,32 +305,39 @@ void FlowMgmtDbClient::FreeVrfState(VrfEntry *vrf, uint32_t gen_id) {
         (ValidateGenId(vrf->get_table(), vrf, vrf_listener_id_, gen_id));
     if (state == NULL)
         return;
-
-    state->Unregister(vrf);
-    vrf->ClearState(vrf->get_table(), vrf_listener_id_);
-    delete state;
+    if (state->Unregister(vrf)) {
+        vrf->ClearState(vrf->get_table(), vrf_listener_id_);
+        delete state;
+    }
 }
 
-void FlowMgmtDbClient::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
+bool FlowMgmtDbClient::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
     // Register to the Inet4 Unicast Table
     InetUnicastAgentRouteTable *inet_table =
         static_cast<InetUnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable());
+    if (inet_table->Size() != 0)
+        return false;
     inet_table->Unregister(inet_listener_id_);
 
     inet_table = static_cast<InetUnicastAgentRouteTable *>
         (vrf->GetInet6UnicastRouteTable());
+    if (inet_table->Size() != 0)
+        return false;
     inet_table->Unregister(inet6_listener_id_);
 
     // Register to the Bridge Unicast Table
     BridgeAgentRouteTable *bridge_table =
         static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
+    if (bridge_table->Size() != 0)
+        return false;
     bridge_table->Unregister(bridge_listener_id_);
     LOG(DEBUG, "ROUTE-TABLE-UNREGISTER"
         << " Inet Listener-Id: " << inet_listener_id_
         << " Inet6 Listener-Id: " << inet6_listener_id_
         << " Bridge Listener-Id: " << bridge_listener_id_);
+    return true;
 }
 
 void FlowMgmtDbClient::VrfFlowHandlerState::Register(FlowMgmtDbClient *client,
