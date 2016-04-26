@@ -285,10 +285,16 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     // While the scenario above cannot be totally avoided, programming reverse
     // flow first will reduce the probability
     if (rflow) {
+        if (agent_->tsn_enabled()) {
+            rflow->MakeShortFlow(FlowEntry::SHORT_FLOW_ON_TSN);
+        }
         UpdateKSync(rflow, (rev_flow_update || force_update_rflow));
         AddFlowInfo(rflow);
     }
 
+    if (agent_->tsn_enabled()) {
+        flow->MakeShortFlow(FlowEntry::SHORT_FLOW_ON_TSN);
+    }
     UpdateKSync(flow, fwd_flow_update);
     AddFlowInfo(flow);
 }

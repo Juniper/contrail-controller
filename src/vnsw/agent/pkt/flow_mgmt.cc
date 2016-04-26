@@ -132,6 +132,10 @@ void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
         return;
     }
 
+    /* Ignore StatsUpdate request in TSN mode as we don't export flows */
+    if (agent_->tsn_enabled()) {
+        return;
+    }
     FlowEntryPtr flow_ptr(flow);
     FlowMgmtRequestPtr req(new FlowMgmtRequest
                            (FlowMgmtRequest::UPDATE_FLOW_STATS, flow_ptr,

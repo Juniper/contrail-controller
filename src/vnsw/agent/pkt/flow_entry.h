@@ -334,6 +334,7 @@ class FlowEntry {
         SHORT_FAILED_VROUTER_INSTALL,
         SHORT_INVALID_L2_FLOW,
         SHORT_SAME_FLOW_RFLOW_KEY,
+        SHORT_FLOW_ON_TSN,
         SHORT_MAX
     };
 
