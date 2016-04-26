@@ -215,7 +215,6 @@ public:
     void RevaluateNh(FlowEntry *flow);
     void DeleteVrf(VrfEntry *vrf);
     void RevaluateRoute(FlowEntry *flow, const AgentRoute *route);
-    bool FlowResponseHandler(const FlowEvent *req);
 
     bool FlowRouteMatch(const InetUnicastRouteEntry *rt, uint32_t vrf,
                         Address::Family family, const IpAddress &ip,
@@ -228,6 +227,10 @@ public:
     bool RevaluateSgList(FlowEntry *flow, const AgentRoute *rt,
                          const SecurityGroupList &sg_list);
     bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
+    void HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
+                                bool active_flow, bool deleted_flow);
+    void HandleKSyncError(FlowTableKSyncEntry *ksync_entry, int error,
+                          FlowEntry *flow);
     boost::uuids::uuid rand_gen();
 
     void UpdateKSync(FlowEntry *flow, bool update);
@@ -236,7 +239,10 @@ public:
     // Free list
     void GrowFreeList();
     FlowEntryFreeList *free_list() { return &free_list_; }
-    bool ProcessFlowEvent(const FlowEvent *req);
+    bool ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
+                          FlowEntry *rflow);
+    void PopulateFlowEntriesUsingKey(const FlowKey &key, bool reverse_flow,
+                                     FlowEntry** flow, FlowEntry** rflow);
 
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only
@@ -269,18 +275,8 @@ private:
     void EvictFlow(FlowEntry *flow, FlowEntry *rflow);
     bool DeleteFlows(FlowEntry *flow, FlowEntry *rflow);
     bool DeleteUnLocked(const FlowKey &key, bool del_reverse_flow);
-    bool DeleteUnLocked(bool del_reverse_flow, FlowEntry *flow, FlowEntry *rflow);
-    void PopulateFlowEntriesUsingKey(const FlowKey &key, bool reverse_flow,
-                                     FlowEntry** flow, FlowEntry** rflow);
-    bool PopulateFlowPointersFromRequest(const FlowEvent *req,
-                                         FlowEntry **flow,
-                                         FlowEntry **rflow);
-    bool ProcessFlowEventInternal(const FlowEvent *req,
-                                  FlowEntry *flow,
-                                  FlowEntry *rflow);
-    bool FlowResponseHandlerUnLocked(const FlowEvent *resp,
-                                     FlowEntry *flow,
-                                     FlowEntry *rflow);
+    bool DeleteUnLocked(bool del_reverse_flow, FlowEntry *flow,
+                        FlowEntry *rflow);
 
     Agent *agent_;
     boost::uuids::random_generator rand_gen_;

@@ -74,6 +74,9 @@ public:
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
                           uint8_t gen_id);
     bool FlowEventHandler(FlowEvent *req, FlowTable *table);
+    bool FlowUpdateHandler(FlowEvent *req);
+    bool FlowDeleteHandler(FlowEvent *req, FlowTable *table);
+    bool FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table);
     void GrowFreeListRequest(const FlowKey &key, FlowTable *table);
     void KSyncEventRequest(KSyncEntry *entry, KSyncEntry::KSyncEvent event);
     void KSyncFlowHandleRequest(KSyncEntry *entry, uint32_t flow_handle,
@@ -102,6 +105,7 @@ private:
 
     std::vector<FlowEventQueue *> flow_event_queue_;
     std::vector<FlowEventQueue *> flow_delete_queue_;
+    std::vector<FlowEventQueue *> flow_ksync_queue_;
     std::vector<FlowTable *> flow_table_list_;
     FlowEventQueue flow_update_queue_;
     tbb::atomic<int> linklocal_flow_count_;
