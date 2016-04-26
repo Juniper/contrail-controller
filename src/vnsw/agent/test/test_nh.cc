@@ -2495,6 +2495,24 @@ TEST_F(CfgTest, EcmpNH_19) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
+TEST_F(CfgTest, component_nh) {
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    CreateVmportWithEcmp(input, 1);
+    client->WaitForIdle();
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+
+    ComponentNH comp_nh(100, nh);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

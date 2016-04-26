@@ -118,7 +118,7 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         state->set_default_routes_added(false);
         state->Delete();
     }
-    if (!state) {
+    if (!state && (entry->IsDeleted() == false)) {
         CreateAndSetVrfState(vrf);
     }
 }

@@ -360,6 +360,21 @@ TEST_F(TestVnswIf, linklocal_2) {
     WAIT_FOR(1000, 100, (vnswif_->ll_del_count() >= (count + 1)));
 }
 
+class SetupTask : public Task {
+    public:
+        SetupTask() :
+            Task((TaskScheduler::GetInstance()->
+                  GetTaskId("db::DBTable")), 0) {
+        }
+
+        virtual bool Run() {
+            Agent::GetInstance()->ksync()->vnsw_interface_listner()->Shutdown();
+            return true;
+        }
+    std::string Description() const { return "SetupTask"; }
+};
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
@@ -369,7 +384,9 @@ int main(int argc, char *argv[]) {
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();
-    Agent::GetInstance()->ksync()->vnsw_interface_listner()->Shutdown();
+    SetupTask * task = new SetupTask();
+    TaskScheduler::GetInstance()->Enqueue(task);
+    client->WaitForIdle();
     delete client;
     return ret;
 }
