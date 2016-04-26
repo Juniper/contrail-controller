@@ -760,6 +760,64 @@ TEST_F(BgpXmppUnitTest, BasicDelayedInput_2) {
     task_util::WaitForIdle();
 }
 
+//
+// Verify the case where route add is processed when peer membership manager is
+// half way through the unregister process.
+//
+TEST_F(BgpXmppUnitTest, BasicDelayedInput_3) {
+    DBTableWalker::SetIterationToYield(1);
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Add multiple routes to each DBTablePartition
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.") + integerToString(idx / 255) +
+            "." + integerToString(idx % 255) + "/32";
+        agent_a_->AddRoute("blue", prefix);
+    }
+    TASK_UTIL_EXPECT_EQ(255, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 255);
+
+    // Disable DB input processing
+    a_->database()->SetQueueDisable(true);
+
+    agent_a_->AddRoute("blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+    DBTableBase *blue_tbl = a_->database()->FindTable("blue.inet.0");
+    uint64_t walk_count =  blue_tbl->walk_request_count();
+
+    // Send unsubscribe for the VRF with pending route add
+    agent_a_->Unsubscribe("blue", -1, false);
+
+    // Enable the DB input partition when DB walk request for Leave is
+    // in progress
+    TASK_UTIL_EXPECT_NE(blue_tbl->walk_request_count(), walk_count);
+
+    // Enable DB Partition
+    a_->database()->SetQueueDisable(false);
+
+    // The unsubscribe request should have been processed by the membership
+    // manager and a response returned.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 0);
+    DBTableWalker::SetIterationToYield(DBTableWalker::kIterationToYield);
+}
+
 TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
     ConfigureWithoutRoutingInstances();
     task_util::WaitForIdle();
