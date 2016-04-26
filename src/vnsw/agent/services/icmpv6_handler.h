@@ -27,9 +27,9 @@ public:
 
 private:
     bool CheckPacket();
-    uint16_t FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
-                                     uint8_t *dest, const Ip6Address &prefix,
-                                     uint8_t plen);
+    uint16_t FillRouterAdvertisement(uint8_t *buf, uint32_t ifindex,
+                                     uint8_t *src, uint8_t *dest,
+                                     const Ip6Address &prefix, uint8_t plen);
     void SendRAResponse(uint32_t ifindex, uint32_t vrfindex,
                         uint8_t *src_ip, uint8_t *dest_ip,
                         const MacAddress &dest_mac,
@@ -44,6 +44,7 @@ private:
                                  uint8_t *sip, uint8_t *dip);
     void Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src);
     void Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src);
+    bool IsDefaultGatewayConfigured(uint32_t ifindex, const Ip6Address &addr);
 
     icmp6_hdr *icmp_;
     uint16_t icmp_len_;
