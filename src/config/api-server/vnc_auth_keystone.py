@@ -159,6 +159,11 @@ class AuthServiceKeystone(object):
             'max_requests': args.max_requests,
             'insecure':args.insecure,
         }
+        try:
+            if 'v3' in args.auth_url:
+                self._conf_info['auth_version'] = 'v3.0'
+        except AttributeError:
+            pass
         if _kscertbundle:
            self._conf_info['cafile'] = _kscertbundle
         self._server_mgr = server_mgr
