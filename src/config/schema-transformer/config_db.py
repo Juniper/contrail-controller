@@ -2976,7 +2976,7 @@ class BgpAsAServiceST(DBBaseST):
     def set_bgpaas_clients(self):
         for bgp_router in self.bgp_routers:
             bgpr = BgpRouterST.get(bgp_router)
-            for vmi in self.virtual_machine_interfaces():
+            for vmi in self.virtual_machine_interfaces:
                 if vmi.split(':')[-1] == bgpr.obj.name:
                     self.bgpaas_clients[vmi] = bgpr.obj.get_fq_name_str()
                     break
