@@ -351,6 +351,17 @@ trace sandesh PktFlowErr {
 }
 
 /**
+ * @description: Trace message for flow route table listener
+ * @severity: DEBUG
+ */
+traceobject sandesh FlowRouteTableListener {
+   1: string message;
+   2: string vrf;
+   3: string route_table;
+   4: u32 listener_id;
+}
+
+/**
  * @description: Trace message for flow route update
  * @severity: DEBUG
  */

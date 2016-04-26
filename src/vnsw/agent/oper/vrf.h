@@ -92,6 +92,8 @@ public:
     bool UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id);
 
     LifetimeActor *deleter();
+    virtual void RetryDelete();
+    bool AllRouteTablesEmpty() const;
     void SendObjectLog(AgentLogEvent::type event) const;
     void StartDeleteTimer();
     bool DeleteTimeout();
