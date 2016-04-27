@@ -50,8 +50,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual ~PeerClose() { }
     virtual string ToString() const { return peer_->ToString(); }
     virtual void CustomClose() { return peer_->CustomClose(); }
-    virtual void GracefulRestartStale() { }
-    virtual void GracefulRestartSweep() { }
+    virtual void GracefulRestartStale() {
+        negotiated_families_ = peer_->negotiated_families();
+    }
+    virtual void GracefulRestartSweep() {
+        negotiated_families_.clear();
+    }
     virtual PeerCloseManager *close_manager() { return manager_.get(); }
     virtual bool IsReady() const { return peer_->IsReady(); }
     virtual IPeer *peer() const { return peer_; }
@@ -77,6 +81,7 @@ class BgpPeer::PeerClose : public IPeerClose {
         peer_->llgr_params().Initialize();
         peer_->graceful_restart_families().clear();
         peer_->long_lived_graceful_restart_families().clear();
+        negotiated_families_.clear();
         if (peer_->IsDeleted()) {
             peer_->RetryDelete();
         } else {
@@ -102,6 +107,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     bool IsGRReady() const {
         // Check if GR is supported by the peer.
         if (peer_->gr_params().families.empty())
+            return false;
+
+        // Abort GR if currently negotiated familes differ from already
+        // staled address families.
+        if (!negotiated_families_.empty() &&
+                peer_->negotiated_families() != negotiated_families_)
             return false;
 
         // If GR is not supported for any of the negotiated address family,
@@ -172,6 +183,7 @@ class BgpPeer::PeerClose : public IPeerClose {
 private:
     BgpPeer *peer_;
     boost::scoped_ptr<PeerCloseManager> manager_;
+    std::vector<std::string> negotiated_families_;
 };
 
 class BgpPeer::PeerStats : public IPeerDebugStats {
