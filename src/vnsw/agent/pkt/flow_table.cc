@@ -982,6 +982,21 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         break;
     }
 
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY: {
+        if (flow->deleted()) {
+            break;
+        }
+
+        if (flow->GetMaxRetryAttempts() < FlowEntry::kFlowRetryAttempts) {
+            flow->IncrementRetrycount();
+        } else {
+            flow->MakeShortFlow(FlowEntry::SHORT_NO_MIRROR_ENTRY);
+            flow->ResetRetryCount();
+        }
+        UpdateKSync(flow, true);
+        break;
+    }
+
     default: {
         assert(0);
         break;

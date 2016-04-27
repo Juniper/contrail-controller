@@ -55,6 +55,8 @@ public:
         KSYNC_EVENT,
         // Pkt is re-entering processing in new partition
         REENTRANT,
+        // Need to resolve the Flow entry whic is depending on Mirror entry
+        UNRESOLVED_FLOW_ENTRY,
     };
 
     FlowEvent() :
@@ -164,6 +166,13 @@ public:
         flow_handle_(rhs.flow_handle_),
         ksync_entry_(rhs.ksync_entry_), ksync_event_(rhs.ksync_event_),
         ksync_error_(0), table_index_(rhs.table_index_) {
+    }
+
+    FlowEvent(Event event, FlowEntryPtr &flow) :
+        event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
+        gen_id_(0), flow_key_(), del_rev_flow_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), ksync_entry_(NULL),
+        ksync_event_(), ksync_error_(0), table_index_() {
     }
 
     virtual ~FlowEvent() { }

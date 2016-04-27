@@ -112,7 +112,7 @@ public:
                           uint8_t table_index);
     FlowTokenPtr GetToken(FlowEvent::Event event);
     void TokenAvailable(FlowTokenPool *pool);
-
+    void EnqueueUnResolvedFlowEntry(FlowEntryPtr &flow);
 private:
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
     bool TokenCheck(const FlowTokenPool *pool);

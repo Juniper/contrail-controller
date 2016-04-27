@@ -79,6 +79,7 @@ const std::map<uint16_t, const char*>
         ((uint16_t)SHORT_FAILED_VROUTER_INSTALL,
          "Short flow vrouter install failed")
         ((uint16_t)SHORT_INVALID_L2_FLOW,    "Short flow invalid L2 flow")
+        ((uint16_t)SHORT_NO_MIRROR_ENTRY,     "Short flow No mirror entry ")
         ((uint16_t)DROP_POLICY,              "Flow drop Policy")
         ((uint16_t)DROP_OUT_POLICY,          "Flow drop Out Policy")
         ((uint16_t)DROP_SG,                  "Flow drop SG")
@@ -393,6 +394,8 @@ void FlowEntry::Reset() {
     event_logs_.reset();
     event_log_index_ = 0;
     last_event_ = FlowEvent::INVALID;
+    flow_retry_attempts_ = 0;
+    is_flow_on_unresolved_list = false;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
@@ -441,6 +444,7 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     fip_ = rhs->fip_;
     fip_vmi_ = rhs->fip_vmi_;
     last_event_ = rhs->last_event_;
+    flow_retry_attempts_ = rhs->flow_retry_attempts_;
     if (update == false) {
         gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;
