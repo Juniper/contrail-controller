@@ -72,14 +72,11 @@ void DiscoveryAgentClient::DiscoverDNS() {
         agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
-        int dns_instances = agent_cfg_->agent()->discovery_xmpp_server_instances();
-        if (dns_instances > MAX_XMPP_SERVERS || dns_instances <= 0) {
-            dns_instances = MAX_XMPP_SERVERS;
-        }
+        int dns_instances = 0;
         ds_client->Subscribe(
             g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, dns_instances,
             boost::bind(&DiscoveryAgentClient::DiscoverySubscribeDNSHandler, 
-                        this, _1));
+                        this, _1), MAX_XMPP_SERVERS);
     }    
 }
 
