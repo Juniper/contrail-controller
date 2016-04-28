@@ -25,10 +25,13 @@ public:
     struct FlowTokenStats {
         uint32_t add_tokens_;
         uint64_t add_failures_;
+        uint64_t add_restarts_;
         uint32_t update_tokens_;
         uint64_t update_failures_;
+        uint64_t update_restarts_;
         uint32_t del_tokens_;
         uint64_t del_failures_;
+        uint64_t del_restarts_;
         void Reset();
     };
 
