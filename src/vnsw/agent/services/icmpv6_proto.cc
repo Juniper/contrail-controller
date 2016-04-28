@@ -104,19 +104,21 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     Icmpv6VrfState *state = static_cast<Icmpv6VrfState *>(vrf->GetState(
                              vrf->get_table_partition()->parent(),
                              vrf_table_listener_id_));
-    if (state && entry->IsDeleted()) {
-        boost::system::error_code ec;
-        Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
-        // enqueue delete request on fabric VRF
-        agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
-                                                        vrf->GetName(),
-                                                        addr, 128, NULL);
-        addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
-        agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
-                                                        vrf->GetName(),
-                                                        addr, 128, NULL);
-        state->set_default_routes_added(false);
-        state->Delete();
+    if (entry->IsDeleted()) {
+        if (state) {
+            boost::system::error_code ec;
+            Ip6Address addr =
+                Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
+            // enqueue delete request on fabric VRF
+            agent_->fabric_inet4_unicast_table()->DeleteReq(
+                    agent_->local_peer(), vrf->GetName(), addr, 128, NULL);
+            addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
+            agent_->fabric_inet4_unicast_table()->DeleteReq(
+                    agent_->local_peer(), vrf->GetName(), addr, 128, NULL);
+            state->set_default_routes_added(false);
+            state->Delete();
+        }
+        return;
     }
     if (!state) {
         CreateAndSetVrfState(vrf);
