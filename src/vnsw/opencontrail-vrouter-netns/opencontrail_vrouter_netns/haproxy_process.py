@@ -2,12 +2,18 @@ import itertools
 import os
 import shlex
 import subprocess
-import haproxy_config
+import logging
+import cert_mgr.barbican_cert_manager as barbican_cert_mgr
 
-HAPROXY_DIR = "/var/lib/contrail/loadbalancer"
+HAPROXY_DIR = "/var/lib/contrail/loadbalancer/haproxy"
 HAPROXY_PROCESS = 'haproxy'
 HAPROXY_PROCESS_CONF = HAPROXY_PROCESS + ".conf"
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
+
+logging.basicConfig(level=logging.WARNING,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%m/%d/%Y %H:%M:%S',
+                    filename='/var/log/contrail/haproxy_parse.log')
 
 def delete_haproxy_dir(base_dir, loadbalancer_id):
     dir_name = base_dir + "/" +  loadbalancer_id
@@ -37,6 +43,10 @@ def get_haproxy_config_file(cfg_file, dir_name):
     f = open(haproxy_cfg_file, 'w+')
     f.write(KeyValue[1])
     f.close()
+    updated_conf = barbican_cert_mgr.update_ssl_conf(haproxy_cfg_file)
+    if updated_conf is None:
+        return None
+
     return haproxy_cfg_file
 
 def get_pid_file_from_conf_file(conf_file):
@@ -66,12 +76,14 @@ def stop_haproxy(loadbalancer_id, daemon_mode=False):
     delete_haproxy_pid_file(conf_file)
     delete_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
 
-
 def start_update_haproxy(loadbalancer_id, cfg_file,
         netns, daemon_mode=False, keystone_auth_conf_file=None):
     pool_id = loadbalancer_id
     dir_name = create_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
     haproxy_cfg_file = get_haproxy_config_file(cfg_file, dir_name)
+    if haproxy_cfg_file is None:
+        delete_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
+        return False
     try:
         if daemon_mode:
             _start_haproxy_daemon(pool_id, netns, haproxy_cfg_file)
@@ -79,6 +91,7 @@ def start_update_haproxy(loadbalancer_id, cfg_file,
             _start_supervisor_haproxy(pool_id, netns, haproxy_cfg_file)
     except Exception as e:
         pass
+    return True
 
 def _get_lbaas_pid(conf_file):
     pid_file = get_pid_file_from_conf_file(conf_file)
