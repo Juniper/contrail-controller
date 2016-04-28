@@ -3,7 +3,7 @@ import socket
 import sys
 import csv
 
-LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
+HAPROXY_DIR = '/var/lib/contrail/loadbalancer/haproxy/'
 
 STATS_MAP = {
     'active_connections': 'qcur',
