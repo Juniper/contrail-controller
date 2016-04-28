@@ -15,7 +15,7 @@ class BindResolver {
 public:
     typedef boost::function<void(uint8_t *, std::size_t)> Callback;
     static const int max_pkt_size = 1024;
-    static const uint8_t max_dns_servers = 2;
+    static const uint8_t max_dns_servers = 20;
 
     struct DnsServer {
         DnsServer (const std::string &ip, uint16_t port)
@@ -30,6 +30,9 @@ public:
                  uint16_t client_port, Callback cb);
     virtual ~BindResolver();
     void SetupResolver(const DnsServer &server, uint8_t idx);
+    std::string GetResolver(uint8_t idx) { 
+        return dns_ep_[idx]->address().to_string(); 
+    }
     bool DnsSend(uint8_t *pkt, unsigned int dns_srv_index, std::size_t len);
 
     static void Init(boost::asio::io_service &io,

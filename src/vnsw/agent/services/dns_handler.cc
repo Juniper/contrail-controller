@@ -23,13 +23,14 @@ DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
       query_name_update_(false), pend_req_(0) {
     dns_ = (dnshdr *) pkt_info_->data;
     uint8_t count = 0;
-    while (count < MAX_XMPP_SERVERS) {
+    while (count < agent->discovery_xmpp_server_instances()) {
         retries_[count] = 0;
         std::stringstream ss;
         ss << "DnsHandlerTimer " << count;
-        timer_[count] = TimerManager::CreateTimer(io, ss.str(),
+        Timer *timer = TimerManager::CreateTimer(io, ss.str(),
             TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
             PktHandler::DNS);
+        timer_.push_back(timer);
         count++;
     }
 }
@@ -43,11 +44,12 @@ DnsHandler::~DnsHandler() {
         delete rkey_;
     }
     uint8_t count = 0;
-    while (count < MAX_XMPP_SERVERS) {
+    while (count < agent()->discovery_xmpp_server_instances()) {
         timer_[count]->Cancel();
         TimerManager::DeleteTimer(timer_[count]);
         count++;
     }
+    timer_.clear();
 }
 
 bool DnsHandler::Run() {
@@ -345,16 +347,40 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
 
             int8_t count = 0;
             bool query_success = false;
+            uint16_t xid;
             action_ = DnsHandler::DNS_QUERY;
-            while (count < MAX_XMPP_SERVERS) {
-                if (!agent()->dns_server(count).empty()) {
-                    uint16_t xid = dns_proto->GetTransId();
+            std::vector<DSResponse> ds_response =
+                agent()->GetDiscoveryDnsServerResponseList();
+            if (ds_response.size() == 0) {
+                // Static Configuration of DNS Resolvers
+                while (count < MAX_XMPP_SERVERS) {
+                    if (!agent()->dns_server(count).empty()) {
+                        BindResolver::Resolver()->SetupResolver(
+                            BindResolver::DnsServer(agent_->dns_server(count), 
+                                                    agent_->dns_server_port(count)),
+                            count);
+                        xid = dns_proto->GetTransId();
+                        if (SendDnsQuery(count, xid) == true) {
+                            dns_proto->AddDnsQueryIndex(xid, count);
+                            query_success = true;
+                        }
+                    }
+                    count++;
+                }
+            } else {
+                std::vector<DSResponse>::iterator iter;
+                for (iter = ds_response.begin(); iter != ds_response.end(); iter++) {
+                    DSResponse dr = *iter;
+                    BindResolver::Resolver()->SetupResolver(
+                        BindResolver::DnsServer(dr.ep.address().to_string(), dr.ep.port()),
+                        count);
+                    xid = dns_proto->GetTransId();
                     if (SendDnsQuery(count, xid) == true) {
                         dns_proto->AddDnsQueryIndex(xid, count);
                         query_success = true;
                     }
+                    count++;
                 }
-                count++;
             }
             if (query_success) {
                 // atleast one query sent succesful, do not delete request yet.
@@ -426,7 +452,7 @@ bool DnsHandler::SendDnsQuery(int8_t idx, uint16_t xid) {
           ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
     if (BindResolver::Resolver()->DnsSend(pkt, idx, len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to named server : " <<
-                       agent()->dns_server(idx) <<
+                       BindResolver::Resolver()->GetResolver(idx) <<
                        "; xid =" << xid << " " << DnsItemsToString(items_));
         timer_[idx]->Cancel();
         timer_[idx]->Start(dns_proto->timeout(),

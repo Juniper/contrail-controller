@@ -264,10 +264,6 @@ void VNController::DnsXmppServerConnect() {
             agent_->set_dns_xmpp_client(client_dns, count);
             agent_->set_dns_xmpp_channel(dns_peer, count);
             agent_->set_dns_xmpp_init(xmpp_dns, count);
-            BindResolver::Resolver()->SetupResolver(
-                BindResolver::DnsServer(agent_->dns_server(count),
-                                        agent_->dns_server_port(count)),
-                count);
         }
         count++;
     }
