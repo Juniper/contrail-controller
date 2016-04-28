@@ -178,12 +178,17 @@ class NetnsManager(object):
             raise ValueError('LBAAS_TYPE does not exist %s' % self.cfg_file)
         self.cfg_file = self.move_cfg_file_to_lbaas_dir(self.cfg_file)
         if (lbaas_type == 'haproxy_config'):
-            haproxy_process.start_update_haproxy(self.loadbalancer_id, self.cfg_file,
+            ret = haproxy_process.start_update_haproxy(
+                          self.loadbalancer_id, self.cfg_file,
                           self.namespace, True, self.keystone_auth_cfg_file)
+            if (ret == False):
+                self.remove_cfg_file(self.cfg_file)
+                return False
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
             pass
+        return True
 
     def release_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -460,7 +465,10 @@ class VRouterNetns(object):
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.set_snat()
         elif self.args.service_type == self.LOAD_BALANCER:
-            netns_mgr.set_lbaas()
+            if (netns_mgr.set_lbaas() == False):
+                netns_mgr.destroy()
+                msg = 'Falied to Launch LOADBALANCER'
+                raise Exception(msg)
         else:
             msg = ('The %s service type is not supported' %
                    self.args.service_type)
