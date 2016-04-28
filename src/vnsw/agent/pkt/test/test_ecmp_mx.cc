@@ -36,7 +36,7 @@ class EcmpTest : public ::testing::Test {
         strcpy(MX_2, "100.1.1.3");
         strcpy(MX_3, "100.1.1.4");
 
-        const VmInterface *vmi = static_cast<const VmInterface *>(VmPortGet(1));
+        vmi = static_cast<VmInterface *>(VmPortGet(1));
         vm1_label = vmi->label();
         eth_intf_id = EthInterfaceGet("vnet0")->id();
     }
@@ -97,6 +97,7 @@ public:
     char MX_3[80];
     int vm1_label;
     int eth_intf_id;
+    VmInterface *vmi;
 };
 
 //Send packet from VM to ECMP MX
@@ -238,7 +239,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     AddLink("virtual-network", "vn1", "access-control-list", "Acl");
     client->WaitForIdle();
 
-    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
+    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vmi->label(),
                    "8.8.8.8", "1.1.1.1", 1, 10);
     client->WaitForIdle();
 
@@ -284,7 +285,7 @@ TEST_F(EcmpTest, EcmpTest_6) {
     AddRemoteEcmpRoute("fip:fip", "0.0.0.0", 0, "fip", 4);
     client->WaitForIdle();
 
-    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
+    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vmi->label(),
                    "8.8.8.8", "2.1.1.1", 1, 10);
     client->WaitForIdle();
 
@@ -340,7 +341,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
     AddLink("virtual-network", "fip", "access-control-list", "Acl");
     client->WaitForIdle();
 
-    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vm1_label,
+    TxIpMplsPacket(eth_intf_id, MX_3, router_id, vmi->label(),
                    "8.8.8.8", "2.1.1.1", 1, 10);
     client->WaitForIdle();
 
