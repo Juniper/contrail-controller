@@ -65,14 +65,6 @@ public:
         return cfg_logical_port_table_;
     }
 
-    IFMapAgentTable *cfg_loadbalancer_table() const {
-        return cfg_loadbalancer_table_;
-    }
-
-    IFMapAgentTable *cfg_loadbalancer_pool_table() const {
-        return cfg_loadbalancer_pool_table_;
-    }
-
     IFMapAgentTable *cfg_service_instance_table() const {
         return cfg_service_instance_table_;
     }
