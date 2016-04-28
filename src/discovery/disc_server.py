@@ -335,9 +335,14 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
+        cred = None
+        if 'cassandra' in self.cassandra_config.keys():
+            cred = {'username':self.cassandra_config['cassandra']\
+                    ['cassandra_user'],'password':self.cassandra_config\
+                    ['cassandra']['cassandra_password']}
         self._db_conn = DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, self.config_log, reset_config,
-            self._args.cluster_id)
+            self._args.cluster_id, cred)
     # end _db_connect
 
     def cleanup(self):
