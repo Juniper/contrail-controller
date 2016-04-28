@@ -59,8 +59,6 @@ public:
 
     virtual std::string ToString() const;
 
-    virtual bool IsPeerCloseGraceful();
-
     int RegisterPeer(BgpPeer *peer);
     void UnregisterPeer(BgpPeer *peer);
     BgpPeer *FindPeer(const std::string &name);
@@ -165,6 +163,11 @@ public:
         return bgp_identifier_.to_string();
     }
     uint32_t hold_time() const { return hold_time_; }
+
+    bool gr_helper() const { return gr_helper_; }
+    bool llgr_helper() const { return llgr_helper_; }
+    uint16_t gr_time() const { return gr_time_; }
+    uint32_t llgr_time() const { return llgr_time_; }
     bool HasSelfConfiguration() const;
 
     // Status
@@ -194,29 +197,22 @@ public:
     uint32_t num_static_routes() const;
     uint32_t num_down_static_routes() const;
 
-    void IncrementUpPeerCount() {
-        num_up_peer_++;
-    }
+    void IncrementUpPeerCount() { num_up_peer_++; }
     void DecrementUpPeerCount() {
         assert(num_up_peer_);
         num_up_peer_--;
     }
-    uint32_t NumUpPeer() const {
-        return num_up_peer_;
-    }
-    void IncrementUpBgpaasPeerCount() {
-        num_up_bgpaas_peer_++;
-    }
+    uint32_t NumUpPeer() const { return num_up_peer_; }
+    void IncrementUpBgpaasPeerCount() { num_up_bgpaas_peer_++; }
     void DecrementUpBgpaasPeerCount() {
         assert(num_up_bgpaas_peer_);
         num_up_bgpaas_peer_--;
     }
-    uint32_t NumUpBgpaasPeer() const {
-        return num_up_bgpaas_peer_;
-    }
+    uint32_t NumUpBgpaasPeer() const { return num_up_bgpaas_peer_; }
 
-    LifetimeActor *deleter();
     boost::asio::io_service *ioservice();
+    LifetimeActor *deleter();
+    const LifetimeActor *deleter() const;
 
     void increment_message_build_error() const { ++message_build_error_; }
     uint64_t message_build_error() const { return message_build_error_; }
@@ -263,6 +259,11 @@ private:
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint32_t hold_time_;
+    bool gr_helper_;
+    bool llgr_helper_;
+    uint16_t gr_time_;
+    uint32_t llgr_time_;
+
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;

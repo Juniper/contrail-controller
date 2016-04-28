@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+      <bgp-router name='local'>
+          <address>127.0.0.1</address>
+          <autonomous-system>1</autonomous-system>
+          <long-lived-graceful-restart-time>100</long-lived-graceful-restart-time>
+          <graceful-restart-helper>true</graceful-restart-helper>
+          <long-lived-graceful-restart-helper>true</long-lived-graceful-restart-helper>
+      </bgp-router>
+      <bgp-router name='remote'>
+          <address>127.0.0.100</address>
+          <autonomous-system>1</autonomous-system>
+      </bgp-router>
+    </routing-instance>
+</config>

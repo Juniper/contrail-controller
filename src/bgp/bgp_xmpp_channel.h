@@ -122,6 +122,7 @@ public:
     uint64_t get_tx_route_reach() const { return stats_[TX].reach; }
     uint64_t get_tx_route_unreach() const { return stats_[TX].unreach; }
     uint64_t get_tx_update() const { return stats_[TX].rt_updates; }
+    BgpXmppChannelManager *manager() const { return manager_; }
 
 protected:
     XmppChannel *channel_;
@@ -231,6 +232,7 @@ private:
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance,
                                          int instance_id);
     void ClearStaledSubscription(SubscriptionState &sub_state);
+    BgpServer *bgp_server() { return bgp_server_; }
 
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;

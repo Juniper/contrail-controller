@@ -35,6 +35,7 @@ env.Append(LIBPATH = env['TOP'] + '/control-node')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/lib')
 env.Append(LIBPATH = env['TOP'] + '/net')
 env.Append(LIBPATH = env['TOP'] + '/route')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
@@ -68,13 +69,13 @@ env.Prepend(LIBS = [
                     'base',
                     'db',
                     'gunit',
-                    'io',
                     'crypto',
                     'ssl',
                     'sandeshvns',
                     'net',
                     'route',
                     'xmpp',
+                    'io',
                     'bgp_ermvpn',
                     'bgp_evpn',
                     'bgp_inet6',

@@ -584,6 +584,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name='GracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='600'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='LongLivedGracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='16777215'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="AccessType">
      <xsd:restriction base="xsd:integer" required='true'
           description_1="Three bits representing rwx."
@@ -772,6 +786,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('autonomous-system', 'global-system-config', 'required', 'CRUD',
               '16 bit BGP Autonomous System number for the cluster.') -->
+
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('config-version', 'global-system-config', 'system-only', 'R',
@@ -818,12 +833,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="GracefulRestartType">
+    <xsd:all>
+        <xsd:element name="graceful-restart-helper" type="xsd:boolean" default="false" required="optional"/>
+        <xsd:element name="long-lived-graceful-restart-helper" type="xsd:boolean" default="false" required="optional"/>
+        <xsd:element name="graceful-restart-time" type="GracefulRestartTime" default="0" required="optional"/>
+        <xsd:element name="long-lived-graceful-restart-time" type="LongLivedGracefulRestartTime" default="0" required="optional"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="global-vrouter-config"        type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-global-vrouter-config"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-global-vrouter-config', 
              'global-system-config', 'global-vrouter-config', ['has'], 'required', 'R',
              'Global vrouter config is object where all global vrouter config is present.') -->
+
+<xsd:element name="graceful-restart" type="GracefulRestartType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('graceful-restart', 'global-vrouter-config',
+              'optional', 'CRUD', 'Graceful Restart parameters') -->
 
 <xsd:element name="ecmp-hashing-include-fields"
              type="EcmpHashingIncludeFields"/>
