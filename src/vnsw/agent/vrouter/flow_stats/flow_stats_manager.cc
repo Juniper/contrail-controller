@@ -318,9 +318,16 @@ void FlowStatsManager::FlowStatsReqHandler(Agent *agent,
 
 void FlowStatsManager::Init(uint64_t flow_stats_interval,
                            uint64_t flow_cache_timeout) {
-    agent_->set_flow_stats_req_handler(&(FlowStatsManager::FlowStatsReqHandler));
     Add(FlowAgingTableKey(kCatchAllProto, 0),
         flow_stats_interval, flow_cache_timeout);
+    if (agent_->tsn_enabled()) {
+        /* In TSN mode, we don't support add/delete of FlowStatsCollector
+         * (so we don't invoke set_flow_stats_req_handler)
+         * Also, we don't export flows, so we don't start UpdateFlowThreshold
+         * timer */
+        return;
+    }
+    agent_->set_flow_stats_req_handler(&(FlowStatsManager::FlowStatsReqHandler));
     timer_->Start(FlowThresoldUpdateTime,
                   boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
 }

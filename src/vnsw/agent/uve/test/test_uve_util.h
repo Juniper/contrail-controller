@@ -89,8 +89,8 @@ private:
 class FlowStatsCollectorTask : public Task {
 public:
     FlowStatsCollectorTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::StatsCollector")),
-                StatsCollector::FlowStatsCollector) {
+        Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector)),
+              0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->flow_stats_manager()->
@@ -153,6 +153,11 @@ public:
     std::string Description() const { return "VmiUveSendTask"; }
 };
 
+static bool FlowStatsTimerStartStopTrigger(FlowStatsCollector *fsc, bool stop) {
+    fsc->TestStartStopTimer(stop);
+    return true;
+}
+
 class TestUveUtil {
 public:
     void EnqueueSendProuterUveTask() {
@@ -210,6 +215,20 @@ public:
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         FlowActionLogTask *task = new FlowActionLogTask(fe);
         scheduler->Enqueue(task);
+    }
+
+    void FlowStatsTimerStartStop(bool stop) {
+        Agent *agent = Agent::GetInstance();
+        FlowStatsCollector* fsc = agent->flow_stats_manager()->
+            default_flow_stats_collector();
+        int task_id =
+            agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
+        std::auto_ptr<TaskTrigger> trigger_
+            (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
+                                         fsc, stop),
+                             task_id, 0));
+        trigger_->Set();
+        client->WaitForIdle();
     }
 
     void VnAdd(int id) {
