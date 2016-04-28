@@ -30,7 +30,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
         return db_info
     # end get_db_info
 
-    def __init__(self, module, cass_srv_list, config_log, reset_config=False, db_prefix=None):
+    def __init__(self, module, cass_srv_list, config_log, reset_config=False,
+	    db_prefix=None, , cass_credential=None):
+
         self._debug = {
             'db_upd_oper_state': 0,
             'db_upd_admin_state': 0,
@@ -44,7 +46,7 @@ class DiscoveryCassandraClient(VncCassandraClient):
 
         super(DiscoveryCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None,
-            config_log, reset_config=reset_config)
+            config_log, reset_config=reset_config, credential=cass_credential)
 
         DiscoveryCassandraClient._disco_cf = self._cf_dict[self._DISCOVERY_CF_NAME]
     #end __init__
