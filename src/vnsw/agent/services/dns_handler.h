@@ -8,6 +8,7 @@
 #include "pkt/proto_handler.h"
 #include "vnc_cfg_types.h"
 #include "bind/bind_util.h"
+#include "bind/bind_resolver.h"
 
 #define DEFAULT_DNS_TTL 120
 
@@ -91,10 +92,14 @@ private:
     uint8_t *resp_ptr_;
     uint16_t dns_resp_size_;
     uint16_t xid_;
-    uint32_t retries_[MAX_XMPP_SERVERS];
     Action action_;
     QueryKey *rkey_;
-    Timer *timer_[MAX_XMPP_SERVERS];
+    struct DnsResolverInfo {
+        boost::asio::ip::udp::endpoint ep_;
+        uint32_t retries_;
+        Timer *timer_;
+    };
+    std::vector<DnsResolverInfo *> dns_resolvers_;
     std::string ipam_name_;
     std::string domain_name_;
     autogen::IpamType ipam_type_;

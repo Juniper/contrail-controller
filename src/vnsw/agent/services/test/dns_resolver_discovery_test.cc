@@ -105,11 +105,6 @@ public:
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
 
-        Agent::GetInstance()->set_dns_server("127.0.0.1", 0);
-        Agent::GetInstance()->set_dns_server_port(53, 0);
-        Agent::GetInstance()->set_dns_server("127.0.0.2", 1);
-        Agent::GetInstance()->set_dns_server_port(53, 1);
-
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DnsTest::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {
@@ -420,7 +415,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     client->WaitForIdle();
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
 
-    //both good DNS query responses
+    // all good DNS query responses
     while (!Agent::GetInstance()->GetDnsProto()->IsDnsQueryInProgress(g_xid))
         g_xid++;
     usleep(1000);
@@ -434,12 +429,19 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
+    g_xid++;
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    usleep(1000);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
 
-    //both good DNS query responses
+    //all good DNS query responses
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, a_items);
     g_xid++;
     usleep(1000);
     client->WaitForIdle();
+    SendDnsResp(5, a_items, 5, auth_items, 5, add_items);
+    g_xid++;
     SendDnsResp(5, a_items, 5, auth_items, 5, add_items);
     g_xid++;
     SendDnsResp(5, a_items, 5, auth_items, 5, add_items);
@@ -448,7 +450,7 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_STATS(stats, 4, 2, 2, 0, 0, 0);
 
     //first response - no dmain name (DNS_ERR_NO_SUCH_NAME)
-    //DNS client gets the second valid resolved response
+    //DNS client gets the second and third valid resolved response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, ptr_items);
     g_xid++;
     usleep(1000);
@@ -458,11 +460,13 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_STATS(stats, 4, 2, 2, 0, 0, 0);
     g_xid++;
     SendDnsResp(5, ptr_items, 5, auth_items, 5, add_items);
+    g_xid++;
+    SendDnsResp(5, ptr_items, 5, auth_items, 5, add_items);
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 3);
     CHECK_STATS(stats, 5, 3, 2, 0, 0, 0);
 
-    //second bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
+    //second, third bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
     //DNS client gets the first valid resolved response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 5, ptr_items);
     g_xid++;
@@ -473,9 +477,11 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_STATS(stats, 6, 4, 2, 0, 0, 0);
     g_xid++;
     SendDnsResp(5, ptr_items, 5, auth_items, 0, add_items, true);
+    g_xid++;
+    SendDnsResp(5, ptr_items, 5, auth_items, 0, add_items, true);
     CHECK_STATS(stats, 6, 4, 2, 0, 0, 0);
 
-    //both bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
+    //all bad response - no dmain name (DNS_ERR_NO_SUCH_NAME)
     //DNS client gets no-domain-name second response
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 3, a_items);
     g_xid++;
@@ -484,16 +490,20 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
     g_xid++;
     SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
+    g_xid++;
+    SendDnsResp(5, cname_items, 0, NULL, 0, NULL, true);
     CHECK_CONDITION(stats.fail < 1);
     // check fail stats incremented
     CHECK_STATS(stats, 7, 4, 2, 0, 1, 0);
 
-    //both bad response, parse failure
+    //all bad response, parse failure
     //DNS client receives no response.
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 3, ptr_items);
     g_xid++;
     usleep(1000);
     client->WaitForIdle();
+    SendDnsParseRespError(3, ptr_items, 3, auth_items, 3, add_items);
+    g_xid++;
     SendDnsParseRespError(3, ptr_items, 3, auth_items, 3, add_items);
     g_xid++;
     SendDnsParseRespError(3, ptr_items, 3, auth_items, 3, add_items);
@@ -556,17 +566,35 @@ int main(int argc, char *argv[]) {
     sock.bind(udp::endpoint(udp::v4(), 0), ec);
     ep = sock.local_endpoint(ec);
 
-    Agent::GetInstance()->set_dns_server("127.0.0.1", 0);
-    Agent::GetInstance()->set_dns_server_port(ep.port(), 0);
-
     udp::socket sock2(*Agent::GetInstance()->event_manager()->io_service());
     udp::endpoint ep2;
     sock2.open(udp::v4(), ec);
     sock2.bind(udp::endpoint(udp::v4(), 0), ec);
     ep2 = sock2.local_endpoint(ec);
 
-    Agent::GetInstance()->set_dns_server("127.0.0.2", 0);
-    Agent::GetInstance()->set_dns_server_port(ep2.port(), 0);
+    udp::socket sock3(*Agent::GetInstance()->event_manager()->io_service());
+    udp::endpoint ep3;
+    sock3.open(udp::v4(), ec);
+    sock3.bind(udp::endpoint(udp::v4(), 0), ec);
+    ep3 = sock3.local_endpoint(ec);
+
+    // Discovery learnt response for DNS Resolvers
+    std::vector<DSResponse> ds_response;
+    DSResponse resp;
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(ep.port());
+    ds_response.push_back(resp);
+
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(ep2.port());
+    ds_response.push_back(resp);
+
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(ep3.port());
+    ds_response.push_back(resp);
+
+    Agent::GetInstance()->UpdateDiscoveryDnsServerResponseList(ds_response);
+    client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

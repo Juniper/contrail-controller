@@ -1417,8 +1417,8 @@ int main(int argc, char *argv[]) {
     sock.bind(udp::endpoint(udp::v4(), 0), ec);
     ep = sock.local_endpoint(ec);
 
-    BindResolver::DnsServer server("127.0.0.1", ep.port());
-    BindResolver::Resolver()->SetupResolver(server, 0);
+    Agent::GetInstance()->set_dns_server("127.0.0.1", 0);
+    Agent::GetInstance()->set_dns_server_port(ep.port(), 0);
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
