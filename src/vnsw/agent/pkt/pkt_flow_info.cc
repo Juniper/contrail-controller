@@ -1375,6 +1375,13 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
 
     in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
+
+    if (agent->tsn_enabled()) {
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_FLOW_ON_TSN;
+        return false;
+    }
+
     if (in->intf_ == NULL ||
         (pkt->l3_forwarding == true &&
          in->intf_->type() == Interface::VM_INTERFACE &&
