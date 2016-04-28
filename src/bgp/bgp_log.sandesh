@@ -389,6 +389,14 @@ trace sandesh BgpConfigProtocolCreateTrace {
     8: string address;
     11: "Hold Time";
     12: i32 hold_time;
+    19: "Graceful Restart Helper";
+    20: bool gr_helper;
+    21: "Long Lived Graceful Restart Helper";
+    22: bool llgr_helper;
+    15: "Graceful Restart Time";
+    16: i16 gr_time;
+    17: "Long Lived Graceful Restart Time";
+    18: i32 long_loved_gr_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -412,6 +420,14 @@ systemlog sandesh BgpConfigProtocolCreateLog {
     8: string address;
     11: "Hold Time";
     12: i32 hold_time;
+    19: "Graceful Restart Helper";
+    20: bool gr_helper;
+    21: "Long Lived Graceful Restart Helper";
+    22: bool llgr_helper;
+    15: "Graceful Restart Time";
+    16: i16 gr_time;
+    17: "Long Lived Graceful Restart Time";
+    18: i32 long_loved_gr_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -453,6 +469,14 @@ trace sandesh BgpConfigProtocolUpdateTrace {
     8: string address;
     11: "Hold Time";
     12: i32 hold_time;
+    19: "Graceful Restart Helper";
+    20: bool gr_helper;
+    21: "Long Lived Graceful Restart Helper";
+    22: bool llgr_helper;
+    15: "Graceful Restart Time";
+    16: i16 gr_time;
+    17: "Long Lived Graceful Restart Time";
+    18: i32 long_loved_gr_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -476,6 +500,14 @@ systemlog sandesh BgpConfigProtocolUpdateLog {
     8: string address;
     11: "Hold Time";
     12: i32 hold_time;
+    19: "Graceful Restart Helper";
+    20: bool gr_helper;
+    21: "Long Lived Graceful Restart Helper";
+    22: bool llgr_helper;
+    15: "Graceful Restart Time";
+    16: i16 gr_time;
+    17: "Long Lived Graceful Restart Time";
+    18: i32 long_loved_gr_time;
     9: "Address Families";
     10: list<string> families;
 }

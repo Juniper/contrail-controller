@@ -478,6 +478,7 @@ private:
     void ProcessBgpRouter(const BgpConfigDelta &change);
     void ProcessBgpProtocol(const BgpConfigDelta &change);
     void ProcessBgpPeering(const BgpConfigDelta &change);
+    void ProcessGlobalVrouterConfig(const BgpConfigDelta &change);
 
     bool ConfigHandler();
 

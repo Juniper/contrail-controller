@@ -79,8 +79,8 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual void Delete() {
         peer_->gr_params().Initialize();
         peer_->llgr_params().Initialize();
-        peer_->graceful_restart_families().clear();
-        peer_->long_lived_graceful_restart_families().clear();
+        peer_->gr_families().clear();
+        peer_->llgr_families().clear();
         negotiated_families_.clear();
         if (peer_->IsDeleted()) {
             peer_->RetryDelete();
@@ -104,7 +104,18 @@ class BgpPeer::PeerClose : public IPeerClose {
         return peer_->llgr_params_.time;
     }
 
-    bool IsGRReady() const {
+    // If the peer is deleted or administratively held down, do not attempt
+    // graceful restart
+    virtual bool IsCloseGraceful() const {
+        if (peer_->IsDeleted() || peer_->IsAdminDown())
+            return false;
+        if (peer_->server()->IsDeleted())
+            return false;
+
+        // Check if GR helper mode is enabled in configuration.
+        if (!peer_->gr_helper())
+            return false;
+
         // Check if GR is supported by the peer.
         if (peer_->gr_params().families.empty())
             return false;
@@ -119,7 +130,7 @@ class BgpPeer::PeerClose : public IPeerClose {
         // then consider GR as not supported
         if (!equal(peer_->negotiated_families().begin(),
                    peer_->negotiated_families().end(),
-                   peer_->graceful_restart_families().begin())) {
+                   peer_->gr_families().begin())) {
             return false;
         }
 
@@ -130,26 +141,6 @@ class BgpPeer::PeerClose : public IPeerClose {
             if (!family.forwarding_state_preserved())
                 return false;
         }
-
-        // If LLGR is supported, make sure that it is identical to GR afis
-        if (!peer_->llgr_params().families.empty()) {
-            if (peer_->graceful_restart_families() !=
-                    peer_->long_lived_graceful_restart_families()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // If the peer is deleted or administratively held down, do not attempt
-    // graceful restart
-    virtual bool IsCloseGraceful() const {
-        if (peer_->IsDeleted() || peer_->IsAdminDown())
-            return false;
-        if (peer_->server()->IsDeleted())
-            return false;
-        if (!IsGRReady())
-            return false;
         return true;
     }
 
@@ -159,10 +150,29 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual bool IsCloseLongLivedGraceful() const {
         if (!IsCloseGraceful())
             return false;
+
+        // Check if LLGR helper mode is enabled in configuration.
+        if (!peer_->llgr_helper())
+            return false;
         if (peer_->llgr_params().families.empty())
             return false;
         if (!peer_->llgr_params().time)
             return false;
+
+        // Make sure that forwarding state is preserved for all families in
+        // the restarting speaker.
+        BOOST_FOREACH(BgpProto::OpenMessage::Capability::LLGR::Family family,
+                      peer_->llgr_params().families) {
+            if (!family.forwarding_state_preserved())
+                return false;
+        }
+
+        // If LLGR is supported, make sure that it is identical to GR afis
+        if (!peer_->llgr_params().families.empty()) {
+            if (peer_->gr_families() != peer_->llgr_families()) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -175,7 +185,7 @@ class BgpPeer::PeerClose : public IPeerClose {
 
     virtual void GetGracefulRestartFamilies(Families *families) const {
         families->clear();
-        BOOST_FOREACH(const string family, peer_->graceful_restart_families()) {
+        BOOST_FOREACH(const string family, peer_->gr_families()) {
             families->insert(Address::FamilyFromString(family));
         }
     }
@@ -470,6 +480,10 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           defer_close_(false),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
+          gr_helper_(config->gr_helper()),
+          llgr_helper_(config->llgr_helper()),
+          gr_time_(config->gr_time()),
+          llgr_time_(config->llgr_time()),
           local_as_(config->local_as()),
           peer_as_(config->peer_as()),
           local_bgp_id_(config->local_identifier()),
@@ -511,6 +525,10 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_peer_asn(peer_as_);
     peer_info.set_peer_port(peer_port_);
     peer_info.set_hold_time(hold_time_);
+    peer_info.set_gr_helper(gr_helper_);
+    peer_info.set_llgr_helper(llgr_helper_);
+    peer_info.set_gr_time(gr_time_);
+    peer_info.set_llgr_time(llgr_time_);
     peer_info.set_local_id(local_bgp_id_);
     peer_info.set_configured_families(config->GetAddressFamilies());
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
@@ -762,6 +780,28 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (hold_time_ != config->hold_time()) {
         hold_time_ = config->hold_time();
         peer_info.set_hold_time(hold_time_);
+        clear_session = true;
+    }
+
+    if (gr_helper_ != config->gr_helper()) {
+        gr_helper_ = config->gr_helper();
+        peer_info.set_gr_helper(gr_helper_);
+    }
+
+    if (llgr_helper_ != config->llgr_helper()) {
+        llgr_helper_ = config->llgr_helper();
+        peer_info.set_llgr_helper(llgr_helper_);
+    }
+
+    if (gr_time_ != config->gr_time()) {
+        gr_time_ = config->gr_time();
+        peer_info.set_gr_time(gr_time_);
+        clear_session = true;
+    }
+
+    if (llgr_time_ != config->llgr_time()) {
+        llgr_time_ = config->llgr_time();
+        peer_info.set_llgr_time(llgr_time_);
         clear_session = true;
     }
 
@@ -1070,8 +1110,9 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
 void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     vector<Address::Family> gr_families;
 
-    // Indicate EOR support by default.
-    if (!server_->IsPeerCloseGraceful()) {
+    if (!IsCloseGraceful()) {
+
+        // Indicate EOR support by default.
         BgpProto::OpenMessage::Capability *gr_cap =
             BgpProto::OpenMessage::Capability::GR::Encode(0, 0, 0,
                                                           gr_families);
@@ -1085,17 +1126,16 @@ void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     }
 
     uint8_t flags = 0;
-    uint16_t time = PeerCloseManager::kDefaultGracefulRestartTimeSecs;
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *gr_cap =
-        BgpProto::OpenMessage::Capability::GR::Encode(time, flags, afi_flags,
-                                                      gr_families);
+        BgpProto::OpenMessage::Capability::GR::Encode(gr_time_, flags,
+                                                      afi_flags, gr_families);
     opt_param->capabilities.push_back(gr_cap);
 }
 
 void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
-    if (!server_->IsPeerCloseGraceful())
+    if (!IsCloseLongLivedGraceful())
         return;
 
     vector<Address::Family> llgr_families;
@@ -1104,12 +1144,10 @@ void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
             llgr_families.push_back(family);
     }
 
-    uint32_t time =
-        PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *llgr_cap =
-        BgpProto::OpenMessage::Capability::LLGR::Encode(time, afi_flags,
+        BgpProto::OpenMessage::Capability::LLGR::Encode(llgr_time_, afi_flags,
                                                         llgr_families);
     opt_param->capabilities.push_back(llgr_cap);
 }
@@ -1344,7 +1382,7 @@ void BgpPeer::SendNotification(BgpSession *session,
         int code, int subcode, const string &data) {
 
     // Check if we can skip sending this notification message.
-    if (peer_close_->IsCloseGraceful() && SkipNotificationSend(code, subcode))
+    if (IsCloseGraceful() && SkipNotificationSend(code, subcode))
         return;
 
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
@@ -1356,22 +1394,24 @@ void BgpPeer::SendNotification(BgpSession *session,
 bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     BgpProto::OpenMessage::Capability::GR::Decode(&gr_params_, capabilities_);
     BgpProto::OpenMessage::Capability::GR::GetFamilies(gr_params_,
-            &graceful_restart_families_);
-    peer_info->set_graceful_restart_families(graceful_restart_families_);
+                                                       &gr_families_);
+    peer_info->set_gr_families(gr_families_);
 
     BgpProto::OpenMessage::Capability::LLGR::Decode(&llgr_params_,
                                                     capabilities_);
     BgpProto::OpenMessage::Capability::LLGR::GetFamilies(llgr_params_,
-            &long_lived_graceful_restart_families_);
-    peer_info->set_long_lived_graceful_restart_families(
-            long_lived_graceful_restart_families_);
+                                                         &llgr_families_);
+    peer_info->set_llgr_families(llgr_families_);
     BGPPeerInfoSend(*peer_info);
 
     // If GR is no longer supported, terminate GR right away. This can happen
     // due to mis-match between gr and llgr afis. For now, we expect an
     // identical set.
-    if (peer_close_->close_manager()->IsInGracefulRestartTimerWait() &&
-            !peer_close_->IsGRReady()) {
+    if ((peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER &&
+            !peer_close_->IsCloseGraceful()) ||
+        (peer_close_->close_manager()->state() ==
+                PeerCloseManager::LLGR_TIMER &&
+            !peer_close_->IsCloseLongLivedGraceful())) {
         Close();
         return false;
     }
@@ -1440,7 +1480,7 @@ void BgpPeer::ResetCapabilities() {
     peer_info.set_families(families);
     vector<string> negotiated_families = vector<string>();
     peer_info.set_negotiated_families(negotiated_families);
-    peer_info.set_graceful_restart_families(vector<string>());
+    peer_info.set_gr_families(vector<string>());
     BGPPeerInfoSend(peer_info);
 }
 
@@ -2098,9 +2138,8 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
 
     bnr->set_configured_address_families(configured_families_);
     bnr->set_negotiated_address_families(negotiated_families_);
-    bnr->set_graceful_restart_address_families(graceful_restart_families_);
-    bnr->set_long_lived_graceful_restart_address_families(
-            long_lived_graceful_restart_families_);
+    bnr->set_gr_address_families(gr_families_);
+    bnr->set_llgr_address_families(llgr_families_);
     bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborFamilyAttributes(bnr);
     FillBgpNeighborDebugState(bnr, peer_stats_.get());

@@ -251,6 +251,20 @@ static void NeighborSetSessionAttributes(
         if (attributes->hold_time) {
             neighbor->set_hold_time(attributes->hold_time);
         }
+        if (attributes->graceful_restart_helper) {
+            neighbor->set_gr_helper(attributes->graceful_restart_helper);
+        }
+        if (attributes->long_lived_graceful_restart_helper) {
+            neighbor->set_llgr_helper(
+                    attributes->long_lived_graceful_restart_helper);
+        }
+        if (attributes->graceful_restart_time) {
+            neighbor->set_gr_time(attributes->graceful_restart_time);
+        }
+        if (attributes->long_lived_graceful_restart_time) {
+            neighbor->set_llgr_time(
+                    attributes->long_lived_graceful_restart_time);
+        }
         BuildFamilyAttributesList(neighbor, attributes);
         BuildKeyChain(neighbor, attributes->auth_data);
     }
@@ -333,6 +347,15 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     neighbor->set_port(params.port);
     neighbor->set_source_port(params.source_port);
     neighbor->set_hold_time(params.hold_time);
+
+    if (params.graceful_restart_helper)
+        neighbor->set_gr_helper(params.graceful_restart_helper);
+    if (params.long_lived_graceful_restart_helper)
+        neighbor->set_llgr_helper(params.long_lived_graceful_restart_helper);
+    if (params.graceful_restart_time)
+        neighbor->set_gr_time(params.graceful_restart_time);
+    if (params.long_lived_graceful_restart_time)
+        neighbor->set_llgr_time(params.long_lived_graceful_restart_time);
 
     if (session != NULL) {
         NeighborSetSessionAttributes(neighbor, local_name, session);
@@ -628,6 +651,10 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
         data_.set_identifier(IpAddressToBgpIdentifier(identifier));
     }
     data_.set_hold_time(params.hold_time);
+    data_.set_gr_helper(params.graceful_restart_helper);
+    data_.set_llgr_helper(params.long_lived_graceful_restart_helper);
+    data_.set_gr_time(params.graceful_restart_time);
+    data_.set_llgr_time(params.long_lived_graceful_restart_time);
 }
 
 //
@@ -1764,6 +1791,10 @@ void BgpIfmapConfigManager::DefaultConfig() {
         protocol->router_params().identifier,
         protocol->router_params().address,
         protocol->router_params().hold_time,
+        protocol->router_params().graceful_restart_helper,
+        protocol->router_params().long_lived_graceful_restart_helper,
+        protocol->router_params().graceful_restart_time,
+        protocol->router_params().long_lived_graceful_restart_time,
         vector<string>());
 }
 
@@ -1786,6 +1817,9 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
         boost::bind(&BgpIfmapConfigManager::ProcessBgpRouter, this, _1)));
     id_map_.insert(make_pair("bgp-peering",
         boost::bind(&BgpIfmapConfigManager::ProcessBgpPeering, this, _1)));
+    id_map_.insert(make_pair("global-vrouter-config",
+        boost::bind(&BgpIfmapConfigManager::ProcessGlobalVrouterConfig, this,
+                    _1)));
 }
 
 //
@@ -1963,6 +1997,10 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             protocol->router_params().identifier,
             protocol->router_params().address,
             protocol->router_params().hold_time,
+            protocol->router_params().graceful_restart_helper,
+            protocol->router_params().long_lived_graceful_restart_helper,
+            protocol->router_params().graceful_restart_time,
+            protocol->router_params().long_lived_graceful_restart_time,
             families);
     } else {
         BGP_CONFIG_LOG_PROTOCOL(Update, server(), protocol,
@@ -1972,6 +2010,10 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             protocol->router_params().identifier,
             protocol->router_params().address,
             protocol->router_params().hold_time,
+            protocol->router_params().graceful_restart_helper,
+            protocol->router_params().long_lived_graceful_restart_helper,
+            protocol->router_params().graceful_restart_time,
+            protocol->router_params().long_lived_graceful_restart_time,
             families);
     }
 }
@@ -2023,7 +2065,6 @@ void BgpIfmapConfigManager::ProcessRoutingPolicy(const BgpConfigDelta &delta) {
     Notify(rtp->routing_policy_config(), event);
 }
 
-
 //
 // Handler for bgp-router objects.
 //
@@ -2051,6 +2092,14 @@ void BgpIfmapConfigManager::ProcessBgpRouter(const BgpConfigDelta &delta) {
         BgpIfmapPeeringConfig *peering = value.second;
         peering->Update(this, peering->bgp_peering());
     }
+}
+
+//
+// Handler for global-vrouter-config objects.
+//
+void BgpIfmapConfigManager::ProcessGlobalVrouterConfig(
+        const BgpConfigDelta &delta) {
+    CHECK_CONCURRENCY("bgp::Config");
 }
 
 //

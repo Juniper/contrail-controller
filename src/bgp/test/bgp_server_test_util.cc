@@ -47,8 +47,6 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
                                localname);
     cleanup_config_ = false;
     rtarget_group_mgr_->Initialize();
-    GetIsPeerCloseGraceful_fnc_ =
-        boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
 }
 
 BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
@@ -65,8 +63,6 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
     config_manager->Initialize(config_db_.get(), config_graph_.get(),
                                localname);
     rtarget_group_mgr_->Initialize();
-    GetIsPeerCloseGraceful_fnc_ =
-        boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
 }
 
 void BgpServerTest::PostShutdown() {

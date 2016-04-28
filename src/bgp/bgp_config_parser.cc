@@ -616,6 +616,24 @@ bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
     return true;
 }
 
+bool BgpConfigParser::ParseGlobalVrouterConfig(const xml_node &node,
+                                               bool add_change,
+                                               RequestList *requests) const {
+    auto_ptr<autogen::GracefulRestartType> gr_config(
+            new autogen::GracefulRestartType());
+    assert(gr_config->XmlParse(node));
+
+    if (add_change) {
+        MapObjectSetProperty("global-vrouter-config", "",
+                             "graceful-restart", gr_config.release(), requests);
+    } else {
+        MapObjectClearProperty("global-vrouter-config", "", "graceful-restart",
+                               requests);
+    }
+
+    return true;
+}
+
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
     SessionMap sessions;
@@ -632,15 +650,23 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "routing-instance") == 0) {
             ParseRoutingInstance(node, add_change, requests);
+            continue;
         }
         if (strcmp(node.name(), "virtual-network") == 0) {
             ParseVirtualNetwork(node, add_change, requests);
+            continue;
         }
         if (strcmp(node.name(), "route-aggregate") == 0) {
             ParseRouteAggregate(node, add_change, requests);
+            continue;
         }
         if (strcmp(node.name(), "routing-policy") == 0) {
             ParseRoutingPolicy(node, add_change, requests);
+            continue;
+        }
+        if (strcmp(node.name(), "global-vrouter-config") == 0) {
+            ParseGlobalVrouterConfig(node, add_change, requests);
+            continue;
         }
     }
 
