@@ -286,6 +286,8 @@ void OperDB::Shutdown() {
     if (agent()->mirror_table()) {
         agent()->mirror_table()->Shutdown();
     }
+
+    profile_.reset();
 }
 
 void OperDB::DeleteRoutes() {
