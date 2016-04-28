@@ -126,19 +126,8 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
     autogen::BgpAsAService *bgp_as_a_service =
         dynamic_cast<autogen::BgpAsAService *>(bgp_as_a_service_node->GetObject());
     assert(bgp_as_a_service);
-    boost::system::error_code ec;
-    IpAddress local_peer_ip =
-        IpAddress::from_string(bgp_as_a_service->bgpaas_ip_address(), ec);
-    if (ec.value() != 0) {
-        std::stringstream ss;
-        ss << "Ip address parsing failed for ";
-        ss << bgp_as_a_service->bgpaas_ip_address();
-        BGPASASERVICETRACE(Trace, ss.str().c_str());
-        return;
-    }
 
     //Look for neighbour bgp-router to take the source port
-
     for (DBGraphVertex::adjacency_iterator it = bgp_as_a_service_node->begin(table->GetGraph());
          it != bgp_as_a_service_node->end(table->GetGraph()); ++it) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
@@ -150,10 +139,22 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                 dynamic_cast<autogen::BgpRouter *>(adj_node->GetObject());
             const std::string &vrf_name =
                 GetBgpRouterVrfName(agent_, adj_node);
-            if (vrf_name.empty() || (vrf_name != vm_vrf_name))
+            if (vrf_name.empty() || (vrf_name != vm_vrf_name) ||
+                (strcmp(bgp_router->parameters().router_type.c_str(),
+                        VALID_BGP_ROUTER_TYPE) != 0))
                 continue; //Skip the node with no VRF, notification will come.
-            new_list.insert(BgpAsAServiceEntry(local_peer_ip,
-                                  bgp_router->parameters().source_port));
+            boost::system::error_code ec;
+            IpAddress peer_ip =
+                IpAddress::from_string(bgp_router->parameters().address, ec);
+            if (ec.value() != 0) {
+                std::stringstream ss;
+                ss << "Ip address parsing failed for ";
+                ss << bgp_router->parameters().address;
+                BGPASASERVICETRACE(Trace, ss.str().c_str());
+                continue;
+            }
+            new_list.insert(BgpAsAServiceEntry(peer_ip,
+                                               bgp_router->parameters().source_port));
         }
     }
 }

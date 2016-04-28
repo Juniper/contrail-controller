@@ -159,7 +159,9 @@ static void BuildLinkToMetadata() {
 
     AddLinkToMetadata("subnet", "virtual-machine-interface");
     AddLinkToMetadata("virtual-router", "virtual-machine");
-
+    AddLinkToMetadata("virtual-machine-interface", "bgp-as-a-service");
+    AddLinkToMetadata("bgp-router", "bgp-as-a-service");
+    AddLinkToMetadata("bgp-router", "routing-instance");
 }
 
 string GetMetadata(const char *node1, const char *node2,
