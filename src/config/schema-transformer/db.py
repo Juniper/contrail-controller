@@ -62,9 +62,16 @@ class SchemaTransformerDB(VncCassandraClient):
                              (self._SERVICE_CHAIN_UUID_CF, None)]}
         cass_server_list = self._args.cassandra_server_list
 
+        cred = None
+        if (self._args.cassandra_user is not None and
+            self._args.cassandra_password is not None):
+            cred={'username':self._args.cassandra_user,
+                  'password':self._args.cassandra_password}
+
         super(SchemaTransformerDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.config_log, reset_config=self._args.reset_config)
+            manager.config_log, reset_config=self._args.reset_config,
+            credential=cred)
 
         SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
         SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]
