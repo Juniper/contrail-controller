@@ -264,10 +264,6 @@ void VNController::DnsXmppServerConnect() {
             agent_->set_dns_xmpp_client(client_dns, count);
             agent_->set_dns_xmpp_channel(dns_peer, count);
             agent_->set_dns_xmpp_init(xmpp_dns, count);
-            BindResolver::Resolver()->SetupResolver(
-                BindResolver::DnsServer(agent_->dns_server(count),
-                                        agent_->dns_server_port(count)),
-                count);
         }
         count++;
     }
@@ -279,6 +275,18 @@ void VNController::Connect() {
 
     /* Connect to DNS Xmpp Server */
     DnsXmppServerConnect();
+
+    /* Setup DNS Resolver */
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        if (!agent()->dns_server(count).empty()) {
+            BindResolver::Resolver()->SetupResolver( 
+                BindResolver::DnsServer(agent_->dns_server(count),
+                                        agent_->dns_server_port(count)),
+                count);
+        }
+        count++;
+    } 
 
     /* Inits */
     agent_->controller()->increment_multicast_sequence_number();
@@ -456,10 +464,13 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
     agent_->UpdateDiscoveryServerResponseList(resp);
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
-        count ++;
 
         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
             count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
+        BindResolver::Resolver()->SetupResolver(
+            BindResolver::DnsServer(dr.ep.address().to_string(), dr.ep.port()),
+            count);
+        count ++;
 
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
