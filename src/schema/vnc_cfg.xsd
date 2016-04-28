@@ -584,6 +584,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name='GracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='600'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='LongLivedGracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='16777215'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="AccessType">
      <xsd:restriction base="xsd:integer" required='true'
           description_1="Three bits representing rwx."
@@ -772,6 +786,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('autonomous-system', 'global-system-config', 'required', 'CRUD',
               '16 bit BGP Autonomous System number for the cluster.') -->
+
+<xsd:element name="graceful-restart-helper" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('graceful-restart-helper', 'global-system-config', 'optional',
+              'CRUD', 'Graceful Restart helper mode') -->
+<xsd:element name="long-lived-graceful-restart-helper" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('long-lived-graceful-restart-helper', 'global-system-config',
+              'optional', 'CRUD', 'Long Lived Graceful Restart helper mode') -->
+<xsd:element name="graceful-restart-time" type="GracefulRestartTime" default="0"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('graceful-restart-time', 'global-system-config', 'optional',
+              'CRUD', 'Graceful Restart time in seconds') -->
+<xsd:element name="long-lived-graceful-restart-time" type="LongLivedGracefulRestartTime" default="0"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('long-lived-graceful-restart-time', 'global-system-config',
+              'optional', 'CRUD',
+              'Long Lived Graceful Restart time in seconds') -->
+
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('config-version', 'global-system-config', 'system-only', 'R',

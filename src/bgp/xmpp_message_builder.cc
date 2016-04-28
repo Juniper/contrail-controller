@@ -114,6 +114,7 @@ private:
     vector<int> security_group_list_;
     vector<string> community_list_;
     string repr_;
+    static string repr_cached_;
     string repr_new_;
     size_t repr_part1_;
     size_t repr_part2_;
@@ -121,6 +122,8 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppMessage);
 };
+
+std::string BgpXmppMessage::repr_cached_;
 
 void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     // Build the DOM tree
@@ -408,8 +411,13 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
     return true;
 }
 
+static bool xmpp_send_encode_skip_ = getenv("XMPP_SEND_ENCODE_SKIP") != NULL;
+
 const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
     string str = peer->ToString() + "/" + XmppInit::kBgpPeer;
+
+    if (xmpp_send_encode_skip_ && !repr_cached_.empty())
+        return reinterpret_cast<const uint8_t *>(repr_cached_.c_str());
 
     // If the message has already been constructed, just replace the 'to' part.
     if (!repr_.empty()) {
@@ -429,6 +437,8 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
     ostringstream oss;
     xdoc_.save(oss);
     repr_ = oss.str();
+    if (xmpp_send_encode_skip_)
+        repr_cached_ = oss.str();
 
     repr_part1_ = repr_.find("to=", 0);
     assert(repr_part1_ != string::npos);

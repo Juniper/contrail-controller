@@ -1192,7 +1192,7 @@ void StateMachine::StartConnectTimer(int seconds) {
     // Add up to +/- kJitter percentage to reduce connection collisions.
     int ms = seconds ? seconds * 1000 : 50;
     ms = (ms * (100 - kJitter)) / 100;
-    ms += (ms * (rand_r(&seed_) % (kJitter * 2))) / 100;
+    // ms += (ms * (rand_r(&seed_) % (kJitter * 2))) / 100;
     connect_timer_->Start(ms,
         boost::bind(&StateMachine::ConnectTimerExpired, this),
         boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
@@ -1685,7 +1685,7 @@ int StateMachine::GetConfiguredHoldTime() const {
 }
 
 void StateMachine::BGPPeerInfoSend(BgpPeerInfoData &peer_info) {
-    BGPPeerInfo::Send(peer_info);
+    // BGPPeerInfo::Send(peer_info);
 }
 
 void StateMachine::set_last_event(const std::string &event) {

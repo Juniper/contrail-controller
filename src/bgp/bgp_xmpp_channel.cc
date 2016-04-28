@@ -176,13 +176,14 @@ public:
             const_cast<XmppConnection *>(parent_->channel_->connection());
 
         if (!connection || connection->IsActiveChannel()) return false;
-
-        // Check from the server, if GR is enabled or not.
-        return static_cast<XmppServer *>(
-            connection->server())->IsPeerCloseGraceful();
+        return parent_->manager_->xmpp_server()->IsPeerCloseGraceful();
     }
 
-    virtual bool IsCloseLongLivedGraceful() const { return IsCloseGraceful(); }
+    virtual bool IsCloseLongLivedGraceful() const {
+        if (!IsCloseGraceful())
+            return false;
+        return parent_->manager_->xmpp_server()->IsPeerCloseLongLivedGraceful();
+    }
 
     // EoR from xmpp is afi independent at the moment.
     virtual void GetGracefulRestartFamilies(Families *families) const {
@@ -554,7 +555,7 @@ BgpXmppChannel::~BgpXmppChannel() {
 }
 
 void BgpXmppChannel::XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const {
-    XMPPPeerInfo::Send(peer_info);
+    // XMPPPeerInfo::Send(peer_info);
 }
 
 const XmppSession *BgpXmppChannel::GetSession() const {

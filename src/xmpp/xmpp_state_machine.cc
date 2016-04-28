@@ -1214,7 +1214,7 @@ void XmppStateMachine::StartConnectTimer(int seconds) {
     // Add up to +/- kJitter percentage to reduce connection collisions.
     int ms = ((seconds)? seconds * 1000 : 50);
     ms = (ms * (100 - kJitter)) / 100;
-    ms += (ms * (rand() % (kJitter * 2))) / 100;
+    // ms += (ms * (rand() % (kJitter * 2))) / 100;
     connect_timer_->Start(ms,
         boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
         boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
@@ -1496,7 +1496,7 @@ void XmppStateMachine::set_state(xmsm::XmState state) {
     state_info.set_last_state(LastStateName());
     state_info.set_last_state_at(state_since_);
     peer_info.set_state_info(state_info);
-    XMPPPeerInfo::Send(peer_info);
+    // XMPPPeerInfo::Send(peer_info);
 }
 
 
@@ -1603,7 +1603,7 @@ void XmppStateMachine::set_last_event(const std::string &event) {
     event_info.set_last_event_at(last_event_at_);
     peer_info.set_event_info(event_info);
 
-    XMPPPeerInfo::Send(peer_info);
+    // XMPPPeerInfo::Send(peer_info);
 }
 
 //
