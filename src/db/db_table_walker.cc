@@ -20,10 +20,22 @@ class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
            const DBRequestKey *key, WalkFn walker, 
-           WalkCompleteFn walk_done);
+           WalkCompleteFn walk_done, bool postpone_walk);
 
     void StopWalk() {
+        assert(workers_.empty());
         should_stop_.fetch_and_store(true);
+    }
+
+    // Test only - resume walk that was postponed at creation.
+    void ResumeWalk() {
+        assert(!workers_.empty());
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        for (std::vector<Task *>::iterator it = workers_.begin();
+             it != workers_.end(); ++it) {
+            scheduler->Enqueue(*it);
+        }
+        workers_.clear();
     }
 
     WalkId  id_;
@@ -45,6 +57,8 @@ public:
 
     // check whether iteraton is completed on all Table Partition
     tbb::atomic<long> status_;
+
+    std::vector<Task *> workers_;
 };
 
 class DBTableWalker::Worker : public Task {
@@ -161,7 +175,8 @@ walk_done:
 
 DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
                               DBTable *table, const DBRequestKey *key,
-                              WalkFn walker, WalkCompleteFn walk_done)
+                              WalkFn walker, WalkCompleteFn walk_done,
+                              bool postpone_walk)
     : id_(id), wkmgr_(wkmgr), table_(table),
       key_start_(const_cast<DBRequestKey *>(key)), 
       walker_fn_(walker), done_fn_(walk_done) {
@@ -170,8 +185,12 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
     status_ = num_worker;
     for (int i = 0; i < num_worker; i++) {
         Worker *task = new Worker(this, i, key);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(task);
+        if (postpone_walk) {
+            workers_.push_back(task);
+        } else {
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            scheduler->Enqueue(task);
+        }
     }
 }
 
@@ -186,14 +205,15 @@ DBTableWalker::DBTableWalker() {
 DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table, 
                                                const DBRequestKey *key_start, 
                                                WalkFn walkerfn , 
-                                               WalkCompleteFn walk_complete) {
+                                               WalkCompleteFn walk_complete,
+                                               bool postpone_walk) {
     table->incr_walk_request_count();
     tbb::mutex::scoped_lock lock(walkers_mutex_);
     size_t i = walker_map_.find_first();
     if (i == walker_map_.npos) {
         i = walkers_.size();
         Walker *walker = new Walker(i, this, table, key_start, 
-                                    walkerfn, walk_complete);
+                                    walkerfn, walk_complete, postpone_walk);
         walkers_.push_back(walker);
     } else {
         walker_map_.reset(i);
@@ -201,7 +221,7 @@ DBTableWalker::WalkId DBTableWalker::WalkTable(DBTable *table,
             walker_map_.clear();
         }
         Walker *walker = new Walker(i, this, table, key_start, 
-                                    walkerfn, walk_complete);
+                                    walkerfn, walk_complete, postpone_walk);
         walkers_[i] = walker;
     }
     table->incr_walker_count();
@@ -212,6 +232,11 @@ void DBTableWalker::WalkCancel(WalkId id) {
     tbb::mutex::scoped_lock lock(walkers_mutex_);
     walkers_[id]->StopWalk();
     // Purge to be called after task has stopped
+}
+
+void DBTableWalker::WalkResume(WalkId id) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    walkers_[id]->ResumeWalk();
 }
 
 void DBTableWalker::PurgeWalker(WalkId id) {

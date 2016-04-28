@@ -39,11 +39,14 @@ public:
     // specifies the starting point for the walk. The walk is performed in
     // all table shards in parallel.
     WalkId WalkTable(DBTable *table, const DBRequestKey *key_start,
-                     WalkFn walker, WalkCompleteFn walk_complete);
+                     WalkFn walker, WalkCompleteFn walk_complete,
+                     bool postpone_walk = false);
 
     // cancel a walk that may be in progress. This cannot be called from
     // the walker function itself.
     void WalkCancel(WalkId id);
+
+    void WalkResume(WalkId id);
 
     static void SetIterationToYield(int count) {
         max_iteration_to_yield_ = count;

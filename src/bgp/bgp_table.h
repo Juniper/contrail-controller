@@ -148,9 +148,6 @@ public:
     // Check whether the route is contributing route to aggregate route
     bool IsContributingRoute(const BgpRoute *route) const;
 
-private:
-    void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
-                          BgpAttr *attr);
     bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
@@ -158,10 +155,16 @@ private:
     void InputCommonPostProcess(DBTablePartBase *root, BgpRoute *rt,
                                 bool notify_rt);
 
-    class DeleteActor;
+private:
     friend class BgpTableTest;
+
+    class DeleteActor;
+
+    void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
+                          BgpAttr *attr);
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
             const DBRequestKey *prefix) = 0;
+
     RoutingInstance *rtinstance_;
     PathResolver *path_resolver_;
     RibOutMap ribout_map_;

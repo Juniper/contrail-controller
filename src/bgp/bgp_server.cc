@@ -12,6 +12,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
@@ -277,6 +278,11 @@ bool BgpServer::IsReadyForDeletion() {
         return false;
     }
 
+    // Check if the IPeer membership manager queue is empty.
+    if (!bgp_membership_mgr_->IsQueueEmpty()) {
+        return false;
+    }
+
     // Check if the Service Chain Manager Work Queues are empty.
     if (!inet_service_chain_mgr_->IsQueueEmpty() ||
         !inet6_service_chain_mgr_->IsQueueEmpty()) {
@@ -323,6 +329,7 @@ BgpServer::BgpServer(EventManager *evm)
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
       policy_mgr_(BgpObjectFactory::Create<RoutingPolicyMgr>(this)),
       rtarget_group_mgr_(BgpObjectFactory::Create<RTargetGroupMgr>(this)),
+      bgp_membership_mgr_(new BgpMembershipManager(this)),
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       inet_condition_listener_(new BgpConditionListener(this)),
       inet6_condition_listener_(new BgpConditionListener(this)),
