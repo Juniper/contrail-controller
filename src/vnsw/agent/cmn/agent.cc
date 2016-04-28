@@ -143,11 +143,20 @@ void Agent::SetAgentTaskPolicy() {
         kTaskDBExclude,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME,
-        AGENT_SANDESH_TASKNAME
-        INSTANCE_MANAGER_TASK_NAME
+        AGENT_SANDESH_TASKNAME,
+        INSTANCE_MANAGER_TASK_NAME,
+        kTaskConfigManager
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
+
+    // ConfigManager task
+    const char *config_manager_exclude_list[] = {
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne(kTaskConfigManager, config_manager_exclude_list,
+                     sizeof(config_manager_exclude_list) / sizeof(char *));
 
     const char *flow_table_exclude_list[] = {
         "Agent::PktFlowResponder",
@@ -282,6 +291,9 @@ void Agent::SetAgentTaskPolicy() {
 
     const char *db_exclude_task_exclude_list[] = {
         "Agent::Uve",
+        "sandesh::RecvQueue",
+        "Agent::ControllerXmpp",
+        "bgp::Config",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
