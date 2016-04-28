@@ -75,6 +75,10 @@ public:
         uint32_t config_autonomous_system = 0;
         uint32_t config_local_autonomous_system = 0;
         uint32_t config_hold_time = 0;
+        bool config_gr_helper = false;
+        bool config_llgr_helper = false;
+        uint16_t config_gr_time = 0;
+        uint32_t config_llgr_time = 0;
         bool config_admin_down = false;
         if (config) {
             config_admin_down = config->admin_down();
@@ -82,6 +86,10 @@ public:
             config_autonomous_system = config->autonomous_system();
             config_local_autonomous_system = config->local_autonomous_system();
             config_hold_time = config->hold_time();
+            config_gr_helper = config->gr_helper();
+            config_llgr_helper = config->llgr_helper();
+            config_gr_time = config->gr_time();
+            config_llgr_time = config->llgr_time();
         }
 
         if (server_->admin_down_ != config_admin_down) {
@@ -164,6 +172,35 @@ public:
                         "Updated Hold Time from " <<
                         server_->hold_time_ << " to " << config_hold_time);
             server_->hold_time_ = config_hold_time;
+        }
+
+        if (server_->gr_helper_ != config_gr_helper) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Graceful Restart Helper from " <<
+                        server_->gr_helper_ << " to " <<
+                        config_gr_helper);
+            server_->gr_helper_ = config_gr_helper;
+        }
+
+        if (server_->llgr_helper_ != config_llgr_helper) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Long Lived Graceful Restart Helper from " <<
+                        server_->llgr_helper_ << " to " << config_llgr_helper);
+            server_->llgr_helper_ = config_llgr_helper;
+        }
+
+        if (server_->gr_time_ != config_gr_time) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Graceful Restart Time from " <<
+                        server_->gr_time_ << " to " << config_gr_time);
+            server_->gr_time_ = config_gr_time;
+        }
+
+        if (server_->llgr_time_ != config_llgr_time) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Long Lived Graceful Restart Time from " <<
+                        server_->llgr_time_ << " to " << config_llgr_time);
+            server_->llgr_time_ = config_llgr_time;
         }
 
         ConnectionState::GetInstance()->Update();
@@ -304,6 +341,10 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
+      gr_helper_(false),
+      llgr_helper_(false),
+      gr_time_(0),
+      llgr_time_(0),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -360,6 +401,9 @@ void BgpServer::Shutdown() {
 }
 
 LifetimeActor *BgpServer::deleter() {
+    return deleter_.get();
+}
+const LifetimeActor *BgpServer::deleter() const {
     return deleter_.get();
 }
 
@@ -466,21 +510,6 @@ const string &BgpServer::localname() const {
 
 boost::asio::io_service *BgpServer::ioservice() {
     return session_manager()->event_manager()->io_service();
-}
-
-bool BgpServer::IsPeerCloseGraceful() {
-    // If the server is deleted, do not do graceful restart
-    if (deleter()->IsDeleted()) return false;
-
-    static bool init = false;
-    static bool enabled = false;
-
-    if (!init) {
-        init = true;
-        char *p = getenv("BGP_GRACEFUL_RESTART_ENABLE");
-        if (p && !strcasecmp(p, "true")) enabled = true;
-    }
-    return enabled;
 }
 
 uint32_t BgpServer::num_routing_instance() const {

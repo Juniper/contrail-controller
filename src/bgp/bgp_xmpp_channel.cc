@@ -148,10 +148,12 @@ public:
         return manager_.get();
     }
     virtual const int GetGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultGracefulRestartTimeSecs;
+        XmppServer *xmpp_server = parent_->manager()->xmpp_server();
+        return xmpp_server->gr_config()->graceful_restart_time;
     }
     virtual const int GetLongLivedGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
+        XmppServer *xmpp_server = parent_->manager()->xmpp_server();
+        return xmpp_server->gr_config()->long_lived_graceful_restart_time;
     }
 
     // Mark all current subscription as 'stale'
@@ -177,12 +179,19 @@ public:
 
         if (!connection || connection->IsActiveChannel()) return false;
 
-        // Check from the server, if GR is enabled or not.
-        return static_cast<XmppServer *>(
-            connection->server())->IsPeerCloseGraceful();
+        // Check if GR helper mode is enabled in configuration.
+        XmppServer *xmpp_server = parent_->manager()->xmpp_server();
+        return xmpp_server->IsPeerCloseGraceful();
     }
 
-    virtual bool IsCloseLongLivedGraceful() const { return IsCloseGraceful(); }
+    virtual bool IsCloseLongLivedGraceful() const {
+        if (!IsCloseGraceful())
+            return false;
+
+        // Check if LLGR helper mode is enabled in configuration.
+        XmppServer *xmpp_server = parent_->manager()->xmpp_server();
+        return xmpp_server->IsPeerCloseLongLivedGraceful();
+    }
 
     // EoR from xmpp is afi independent at the moment.
     virtual void GetGracefulRestartFamilies(Families *families) const {
@@ -192,8 +201,8 @@ public:
     virtual void CustomClose() {
         if (!parent_ || parent_->rtarget_routes_.empty())
             return;
-        BgpServer *server = parent_->bgp_server_;
-        RoutingInstanceMgr *instance_mgr = server->routing_instance_mgr();
+        BgpServer *bgp_server = parent_->manager()->bgp_server();
+        RoutingInstanceMgr *instance_mgr = bgp_server->routing_instance_mgr();
         RoutingInstance *master =
             instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
         assert(master);
@@ -204,7 +213,7 @@ public:
              it = parent_->rtarget_routes_.begin();
              it != parent_->rtarget_routes_.end(); it++) {
             parent_->RTargetRouteOp(rtarget_table,
-                                    server->local_autonomous_system(),
+                                    bgp_server->local_autonomous_system(),
                                     it->first, NULL, false);
         }
         parent_->routing_instances_.clear();

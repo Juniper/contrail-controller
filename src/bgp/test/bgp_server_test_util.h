@@ -72,29 +72,15 @@ class XmppServerTest : public XmppServer {
 public:
 
     XmppServerTest(EventManager *evm) : XmppServer(evm) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     XmppServerTest(EventManager *evm, const std::string &server_addr) :
             XmppServer(evm, server_addr) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     XmppServerTest(EventManager *evm, const std::string &server_addr,
                    const XmppChannelConfig *config) :
         XmppServer(evm, server_addr, config) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     virtual ~XmppServerTest() { }
-
-    virtual bool IsPeerCloseGraceful() {
-        return GetIsPeerCloseGraceful_fnc_();
-    }
-
-    bool XmppServerIsPeerCloseGraceful() {
-        return XmppServer::IsPeerCloseGraceful();
-    }
 
     const ConnectionMap &connection_map() const { return connection_map_; }
 
@@ -124,8 +110,6 @@ public:
         tbb::mutex::scoped_lock lock(mutex_);
         XmppServer::RemoveDeletedConnection(connection);
     }
-
-    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
 
 private:
     tbb::mutex mutex_;
@@ -251,15 +235,6 @@ public:
     }
 
     virtual std::string ToString() const;
-    virtual bool IsPeerCloseGraceful() {
-        return GetIsPeerCloseGraceful_fnc_();
-    }
-
-    bool BgpServerIsPeerCloseGraceful() {
-        return BgpServer::IsPeerCloseGraceful();
-    }
-
-    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
 
 private:
     void PostShutdown();

@@ -148,21 +148,6 @@ XmppServer::XmppServer(EventManager *evm)
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
 
-bool XmppServer::IsPeerCloseGraceful() {
-    // If the server is deleted, do not do graceful restart
-    if (deleter()->IsDeleted()) return false;
-
-    static bool init = false;
-    static bool enabled = false;
-
-    if (!init) {
-        init = true;
-        char *p = getenv("XMPP_GRACEFUL_RESTART_ENABLE");
-        if (p && !strcasecmp(p, "true")) enabled = true;
-    }
-    return enabled;
-}
-
 XmppServer::~XmppServer() {
     STLDeleteElements(&connection_endpoint_map_);
     TcpServer::ClearSessions();
@@ -176,6 +161,28 @@ bool XmppServer::Initialize(short port) {
 bool XmppServer::Initialize(short port, bool logUVE) {
     log_uve_ = logUVE;
     return TcpServer::Initialize(port);
+}
+
+bool XmppServer::IsPeerCloseGraceful() const {
+
+    // If the server is deleted, do not do graceful restart
+    if (deleter()->IsDeleted())
+        return false;
+    return gr_config_.graceful_restart_helper;
+}
+
+bool XmppServer::IsPeerCloseLongLivedGraceful() const {
+    if (!IsPeerCloseGraceful())
+        return false;
+    return gr_config_.long_lived_graceful_restart_helper;
+}
+
+// Update GracefulRestart configuration from global-vrouter-config section.
+void XmppServer::UpdateGracefulRestartConfig(
+    autogen::GracefulRestartType &gr_config) {
+
+    // TODO GR - Clear agent sessions ?
+    gr_config_ = gr_config;
 }
 
 //
@@ -216,6 +223,10 @@ void XmppServer::Terminate() {
 }
 
 LifetimeActor *XmppServer::deleter() {
+    return deleter_.get();
+}
+
+LifetimeActor *XmppServer::deleter() const {
     return deleter_.get();
 }
 
