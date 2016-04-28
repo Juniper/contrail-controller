@@ -31,6 +31,8 @@ public:
     virtual ~BindResolver();
     void SetupResolver(const DnsServer &server, uint8_t idx);
     bool DnsSend(uint8_t *pkt, unsigned int dns_srv_index, std::size_t len);
+    bool DnsSend(uint8_t *pkt, boost::asio::ip::udp::endpoint ep,
+                 std::size_t len);
 
     static void Init(boost::asio::io_service &io,
                      const std::vector<DnsServer> &dns_servers,
