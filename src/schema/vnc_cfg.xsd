@@ -2482,4 +2482,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Alarm config -->
 <xsd:include schemaLocation='alarm.xsd'/>
 
+<!-- Userdefined Counter Config -->
+<xsd:include schemaLocation='usr_def_cntr.xsd'/>
+
 </xsd:schema>
