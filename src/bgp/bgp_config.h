@@ -17,6 +17,7 @@
 #include "net/address.h"
 
 class BgpServer;
+class XmppServer;
 
 struct AuthenticationKey {
     AuthenticationKey() : id(-1), start_time(0) {
@@ -203,6 +204,15 @@ public:
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
+    bool gr_helper() const { return gr_helper_; }
+    void set_gr_helper(bool gr_helper) { gr_helper_ = gr_helper; }
+    bool llgr_helper() const { return llgr_helper_; }
+    void set_llgr_helper(bool llgr_helper) { llgr_helper_ = llgr_helper; }
+    uint16_t gr_time() const { return gr_time_; }
+    void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time; }
+    uint32_t llgr_time() const { return llgr_time_; }
+    void set_llgr_time(uint32_t llgr_time) { llgr_time_ = llgr_time; }
+
     uint8_t loop_count() const { return loop_count_; }
     void set_loop_count(uint8_t loop_count) { loop_count_ = loop_count; }
 
@@ -265,6 +275,10 @@ private:
     uint16_t source_port_;
     TcpSession::Endpoint remote_endpoint_;
     int hold_time_;
+    bool gr_helper_;
+    bool llgr_helper_;
+    uint16_t gr_time_;
+    uint32_t llgr_time_;
     uint8_t loop_count_;
     uint32_t local_as_;
     uint32_t local_identifier_;
@@ -497,6 +511,15 @@ public:
     uint32_t hold_time() const { return hold_time_; }
     void set_hold_time(uint32_t hold_time) { hold_time_ = hold_time; }
 
+    bool gr_helper() const { return gr_helper_; }
+    void set_gr_helper(bool gr_helper) { gr_helper_ = gr_helper; }
+    bool llgr_helper() const { return llgr_helper_; }
+    void set_llgr_helper(bool llgr_helper) { llgr_helper_ = llgr_helper; }
+    uint16_t gr_time() const { return gr_time_; }
+    void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time; }
+    uint32_t llgr_time() const { return llgr_time_; }
+    void set_llgr_time(uint32_t llgr_time) { llgr_time_ = llgr_time; }
+
     uint64_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
 
@@ -508,6 +531,10 @@ private:
     uint32_t identifier_;
     int port_;
     uint32_t hold_time_;
+    bool gr_helper_;
+    bool llgr_helper_;
+    uint16_t gr_time_;
+    uint32_t llgr_time_;
     mutable uint64_t last_change_at_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
@@ -587,10 +614,13 @@ public:
     template <typename BgpConfigObject>
     void Notify(const BgpConfigObject *, EventType);
 
-    const BgpServer *server() { return server_; }
+    const BgpServer *server() const { return server_; }
+    XmppServer *xmpp_server() { return xmpp_server_; }
+    void set_xmpp_server(XmppServer *xmpp_server) { xmpp_server_ = xmpp_server;}
 
 private:
     BgpServer *server_;
+    XmppServer *xmpp_server_;
     Observers obs_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpConfigManager);

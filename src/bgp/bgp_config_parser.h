@@ -40,6 +40,8 @@ private:
                               RequestList *requests) const;
     bool ParseRouteAggregate(const pugi::xml_node &parent, bool add_change,
                              RequestList *requests) const;
+    bool ParseGlobalVrouterConfig(const pugi::xml_node &node, bool add_change,
+                                  RequestList *requests) const;
 
     DB *db_;
     DISALLOW_COPY_AND_ASSIGN(BgpConfigParser);
