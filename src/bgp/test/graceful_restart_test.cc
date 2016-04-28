@@ -247,16 +247,13 @@ typedef std::tr1::tuple<int, int, int, int, int> TestParams;
 class GracefulRestartTest : public ::testing::TestWithParam<TestParams> {
 
 public:
-    bool IsPeerCloseGraceful(bool graceful) { return graceful; }
+    bool IsPeerCloseGraceful(bool graceful) {
+        return graceful;
+    }
     void SetPeerCloseGraceful(bool graceful) {
         xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
                     boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
                                 graceful);
-        for (int i = 1; i <= n_peers_; i++) {
-            bgp_servers_[i]->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
-                                graceful);
-        }
     }
 
 protected:
@@ -421,6 +418,12 @@ void GracefulRestartTest::SetUp() {
 void GracefulRestartTest::TearDown() {
     task_util::WaitForIdle();
     SetPeerCloseGraceful(false);
+    for (int i = 1; i <= n_instances_; i++) {
+        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
+            ProcessVpnRoute(peer, i, n_routes_, false);
+        }
+    }
+
     XmppAgentClose();
     xmpp_server_->Shutdown();
     task_util::WaitForIdle();
@@ -438,12 +441,6 @@ void GracefulRestartTest::TearDown() {
 
     TcpServerManager::DeleteServer(xmpp_server_);
     xmpp_server_ = NULL;
-
-    for (int i = 1; i <= n_instances_; i++) {
-        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
-            ProcessVpnRoute(peer, i, n_routes_, false);
-        }
-    }
 
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Shutdown();
@@ -536,6 +533,8 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
                     <address>127.0.0.1</address>\
                     <port>" << bgp_servers_[i]->session_manager()->GetPort();
         out <<      "</port>";
+        out << "<graceful-restart-time>300</graceful-restart-time>";
+        out << "<long-lived-graceful-restart-time>43200</long-lived-graceful-restart-time>";
 
         for (int j = 0; j <= n_peers_; j++) {
 
@@ -555,8 +554,13 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
                             <family>e-vpn</family>\
                             <family>erm-vpn</family>\
                             <family>route-target</family>\
-                        </address-families>\
-                    </session>";
+                        </address-families>";
+
+            if (i == 0) {
+                out << "<graceful-restart-helper>true</graceful-restart-helper>";
+                out << "<long-lived-graceful-restart-helper>true</long-lived-graceful-restart-helper>";
+            }
+            out << "</session>";
         }
         out << "</bgp-router>";
     }

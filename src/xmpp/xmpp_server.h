@@ -35,7 +35,8 @@ public:
     XmppServer(EventManager *evm, const std::string &server_addr);
     explicit XmppServer(EventManager *evm);
     virtual ~XmppServer();
-    virtual bool IsPeerCloseGraceful();
+    virtual bool IsPeerCloseGraceful() const;
+    virtual bool IsPeerCloseLongLivedGraceful() const;
 
     typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);
@@ -45,6 +46,7 @@ public:
 
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
+    virtual LifetimeActor *deleter() const;
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
