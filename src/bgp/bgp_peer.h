@@ -157,6 +157,10 @@ public:
     BgpSession *session();
 
     uint16_t hold_time() const { return hold_time_; }
+    bool gr_helper() const { return gr_helper_; }
+    bool llgr_helper() const { return llgr_helper_; }
+    uint16_t gr_time() const { return gr_time_; }
+    uint16_t llgr_time() const { return llgr_time_; }
     as_t local_as() const { return local_as_; }
     as_t peer_as() const { return peer_as_; }
 
@@ -217,6 +221,11 @@ public:
     void increment_flap_count();
     void reset_flap_count();
     uint64_t flap_count() const { return flap_count_; }
+
+    bool IsCloseGraceful() const { return gr_time_ != 0; }
+    bool IsCloseLongLivedGraceful() const {
+        return IsCloseGraceful() && llgr_time_ != 0;
+    }
 
     std::string last_flap_at() const;
 
@@ -310,19 +319,12 @@ protected:
     const std::vector<std::string> &negotiated_families() const {
         return negotiated_families_;
     }
-    const std::vector<std::string> &graceful_restart_families() const {
-        return graceful_restart_families_;
+    const std::vector<std::string> &gr_families() const { return gr_families_; }
+    std::vector<std::string> &gr_families() { return gr_families_; }
+    const std::vector<std::string> & llgr_families() const {
+        return llgr_families_;
     }
-    std::vector<std::string> &graceful_restart_families() {
-        return graceful_restart_families_;
-    }
-    const std::vector<std::string> &
-        long_lived_graceful_restart_families() const {
-        return long_lived_graceful_restart_families_;
-    }
-    std::vector<std::string> &long_lived_graceful_restart_families() {
-        return long_lived_graceful_restart_families_;
-    }
+    std::vector<std::string> &llgr_families() { return llgr_families_; }
     void SendEndOfRIB(Address::Family family);
 
 private:
@@ -430,6 +432,10 @@ private:
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     uint16_t hold_time_;
+    bool gr_helper_;
+    bool llgr_helper_;
+    uint16_t gr_time_;
+    uint32_t llgr_time_;
     as_t local_as_;
     as_t peer_as_;
     uint32_t local_bgp_id_;     // network order
@@ -437,8 +443,8 @@ private:
     FamilyAttributesList family_attributes_list_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
-    std::vector<std::string> graceful_restart_families_;
-    std::vector<std::string> long_lived_graceful_restart_families_;
+    std::vector<std::string> gr_families_;
+    std::vector<std::string> llgr_families_;
     BgpProto::BgpPeerType peer_type_;
     boost::scoped_ptr<StateMachine> state_machine_;
     boost::scoped_ptr<PeerClose> peer_close_;

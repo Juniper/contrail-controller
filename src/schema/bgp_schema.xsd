@@ -105,6 +105,20 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name='GracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='600'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='LongLivedGracefulRestartTime'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='16777215'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='BgpRouterParams'>
     <xsd:annotation>
         <xsd:documentation>
@@ -131,6 +145,10 @@
     <xsd:element name='router-type' type='BgpRouterType'/>
     <xsd:element name='gateway-address' type='smi:IpAddress'/>
     <xsd:element name='ipv6-gateway-address' type='smi:IpAddress'/>
+    <xsd:element name='graceful-restart-helper' type='xsd:boolean' default='false'/>
+    <xsd:element name='long-lived-graceful-restart-helper' type='xsd:boolean' default='false'/>
+    <xsd:element name='graceful-restart-time' type='GracefulRestartTime' default='0'/>
+    <xsd:element name='long-lived-graceful-restart-time' type='LongLivedGracefulRestartTime' default='0'/>
 </xsd:complexType>
 
 <xsd:element name='instance-bgp-router'/>
@@ -179,6 +197,10 @@
     <xsd:element name='loop-count' type='BgpAsPathLoopCount' default='0'/>
     <xsd:element name='address-families' type='AddressFamilies'/>
     <xsd:element name='auth-data' type='AuthenticationData'/>
+    <xsd:element name='graceful-restart-helper' type='xsd:boolean' default='false'/>
+    <xsd:element name='long-lived-graceful-restart-helper' type='xsd:boolean' default='false'/>
+    <xsd:element name='graceful-restart-time' type='GracefulRestartTime' default='0'/>
+    <xsd:element name='long-lived-graceful-restart-time' type='LongLivedGracefulRestartTime' default='0'/>
     <xsd:element name='family-attributes' type='BgpFamilyAttributes' maxOccurs='unbounded'/>
 </xsd:complexType>
 

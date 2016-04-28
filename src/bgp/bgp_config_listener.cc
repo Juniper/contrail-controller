@@ -79,4 +79,8 @@ void BgpConfigListener::DependencyTrackerInit() {
     ReactionMap route_aggregate_react = map_list_of<string, PropagateList>
         ("self", list_of("route-aggregate-routing-instance"));
     policy->insert(make_pair("route-aggregate", route_aggregate_react));
+
+    ReactionMap vr_config_react = map_list_of<string, PropagateList>
+        ("self", list_of("global-vrouter-config-graceful-restart"));
+    policy->insert(make_pair("global-vrouter-config", vr_config_react));
 }

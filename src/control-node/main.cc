@@ -648,6 +648,7 @@ int main(int argc, char *argv[]) {
     if (xmpp_server == NULL) {
         exit(1);
     }
+    config_manager->set_xmpp_server(xmpp_server);
 
     // Create BGP and IFMap channel managers.
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
