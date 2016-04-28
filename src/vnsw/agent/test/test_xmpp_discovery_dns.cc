@@ -442,4 +442,62 @@ TEST_F(AgentXmppUnitTest, XmppConnection_DnsDown_Discovery) {
     client->WaitForIdle();
 }
 
+TEST_F(AgentXmppUnitTest, XmppConnection_Apply_3_DiscoveryDnsServers) {
+
+    client->Reset();
+    client->WaitForIdle();
+
+    XmppServerConnectionInit();
+
+    // Simulate Discovery response for Xmpp Server
+    std::vector<DSResponse> ds_response;
+    DSResponse resp;
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(xs2->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryDnsXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    EXPECT_TRUE(agent_->dns_server_port(0) ==
+                (uint32_t)xs1->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->dns_server_port(1) ==
+                (uint32_t)xs2->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+    // Wait until older XmppClient, XmppChannel is cleaned
+    client->WaitForIdle();
+
+    xs1->Shutdown();
+    client->WaitForIdle();
+
+    xs2->Shutdown();
+    client->WaitForIdle();
+
+    xs3->Shutdown();
+    client->WaitForIdle();
+
+    xs4->Shutdown();
+    client->WaitForIdle();
+
+    xs5->Shutdown();
+    client->WaitForIdle();
+
+    xs6->Shutdown();
+    client->WaitForIdle();
+}
+
+ 
 }
