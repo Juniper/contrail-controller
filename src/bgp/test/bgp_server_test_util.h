@@ -88,11 +88,15 @@ public:
     }
     virtual ~XmppServerTest() { }
 
-    virtual bool IsPeerCloseGraceful() {
+    virtual bool IsPeerCloseGraceful() const {
         return GetIsPeerCloseGraceful_fnc_();
     }
 
-    bool XmppServerIsPeerCloseGraceful() {
+    virtual bool IsPeerCloseLongLivedGraceful() const {
+        return GetIsPeerCloseGraceful_fnc_();
+    }
+
+    bool XmppServerIsPeerCloseGraceful() const {
         return XmppServer::IsPeerCloseGraceful();
     }
 
@@ -251,15 +255,6 @@ public:
     }
 
     virtual std::string ToString() const;
-    virtual bool IsPeerCloseGraceful() {
-        return GetIsPeerCloseGraceful_fnc_();
-    }
-
-    bool BgpServerIsPeerCloseGraceful() {
-        return BgpServer::IsPeerCloseGraceful();
-    }
-
-    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
 
 private:
     void PostShutdown();

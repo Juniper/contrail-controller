@@ -156,6 +156,10 @@ BgpNeighborConfig::BgpNeighborConfig()
           port_(BgpConfigManager::kDefaultPort),
           source_port_(0),
           hold_time_(0),
+          gr_helper_(false),
+          llgr_helper_(false),
+          gr_time_(0),
+          llgr_time_(0),
           loop_count_(0),
           local_as_(0),
           local_identifier_(0),
@@ -177,6 +181,10 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     port_ = rhs.port_;
     source_port_ = rhs.source_port_;
     hold_time_ = rhs.hold_time_;
+    gr_helper_ = rhs.gr_helper_;
+    llgr_helper_ = rhs.llgr_helper_;
+    gr_time_ = rhs.gr_time_;
+    llgr_time_ = rhs.llgr_time_;
     loop_count_ = rhs.loop_count_;
     local_as_ = rhs.local_as_;
     local_identifier_ = rhs.local_identifier_;
@@ -200,6 +208,10 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(port_, rhs.port_);
     KEY_COMPARE(source_port_, rhs.source_port_);
     KEY_COMPARE(hold_time_, rhs.hold_time_);
+    KEY_COMPARE(gr_helper_, rhs.gr_helper_);
+    KEY_COMPARE(llgr_helper_, rhs.llgr_helper_);
+    KEY_COMPARE(gr_time_, rhs.gr_time_);
+    KEY_COMPARE(llgr_time_, rhs.llgr_time_);
     KEY_COMPARE(loop_count_, rhs.loop_count_);
     KEY_COMPARE(local_as_, rhs.local_as_);
     KEY_COMPARE(local_identifier_, rhs.local_identifier_);
@@ -257,6 +269,10 @@ BgpProtocolConfig::BgpProtocolConfig(const string &instance_name)
       identifier_(0),
       port_(0),
       hold_time_(0),
+      gr_helper_(false),
+      llgr_helper_(false),
+      gr_time_(0),
+      llgr_time_(0),
       last_change_at_(UTCTimestampUsec()) {
 }
 
@@ -267,6 +283,10 @@ int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(port_, rhs.port_);
     KEY_COMPARE(hold_time_, rhs.hold_time_);
+    KEY_COMPARE(gr_helper_, rhs.gr_helper_);
+    KEY_COMPARE(llgr_helper_, rhs.llgr_helper_);
+    KEY_COMPARE(gr_time_, rhs.gr_time_);
+    KEY_COMPARE(llgr_time_, rhs.llgr_time_);
     return 0;
 }
 

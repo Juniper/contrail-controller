@@ -148,18 +148,20 @@ XmppServer::XmppServer(EventManager *evm)
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
 
-bool XmppServer::IsPeerCloseGraceful() {
+bool XmppServer::IsPeerCloseGraceful() const {
+
     // If the server is deleted, do not do graceful restart
-    if (deleter()->IsDeleted()) return false;
+    if (deleter()->IsDeleted())
+        return false;
 
-    static bool init = false;
-    static bool enabled = false;
+    static bool enabled = getenv("XMPP_GR_HELPER_ENABLE") != NULL;
+    return enabled;
+}
 
-    if (!init) {
-        init = true;
-        char *p = getenv("XMPP_GRACEFUL_RESTART_ENABLE");
-        if (p && !strcasecmp(p, "true")) enabled = true;
-    }
+bool XmppServer::IsPeerCloseLongLivedGraceful() const {
+    if (!IsPeerCloseGraceful())
+        return false;
+    static bool enabled = getenv("XMPP_LLGR_HELPER_ENABLE") != NULL;
     return enabled;
 }
 
@@ -216,6 +218,10 @@ void XmppServer::Terminate() {
 }
 
 LifetimeActor *XmppServer::deleter() {
+    return deleter_.get();
+}
+
+LifetimeActor *XmppServer::deleter() const {
     return deleter_.get();
 }
 
