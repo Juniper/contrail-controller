@@ -2,6 +2,7 @@ import gevent
 import socket
 
 from vnc_api.vnc_api import *
+from cfgm_common.exceptions import NoIdError
 from cfgm_common.vnc_kombu import VncKombuClient
 from config_db import *
 from cfgm_common.dependency_tracker import DependencyTracker
@@ -51,10 +52,14 @@ class RabbitConnection(object):
         if oper_info['oper'] == 'CREATE':
             obj_dict = oper_info['obj_dict']
             obj_id = oper_info['uuid']
-            obj = obj_class.locate(obj_id)
-            dependency_tracker = DependencyTracker(
-                DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
-            dependency_tracker.evaluate(obj_type, obj)
+            try:
+                obj = obj_class.locate(obj_id)
+            except NoIdError:
+                obj = None
+            if obj is not None:
+                dependency_tracker = DependencyTracker(
+                    DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
+                dependency_tracker.evaluate(obj_type, obj)
         elif oper_info['oper'] == 'UPDATE':
             obj_id = oper_info['uuid']
             obj = obj_class.get(obj_id)
@@ -64,19 +69,23 @@ class RabbitConnection(object):
                     DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
                 old_dt.evaluate(obj_type, obj)
             else:
-                obj = obj_class.locate(obj_id)
-            obj.update()
-            dependency_tracker = DependencyTracker(
-                DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
-            dependency_tracker.evaluate(obj_type, obj)
-            if old_dt:
-                for resource, ids in old_dt.resources.items():
-                    if resource not in dependency_tracker.resources:
-                        dependency_tracker.resources[resource] = ids
-                    else:
-                        dependency_tracker.resources[resource] = list(
-                            set(dependency_tracker.resources[resource]) |
-                            set(ids))
+                try:
+                    obj = obj_class.locate(obj_id)
+                except NoIdError:
+                    obj = None
+            if obj is not None:
+                obj.update()
+                dependency_tracker = DependencyTracker(
+                    DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
+                dependency_tracker.evaluate(obj_type, obj)
+                if old_dt:
+                    for resource, ids in old_dt.resources.items():
+                        if resource not in dependency_tracker.resources:
+                            dependency_tracker.resources[resource] = ids
+                        else:
+                            dependency_tracker.resources[resource] = list(
+                                set(dependency_tracker.resources[resource]) |
+                                set(ids))
         elif oper_info['oper'] == 'DELETE':
             obj_id = oper_info['uuid']
             obj = obj_class.get(obj_id)
@@ -92,7 +101,7 @@ class RabbitConnection(object):
             return
 
         if obj is None:
-            self.logger.error('Error while accessing %s uuid %s' % (
+            self.logger.warning('%s uuid %s has vanished' % (
                 obj_type, obj_id))
             return
 
