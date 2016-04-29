@@ -359,8 +359,26 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::REVALUATE_DBENTRY:
-    case FlowEvent::REVALUATE_FLOW:
+    case FlowEvent::REVALUATE_DBENTRY: {
+        FlowEntry *flow = event->flow();
+        if (flow->flow_table()->SetRevaluatePending(flow)) {
+            flow_update_queue_.Enqueue(event);
+        } else {
+            delete event;
+        }
+        break;
+    }
+
+    case FlowEvent::REVALUATE_FLOW: {
+        FlowEntry *flow = event->flow();
+        if (flow->flow_table()->SetRecomputePending(flow)) {
+            flow_update_queue_.Enqueue(event);
+        } else {
+            delete event;
+        }
+        break;
+    }
+
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::FREE_DBENTRY: {
         flow_update_queue_.Enqueue(event);

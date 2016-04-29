@@ -85,13 +85,10 @@ public:
             resp_event = FlowEvent::DELETE_DBENTRY;
         }
 
-        
         const InetUnicastRouteEntry *rt =
             dynamic_cast<const InetUnicastRouteEntry *>(db_entry_);
         if (rt) {
-            if (event_ == ADD_DBENTRY || event_ == DELETE_DBENTRY) {
-                resp_event = FlowEvent::REVALUATE_FLOW;
-            }
+            resp_event = FlowEvent::REVALUATE_FLOW;
         }
 
         return resp_event;

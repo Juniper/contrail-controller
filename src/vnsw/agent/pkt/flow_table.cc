@@ -193,6 +193,11 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     if (rflow_req)
         rflow_req->set_reverse_flow_entry(NULL);
 
+    if (flow)
+        flow->GetPendingAction()->SetRecompute(false);
+    if (rflow)
+        rflow->GetPendingAction()->SetRecompute(false);
+
     bool force_update_rflow = false;
     if (fwd_flow_update) {
         if (flow == NULL)
@@ -519,235 +524,8 @@ void FlowTable::ResyncAFlow(FlowEntry *fe) {
     UpdateKSync(fe, true);
 }
 
-void FlowTable::RevaluateInterface(FlowEntry *flow) {
-    const VmInterface *vmi = static_cast<const VmInterface *>
-        (flow->intf_entry());
-    if (vmi == NULL)
-        return;
-
-    if (flow->is_flags_set(FlowEntry::LocalFlow) &&
-        flow->is_flags_set(FlowEntry::ReverseFlow)) {
-        FlowEntry *fwd_flow = flow->reverse_flow_entry();
-        if (fwd_flow) {
-            fwd_flow->GetPolicyInfo();
-            ResyncAFlow(fwd_flow);
-            AddFlowInfo(fwd_flow);
-        }
-    }
-
-    flow->GetPolicyInfo(vmi->vn());
-    ResyncAFlow(flow);
-    AddFlowInfo(flow);
-}
-
-void FlowTable::RevaluateVn(FlowEntry *flow) {
-    const VnEntry *vn = flow->vn_entry();
-    if (vn == NULL)
-        return;
-
-    // Revaluate flood unknown-unicast flag. If flow has UnknownUnicastFlood and
-    // VN doesnt allow it, make Short Flow
-    if (vn->flood_unknown_unicast() == false &&
-        flow->is_flags_set(FlowEntry::UnknownUnicastFlood)) {
-        flow->MakeShortFlow(FlowEntry::SHORT_NO_DST_ROUTE);
-    }
-    flow->GetPolicyInfo(vn);
-    ResyncAFlow(flow);
-    AddFlowInfo(flow);
-}
-
-void FlowTable::RevaluateAcl(FlowEntry *flow) {
-    flow->GetPolicyInfo();
-    ResyncAFlow(flow);
-    AddFlowInfo(flow);
-}
-
-void FlowTable::RevaluateNh(FlowEntry *flow) {
-    flow->GetPolicyInfo();
-    ResyncAFlow(flow);
-    AddFlowInfo(flow);
-}
-
-bool FlowTable::FlowRouteMatch(const InetUnicastRouteEntry *rt,
-                               uint32_t vrf, Address::Family family,
-                               const IpAddress &ip, uint8_t plen) {
-    if (rt->vrf_id() != vrf)
-        return false;
-
-    if (rt->plen() != plen)
-        return false;
-
-    if (family == Address::INET) {
-        if (ip.is_v4() == false)
-            return false;
-
-        return (Address::GetIp4SubnetAddress(ip.to_v4(), plen)
-                == rt->addr().to_v4());
-    }
-
-    if (family == Address::INET6) {
-        if (ip.is_v6() == false)
-            return false;
-
-        return (Address::GetIp6SubnetAddress(ip.to_v6(), rt->plen())
-                == rt->addr().to_v6());
-    }
-
-    assert(0);
-    return false;
-}
-
-bool FlowTable::FlowInetRpfMatch(FlowEntry *flow,
-                                 const InetUnicastRouteEntry *rt) {
-    if (flow->l3_flow()) {
-        return FlowRouteMatch(rt, flow->data().flow_source_vrf,
-                              flow->key().family, flow->key().src_addr,
-                              flow->data().source_plen);
-    } else {
-        return FlowRouteMatch(rt, flow->data().flow_source_vrf,
-                              flow->key().family, flow->key().src_addr,
-                              flow->data().l2_rpf_plen);
-    }
-}
-
-bool FlowTable::FlowInetSrcMatch(FlowEntry *flow,
-                                 const InetUnicastRouteEntry *rt) {
-    return FlowRouteMatch(rt, flow->data().flow_source_vrf, flow->key().family,
-                          flow->key().src_addr, flow->data().source_plen);
-}
-
-bool FlowTable::FlowInetDstMatch(FlowEntry *flow,
-                                 const InetUnicastRouteEntry *rt) {
-    return FlowRouteMatch(rt, flow->data().flow_dest_vrf, flow->key().family,
-                          flow->key().dst_addr, flow->data().dest_plen);
-}
-
-bool FlowTable::FlowBridgeSrcMatch(FlowEntry *flow,
-                                   const BridgeRouteEntry *rt) {
-    if (rt->vrf_id() != flow->data().flow_source_vrf)
-        return false;
-
-    return rt->mac() == flow->data().smac;
-}
-
-bool FlowTable::FlowBridgeDstMatch(FlowEntry *flow,
-                                   const BridgeRouteEntry *rt) {
-    if (rt->vrf_id() != flow->data().flow_dest_vrf)
-        return false;
-
-    return rt->mac() == flow->data().dmac;
-}
-
-bool FlowTable::RevaluateSgList(FlowEntry *flow, const AgentRoute *rt,
-                                const SecurityGroupList &sg_list) {
-    bool changed = false;
-    if (flow->l3_flow()) {
-        const InetUnicastRouteEntry *inet =
-            dynamic_cast<const InetUnicastRouteEntry *>(rt);
-        if (inet && FlowInetSrcMatch(flow, inet)) {
-            flow->set_source_sg_id_l(sg_list);
-            changed = true;
-        } else if (inet && FlowInetDstMatch(flow, inet)) {
-            flow->set_dest_sg_id_l(sg_list);
-            changed = true;
-        }
-    } else {
-        const BridgeRouteEntry *bridge =
-            dynamic_cast<const BridgeRouteEntry *>(rt);
-        if (bridge && FlowBridgeSrcMatch(flow, bridge)) {
-            flow->set_source_sg_id_l(sg_list);
-            changed = true;
-        } else if (bridge && FlowBridgeDstMatch(flow, bridge)) {
-            flow->set_dest_sg_id_l(sg_list);
-            changed = true;
-        }
-    }
-
-    return changed;
-
-}
-
-// Revaluate RPF-NH for a flow.
-bool FlowTable::RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt) {
-    const InetUnicastRouteEntry *inet =
-        dynamic_cast<const InetUnicastRouteEntry *>(rt);
-    if (inet && FlowInetRpfMatch(flow, inet)) {
-        return flow->SetRpfNH(this, rt);
-    }
-
-    const BridgeRouteEntry *bridge =
-        dynamic_cast<const BridgeRouteEntry *>(rt);
-    if (bridge && FlowBridgeSrcMatch(flow, bridge)) {
-        return flow->SetRpfNH(this, rt);
-    }
-
-    return false;
-}
-
 boost::uuids::uuid FlowTable::rand_gen() {
     return rand_gen_();
-}
-
-// Handle flow revaluation on a route change
-// Route change can result in multiple changes to flow
-// InetRoute   : 
-//    L3 flows : Can result in change of SG-ID list for src-ip or dst-ip
-//               Can result in change of RPF-NH
-//
-//    L2 flows : Can result in change of RPF-NH
-// BridgeRoute : 
-//    L2 flows : Can result in change of SG-ID list for src-mac or dst-mac
-void FlowTable::RevaluateRoute(FlowEntry *flow, const AgentRoute *route) {
-    VrfEntry *vrf = route->vrf();
-    if (vrf == NULL || vrf->IsDeleted()) {
-        DeleteMessage(flow);
-        return;
-    }
-
-    // Is route deleted in meanwhile?
-    if (route->IsDeleted()) {
-        DeleteMessage(flow);
-        return;
-    }
-
-    bool sg_changed = false;
-    bool rpf_changed = false;
-    FlowEntry *rflow = flow->reverse_flow_entry();
-    const SecurityGroupList &sg_list = route->GetActivePath()->sg_list();
-
-    // Handle SG Change for flow
-    if (RevaluateSgList(flow, route, sg_list)) {
-        sg_changed = true;
-    }
-
-    if (rflow && RevaluateSgList(rflow, route, sg_list)) {
-        sg_changed = true;
-    }
-
-    // SG change should always be applied on forward flow.
-    if (sg_changed) {
-        if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
-            flow = flow->reverse_flow_entry();
-        }
-    }
-
-    // Revaluate RPF-NH for the flow
-    if (RevaluateRpfNH(flow, route)) {
-        rpf_changed = true;
-    }
-
-    // If there is change in SG, Resync the flow
-    if (sg_changed) {
-        flow->GetPolicyInfo();
-        ResyncAFlow(flow);
-        AddFlowInfo(flow);
-    } else if (rpf_changed) {
-        // No change in SG, but RPF changed. On RPF change we only need to do
-        // KSync update. There is no need to do Resync of flow since no flow
-        // matching attributes have changed
-        // when RPF is changed.
-        UpdateKSync(flow, true);
-    }
 }
 
 // Enqueue message to revaluate a flow
@@ -760,9 +538,7 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
         flow = flow->reverse_flow_entry();
     }
 
-    if (flow->set_pending_recompute(true)) {
-        agent_->pkt()->get_flow_proto()->MessageRequest(new FlowTaskMsg(flow));
-    }
+    agent_->pkt()->get_flow_proto()->MessageRequest(new FlowTaskMsg(flow));
 }
 
 // Handle deletion of a Route. Flow management module has identified that route
@@ -783,38 +559,65 @@ void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
 
 void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
                                        bool active_flow, bool deleted_flow) {
-    const Interface *intf = dynamic_cast<const Interface *>(entry);
-    if (intf && active_flow) {
-        RevaluateInterface(flow);
+    // Check if re-valuate still pending on flow
+    if (flow->GetPendingAction()->revaluate() == false)
         return;
+    flow->GetPendingAction()->SetRevaluate(false);
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    if (rflow)
+        rflow->GetPendingAction()->SetRevaluate(false);
+
+    // Ignore revluate of deleted/short flows
+    if (flow->IsShortFlow())
+        return;
+
+    if (flow->deleted())
+        return;
+
+    // Update may happen for reverse-flow. We act on both forward and
+    // reverse-flow. Get both forward and reverse flows
+    if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+        FlowEntry *tmp = flow;
+        flow = rflow;
+        rflow = tmp;
     }
 
-    const VnEntry *vn = dynamic_cast<const VnEntry *>(entry);
-    // TODO: check if the following need not be done for short flows
-    if (vn && (deleted_flow == false)) {
-        RevaluateVn(flow);
+    // We want to update only if both forward and reverse flow are valid
+    if (flow == NULL || rflow == NULL)
         return;
+
+    // Ignore update, if any of the DBEntries referred is deleted
+    if (flow->vn_entry() && flow->vn_entry()->IsDeleted())
+        return;
+
+    if (flow->nh() && flow->nh()->IsDeleted())
+        return;
+
+    if (flow->intf_entry() && flow->intf_entry()->IsDeleted())
+        return;
+
+    // Revaluate flood unknown-unicast flag. If flow has UnknownUnicastFlood and
+    // VN doesnt allow it, make Short Flow
+    if (flow->vn_entry() &&
+        flow->vn_entry()->flood_unknown_unicast() == false &&
+        flow->is_flags_set(FlowEntry::UnknownUnicastFlood)) {
+        flow->MakeShortFlow(FlowEntry::SHORT_NO_DST_ROUTE);
     }
 
-    const AclDBEntry *acl = dynamic_cast<const AclDBEntry *>(entry);
-    if (acl && active_flow) {
-        RevaluateAcl(flow);
-        return;
-    }
+    flow->UpdateL2RouteInfo();
+    rflow->UpdateL2RouteInfo();
 
-    const NextHop *nh = dynamic_cast<const NextHop *>(entry);
-    if (nh && active_flow) {
-        RevaluateNh(flow);
-        return;
-    }
+    // Get policy attributes again and redo the flows
+    flow->GetPolicyInfo();
+    rflow->GetPolicyInfo();
 
-    const AgentRoute *rt = dynamic_cast<const AgentRoute *>(entry);
-    if (rt && active_flow) {
-        RevaluateRoute(flow, rt);
-        return;
-    }
+    // Resync of forward flow, will resync reverse flow also
+    ResyncAFlow(flow);
 
-    assert(active_flow == false);
+    // Update flow-mgmt with new values
+    AddFlowInfo(flow);
+    AddFlowInfo(rflow);
     return;
 }
 
@@ -1053,6 +856,30 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         break;
     }
     }
+    return true;
+}
+
+bool FlowTable::SetRecomputePending(FlowEntry *flow) {
+    tbb::mutex::scoped_lock mutext(flow->mutex());
+    if (flow->deleted() || flow->IsShortFlow())
+        return false;
+
+    if (flow->GetPendingAction()->recompute())
+        return false;
+
+    flow->GetPendingAction()->SetRecompute(true);
+    return true;
+}
+
+bool FlowTable::SetRevaluatePending(FlowEntry *flow) {
+    tbb::mutex::scoped_lock mutext(flow->mutex());
+    if (flow->deleted() || flow->IsShortFlow())
+        return false;
+
+    if (flow->GetPendingAction()->revaluate())
+        return false;
+
+    flow->GetPendingAction()->SetRevaluate(true);
     return true;
 }
 

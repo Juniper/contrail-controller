@@ -273,7 +273,6 @@ void FlowData::Reset() {
     dest_plen = 0;
     drop_reason = 0;
     vrf_assign_evaluated = false;
-    pending_recompute = false;
     if_index_info = 0;
     tunnel_info.Reset();
     flow_source_plen_map.clear();
@@ -398,6 +397,7 @@ void FlowEntry::Reset() {
     last_event_ = FlowEvent::INVALID;
     flow_retry_attempts_ = 0;
     is_flow_on_unresolved_list = false;
+    pending_actions_.Reset();
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
@@ -425,6 +425,7 @@ FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
 }
 
 // selectively copy fields from RHS
+// When flow is being updated, rhs will be new flow allocated in PktFlowInfo
 void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     if (update) {
         rhs->data_.in_vm_entry.FreeFd();
@@ -738,15 +739,6 @@ VmInterfaceKey FlowEntry::reverse_flow_vmi() const {
 void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id, Agent *agent) {
     fip_ = fip;
     fip_vmi_ = InterfaceIdToKey(agent, id);
-}
-
-bool FlowEntry::set_pending_recompute(bool value) {
-    if (data_.pending_recompute != value) {
-        data_.pending_recompute = value;
-        return true;
-    }
-
-    return false;
 }
 
 void FlowEntry::set_flow_handle(uint32_t flow_handle, uint8_t gen_id) {
@@ -1296,6 +1288,30 @@ void FlowEntry::GetNonLocalFlowSgList(const VmInterface *vm_port) {
         CopySgEntries(vm_port, !ingress,
                       data_.match_p.m_reverse_out_sg_acl_l);
     data_.match_p.reverse_sg_rule_present = false;
+}
+
+// For an L2-Flow, refresh the vn-list and sg-list from the route used for
+// flow
+void FlowEntry::UpdateL2RouteInfo() {
+    // Skip L3-Flows
+    if (l3_flow())
+        return;
+
+    Agent *agent = flow_table()->agent();
+    // Get VRF for the flow. L2 flow have same in and out-vrf. So, use same
+    // vrf for both smac and dmac lookup
+    uint32_t vrf_id = data().flow_source_vrf;
+    const VrfEntry *vrf = agent->vrf_table()->FindVrfFromId(vrf_id);
+    if (vrf == NULL || vrf->IsDeleted()) {
+        return;
+    }
+    BridgeAgentRouteTable *table =
+        static_cast<BridgeAgentRouteTable *>(vrf->GetBridgeRouteTable());
+
+    // Get route-info for smac
+    GetSourceRouteInfo(table->FindRoute(data().smac));
+    // Get route-info for dmac
+    GetDestRouteInfo(table->FindRoute(data().dmac));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2003,6 +2019,32 @@ void FlowEntry::UpdateReflexiveAction() {
      }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Routines to manage pending actions on a flow. The pending actions are used
+// to state-compress actions trigged due to update of,
+// - DBEntries like interface, ACL etc..
+// - Routes
+/////////////////////////////////////////////////////////////////////////////
+FlowPendingAction::FlowPendingAction()  {
+    Reset();
+}
+
+FlowPendingAction::~FlowPendingAction() {
+}
+
+void FlowPendingAction::Reset() {
+    recompute_ = false;
+    revaluate_ = false;
+}
+
+void FlowPendingAction::SetRevaluate(bool val) {
+    revaluate_ = val;
+}
+
+void FlowPendingAction::SetRecompute(bool val) {
+    recompute_ = val;
+    revaluate_ = val;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////
