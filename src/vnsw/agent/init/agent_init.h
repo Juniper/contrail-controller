@@ -69,6 +69,11 @@ public:
     virtual void RegisterDBClientsBase();
     virtual void RegisterDBClients() { }
 
+    // Blocking call to get init mutex;
+    // Used to synchronize event manager execution with init completion
+    virtual void Lock() { init_mutex_.lock(); }
+    virtual void Unlock() { init_mutex_.unlock(); }
+
     // Module specific inits. Called after DBTable and DBTable clients are
     // created
     virtual void InitModulesBase();
@@ -163,6 +168,7 @@ private:
     std::auto_ptr<Agent> agent_;
     AgentParam *agent_param_;
 
+    tbb::mutex init_mutex_;
     std::auto_ptr<TaskTrigger> trigger_;
 
     std::auto_ptr<AgentConfig> cfg_;
