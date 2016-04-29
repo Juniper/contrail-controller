@@ -157,7 +157,7 @@ OpencontrailLoadbalancerDriver")
         pool_obj['loadbalancer_pool_provider'] = 'f5'
         pool_obj['loadbalancer_pool_properties'] = \
             {'protocol': 'HTTP', 'subnet_id': 'pool_subnet_id',
-             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': 'true',
+             'loadbalancer_method': 'ROUND_ROBIN', 'admin_state': True,
              'session_persistence': None, 'persistence_cookie_name': None}
         if vip:
             pool_obj['virtual_ip_back_refs']=[{'uuid': vip.uuid}]
@@ -181,7 +181,7 @@ OpencontrailLoadbalancerDriver")
                                                     'timeout': '2',
                                                     'url_path': '/',
                                                     'monitor_type': 'HTTP',
-                                                    'admin_state': 'true'}
+                                                    'admin_state': True}
         return hm_obj
     #end create_hm_obj
 
@@ -194,13 +194,13 @@ OpencontrailLoadbalancerDriver")
     def update_pool(self, pool_obj, vip=None):
         pool_obj.params['loadbalancer_method'] = 'LEAST_CONNECTIONS'
         pool_obj.params['protocol'] = 'HTTPS'
-        pool_obj.params['admin_state'] = 'false'
+        pool_obj.params['admin_state'] = False
     # end update_pool
 
     def update_vip(self, vip_obj, pool=None):
         vip_obj.params['connection_limit'] = '100'
         vip_obj.params['persistence_type'] = 'always'
-        vip_obj.params['admin_state'] = 'false'
+        vip_obj.params['admin_state'] = False
     # end update_vip
 
     def create_pool_members(self, pool_name, num_members):
@@ -219,7 +219,7 @@ OpencontrailLoadbalancerDriver")
             {'enable': 'true', 'description': 'Test pool member'}
         pool_member_obj['loadbalancer_member_properties'] = \
             {'protocol_port': '80', 'address': member_address,
-             'weight': '1', 'status': 'up', 'admin_state': 'true'}
+             'weight': '1', 'status': 'up', 'admin_state': True}
         member = config_db.LoadbalancerMemberSM.locate(pool_member_obj['uuid'],
             pool_member_obj)
     # end create_pool_member
@@ -280,7 +280,7 @@ OpencontrailLoadbalancerDriver")
                                             'protocol_port': '80',
                                             'subnet_id': 'vip_subnet_id',
                                             'protocol': 'HTTP',
-                                            'admin_state': 'true',
+                                            'admin_state': True,
                                             'connection_limit': '-1',
                                             'persistence_type': None,
                                             'persistence_cookie_name': None,
@@ -560,7 +560,7 @@ OpencontrailLoadbalancerDriver")
 
         # Validate member admin_state update
         member = config_db.LoadbalancerMemberSM.get('member_1')
-        member.params['admin_state'] = 'false'
+        member.params['admin_state'] = False
         pool.add()
         self._mock_BigIp.return_value.pool.disable_member.assert_called_with(
             folder='tenant', ip_address='10.1.1.1%0', name='test-lb-pool',
@@ -568,7 +568,7 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.reset_mock()
 
         member = config_db.LoadbalancerMemberSM.get('member_1')
-        member.params['admin_state'] = 'true'
+        member.params['admin_state'] = True
         pool.add()
         self._mock_BigIp.return_value.pool.enable_member.assert_called_with(
             folder='tenant', ip_address='10.1.1.1%0', name='test-lb-pool',
@@ -599,7 +599,7 @@ OpencontrailLoadbalancerDriver")
                                     '10.1.1.2')
         config_db.LoadbalancerMemberSM.delete('member_0')
         member = config_db.LoadbalancerMemberSM.get('member_1')
-        member.params['admin_state'] = 'false'
+        member.params['admin_state'] = False
         pool.add()
 
 
@@ -707,12 +707,12 @@ OpencontrailLoadbalancerDriver")
             description='vip:New Description', folder='tenant', name='vip')
 
         self._mock_BigIp.reset_mock()
-        vip.params['admin_state'] = 'false'
+        vip.params['admin_state'] = False
         pool.add()
         self._mock_BigIp.return_value.virtual_server.disable_virtual_server.assert_called_with(
             folder='tenant', name='vip')
 
-        vip.params['admin_state'] = 'true'
+        vip.params['admin_state'] = True
         pool.add()
         self._mock_BigIp.return_value.virtual_server.enable_virtual_server.assert_called_with(
             folder='tenant', name='vip')
