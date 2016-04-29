@@ -20,7 +20,8 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
 void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
                                                    size_t read_bytes) {
     if (read_bytes) {
-        on_error_cb_(this, rx_buff_);
+        if (!on_error_cb_.empty())
+            on_error_cb_(this, rx_buff_);
     }
 
     if (ec) {
