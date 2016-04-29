@@ -223,13 +223,14 @@ class SvcMonitor(object):
                 dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP,
                     self._REACTION_MAP)
                 obj_id = oper_info['uuid']
-                obj = obj_class.get(obj_id)
+                obj = obj_class.locate(obj_id)
+                if obj is not None:
+                    try:
+                        obj.update()
+                    except exceptions.NoIdError:
+                        obj = None
                 if obj is not None:
                     dependency_tracker.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
-                dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
@@ -246,8 +247,9 @@ class SvcMonitor(object):
                 return
 
             if obj is None:
-                self.config_log('Error while accessing %s uuid %s' % (
-                                obj_type, obj_id))
+                self.config_log('%s uuid %s has vanished' % (
+                                obj_type, obj_id),
+                                level=SandeshLevel.SYS_WARN)
                 return
 
         except Exception:
