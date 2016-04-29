@@ -204,6 +204,9 @@ uint8_t KSyncFlowIndexManager::AcquireIndexUnLocked(uint32_t index,
                 // evict current entry
                 evict_gen_id = old->gen_id();
                 if (flow) {
+                    // KSyncEntry can be NULL at this point since acquire
+                    // index can be done before creating KSyncEntry
+                    // LogFlow needs to handle NULL KSyncEntry pointer
                     flow->LogFlow(FlowEventLog::FLOW_EVICT, flow->ksync_entry_,
                                   flow->flow_handle(), evict_gen_id);
                     proto_->EvictFlowRequest(flow, flow->flow_handle(),
