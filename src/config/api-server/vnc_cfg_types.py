@@ -1431,6 +1431,26 @@ def _check_policy_rules(entries, network_policy_rule=False):
             if ('local' not in src_sg and 'local' not in dst_sg):
                 return (False, (400, "At least one of source or destination"
                                      " addresses must be 'local'"))
+            # Egress rule
+            if 'local' in src_sg:
+                # For Egress, Destination port range is mandatory
+                if 'dst_ports' not in rule:
+                    return (False, (400, "Destination ports should be specified"
+                # For Egress, if src ports are not specified, assume
+                # all ports
+                if 'src_ports' not in rule:
+                    rule['src_ports'] = [{'end_port': 65535, 'start_port': 0}]
+
+            #Ingress rule
+            if 'local' in dst_sg:
+                # For Ingress, source port range is mandatory
+                if 'src_ports' not in rule:
+                    return (False, (400, "Source ports should be specified"
+                # For Ingress, if dst ports are not specified, assume
+                # all ports.
+                if 'dst_ports' not in rule:
+                    rule['dst_ports'] = [{'end_port': 65535, 'start_port': 0}]
+
     return True, ""
 # end _check_policy_rules
 
