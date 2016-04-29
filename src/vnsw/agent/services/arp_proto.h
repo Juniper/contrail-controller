@@ -25,7 +25,6 @@ public:
     typedef std::map<ArpKey, ArpEntry *> ArpCache;
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef std::map<ArpKey, ArpEntry *>::iterator ArpIterator;
-    typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
     typedef std::set<ArpKey> ArpKeySet;
 
     enum ArpMsgType {

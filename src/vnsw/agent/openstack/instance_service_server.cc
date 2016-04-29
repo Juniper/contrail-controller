@@ -671,7 +671,7 @@ void ConfigStaleCleaner::StartStaleCleanTimer(int32_t version) {
 }
 
 bool ConfigStaleCleaner::StaleEntryTimeout(int32_t version, Timer *timer) {
-    if (audit_callback_) {
+    if (!audit_callback_.empty()) {
         audit_callback_(version);
     }
     running_timer_list_.erase(timer);

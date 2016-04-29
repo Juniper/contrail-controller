@@ -90,6 +90,9 @@ void AgentInit::InitPlatform() {
 // Start of Agent init.
 // Trigger init in DBTable task context
 int AgentInit::Start() {
+    // lock till init is done
+    Lock();
+
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
 
     // Init platform specific information
@@ -157,6 +160,9 @@ bool AgentInit::InitBase() {
     bool ret = Init();
     agent_->set_init_done(true);
     ConnectToControllerBase();
+
+    // Init is done
+    Unlock();
     return ret;
 }
 

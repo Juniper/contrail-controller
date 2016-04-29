@@ -189,7 +189,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             new BgpAsAServiceList(new_bgp_as_a_service_entry_list);
     }
 
-    if (changed && service_delete_cb_) {
+    if (changed && !service_delete_cb_.empty()) {
         //Enqueue flow handler request.
         BgpAsAServiceEntryListIterator deleted_list_iter =
             old_bgp_as_a_service_entry_list_iter->second->list_.begin();
@@ -205,7 +205,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
 }
 
 void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
-    if (service_delete_cb_ == NULL)
+    if (service_delete_cb_.empty())
         return;
 
     BgpAsAServiceEntryMapIterator iter =

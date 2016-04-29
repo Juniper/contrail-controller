@@ -63,7 +63,8 @@ void VmStat::ReadData(const boost::system::error_code &ec,
 }
 
 void VmStat::ProcessData() {
-    call_back_();
+    if (!call_back_.empty())
+        call_back_();
 }
 
 void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
