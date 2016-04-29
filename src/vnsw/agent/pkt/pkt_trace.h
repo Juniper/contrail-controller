@@ -47,7 +47,7 @@ public:
     }
 
     void Iterate(Cb cb) {
-        if (cb && count_) {
+        if (!cb.empty() && count_) {
             uint32_t start_ =
                 (count_ < num_buffers_) ? 0 : (end_ + 1) % num_buffers_;
             for (uint32_t i = 0; i < count_; i++)
