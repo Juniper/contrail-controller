@@ -302,7 +302,15 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
                     //use policy disabled interface
                     if (local_intf &&
                             local_intf->type() == Interface::VM_INTERFACE) {
-                        out->nh_ = GetPolicyEnabledNH(nh_table, local_nh)->id();
+                        if (local_intf->ip_active(pkt->family) == true) {
+                            out->nh_ =
+                                GetPolicyEnabledNH(nh_table, local_nh)->id();
+                        } else {
+                            LogError(pkt, "Invalid or Inactive ifindex");
+                            info->short_flow = true;
+                            info->short_flow_reason =
+                                FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
+                        }
                     }
                 }
             } else {
