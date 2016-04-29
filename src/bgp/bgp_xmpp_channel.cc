@@ -129,9 +129,16 @@ class BgpXmppChannel::PeerClose : public IPeerClose {
 public:
     explicit PeerClose(BgpXmppChannel *channel)
        : parent_(channel),
-         manager_(BgpObjectFactory::Create<PeerCloseManager>(channel->Peer())) {
+         manager_(BgpObjectFactory::Create<PeerCloseManager>(this)) {
     }
-    virtual ~PeerClose() {
+    virtual ~PeerClose() { }
+    virtual bool IsReady() const { return parent_->Peer()->IsReady(); }
+    virtual IPeer *peer() const { return parent_->Peer(); }
+
+    virtual void UnregisterPeer(
+            MembershipRequest::NotifyCompletionFn completion_fn) {
+        parent_->Peer()->server()->membership_mgr()->UnregisterPeer(
+                parent_->Peer(), completion_fn);
     }
     virtual string ToString() const {
         return parent_ ? parent_->ToString() : "";

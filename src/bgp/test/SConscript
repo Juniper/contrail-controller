@@ -207,6 +207,9 @@ bgp_peer_close_test = except_env.UnitTest('bgp_peer_close_test',
                                           ['bgp_peer_close_test.cc'])
 env.Alias('src/bgp:bgp_peer_close_test', bgp_peer_close_test)
 
+peer_close_test = except_env.UnitTest('peer_close_test', ['peer_close_test.cc'])
+env.Alias('src/bgp:peer_close_test', peer_close_test)
+
 bgp_peer_membership_test = env.UnitTest('bgp_peer_membership_test',
                                         ['bgp_peer_membership_test.cc'])
 env.Alias('src/bgp:bgp_peer_membership_test', bgp_peer_membership_test)
@@ -581,6 +584,7 @@ test_suite = [
     graceful_restart_test,
     path_resolver_test1,
     path_resolver_test2,
+    peer_close_test,
     ribout_attributes_test,
     route_aggregator_test,
     routepath_replicator_random_test,

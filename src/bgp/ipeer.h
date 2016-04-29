@@ -10,6 +10,8 @@
 #include "tbb/atomic.h"
 
 class BgpServer;
+class BgpTable;
+class IPeer;
 class PeerCloseManager;
 
 class IPeerUpdate {
@@ -132,6 +134,10 @@ public:
     virtual void GetGracefulRestartFamilies(Families *) const = 0;
     virtual const int GetGracefulRestartTime() const = 0;
     virtual const int GetLongLivedGracefulRestartTime() const = 0;
+    virtual bool IsReady() const = 0;
+    virtual void UnregisterPeer(
+        boost::function<void(IPeer *peer, BgpTable *table)> completion_fn) = 0;
+    virtual IPeer *peer() const = 0;
 };
 
 class IPeer : public IPeerUpdate {

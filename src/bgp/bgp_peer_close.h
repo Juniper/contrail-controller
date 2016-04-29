@@ -41,23 +41,32 @@ public:
     // Use 12 hours as the default LLGR timer expiry duration.
     static const int kDefaultLongLivedGracefulRestartTimeSecs = 12 * 60 * 60;
 
-    // thread: bgp::StateMachine
-    explicit PeerCloseManager(IPeer *peer);
+    explicit PeerCloseManager(IPeerClose *peer_close,
+                              boost::asio::io_service &io_service);
+    explicit PeerCloseManager(IPeerClose *peer_close);
     virtual ~PeerCloseManager();
 
-    IPeer *peer() { return peer_; }
+    bool IsCloseInProgress() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return state_ != NONE;
+    }
+
+    bool IsInGracefulRestartTimerWait() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return state_ == GR_TIMER || state_ == LLGR_TIMER;
+    }
+
+    State state() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return state_;
+    }
 
     void Close();
+    void ProcessEORMarkerReceived(Address::Family family);
+
     bool RestartTimerCallback();
     void UnregisterPeerComplete(IPeer *ipeer, BgpTable *table);
-    int GetCloseAction(IPeerRib *peer_rib, State state);
-    void ProcessRibIn(DBTablePartBase *root, BgpRoute *rt, BgpTable *table,
-                      int action_mask);
-    bool IsCloseInProgress() const;
-    bool IsInGracefulRestartTimerWait() const;
-    void ProcessEORMarkerReceived(Address::Family family);
-    void FillCloseInfo(BgpNeighborResp *resp);
-    const State state() const { return state_; }
+    void FillCloseInfo(BgpNeighborResp *resp) const;
 
     struct Stats {
         Stats() { memset(this, 0, sizeof(Stats)); }
@@ -71,10 +80,6 @@ public:
         uint64_t sweep;
         uint64_t gr_timer;
         uint64_t llgr_timer;
-        uint64_t deleted_state_paths;
-        uint64_t deleted_paths;
-        uint64_t marked_stale_paths;
-        uint64_t marked_llgr_stale_paths;
     };
     const Stats &stats() const { return stats_; }
 
@@ -89,7 +94,7 @@ private:
     const std::string GetStateName(State state) const;
     void CloseInternal();
 
-    IPeer *peer_;
+    IPeerClose *peer_close_;
     Timer *stale_timer_;
     Timer *sweep_timer_;
     State state_;

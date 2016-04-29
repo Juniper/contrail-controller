@@ -56,7 +56,6 @@ public:
     NotifyCompletionFn  notify_completion_fn;
 
     typedef boost::function<int(IPeerRib *)> ActionGetFn;
-    ActionGetFn         action_get_fn;
 };
 
 typedef std::vector<MembershipRequest> MembershipRequestList;
@@ -222,9 +221,7 @@ public:
     void RegisterRibIn(IPeer *ipeer, BgpTable *table);
     virtual void Unregister(IPeer *ipeer, BgpTable *table,
                     NotifyCompletionFn notify_completion_fn = NULL);
-    void UnregisterPeer(IPeer *ipeer,
-             MembershipRequest::ActionGetFn action_get_fn,
-             MembershipRequest::NotifyCompletionFn notify_completion_fn);
+    void UnregisterPeer(IPeer *ipeer, NotifyCompletionFn notify_completion_fn);
 
     bool PeerRegistered(IPeer *ipeer, BgpTable *table) {
         if (IPeerRibFind(ipeer, table)) {
@@ -296,6 +293,7 @@ private:
     void MembershipRequestListDebug(const char *function, int line,
                                     BgpTable *table,
                                     MembershipRequestList *request_list);
+    int GetUnregisterPeerActionMask(IPeerRib *peer_rib) const;
 
     static int membership_task_id_;
 

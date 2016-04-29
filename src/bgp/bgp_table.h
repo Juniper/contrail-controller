@@ -126,12 +126,8 @@ public:
 
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
-    bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
-                     const IPeer *peer, DBRequest *req,
-                     DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                     uint32_t path_id, uint32_t flags, uint32_t label);
-    void InputCommonPostProcess(DBTablePartBase *root, BgpRoute *rt,
-                                bool notify_rt);
+    void Input(DBTablePartBase *root, IPeer *peer, BgpRoute *rt,
+               int action_mask);
 
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
@@ -155,6 +151,12 @@ public:
 private:
     void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
                           BgpAttr *attr);
+    bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
+                     const IPeer *peer, DBRequest *req,
+                     DBRequest::DBOperation oper, BgpAttrPtr attrs,
+                     uint32_t path_id, uint32_t flags, uint32_t label);
+    void InputCommonPostProcess(DBTablePartBase *root, BgpRoute *rt,
+                                bool notify_rt);
 
     class DeleteActor;
     friend class BgpTableTest;
