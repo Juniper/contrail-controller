@@ -39,6 +39,7 @@ from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_db import DBBase
 from config_db import *
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.exceptions import NoIdError
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -224,12 +225,14 @@ class SvcMonitor(object):
                     self._REACTION_MAP)
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
+                if obj is None:
+                    try:
+                        obj = obj_class.locate(obj_id)
+                    except NoIdError:
+                        obj = None
                 if obj is not None:
+                    obj.update()
                     dependency_tracker.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
-                dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
@@ -246,8 +249,9 @@ class SvcMonitor(object):
                 return
 
             if obj is None:
-                self.config_log('Error while accessing %s uuid %s' % (
-                                obj_type, obj_id))
+                self.config_log('%s uuid %s has vanished' % (
+                                obj_type, obj_id),
+                                level=SandeshLevel.SYS_WARN)
                 return
 
         except Exception:
