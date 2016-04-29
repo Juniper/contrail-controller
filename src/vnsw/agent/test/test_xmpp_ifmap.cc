@@ -247,6 +247,21 @@ protected:
         cfg->EncodeUpdate(&tmp);
     }
 
+    void BuildCfgNodeMessageWithoutIdPerms(xml_node &node, string type,
+                                           string name, int uuid,
+                                           IFMapIdentifier *cfg) {
+
+        xml_node tmp = node.append_child("node");
+        tmp.append_attribute("type") = type.c_str();
+        tmp.append_child("name").text().set(name.c_str());
+
+        autogen::IdPermsType id;
+        id.uuid.uuid_mslong = 0;
+        id.uuid.uuid_lslong = uuid;
+
+        cfg->EncodeUpdate(&tmp);
+    }
+
     void ClearCfgNodeMessage(xml_node &node, string type, string name, int uuid, IFMapIdentifier *cfg) {
 
         xml_node tmp = node.append_child("node");
@@ -321,6 +336,36 @@ TEST_F(AgentIFMapXmppUnitTest, vntest) {
                         <IFMapIdentifier *> (vn));
     SendDocument(del_xdoc, mock_ifmap_peer.get());
     WAIT_FOR(1000, 10000, (VnFind(1) == false));
+    delete req_key;
+    delete vn;
+}
+
+// Check that config without id-perms is ignored
+TEST_F(AgentIFMapXmppUnitTest, vnNoIdPermstest) {
+    IFMapNode *node;
+    xml_document xdoc;
+
+    // Wait for the connection to be established
+    WAIT_FOR(100, 10000, (sconnection->GetStateMcState() == xmsm::ESTABLISHED));
+
+    xml_node xitems = MessageHeader(&xdoc, true);
+
+    // "virtual-network" "update" message
+    autogen::VirtualNetwork *vn = new autogen::VirtualNetwork();
+    BuildCfgNodeMessageWithoutIdPerms(xitems, "virtual-network", "vn1", 1,
+                                      static_cast<IFMapIdentifier *> (vn));
+    SendDocument(xdoc, mock_ifmap_peer.get());
+    client->WaitForIdle();
+
+    // Check that entry isnt present in config db
+    IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
+    req_key->id_type = "virtual-network";
+    req_key->id_name = "vn1";
+    client->WaitForIdle();
+    node = IFMapAgentTable::TableEntryLookup(
+                           Agent::GetInstance()->db(), req_key);
+    EXPECT_TRUE(node == NULL);
+
     delete req_key;
     delete vn;
 }
