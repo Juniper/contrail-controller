@@ -475,31 +475,39 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
-    def check_port_gateway_not_in_same_network(cls, db_conn, lr_id, obj_dict):
+    def check_port_gateway_not_in_same_network(cls, db_conn,
+                                               obj_dict, lr_id=None):
         if ('virtual_network_refs' in obj_dict and
                 'virtual_machine_interface_refs' in obj_dict):
-            ok, result = cls.is_port_gateway_in_same_network(db_conn,
-                             obj_dict['virtual_machine_interface_refs'],
-                             obj_dict['virtual_network_refs'])
+            ok, result = cls.is_port_gateway_in_same_network(
+                    db_conn,
+                    obj_dict['virtual_machine_interface_refs'],
+                    obj_dict['virtual_network_refs'])
             if not ok:
                 return ok, result
-        if ('virtual_network_refs' in obj_dict or
-                'virtual_machine_interface_refs' in obj_dict):
-            ok, read_result = cls.dbe_read(db_conn, 'logical-router', lr_id)
-            if not ok:
-                return ok, read_result
-        if 'virtual_network_refs' in obj_dict:
-            ok, result = cls.is_port_gateway_in_same_network(db_conn,
-                             read_result.get('virtual_machine_interface_refs', []),
-                             obj_dict['virtual_network_refs'])
-            if not ok:
-                return ok, result
-        if 'virtual_machine_interface_refs' in obj_dict:
-            ok, result = cls.is_port_gateway_in_same_network(db_conn,
-                             obj_dict['virtual_machine_interface_refs'],
-                             read_result.get('virtual_network_refs', []))
-            if not ok:
-                return ok, result
+        # update
+        if lr_id:
+            if ('virtual_network_refs' in obj_dict or
+                    'virtual_machine_interface_refs' in obj_dict):
+                ok, read_result = cls.dbe_read(db_conn,
+                                               'logical-router',
+                                               lr_id)
+                if not ok:
+                    return ok, read_result
+            if 'virtual_network_refs' in obj_dict:
+                ok, result = cls.is_port_gateway_in_same_network(
+                        db_conn,
+                        read_result.get('virtual_machine_interface_refs', []),
+                        obj_dict['virtual_network_refs'])
+                if not ok:
+                    return ok, result
+            if 'virtual_machine_interface_refs' in obj_dict:
+                ok, result = cls.is_port_gateway_in_same_network(
+                        db_conn,
+                        obj_dict['virtual_machine_interface_refs'],
+                        read_result.get('virtual_network_refs', []))
+                if not ok:
+                    return ok, result
         return (True, '')
 
     @classmethod
@@ -511,13 +519,21 @@ class LogicalRouterServer(Resource, LogicalRouter):
                                'obj_type': 'logical-router',
                                'user_visibility': user_visibility}
 
-        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+        ok, result = QuotaHelper.verify_quota_for_resource(
+                **verify_quota_kwargs)
+        if not ok:
+            return (ok, result)
+        ok, result = cls.check_port_gateway_not_in_same_network(
+                db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+        return cls.is_port_in_use_by_vm(obj_dict, db_conn)
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        ok, result = cls.check_port_gateway_not_in_same_network(db_conn, id,
-                                                                obj_dict)
+        ok, result = cls.check_port_gateway_not_in_same_network(
+                db_conn, obj_dict, id)
         if not ok:
             return (ok, result)
         return cls.is_port_in_use_by_vm(obj_dict, db_conn)
