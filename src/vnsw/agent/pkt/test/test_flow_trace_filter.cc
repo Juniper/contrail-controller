@@ -24,7 +24,7 @@ static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
 }
 
 static void FlowStatsTimerStartStop (Agent *agent, bool stop) {
-    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowEvent);
+    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
     std::auto_ptr<TaskTrigger> trigger_
         (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, agent,
                                      stop), task_id, 0));

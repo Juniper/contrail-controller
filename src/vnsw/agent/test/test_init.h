@@ -139,7 +139,7 @@ public:
 
 class FlowAge : public Task {
 public:
-    FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::StatsCollector")), 0) {
+    FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector)), 0) {
     }
     virtual bool Run() {
         Agent::GetInstance()->flow_stats_manager()->
