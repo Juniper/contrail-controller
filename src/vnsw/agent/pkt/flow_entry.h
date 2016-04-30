@@ -271,7 +271,6 @@ struct FlowData {
     uint8_t dest_plen;
     uint16_t drop_reason;
     bool vrf_assign_evaluated;
-    bool pending_recompute;
     uint32_t            if_index_info;
     TunnelInfo          tunnel_info;
     // map for references to the routes which were ignored due to more specific
@@ -311,6 +310,27 @@ struct FlowEventLog {
     uint8_t gen_id_;
     uint32_t vrouter_flow_handle_;
     uint8_t vrouter_gen_id_;
+};
+
+// Structure to track pending actions on flow. This is used to state-compress
+// multiple actions on a flow
+class FlowPendingAction {
+public:
+    FlowPendingAction();
+    ~FlowPendingAction();
+
+    void Reset();
+
+    void SetRevaluate(bool val);
+    bool revaluate() const { return revaluate_; }
+
+    void SetRecompute(bool val);
+    bool recompute() const { return recompute_; }
+private:
+    // Flow pending revaluation due to change in interface, vn, acl and nh
+    bool revaluate_;
+    // Flow pending complete recompute
+    bool recompute_;
 };
 
 class FlowEntry {
@@ -465,7 +485,6 @@ class FlowEntry {
     TunnelType tunnel_type() const { return tunnel_type_; }
 
     uint16_t short_flow_reason() const { return short_flow_reason_; }
-    bool set_pending_recompute(bool value);
     const MacAddress &smac() const { return data_.smac; }
     const MacAddress &dmac() const { return data_.dmac; }
     bool on_tree() const { return on_tree_; }
@@ -510,6 +529,7 @@ class FlowEntry {
     void GetPolicyInfo(const FlowEntry *rflow);
     void GetPolicyInfo(const VnEntry *vn);
     void GetPolicyInfo();
+    void UpdateL2RouteInfo();
     void GetVrfAssignAcl();
     void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
 
@@ -546,6 +566,7 @@ class FlowEntry {
     bool trace() const { return trace_; }
     void set_trace(bool val) { trace_ = val; }
 
+    FlowPendingAction *GetPendingAction() { return &pending_actions_; }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -608,6 +629,7 @@ private:
     bool trace_;
     boost::scoped_array<FlowEventLog> event_logs_;
     uint16_t event_log_index_;
+    FlowPendingAction pending_actions_;
     static SecurityGroupList default_sg_list_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
