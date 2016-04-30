@@ -317,9 +317,21 @@ void IFMapUpdateSender::LogAndCountSentUpdate(IFMapUpdate *update,
                 IFMAP_DEBUG_ONLY(IFMapClientSendInfo, operation, name,
                                  client->identifier(), client->name());
                 if (update->IsNode()) {
-                    client->incr_nodes_sent();
+                    if (update->IsUpdate()) {
+                        client->incr_update_nodes_sent();
+                    } else if (update->IsDelete()) {
+                        client->incr_delete_nodes_sent();
+                    } else {
+                        assert(0);
+                    }
                 } else if (update->IsLink()) {
-                    client->incr_links_sent();
+                    if (update->IsUpdate()) {
+                        client->incr_update_links_sent();
+                    } else if (update->IsDelete()) {
+                        client->incr_delete_links_sent();
+                    } else {
+                        assert(0);
+                    }
                 }
             }
             client_id = base_send_set.find_next(client_id);
