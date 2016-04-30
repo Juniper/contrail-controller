@@ -52,6 +52,7 @@ public:
         uint64_t del_count_;
         uint64_t audit_count_;
         uint64_t reval_count_;
+        uint64_t recompute_count_;
         uint64_t vrouter_responses_;
         uint64_t vrouter_error_;
         FlowTokenStats token_stats_;
