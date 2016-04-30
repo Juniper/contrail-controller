@@ -506,6 +506,8 @@ void PeerRibMembershipManager::Leave(BgpTable *table,
         if (peer_rib) {
             // Ignore peer ribs which are already in close process
             if (peer_rib->IsRibOutActive()) peer_rib->DeactivateRibOut();
+            // Reset the subscription generation id
+            peer_rib->set_subscription_gen_id(0);
         }
     }
 
