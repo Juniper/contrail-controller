@@ -2389,8 +2389,8 @@ void FlowEntry::LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
         << " flow->flow_handle = " << flow_handle_
         << " flow->gen_id = " << (int)gen_id_
         << " ksync = " << (void *)ksync
-        << " Ksync->hash_id = " << ksync->hash_id()
-        << " Ksync->gen_id = " << (int)ksync->gen_id()
+        << " Ksync->hash_id = " << ((ksync != NULL) ? ksync->hash_id() : -1)
+        << " Ksync->gen_id = " << ((ksync != NULL) ? (int)ksync->gen_id() : 0)
         << " new_flow_handle = " << flow_handle
         << " new_gen_id = " << (int)gen_id);
 
@@ -2411,8 +2411,8 @@ void FlowEntry::LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
     log->flow_handle_ = flow_handle_;
     log->flow_gen_id_ = gen_id_;
     log->ksync_entry_ = ksync;
-    log->hash_id_ = ksync->hash_id();
-    log->gen_id_ = ksync->gen_id();
+    log->hash_id_ = (ksync != NULL) ? ksync->hash_id() : -1;
+    log->gen_id_ = (ksync != NULL) ? ksync->gen_id() : 0;
     log->vrouter_flow_handle_ = flow_handle;
     log->vrouter_gen_id_ = gen_id;
 }
