@@ -366,6 +366,12 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY: {
+        FlowEntry *flow = event->flow();
+        FlowTable *table = flow->flow_table();
+        flow_event_queue_[table->table_index()]->Enqueue(event);
+        break;
+    }
     default:
         assert(0);
         break;
@@ -423,6 +429,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     // Check if flow-handle changed. This can happen if vrouter tries to
     // setup the flow which was evicted earlier
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY:
     case FlowEvent::EVICT_FLOW: {
         FlowEntry *flow = req->flow();
         flow->flow_table()->ProcessFlowEvent(req, flow,
@@ -670,6 +677,12 @@ void FlowProto::TokenAvailable(FlowTokenPool *pool) {
     if (pool == &update_tokens_) {
         flow_update_queue_.MayBeStartRunner();
     }
+}
+
+void FlowProto::EnqueueUnResolvedFlowEntry(FlowEntryPtr& flow) {
+
+    FlowEvent *event = new FlowEvent(FlowEvent::UNRESOLVED_FLOW_ENTRY,flow);
+    EnqueueFlowEvent(event);
 }
 
 //////////////////////////////////////////////////////////////////////////////
