@@ -91,8 +91,10 @@ struct IFMapXmppClientInfo {
     9: VmRegInfo vm_reg_info;
     3: u64 msgs_sent;
     4: u64 msgs_blocked;
-    5: u64 nodes_sent;
-    6: u64 links_sent;
+    5: u64 update_nodes_sent;
+    10: u64 delete_nodes_sent;
+    6: u64 update_links_sent;
+    11: u64 delete_links_sent;
     7: u64 bytes_sent;
     8: bool is_blocked;
 }
