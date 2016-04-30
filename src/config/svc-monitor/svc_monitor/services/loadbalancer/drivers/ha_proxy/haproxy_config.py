@@ -27,7 +27,7 @@ PERSISTENCE_HTTP_COOKIE = 'HTTP_COOKIE'
 PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 def get_config_v2(lb):
-    sock_path = '/var/lib/contrail/loadbalancer/'
+    sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += lb.uuid + '/haproxy.sock'
     conf = set_globals(sock_path) + '\n\n'
     conf += set_defaults() + '\n\n'
@@ -121,9 +121,19 @@ def set_v2_frontend_backend(lb):
         if not ll.params['admin_state']:
             continue
 
-        ssl = ''
+        ssl = 'ssl'
+        tls_sni_presence = False
         if ll.params['protocol'] == PROTO_TERMINATED_HTTPS:
-            ssl = 'ssl crt %s no-sslv3' % ll.params['default_tls_container']
+            if ll.params['default_tls_container']:
+                ssl += ' crt %s' % ll.params['default_tls_container']
+                tls_sni_presence = True
+            for sni_container in ll.params['sni_containers']:
+                ssl += ' crt %s' % sni_container
+                tls_sni_presence = True
+        if (tls_sni_presence == False):
+            ssl = ''
+        else:
+            ssl += ' no-sslv3'
 
         lconf = [
             'frontend %s' % ll.uuid,
