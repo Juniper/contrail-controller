@@ -151,6 +151,14 @@ void VmDelReq(int id);
 void AclAddReq(int id);
 void AclDelReq(int id);
 void AclAddReq(int id, int ace_id, bool drop);
+void StartAcl(string *str, const char *name, int id);
+void EndAcl(string *str);
+void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
+                 const char *proto, uint16_t sport_start, uint16_t sport_end,
+                 uint16_t dport_start, uint16_t dport_end,
+                 const char *action, const std::string &vrf_assign,
+                 const std::string &mirror_ip);
+
 void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
                  const Peer *peer = NULL);
 void DeleteRoute(const char *vrf, const char *ip);

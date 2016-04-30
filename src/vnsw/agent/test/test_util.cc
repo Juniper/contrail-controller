@@ -1877,29 +1877,14 @@ void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *rt,
     AddNode("interface-route-table", name, id, buff);
 }
 
-static string AddAclXmlString(const char *node_name, const char *name, int id,
-                              const char *src_vn, const char *dest_vn,
-                              const char *action, std::string vrf_assign,
-                              std::string mirror_ip) {
-    char buff[10240];
-    std::ostringstream mirror;
-
-    if (mirror_ip != "") {
-        mirror << "<mirror-to>";
-        mirror << "<analyzer-name>" << node_name << "</analyzer-name>";
-        mirror << "<analyzer-ip-address>" << mirror_ip << "</analyzer-ip-address>";
-        mirror << "<routing-instance>" << "" << "</routing-instance>";
-        mirror << "<udp-port>" << "8159" << "</udp-port>";
-        mirror << "</mirror-to>";
-    } else {
-        mirror << "";
-    }
+void StartAcl(string *str, const char *name, int id) {
+    char buff[1024];
 
     sprintf(buff,
             "<?xml version=\"1.0\"?>\n"
             "<config>\n"
             "   <update>\n"
-            "       <node type=\"%s\">\n"
+            "       <node type=\"access-control-list\">\n"
             "           <name>%s</name>\n"
             "           <id-perms>\n"
             "               <permissions>\n"
@@ -1914,99 +1899,88 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
             "                   <uuid-lslong>%d</uuid-lslong>\n"
             "               </uuid>\n"
             "           </id-perms>\n"
-            "           <access-control-list-entries>\n"
-            "                <acl-rule>\n"
-            "                    <match-condition>\n"
-            "                        <protocol>\n"
-            "                            any\n"
-            "                        </protocol>\n"
-            "                        <src-address>\n"
-            "                            <virtual-network>\n"
-            "                                %s\n"
-            "                            </virtual-network>\n"
-            "                        </src-address>\n"
-            "                        <src-port>\n"
-            "                            <start-port>\n"
-            "                                10\n"
-            "                            </start-port>\n"
-            "                            <end-port>\n"
-            "                                20\n"
-            "                            </end-port>\n"
-            "                        </src-port>\n"
-            "                        <dst-address>\n"
-            "                            <virtual-network>\n"
-            "                                %s\n"
-            "                            </virtual-network>\n"
-            "                        </dst-address>\n"
-            "                        <dst-port>\n"
-            "                            <start-port>\n"
-            "                                 10\n"
-            "                            </start-port>\n"
-            "                            <end-port>\n"
-            "                                 20\n"
-            "                            </end-port>\n"
-            "                        </dst-port>\n"
-            "                    </match-condition>\n"
-            "                    <action-list>\n"
-            "                        <simple-action>\n"
-            "                            %s\n"
-            "                        </simple-action>\n"
-            "                            %s\n"
-            "                        <assign-routing-instance>"
-            "                            %s\n"
-            "                        </assign-routing-instance>"
-            "                    </action-list>\n"
-            "                </acl-rule>\n"
-            "                <acl-rule>\n"
-            "                    <match-condition>\n"
-            "                        <protocol>\n"
-            "                            any\n"
-            "                        </protocol>\n"
-            "                        <src-address>\n"
-            "                            <virtual-network>\n"
-            "                                %s\n"
-            "                            </virtual-network>\n"
-            "                        </src-address>\n"
-            "                        <src-port>\n"
-            "                            <start-port>\n"
-            "                                10\n"
-            "                            </start-port>\n"
-            "                            <end-port>\n"
-            "                                20\n"
-            "                            </end-port>\n"
-            "                        </src-port>\n"
-            "                        <dst-address>\n"
-            "                            <virtual-network>\n"
-            "                                %s\n"
-            "                            </virtual-network>\n"
-            "                        </dst-address>\n"
-            "                        <dst-port>\n"
-            "                            <start-port>\n"
-            "                                 10\n"
-            "                            </start-port>\n"
-            "                            <end-port>\n"
-            "                                 20\n"
-            "                            </end-port>\n"
-            "                        </dst-port>\n"
-            "                    </match-condition>\n"
-            "                    <action-list>\n"
-            "                        <simple-action>\n"
-            "                            %s\n"
-            "                        </simple-action>\n"
-            "                            %s\n"
-            "                        <assign-routing-instance>"
-            "                            %s\n"
-            "                        </assign-routing-instance>"
-            "                    </action-list>\n"
-            "                </acl-rule>\n"
+            "           <access-control-list-entries>\n",
+            name, id);
+    *str = string(buff);
+    return;
+}
+
+void EndAcl(string *str) {
+    char buff[512];
+    sprintf(buff,
             "           </access-control-list-entries>\n"
             "       </node>\n"
             "   </update>\n"
-            "</config>\n", node_name, name, id, src_vn, dest_vn, action,
-            mirror.str().c_str(), vrf_assign.c_str(), dest_vn, src_vn, action,
-            mirror.str().c_str(), vrf_assign.c_str());
+            "</config>\n");
     string s(buff);
-    return s;
+    *str += s;
+    return;
+}
+
+void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
+                 const char *proto, uint16_t sport_start, uint16_t sport_end,
+                 uint16_t dport_start, uint16_t dport_end,
+                 const char *action, const std::string &vrf_assign,
+                 const std::string &mirror_ip) {
+    char buff[2048];
+
+    std::ostringstream mirror;
+
+    if (mirror_ip != "") {
+        mirror << "<mirror-to>";
+        mirror << "<analyzer-name> mirror-1 </analyzer-name>";
+        mirror << "<analyzer-ip-address>" << mirror_ip << "</analyzer-ip-address>";
+        mirror << "<routing-instance>" << "" << "</routing-instance>";
+        mirror << "<udp-port>" << "8159" << "</udp-port>";
+        mirror << "</mirror-to>";
+    } else {
+        mirror << "";
+    }
+
+    sprintf(buff,
+            "                <acl-rule>\n"
+            "                    <match-condition>\n"
+            "                        <protocol> %s </protocol>\n"
+            "                        <src-address>\n"
+            "                            <virtual-network> %s </virtual-network>\n"
+            "                        </src-address>\n"
+            "                        <src-port>\n"
+            "                            <start-port> %d </start-port>\n"
+            "                            <end-port> %d </end-port>\n"
+            "                        </src-port>\n"
+            "                        <dst-address>\n"
+            "                            <virtual-network> %s </virtual-network>\n"
+            "                        </dst-address>\n"
+            "                        <dst-port>\n"
+            "                            <start-port> %d </start-port>\n"
+            "                            <end-port> %d </end-port>\n"
+            "                        </dst-port>\n"
+            "                    </match-condition>\n"
+            "                    <action-list>\n"
+            "                        <simple-action> %s </simple-action>\n"
+            "                        %s\n"
+            "                        <assign-routing-instance> %s </assign-routing-instance>\n"
+            "                    </action-list>\n"
+            "                </acl-rule>\n",
+        proto, src_vn, sport_start, sport_end, dst_vn, dport_start, dport_end,
+        action, mirror.str().c_str(), vrf_assign.c_str());
+    string s(buff);
+    *str += s;
+    return;
+}
+
+static string AddAclXmlString(const char *node_name, const char *name, int id,
+                              const char *src_vn, const char *dest_vn,
+                              const char *action, const std::string &vrf_assign,
+                              const std::string &mirror_ip) {
+    string str;
+    StartAcl(&str, name, id);
+    AddAceEntry(&str, src_vn, dest_vn, "any", 10, 20, 10, 20, action,
+                vrf_assign, mirror_ip);
+    AddAceEntry(&str, dest_vn, src_vn, "any", 10, 20, 10, 20, action,
+                vrf_assign, mirror_ip);
+    EndAcl(&str);
+    return str;
 }
 
 void AddAcl(const char *name, int id) {
