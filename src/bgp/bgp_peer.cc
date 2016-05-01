@@ -70,7 +70,11 @@ class BgpPeer::PeerClose : public IPeerClose {
     // attempt to bring up session with the neighbor
     //
     virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
-        peer_->server()->decrement_closing_count();
+        if (peer_->router_type() == "bgpaas-client") {
+            peer_->server()->decrement_closing_bgpaas_count();
+        } else {
+            peer_->server()->decrement_closing_count();
+        }
         if (!peer_->IsDeleted()) {
 
             //
@@ -108,7 +112,11 @@ class BgpPeer::PeerClose : public IPeerClose {
     void Close() {
         if (!is_closed_ && !manager_->IsCloseInProgress()) {
             manager_->Close();
-            peer_->server()->increment_closing_count();
+            if (peer_->router_type() == "bgpaas-client") {
+                peer_->server()->increment_closing_bgpaas_count();
+            } else {
+                peer_->server()->increment_closing_count();
+            }
         }
     }
 
@@ -432,6 +440,22 @@ BgpPeer::~BgpPeer() {
 void BgpPeer::Initialize() {
     if (!admin_down_)
         state_machine_->Initialize();
+}
+
+void BgpPeer::NotifyEstablished(bool established) {
+    if (established) {
+        if (router_type_ == "bgpaas-client") {
+            server_->IncrementUpBgpaasPeerCount();
+        } else {
+            server_->IncrementUpPeerCount();
+        }
+    } else {
+        if (router_type_ == "bgpaas-client") {
+            server_->DecrementUpBgpaasPeerCount();
+        } else {
+            server_->DecrementUpPeerCount();
+        }
+    }
 }
 
 void BgpPeer::BindLocalEndpoint(BgpSession *session) {

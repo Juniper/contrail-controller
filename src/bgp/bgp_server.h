@@ -170,13 +170,16 @@ public:
     // Status
     uint32_t num_routing_instance() const;
     uint32_t num_deleted_routing_instance() const;
-    uint32_t num_bgp_peer() const {
-        return (peer_bmap_.size() - peer_bmap_.count());
-    }
 
+    uint32_t num_bgp_peer() const { return bgp_count_; }
     uint32_t num_closing_bgp_peer() const { return closing_count_; }
     void increment_closing_count() { closing_count_++; }
     void decrement_closing_count() { closing_count_--; }
+
+    uint32_t num_bgpaas_peer() const { return bgpaas_count_; }
+    uint32_t num_closing_bgpaas_peer() const { return closing_bgpaas_count_; }
+    void increment_closing_bgpaas_count() { closing_bgpaas_count_++; }
+    void decrement_closing_bgpaas_count() { closing_bgpaas_count_--; }
 
     uint32_t get_output_queue_depth() const;
 
@@ -185,16 +188,27 @@ public:
     uint32_t num_static_routes() const;
     uint32_t num_down_static_routes() const;
 
-    void IncUpPeerCount() {
+    void IncrementUpPeerCount() {
         num_up_peer_++;
     }
-    void DecUpPeerCount() {
+    void DecrementUpPeerCount() {
         assert(num_up_peer_);
         num_up_peer_--;
     }
     uint32_t NumUpPeer() const {
         return num_up_peer_;
     }
+    void IncrementUpBgpaasPeerCount() {
+        num_up_bgpaas_peer_++;
+    }
+    void DecrementUpBgpaasPeerCount() {
+        assert(num_up_bgpaas_peer_);
+        num_up_bgpaas_peer_--;
+    }
+    uint32_t NumUpBgpaasPeer() const {
+        return num_up_bgpaas_peer_;
+    }
+
     LifetimeActor *deleter();
     boost::asio::io_service *ioservice();
 
@@ -247,8 +261,12 @@ private:
 
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
+    tbb::atomic<uint32_t> bgp_count_;
     tbb::atomic<uint32_t> num_up_peer_;
     tbb::atomic<uint32_t> closing_count_;
+    tbb::atomic<uint32_t> bgpaas_count_;
+    tbb::atomic<uint32_t> num_up_bgpaas_peer_;
+    tbb::atomic<uint32_t> closing_bgpaas_count_;
     BgpPeerList peer_list_;
     EndpointToBgpPeerList endpoint_peer_list_;
 
