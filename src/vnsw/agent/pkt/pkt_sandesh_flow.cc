@@ -297,6 +297,12 @@ bool PktSandeshFlow::Run() {
         return true;
     }
 
+    while (it == flow_obj->flow_entry_map_.end() &&
+          ++partition_id_ < agent_->flow_thread_count()) {
+         flow_obj = agent_->pkt()->flow_table(partition_id_);
+         it =  flow_obj->flow_entry_map_.begin();
+    }
+
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
         FlowStatsCollector *fec = fe->fsc();
@@ -503,6 +509,12 @@ bool PktSandeshFlowStats::Run() {
          FlowErrorResp *resp = new FlowErrorResp();
          SendResponse(resp);
          return true;
+    }
+
+    while (it == flow_obj->flow_entry_map_.end() &&
+          ++partition_id_ < agent_->flow_thread_count()) {
+         flow_obj = agent_->pkt()->flow_table(partition_id_);
+         it =  flow_obj->flow_entry_map_.begin();
     }
 
     while (it != flow_obj->flow_entry_map_.end()) {
