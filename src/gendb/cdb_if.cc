@@ -5,6 +5,7 @@
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/pointer_cast.hpp>
+#include <boost/foreach.hpp>
 
 #include "analytics/diffstats.h"
 #include <base/parse_object.h>
@@ -747,7 +748,7 @@ int CdbIf::Db_GetPort() const {
 }
 
 void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-    DbQueueWaterMarkInfo &wmi) {
+    const DbQueueWaterMarkInfo &wmi) {
     WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
     if (wmi.get<0>()) {
         queue->SetHighWaterMark(wm);
@@ -757,18 +758,17 @@ void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
 }
 
 void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
-    std::vector<DbQueueWaterMarkInfo> &vwmi) {
-    for (std::vector<DbQueueWaterMarkInfo>::iterator it =
-         vwmi.begin(); it != vwmi.end(); it++) {
-        Db_SetQueueWaterMarkInternal(queue, *it);
+    const std::vector<DbQueueWaterMarkInfo> &vwmi) {
+    BOOST_FOREACH(const DbQueueWaterMarkInfo &wmi, vwmi) {
+        Db_SetQueueWaterMarkInternal(queue, wmi);
     }
 }
 
 void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
                                  DbQueueWaterMarkCb cb) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     DbQueueWaterMarkInfo wm(high, queue_count, cb);
     cdbq_wm_info_.push_back(wm);
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (cdbq_.get() == NULL) {
         return;
     }
@@ -776,8 +776,8 @@ void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
 }
 
 void CdbIf::Db_ResetQueueWaterMarks() {
-    cdbq_wm_info_.clear();
     tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    cdbq_wm_info_.clear();
     if (cdbq_.get() != NULL) {
         cdbq_->ResetHighWaterMark();
         cdbq_->ResetLowWaterMark();
