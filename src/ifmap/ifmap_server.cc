@@ -222,8 +222,14 @@ void IFMapServer::ClientRegister(IFMapClient *client) {
     }
     client_indexes_.set(index);
 
-    client_map_.insert(make_pair(client->identifier(), client));
-    index_map_.insert(make_pair(index, client));
+    std::pair<ClientMap::iterator, bool> cm_ret;
+    cm_ret = client_map_.insert(make_pair(client->identifier(), client));
+    assert(cm_ret.second);
+
+    std::pair<IndexMap::iterator, bool> im_ret;
+    im_ret = index_map_.insert(make_pair(index, client));
+    assert(im_ret.second);
+
     client->Initialize(exporter_.get(), index);
     queue_->Join(index);
     IFMAP_DEBUG(IFMapServerClientRegUnreg, "Register request for client ",
@@ -236,8 +242,10 @@ void IFMapServer::ClientUnregister(IFMapClient *client) {
     size_t index = client->index();
     sender_->CleanupClient(index);
     queue_->Leave(index);
-    index_map_.erase(index);
-    client_map_.erase(client->identifier());
+    ImSz_t iret = index_map_.erase(index);
+    assert(iret == 1);
+    CmSz_t cret = client_map_.erase(client->identifier());
+    assert(cret == 1);
     client_indexes_.reset(index);
 }
 
