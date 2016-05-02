@@ -86,6 +86,10 @@ void ContrailAgentInit::CreateModules() {
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
 
+    port_ipc_handler_.reset(new PortIpcHandler(agent(),
+                                               PortIpcHandler::kPortsDir));
+    agent()->set_port_ipc_handler(port_ipc_handler_.get());
+
     rest_server_.reset(new RESTServer(agent()));
     agent()->set_rest_server(rest_server_.get());
 }
@@ -129,9 +133,10 @@ void ContrailAgentInit::InitDone() {
     ContrailInitCommon::InitDone();
 
     /* Reads and processes port information written by nova-compute */
-    PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir,
-                       !agent_param()->vrouter_on_host_dpdk());
-    pih.ReloadAllPorts();
+    PortIpcHandler *pih = agent()->port_ipc_handler();
+    if (pih) {
+        pih->ReloadAllPorts(!agent_param()->vrouter_on_host_dpdk());
+    }
 }
 
 void ContrailAgentInit::ModulesShutdown() {
@@ -139,5 +144,9 @@ void ContrailAgentInit::ModulesShutdown() {
 
     if (agent()->rest_server()) {
         agent()->rest_server()->Shutdown();
+    }
+
+    if (agent()->port_ipc_handler()) {
+        agent()->port_ipc_handler()->Shutdown();
     }
 }

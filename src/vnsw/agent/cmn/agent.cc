@@ -723,6 +723,14 @@ void Agent::set_rest_server(RESTServer *r) {
     rest_server_ = r;
 }
 
+PortIpcHandler *Agent::port_ipc_handler() const {
+    return port_ipc_handler_;
+}
+
+void Agent::set_port_ipc_handler(PortIpcHandler *r) {
+    port_ipc_handler_ = r;
+}
+
 OperDB *Agent::oper_db() const {
     return oper_db_;
 }

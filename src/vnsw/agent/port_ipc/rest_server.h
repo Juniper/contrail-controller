@@ -47,10 +47,10 @@ class RESTServer {
 
     static const std::vector<HandlerSpecifier> RESTHandlers_;
 
-    void VmPortPutHandler(const struct RESTData&);
     void VmPortDeleteHandler(const struct RESTData&);
     void VmPortGetHandler(const struct RESTData&);
     void VmPortPostHandler(const struct RESTData&);
+    void VmPortSyncHandler(const struct RESTData& data);
 
  private:
     Agent *agent_;

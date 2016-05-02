@@ -39,9 +39,29 @@ PortIpcHandler::AddPortParams::AddPortParams
      rx_vlan_id(rx_vid) {
 }
 
-PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir,
-                               bool chk_port)
-    : agent_(agent), ports_dir_(dir), check_port_on_reload_(chk_port) {
+void PortIpcHandler::AddPortParams::Set
+    (string pid, string iid, string vid, string vm_pid, string vname,
+     string ifname, string ip, string ip6, string mac, int ptype, int tx_vid,
+     int rx_vid) {
+     port_id = pid;
+     instance_id = iid;
+     vn_id = vid;
+     vm_project_id = vm_pid;
+     vm_name= vname;
+     system_name = ifname;
+     ip_address = ip;
+     ip6_address = ip6;
+     mac_address = mac;
+     port_type = ptype;
+     tx_vlan_id = tx_vid;
+     rx_vlan_id = rx_vid;
+}
+
+PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir)
+    : agent_(agent), ports_dir_(dir), port_list_(),
+    timer_(TimerManager::CreateTimer                                          
+           (*(agent->event_manager())->io_service(),                          
+            "PortIpcTimer")), mutex_() {
     fs::path ports_dir(ports_dir_);
     if (fs::exists(ports_dir)) {
         return;
@@ -55,7 +75,7 @@ PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir,
 PortIpcHandler::~PortIpcHandler() {
 }
 
-void PortIpcHandler::ReloadAllPorts() const {
+void PortIpcHandler::ReloadAllPorts(bool check_port) {
     fs::path ports_dir(ports_dir_);
     fs::directory_iterator end_iter;
 
@@ -73,11 +93,11 @@ void PortIpcHandler::ReloadAllPorts() const {
             continue;
         }
 
-        ProcessFile(p.string());
+        ProcessFile(p.string(), check_port);
     }
 }
 
-void PortIpcHandler::ProcessFile(const string &file) const {
+void PortIpcHandler::ProcessFile(const string &file, bool check_port) {
     string err_msg;
     ifstream f(file.c_str());
     if (!f.good()) {
@@ -88,11 +108,11 @@ void PortIpcHandler::ProcessFile(const string &file) const {
     string json = tmp.str();
     f.close();
     
-    AddPortFromJson(json, check_port_on_reload_, err_msg);
+    AddPortFromJson(json, check_port, err_msg);
 }
 
-bool PortIpcHandler::ValidateMembers(const rapidjson::Document &d,
-                                     std::string &member_err) const {
+bool PortIpcHandler::HasAllMembers(const rapidjson::Value &d,
+                                   std::string &member_err) const {
     if (!d.HasMember("id") || !d["id"].IsString()) {
         member_err = "id";
         return false;
@@ -145,22 +165,60 @@ bool PortIpcHandler::ValidateMembers(const rapidjson::Document &d,
 }
 
 bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
-                                     string &err_msg)
-    const {
+                                     string &err_msg) {
     rapidjson::Document d;
     if (d.Parse<0>(const_cast<char *>(json.c_str())).HasParseError()) {
         err_msg = "Invalid Json string ==> " + json;
         CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;
     }
-    if (!d.IsObject()) {
+    if (!d.IsObject() && !d.IsArray()) {
         err_msg = "Unexpected Json string ==> " + json;
         CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;
     }
 
+    if (d.IsArray()) {
+        /* When Json Array is passed, we do 'All or None'. We add all the
+         * elements of the array or none are added. So we do validation in
+         * first pass and addition in second pass */
+        vector<PortIpcHandler::AddPortParams> req_list;
+        for (size_t i = 0; i < d.Size(); i++) {
+            const rapidjson::Value& elem = d[i];
+            if (elem.IsObject()) {
+                PortIpcHandler::AddPortParams req;
+                if (!ValidateRequest(elem, json, check_port, err_msg, req)) {
+                    return false;
+                }
+                req_list.push_back(req);
+            } else {
+                err_msg = "Json Array has invalid element ==> " + json;
+                CONFIG_TRACE(PortInfo, err_msg.c_str());
+                return false;
+            }
+        }
+        vector<PortIpcHandler::AddPortParams>::iterator it = req_list.begin();
+        while (it != req_list.end()) {
+            AddPort(*it);
+            ++it;
+        }
+        return true;
+    }
+
+    PortIpcHandler::AddPortParams req;
+    if (ValidateRequest(d, json, check_port, err_msg, req)) {
+        AddPort(req);
+        return true;
+    }
+    return false;
+}
+
+bool PortIpcHandler::ValidateRequest(const rapidjson::Value &d,
+                                     const string &json, bool check_port,
+                                     string &err_msg,
+                                     PortIpcHandler::AddPortParams &req) const {
     string member_err;
-    if (!ValidateMembers(d, member_err)) {
+    if (!HasAllMembers(d, member_err)) {
         err_msg = "Json string does not have all required members, "
                          + member_err + " is missing ==> "
                          + json;
@@ -168,45 +226,39 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
         return false;
     }
 
-    PortIpcHandler::AddPortParams req(d["id"].GetString(),
+    req.Set(d["id"].GetString(),
         d["instance-id"].GetString(), d["vn-id"].GetString(),
         d["vm-project-id"].GetString(), d["display-name"].GetString(),
         d["system-name"].GetString(), d["ip-address"].GetString(),
         d["ip6-address"].GetString(), d["mac-address"].GetString(),
         d["type"].GetInt(), d["tx-vlan-id"].GetInt(),
         d["rx-vlan-id"].GetInt());
-    return AddPort(req, check_port, err_msg);
+
+    return CanAdd(req, check_port, err_msg);
 }
 
-bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
-                             bool check_port, string &resp_str) const {
+bool PortIpcHandler::CanAdd(PortIpcHandler::AddPortParams &r,
+                            bool check_port, string &resp_str) const {
     bool err = false;
 
-    uuid port_uuid = StringToUuid(r.port_id);
-    uuid instance_uuid = StringToUuid(r.instance_id);
+    r.port_uuid = StringToUuid(r.port_id);
+    r.instance_uuid = StringToUuid(r.instance_id);
 
     /* VN UUID is optional for CfgIntNameSpacePort */
-    uuid vn_uuid = nil_uuid();
+    r.vn_uuid = nil_uuid();
     if (r.vn_id.length() != 0) {
-        vn_uuid = StringToUuid(r.vn_id);
+        r.vn_uuid = StringToUuid(r.vn_id);
     }
     /* VM Project UUID is optional for CfgIntNameSpacePort */
-    uuid vm_project_uuid = nil_uuid();
+    r.vm_project_uuid = nil_uuid();
     if (r.vm_project_id.length() != 0) {
-        vm_project_uuid = StringToUuid(r.vm_project_id);
-    }
-    int16_t port_type = r.port_type;
-    CfgIntEntry::CfgIntType intf_type;
-
-    intf_type = CfgIntEntry::CfgIntVMPort;
-    if (port_type) {
-        intf_type = CfgIntEntry::CfgIntNameSpacePort;
+        r.vm_project_uuid = StringToUuid(r.vm_project_id);
     }
     boost::system::error_code ec, ec6;
     /* from_string returns default constructor IP (all zeroes) when there is
      * error in passed IP for both v4 and v6 */
-    Ip4Address ip(Ip4Address::from_string(r.ip_address, ec));
-    Ip6Address ip6 = Ip6Address::from_string(r.ip6_address, ec6);
+    r.ip = Ip4Address::from_string(r.ip_address, ec);
+    r.ip6 = Ip6Address::from_string(r.ip6_address, ec6);
     /* We permit port-add with all zeroes IP address but not with
      * invalid IP */
     if ((ec != 0) && (ec6 != 0)) {
@@ -214,41 +266,34 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
         err = true;
     }
 
-    if (port_uuid == nil_uuid()) {
+    if (r.port_uuid == nil_uuid()) {
         resp_str += "invalid port uuid, ";
         err = true;
     }
-    if (instance_uuid == nil_uuid()) {
+    if (r.instance_uuid == nil_uuid()) {
         resp_str += "invalid instance uuid, ";
         err = true;
     }
-    if ((intf_type == CfgIntEntry::CfgIntVMPort) && (vn_uuid == nil_uuid())) {
+
+    int16_t port_type = r.port_type;
+
+    r.intf_type = CfgIntEntry::CfgIntVMPort;
+    if (port_type) {
+        r.intf_type = CfgIntEntry::CfgIntNameSpacePort;
+    }
+    if ((r.intf_type == CfgIntEntry::CfgIntVMPort) &&
+        (r.vn_uuid == nil_uuid())) {
         resp_str += "invalid VN uuid, ";
         err = true;
     }
-    if ((intf_type == CfgIntEntry::CfgIntVMPort) &&
-        (vm_project_uuid == nil_uuid())) {
+    if ((r.intf_type == CfgIntEntry::CfgIntVMPort) &&
+        (r.vm_project_uuid == nil_uuid())) {
         resp_str += "invalid VM project uuid, ";
         err = true;
     }
     if (!ValidateMac(r.mac_address)) {
         resp_str += "Invalid MAC, Use xx:xx:xx:xx:xx:xx format";
         err = true;
-    }
-
-    uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
-    // Set vlan_id as tx_vlan_id
-    if (r.tx_vlan_id != -1) {
-        tx_vlan_id = r.tx_vlan_id;
-    }
-
-    // Backward compatibility. If only vlan_id is specified, set both
-    // rx_vlan_id and tx_vlan_id to same value
-    uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
-    if (r.rx_vlan_id) {
-        rx_vlan_id = r.rx_vlan_id;
-    } else {
-        rx_vlan_id = tx_vlan_id;
     }
 
     // Sanity check. We should not have isolated_vlan_id set and vlan_id unset
@@ -264,35 +309,51 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
         err = true;
     }
 
-    // If Writing to file fails return error
-    if(!err && !WriteJsonToFile(r)) {
-        resp_str = "Writing of Json string to file failed";
-        err = true;
-
-    }
-
     if (err) {
         CONFIG_TRACE(PortInfo, resp_str.c_str());
         return false;
     }
+    return true;
+}
 
+void PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r) {
+    uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
+    // Set vlan_id as tx_vlan_id
+    if (r.tx_vlan_id != -1) {
+        tx_vlan_id = r.tx_vlan_id;
+    }
+
+    // Backward compatibility. If only vlan_id is specified, set both
+    // rx_vlan_id and tx_vlan_id to same value
+    uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
+    if (r.rx_vlan_id) {
+        rx_vlan_id = r.rx_vlan_id;
+    } else {
+        rx_vlan_id = tx_vlan_id;
+    }
+
+    // If Writing to file fails return error
+    if(!WriteJsonToFile(r)) {
+        assert(0);
+    }
+
+    InsertPort(r.port_uuid);
     CfgIntTable *ctable = agent_->interface_config_table();
     assert(ctable);
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new CfgIntKey(port_uuid));
+    req.key.reset(new CfgIntKey(r.port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
-    cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid, r.system_name,
-                       ip, ip6, r.mac_address, r.vm_name, tx_vlan_id,
-                       rx_vlan_id, intf_type, 0);
+    cfg_int_data->Init(r.instance_uuid, r.vn_uuid, r.vm_project_uuid,
+                       r.system_name, r.ip, r.ip6, r.mac_address, r.vm_name,
+                       tx_vlan_id, rx_vlan_id, r.intf_type, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     ctable->Enqueue(&req);
     CONFIG_TRACE(AddPortEnqueue, "Add", r.port_id, r.instance_id, r.vn_id,
                  r.ip_address, r.system_name, r.mac_address, r.vm_name,
                  tx_vlan_id, rx_vlan_id, r.vm_project_id,
-                 CfgIntEntry::CfgIntTypeToString(intf_type), r.ip6_address);
-    return true;
+                 CfgIntEntry::CfgIntTypeToString(r.intf_type), r.ip6_address);
 }
 
 string PortIpcHandler::GetJsonString(const PortIpcHandler::AddPortParams &r,
@@ -354,7 +415,7 @@ bool PortIpcHandler::ValidateMac(const string &mac) const {
     return true;
 }
 
-bool PortIpcHandler::DeletePort(const string &uuid_str, string &err_str) const {
+bool PortIpcHandler::DeletePort(const string &uuid_str, string &err_str) {
     uuid port_uuid = StringToUuid(uuid_str);
     if (port_uuid == nil_uuid()) {
         CONFIG_TRACE(PortInfo, "Invalid port uuid");
@@ -362,13 +423,21 @@ bool PortIpcHandler::DeletePort(const string &uuid_str, string &err_str) const {
         return false;
     }
 
+    ErasePort(port_uuid);
+    DeletePortInternal(port_uuid, err_str);
+    return true;
+}
+
+void PortIpcHandler::DeletePortInternal(const uuid &u, string &err_str) {
     CfgIntTable *ctable = agent_->interface_config_table();
     assert(ctable);
 
     DBRequest req;
-    req.key.reset(new CfgIntKey(port_uuid));
+    req.key.reset(new CfgIntKey(u));
     req.oper = DBRequest::DB_ENTRY_DELETE;
     ctable->Enqueue(&req);
+
+    string uuid_str = UuidToString(u);
     CONFIG_TRACE(DeletePortEnqueue, "Delete", uuid_str);
 
     string file = ports_dir_ + "/" + uuid_str;
@@ -379,7 +448,6 @@ bool PortIpcHandler::DeletePort(const string &uuid_str, string &err_str) const {
             err_str = "Error deleting file " + file;
         }
     }
-    return true;
 }
 
 bool PortIpcHandler::IsUUID(const string &uuid_str) const {
@@ -410,6 +478,39 @@ string PortIpcHandler::GetPortInfo(const string &uuid_str) const {
     return "{}";
 }
 
+void PortIpcHandler::InsertPort(const boost::uuids::uuid &u) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    std::pair<PortMap::iterator, bool> ret;
+
+    ret = port_list_.insert(PortPair(u, true));
+    if (ret.second == false) {
+        /* If the entry is already present, mark it as 'seen' */
+        ret.first->second = true;
+    }
+}
+
+void PortIpcHandler::ErasePort(const boost::uuids::uuid &u) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    ErasePortUnlocked(u);
+}
+
+void PortIpcHandler::ErasePortUnlocked(const boost::uuids::uuid &u) {
+    PortMap::iterator it = port_list_.find(u);
+    if (it != port_list_.end()) {
+        port_list_.erase(it);
+    }
+}
+
+void PortIpcHandler::MarkPortsAsUnseen() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    PortMap::iterator it = port_list_.begin();
+    while (it != port_list_.end()) {
+        it->second = false;
+        ++it;
+    }
+}
+
 bool PortIpcHandler::InterfaceExists(const std::string &name) const {
     int indx  = if_nametoindex(name.c_str());
     if (indx == 0) {
@@ -418,3 +519,33 @@ bool PortIpcHandler::InterfaceExists(const std::string &name) const {
     return true;
 }
 
+void PortIpcHandler::SyncHandler() {
+    MarkPortsAsUnseen();
+    timer_->Start(kPortSyncInterval,
+                  boost::bind(&PortIpcHandler::TimerExpiry, this));
+}
+
+bool PortIpcHandler::TimerExpiry() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    PortMap::iterator it = port_list_.begin();
+    while (it != port_list_.end()) {
+        const boost::uuids::uuid u = it->first;
+        bool seen = it->second;
+        ++it;
+        if (seen == false) {
+            ErasePortUnlocked(u);
+            string err_msg;
+            DeletePortInternal(u, err_msg);
+        }
+    }
+    return false;
+}
+
+void PortIpcHandler::Shutdown() {
+    if (timer_) {                                                               
+        timer_->Cancel();                                                       
+        TimerManager::DeleteTimer(timer_);                                      
+        timer_ = NULL;                                                          
+    }        
+}
