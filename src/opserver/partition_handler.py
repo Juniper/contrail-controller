@@ -420,8 +420,9 @@ class UveStreamPart(gevent.Greenlet):
             except Exception as ex:
                 template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
-                self._logger.error("%s : traceback %s" % \
-                                  (messag, traceback.format_exc()))
+                self._logger.error("[%s,%s] %s : traceback %s" % \
+                                  (self._pi.instance_id, self._partno,
+                                   messag, traceback.format_exc()))
                 lredis = None
                 if pb is not None:
                     pb.close()
