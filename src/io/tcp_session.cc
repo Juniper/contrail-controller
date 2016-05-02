@@ -429,7 +429,7 @@ void TcpSession::AsyncReadHandler(
     if (IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
 	// eof is returned when the peer closed the socket, no need to log err
-	if (error != error::eof) {
+	if (error != boost::asio::error::eof) {
 	    TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                               "Read failed due to error " << error.value()
                               << " : " << error.message());
@@ -445,7 +445,7 @@ void TcpSession::AsyncReadHandler(
         if (IsSocketErrorHard(err)) {
             session->ReleaseBufferLocked(buffer);
 	    // eof is returned when the peer has closed the socket
-	    if (error != error::eof) {
+	    if (err != boost::asio::error::eof) {
 		TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                                   "Read failed due to error " << err.value()
                                   << " : " << err.message());
