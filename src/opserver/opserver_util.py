@@ -122,10 +122,28 @@ class OpServerUtils(object):
             return ret
         elif (inp['@type'] == 'map'):
             fmap = {}
-            for idx in range(0,int(inp['map']['@size'])):
-                m_attr = inp['map']['element'][idx*2]
-                m_val = str(inp['map']['element'][(idx*2)+1])
-                fmap[m_attr] = m_val
+
+            sname = None
+            for ss in inp['map'].keys():
+                if ss[0] != '@':
+                    if ss != 'element':
+                        sname = ss
+            if sname is None:
+                for idx in range(0,int(inp['map']['@size'])):
+                    m_attr = inp['map']['element'][idx*2]
+                    m_val = str(inp['map']['element'][(idx*2)+1])
+                    fmap[m_attr] = m_val
+            else:
+                if not isinstance(inp['map']['element'], list):
+                    inp['map']['element'] = [inp['map']['element']]
+                if not isinstance(inp['map'][sname], list):
+                    inp['map'][sname] = [inp['map'][sname]]
+                for idx in range(0,int(inp['map']['@size'])):
+                    m_attr = inp['map']['element'][idx]
+                    subst = {}
+                    for sk,sv in inp['map'][sname][idx].iteritems():
+                        subst[sk] = OpServerUtils.uve_attr_flatten(sv)
+                    fmap[m_attr] = subst
             return fmap
         else:
             if '#text' not in inp:
