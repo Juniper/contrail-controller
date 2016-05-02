@@ -862,6 +862,11 @@ private:
     MetaDataIpMap metadata_ip_map_;
     HealthCheckInstanceSet hc_instance_set_;
     VmiEcmpLoadBalance ecmp_load_balance_;
+    NextHopRef l3_interface_nh_policy_;
+    NextHopRef l2_interface_nh_policy_;
+    NextHopRef l3_interface_nh_no_policy_;
+    NextHopRef l2_interface_nh_no_policy_;
+    NextHopRef multicast_nh_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
