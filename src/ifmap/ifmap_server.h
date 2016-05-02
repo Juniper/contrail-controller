@@ -58,6 +58,7 @@ public:
     typedef std::map<int, IFMapClient *> IndexMap;
     typedef std::deque<ClientHistoryInfo> ClientHistory;
     typedef ClientMap::size_type CmSz_t;
+    typedef IndexMap::size_type ImSz_t;
     IFMapServer(DB *db, DBGraph *graph, boost::asio::io_service *io_service);
     virtual ~IFMapServer();
 
