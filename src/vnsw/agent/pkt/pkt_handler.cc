@@ -201,9 +201,10 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
         agent_->stats()->incr_pkt_dropped();
         return;
     }
-
-    if (!(enqueue_cb_.at(mod))(pkt_info)) {
-        stats_.PktQThresholdExceeded(mod);
+    if (!(enqueue_cb_.at(mod).empty())) {
+        if (!(enqueue_cb_.at(mod))(pkt_info)) {
+            stats_.PktQThresholdExceeded(mod);
+        }
     }
     return;
 }
@@ -603,9 +604,12 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
-        if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
-                      mod << ">");
+        if (!(enqueue_cb_.at(mod).empty())) {
+            if (!(enqueue_cb_.at(mod))(pkt_info)) {
+                PKT_TRACE(Err,
+                          "Threshold exceeded while enqueuing IPC Message <" <<
+                          mod << ">");
+            }
         }
     }
 }
@@ -820,7 +824,7 @@ bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **interface) {
 }
 
 void PktHandler::PktTraceIterate(PktModuleName mod, PktTraceCallback cb) {
-    if (cb) {
+    if (!cb.empty()) {
         PktTrace &pkt(pkt_trace_.at(mod));
         pkt.Iterate(cb);
     }

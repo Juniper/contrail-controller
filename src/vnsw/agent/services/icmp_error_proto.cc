@@ -19,5 +19,7 @@ ProtoHandler *IcmpErrorProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
 }
 
 bool IcmpErrorProto::FlowIndexToKey(uint32_t index, FlowKey *key) {
+    if (flow_index_to_key_fn_.empty())
+        return false;
     return flow_index_to_key_fn_(index, key);
 }
