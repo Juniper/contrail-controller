@@ -269,7 +269,7 @@ void CfgListener::LinkNotify(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
     } 
     
     NodeListenerCb cb = GetCallback(node);
-    if (cb != NULL) {
+    if (!cb.empty()) {
         UpdateSeenState(node->table(), node, state, id);
         cb(node);
         return;
@@ -369,7 +369,7 @@ void CfgListener::NodeCallback(DBTablePartBase *partition, DBEntryBase *dbe) {
     IFMapNode *node = static_cast <IFMapNode *> (dbe);
     NodeListenerCb cb = GetCallback(node);
 
-    if (cb == NULL) {
+    if (cb.empty()) {
         return;
     }
 
@@ -423,7 +423,7 @@ void CfgListener::NodeReSync(IFMapNode *node) {
             NodeNotify(oper_table, adj_node);
         } else {
             NodeListenerCb cb = GetCallback(adj_node);
-            if (cb != NULL) {
+            if (!cb.empty()) {
                 cb(adj_node);
             }
         }
