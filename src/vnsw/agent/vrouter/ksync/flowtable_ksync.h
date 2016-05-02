@@ -73,7 +73,7 @@ public:
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
     bool AllowDeleteStateComp() {return false;}
-    virtual void ErrorHandler(int, uint32_t) const;
+    virtual void ErrorHandler(int, uint32_t, KSyncEvent) const;
     virtual std::string VrouterError(uint32_t error) const;
 
     uint8_t gen_id() { return gen_id_; }
