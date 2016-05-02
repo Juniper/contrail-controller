@@ -208,21 +208,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         }
     }
 
-    if (flow) {
-        if (fwd_flow_update) {
-            flow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
-        } else {
-            flow->set_last_event(FlowEvent::FLOW_MESSAGE);
-        }
-    }
-    if (rflow) {
-        if (rev_flow_update) {
-            rflow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
-        } else {
-            rflow->set_last_event(FlowEvent::FLOW_MESSAGE);
-        }
-    }
-
     if (flow_req != flow) {
         if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle &&
             !flow->deleted()) {
@@ -233,6 +218,21 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         }
         Copy(flow, flow_req, fwd_flow_update);
         flow->set_deleted(false);
+    }
+
+    if (flow) {
+        if (fwd_flow_update) {
+            flow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        } else {
+            flow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
+        }
+    }
+    if (rflow) {
+        if (rev_flow_update) {
+            rflow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        } else {
+            rflow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
+        }
     }
 
     if (rflow) {
