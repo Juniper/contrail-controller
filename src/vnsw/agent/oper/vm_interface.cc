@@ -70,6 +70,11 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    l3_interface_nh_policy_.reset();
+    l2_interface_nh_policy_.reset();
+    l3_interface_nh_no_policy_.reset();
+    l2_interface_nh_no_policy_.reset();
+    multicast_nh_.reset();
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -2374,6 +2379,14 @@ void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
         InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(),
                                                   MacAddress::FromString(vm_mac_),
                                                   vrf_->GetName());
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              GetUuid(), ""),
+                          false, (InterfaceNHFlags::INET4 |
+                                  InterfaceNHFlags::MULTICAST));
+        multicast_nh_ = static_cast<NextHop *>(agent->
+                        nexthop_table()->FindActiveEntry(&key));
     }
 }
 
@@ -2408,10 +2421,22 @@ void VmInterface::UpdateMacVmBinding() {
 }
 
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    Agent *agent = table->agent();
     if (L2Activated(old_l2_active)) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
                                            MacAddress::FromString(vm_mac_),
                                            vrf_->GetName());
+        InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              GetUuid(), ""),
+                            true, InterfaceNHFlags::BRIDGE);
+        l2_interface_nh_policy_ = static_cast<NextHop *>(agent->
+                      nexthop_table()->FindActiveEntry(&key1));
+        InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              GetUuid(), ""),
+                            false, InterfaceNHFlags::BRIDGE);
+        l2_interface_nh_no_policy_ = static_cast<NextHop *>(agent->
+                      nexthop_table()->FindActiveEntry(&key2));
     }
 }
 
@@ -2442,6 +2467,8 @@ void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
 void VmInterface::DeleteL2NextHop(bool old_l2_active) {
     if (L2Deactivated(old_l2_active)) {
         InterfaceNH::DeleteL2InterfaceNH(GetUuid());
+        l2_interface_nh_policy_.reset();
+        l2_interface_nh_no_policy_.reset();
     }
 }
 
@@ -2455,6 +2482,7 @@ void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
 
 void VmInterface::DeleteMulticastNextHop() {
     InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
+    multicast_nh_.reset();
 }
 
 void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,

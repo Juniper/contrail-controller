@@ -821,6 +821,11 @@ private:
     Ip4Address nova_ip_addr_;
     Ip6Address nova_ip6_addr_;
     Ip4Address dhcp_addr_;
+    NextHopRef l3_interface_nh_policy_;
+    NextHopRef l2_interface_nh_policy_;
+    NextHopRef l3_interface_nh_no_policy_;
+    NextHopRef l2_interface_nh_no_policy_;
+    NextHopRef multicast_nh_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
