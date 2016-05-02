@@ -233,9 +233,7 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(walk_cancel_exclude_list) / sizeof(char *));
 
     const char *ksync_exclude_list[] = {
-        "Agent::StatsCollector",
         "db::DBTable",
-        "Agent::PktFlowResponder",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
