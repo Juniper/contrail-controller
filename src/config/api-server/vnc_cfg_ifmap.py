@@ -1560,7 +1560,7 @@ class VncDbClient(object):
         if router_type is not set.
         """
         router_params = obj_dict['bgp_router_parameters']
-        if not router_params['router_type']:
+        if not router_params.get('router_type'):
             router_type = 'router'
             if router_params['vendor'] == 'contrail':
                 router_type = 'control-node'
@@ -1600,33 +1600,25 @@ class VncDbClient(object):
                 if (obj_type == 'bgp_router' and
                         'bgp_router_parameters' in obj_dict):
                     self.update_bgp_router_type(obj_dict)
-            except Exception as e:
-                self.config_object_error(
-                    obj_dict.get('uuid'), None, obj_type,
-                    'dbe_resync:cassandra_read', str(e))
-                continue
-            try:
+
+                # Ifmap alloc
                 parent_type = obj_dict.get('parent_type', None)
                 (ok, result) = self._ifmap_db.object_alloc(
                     obj_type, parent_type, obj_dict['fq_name'])
                 if not ok:
-                    self.config_object_error(
-                        obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc',
-                        result[1])
+                    msg = "%s(%s), dbe_resync:ifmap_alloc error: %s" % (
+                            obj_type, obj_uuid, result[1])
+                    self.config_log(msg, level=SandeshLevel.SYS_ERR)
                     continue
                 (my_imid, parent_imid) = result
-            except Exception as e:
-                self.config_object_error(
-                    obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
-                continue
 
-            try:
+                # Ifmap create
                 obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
                            'parent_imid': parent_imid}
                 (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
             except Exception as e:
-                self.config_object_error(
-                    obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
+                tb = cfgm_common.utils.detailed_traceback()
+                self.config_log(tb, level=SandeshLevel.SYS_ERR)
                 continue
         # end for all objects
     # end _dbe_resync
