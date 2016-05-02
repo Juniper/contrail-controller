@@ -97,6 +97,7 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     route_resync_walker_.get()->
         set_walkable_route_tables((1 << Agent::INET4_UNICAST) |
                                   (1 << Agent::INET6_UNICAST));
+    SELF_REFERENCE_INIT();
 }
 
 VnEntry::~VnEntry() {

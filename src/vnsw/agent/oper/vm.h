@@ -65,12 +65,14 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
+    SELF_REFERENCE_METHODS();
 private:
     friend class VmTable;
     uuid uuid_;
     std::string name_;
     mutable tbb::atomic<int> flow_count_;
     mutable tbb::atomic<int> linklocal_flow_count_;
+    SELF_REFERENCE(VmEntry);
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 

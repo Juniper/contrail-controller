@@ -635,6 +635,7 @@ const std::string &ServiceInstance::Properties::ServiceTypeString() const {
  */
 ServiceInstance::ServiceInstance() {
     properties_.Clear();
+    SELF_REFERENCE_INIT();
 }
 
 bool ServiceInstance::IsLess(const DBEntry &rhs) const {
@@ -795,7 +796,7 @@ bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
         dependency_manager_->SetObject(svc_instance->ifmap_node(), NULL);
         svc_instance->SetIFMapNodeState(NULL);
     }
-    return true;
+    return AgentDBTable::Delete(entry, request);
 }
 
 bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {

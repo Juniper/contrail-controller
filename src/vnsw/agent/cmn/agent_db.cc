@@ -11,6 +11,7 @@ void AgentDBEntry::SetRefState() const {
     // Force calling SetState on a const object. 
     // Ideally, SetState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;
+    assert(entry->IsDeleted() == false);
     entry->SetState(table, table->GetRefListenerId(), new AgentDBState(this));
 }
 
@@ -22,6 +23,12 @@ void AgentDBEntry::ClearRefState() const {
     table->OnZeroRefcount(entry);
     delete(entry->GetState(table, table->GetRefListenerId()));
     entry->ClearState(table, table->GetRefListenerId());
+}
+
+void AgentDBEntry::ZeroRefCount() const {
+    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
+    AgentDBEntry *entry = (AgentDBEntry *)this;
+    table->OnZeroRefcount(entry);
 }
 
 bool AgentDBEntry::IsActive() const {
@@ -97,6 +104,7 @@ AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
 void AgentDBTablePartition::Add(DBEntry *entry) {
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
     DBTablePartition::Add(entry);
+    static_cast<AgentDBEntry *>(entry)->AddSelfReference();
     static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
 
@@ -112,6 +120,11 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
 bool AgentDBTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id) {
     id = boost::uuids::nil_uuid();
     return false;
+}
+
+bool AgentDBTable::Delete(DBEntry *entry, const DBRequest *req) {
+    static_cast<AgentDBEntry *>(entry)->ReleaseSelfReference();
+    return true;
 }
 
 void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,

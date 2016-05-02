@@ -36,7 +36,9 @@ struct EntryData : public AgentData {
 class EntryA : AgentRefCount<EntryA>, public AgentDBEntry {
 public:
     EntryA(int id) :
-        id_(id), data_(-1), ref_() { };
+        id_(id), data_(-1), ref_() {
+            SELF_REFERENCE_INIT();
+    };
     virtual ~EntryA() { 
         if (data_ >= 0) {
             LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : " 
@@ -65,10 +67,12 @@ public:
         return false;
     }
     static int free_count_;
+    SELF_REFERENCE_METHODS();
 private:
     int id_;
     int data_;
     EntryBRef ref_;
+    SELF_REFERENCE(EntryA);
     friend class TableA;
     DISALLOW_COPY_AND_ASSIGN(EntryA);
 };
@@ -109,7 +113,9 @@ private:
 class EntryB : AgentRefCount<EntryB>, public AgentDBEntry {
 public:
     EntryB(int id) :
-        id_(id), data_(-1) { };
+        id_(id), data_(-1) {
+            SELF_REFERENCE_INIT();
+    };
     virtual ~EntryB() { 
         if (data_ >= 0) {
             LOG(DEBUG, __PRETTY_FUNCTION__ << ": <" << id_ << " : " 
@@ -137,10 +143,12 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         return false;
     }
+    SELF_REFERENCE_METHODS();
 
 private:
     int id_;
     int data_;
+    SELF_REFERENCE(EntryB);
     friend class TableB;
     DISALLOW_COPY_AND_ASSIGN(EntryB);
 };

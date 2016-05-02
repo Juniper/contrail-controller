@@ -31,6 +31,8 @@
 
 #define FIND_COUNT (40 * 1000)
 
+class Vlan;
+typedef boost::intrusive_ptr<Vlan> VlanRef;
 struct VlanTableReqKey : public AgentOperDBKey {
     VlanTableReqKey(int id) : uuid_(MakeUuid(id)) {}
     VlanTableReqKey(const boost::uuids::uuid &u) : uuid_(u) {}
@@ -48,7 +50,9 @@ public:
     Vlan(const boost::uuids::uuid &u) : type_(0), uuid_(u) { }
     Vlan(int id) : type_(0), uuid_(MakeUuid(id)) { }
     Vlan(const boost::uuids::uuid &u, std::string desc) :
-        type_(0), uuid_(u), description_(desc) { }
+        type_(0), uuid_(u), description_(desc) {
+            SELF_REFERENCE_INIT();
+    }
 
     ~Vlan() {
     }
@@ -89,10 +93,12 @@ public:
 
     const boost::uuids::uuid &get_uuid() const { return uuid_; }
     void set_description(const std::string &descr) { description_ = descr; }
+    SELF_REFERENCE_METHODS();
 private:
     int type_;
     boost::uuids::uuid uuid_;
     std::string description_;
+    SELF_REFERENCE(Vlan);
     DISALLOW_COPY_AND_ASSIGN(Vlan);
 };
 

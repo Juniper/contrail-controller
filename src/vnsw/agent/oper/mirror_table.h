@@ -32,7 +32,9 @@ class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
 public:
     MirrorEntry(std::string analyzer_name) : 
            analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL),
-           vrf_name_("") { };
+           vrf_name_("") {
+        SELF_REFERENCE_INIT();
+    };
     virtual ~MirrorEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -41,6 +43,9 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
     virtual std::string ToString() const { return "MirrorEntry";};
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<MirrorEntry>::GetRefCount();
@@ -57,6 +62,7 @@ public:
     uint16_t GetDPort() const {return dport_;}
     const NextHop *GetNH() const {return nh_.get();}
     const std::string vrf_name() const {return vrf_name_;}
+    SELF_REFERENCE_METHODS();
 
 private:
     std::string analyzer_name_;
@@ -67,6 +73,7 @@ private:
     uint16_t dport_;
     NextHopRef nh_;
     std::string vrf_name_;
+    SELF_REFERENCE(MirrorEntry);
     friend class MirrorTable;
 };
 

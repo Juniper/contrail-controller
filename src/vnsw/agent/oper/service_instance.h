@@ -129,11 +129,13 @@ public:
         IFMapNodeState *state = ifmap_node_state_ref_.get();
         return state->node();
     }
+    SELF_REFERENCE_METHODS();
 private:
     boost::uuids::uuid uuid_;
     Properties properties_;
     IFMapDependencyManager::IFMapNodePtr ifmap_node_state_ref_;
 
+    SELF_REFERENCE(ServiceInstance);
     DISALLOW_COPY_AND_ASSIGN(ServiceInstance);
 };
 

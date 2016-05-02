@@ -25,13 +25,16 @@ struct EntryData : public AgentData {
     int data_;
 };
 
+typedef boost::intrusive_ptr<EntryC> EntryCRef;
 /////////////////////////////////////////////////////////////////////////////
 // EntryC and TableC implementation
 /////////////////////////////////////////////////////////////////////////////
 class EntryC : AgentRefCount<EntryC>, public AgentDBEntry {
 public:
     EntryC(int id) :
-        id_(id), data_(-1) { };
+        id_(id), data_(-1) {
+            SELF_REFERENCE_INIT();
+    };
     virtual ~EntryC() { 
         free_count_++;
     };
@@ -55,11 +58,13 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         return true;
     }
+    SELF_REFERENCE_METHODS();
     static int free_count_;
 
     int id_;
     int data_;
 private:
+    SELF_REFERENCE(EntryC);
     friend class TableC;
     DISALLOW_COPY_AND_ASSIGN(EntryC);
 };

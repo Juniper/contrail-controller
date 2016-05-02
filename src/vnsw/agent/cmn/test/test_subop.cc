@@ -63,7 +63,7 @@ bool TableC::Resync(DBEntry *entry, const DBRequest *req) {
 
 bool TableC::Delete(DBEntry *entry, const DBRequest *req) {
     del_count_++;
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 EntryC *TableC::FindC(int id) {

@@ -183,6 +183,7 @@ public:
     void ResyncRoutes();
     bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
                                      bool *is_dns, bool *is_gateway) const;
+    SELF_REFERENCE_METHODS();
 
 private:
     friend class VnTable;
@@ -208,6 +209,7 @@ private:
     uint32_t old_vxlan_id_;
     Agent::ForwardingMode forwarding_mode_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
+    SELF_REFERENCE(VnEntry);
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 

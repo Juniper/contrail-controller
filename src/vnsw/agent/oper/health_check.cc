@@ -34,6 +34,7 @@ const std::string HealthCheckInstance::kHealthCheckCmd
 HealthCheckService::HealthCheckService(const HealthCheckTable *table,
                                        const boost::uuids::uuid &id) :
     AgentOperDBEntry(), table_(table), uuid_(id) {
+        SELF_REFERENCE_INIT();
 }
 
 HealthCheckService::~HealthCheckService() {

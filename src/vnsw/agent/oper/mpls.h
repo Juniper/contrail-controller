@@ -24,7 +24,9 @@ public:
 
     MplsLabel(const Agent *agent, Type type, uint32_t label) :
         agent_(agent), type_(type), label_(label), 
-        free_label_(false), nh_(NULL) { }
+        free_label_(false), nh_(NULL) {
+            SELF_REFERENCE_INIT();
+    }
     virtual ~MplsLabel();
 
     bool IsLess(const DBEntry &rhs) const {
@@ -69,6 +71,7 @@ public:
                        AgentLogEvent::type event) const;
     void SyncDependentPath();
     bool IsFabricMulticastReservedLabel() const;
+    SELF_REFERENCE_METHODS();
 
 private:
     const Agent *agent_;
@@ -78,6 +81,7 @@ private:
     NextHopRef nh_;
     friend class MplsTable;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
+    SELF_REFERENCE(MplsLabel);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
 };
 

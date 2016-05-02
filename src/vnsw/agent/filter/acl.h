@@ -91,6 +91,7 @@ public:
     
     AclDBEntry(const uuid &id) :
         AgentOperDBEntry(), uuid_(id), dynamic_acl_(false) {
+            SELF_REFERENCE_INIT();
     }
     ~AclDBEntry() {
     }
@@ -124,12 +125,14 @@ public:
     bool Changed(const AclEntries &new_acl_entries) const;
     uint32_t ace_count() const { return acl_entries_.size();}
     bool IsRulePresent(const std::string &uuid) const;
+    SELF_REFERENCE_METHODS();
 private:
     friend class AclTable;
     uuid uuid_;
     bool dynamic_acl_;
     std::string name_;
     AclEntries acl_entries_;
+    SELF_REFERENCE(AclDBEntry);
     DISALLOW_COPY_AND_ASSIGN(AclDBEntry);
 };
 

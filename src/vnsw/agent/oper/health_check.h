@@ -164,6 +164,7 @@ public:
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
     const std::string &name() const { return name_; }
+    SELF_REFERENCE_METHODS();
 
 private:
     friend class HealthCheckInstance;
@@ -183,6 +184,7 @@ private:
     uint32_t max_retries_;
     // List of interfaces associated to this HealthCheck Service
     InstanceList intf_list_;
+    SELF_REFERENCE(HealthCheckService);
     DISALLOW_COPY_AND_ASSIGN(HealthCheckService);
 };
 

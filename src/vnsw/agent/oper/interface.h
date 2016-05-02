@@ -132,6 +132,7 @@ public:
     const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
     Interface::Transport transport() const { return transport_;}
     bool IsUveActive() const;
+    SELF_REFERENCE_METHODS();
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -168,6 +169,7 @@ protected:
 private:
     friend class InterfaceTable;
     InterfaceTable *table_;
+    SELF_REFERENCE(Interface);
     DISALLOW_COPY_AND_ASSIGN(Interface);
 };
 

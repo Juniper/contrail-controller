@@ -129,7 +129,7 @@ bool PhysicalDeviceVnTable::Resync(DBEntry *e, const DBRequest *req) {
 bool PhysicalDeviceVnTable::Delete(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVn *entry = static_cast<PhysicalDeviceVn *>(e);
     entry->SendObjectLog(AgentLogEvent::DELETE);
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 DBTableBase *PhysicalDeviceVnTable::CreateTable(DB *db,

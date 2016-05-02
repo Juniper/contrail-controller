@@ -84,7 +84,7 @@ bool TableA::OnChange(DBEntry *entry, const DBRequest *req) {
 
 bool TableA::Delete(DBEntry *entry, const DBRequest *req) {
     del_count_++;
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 DBTableBase *TableA::CreateTable(DB *db, const std::string &name) {
@@ -131,7 +131,7 @@ bool TableB::OnChange(DBEntry *entry, const DBRequest *req) {
 
 bool TableB::Delete(DBEntry *entry, const DBRequest *req) {
     del_count_++;
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 DBTableBase *TableB::CreateTable(DB *db, const std::string &name) {
@@ -414,15 +414,15 @@ TEST_F(DBTest, TestRef_RefWait_0) {
     TestInit();
 
     AddEnqueue(table_b_, 1, 1, 1);
-    EXPECT_TRUE(ValidateB(1, 0, 0, 0, 1, 0));
-    EXPECT_TRUE(ValidateA(0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(ValidateB(1, 1, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateA(0, 1, 0, 0, 0, 0));
 
     AddEnqueue(table_a_, 1, 1, 1);
-    EXPECT_TRUE(ValidateA(1, 0, 0, 0, 1, 0));
-    EXPECT_TRUE(ValidateB(1, 1, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateA(1, 1, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateB(1, 2, 0, 0, 1, 0));
 
     DelEnqueue(table_b_, 1, 1, 1);
-    EXPECT_TRUE(ValidateA(1, 0, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateA(1, 1, 0, 0, 1, 0));
     // B not freed since A still referring to it
     EXPECT_TRUE(ValidateB(1, 1, 1, 0, 1, 1));
 
@@ -436,16 +436,16 @@ TEST_F(DBTest, TestRef_NoRef_0) {
     TestInit();
 
     AddEnqueue(table_b_, 1, 1, 1);
-    EXPECT_TRUE(ValidateB(1, 0, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateB(1, 1, 0, 0, 1, 0));
     EXPECT_TRUE(ValidateA(0, 0, 0, 0, 0, 0));
 
     AddEnqueue(table_a_, 1, 1, 1);
-    EXPECT_TRUE(ValidateA(1, 0, 0, 0, 1, 0));
-    EXPECT_TRUE(ValidateB(1, 1, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateA(1, 1, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateB(1, 2, 0, 0, 1, 0));
 
     DelEnqueue(table_a_, 1, 1, 1);
     EXPECT_TRUE(ValidateA(1, 0, 1, 1, 1, 1));
-    EXPECT_TRUE(ValidateB(1, 0, 0, 0, 1, 0));
+    EXPECT_TRUE(ValidateB(1, 1, 0, 0, 1, 0));
 
     DelEnqueue(table_b_, 1, 1, 1);
     EXPECT_TRUE(ValidateA(1, 0, 1, 1, 1, 1));

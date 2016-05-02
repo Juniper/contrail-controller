@@ -37,7 +37,9 @@ struct SgData : public AgentOperDBData {
 class SgEntry : AgentRefCount<SgEntry>, public AgentOperDBEntry {
 public:
     SgEntry(uuid sg_uuid, uint32_t sg_id) : sg_uuid_(sg_uuid), sg_id_(sg_id), 
-                                            egress_acl_(NULL), ingress_acl_(NULL) {};
+                                            egress_acl_(NULL), ingress_acl_(NULL) {
+        SELF_REFERENCE_INIT();
+    }
     SgEntry(uuid sg_uuid) : sg_uuid_(sg_uuid) { };
     virtual ~SgEntry() { };
 
@@ -61,12 +63,14 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(SandeshTraceBufferPtr ptr,
                        AgentLogEvent::type event) const;
+    SELF_REFERENCE_METHODS();
 private:
     friend class SgTable;
     uuid sg_uuid_;
     uint32_t sg_id_;
     AclDBEntryRef egress_acl_;
     AclDBEntryRef ingress_acl_;
+    SELF_REFERENCE(SgEntry);
     DISALLOW_COPY_AND_ASSIGN(SgEntry);
 };
 

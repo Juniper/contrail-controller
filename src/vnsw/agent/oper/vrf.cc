@@ -64,6 +64,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL) {
+            SELF_REFERENCE_INIT();
 }
 
 VrfEntry::~VrfEntry() {

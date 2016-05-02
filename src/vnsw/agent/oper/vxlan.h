@@ -14,7 +14,9 @@ using namespace std;
 
 class VxLanId : AgentRefCount<VxLanId>, public AgentDBEntry {
 public:
-    VxLanId(uint32_t vxlan_id) : AgentDBEntry(), vxlan_id_(vxlan_id){ }
+    VxLanId(uint32_t vxlan_id) : AgentDBEntry(), vxlan_id_(vxlan_id) {
+        SELF_REFERENCE_INIT();
+    }
     virtual ~VxLanId();
 
     bool IsLess(const DBEntry &rhs) const {
@@ -24,6 +26,9 @@ public:
     virtual string ToString() const { return "vxlan_id"; };
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
     
     uint32_t vxlan_id() const {return vxlan_id_;};
     const NextHop *nexthop() const {return nh_.get();};
@@ -35,11 +40,13 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(const AgentDBTable *table,
                        AgentLogEvent::type event) const;
+    SELF_REFERENCE_METHODS();
 
 private:
     uint32_t vxlan_id_;
     NextHopRef nh_;
     friend class VxLanTable;
+    SELF_REFERENCE(VxLanId);
     DISALLOW_COPY_AND_ASSIGN(VxLanId);
 };
 
