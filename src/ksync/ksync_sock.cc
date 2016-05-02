@@ -199,6 +199,9 @@ KSyncSock::KSyncSock() :
             new WorkQueue<char *>(task_id, 0,
                                   boost::bind(&KSyncSock::ProcessKernelData,
                                               this, _1));
+        char name[128];
+        sprintf(name, "KSync Receive Queue-%d", i);
+        receive_work_queue[i]->set_name(name);
     }
     task_id = scheduler->GetTaskId("Ksync::AsyncSend");
     nl_client_ = (nl_client *)malloc(sizeof(nl_client));

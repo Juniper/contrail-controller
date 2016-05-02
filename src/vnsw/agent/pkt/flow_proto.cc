@@ -674,13 +674,13 @@ bool FlowProto::ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow) {
 FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
     switch (event) {
     case FlowEvent::VROUTER_FLOW_MSG:
-    case FlowEvent::FLOW_MESSAGE:
     case FlowEvent::AUDIT_FLOW:
     case FlowEvent::KSYNC_EVENT:
     case FlowEvent::REENTRANT:
         return add_tokens_.GetToken(NULL);
         break;
 
+    case FlowEvent::FLOW_MESSAGE:
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::REVALUATE_DBENTRY:
     case FlowEvent::REVALUATE_FLOW:
