@@ -79,8 +79,9 @@ void AgentDnsXmppChannel::ReceiveDnsMessage(std::auto_ptr<XmlBase> impl) {
     std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
     if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid,
                                          code, xmpp_data.get())) {
-        dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
-                                false);
+        if (!dns_message_handler_cb_.empty())
+            dns_message_handler_cb_(xmpp_data.release(), xmpp_type,
+                                    NULL, false);
     }
 }
 
@@ -106,7 +107,8 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
                                                        xmps::PeerState state) {
     peer->UpdateConnectionInfo(state);
     if (state == xmps::READY) {
-        peer->dns_xmpp_event_handler_cb_(peer);
+        if (!peer->dns_xmpp_event_handler_cb_.empty())
+            peer->dns_xmpp_event_handler_cb_(peer);
     } else if (state == xmps::TIMEDOUT) {
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {

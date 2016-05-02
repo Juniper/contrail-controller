@@ -940,7 +940,7 @@ bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **interface) {
 }
 
 void PktHandler::PktTraceIterate(PktModuleName mod, PktTraceCallback cb) {
-    if (cb) {
+    if (!cb.empty()) {
         PktTrace &pkt(pkt_trace_.at(mod));
         pkt.Iterate(cb);
     }
