@@ -66,7 +66,7 @@ int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
     if (table == agent_cfg_->cfg_loadbalancer_pool_table())
         return LoadbalancerPool::ID_PERMS;
     if (table == agent_cfg_->cfg_service_instance_table())
-        return ServiceInstance::ID_PERMS;
+        return autogen::ServiceInstance::ID_PERMS;
     if (table == agent_cfg_->cfg_security_group_table())
         return SecurityGroup::ID_PERMS;
     if (table == agent_cfg_->cfg_logical_port_table())

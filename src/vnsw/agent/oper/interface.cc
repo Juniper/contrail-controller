@@ -329,6 +329,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     l2_active_(true), id_(kInvalidIndex), dhcp_enabled_(true),
     dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(true),
     admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID) {
+    SELF_REFERENCE_INIT();    
 }
 
 Interface::~Interface() {

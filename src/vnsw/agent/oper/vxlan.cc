@@ -83,7 +83,7 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
 bool VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     VxLanId *vxlan_id = static_cast<VxLanId *>(entry);
     vxlan_id->SendObjectLog(this, AgentLogEvent::DELETE);
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 VxLanId *VxLanTable::Find(uint32_t vxlan_id) {

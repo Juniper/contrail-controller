@@ -21,6 +21,7 @@ VmTable *VmTable::vm_table_;
 VmEntry::VmEntry(const uuid &id) : uuid_(id), name_("") {
     flow_count_ = 0;
     linklocal_flow_count_ = 0;
+    SELF_REFERENCE_INIT();
 }
 
 VmEntry::~VmEntry() {

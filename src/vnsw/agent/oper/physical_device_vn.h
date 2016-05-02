@@ -66,7 +66,9 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
     PhysicalDeviceVn(const boost::uuids::uuid &device_uuid,
                           const boost::uuids::uuid &vn_uuid) :
         device_uuid_(device_uuid), vn_uuid_(vn_uuid), device_(), vn_(),
-        vxlan_id_(0), tor_ip_(Ip4Address(0)), device_display_name_() { }
+        vxlan_id_(0), tor_ip_(Ip4Address(0)), device_display_name_() {
+            SELF_REFERENCE_INIT();
+    }
     virtual ~PhysicalDeviceVn() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -89,6 +91,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
     bool Copy(PhysicalDeviceVnTable *table, const PhysicalDeviceVnData *data);
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
+    SELF_REFERENCE_METHODS();
 
  private:
     friend class PhysicalDeviceVnTable;
@@ -100,6 +103,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
     int vxlan_id_;
     IpAddress tor_ip_;
     std::string device_display_name_;
+    SELF_REFERENCE(PhysicalDeviceVn);
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVn);
 };
 

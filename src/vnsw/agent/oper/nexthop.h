@@ -337,9 +337,13 @@ public:
     };
 
     NextHop(Type type, bool policy) : 
-        type_(type), valid_(true), policy_(policy), id_(kInvalidIndex) {}
+        type_(type), valid_(true), policy_(policy), id_(kInvalidIndex) {
+            SELF_REFERENCE_INIT();
+    }
     NextHop(Type type, bool valid, bool policy) : 
-        type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex) {}
+        type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex) {
+            SELF_REFERENCE_INIT();
+    }
     virtual ~NextHop();
 
     virtual std::string ToString() const { return "NH";}
@@ -380,6 +384,7 @@ public:
                                   NextHopObjectLogInfo &info);
     static void FillObjectLogMac(const unsigned char *m,
                                  NextHopObjectLogInfo &info);
+    SELF_REFERENCE_METHODS();
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;
@@ -388,6 +393,7 @@ protected:
     bool policy_;
     uint32_t id_;
 private:
+    SELF_REFERENCE(NextHop);
     DISALLOW_COPY_AND_ASSIGN(NextHop);
 };
 
@@ -1404,7 +1410,7 @@ public:
         NextHop *nh = static_cast<NextHop *>(entry);
         nh->Delete(req);
         nh->SendObjectLog(this, AgentLogEvent::DELETE);
-        return true;
+        return AgentDBTable::Delete(entry, req);
     }
 
     static void Delete(NextHopKey *key) {

@@ -69,7 +69,9 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
 
     explicit PhysicalDevice(const boost::uuids::uuid &id) :
         AgentOperDBEntry(), uuid_(id), name_(""), vendor_(""), ip_(),
-        protocol_(INVALID), master_(false) { }
+        protocol_(INVALID), master_(false) {
+            SELF_REFERENCE_INIT();
+    }
     virtual ~PhysicalDevice() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -93,6 +95,7 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *resp, std::string &name) const;
+    SELF_REFERENCE_METHODS();
 
  private:
     friend class PhysicalDeviceTable;
@@ -104,6 +107,7 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
     IpAddress management_ip_;
     ManagementProtocol protocol_;
     bool master_;
+    SELF_REFERENCE(PhysicalDevice);
     DISALLOW_COPY_AND_ASSIGN(PhysicalDevice);
 };
 

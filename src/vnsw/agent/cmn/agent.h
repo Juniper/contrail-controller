@@ -132,6 +132,16 @@ typedef boost::intrusive_ptr<HealthCheckService> HealthCheckServiceRef;
 void intrusive_ptr_release(const HealthCheckService* p);
 void intrusive_ptr_add_ref(const HealthCheckService* p);
 
+class VrfAssign;
+typedef boost::intrusive_ptr<VrfAssign> VrfAssignRef;
+void intrusive_ptr_release(const VrfAssign* p);
+void intrusive_ptr_add_ref(const VrfAssign* p);
+
+class ServiceInstance;
+typedef boost::intrusive_ptr<ServiceInstance> ServiceInstanceRef;
+void intrusive_ptr_release(const ServiceInstance* p);
+void intrusive_ptr_add_ref(const ServiceInstance* p);
+
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 typedef std::vector<std::string> CommunityList;

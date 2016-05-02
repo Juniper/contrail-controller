@@ -211,6 +211,7 @@ protected:
         bool ret = OperDBDelete(entry, req);
 
         UpdateIfMapNode(oper_entry, NULL);
+        ret |= AgentDBTable::Delete(entry, req);
         return ret;
     }
 

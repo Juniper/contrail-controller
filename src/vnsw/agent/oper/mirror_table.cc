@@ -115,7 +115,7 @@ bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     RemoveUnresolved(mirror_entry);
     DeleteResolvedVrfMirrorEntry(mirror_entry);
-    return true;
+    return AgentDBTable::Delete(entry, request);
 }
 
 void MirrorTable::Add(VrfMirrorEntryList &vrf_entry_map, MirrorEntry *entry) {

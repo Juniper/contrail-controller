@@ -98,7 +98,7 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
 bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
     MplsLabel *mpls = static_cast<MplsLabel *>(entry);
     mpls->SendObjectLog(this, AgentLogEvent::DELETE);
-    return true;
+    return AgentDBTable::Delete(entry, req);
 }
 
 void MplsTable::CreateTableLabel(const Agent *agent,

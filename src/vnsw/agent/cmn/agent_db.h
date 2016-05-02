@@ -17,6 +17,30 @@ class AgentSandesh;
 typedef class boost::shared_ptr<AgentSandesh> AgentSandeshPtr;
 
 /////////////////////////////////////////////////////////////////////////////
+// Self reference macros. Each agent db entry takes it own reference for
+// lifetime.
+/////////////////////////////////////////////////////////////////////////////
+#define SELF_REFERENCE(_Class) \
+    _Class##Ref db_entry_ref_;
+
+#define SELF_REFERENCE_METHODS() \
+    virtual void AddSelfReference() { \
+        db_entry_ref_.reset(this); \
+    } \
+    virtual void ReleaseSelfReference() { \
+        db_entry_ref_.reset(); \
+    } \
+    virtual bool IsSelfReference() const { \
+        if (IsDeleted() || (db_entry_ref_.get() == NULL)) \
+            return false; \
+        return true; \
+    }
+
+#define SELF_REFERENCE_INIT() \
+    db_entry_ref_.reset();
+
+
+/////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
 /////////////////////////////////////////////////////////////////////////////
 template <class Derived>
@@ -33,6 +57,13 @@ public:
         const AgentRefCount *entry = (const AgentRefCount *) (p);
         if (entry->refcount_.fetch_and_decrement() == 1) {
             p->ClearRefState();
+            return;
+        }
+        if ((entry->refcount_ == 1) && entry->DeleteOnZeroRefCount()
+            && p->IsSelfReference()) {
+            entry->refcount_.fetch_and_decrement();
+            p->ClearRefState();
+            return;
         }
     }
 
@@ -51,6 +82,9 @@ public:
     }
 
     uint32_t GetRefCount() const {return refcount_;};
+    virtual bool DeleteOnZeroRefCount() const {
+        return false;
+    }
 protected:
     AgentRefCount() {refcount_ = 0;}
     AgentRefCount(const AgentRefCount&) { refcount_ = 0; }
@@ -122,6 +156,8 @@ public:
     AgentDBEntry() : DBEntry(), flags_(0) {};
     virtual ~AgentDBEntry() {};
     virtual uint32_t GetRefCount() const = 0;
+    virtual void AddSelfReference() = 0;
+    virtual void ReleaseSelfReference() = 0;
 
     typedef boost::intrusive_ptr<AgentDBEntry> AgentDBEntyRef;
     void SetRefState() const;
@@ -161,6 +197,7 @@ public:
     virtual int PartitionCount() const { return kPartitionCount; }
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual DBEntry *CfgAdd(DBRequest *req) {return NULL;};
     virtual bool Resync(DBEntry *entry, const DBRequest *req) {return false;};
 

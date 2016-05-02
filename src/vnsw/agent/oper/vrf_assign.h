@@ -44,7 +44,9 @@ public:
     };
 
     VrfAssign(Type type, Interface *interface)
-        : type_(type), interface_(interface), vrf_(NULL, this) { };
+        : type_(type), interface_(interface), vrf_(NULL, this) {
+            SELF_REFERENCE_INIT();
+    };
     virtual ~VrfAssign() { };
 
     uint32_t GetRefCount() const {
@@ -59,6 +61,7 @@ public:
     const Type GetType() const {return type_;};
     const Interface *GetInterface() const {return interface_.get();};
     const VrfEntry *GetVrf() const {return vrf_.get();};
+    SELF_REFERENCE_METHODS();
 
 protected:
     friend class VrfAssignTable;
@@ -67,6 +70,7 @@ protected:
     InterfaceRef interface_;
     VrfEntryRef vrf_;
 private:
+    SELF_REFERENCE(VrfAssign);
     DISALLOW_COPY_AND_ASSIGN(VrfAssign);
 };
 

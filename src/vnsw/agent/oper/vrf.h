@@ -65,6 +65,10 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
+
     const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
     VnEntry *vn() const { return vn_.get(); }
@@ -119,6 +123,7 @@ public:
     void SetRouteTableDeleted(uint8_t table_type);
     void DeleteRouteTables();
     void ResyncRoutes();
+    SELF_REFERENCE_METHODS();
 
 private:
     friend class VrfTable;
@@ -138,6 +143,7 @@ private:
     uint32_t rt_table_delete_bmap_;
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
+    SELF_REFERENCE(VrfEntry);
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
