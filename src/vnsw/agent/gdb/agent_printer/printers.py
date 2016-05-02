@@ -35,6 +35,63 @@ class TbbAtomicIntPrinter:
     def to_string (self):
         return '(tbb::atomic) %s' % (self.val['my_storage']['my_value'])
 
+class TbbConcurrentQueue:
+    """Print TBB Concurrent Queue of some kind"""
+    class Iterator:
+        def __init__(self, my_rep, hc):
+            self.my_rep = my_rep
+            self.hc = hc
+            self.element_type = self.my_rep.type.strip_typedefs().template_argument(0)
+            k = 0
+            self.array = []
+            while k < self.my_rep['n_queue']:
+                self.array.append(self.my_rep['array'][k]['head_page']['my_storage']['my_value'].dereference())
+                k = k + 1
+            self.count = 0
+
+        def __iter__(self):
+            return self
+
+        def iter(self):
+            return self
+
+        def next(self):
+            tc = self.my_rep['tail_counter']['my_storage']['my_value']
+            if (self.hc == tc):
+                raise StopIteration
+            array_idx = int((self.hc * self.my_rep['phi']) % self.my_rep['n_queue'])
+            pg_index = (self.hc / self.my_rep['n_queue']) & (self.my_rep['items_per_page'] - 1)
+            if self.array[array_idx]['mask'] & ( 1 << pg_index):
+                item = self.array[array_idx].cast(gdb.lookup_type('tbb::strict_ppl::internal::micro_queue< ' + str(self.element_type) + ' >::padded_page'))['last'].address[pg_index]
+            else:
+                item = None
+            result = ('[%d]' % self.count, item)
+            if (pg_index == (self.my_rep['items_per_page'] - 1)):
+                self.array[array_idx] = self.array[array_idx]['next'].dereference()
+            self.count = self.count + 1
+            self.hc = self.hc + 1
+            return result
+
+        def __next__(self):
+            return self.next()
+
+    def __init__ (self, typename, val):
+        self.typename = typename
+        self.val = val
+        self.my_rep = val['my_rep'].dereference()
+
+    def get_size (self):
+        hc = self.my_rep['head_counter']['my_storage']['my_value']
+        nie = self.my_rep['n_invalid_entries']['my_storage']['my_value']
+        tc = self.my_rep['tail_counter']['my_storage']['my_value']
+        return (tc - hc - nie)
+
+    def to_string (self):
+        return '%s with %d elements' % (self.typename, self.get_size())
+
+    def children (self):
+        return self.Iterator(self.my_rep, self.my_rep['head_counter']['my_storage']['my_value'])
+
 class MacAddressPrinter:
     "Print TBB atomic varaiable of some kind"
     def __init__ (self, typename, val):
@@ -213,5 +270,7 @@ def build_agent_dictionary ():
     agent_printer.add('boost::asio::ip::address', IpPrinter)
     agent_printer.add('boost::asio::ip::address_v4', Ipv4Printer)
     agent_printer.add('tbb::atomic', TbbAtomicIntPrinter)
+    agent_printer.add('tbb::strict_ppl::concurrent_queue', TbbConcurrentQueue)
+    agent_printer.add('tbb::concurrent_queue', TbbConcurrentQueue)
     agent_printer.add('MacAddress', MacAddressPrinter)
 build_agent_dictionary ()
