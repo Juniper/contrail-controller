@@ -1196,7 +1196,8 @@ class VirtualDnsServer(Resource, VirtualDns):
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         vdns_name = ":".join(obj_dict['fq_name'])
         if 'parent_uuid' in obj_dict:
-            ok, read_result = cls.dbe_read(db_conn, 'domain', id)
+            ok, read_result = cls.dbe_read(db_conn, 'domain',
+                                           obj_dict['parent_uuid'])
             if not ok:
                 return ok, read_result
             virtual_DNSs = read_result.get('virtual_DNSs', [])
