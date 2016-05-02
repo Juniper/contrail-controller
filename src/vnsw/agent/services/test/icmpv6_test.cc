@@ -122,6 +122,8 @@ public:
                         if (strlen(rest)) {
                             if (pkt.icmp_hdr.rest.find(rest) != std::string::npos)
                                 return;
+                            else
+                                assert(0);
                         } else return;
                     }
                 }
@@ -382,7 +384,7 @@ TEST_F(Icmpv6Test, Icmpv6RATest) {
 
     Icmpv6Info *sand1 = new Icmpv6Info();
     Sandesh::set_response_callback(
-        boost::bind(&Icmpv6Test::CheckSandeshResponse, this, _1, 6, 4, 2, 2, "router advertisement", ""));
+        boost::bind(&Icmpv6Test::CheckSandeshResponse, this, _1, 6, 4, 2, 2, "router advertisement", "40 c0 23 28"));
     sand1->HandleRequest();
     client->WaitForIdle();
     sand1->Release();
@@ -395,6 +397,69 @@ TEST_F(Icmpv6Test, Icmpv6RATest) {
 
     client->Reset();
     DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+}
+
+TEST_F(Icmpv6Test, Icmpv6RALifetimeTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd15::2"},
+    };
+    Icmpv6Proto::Icmpv6Stats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"fd15::", 120, "::", true},
+    };
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+
+    ClearAllInfo *clear_req1 = new ClearAllInfo();
+    clear_req1->HandleRequest();
+    client->WaitForIdle();
+    clear_req1->Release();
+
+    boost::system::error_code ec;
+    Ip6Address src1_ip = Ip6Address::from_string("fd15::5", ec);
+    Ip6Address dest1_ip = Ip6Address::from_string("ff01::2", ec);
+
+    // Send Router Solications and check that they are responded to
+    // two are sent with created vm address, whereas two are sent with not created vm
+    SendIcmp(GetItfId(0), src1_ip.to_bytes().data(), dest1_ip.to_bytes().data(),
+             ND_ROUTER_SOLICIT, true);
+    SendIcmp(GetItfId(0), src1_ip.to_bytes().data(), dest1_ip.to_bytes().data(),
+             ND_ROUTER_SOLICIT, true);
+    int count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = Agent::GetInstance()->icmpv6_proto()->GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmpv6_router_advert_ < 2);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, stats.icmpv6_router_solicit_);
+    EXPECT_EQ(2U, stats.icmpv6_router_advert_);
+    EXPECT_EQ(0U, stats.icmpv6_drop_);
+
+    Icmpv6Info *sand1 = new Icmpv6Info();
+    Sandesh::set_response_callback(
+        boost::bind(&Icmpv6Test::CheckSandeshResponse, this, _1, 4, 2, 2, 0, "router advertisement", "40 c0 00 00"));
+    sand1->HandleRequest();
+    client->WaitForIdle();
+    sand1->Release();
+
+    Agent::GetInstance()->icmpv6_proto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 }
 
