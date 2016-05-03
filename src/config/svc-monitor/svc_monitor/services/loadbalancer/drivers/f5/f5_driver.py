@@ -294,7 +294,7 @@ class OpencontrailF5LoadbalancerDriver(
                                                   folder=new_pool_info['tenant_id'],
                                                   no_checks=True)
                             # check admin state
-                            if new_pool_info['members'][member]['admin_state'] == 'true':
+                            if new_pool_info['members'][member]['admin_state']:
                                 bigip.pool.enable_member(name=new_pool_info['id'],
                                                     ip_address=ip_address,
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
@@ -336,7 +336,7 @@ class OpencontrailF5LoadbalancerDriver(
                                     if self.global_routed_mode:
                                         ip_address = ip_address + "%0"
                                     # check admin state
-                                    if new_pool_info['members'][member]['admin_state'] == 'true':
+                                    if new_pool_info['members'][member]['admin_state']:
                                         bigip.pool.enable_member(name=new_pool_info['id'],
                                                     ip_address=ip_address,
                                                     port=int(new_pool_info['members'][member]['protocol_port']),
@@ -370,7 +370,7 @@ class OpencontrailF5LoadbalancerDriver(
                                             continue
                                         # Update the vip params
                                         if vip_property == 'admin_state':
-                                            if new_pool_info['vip']['params']['admin_state'] == 'true':
+                                            if new_pool_info['vip']['params']['admin_state']:
                                                 bigip_vs.enable_virtual_server(name=new_pool_info['virtual_ip'], 
                                                                         folder=new_pool_info['tenant_id'])
                                             else:
