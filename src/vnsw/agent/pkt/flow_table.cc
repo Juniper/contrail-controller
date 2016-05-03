@@ -540,6 +540,14 @@ done:
 void FlowEntry::SetVrfAssignEntry() {
     if (!(data_.match_p.vrf_assign_acl_action &
          (1 << TrafficAction::VRF_TRANSLATE))) {
+        //If VRF assign was evaluated and the vrf translate
+        //action is not present in latest evaluation mark the
+        //flow as short flow
+        if (data_.vrf_assign_evaluated &&
+            data_.match_p.action_info.vrf_translate_action_.vrf_name()
+            != Agent::NullString()) {
+            MakeShortFlow(SHORT_VRF_CHANGE);
+        }
         data_.vrf_assign_evaluated = true;
         data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
         return;
@@ -557,12 +565,13 @@ void FlowEntry::SetVrfAssignEntry() {
         bool ignore_acl = acl_it->action_info.vrf_translate_action_.ignore_acl();
         data_.match_p.action_info.vrf_translate_action_.set_ignore_acl(ignore_acl);
     }
+
     if (data_.vrf_assign_evaluated && vrf_assigned_name !=
         data_.match_p.action_info.vrf_translate_action_.vrf_name()) {
         MakeShortFlow(SHORT_VRF_CHANGE);
     }
     set_acl_assigned_vrf_index();
-    if (acl_assigned_vrf_index() == 0) {
+    if (acl_assigned_vrf_index() == VrfEntry::kInvalidIndex) {
         MakeShortFlow(SHORT_VRF_CHANGE);
     }
     data_.vrf_assign_evaluated = true;

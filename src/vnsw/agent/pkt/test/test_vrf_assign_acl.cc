@@ -399,10 +399,36 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
                             10, 20, nh_id);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->acl_assigned_vrf() == "default-project:vn3:vn3");
-    DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32);
+    DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32, bgp_peer_);
     client->WaitForIdle();
 }
 
+TEST_F(TestVrfAssignAclFlow, VrfAssignAcl9) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn3:vn3", "true");
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn3"),
+            new VerifyAction((1 << TrafficAction::PASS) |
+                             (1 << TrafficAction::VRF_TRANSLATE),
+                             (1 << TrafficAction::PASS))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    int nh_id = VmPortGet(1)->flow_key_nh()->id();
+    AddAddressVrfAssignAcl("intf1", 1, "2.1.1.0", "2.1.1.0", 7, 1, 65535,
+                           1, 65535, "default-project:vn3:vn3", "true");
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
+                            10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+}
 
 TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     struct PortInfo input[] = {
@@ -682,8 +708,14 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
+
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
+
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     delete client;
     return ret;
