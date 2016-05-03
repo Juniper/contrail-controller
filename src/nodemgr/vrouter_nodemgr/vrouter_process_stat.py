@@ -23,8 +23,13 @@ class VrouterProcessStat(ProcessStat):
                 if file.endswith(".ini"):
                     filename = \
                         '/etc/contrail/supervisord_vrouter_files/' + file
-                    data = StringIO('\n'.join(line.strip()
+                    try:
+                        data = StringIO('\n'.join(line.strip()
                                     for line in open(filename)))
+                    except IOError:
+                        msg = "This file does not exist anymore so continuing:  "
+                        sys.stderr.write(msg + filename + "\n")
+                        continue
                     Config = ConfigParser.SafeConfigParser()
                     Config.readfp(data)
                     sections = Config.sections()
