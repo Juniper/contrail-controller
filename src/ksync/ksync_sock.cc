@@ -886,7 +886,7 @@ void KSyncIoContext::Handler() {
 }
 
 void KSyncIoContext::ErrorHandler(int err) {
-    entry_->ErrorHandler(err, GetSeqno());
+    entry_->ErrorHandler(err, GetSeqno(), event_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

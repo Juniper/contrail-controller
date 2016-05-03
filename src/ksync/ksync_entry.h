@@ -60,8 +60,8 @@ public:
     };
 
     std::string StateString() const;
-    std::string OperationString() const;
-    std::string EventString(KSyncEvent event);
+    std::string AckOperationString(KSyncEvent ack_event) const;
+    std::string EventString(KSyncEvent event) const;
     // All referring KSyncEntries must use KSyncEntryPtr. The ref-count
     // maintained is optionally used to defer DELETE till refcount is 0
     typedef boost::intrusive_ptr<KSyncEntry> KSyncEntryPtr;
@@ -135,7 +135,7 @@ public:
     virtual bool AllowDeleteStateComp() {return true;}
 
     // User defined error handler
-    virtual void ErrorHandler(int err, uint32_t seqno) const;
+    virtual void ErrorHandler(int err, uint32_t seqno, KSyncEvent event) const;
 
     // Error message for vrouter returned errors
     virtual std::string VrouterError(uint32_t error) const;
