@@ -21,8 +21,10 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &name,
 void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
                                   size_t read_bytes) {
     if (read_bytes) {
-        std::string data(rx_buff_, read_bytes);
-        on_data_cb_(this, data);
+        if (!on_data_cb_.empty()) {
+            std::string data(rx_buff_, read_bytes);
+            on_data_cb_(this, data);
+        }
     }
 
     if (ec) {

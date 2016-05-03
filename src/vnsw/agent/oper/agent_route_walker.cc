@@ -337,7 +337,7 @@ void AgentRouteWalker::CallbackInternal(VrfEntry *vrf, bool all_walks_done) {
  * Check if all route table walk have been reset for this VRF
  */
 void AgentRouteWalker::OnRouteTableWalkCompleteForVrf(VrfEntry *vrf) {
-    if (!route_walk_done_for_vrf_cb_)
+    if (route_walk_done_for_vrf_cb_.empty())
         return;
 
     for (uint8_t table_type = (Agent::INVALID + 1);
@@ -380,7 +380,7 @@ void AgentRouteWalker::OnWalkComplete() {
    if ((walk_count_ == AgentRouteWalker::kInvalidWalkCount) &&
        (queued_walk_count_ == AgentRouteWalker::kInvalidWalkCount) &&
        (queued_walk_done_count_ == AgentRouteWalker::kInvalidWalkCount) &&
-       walk_done_cb_) {
+       !walk_done_cb_.empty()) {
         walk_done_cb_();
     }
 }
