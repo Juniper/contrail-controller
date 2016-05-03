@@ -929,6 +929,43 @@ void AgentParam::InitFromArguments() {
     return;
 }
 
+void AgentParam::UpdateBgpAsaServicePortRange() {
+    if (!stringToIntegerList(bgp_as_a_service_port_range_, "-",
+                             bgp_as_a_service_port_range_value_)) {
+        bgp_as_a_service_port_range_value_.clear();
+        return;
+    }
+    uint16_t start = bgp_as_a_service_port_range_value_[0];
+    uint16_t end = bgp_as_a_service_port_range_value_[1];
+
+    uint16_t count = end - start + 1;
+    if (count > Agent::kMaxBgpAsAServerSessions) {
+        bgp_as_a_service_port_range_value_[1] =
+            start + Agent::kMaxBgpAsAServerSessions - 1;
+        count = Agent::kMaxBgpAsAServerSessions;
+    }
+
+    struct rlimit rl;
+    int result = getrlimit(RLIMIT_NOFILE, &rl);
+    if (result == 0) {
+        if (rl.rlim_max <= Agent::kMaxOtherOpenFds) {
+            cout << "Clearing BGP as a Service port range," <<
+                    "as Max fd system limit is inadequate\n";
+            bgp_as_a_service_port_range_value_.clear();
+            return;
+        }
+        if (count > rl.rlim_max - Agent::kMaxOtherOpenFds) {
+            bgp_as_a_service_port_range_value_[1] =
+                start + rl.rlim_max - Agent::kMaxOtherOpenFds - 1;
+            cout << "Updating BGP as a Service port range to " <<
+                bgp_as_a_service_port_range_value_[0] << " - " <<
+                bgp_as_a_service_port_range_value_[1] << "\n";
+        }
+    } else {
+        cout << "Unable to validate BGP as a server port range configuration\n";
+    }
+}
+
 // Update max_vm_flows_ if it is greater than 100.
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
@@ -943,6 +980,12 @@ void AgentParam::ComputeFlowLimits() {
         max_vm_flows_ = 0;
     }
 
+    uint16_t bgp_as_a_service_count = 0;
+    if (bgp_as_a_service_port_range_value_.size() == 2) {
+        bgp_as_a_service_count = bgp_as_a_service_port_range_value_[1]
+                                 - bgp_as_a_service_port_range_value_[0] + 1;
+    }
+
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
@@ -951,26 +994,36 @@ void AgentParam::ComputeFlowLimits() {
             linklocal_system_flows_ = linklocal_vm_flows_ = 0;
             return;
         }
-        if (linklocal_system_flows_ > rl.rlim_max - Agent::kMaxOtherOpenFds - 1) {
-            linklocal_system_flows_ = rl.rlim_max - Agent::kMaxOtherOpenFds - 1;
+        if (linklocal_system_flows_ > rl.rlim_max - bgp_as_a_service_count -
+                                      Agent::kMaxOtherOpenFds - 1) {
+            linklocal_system_flows_ = rl.rlim_max - bgp_as_a_service_count -
+                                      Agent::kMaxOtherOpenFds - 1;
             cout << "Updating linklocal-system-flows configuration to : " <<
                 linklocal_system_flows_ << "\n";
         }
-        if (rl.rlim_cur < linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1) {
+        if (rl.rlim_cur < linklocal_system_flows_ + bgp_as_a_service_count +
+                          Agent::kMaxOtherOpenFds + 1) {
             struct rlimit new_rl;
             new_rl.rlim_max = rl.rlim_max;
-            new_rl.rlim_cur = linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1;
+            new_rl.rlim_cur = linklocal_system_flows_ + bgp_as_a_service_count +
+                              Agent::kMaxOtherOpenFds + 1;
             result = setrlimit(RLIMIT_NOFILE, &new_rl);
             if (result != 0) {
                 if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
                     linklocal_system_flows_ = 0;
+                    bgp_as_a_service_count = 0;
+                    bgp_as_a_service_port_range_value_.clear();
                 } else {
-                    linklocal_system_flows_ = rl.rlim_cur - Agent::kMaxOtherOpenFds - 1;
+                    linklocal_system_flows_ = rl.rlim_cur -
+                                              bgp_as_a_service_count -
+                                              Agent::kMaxOtherOpenFds - 1;
                 }
                 cout << "Unable to set Max open files limit to : " <<
                     new_rl.rlim_cur <<
                     " Updating linklocal-system-flows configuration to : " <<
-                    linklocal_system_flows_ << "\n";
+                    linklocal_system_flows_ <<
+                    " and Bgp as a service port count to : " <<
+                    bgp_as_a_service_count << "\n";
             }
         }
         if (linklocal_vm_flows_ > linklocal_system_flows_) {
@@ -1090,6 +1143,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     InitFromConfig();
     InitFromArguments();
     InitVhostAndXenLLPrefix();
+    UpdateBgpAsaServicePortRange();
     ComputeFlowLimits();
     vgw_config_table_->InitFromConfig(tree_);
 }

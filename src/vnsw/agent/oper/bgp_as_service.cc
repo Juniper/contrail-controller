@@ -35,25 +35,22 @@ BgpAsAService::BgpAsAService(const Agent *agent) :
     agent_(agent),
     bgp_as_a_service_entry_map_(),
     service_delete_cb_() {
-    BindBgpAsAServicePorts(agent->params()->bgp_as_a_service_port_range());
+    BindBgpAsAServicePorts(agent->params()->bgp_as_a_service_port_range_value());
 }
 
 BgpAsAService::~BgpAsAService() {
 }
 
-void BgpAsAService::BindBgpAsAServicePorts(const std::string &port_range) {
-    vector<uint32_t> ports;
-    if (!stringToIntegerList(port_range, "-", ports) ||
-        ports.size() != 2) {
-        BGPASASERVICETRACE(Trace, "Port bind range rejected -"
-                           "parsing failed");
+void BgpAsAService::BindBgpAsAServicePorts(const std::vector<uint16_t> &ports) {
+    if (ports.size() != 2) {
+        BGPASASERVICETRACE(Trace, "Port bind range rejected - parsing failed");
         return;
     }
 
-    uint32_t start = ports[0];
-    uint32_t end = ports[1];
+    uint16_t start = ports[0];
+    uint16_t end = ports[1];
 
-    for (uint32_t port = start; port <= end; port++) {
+    for (uint16_t port = start; port <= end; port++) {
         int port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         struct sockaddr_in address;
         memset(&address, '0', sizeof(address));
