@@ -26,6 +26,7 @@ public:
     virtual PeerCloseManager *close_manager();
     virtual void CustomClose() { }
     virtual void CloseComplete() { }
+    virtual void Close(bool non_graceful) { }
     virtual void Delete() { }
     virtual void GracefulRestartStale() { }
     virtual void GracefulRestartSweep() { }
@@ -102,7 +103,7 @@ TEST_F(BgpPeerCloseTest, State_NONE__Event_Close) {
     peer_close_->set_ll_graceful(false);
     peer_close_->set_is_ready(false);
 
-    close_manager_->Close();
+    close_manager_->Close(false);
     EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
     EXPECT_FALSE(close_manager_->stale_timer()->running());
     EXPECT_FALSE(close_manager_->sweep_timer()->running());

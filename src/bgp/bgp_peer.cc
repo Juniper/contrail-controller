@@ -60,12 +60,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual bool IsReady() const { return peer_->IsReady(); }
     virtual IPeer *peer() const { return peer_; }
 
-    void Close() {
+    virtual void Close(bool non_graceful) {
 
         // Process closure through close manager only if this is a flip.
         if (!manager_->IsInGracefulRestartTimerWait() ||
             peer_->state_machine()->get_state() == StateMachine::ESTABLISHED) {
-            manager_->Close();
+            manager_->Close(non_graceful);
             return;
         }
 
@@ -443,7 +443,10 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
 }
 
 bool BgpPeer::ResumeClose() {
-    peer_close_->Close();
+    peer_close_->Close(non_graceful_close_);
+
+    // No need to track graceful_closure once the close process is resumed.
+    non_graceful_close_ = false;
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -478,6 +481,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           as_override_(config->as_override()),
           membership_req_pending_(0),
           defer_close_(false),
+          non_graceful_close_(false),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
           gr_helper_(config->gr_helper()),
@@ -941,15 +945,19 @@ void BgpPeer::CustomClose() {
 //
 // Close this peer by closing all of it's RIBs.
 //
-void BgpPeer::Close() {
+void BgpPeer::Close(bool non_graceful) {
     if (membership_req_pending_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
+
+        // Note down non-graceful closures. Once a close is non-graceful,
+        // it shall remain as non-graceful.
+        non_graceful_close_ |= non_graceful;
         return;
     }
 
-    peer_close_->Close();
+    peer_close_->Close(non_graceful);
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -1412,7 +1420,7 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
         (peer_close_->close_manager()->state() ==
                 PeerCloseManager::LLGR_TIMER &&
             !peer_close_->IsCloseLongLivedGraceful())) {
-        Close();
+        Close(true);
         return false;
     }
     return true;

@@ -45,6 +45,7 @@ struct ShowBgpNeighborFamily {
 struct PeerCloseInfo {
     1: string state;
     2: bool close_again;
+    16: bool non_graceful;
     3: u64 init;
     4: u64 close;
     5: u64 nested;
