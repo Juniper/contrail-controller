@@ -3,7 +3,6 @@ import ConfigParser
 import logging
 import exceptions
 
-from oslo_utils import excutils
 from OpenSSL import crypto
 
 from keystoneclient import session
