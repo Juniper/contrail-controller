@@ -88,10 +88,13 @@ struct SandeshFlowQueueSummaryOneInfo {
 struct SandeshFlowTokenInfo {
     1: u32 add_tokens;
     2: u32 add_token_full;
-    3: u32 update_tokens;
-    4: u32 update_token_full;
-    5: u32 delete_tokens;
-    6: u32 delete_token_full;
+    3: u32 add_token_restarts;
+    4: u32 update_tokens;
+    5: u32 update_token_full;
+    6: u32 update_token_restarts;
+    7: u32 delete_tokens;
+    8: u32 delete_token_full;
+    9: u32 delete_token_restarts;
 }
 
 struct SandeshFlowQueueSummaryInfo {
