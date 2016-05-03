@@ -10,6 +10,7 @@
 #include "pkt/control_interface.h"
 
 class DiagTable;
+
 class Ping: public DiagEntry {
 public:
     static const uint32_t KPingUdpHdr = sizeof(struct ether_header) +
@@ -35,4 +36,5 @@ private:
     boost::posix_time::time_duration avg_rtt_;
     uint32_t  pkt_lost_count_;
 };
+
 #endif

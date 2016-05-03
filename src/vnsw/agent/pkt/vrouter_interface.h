@@ -46,6 +46,7 @@ public:
         vr_cmd_list_[AGENT_TRAP_FLOW_ACTION_HOLD] = AgentHdr::TRAP_HOLD_ACTION;
         vr_cmd_list_[AGENT_TRAP_TOR_CONTROL_PKT] = AgentHdr::TRAP_TOR_CONTROL_PKT;
         vr_cmd_list_[AGENT_TRAP_FLOW_ACTION_HOLD] = AgentHdr::TRAP_FLOW_ACTION_HOLD;
+        vr_cmd_list_[AGENT_TRAP_ROUTER_ALERT] = AgentHdr::TRAP_ROUTER_ALERT;
         // Init and populate vector for translating command params from vrouter
         // to agent
         vr_cmd_params_list_.insert(vr_cmd_params_list_.begin(), MAX_CMD_PARAMS,

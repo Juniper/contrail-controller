@@ -32,6 +32,7 @@ public:
     const Ip4Address *GetSip() const {return &sip_;};
     const Ip4Address *GetDip() const {return &dip_;};
     const AgentRoute *GetRt() const {return arp_rt_.get();};
+    const MacAddress *GetDmac() const {return &dmac_;}
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
