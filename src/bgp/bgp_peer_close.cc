@@ -29,7 +29,8 @@
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                                    boost::asio::io_service &io_service) :
         peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
-        state_(NONE), close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
+        state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
+        llgr_elapsed_(0) {
     stats_.init++;
     stale_timer_ = TimerManager::CreateTimer(io_service,
         "Graceful Restart StaleTimer",
@@ -42,7 +43,8 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
         peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
-        state_(NONE), close_again_(false), gr_elapsed_(0), llgr_elapsed_(0) {
+        state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
+        llgr_elapsed_(0) {
     stats_.init++;
     if (peer_close->peer() && peer_close->peer()->server()) {
         stale_timer_ = TimerManager::CreateTimer(
@@ -116,10 +118,16 @@ const std::string PeerCloseManager::GetStateName(State state) const {
 // B. UnregisterPeerComplete => Peers delete/StateMachine restart
 //                                          close_state_ = NONE
 //
-// TODO: If Close is restarted, account for elapsed time and skip GR (jump
-//       directly into LLGR) as apropraite
-void PeerCloseManager::Close() {
+// If Close is restarted, account for GR timer's elapsed time.
+//
+// Use non_graceful as true for non-graceful closure
+void PeerCloseManager::Close(bool non_graceful) {
     tbb::mutex::scoped_lock lock(mutex_);
+
+    // Note down non-graceful close trigger. Once non-graceful closure is
+    // triggered, it should remain so until close process is complete. Further
+    // graceful closure calls until then should remain non-graceful.
+    non_graceful_ |= non_graceful;
     CloseInternal();
 }
 
@@ -202,7 +210,7 @@ void PeerCloseManager::ProcessClosure() {
     // sweep old paths which may not have come back in the new session
     switch (state_) {
         case NONE:
-            if (!peer_close_->IsCloseGraceful()) {
+            if (non_graceful_ || !peer_close_->IsCloseGraceful()) {
                 MOVE_TO_STATE(DELETE);
                 stats_.deletes++;
             } else {
@@ -214,6 +222,8 @@ void PeerCloseManager::ProcessClosure() {
         case GR_TIMER:
             if (peer_close_->IsReady()) {
                 MOVE_TO_STATE(SWEEP);
+                gr_elapsed_ = 0;
+                llgr_elapsed_ = 0;
                 stats_.sweep++;
                 break;
             }
@@ -229,6 +239,8 @@ void PeerCloseManager::ProcessClosure() {
         case LLGR_TIMER:
             if (peer_close_->IsReady()) {
                 MOVE_TO_STATE(SWEEP);
+                gr_elapsed_ = 0;
+                llgr_elapsed_ = 0;
                 stats_.sweep++;
                 break;
             }
@@ -270,8 +282,6 @@ bool PeerCloseManager::ProcessSweepStateActions() {
 
     // Notify clients to trigger sweep as appropriate.
     peer_close_->GracefulRestartSweep();
-    gr_elapsed_ = 0;
-    llgr_elapsed_ = 0;
     CloseComplete();
     return false;
 }
@@ -301,6 +311,13 @@ void PeerCloseManager::UnregisterPeerComplete(IPeer *ipeer, BgpTable *table) {
         llgr_elapsed_ = 0;
         stats_.init++;
         close_again_ = false;
+        non_graceful_ = false;
+        return;
+    }
+
+    // Process nested closures.
+    if (close_again_) {
+        CloseComplete();
         return;
     }
 
@@ -349,6 +366,7 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     PeerCloseInfo peer_close_info;
     peer_close_info.state = GetStateName(state_);
     peer_close_info.close_again = close_again_;
+    peer_close_info.non_graceful = non_graceful_;
     peer_close_info.init = stats_.init;
     peer_close_info.close = stats_.close;
     peer_close_info.nested = stats_.nested;

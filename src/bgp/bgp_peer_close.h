@@ -61,7 +61,7 @@ public:
         return state_;
     }
 
-    void Close();
+    void Close(bool non_graceful);
     void ProcessEORMarkerReceived(Address::Family family);
 
     bool RestartTimerCallback();
@@ -99,6 +99,7 @@ private:
     Timer *sweep_timer_;
     State state_;
     bool close_again_;
+    bool non_graceful_;
     int gr_elapsed_;
     int llgr_elapsed_;
     IPeerClose::Families families_;
