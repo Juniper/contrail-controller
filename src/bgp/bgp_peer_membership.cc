@@ -710,15 +710,14 @@ void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
 }
 
 //
-// Concurrency: Runs in the context of the BGP state machine task.
-//
 // Unregister request for an ipeer from all the ribs it has registered to.
 //
 // Enqueue a request to peer rib membership manager
 //
 void PeerRibMembershipManager::UnregisterPeer(IPeer *ipeer,
         MembershipRequest::NotifyCompletionFn notify_completion_fn) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine",
+                      "bgp::PeerMembership");
     IPeerRibEvent *event = new IPeerRibEvent(IPeerRibEvent::UNREGISTER_PEER,
                                              ipeer, NULL);
     current_jobs_count_++;

@@ -921,10 +921,16 @@ void GracefulRestartTest::CallStaleTimer(BgpPeerTest *peer) {
 
     task_util::WaitForIdle();
     bool is_ready = peer->IsReady();
+    uint64_t llgr_stale =
+        peer->peer_close()->close_manager()->stats().llgr_stale;
     peer->peer_close()->close_manager()->RestartTimerCallback();
     if (!is_ready) {
-        TASK_UTIL_EXPECT_EQ(PeerCloseManager::LLGR_TIMER,
-                peer->peer_close()->close_manager()->state());
+        TASK_UTIL_EXPECT_EQ(llgr_stale + 1,
+                peer->peer_close()->close_manager()->stats().llgr_stale);
+        PeerCloseManager *pc = peer->peer_close()->close_manager();
+        if (pc->state() == PeerCloseManager::GR_TIMER)
+            pc->RestartTimerCallback();
+        TASK_UTIL_EXPECT_EQ(PeerCloseManager::LLGR_TIMER, pc->state());
         peer->peer_close()->close_manager()->RestartTimerCallback();
     }
     task_util::WaitForIdle();
