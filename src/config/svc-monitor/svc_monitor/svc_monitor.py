@@ -861,32 +861,30 @@ class SvcMonitor(object):
             cls.reset()
 
     def update_sg_si_vmi(self, vmi_obj):
-        try:
-            vip_vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
-            instance_ip = InstanceIpSM.get(vmi_obj.instance_ip)
-            for vmi_uuid in instance_ip.virtual_machine_interfaces:
-                # Skip the same VIP port
-                if vmi_uuid == vmi_obj.uuid:
+        if vmi_obj.instance_ip is None:
+            return
+        vip_vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
+        instance_ip = InstanceIpSM.get(vmi_obj.instance_ip)
+        for vmi_uuid in instance_ip.virtual_machine_interfaces:
+            # Skip the same VIP port
+            if vmi_uuid == vmi_obj.uuid:
+                continue
+            else:
+                vmi_sm = VirtualMachineInterfaceSM.locate(vmi_uuid)
+                vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+                if vmi_cfg.get_security_group_refs() == vip_vmi_cfg.get_security_group_refs():
                     continue
-                else:
-                    vmi_sm = VirtualMachineInterfaceSM.get(vmi_uuid)
-                    vmi_cfg = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
-                    if str(vmi_cfg.security_group_refs) == str(vip_vmi_cfg.security_group_refs):
-                        continue
+                # Delete old security group refs
+                for sec_group in vmi_cfg.get_security_group_refs():
+                    self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
+                        'security_group', sec_group['uuid'], None, 'DELETE')
 
-                    # Delete old security group refs
-                    for sec_group in vmi_cfg.security_group_refs:
-                        self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
-                            'security_group', sec_group['uuid'], None, 'DELETE')
+                # Create new security group refs
+                for sec_group in vip_vmi_cfg.get_security_group_refs():
+                    self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
+                        'security_group', sec_group['uuid'], None, 'ADD')
 
-                    # Create new security group refs
-                    for sec_group in vip_vmi_cfg.security_group_refs:
-                        self._vnc_lib.ref_update('virtual_machine_interface', vmi_uuid,
-                            'security_group', sec_group['uuid'], None, 'ADD')
-
-                    vmi_sm.update()
-        except Exception as e:
-            self.logger.log_error('Error %s while updating sgs for SI VMIs' % str(e))
+                vmi_sm.update()
 
 def skip_check_service(si):
     # wait for first launch
