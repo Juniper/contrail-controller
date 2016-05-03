@@ -344,6 +344,7 @@ private:
     // by taking only one of the nexthop from the path
     bool ecmp_suppressed_;
     EcmpLoadBalance ecmp_load_balance_;
+    std::string peer_str_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 

@@ -65,11 +65,20 @@ bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
+void ValidateNH(const MplsLabel *mpls, NextHop *nh) {
+    CompositeNH *cnh = dynamic_cast<CompositeNH *>(nh);
+    if (!cnh)
+        return;
+    if (cnh->composite_nh_type() == Composite::L2COMP)
+        assert(mpls->GetType() == MplsLabel::MCAST_NH);
+}
+
 bool MplsTable::ChangeNH(MplsLabel *mpls, NextHop *nh) {
     if (mpls == NULL)
         return false;
 
     if (mpls->nh_ != nh) {
+        ValidateNH(mpls, nh);
         mpls->nh_ = nh;
         assert(nh);
         mpls->SyncDependentPath();
