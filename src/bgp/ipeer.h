@@ -124,6 +124,7 @@ public:
     // Printable name
     virtual std::string ToString() const = 0;
     virtual PeerCloseManager *close_manager() = 0;
+    virtual void Close(bool non_graceful) = 0;
     virtual bool IsCloseGraceful() const = 0;
     virtual bool IsCloseLongLivedGraceful() const = 0;
     virtual void CustomClose() = 0;
@@ -160,7 +161,7 @@ public:
     virtual bool IsRegistrationRequired() const {
         return true;
     }
-    virtual void Close() = 0;
+    virtual void Close(bool non_graceful) = 0;
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;

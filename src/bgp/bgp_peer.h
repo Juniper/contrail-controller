@@ -201,7 +201,7 @@ public:
     virtual bool IsReady() const;
     virtual bool IsXmppPeer() const;
 
-    void Close();
+    void Close(bool non_graceful);
     void Clear(int subcode);
 
     virtual IPeerClose *peer_close();
@@ -305,6 +305,7 @@ public:
         return llgr_params_;
     }
     bool SkipNotificationSend(int code, int subcode) const;
+    bool SkipNotificationReceive(int code, int subcode) const;
 
 protected:
     const std::vector<std::string> &negotiated_families() const {
@@ -427,6 +428,7 @@ private:
 
     uint64_t membership_req_pending_;
     bool defer_close_;
+    bool non_graceful_close_;
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     uint16_t hold_time_;

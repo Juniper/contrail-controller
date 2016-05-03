@@ -33,7 +33,17 @@ class BgpTable;
 //
 class PeerCloseManager {
 public:
-    enum State { NONE, STALE, GR_TIMER, LLGR_STALE, LLGR_TIMER, SWEEP, DELETE };
+    enum State {
+        BEGIN_STATE,
+        NONE = BEGIN_STATE,
+        STALE,
+        GR_TIMER,
+        LLGR_STALE,
+        LLGR_TIMER,
+        SWEEP,
+        DELETE,
+        END_STATE = DELETE,
+    };
 
     // Use 5 minutes as the default GR timer expiry duration.
     static const int kDefaultGracefulRestartTimeSecs = 5 * 60;
@@ -61,7 +71,8 @@ public:
         return state_;
     }
 
-    void Close();
+    void set_state(State state) { state_ = state; }
+    void Close(bool non_graceful);
     void ProcessEORMarkerReceived(Address::Family family);
 
     bool RestartTimerCallback();
@@ -99,6 +110,7 @@ private:
     Timer *sweep_timer_;
     State state_;
     bool close_again_;
+    bool non_graceful_;
     int gr_elapsed_;
     int llgr_elapsed_;
     IPeerClose::Families families_;

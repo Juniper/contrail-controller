@@ -806,7 +806,7 @@ void BgpPeerCloseTest::XmppPeerClose() {
 
     if (xmpp_close_from_control_node_) {
         BOOST_FOREACH(BgpXmppChannel *peer, xmpp_peers_) {
-            peer->Peer()->Close();
+            peer->Peer()->Close(true);
         }
     } else {
         BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {

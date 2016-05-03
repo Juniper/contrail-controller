@@ -37,7 +37,7 @@ public:
     virtual const IPeerDebugStats *peer_stats() const { return NULL; }
     virtual bool IsReady() const { return true; }
     virtual bool IsXmppPeer() const { return peer_type_ == BgpProto::XMPP; }
-    virtual void Close() { }
+    virtual void Close(bool non_graceful) { }
     virtual const string GetStateName() const { return "Established"; }
     BgpProto::BgpPeerType PeerType() const { return peer_type_; }
     virtual uint32_t bgp_identifier() const { return address_.to_ulong(); }

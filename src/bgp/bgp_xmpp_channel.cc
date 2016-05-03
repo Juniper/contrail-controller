@@ -231,11 +231,11 @@ public:
         parent_ = NULL;
     }
 
-    void Close() {
+    virtual void Close(bool non_graceful) {
         if (parent_) {
             assert(parent_->peer_deleted());
             assert(parent_->channel_->IsCloseInProgress());
-            manager_->Close();
+            manager_->Close(non_graceful);
         }
     }
 
@@ -414,7 +414,7 @@ public:
     virtual bool IsXmppPeer() const {
         return true;
     }
-    virtual void Close();
+    virtual void Close(bool non_graceful);
 
     const bool IsDeleted() const { return is_closed_; }
     void SetPeerClosed(bool closed) {
@@ -501,7 +501,7 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     }
 }
 
-void BgpXmppChannel::XmppPeer::Close() {
+void BgpXmppChannel::XmppPeer::Close(bool non_graceful) {
     parent_->set_peer_closed(true);
     if (server_ == NULL)
         return;
@@ -510,7 +510,7 @@ void BgpXmppChannel::XmppPeer::Close() {
         const_cast<XmppConnection *>(parent_->channel_->connection());
 
     if (connection && !connection->IsActiveChannel())
-        parent_->peer_close_->Close();
+        parent_->peer_close_->Close(false);
 }
 
 BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
@@ -1806,7 +1806,7 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
 }
 
 bool BgpXmppChannel::ResumeClose() {
-    peer_->Close();
+    peer_->Close(false);
     return true;
 }
 
@@ -2555,7 +2555,7 @@ void BgpXmppChannel::Close() {
         defer_peer_close_ = true;
         return;
     }
-    peer_->Close();
+    peer_->Close(false);
 }
 
 //
