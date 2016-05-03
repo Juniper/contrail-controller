@@ -118,6 +118,7 @@ public:
     void TokenAvailable(FlowTokenPool *pool);
 
     bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);
+    void EnqueueUnResolvedFlowEntry(FlowEntryPtr &flow);
 private:
     friend class SandeshIPv4FlowFilterRequest;
     friend class SandeshIPv6FlowFilterRequest;
