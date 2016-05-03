@@ -5,6 +5,7 @@
 #
 
 import gevent
+import time
 from gevent import monkey; monkey.patch_all()
 import json
 import signal
@@ -290,7 +291,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         conf = UVEAlarmConfig()
         state = UVEAlarmOperState(state = UVEAlarmState.Active,
                                 head_timestamp = 0, alarm_timestamp = [])
-        alarm_info = AlarmStateMachine(tab = table, uv = name, nm = \
+	uv = table + ':' + name
+        alarm_info = AlarmStateMachine(tab = table, uv = uv, nm = \
 		alarm_type, activeTimer = 0, idleTimer = 0, freqCheck_Times\
 		= 0, freqCheck_Seconds = 0, freqExceededCheck = False, sandesh=self._ag._sandesh)
 	alarm_info.set_uai(uai)
@@ -596,38 +598,17 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 	    'timer', 'expected_output_state'])
         set_alarm_test1 = [
             TestCase (
-		name = "case2 set alarm in Soak_Idle",
+		name = "set alarm in Idle",
 		initial_state = UVEAlarmState.Idle,
-		timer = 0,
-		expected_output_state = UVEAlarmState.Active
+		timer = 1,
+		expected_output_state = UVEAlarmState.Soak_Active
             ),
 	]
-
-	clear_alarm_test1 = [
-            TestCase (
-		name = "case1 clear alarm in Active",
-		initial_state = UVEAlarmState.Active,
-		timer = 0,
-		expected_output_state = UVEAlarmState.Idle
-            ),
-            TestCase (
-		name = "case1 clear alarm in Active",
-		initial_state = UVEAlarmState.Active,
-		timer = 10,
-		expected_output_state = UVEAlarmState.Soak_Idle
-            ),
-        ]
-        set_alarm_test2 = [
-            TestCase (
-		name = "case2 set alarm in Soak_Idle",
-		initial_state = UVEAlarmState.Soak_Idle,
-		timer = 10,
-		expected_output_state = UVEAlarmState.Active
-            ),
-	]
+	test_count = 1
 
         for case in set_alarm_test1:
-            logging.info('=== Test %s ===' % (case.name))
+            logging.info('=== Test case%s %s ===' % (test_count, case.name))
+	    test_count += 1
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\
                     get_uas().state = case.initial_state
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\
@@ -638,14 +619,44 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             output_state = self._ag.tab_alarms['table1']['table1:name1']\
                     ['type1'].get_uas().state
             self.assertEqual(case.expected_output_state, output_state)
-            self.assertEqual(True, update_alarm)
+            self.assertEqual(False, update_alarm)
+
+	curr_time = int(time.time())
+        logging.info('=== Test case%s checking activeTimerExpiry ===' % (test_count))
+	test_count += 1
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(update_alarms, [])
+
+	curr_time += 1
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(len(update_alarms), 1)
+
+	clear_alarm_test1 = [
+            TestCase (
+		name = "clear alarm in Active",
+		initial_state = UVEAlarmState.Active,
+		timer = 0,
+		expected_output_state = UVEAlarmState.Idle
+            ),
+            TestCase (
+		name = "case3 clear alarm in Active with Timer",
+		initial_state = UVEAlarmState.Active,
+		timer = 1,
+		expected_output_state = UVEAlarmState.Soak_Idle
+            ),
+        ]
 
         for case in clear_alarm_test1:
-            logging.info('=== Test %s ===' % (case.name))
+            logging.info('=== Test case%s %s ===' % (test_count, case.name))
+	    test_count += 1
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\
                     uas.state = case.initial_state
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\
                     uac.IdleTimer = case.timer
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uac.FreqCheck_Seconds = case.timer
             delete_alarm, update_alarm = self._ag.tab_alarms['table1']\
 		    ['table1:name1']['type1'].clear_alarms()
             # verify output state
@@ -659,8 +670,70 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 	    	self.assertEqual(delete_alarm, False)
 	    	self.assertEqual(update_alarm, False)
 
+        logging.info('=== Test case%s checking idleTimerExpiry ===' % (test_count))
+	test_count += 1
+	curr_time = int(time.time())
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(delete_alarms, [])
+        self.assertEqual(update_alarms, [])
+
+	curr_time += 1
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(len(delete_alarms), 0)
+        self.assertEqual(len(update_alarms), 1)
+
+        logging.info('=== Test case%s checking deleteTimerExpiry ===' % (test_count))
+	test_count += 1
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(delete_alarms, [])
+
+	curr_time += 1
+	delete_alarms, update_alarms = AlarmStateMachine.run_timers\
+                (curr_time, self._ag.tab_alarms)
+        self.assertEqual(len(delete_alarms), 1)
+
+	clear_alarm_test2 = [
+            TestCase (
+		name = "clear alarm in Active with Timer",
+		initial_state = UVEAlarmState.Active,
+		timer = 1,
+		expected_output_state = UVEAlarmState.Soak_Idle
+            ),
+        ]
+
+        for case in clear_alarm_test2:
+            logging.info('=== Test case%s %s ===' % (test_count, case.name))
+	    test_count += 1
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uas.state = case.initial_state
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uac.IdleTimer = case.timer
+            self._ag.tab_alarms['table1']['table1:name1']['type1'].\
+                    uac.FreqCheck_Seconds = case.timer
+            delete_alarm, update_alarm = self._ag.tab_alarms['table1']\
+		    ['table1:name1']['type1'].clear_alarms()
+            # verify output state
+            output_state = self._ag.tab_alarms['table1']['table1:name1']\
+                    ['type1'].uas.state
+            self.assertEqual(case.expected_output_state, output_state)
+	    self.assertEqual(delete_alarm, False)
+	    self.assertEqual(update_alarm, False)
+
+        set_alarm_test2 = [
+            TestCase (
+		name = "set alarm in Soak_Idle",
+		initial_state = UVEAlarmState.Soak_Idle,
+		timer = 1,
+		expected_output_state = UVEAlarmState.Active
+            ),
+	]
+
         for case in set_alarm_test2:
-            logging.info('=== Test %s ===' % (case.name))
+            logging.info('=== Test case%s %s ===' % (test_count, case.name))
+	    test_count += 1
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\
                     get_uas().state = case.initial_state
             self._ag.tab_alarms['table1']['table1:name1']['type1'].\

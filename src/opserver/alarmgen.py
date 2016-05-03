@@ -401,8 +401,7 @@ class AlarmStateMachine:
             return True
         return False
 
-    def run_active_timer(self):
-        curr_time = int(time.time())
+    def run_active_timer(self, curr_time):
         update_alarm = False
         timeout_value = None
         if curr_time >= self.activeTimeout:
@@ -413,12 +412,11 @@ class AlarmStateMachine:
             update_alarm = True
         return timeout_value, update_alarm
 
-    def run_idle_timer(self):
+    def run_idle_timer(self, curr_time):
         """
         This is the handler function for checking timer in Soak_Idle state. 
         State Machine should be deleted by the caller if this timer fires
         """
-        curr_time = int(time.time())
         idleTimerExpired = 0
         update_alarm = False
         timeout_value = None
@@ -436,12 +434,11 @@ class AlarmStateMachine:
                 delete_alarm = True
         return timeout_value, update_alarm, delete_alarm
 
-    def run_delete_timer(self):
+    def run_delete_timer(self, curr_time):
         """
         This is the handler function for checking timer in Idle state. 
         State Machine should be deleted by the caller if this timer fires
         """
-        curr_time = int(time.time())
         delete_alarm = False
         idleTimerExpired = 0
         if self.deleteTimeout > 0:
@@ -450,7 +447,7 @@ class AlarmStateMachine:
             delete_alarm = True
         return delete_alarm
 
-    def run_uve_soaking_timer(self):
+    def run_uve_soaking_timer(self, curr_time):
         """
         This function goes through the list of alarms which were raised
         or set to delete but not soaked yet.
@@ -461,11 +458,11 @@ class AlarmStateMachine:
         delete_alarm = False
         timeout_value = None
         if self.uas.state == UVEAlarmState.Soak_Active:
-            timeout_value, update_alarm = self.run_active_timer()
+            timeout_value, update_alarm = self.run_active_timer(curr_time)
         elif self.uas.state == UVEAlarmState.Soak_Idle:
-            timeout_value, update_alarm, delete_alarm = self.run_idle_timer()
+            timeout_value, update_alarm, delete_alarm = self.run_idle_timer(curr_time)
         elif self.uas.state == UVEAlarmState.Idle:
-            delete_alarm = self.run_delete_timer()
+            delete_alarm = self.run_delete_timer(curr_time)
         return delete_alarm, update_alarm, timeout_value
     #end run_uve_soaking_timer
 
@@ -494,7 +491,7 @@ class AlarmStateMachine:
             for (tab, uv, nm) in AlarmStateMachine.tab_alarms_timer[curr_time]:
                 asm = tab_alarms[tab][uv][nm]
                 delete_alarm, update_alarm, timeout_val = \
-                                asm.run_uve_soaking_timer()
+                                asm.run_uve_soaking_timer(curr_time)
                 if delete_alarm:
                     delete_alarms.append((asm.tab, asm.uv, asm.nm))
                 if update_alarm:
