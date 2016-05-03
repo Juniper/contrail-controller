@@ -130,9 +130,13 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
 }
 
 void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
-    RevFlowDepParams params;
-    lhs->RevFlowDepInfo(&params);
-    DeleteFlowInfo(lhs, params);
+    /* If flow is delete-marked we would have already sent a DELETE msg to
+     * FlowMgmt */
+    if (!lhs->deleted()) {
+        RevFlowDepParams params;
+        lhs->RevFlowDepInfo(&params);
+        DeleteFlowInfo(lhs, params);
+    }
     if (rhs)
         lhs->Copy(rhs, update);
 }

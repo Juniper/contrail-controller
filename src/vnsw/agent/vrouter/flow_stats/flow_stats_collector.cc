@@ -957,6 +957,9 @@ void FlowStatsCollector::DeleteFlow(const FlowEntryPtr &flow) {
     if (it == flow_tree_.end())
         return;
 
+    /* Reset the FlowStatsCollector to ensure that FlowEntry does not point to
+     * stale FlowStatsCollector when FlowEntry is reused */
+    flow->set_fsc(NULL);
     flow_tree_.erase(it);
 }
 
