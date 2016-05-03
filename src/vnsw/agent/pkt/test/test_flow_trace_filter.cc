@@ -185,10 +185,10 @@ TEST_F(FlowTraceFilterTest, Enable_2) {
     EXPECT_TRUE(fe->reverse_flow_entry()->trace());
 
     // Enable tracing based on reverse flow
-    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.11", "1.1.1.10", 1, 2,
+    TxTcpPacket(VmInterfaceGet(2)->id(), "1.1.1.11", "1.1.1.10", 1, 2,
                 false);
     client->WaitForIdle();
-    fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+    fe = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
                  "1.1.1.11", "1.1.1.10", 6, 1, 2);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
@@ -196,10 +196,10 @@ TEST_F(FlowTraceFilterTest, Enable_2) {
     EXPECT_TRUE(fe->reverse_flow_entry()->trace());
 
     // No tracing due to port-mismatch
-    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.11", "1.1.1.10", 1, 30000,
+    TxTcpPacket(VmInterfaceGet(2)->id(), "1.1.1.11", "1.1.1.10", 1, 30000,
                 false);
     client->WaitForIdle();
-    fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+    fe = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
                  "1.1.1.11", "1.1.1.10", 6, 1, 30000);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
@@ -207,10 +207,10 @@ TEST_F(FlowTraceFilterTest, Enable_2) {
     EXPECT_FALSE(fe->reverse_flow_entry()->trace());
 
     // No tracing due to address-mismatch
-    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.11", "1.1.2.10", 1, 2,
+    TxTcpPacket(VmInterfaceGet(2)->id(), "1.1.1.11", "1.1.2.10", 1, 2,
                 false);
     client->WaitForIdle();
-    fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+    fe = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
                  "1.1.1.11", "1.1.2.10", 6, 1, 2);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
@@ -256,10 +256,10 @@ TEST_F(FlowTraceFilterTest, Enable_3) {
     EXPECT_TRUE(fe->reverse_flow_entry()->trace());
 
     // Enable tracing based on reverse flow
-    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.11", "1.1.1.10", 22, 2,
+    TxTcpPacket(VmInterfaceGet(2)->id(), "1.1.1.11", "1.1.1.10", 22, 2,
                 false);
     client->WaitForIdle();
-    fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+    fe = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
                  "1.1.1.11", "1.1.1.10", 6, 22, 2);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
@@ -267,10 +267,10 @@ TEST_F(FlowTraceFilterTest, Enable_3) {
     EXPECT_TRUE(fe->reverse_flow_entry()->trace());
 
     // No tracing due to port-mismatch
-    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.11", "1.1.1.10", 1, 30000,
+    TxTcpPacket(VmInterfaceGet(2)->id(), "1.1.1.11", "1.1.1.10", 1, 30000,
                 false);
     client->WaitForIdle();
-    fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+    fe = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
                  "1.1.1.11", "1.1.1.10", 6, 1, 30000);
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
