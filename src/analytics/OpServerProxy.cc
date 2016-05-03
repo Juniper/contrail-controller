@@ -577,7 +577,7 @@ class OpServerProxy::OpServerImpl {
                 topic_.clear();
                 producer_.reset();
 
-                RdKafka::wait_destroyed(5000);
+                assert(RdKafka::wait_destroyed(8000) == 0);
             }
         }
 
