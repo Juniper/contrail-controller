@@ -432,7 +432,7 @@ struct Idle : sc::state<Idle, StateMachine> {
     sc::result react(const EvStop &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelIdleHoldTimer();
-        state_machine->peer()->Close();
+        state_machine->peer()->Close(false);
         return discard_event();
     }
 
@@ -1352,7 +1352,16 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
 
     set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
     reset_hold_time();
-    peer_->Close();
+
+    if (!code || peer_->SkipNotificationReceive(code, subcode)) {
+
+        // Trigger graceful closure.
+        peer_->Close(false);
+    } else {
+
+        // Trigger non-graceful closure.
+        peer_->Close(true);
+    }
 }
 
 //
