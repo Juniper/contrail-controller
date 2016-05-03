@@ -178,8 +178,8 @@ def create_api_server_instance(test_id, config_knobs):
         config_knobs)
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
-    extra_env = {'HTTP_HOST':'%s%s' %(ret_server_info['ip'],
-                                      ret_server_info['service_port'])}
+    extra_env = {'HTTP_HOST': ret_server_info['ip'],
+                 'SERVER_PORT': str(ret_server_info['service_port'])}
     ret_server_info['app'] = TestApp(bottle.app(), extra_environ=extra_env)
     ret_server_info['api_conn'] = VncApi('u', 'p',
         api_server_host=ret_server_info['ip'],
