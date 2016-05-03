@@ -11,7 +11,8 @@
 
 IFMapClient::IFMapClient()
     : index_(kIndexInvalid), exporter_(NULL), msgs_sent_(0), msgs_blocked_(0),
-      bytes_sent_(0), nodes_sent_(0), links_sent_(0), send_is_blocked_(false),
+      bytes_sent_(0), update_nodes_sent_(0), delete_nodes_sent_(0),
+      update_links_sent_(0), delete_links_sent_(0), send_is_blocked_(false),
       created_at_(UTCTimestampUsec()) {
 }
 
