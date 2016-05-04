@@ -36,6 +36,7 @@ public:
     Agent *agent() const { return agent_; }
     MulticastHandler *multicast() const { return multicast_.get(); }
     GlobalVrouter *global_vrouter() const { return global_vrouter_.get(); }
+    AgentProfile *agent_profile() const { return profile_.get(); }
     PathPreferenceModule *route_preference_module() const {
         return route_preference_module_.get();
     }

@@ -32,6 +32,7 @@
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/sg.h"
+#include "oper/agent_profile.h"
 
 #include "filter/packet_header.h"
 #include "filter/acl.h"
@@ -47,6 +48,8 @@
 #include "uve/vm_uve_table.h"
 #include "uve/vn_uve_table.h"
 #include "uve/vrouter_uve_entry.h"
+
+static void UpdateStats(FlowTable::StatsType type, FlowProfStats *stats);
 
 using boost::assign::map_list_of;
 const std::map<FlowEntry::FlowPolicyState, const char*>
@@ -1664,6 +1667,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->set_deleted(false);
         DeleteFlowInfo(flow);
     } else {
+        UpdateStats(ADD, &stats_);
         flow->stats_.setup_time = UTCTimestampUsec();
         agent_->stats()->incr_flow_created();
         agent_->stats()->UpdateFlowAddMinMaxStats(flow->stats_.setup_time);
@@ -1821,6 +1825,7 @@ void FlowTable::DeleteAclFlows(const AclDBEntry *acl)
     while(fe_tree_it != fe_tree.end()) {
         const FlowKey &fekey = (*fe_tree_it)->key();
         ++fe_tree_it;
+        UpdateStats(DEL, &stats_);
         Delete(fekey, true);
     }
 }
@@ -2578,10 +2583,12 @@ void FlowTable::ResyncVnFlows(const VnEntry *vn) {
             fe->is_flags_set(FlowEntry::UnknownUnicastFlood)) {
             fe->MakeShortFlow(FlowEntry::SHORT_NO_DST_ROUTE);
             fe->GetPolicyInfo(vn);
+            UpdateStats(REVAL, &stats_);
             ResyncAFlow(fe, true);
             continue;
         }
         fe->GetPolicyInfo(vn);
+        UpdateStats(REVAL, &stats_);
         ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
@@ -2606,6 +2613,7 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo();
+        UpdateStats(REVAL, &stats_);
         ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
@@ -2631,6 +2639,7 @@ void FlowTable::ResyncEcmpInfo(const RouteFlowKey &key, const AgentRoute *rt) {
             continue;
         }
 
+        UpdateStats(REVAL, &stats_);
         UpdateEcmpInfo(flow);
         FlowEntry *rflow = flow->reverse_flow_entry();
         if (rflow) {
@@ -2657,6 +2666,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
         }
 
         if (flow->SetRpfNH(this, rt) == true) {
+            UpdateStats(REVAL, &stats_);
             flow->UpdateKSync(this, true);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
@@ -2716,6 +2726,7 @@ void FlowTable::FlowRecompute(RouteFlowInfo *rt_info,
             continue;
         }
         if (fe->set_pending_recompute(true)) {
+            UpdateStats(REVAL, &stats_);
             agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
                     new FlowTaskMsg(fe));
         }
@@ -2742,6 +2753,7 @@ void FlowTable::FlowL2Recompute(RouteFlowInfo *rt_info) {
             fe = fe->reverse_flow_entry();
         }
         if (fe->set_pending_recompute(true)) {
+            UpdateStats(REVAL, &stats_);
             agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
                     new FlowTaskMsg(fe));
         }
@@ -2768,8 +2780,10 @@ void FlowTable::IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb) 
         FLOW_TRACE(Trace, "Evaluate Route Flows", flow_info);
         DeleteFlowInfo(fe);
         if (cb(fe) == false) {
+            UpdateStats(DEL, &stats_);
             fet.erase(fet_it);
         } else {
+            UpdateStats(REVAL, &stats_);
             ResyncAFlow(fe, true);
             AddFlowInfo(fe);
         }
@@ -2805,6 +2819,7 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
         }
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo(intf->vn());
+        UpdateStats(REVAL, &stats_);
         ResyncAFlow(fe, true);
         AddFlowInfo(fe);
         FlowInfo flow_info;
@@ -3588,6 +3603,7 @@ void FlowTable::DeleteVnFlows(const VnEntry *vn)
     FlowEntryTree fet = vn_it->second->fet;
     FlowEntryTree::iterator fet_it;
     for (fet_it = fet.begin(); fet_it != fet.end(); ++fet_it) {
+        UpdateStats(DEL, &stats_);
         Delete((*fet_it)->key(), true);
     }
 }
@@ -3618,6 +3634,7 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
     FlowEntryTree fet = intf_it->second->fet;
     FlowEntryTree::iterator fet_it;
     for (fet_it = fet.begin(); fet_it != fet.end(); ++fet_it) {
+        UpdateStats(DEL, &stats_);
         Delete((*fet_it)->key(), true);
     }
 }
@@ -3928,10 +3945,15 @@ FlowTable::FlowTable(Agent *agent) :
     delete_queue_(new WorkQueue<FlowDeleteReq *>(
                   TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"),
                   PktHandler::FLOW,
-                  boost::bind(&FlowTable::FlowDelete, this, _1))) {
+                  boost::bind(&FlowTable::FlowDelete, this, _1))),
+    stats_() {
     max_vm_flows_ = (uint32_t)
         (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
          agent->params()->max_vm_flows()) / 100;
+
+    AgentProfile *profile = agent_->oper_db()->agent_profile();
+    profile->RegisterPktFlowStatsCb(boost::bind(&FlowTable::SetProfileData,
+                                                this, _1));
 }
 
 FlowTable::~FlowTable() {
@@ -3968,4 +3990,29 @@ void FlowTable::FreeReq(FlowEntryPtr &flow) {
                                            FlowDeleteReq::FREE_FLOW);
     flow.reset();
     delete_queue_->Enqueue(req);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Set profile information
+//////////////////////////////////////////////////////////////////////////////
+void UpdateStats(FlowTable::StatsType type, FlowProfStats *stats) {
+    switch (type) {
+    case FlowTable::ADD:
+        stats->add_count_++;
+        break;
+    case FlowTable::DEL:
+        stats->delete_count_++;
+        break;
+    case FlowTable::REVAL:
+        stats->revaluate_count_++;
+        break;
+    default:
+        break;
+    }
+}
+
+void FlowTable::SetProfileData(ProfileData *data) {
+    data->flow_.add_count_ = stats_.add_count_;
+    data->flow_.del_count_ = stats_.delete_count_;
+    data->flow_.reval_count_ = stats_.revaluate_count_;
 }

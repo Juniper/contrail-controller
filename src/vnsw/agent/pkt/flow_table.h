@@ -57,8 +57,19 @@ class FlowTableKSyncEntry;
 class NhListener;
 class NhState;
 class FlowDeleteReq;
+class ProfileData;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
+
+struct FlowProfStats {
+    uint64_t add_count_;
+    uint64_t delete_count_;
+    uint64_t revaluate_count_;
+
+    FlowProfStats() :
+        add_count_(0), delete_count_(0), revaluate_count_(0) {
+    }
+};
 
 struct RevFlowDepParams {
     uuid rev_uuid_;
@@ -678,6 +689,12 @@ public:
     typedef Patricia::Tree<RouteFlowInfo, &RouteFlowInfo::node, RouteFlowInfo::KeyCmp> RouteFlowTree;
     typedef boost::function<bool(FlowEntry *flow)> FlowEntryCb;
 
+    enum StatsType {
+        ADD,
+        DEL,
+        REVAL
+    };
+
     struct VnFlowHandlerState : public DBState {
         AclDBEntryConstRef acl_;
         AclDBEntryConstRef macl_;
@@ -814,6 +831,9 @@ public:
     friend class PktFlowInfo;
     friend class FlowTableKSyncEntry;
     friend void intrusive_ptr_release(FlowEntry *fe);
+
+    const FlowProfStats *flow_stats() const { return &stats_; }
+    void SetProfileData(ProfileData *data);
 private:
     static SecurityGroupList default_sg_list_;
 
@@ -844,6 +864,8 @@ private:
 
     // maintain the linklocal flow info against allocated fd, debug purpose only
     LinkLocalFlowInfoMap linklocal_flow_info_map_;
+
+    FlowProfStats stats_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
