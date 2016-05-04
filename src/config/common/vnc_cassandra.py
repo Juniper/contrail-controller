@@ -524,6 +524,8 @@ class VncCassandraClient(object):
         for row_key in obj_rows:
             obj_uuid = row_key
             obj_cols = obj_rows[obj_uuid]
+            if obj_type != json.loads(obj_cols['type'][0]):
+                continue
             result = {}
             result['uuid'] = obj_uuid
             result['fq_name'] = json.loads(obj_cols['fq_name'][0])
@@ -800,6 +802,8 @@ class VncCassandraClient(object):
             ret_list = []
             for obj_uuid in obj_uuids:
                 try:
+                    if obj_type != self.uuid_to_obj_type(obj_uuid):
+                        continue
                     obj_fq_name = self.uuid_to_fq_name(obj_uuid)
                     ret_list.append((obj_fq_name, obj_uuid))
                 except NoIdError:
