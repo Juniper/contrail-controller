@@ -102,3 +102,8 @@ OpEnv.Default(sdist_gen)
 
 OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
+
+#dummy scons target for nodemgr test
+test_suite = [ ]
+test_cmd = OpEnv.TestSuite('contrail-nodemgr-test', test_suite)
+OpEnv.Alias('contrail-nodemgr:test', test_cmd)
