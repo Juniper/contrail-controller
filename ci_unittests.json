@@ -95,6 +95,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "contrail-nodemgr" : {
+        "source_directories" : [
+            "controller/src/nodemgr",
+        ]
+        "scons_test_targets" : [
+            "contrail-nodemgr:test",
+        ]
+        "misc_test_targets" : [ ]
+    },
     "contrail-libs" : {
         "source_directories" : [
             "controller/src/base",
