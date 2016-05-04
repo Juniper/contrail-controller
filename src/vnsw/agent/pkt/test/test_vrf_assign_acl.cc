@@ -360,6 +360,33 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
     client->WaitForIdle();
 }
 
+TEST_F(TestVrfAssignAclFlow, VrfAssignAcl9) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+            1, 65535, "default-project:vn3:vn3", "true");
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn3"),
+            new VerifyAction((1 << TrafficAction::PASS) |
+                    (1 << TrafficAction::VRF_TRANSLATE),
+                    (1 << TrafficAction::PASS))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    int nh_id = VmPortGet(1)->flow_key_nh()->id();
+    AddAddressVrfAssignAcl("intf1", 1, "2.1.1.0", "2.1.1.0", 7, 1, 65535,
+                           1, 65535, "default-project:vn3:vn3", "true");
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
+            10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+}
+
 //Add an VRF translate ACL to send all ssh traffic to "2.1.1.1"
 //via default-project:vn2 and also add mirror ACL for VN1
 //Verify that final action has mirror action also
