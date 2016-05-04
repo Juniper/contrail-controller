@@ -182,7 +182,7 @@ void OperDB::CreateDBTables(DB *db) {
         DBTableCreate<PhysicalDeviceVnTable>(db, agent_, this,
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
-    profile_.reset(new AgentProfile(agent_, false));
+    profile_.reset(new AgentProfile(agent_, true));
 }
 
 void OperDB::Init() {
