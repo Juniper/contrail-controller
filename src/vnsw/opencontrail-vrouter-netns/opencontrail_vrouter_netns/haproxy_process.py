@@ -64,18 +64,31 @@ def stop_haproxy(loadbalancer_id, daemon_mode=False):
             pool_id = os.path.split(os.path.dirname(conf_file))[1]
             _stop_supervisor_haproxy(pool_id)
     except Exception as e:
-        pass
+        msg = "Exception in Stopping haproxy for Loadbalancer-ID %s" %loadbalancer_id
+        logging.exception(msg)
+        logging.error(e.__class__)
+        logging.error(e.__doc__)
+        logging.error(e.message)
 
     delete_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
 
 def start_update_haproxy(loadbalancer_id, cfg_file,
         netns, daemon_mode=False, keystone_auth_conf_file=None):
-    pool_id = loadbalancer_id
-    dir_name = create_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
-    haproxy_cfg_file = get_haproxy_config_file(cfg_file, dir_name)
-    if haproxy_cfg_file is None:
-        msg = "Failed to start/update haproxy for Loadbalancer-ID %s" %loadbalancer_id
-        logging.error(msg)
+    try:
+        pool_id = loadbalancer_id
+        dir_name = create_haproxy_dir(HAPROXY_DIR, loadbalancer_id)
+        haproxy_cfg_file = get_haproxy_config_file(cfg_file, dir_name)
+        if haproxy_cfg_file is None:
+            msg = "Failed to Create haproxy config for Loadbalancer-ID %s" %loadbalancer_id
+            logging.error(msg)
+            stop_haproxy(loadbalancer_id, daemon_mode)
+            return False
+    except Exception as e:
+        msg = "Exception in Createing haproxy config for Loadbalancer-ID %s" %loadbalancer_id
+        logging.exception(msg)
+        logging.error(e.__class__)
+        logging.error(e.__doc__)
+        logging.error(e.message)
         stop_haproxy(loadbalancer_id, daemon_mode)
         return False
     try:
@@ -84,7 +97,12 @@ def start_update_haproxy(loadbalancer_id, cfg_file,
         else:
             _start_supervisor_haproxy(pool_id, netns, haproxy_cfg_file)
     except Exception as e:
-        pass
+        msg = "Exception in Starting/Updating haproxy for Loadbalancer-ID %s" %loadbalancer_id
+        logging.exception(msg)
+        logging.error(e.__class__)
+        logging.error(e.__doc__)
+        logging.error(e.message)
+        return False
     return True
 
 def _get_lbaas_pid(conf_file):
