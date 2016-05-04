@@ -14,7 +14,8 @@ public:
     }
     ~ThriftIfMock() {}
 
-    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
         return Db_AddColumnProxy(cl.get());
     }
     bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {

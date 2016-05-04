@@ -31,7 +31,7 @@ ProtobufCollector::ProtobufCollector(EventManager *evm,
     }
     server_.reset(new protobuf::ProtobufServer(evm, protobuf_udp_port,
         boost::bind(&DbHandler::StatTableInsert, db_handler_,
-            _1, _2, _3, _4, _5)));
+            _1, _2, _3, _4, _5, GenDb::GenDbIf::DbAddColumnCb())));
 }
 
 ProtobufCollector::~ProtobufCollector() {

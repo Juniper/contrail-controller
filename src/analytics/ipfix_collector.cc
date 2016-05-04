@@ -173,7 +173,8 @@ int IpfixCollector::ExportDrecord(
     }
     samples.push_back(sample);
     flow_data.set_flow(samples);
-    db_handler_->UnderlayFlowSampleInsert(flow_data, tm);
+    db_handler_->UnderlayFlowSampleInsert(flow_data, tm,
+        GenDb::GenDbIf::DbAddColumnCb());
     return 0;
 }
 

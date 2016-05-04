@@ -101,42 +101,24 @@ public:
     bool Init(bool initial, int instance);
     void UnInit(int instance);
     void UnInitUnlocked(int instance);
-
-    bool AllowMessageTableInsert(const SandeshHeader &header);
-    bool MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword);
-    virtual void MessageTableInsert(const VizMsg *vmsgp);
-    void MessageTableOnlyInsert(const VizMsg *vmsgp);
-    void FieldNamesTableInsert(uint64_t timestamp,
-        const std::string& table_name,
-        const std::string& field_name, const std::string& field_val, int ttl);
     void GetRuleMap(RuleMap& rulemap);
 
+    virtual void MessageTableInsert(const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm,
-        const VizMsg *vmsgp);
-
-    static std::vector<std::string> StatTableSelectStr(
-            const std::string& statName, const std::string& statAttr,
-            const AttribMap & attribs);
-
+        const VizMsg *vmsgp, GenDb::GenDbIf::DbAddColumnCb db_cb);
     void StatTableInsert(uint64_t ts, 
             const std::string& statName,
             const std::string& statAttr,
             const TagMap & attribs_tag,
-            const AttribMap & attribs_all);
-
-    void StatTableInsertTtl(uint64_t ts, 
-            const std::string& statName,
-            const std::string& statAttr,
-            const TagMap & attribs_tag,
-            const AttribMap & attribs_all, int ttl);
-
+            const AttribMap & attribs_all,
+            GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool FlowTableInsert(const pugi::xml_node& parent,
-        const SandeshHeader &header);
+        const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool UnderlayFlowSampleInsert(const UFlowData& flow_data,
-        uint64_t timestamp);
+        uint64_t timestamp, GenDb::GenDbIf::DbAddColumnCb db_cb);
+
     bool GetStats(uint64_t *queue_count, uint64_t *enqueues) const;
     bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
@@ -155,6 +137,23 @@ public:
     bool UseCql() const;
 
 private:
+    void StatTableInsertTtl(uint64_t ts,
+        const std::string& statName,
+        const std::string& statAttr,
+        const TagMap & attribs_tag,
+        const AttribMap & attribs_all, int ttl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
+    void FieldNamesTableInsert(uint64_t timestamp,
+        const std::string& table_name, const std::string& field_name,
+        const std::string& field_val, int ttl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
+    void MessageTableOnlyInsert(const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
+    bool MessageIndexTableInsert(const std::string& cfname,
+        const SandeshHeader& header, const std::string& message_type,
+        const boost::uuids::uuid& unm, const std::string keyword,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
+    bool AllowMessageTableInsert(const SandeshHeader &header);
     bool CreateTables();
     void SetDropLevel(size_t queue_count, SandeshLevel::type level,
         boost::function<void (void)> cb);
@@ -167,9 +166,11 @@ private:
         const std::pair<std::string,DbHandler::Var>& ptag,
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
-        const std::string& jsonline, int ttl);
+        const std::string& jsonline, int ttl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool FlowSampleAdd(const pugi::xml_node& flowdata,
-        const SandeshHeader& header);
+        const SandeshHeader& header,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
     uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
     }
