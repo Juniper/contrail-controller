@@ -178,19 +178,19 @@ class SNATAgent(Agent):
         # Get route table for default route it it exists
         rt_obj = self._get_route_table(router_obj)
 
-        # Delete route table
-        if rt_obj:
-            if vnc_rtr_obj:
-                vnc_rtr_obj.del_route_table(rt_obj)
-            self._vnc_lib.route_table_delete(id=rt_obj.uuid)
-
         if vnc_rtr_obj:
-            # Clear logical gateway virtual network
             vnc_rtr_obj.set_service_instance_list([])
+            # Clear logical gateway route table
+            if rt_obj:
+                vnc_rtr_obj.del_route_table(rt_obj)
             try:
                 self._vnc_lib.logical_router_update(vnc_rtr_obj)
             except vnc_exc.NoIdError:
                 pass
+
+        # Delete route table
+        if rt_obj:
+            self._vnc_lib.route_table_delete(id=rt_obj.uuid)
 
         # Delete service instance
         if si_obj:
