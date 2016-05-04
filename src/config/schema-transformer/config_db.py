@@ -1706,7 +1706,9 @@ class SecurityGroupST(DBBaseST):
             if saddr.security_group == 'local':
                 saddr_match.security_group = None
                 acl_rule_list = egress_acl_rule_list
-            for sp in prule.src_ports:
+
+            # If no src port is specified, assume 0-65535
+            for sp in prule.src_ports or [PortType()]:
                 for daddr in prule.dst_addresses:
                     daddr_match = copy.deepcopy(daddr)
                     if not self._convert_security_group_name_to_id(daddr_match):
@@ -1720,7 +1722,8 @@ class SecurityGroupST(DBBaseST):
                                            self.name)
                         continue
 
-                    for dp in prule.dst_ports:
+                    # If no dst port is specified, assume 0-65535
+                    for dp in prule.dst_ports or [PortType()]:
                         action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
