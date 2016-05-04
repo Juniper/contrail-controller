@@ -258,10 +258,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestExtraFieldsPresenceByKnob, self).__init__(*args, **kwargs)
-        self._config_knobs.append(('NEUTRON', 'contrail_extensions_enabled', True))
-    # end __init__
+    @classmethod
+    def setUpClass(cls):
+        super(TestExtraFieldsPresenceByKnob, cls).setUpClass(
+            extra_config_knobs=[('NEUTRON', 'contrail_extensions_enabled', True)])
 
     def test_extra_fields_on_network(self):
         test_obj = self._create_test_object()
@@ -278,10 +278,10 @@ class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
 # end class TestExtraFieldsPresenceByKnob
 
 class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestExtraFieldsAbsenceByKnob, self).__init__(*args, **kwargs)
-        self._config_knobs.append(('NEUTRON', 'contrail_extensions_enabled', False))
-    # end __init__
+    @classmethod
+    def setUpClass(cls):
+        super(TestExtraFieldsAbsenceByKnob, cls).setUpClass(
+            extra_config_knobs=[('NEUTRON', 'contrail_extensions_enabled', False)])
 
     def test_no_extra_fields_on_network(self):
         test_obj = self._create_test_object()
