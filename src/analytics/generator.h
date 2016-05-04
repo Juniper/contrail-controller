@@ -66,6 +66,7 @@ public:
                                 SandeshGeneratorBasicStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
         std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const;
+    bool IsStateMachineBackPressureTimerRunning() const;
     void SendDbStatistics();
 
     const std::string &instance_id() const { return instance_id_; }
@@ -112,6 +113,13 @@ private:
     void Db_Connection_Uninit();
     bool Db_Connection_Init();
 
+    void ProcessRulesCb(GenDb::DbOpResult::type dresult);
+    bool StateMachineBackPressureTimerExpired();
+    void CreateStateMachineBackPressureTimer();
+    void DeleteStateMachineBackPressureTimer();
+    void StartStateMachineBackPressureTimer();
+    void StopStateMachineBackPressureTimer();
+
     static const uint32_t kWaitTimerSec = 10;
     static const uint32_t kDbConnectTimerSec = 10;
 
@@ -131,6 +139,8 @@ private:
     tbb::atomic<bool> disconnected_;
     DbHandlerPtr db_handler_;
     bool use_global_dbhandler_;
+    GenDb::GenDbIf::DbAddColumnCb process_rules_cb_;
+    Timer *sm_back_pressure_timer_;
     mutable tbb::mutex mutex_;
 };
 

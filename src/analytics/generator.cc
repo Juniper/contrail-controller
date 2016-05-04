@@ -99,7 +99,10 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
         db_connect_timer_(NULL),
-        use_global_dbhandler_(use_global_dbhandler) {
+        use_global_dbhandler_(use_global_dbhandler),
+        process_rules_cb_(
+            boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
+        sm_back_pressure_timer_(NULL) {
     if (!UseGlobalDbHandler()) {
         db_handler_.reset(new DbHandler(
             collector->event_manager(), boost::bind(
@@ -118,10 +121,12 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
     gen_attr_.set_connect_time(UTCTimestampUsec());
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
+    CreateStateMachineBackPressureTimer();
     Create_Db_Connect_Timer();
 }
 
 SandeshGenerator::~SandeshGenerator() {
+    DeleteStateMachineBackPressureTimer();
     Delete_Db_Connect_Timer();
     GetDbHandler()->UnInit(instance_);
 }
@@ -242,6 +247,8 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
         state_machine_->ResetQueueWaterMarkInfo();
+        StopStateMachineBackPressureTimer();
+        DeleteStateMachineBackPressureTimer();
         viz_session_ = NULL;
         state_machine_ = NULL;
         vsession->set_generator(NULL);
@@ -257,8 +264,60 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     }
 }
 
+bool SandeshGenerator::StateMachineBackPressureTimerExpired() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (state_machine_) {
+        state_machine_->SetDeferDequeue(false);
+    }
+    return false;
+}
+
+void SandeshGenerator::CreateStateMachineBackPressureTimer() {
+    // Run in the context of sandesh state machine task
+    assert(sm_back_pressure_timer_ == NULL);
+    sm_back_pressure_timer_ = TimerManager::CreateTimer(
+        *collector_->event_manager()->io_service(),
+        "SandeshGenerator SM Backpressure Timer: " + name_,
+        state_machine_->connection()->GetTaskId(), instance_);
+}
+
+void SandeshGenerator::StartStateMachineBackPressureTimer() {
+    sm_back_pressure_timer_->Start(Collector::kSmBackPressureTimeMSec,
+            boost::bind(
+                &SandeshGenerator::StateMachineBackPressureTimerExpired, this),
+            boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
+}
+
+void SandeshGenerator::StopStateMachineBackPressureTimer() {
+    assert(sm_back_pressure_timer_->Cancel());
+}
+
+void SandeshGenerator::DeleteStateMachineBackPressureTimer() {
+    TimerManager::DeleteTimer(sm_back_pressure_timer_);
+    sm_back_pressure_timer_ = NULL;
+}
+
+bool SandeshGenerator::IsStateMachineBackPressureTimerRunning() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (sm_back_pressure_timer_) {
+        return sm_back_pressure_timer_->running();
+    }
+    return false;
+}
+
+void SandeshGenerator::ProcessRulesCb(GenDb::DbOpResult::type dresult) {
+    if (dresult == GenDb::DbOpResult::BACK_PRESSURE) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (state_machine_) {
+            state_machine_->SetDeferDequeue(true);
+            StartStateMachineBackPressureTimer();
+        }
+    }
+}
+
 bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
-    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
+    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler(),
+        process_rules_cb_);
 }
 
 bool SandeshGenerator::GetSandeshStateMachineQueueCount(
@@ -335,6 +394,7 @@ void SandeshGenerator::ConnectSession(VizSession *session,
     gen_attr_.set_connects(tmp+1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
     Create_Db_Connect_Timer();
+    CreateStateMachineBackPressureTimer();
 }
 
 void SandeshGenerator::SetDbQueueWaterMarkInfo(
@@ -381,5 +441,6 @@ SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
 }
 
 bool SyslogGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
-    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
+    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler(),
+        GenDb::GenDbIf::DbAddColumnCb());
 }

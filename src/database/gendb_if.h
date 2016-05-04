@@ -142,11 +142,19 @@ struct ColumnNameRange {
 
 typedef boost::asio::ip::tcp::endpoint Endpoint;
 
+struct DbOpResult {
+    enum type {
+        OK,
+        BACK_PRESSURE,
+        ERROR,
+    };
+};
+
 class GenDbIf {
 public:
     typedef boost::function<void(void)> DbErrorHandler;
     typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
-    typedef boost::function<void(bool)> DbAddColumnCb;
+    typedef boost::function<void(DbOpResult::type)> DbAddColumnCb;
 
     GenDbIf() {}
     virtual ~GenDbIf() {}

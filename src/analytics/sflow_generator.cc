@@ -94,7 +94,8 @@ bool SFlowGenerator::ProcessSFlowPacket(
     }
     if (samples.size()) {
         flow_data.set_flow(samples);
-        db_handler_->UnderlayFlowSampleInsert(flow_data, qentry->timestamp);
+        db_handler_->UnderlayFlowSampleInsert(flow_data, qentry->timestamp,
+            GenDb::GenDbIf::DbAddColumnCb());
     }
     return true;
 }

@@ -1480,6 +1480,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'table_info.read_fails', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_info.writes', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_info.write_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table_info.write_back_pressure_fails', 'datatype' : 'int', 'index' : false},
       ]
     },
     {
@@ -1493,6 +1494,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'statistics_table_info.read_fails', 'datatype' : 'int', 'index' : false},
           { 'name' : 'statistics_table_info.writes', 'datatype' : 'int', 'index' : false},
           { 'name' : 'statistics_table_info.write_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'statistics_table_info.write_back_pressure_fails', 'datatype' : 'int', 'index' : false},
       ]
     },
     {

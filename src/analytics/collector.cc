@@ -468,10 +468,8 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> *genlist) {
             if (gen->GetSandeshStateMachineQueueCount(sm_queue_count)) {
                 gsinfo.set_sm_queue_count(sm_queue_count);
             }
-            std::string sm_drop_level;
-            if (gen->GetSandeshStateMachineDropLevel(sm_drop_level)) {
-                gsinfo.set_sm_drop_level(sm_drop_level);
-            }
+            gsinfo.set_sm_back_pressure(
+                gen->IsStateMachineBackPressureTimerRunning());
             if (!UseGlobalDbHandler()) {
                 uint64_t db_queue_count;
                 uint64_t db_enqueues;

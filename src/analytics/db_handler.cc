@@ -461,7 +461,8 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
         const boost::uuids::uuid& unm,
-        const std::string keyword) {
+        const std::string keyword,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     // Rowkey
@@ -548,7 +549,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 #endif
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
@@ -557,7 +558,8 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     return true;
 }
 
-void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
+void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
     uint64_t temp_u64;
@@ -633,32 +635,33 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage(), ttl));
 
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
     }
 }
 
-void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
+void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
 
     if (!AllowMessageTableInsert(header))
         return;
 
-    MessageTableOnlyInsert(vmsgp);
+    MessageTableOnlyInsert(vmsgp, db_cb);
 
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
-            message_type, vmsgp->unm, "");
+            message_type, vmsgp->unm, "", db_cb);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
-            message_type, vmsgp->unm, "");
+            message_type, vmsgp->unm, "", db_cb);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
-            message_type, vmsgp->unm, "");
+            message_type, vmsgp->unm, "", db_cb);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
-            message_type, vmsgp->unm, "");
+            message_type, vmsgp->unm, "", db_cb);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
-            message_type, vmsgp->unm, "");
+            message_type, vmsgp->unm, "", db_cb);
 
     const SandeshType::type &stype(header.get_Type());
 
@@ -680,7 +683,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
         // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
         bool r = MessageIndexTableInsert(
                 g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
-                message_type, vmsgp->unm, *i);
+                message_type, vmsgp->unm, *i, db_cb);
         if (!r)
             DB_LOG(ERROR, "Failed to parse:");
     }
@@ -696,13 +699,13 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
         int ttl = GetTtl(TtlType::GLOBAL_TTL);
         FieldNamesTableInsert(header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":Messagetype", message_type, ttl);
+            ":Messagetype", message_type, ttl, db_cb);
         FieldNamesTableInsert(header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":ModuleId", header.get_Module(), ttl);
+            ":ModuleId", header.get_Module(), ttl, db_cb);
         FieldNamesTableInsert(header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
-            ":Source", header.get_Source(), ttl);
+            ":Source", header.get_Source(), ttl, db_cb);
     }
 }
 
@@ -712,7 +715,8 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
  */
 void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     const std::string& table_prefix, 
-    const std::string& field_name, const std::string& field_val, int ttl) {
+    const std::string& field_name, const std::string& field_val, int ttl,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags before inserting
@@ -754,8 +758,8 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     tmap.insert(make_pair("Source",make_pair(pv,amap))); 
     attribs.insert(make_pair(string("Source"),pv));
 
-    StatTableInsertTtl(timestamp, "FieldNames","fields",tmap,attribs, ttl);
-
+    StatTableInsertTtl(timestamp, "FieldNames","fields", tmap, attribs, ttl,
+        db_cb);
 }
 
 /*
@@ -804,7 +808,8 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
  *  value: uuid (of the corresponding global message)
  */
 void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
-        uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
+        uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -835,7 +840,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list)) {
+        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
@@ -856,7 +861,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list)) {
+        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
@@ -870,16 +875,16 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         const std::string &message_type(vmsgp->msg->GetMessageType());
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
         FieldNamesTableInsert(timestamp,
-                table, ":ObjectId", objectkey_str, ttl);
+                table, ":ObjectId", objectkey_str, ttl, db_cb);
         FieldNamesTableInsert(timestamp,
-                table, ":Messagetype", message_type, ttl);
+                table, ":Messagetype", message_type, ttl, db_cb);
         FieldNamesTableInsert(timestamp,
-                table, ":ModuleId", header.get_Module(), ttl);
+                table, ":ModuleId", header.get_Module(), ttl, db_cb);
         FieldNamesTableInsert(timestamp,
-                table, ":Source", header.get_Source(), ttl);
+                table, ":Source", header.get_Source(), ttl, db_cb);
 
         FieldNamesTableInsert(timestamp,
-                "OBJECT:", table, table, ttl);
+                "OBJECT:", table, table, ttl, db_cb);
     }
 }
 
@@ -888,7 +893,8 @@ bool DbHandler::StatTableWrite(uint32_t t2,
         const std::pair<std::string,DbHandler::Var>& ptag,
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
-        const std::string& jsonline, int ttl) {
+        const std::string& jsonline, int ttl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
 
     uint8_t part = 0;
     string cfname;
@@ -939,7 +945,8 @@ bool DbHandler::StatTableWrite(uint32_t t2,
             break;
         default:
             tbb::mutex::scoped_lock lock(smutex_);
-            stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
+            stable_stats_.Update(statName + ":" + statAttr, true, true,
+                false, 1);
             DB_LOG(ERROR, "Bad Prefix Tag " << statName <<
                     ", " << statAttr <<  " tag " << ptag.first <<
                     ":" << stag.first << " jsonline " << jsonline);
@@ -947,7 +954,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     }
     if (bad_suffix) {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
+        stable_stats_.Update(statName + ":" + statAttr, true, true, false, 1);
         DB_LOG(ERROR, "Bad Suffix Tag " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " jsonline " << jsonline);
@@ -994,62 +1001,31 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 
-    if (!dbif_->Db_AddColumn(col_list)) {
+    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " into table " <<
                 cfname <<" FAILED");
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, true, 1);
+        stable_stats_.Update(statName + ":" + statAttr, true, true, false, 1);
         return false;
     } else {
         tbb::mutex::scoped_lock lock(smutex_);
-        stable_stats_.Update(statName + ":" + statAttr, true, false, 1);
+        stable_stats_.Update(statName + ":" + statAttr, true, false, false, 1);
         return true;
     }
 }
 
-// This returns a list of select terms to use for full aggregation
-// for the given row
-std::vector<std::string>
-DbHandler::StatTableSelectStr(
-        const std::string& statName, const std::string& statAttr,
-        const AttribMap & attribs) {
-    std::vector<std::string> aggstr;
-    aggstr.push_back(string("COUNT(") + statAttr + string(")"));
-    for (AttribMap::const_iterator it = attribs.begin();
-            it != attribs.end(); it++) {
-        switch (it->second.type) {
-            case STRING: {
-                    aggstr.push_back(statAttr + "." + it->first);
-                }
-                break;
-            case UINT64: {
-                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
-                    aggstr.push_back(string("MAX(") + statAttr + "." + it->first + string(")"));
-                    aggstr.push_back(string("MIN(") + statAttr + "." + it->first + string(")"));
-                }
-                break;
-            case DOUBLE: {
-                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
-                    aggstr.push_back(string("MAX(") + statAttr + "." + it->first + string(")"));
-                    aggstr.push_back(string("MIN(") + statAttr + "." + it->first + string(")"));
-                }
-                break;                
-            default:
-                continue;
-        }
-    }
-    return aggstr;
-}
 void
 DbHandler::StatTableInsert(uint64_t ts, 
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
-        const AttribMap & attribs) {
+        const AttribMap & attribs,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
     int ttl = GetTtl(TtlType::STATSDATA_TTL);
-    StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl);
+    StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl,
+        db_cb);
 }
 
 // This function writes Stats samples to the DB.
@@ -1058,7 +1034,8 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
-        const AttribMap & attribs, int ttl) {
+        const AttribMap & attribs, int ttl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
 
     uint64_t temp_u64 = ts;
     uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
@@ -1130,7 +1107,7 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
     if ( statName.compare("FieldNames") != 0) {
         std::string tablename(std::string("StatTable.") + statName + "." + statAttr);
         FieldNamesTableInsert(ts,
-                    "STAT:", tablename, tablename, ttl);
+                    "STAT:", tablename, tablename, ttl, db_cb);
     }
 
     for (TagMap::const_iterator it = attribs_tag.begin();
@@ -1146,18 +1123,19 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
                 (statName.compare("FieldNames") != 0)) {
             FieldNamesTableInsert(ts, std::string("StatTable.") +
                     statName + "." + statAttr,
-                    std::string(":") + ptag.first, ptag.second.str, ttl);
+                    std::string(":") + ptag.first, ptag.second.str, ttl,
+                    db_cb);
         }
 
         if (it->second.second.empty()) {
             pair<string,DbHandler::Var> stag;
             StatTableWrite(temp_u32, statName, statAttr,
-                                ptag, stag, t1, unm, jsonline, ttl);
+                                ptag, stag, t1, unm, jsonline, ttl, db_cb);
         } else {
             for (AttribMap::const_iterator jt = it->second.second.begin();
                     jt != it->second.second.end(); jt++) {
                 StatTableWrite(temp_u32, statName, statAttr,
-                                    ptag, *jt, t1, unm, jsonline, ttl);
+                                    ptag, *jt, t1, unm, jsonline, ttl, db_cb);
             }
         }
 
@@ -1246,13 +1224,13 @@ static void PopulateFlowRecordTableRowKey(
 
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    FlowFieldValuesCb fncb) {
+    FlowFieldValuesCb fncb, GenDb::GenDbIf::DbAddColumnCb db_cb) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
         colList->columns_, ttl_map, fncb);
-    return dbif->Db_AddColumn(colList);
+    return dbif->Db_AddColumn(colList, db_cb);
 }
 
 static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
@@ -1450,7 +1428,7 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
 static bool PopulateFlowIndexTables(const FlowValueArray &fvalues, 
     const uint32_t &T2, const uint32_t &T1, uint8_t partition_no,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    FlowFieldValuesCb fncb) {
+    FlowFieldValuesCb fncb, GenDb::GenDbIf::DbAddColumnCb db_cb) {
     // Populate row key and column values (same for all flow index
     // tables)
     GenDb::DbDataValueVec rkey;
@@ -1468,7 +1446,7 @@ static bool PopulateFlowIndexTables(const FlowValueArray &fvalues,
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, &colList->columns_,
             cvalues, ttl_map);
-        if (!dbif->Db_AddColumn(colList)) {
+        if (!dbif->Db_AddColumn(colList, db_cb)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
                 " FAILED");
         }
@@ -1593,7 +1571,8 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
  * process the flow sample and insert into the appropriate tables
  */
 bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
-                              const SandeshHeader& header) {
+                              const SandeshHeader& header,
+                              GenDb::GenDbIf::DbAddColumnCb db_cb) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
     FlowLogDataObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
@@ -1627,9 +1606,9 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     // Populate Flow Record Table
     FlowFieldValuesCb fncb =
             boost::bind(&DbHandler::FieldNamesTableInsert,
-            this, timestamp, g_viz_constants.FLOW_TABLE, _1,_2,_3);
+            this, timestamp, g_viz_constants.FLOW_TABLE, _1, _2, _3, db_cb);
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_,
-            fncb)) {
+            fncb, db_cb)) {
         DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     GenDb::DbDataValue &diff_bytes(
@@ -1640,11 +1619,12 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     // FLOWREC_DIFF_PACKETS are present
     FlowFieldValuesCb fncb2 =
             boost::bind(&DbHandler::FieldNamesTableInsert,
-            this, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1,_2,_3);
+            this, timestamp, g_viz_constants.FLOW_SERIES_TABLE, _1, _2, _3,
+            db_cb);
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
-                dbif_.get(), ttl_map_, fncb2)) {
+                dbif_.get(), ttl_map_, fncb2, db_cb)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
@@ -1655,7 +1635,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
  * process the flow sandesh message
  */
 bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
-    const SandeshHeader& header) {
+    const SandeshHeader& header, GenDb::GenDbIf::DbAddColumnCb db_cb) {
     pugi::xml_node flowdata(parent.child("flowdata"));
     // Flow sandesh message may contain a list of flow samples or
     // a single flow sample
@@ -1663,16 +1643,17 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         pugi::xml_node flow_list = flowdata.child("list");
         for (pugi::xml_node fsample = flow_list.first_child(); fsample;
             fsample = fsample.next_sibling()) {
-            FlowSampleAdd(fsample, header);
+            FlowSampleAdd(fsample, header, db_cb);
         }
     } else {
-        FlowSampleAdd(flowdata.first_child(), header);
+        FlowSampleAdd(flowdata.first_child(), header, db_cb);
     }
     return true;
 }
 
 bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
-                                         uint64_t timestamp) {
+                                         uint64_t timestamp,
+                                         GenDb::GenDbIf::DbAddColumnCb db_cb) {
     const std::vector<UFlowSample>& flow = flow_data.get_flow();
     for (std::vector<UFlowSample>::const_iterator it = flow.begin();
          it != flow.end(); ++it) {
@@ -1717,7 +1698,7 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
         amap_protocol_dport.insert(std::make_pair("flow.dport", dport));
         tmap.insert(std::make_pair("flow.protocol",
                 std::make_pair(protocol, amap_protocol_dport)));
-        StatTableInsert(timestamp, "UFlowData", "flow", tmap, amap);
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap, amap, db_cb);
     }
     return true;
 }
