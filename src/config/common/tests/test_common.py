@@ -199,7 +199,8 @@ def create_api_server_instance(test_id, config_knobs):
 def destroy_api_server_instance(server_info):
     server_info['greenlet'].kill()
     server_info['api_server']._db_conn._msgbus.shutdown()
-    FakeKombu.reset()
+    vhost_url = vnc_cfg_api_server.server._db_conn._msgbus._urls
+    FakeKombu.reset(vhost_url)
     FakeIfmapClient.reset()
     CassandraCFs.reset()
     FakeKazooClient.reset()
@@ -398,7 +399,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         (pycassa.system_manager.Connection, '__init__',stub),
         (pycassa.system_manager.SystemManager, '__new__',FakeSystemManager),
-        (pycassa.ConnectionPool, '__init__',stub),
+        (pycassa.ConnectionPool, '__new__',FakeConnectionPool),
         (pycassa.ColumnFamily, '__new__',FakeCF),
         (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
 
@@ -599,7 +600,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         # wait for in-flight messages to be processed
         while self._api_server._db_conn._msgbus.num_pending_messages() > 0:
             gevent.sleep(0.001)
-        while not FakeKombu.is_empty('vnc_config'):
+        vhost_url = vnc_cfg_api_server.server._db_conn._msgbus._urls
+        while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
             gevent.sleep(0.001)
         while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
             gevent.sleep(0.001)

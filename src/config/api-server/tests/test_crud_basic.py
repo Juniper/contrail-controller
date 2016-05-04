@@ -1865,7 +1865,7 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
 
         # create entry in cassandra too and assert
         # not a stale lock on re-create
-        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid', 'obj_uuid_table')
         with uuid_cf.patch_row(str(vn_UUID),
             new_columns={'fq_name':json.dumps(vn_obj.fq_name),
                          'type':json.dumps(vn_obj._type)}):
@@ -2346,7 +2346,7 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
             rd_ff_proto.fat_flow_protocol[1].protocol, Equals('p2'))
 
         # verify db storage format (wrapper/container type stripped in storage)
-        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid', 'obj_uuid_table')
         cols = uuid_cf.get(vmi_obj.uuid,
             column_start='propl:virtual_machine_interface_fat_flow_protocols:',
             column_finish='propl:virtual_machine_interface_fat_flow_protocols;')
@@ -2758,7 +2758,7 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
             rd_bindings.key_value_pair[1].key, Equals('k2'))
 
         # verify db storage format (wrapper/container type stripped in storage)
-        uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+        uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
         cols = uuid_cf.get(vmi_obj.uuid,
             column_start='propm:virtual_machine_interface_bindings:',
             column_finish='propm:virtual_machine_interface_bindings;')
@@ -2871,7 +2871,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid', 'obj_uuid_table')
             orig_col_val_ts = uuid_cf.get(test_obj.uuid,
                 include_timestamp=True)
             omit_col_names = random.sample(set(
@@ -2894,7 +2894,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             test_obj = self._create_test_object()
             self.assertTill(self.ifmap_has_ident, obj=test_obj)
 
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid', 'obj_uuid_table')
             orig_col_val_ts = uuid_cf.get(test_obj.uuid,
                 include_timestamp=True)
             wrong_col_val_ts = copy.deepcopy(orig_col_val_ts)
@@ -2916,8 +2916,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
-            fq_name_cf = test_common.CassandraCFs.get_cf('obj_fq_name_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
+            fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
                 db_checker = db_manage.DatabaseChecker(
                     '--ifmap-credentials a:b')
@@ -2932,8 +2932,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
             self.assertTill(self.ifmap_has_ident, obj=test_obj)
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
-            fq_name_cf = test_common.CassandraCFs.get_cf('obj_fq_name_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
+            fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
             test_obj_type = test_obj.get_type().replace('-', '_')
             orig_col_val_ts = fq_name_cf.get(test_obj_type,
                 include_timestamp=True)
@@ -2955,7 +2955,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             test_obj = self._create_test_object()
             self.assertTill(self.ifmap_has_ident, obj=test_obj)
      
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
                 db_checker = db_manage.DatabaseChecker(
                     '--ifmap-credentials a:b')
@@ -2970,7 +2970,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         # in cassandra does
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(str(uuid.uuid4()),
                     new_columns={'type': json.dumps(''),
                                  'fq_name':json.dumps(''),
@@ -3009,7 +3009,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
 
     def test_checker_zk_vn_extra(self):
         vn_obj, _ = self._create_vn_subnet_ipam(self.id())
-        fq_name_cf = test_common.CassandraCFs.get_cf('obj_fq_name_table')
+        fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
         orig_col_val_ts = fq_name_cf.get('virtual_network',
             include_timestamp=True)
         # remove test obj in fq-name table
@@ -3055,7 +3055,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             iip_obj = vnc_api.InstanceIp(self.id())
             iip_obj.add_virtual_network(vn_obj)
             self._vnc_lib.instance_ip_create(iip_obj)
-            uuid_cf = test_common.CassandraCFs.get_cf('obj_uuid_table')
+            uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(iip_obj.uuid, None):
                 errors = db_checker.check_subnet_addr_alloc()
                 error_types = [type(x) for x in errors]
