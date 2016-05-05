@@ -1317,10 +1317,19 @@ void FlowEntry::UpdateL2RouteInfo() {
 void FlowEntry::SetVrfAssignEntry() {
     if (!(data_.match_p.vrf_assign_acl_action &
          (1 << TrafficAction::VRF_TRANSLATE))) {
+        //If VRF assign was evaluated and the vrf translate
+        //action is not present in latest evaluation mark the
+        //flow as short flow
+        if (data_.vrf_assign_evaluated &&
+                data_.match_p.action_info.vrf_translate_action_.vrf_name()
+                != Agent::NullString()) {
+            MakeShortFlow(SHORT_VRF_CHANGE);
+        }
         data_.vrf_assign_evaluated = true;
         data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
         return;
     }
+
     std::string vrf_assigned_name =
         data_.match_p.action_info.vrf_translate_action_.vrf_name();
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -1342,7 +1351,7 @@ void FlowEntry::SetVrfAssignEntry() {
     }
 
     set_acl_assigned_vrf_index();
-    if (acl_assigned_vrf_index() == 0) {
+    if (acl_assigned_vrf_index() == VrfEntry::kInvalidIndex) {
         MakeShortFlow(SHORT_VRF_CHANGE);
     }
     data_.vrf_assign_evaluated = true;
