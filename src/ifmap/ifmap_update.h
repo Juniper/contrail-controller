@@ -50,10 +50,13 @@ struct IFMapListEntry {
         MARKER
     };
     IFMapListEntry(EntryType type) :
-        type(type), queue_insert_at_(0) { }
+        type(type), queue_insert_at(0), sequence(0) { }
+
     boost::intrusive::list_member_hook<> node;
     EntryType type;
-    uint64_t queue_insert_at_;
+    uint64_t queue_insert_at;
+    uint64_t sequence;
+
     bool IsMarker() const { return ((type == MARKER) ? true : false); }
     bool IsUpdate() const { return ((type == UPDATE) ? true : false); }
     bool IsDelete() const { return ((type == DELETE) ? true : false); }
@@ -71,6 +74,8 @@ struct IFMapListEntry {
     void set_queue_insert_at_to_now();
     // Return how much time ago the entry was inserted.
     std::string queue_insert_ago_str();
+    void set_sequence(uint64_t seq) { sequence = seq; }
+    uint64_t get_sequence() { return sequence; }
 };
 
 class IFMapUpdate : public IFMapListEntry {
