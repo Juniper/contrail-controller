@@ -297,7 +297,7 @@ public:
     };
 
     void AddIpHdr(const char *sip, const char *dip, uint16_t proto,
-                  bool fragment = false) {
+                  bool fragment = false, int ttl = 0) {
         struct ip *ip = (struct ip *)(buff + len);
 
         ip->ip_hl = 5;
@@ -306,6 +306,7 @@ public:
         ip->ip_src.s_addr = inet_addr(sip);
         ip->ip_dst.s_addr = inet_addr(dip);
         ip->ip_p = proto;
+        ip->ip_ttl = ttl;
         if (fragment)
             ip->ip_off = htons(IP_MF);
         len += sizeof(struct ip);
