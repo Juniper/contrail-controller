@@ -31,7 +31,7 @@ extern void TxUdpPacket(int ifindex, const char *sip, const char *dip,
 
 extern void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 			  const char *dip, uint16_t sport, uint16_t dport,
-			  bool ack, int hash_id, uint32_t vrf_id);
+			  bool ack, int hash_id, uint32_t vrf_id, int ttl = 0);
 
 extern void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
                    const char *dip, uint16_t sport, uint16_t dport,
@@ -39,7 +39,7 @@ extern void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
 
 extern void TxTcpPacket(int ifindex, const char *sip, const char *dip, 
 			   uint16_t sport, uint16_t dport, bool ack, int hash_id = 1, 
-               uint32_t vrf_id = -1);
+               uint32_t vrf_id = -1, int ttl = 0);
 
 extern void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			     const char *out_dip, uint32_t label,

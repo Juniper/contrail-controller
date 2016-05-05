@@ -280,6 +280,7 @@ struct FlowData {
     uint32_t dest_vrf;
     uint32_t component_nh_idx;
     uint32_t bgp_as_a_service_port;
+    uint32_t ttl;
 
     // Stats
     uint8_t source_plen;
