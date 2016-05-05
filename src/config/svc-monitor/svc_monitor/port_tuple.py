@@ -50,7 +50,7 @@ class PortTupleAgent(Agent):
             iip_obj.add_virtual_network(vn_obj)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
-            iip_obj.set_instance_ip_mode(si.ha_mode)
+            iip_obj.set_instance_ip_mode('active-active')
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
                 self._vnc_lib.ref_relax_for_delete(iip_obj.uuid, vn_obj.uuid)
@@ -111,23 +111,35 @@ class PortTupleAgent(Agent):
                 'interface-route-table', irt_id, None, 'DELETE')
             vmi.update()
 
-    def set_secondary_ip_tracking_ip(self, vmi):
+    def update_secondary_iip(self, vmi):
         for iip_id in vmi.instance_ips:
             iip = InstanceIpSM.get(iip_id)
             if not iip or not iip.instance_ip_secondary:
                 continue
+
+            update = False
+            iip_obj = InstanceIp()
+            iip_obj.name = iip.name
+            iip_obj.uuid = iip.uuid
+
             if vmi.aaps and len(vmi.aaps):
                 if iip.secondary_tracking_ip != vmi.aaps[0]['ip']:
-                    iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
                     iip_obj.set_secondary_ip_tracking_ip(vmi.aaps[0]['ip'])
-                    self._vnc_lib.instance_ip_update(iip_obj)
-                    iip.update(iip_obj.serialize_to_json())
+                    update = True
+                if iip.instance_ip_mode != vmi.aaps[0].get('address_mode', 'active-standby'):
+                    iip_obj.set_instance_ip_mode(vmi.aaps[0].get('address_mode', 'active-standby'))
+                    update = True
             else:
                 if iip.secondary_tracking_ip:
-                    iip_obj = self._vnc_lib.instance_ip_read(id=iip.uuid)
                     iip_obj.set_secondary_ip_tracking_ip(None)
-                    self._vnc_lib.instance_ip_update(iip_obj)
-                    iip.update(iip_obj.serialize_to_json())
+                    update = True
+                if iip.instance_ip_mode != 'active-active':
+                    iip_obj.set_instance_ip_mode('active-active')
+                    update = True
+
+            if update:
+                self._vnc_lib.instance_ip_update(iip_obj)
+                iip.update(iip_obj.serialize_to_json())
 
     def set_port_allowed_address_pairs(self, port, vmi, vmi_obj):
         if not port['allowed-address-pairs'] or \
@@ -136,7 +148,7 @@ class PortTupleAgent(Agent):
                 vmi_obj.set_virtual_machine_interface_allowed_address_pairs(AllowedAddressPairs())
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
                 vmi.update()
-                self.set_secondary_ip_tracking_ip(vmi)
+                self.update_secondary_iip(vmi)
             return
 
         aaps = port['allowed-address-pairs'].get('allowed_address_pair', None)
@@ -153,7 +165,7 @@ class PortTupleAgent(Agent):
                 port['allowed-address-pairs'])
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
             vmi.update()
-            self.set_secondary_ip_tracking_ip(vmi)
+            self.update_secondary_iip(vmi)
 
     def delete_shared_iip(self, iip):
         if not iip.service_instance_ip or not iip.instance_ip_secondary:
