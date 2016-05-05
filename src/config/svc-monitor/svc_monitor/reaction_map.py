@@ -1,7 +1,7 @@
 REACTION_MAP = {
     "service_appliance_set": {
         'self': [],
-        'service_appliance': []
+        'service_appliance': ['service_template']
     },
     "service_appliance": {
         'self': ['service_appliance_set','physical_interface'],
@@ -37,6 +37,7 @@ REACTION_MAP = {
         'virtual_machine_interface' : [],
         'service_health_check': [],
         'interface_route_table': [],
+        'service_template': [],
     },
     "instance_ip": {
         'self': [],
@@ -52,6 +53,7 @@ REACTION_MAP = {
     },
     "service_template": {
         'self': [],
+        'service_appliance_set':['service_instance'],
     },
     "physical_router": {
         'self': [],
@@ -107,4 +109,3 @@ REACTION_MAP = {
         'self': [],
     },
 }
-

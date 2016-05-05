@@ -8,6 +8,7 @@ from config_db import (
     ServiceApplianceSM,
     PhysicalInterfaceSM,
     ServiceInstanceSM,
+    ServiceTemplateSM,
     PortTupleSM)
 from cfgm_common import svc_info
 
@@ -17,46 +18,35 @@ class PhysicalServiceManager(InstanceManager):
     def create_service(self, st, si):
         if not self.validate_network_config(st, si):
             return
+        # if service already inited do nothing
+        if self.check_service(si):
+            return
+
         # get service appliances from service template
-        sa_set = st.service_appliance_set
-        if not sa_set:
+        if not st.service_appliance_set:
             self.logger.error("Can't find service appliances set")
             return
-        service_appliance_set = ServiceApplianceSetSM.get(sa_set)
-        service_appliances = service_appliance_set.service_appliances
+        sa_set_obj = ServiceApplianceSetSM.get(st.service_appliance_set)
+        sa_list = list(sa_set_obj.service_appliances)
 
         # validation
-        if not service_appliances:
+        if not sa_list:
             self.logger.error("Can't find service appliances")
             return
 
-        service_appliances = list(service_appliances)
-        si_obj = ServiceInstanceSM.get(si.uuid)
-
+        #clean all existed staff before create new
+        self.clean_service(si)
         # create a fake VM for the schmea transfer to use
-        vm_uuid_list = list(si_obj.virtual_machines)
         vm_list = [None]*si.max_instances
-        for vm_uuid in vm_uuid_list:
-            vm = VirtualMachineSM.get(vm_uuid)
-            if not vm:
-                continue
-            if (vm.index + 1) > si.max_instances:
-                self.delete_service(vm)
-                continue
-            vm_list[vm.index] = vm_uuid
 
         # get the port-tuple
         pt_list = [None]*si.max_instances
-        pts = list(si.port_tuples)
-        for i in range(0, len(pts)):
-            pt_list[i] = pts[i]
-
-        if si.max_instances > len(service_appliances):
+        if si.max_instances > len(sa_list):
             self.logger.info(
                 "There are not enough Service appliance \
                     for that Service instance "+si.uuid)
             return
-        for idx, sa_uuid in enumerate(service_appliances):
+        for idx, sa_uuid in enumerate(sa_list):
             if idx > si.max_instances:
                 return
 
@@ -86,22 +76,46 @@ class PhysicalServiceManager(InstanceManager):
         si.state = "active"
 
     def delete_service(self, vm):
-        if not vm.virtual_machine_interfaces:
-            return
-        vmi_list = list(vm.virtual_machine_interfaces)
-        pt_uuid = VirtualMachineInterfaceSM.get(vmi_list[0]).port_tuple
-        self.cleanup_pi_connections(vmi_list)
-        self.cleanup_svc_vm_ports(vmi_list)
-        try:
-            self._vnc_lib.port_tuple_delete(id=pt_uuid)
-            PortTupleSM.delete(pt_uuid)
-        except NoIdError:
-            pass
+        self.delete_vm(vm)
+
+    def clean_service(self, si):
+        self.cleanup_si_iip_connections(si)
+        vm_uuid_list = list(si.virtual_machines)
+        for vm_uuid in vm_uuid_list:
+            vm_obj = VirtualMachineSM.get(vm_uuid)
+            if vm_obj:
+                self.delete_vm(vm_obj)
+
+    def delete_vm(self,vm):
+        if vm.virtual_machine_interfaces:
+            vmi_list = list(vm.virtual_machine_interfaces)
+            pt_uuid = VirtualMachineInterfaceSM.get(vmi_list[0]).port_tuple
+            self.cleanup_pi_connections(vmi_list)
+            self.cleanup_svc_vm_ports(vmi_list)
+            try:
+                self._vnc_lib.port_tuple_delete(id=pt_uuid)
+                PortTupleSM.delete(pt_uuid)
+            except NoIdError:
+                pass
         try:
             self._vnc_lib.virtual_machine_delete(id=vm.uuid)
             VirtualMachineSM.delete(vm.uuid)
         except NoIdError:
             pass
+
+    def cleanup_si_iip_connections(self,si):
+        iip_list = list(si.instance_ips)
+        for iip_id in iip_list:
+            try:
+                self._vnc_lib.ref_update('service-instance',
+                            si.uuid,
+                            'instance_ip_refs',
+                            iip_id,
+                            None,
+                            'DELETE')
+            except:
+                pass
+        ServiceInstanceSM.locate(si.uuid)
 
     def cleanup_pi_connections(self, vmi_list):
         for vmi_id in vmi_list:
@@ -118,4 +132,37 @@ class PhysicalServiceManager(InstanceManager):
                 pass
 
     def check_service(self, si):
+        if si.max_instances>len(si.port_tuples):
+            return False
+
+        pt_list = list(si.port_tuples)
+        pi_list = []
+        all_possible_pi=[]
+
+        for pt_uuid in pt_list:
+            pt_obj = PortTupleSM.get(pt_uuid)
+            for vmi_uuid in pt_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceSM.get(vmi_uuid)
+                pi_list.append(vmi_obj.physical_interface)
+
+        st_obj = ServiceTemplateSM.get(si.service_template)
+        if not st_obj.service_appliance_set:
+            return False
+
+        sa_set_obj = ServiceApplianceSetSM.get(st_obj.service_appliance_set)
+        for sa_uuid in sa_set_obj.service_appliances:
+            sa_obj = ServiceApplianceSM.get(sa_uuid)
+            for key in sa_obj.physical_interfaces:
+                all_possible_pi.append(sa_obj.physical_interfaces[key])
+
+        if not pi_list and all_possible_pi and si.max_instances>0:
+            return False
+
+        if not all_possible_pi and pi_list:
+            return False
+
+        for pi_uuid in pi_list:
+            if not pi_uuid in all_possible_pi:
+                return False
+
         return True
