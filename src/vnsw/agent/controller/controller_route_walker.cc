@@ -99,13 +99,6 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                        DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (peer_->GetType() == Peer::BGP_PEER) {
-        BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
-        VrfExport::State *vrf_state = static_cast<VrfExport::State *>
-            (bgp_peer->GetVrfExportState(partition, entry));
-        // If there is no state for this peer for vrf sent, then ignore
-        // walk for same and continue for next entry.
-        if (!vrf_state) return true;
-
         // Register Callback for deletion of VRF state on completion of route
         // walks 
         RouteWalkDoneForVrfCallback(boost::bind(
