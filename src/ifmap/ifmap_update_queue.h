@@ -92,11 +92,19 @@ public:
 
 private:
     friend class ShowIFMapUpdateQueue;
+    static const uint64_t NULL_SEQUENCE = 0;
     List list_;
     MarkerMap marker_map_;
     IFMapMarker tail_marker_;
     IFMapServer *server_;
+    uint64_t sequence_;
 
+    void SetSequence(IFMapListEntry *item);
+    void PushbackIntoList(IFMapListEntry *item);
+    void InsertIntoListBefore(IFMapListEntry *ptr, IFMapListEntry *item);
+    void InsertIntoListAfter(IFMapListEntry *ptr, IFMapListEntry *item);
+    void EraseFromList(IFMapListEntry *item);
+    void ClearAndDisposeList();
     IFMapMarker* MarkerSplit(IFMapMarker *marker, IFMapListEntry *current, 
                              const BitSet &msplit, bool before);
 };
