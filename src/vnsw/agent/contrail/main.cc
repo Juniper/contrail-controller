@@ -111,12 +111,8 @@ int main(int argc, char *argv[]) {
         return ret;
     }
 
-    // Wait till Init is done, before running event manager
-    init.Lock();
-
     Agent *agent = init.agent();
     agent->event_manager()->RunWithExceptionHandling();
 
-    init.Unlock();
     return 0;
 }
