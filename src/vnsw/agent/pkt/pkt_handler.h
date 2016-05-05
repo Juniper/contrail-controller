@@ -38,6 +38,9 @@
 #define IPC_HDR_LEN        (sizeof(struct ether_header) + sizeof(struct agent_hdr))
 #define VLAN_PROTOCOL      0x8100
 #define DEFAULT_IP_TTL     64
+//Ideally VM is one hop away but traffic gets routed so use 2.
+#define BGP_SERVICE_TTL_REV_FLOW 2
+#define BGP_SERVICE_TTL_FWD_FLOW 255
 #define DEFAULT_IP_ID      0
 #define VLAN_HDR_LEN       4
 
@@ -344,6 +347,7 @@ struct PktInfo {
     uint8_t             ip_proto;
     uint32_t            sport;
     uint32_t            dport;
+    uint32_t            ttl;
 
     bool                tcp_ack;
     TunnelInfo          tunnel;

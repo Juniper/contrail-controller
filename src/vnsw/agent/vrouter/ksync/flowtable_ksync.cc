@@ -324,6 +324,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                     flags |= VR_FLOW_FLAG_DPAT;
                 }
             }
+
             //TODO Seperate flags for BgpRouterService??
             if (nat_flow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
                 nat_flow->is_flags_set(FlowEntry::BgpRouterService)) {
@@ -363,6 +364,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_flags(flags);
         req.set_fr_action(action);
         req.set_fr_drop_reason(drop_reason);
+        req.set_fr_ttl(flow_entry_->data().ttl);
     }
 
     FlowProto *proto = ksync_obj_->ksync()->agent()->pkt()->get_flow_proto();

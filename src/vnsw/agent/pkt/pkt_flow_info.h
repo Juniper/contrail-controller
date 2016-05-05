@@ -53,7 +53,7 @@ public:
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
         trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
-        flood_unknown_unicast(false), bgp_router_service_flow(false) {
+        flood_unknown_unicast(false), bgp_router_service_flow(false), ttl(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -185,6 +185,7 @@ public:
 
     //BGP router service info
     bool                 bgp_router_service_flow;
+    uint8_t              ttl;
 };
 
 #endif // __agent_pkt_flow_info_h_

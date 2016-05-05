@@ -367,6 +367,7 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         pkt_info->ip_saddr = IpAddress(Ip4Address(ntohl(ip->ip_src.s_addr)));
         pkt_info->ip_daddr = IpAddress(Ip4Address(ntohl(ip->ip_dst.s_addr)));
         pkt_info->ip_proto = ip->ip_p;
+        pkt_info->ttl      = ip->ip_ttl;
         len += (ip->ip_hl << 2);
     } else if (pkt_info->ether_type == ETHERTYPE_IPV6) {
         pkt_info->family = Address::INET6;
@@ -384,6 +385,7 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
             addr[i] = ip->ip6_dst.s6_addr[i];
         }
         pkt_info->ip_daddr = IpAddress(Ip6Address(addr));
+        pkt_info->ttl      = ip->ip6_hlim;
 
         // Look for known transport headers. Fallback to the last header if
         // no known header is found
@@ -968,8 +970,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false), eth(),
-    arp(), ip(), ip6(), packet_buffer_(buff) {
+    ttl(0), tcp_ack(false), tunnel(), l3_forwarding(false),
+    l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -977,8 +979,8 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
-    dport(), tcp_ack(false), tunnel(), l3_forwarding(false), l3_label(false),
-    eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
+    dport(), ttl(0), tcp_ack(false), tunnel(), l3_forwarding(false),
+    l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
 
@@ -987,7 +989,7 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     module(mod),
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
-    ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
+    ip_proto(), sport(), dport(), ttl(0), tcp_ack(false), tunnel(),
     l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6() {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
@@ -1003,7 +1005,7 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     module(mod),
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
-    ip_proto(), sport(), dport(), tcp_ack(false), tunnel(),
+    ip_proto(), sport(), dport(), ttl(0), tcp_ack(false), tunnel(),
     l3_forwarding(false), l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
