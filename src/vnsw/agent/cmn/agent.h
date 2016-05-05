@@ -249,6 +249,8 @@ public:
     static const uint32_t kDefaultFlowIndexSmLogCount = 0;
     // default number of threads for flow setup
     static const uint32_t kDefaultFlowThreadCount = 1;
+    // Log a message if latency in processing flow queue exceeds limit
+    static const uint32_t kDefaultFlowLatencyLimit = 0;
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs

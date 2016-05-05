@@ -519,6 +519,11 @@ void AgentParam::ParseFlows() {
         flow_thread_count_ = Agent::kDefaultFlowThreadCount;
     }
 
+    if (!GetValueFromTree<uint16_t>(flow_latency_limit_,
+                                    "FLOWS.latency_limit")) {
+        flow_latency_limit_ = Agent::kDefaultFlowLatencyLimit;
+    }
+
     if (!GetValueFromTree<bool>(flow_trace_enable_, "FLOWS.trace_enable")) {
         flow_trace_enable_ = true;
     }
@@ -769,6 +774,8 @@ void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<uint16_t>(var_map, flow_thread_count_,
                           "FLOWS.thread_count");
+    GetOptValue<uint16_t>(var_map, flow_latency_limit_,
+                          "FLOWS.latency_limit");
     GetOptValue<bool>(var_map, flow_trace_enable_, "FLOWS.trace_enable");
     uint16_t val = 0;
     if (GetOptValue<uint16_t>(var_map, val, "FLOWS.max_vm_flows")) {
@@ -1186,6 +1193,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     LOG(DEBUG, "Flow thread count           : " << flow_thread_count_);
+    LOG(DEBUG, "Flow latency limit          : " << flow_latency_limit_);
     LOG(DEBUG, "Flow index-mgr sm log count : " << flow_index_sm_log_count_);
 
     if (agent_mode_ == VROUTER_AGENT)
@@ -1310,6 +1318,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         send_ratelimit_(sandesh_send_rate_limit()),
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
         flow_trace_enable_(true),
+        flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
