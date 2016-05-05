@@ -101,20 +101,21 @@ void MakeSctpPacket(PktGen *pkt, int ifindex, const char *sip,
 
 void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   const char *dip, uint16_t sport, uint16_t dport, bool ack,
-		   int hash_id, uint32_t vrf_id) {
+		   int hash_id, uint32_t vrf_id, int ttl) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
-    pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
+    pkt->AddIpHdr(sip, dip, IPPROTO_TCP, false, ttl);
     pkt->AddTcpHdr(sport, dport, false, false, ack, 64);
 
 }
 
 void TxTcpPacket(int ifindex, const char *sip, const char *dip, 
 		    uint16_t sport, uint16_t dport, bool ack, int hash_id,
-            uint32_t vrf_id) {
+            uint32_t vrf_id, int ttl) {
     PktGen *pkt = new PktGen();
-    MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id);
+    MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id,
+                  ttl);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
