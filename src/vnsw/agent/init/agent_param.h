@@ -254,6 +254,11 @@ public:
     bool flow_trace_enable() const { return flow_trace_enable_; }
     void set_flow_trace_enable(bool val) { flow_trace_enable_ = val; }
 
+    uint16_t flow_task_latency_limit() const { return flow_latency_limit_; }
+    void set_flow_task_latency_limit(uint16_t count) {
+        flow_latency_limit_ = count;
+    }
+
     uint32_t tbb_thread_count() const { return tbb_thread_count_; }
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
@@ -471,6 +476,7 @@ private:
     uint32_t send_ratelimit_;
     uint16_t flow_thread_count_;
     bool flow_trace_enable_;
+    uint16_t flow_latency_limit_;
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
