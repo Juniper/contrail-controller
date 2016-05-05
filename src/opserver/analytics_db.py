@@ -243,7 +243,7 @@ class AnalyticsDb(object):
             if cql_port == '9160':
                 cql_port = '9042'
             cluster = Cluster(contact_points = server_list,
-                auth_provider = creds, port = cql_port)
+                auth_provider = creds, port = int(cql_port))
             self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)
             self._session.connection_class = GeventConnection
             self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
