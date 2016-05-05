@@ -4,8 +4,11 @@
 #ifndef __AGENT_FLOW_EVENT_H__
 #define __AGENT_FLOW_EVENT_H__
 
+#include <sys/resource.h>
 #include <ksync/ksync_entry.h>
 #include "flow_table.h"
+
+class FlowTokenPool;
 
 ////////////////////////////////////////////////////////////////////////////
 // Control events for flow management
@@ -206,6 +209,117 @@ private:
     uint64_t evict_flow_bytes_;
     uint64_t evict_flow_packets_;
     uint64_t evict_flow_oflow_;
+};
+
+////////////////////////////////////////////////////////////////////////////
+// FlowProto uses following queues,
+//
+// - FlowEventQueue
+//   This queue contains events for flow add, flow eviction etc...
+//   See FlowProto::FlowEventHandler for events handled in this queue
+// - KSyncFlowEventQueue
+//   This queue contains events generated from KSync response for a flow
+// - DeleteFlowEventQueue
+//   This queue contains events generated for flow-ageing
+// - UpdateFlowEventQueue
+//   This queue contains events generated as result of config changes such
+//   as add/delete/change of interface, vn, vm, acl, nh, route etc...
+//
+// All queues are defined from a base class FlowEventQueueBase.
+// FlowEventQueueBase implements a wrapper around the WorkQueues with following
+// additional functionality,
+//
+// - Rate Control using Tokens
+//   All the queues give above can potentially add/change/delete flows in the
+//   vrouter. So, the queues given above acts as producer and VRouter acts as
+//   consumer. VRouter is a slow consumer of events. To provide fairness
+//   across queues, a "token" based scheme is used. See flow_token.h for more
+//   information
+//
+//   The queue will stop the WorkQueue when it runs out of tokens. The queue
+//   is started again after a minimum number of tokens become available
+//
+// - Time limits
+//   Intermittently, it is observed that some of the queues take large amount
+//   of time. Latencies in queue such as KSync queue or delete-queue can result
+//   in flow-setup latencies. So, we want to impose an upper bound on the
+//   amount of time taken in single run of WorkQueue.
+//
+//   We take timestamp at start of queue, and check latency for every 8
+//   events processed in the queue. If the latency goes beyond a limit, the
+//   WorkQueue run is aborted.
+////////////////////////////////////////////////////////////////////////////
+class FlowEventQueueBase {
+public:
+    typedef WorkQueue<FlowEvent *> Queue;
+
+    FlowEventQueueBase(FlowProto *proto, const std::string &name,
+                       uint32_t task_id, int task_instance,
+                       FlowTokenPool *pool, uint16_t latency_limit);
+    virtual ~FlowEventQueueBase();
+    virtual bool HandleEvent(FlowEvent *event) = 0;
+    virtual bool Handler(FlowEvent *event);
+
+    void Shutdown();
+    void Enqueue(FlowEvent *event);
+    bool TokenCheck();
+    bool TaskEntry();
+    void TaskExit(bool done);
+    void set_disable(bool val) { queue_->set_disable(val); }
+    uint32_t Length() { return queue_->Length(); }
+    void MayBeStartRunner() { queue_->MayBeStartRunner(); }
+    Queue *queue() const { return queue_; }
+
+protected:
+    Queue *queue_;
+    FlowProto *flow_proto_;
+    FlowTokenPool *token_pool_;
+    uint64_t task_start_;
+    uint32_t count_;
+    uint16_t latency_limit_;
+    struct rusage rusage_;
+};
+
+class FlowEventQueue : public FlowEventQueueBase {
+public:
+    FlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
+                   FlowTokenPool *pool, uint16_t latency_limit);
+    virtual ~FlowEventQueue();
+
+    bool HandleEvent(FlowEvent *event);
+private:
+    FlowTable *flow_table_;
+};
+
+class DeleteFlowEventQueue : public FlowEventQueueBase {
+public:
+    DeleteFlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
+                         FlowTokenPool *pool, uint16_t latency_limit);
+    virtual ~DeleteFlowEventQueue();
+
+    bool HandleEvent(FlowEvent *event);
+private:
+    FlowTable *flow_table_;
+};
+
+class KSyncFlowEventQueue : public FlowEventQueueBase {
+public:
+    KSyncFlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
+                        FlowTokenPool *pool, uint16_t latency_limit);
+    virtual ~KSyncFlowEventQueue();
+
+    bool HandleEvent(FlowEvent *event);
+private:
+    FlowTable *flow_table_;
+};
+
+class UpdateFlowEventQueue : public FlowEventQueueBase {
+public:
+    UpdateFlowEventQueue(Agent *agent, FlowProto *proto,
+                         FlowTokenPool *pool, uint16_t latency_limit);
+    virtual ~UpdateFlowEventQueue();
+
+    bool HandleEvent(FlowEvent *event);
 };
 
 #endif //  __AGENT_FLOW_EVENT_H__

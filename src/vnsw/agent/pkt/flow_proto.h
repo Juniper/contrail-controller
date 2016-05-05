@@ -37,19 +37,11 @@ struct FlowStats {
 
 class FlowProto : public Proto {
 public:
-    typedef WorkQueue<FlowEvent *> FlowEventQueue;
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
     static const int kFlowAddTokens = 800;
     static const int kFlowDelTokens = 800;
     static const int kFlowUpdateTokens = 400;
-
-    enum OperationType {
-        INVALID_OP,
-        ADD,
-        UPDATE,
-        DELETE
-    };
 
     FlowProto(Agent *agent, boost::asio::io_service &io);
     virtual ~FlowProto();
@@ -118,6 +110,7 @@ public:
     void TokenAvailable(FlowTokenPool *pool);
 
     bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);
+    bool TokenCheck(const FlowTokenPool *pool);
 private:
     friend class SandeshIPv4FlowFilterRequest;
     friend class SandeshIPv6FlowFilterRequest;
@@ -127,20 +120,19 @@ private:
     FlowTraceFilter *ipv6_trace_filter() { return &ipv6_trace_filter_; }
 
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
-    bool TokenCheck(const FlowTokenPool *pool);
 
+    FlowTokenPool add_tokens_;
+    FlowTokenPool del_tokens_;
+    FlowTokenPool update_tokens_;
     std::vector<FlowEventQueue *> flow_event_queue_;
-    std::vector<FlowEventQueue *> flow_delete_queue_;
-    std::vector<FlowEventQueue *> flow_ksync_queue_;
+    std::vector<DeleteFlowEventQueue *> flow_delete_queue_;
+    std::vector<KSyncFlowEventQueue *> flow_ksync_queue_;
     std::vector<FlowTable *> flow_table_list_;
-    FlowEventQueue flow_update_queue_;
+    UpdateFlowEventQueue flow_update_queue_;
     tbb::atomic<int> linklocal_flow_count_;
     bool use_vrouter_hash_;
     FlowTraceFilter ipv4_trace_filter_;
     FlowTraceFilter ipv6_trace_filter_;
-    FlowTokenPool add_tokens_;
-    FlowTokenPool del_tokens_;
-    FlowTokenPool update_tokens_;
     FlowStats stats_;
 };
 
