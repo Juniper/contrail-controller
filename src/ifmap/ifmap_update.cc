@@ -23,11 +23,11 @@ IFMapObjectPtr::IFMapObjectPtr(IFMapLink *link)
 }
 
 void IFMapListEntry::set_queue_insert_at_to_now() {
-    queue_insert_at_ = UTCTimestampUsec();
+    queue_insert_at = UTCTimestampUsec();
 }
 
 std::string IFMapListEntry::queue_insert_ago_str() {
-    return duration_usecs_to_string(UTCTimestampUsec() - queue_insert_at_);
+    return duration_usecs_to_string(UTCTimestampUsec() - queue_insert_at);
 }
 
 IFMapUpdate::IFMapUpdate(IFMapNode *node, bool positive)

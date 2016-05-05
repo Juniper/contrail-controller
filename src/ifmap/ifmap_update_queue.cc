@@ -17,8 +17,46 @@
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
 
-IFMapUpdateQueue::IFMapUpdateQueue(IFMapServer *server) : server_(server) {
-    list_.push_back(tail_marker_);
+// Convention for SetSequence():
+// If we are inserting the item in the middle of the Q, we set its sequence to
+// the same value as its successor. If its the last item in the Q, it gets the
+// next available sequence number.
+void IFMapUpdateQueue::SetSequence(IFMapListEntry *item) {
+    IFMapListEntry *next = Next(item);
+    item->set_sequence(next ? next->get_sequence(): ++sequence_);
+}
+
+// Insert 'item' at the end of the list.
+void IFMapUpdateQueue::PushbackIntoList(IFMapListEntry *item) {
+    list_.push_back(*item);
+    SetSequence(item);
+    item->set_queue_insert_at_to_now();
+}
+
+// Insert 'item' before 'ptr'.
+void IFMapUpdateQueue::InsertIntoListBefore(IFMapListEntry *ptr,
+                                            IFMapListEntry *item) {
+    list_.insert(list_.iterator_to(*ptr), *item);
+    SetSequence(item);
+    item->set_queue_insert_at_to_now();
+}
+
+// Insert 'item' after 'ptr'.
+void IFMapUpdateQueue::InsertIntoListAfter(IFMapListEntry *ptr,
+                                           IFMapListEntry *item) {
+    list_.insert(++list_.iterator_to(*ptr), *item);
+    SetSequence(item);
+    item->set_queue_insert_at_to_now();
+}
+
+void IFMapUpdateQueue::EraseFromList(IFMapListEntry *item) {
+    list_.erase(list_.iterator_to(*item));
+    item->set_sequence(NULL_SEQUENCE);
+}
+
+IFMapUpdateQueue::IFMapUpdateQueue(IFMapServer *server) : server_(server),
+        sequence_(0) {
+    PushbackIntoList(&tail_marker_);
 }
 
 struct IFMapListEntryDisposer {
@@ -27,9 +65,13 @@ struct IFMapListEntryDisposer {
     }
 };
 
-IFMapUpdateQueue::~IFMapUpdateQueue() {
-    list_.erase(list_.iterator_to(tail_marker_));
+void IFMapUpdateQueue::ClearAndDisposeList() {
     list_.clear_and_dispose(IFMapListEntryDisposer());
+}
+
+IFMapUpdateQueue::~IFMapUpdateQueue() {
+    EraseFromList(&tail_marker_);
+    ClearAndDisposeList();
 }
 
 bool IFMapUpdateQueue::Enqueue(IFMapUpdate *update) {
@@ -38,13 +80,12 @@ bool IFMapUpdateQueue::Enqueue(IFMapUpdate *update) {
     if (GetLast() == tail_marker()) {
         tm_last = true;
     }
-    list_.push_back(*update);
-    update->set_queue_insert_at_to_now();
+    PushbackIntoList(update);
     return tm_last;
 }
 
 void IFMapUpdateQueue::Dequeue(IFMapUpdate *update) {
-    list_.erase(list_.iterator_to(*update));
+    EraseFromList(update);
 }
 
 IFMapMarker *IFMapUpdateQueue::GetMarker(int bit) {
@@ -90,7 +131,7 @@ void IFMapUpdateQueue::Leave(int bit) {
     marker_map_.erase(loc);
     marker->mask.reset(bit);
     if ((marker != &tail_marker_)  && (marker->mask.empty())) {
-        list_.erase(list_.iterator_to(*marker));
+        EraseFromList(marker);
         delete marker;
     }
 }
@@ -113,13 +154,13 @@ void IFMapUpdateQueue::MarkerMerge(IFMapMarker *dst, IFMapMarker *src,
     src->mask.Reset(mmove);
     if (src->mask.empty()) {
         assert(src != &tail_marker_);
-        list_.erase(list_.iterator_to(*src));
+        EraseFromList(src);
         delete src;
     }
 }
 
 IFMapMarker* IFMapUpdateQueue::MarkerSplit(IFMapMarker *marker,
-                                           IFMapListEntry *current, 
+                                           IFMapListEntry *current,
                                            const BitSet &msplit, bool before) {
     assert(!msplit.empty());
     IFMapMarker *new_marker = new IFMapMarker();
@@ -137,10 +178,10 @@ IFMapMarker* IFMapUpdateQueue::MarkerSplit(IFMapMarker *marker,
     }
     if (before) {
         // Insert new_marker before current
-        list_.insert(list_.iterator_to(*current), *new_marker);
+        InsertIntoListBefore(current, new_marker);
     } else {
         // Insert new_marker after current
-        list_.insert(++list_.iterator_to(*current), *new_marker);
+        InsertIntoListAfter(current, new_marker);
     }
     return new_marker;
 }
@@ -165,8 +206,8 @@ IFMapMarker* IFMapUpdateQueue::MarkerSplitAfter(IFMapMarker *marker,
 void IFMapUpdateQueue::MoveMarkerBefore(IFMapMarker *marker,
                                         IFMapListEntry *current) {
     if (marker != current) {
-        list_.erase(list_.iterator_to(*marker));
-        list_.insert(list_.iterator_to(*current), *marker);
+        EraseFromList(marker);
+        InsertIntoListBefore(current, marker);
     }
 }
 
@@ -174,8 +215,8 @@ void IFMapUpdateQueue::MoveMarkerBefore(IFMapMarker *marker,
 void IFMapUpdateQueue::MoveMarkerAfter(IFMapMarker *marker,
                                        IFMapListEntry *current) {
     if (marker != current) {
-        list_.erase(list_.iterator_to(*marker));
-        list_.insert(++list_.iterator_to(*current), *marker);
+        EraseFromList(marker);
+        InsertIntoListAfter(current, marker);
     }
 }
 
@@ -322,6 +363,7 @@ void ShowIFMapUpdateQueue::CopyNode(UpdateQueueShowEntry *dest,
         dest->qe_bitset = marker->mask.ToNumberedString();
     }
     dest->queue_insert_ago = src->queue_insert_ago_str();
+    dest->sequence = src->get_sequence();
 }
 
 bool ShowIFMapUpdateQueue::BufferStage(const Sandesh *sr,
