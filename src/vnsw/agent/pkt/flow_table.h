@@ -262,7 +262,6 @@ private:
     bool IsEvictedFlow(const FlowKey &key);
 
     void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);
-    void ResyncAFlow(FlowEntry *fe);
     void DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params);
 
     void AddFlowInfo(FlowEntry *fe);
