@@ -1776,8 +1776,19 @@ class RoutingInstanceST(DBBaseST):
             return
         self.locate_route_target()
         for ri_ref in self.obj.get_routing_instance_refs() or []:
-            self.connections.add(':'.join(ri_ref['to']))
-
+            conn_fq_name = ':'.join(ri_ref['to'])
+            if conn_fq_name != 'ERROR':
+                self.connections.add(conn_fq_name)
+            else:
+                self._logger.debug("Invalid connection detected in RI " + name)
+                # Remove the connection ref in the API server as well.
+                try:
+                    self._vnc_lib.ref_update('routing-instance', self.obj.uuid,
+                                             'routing-instance', ri_ref['uuid'],
+                                              None, 'DELETE')
+                except NoIdError as e:
+                    self._logger.debug("Ref not found in DB for RI " + name)
+                    self._logger.debug(e)
         if self.is_default:
             vn = VirtualNetworkST.get(self.virtual_network)
             if vn is None:
