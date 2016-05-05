@@ -510,9 +510,7 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params) {
 /////////////////////////////////////////////////////////////////////////////
 // Flow revluation routines. Processing will vary based on DBEntry type
 /////////////////////////////////////////////////////////////////////////////
-void FlowTable::ResyncAFlow(FlowEntry *fe) {
-    fe->ResyncFlow();
-
+void FlowTable::UpdateKsyncAFlow(FlowEntry *fe) {
     // If this is forward flow, the SG action could potentially have changed
     // due to reflexive nature. Update KSync for reverse flow first
     FlowEntry *rflow = (fe->is_flags_set(FlowEntry::ReverseFlow) == false) ?
@@ -612,8 +610,13 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     flow->GetPolicyInfo();
     rflow->GetPolicyInfo();
 
-    // Resync of forward flow, will resync reverse flow also
-    ResyncAFlow(flow);
+    // Resync reverse flow first and then forward flow
+    // as forward flow resync will try to update reverse flow
+    rflow->ResyncFlow();
+    flow->ResyncFlow();
+
+    // UpdateKsync of forward flow, will do updateKsync of reverse flow as well
+    UpdateKsyncAFlow(flow);
 
     // Update flow-mgmt with new values
     AddFlowInfo(flow);
