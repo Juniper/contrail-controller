@@ -755,6 +755,7 @@ class InstanceIpSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.instance_ip_mode = obj.get('instance_ip_mode', None)
         self.service_instance_ip = obj.get('service_instance_ip', False)
         self.instance_ip_secondary = obj.get('instance_ip_secondary', False)
         self.secondary_tracking_ip = obj.get('secondary_ip_tracking_ip', None)
