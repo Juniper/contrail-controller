@@ -1058,6 +1058,7 @@ class ServiceApplianceSM(DBBaseSM):
             'service_appliance_user_credentials', None)
         self.ip_address = obj.get('service_appliance_ip_address', None)
         self.service_appliance_set = self.get_parent_uuid(obj)
+	self.physical_interfaces = {}
         ref_objs = obj.get("physical_interface_refs",[])
         for ref in ref_objs:
             self.physical_interfaces[ref[
