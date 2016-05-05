@@ -53,6 +53,14 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //Validate the response by the expectation
 }
 
+class TestL2RouteState : public DBState {
+public:
+    int id_;
+};
+
+void TestL2RouteVrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
+}
+
 class RouteTest : public ::testing::Test {
 public:
     static void SetTunnelType(TunnelType::Type type) {
@@ -1260,24 +1268,28 @@ TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
     client->WaitForIdle();
 
     VrfEntry *vrf1 = VrfGet("vrf1");
-    //Add a peer and keep a reference of same.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    //Add a peer
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
 
-    //Take VRF reference and delete VRF.
-    VrfEntry *vrf2 = new VrfEntry("vrf2", 0, agent_);
-    vrf2->MarkDelete();
-    vrf2->set_table_partition(vrf1->get_table_partition());
+    DBTableBase *table = Agent::GetInstance()->vrf_table();
+    DBTableBase::ListenerId l_id =
+        table->Register(boost::bind(&TestL2RouteVrfNotify, _1, _2));
 
-    bgp_peer_ptr->route_walker()->set_type(ControllerRouteWalker::DELPEER);
-    bgp_peer_ptr->route_walker()->VrfWalkNotify(vrf1->get_table_partition(), vrf2);
-    DeleteBgpPeer(bgp_peer.get());
-    client->WaitForIdle();
+    TestL2RouteState tmp_state;
+    // Hold VRF by Adding a state to it, this makes sure that refcount
+    // on this VRF drops to zero but it is still held by state
+    // so that VRF Walk Notify can walk through deleted VRF
+    vrf1->SetState(table, l_id, &tmp_state);
+
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    bgp_peer.reset();
-    delete vrf2;
+
+    bgp_peer->route_walker()->set_type(ControllerRouteWalker::DELPEER);
+    bgp_peer->route_walker()->VrfWalkNotify(vrf1->get_table_partition(), vrf1);
+    DeleteBgpPeer(bgp_peer);
+    vrf1->ClearState(table, l_id);
+    table->Unregister(l_id);
+    client->WaitForIdle();
 }
 
 // Bug# 1508894
