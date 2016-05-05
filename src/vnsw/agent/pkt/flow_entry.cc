@@ -286,6 +286,7 @@ void FlowData::Reset() {
     ecmp_rpf_nh_ = 0;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
+    ttl = 0;
 }
 
 static std::vector<std::string> MakeList(const VnListType &ilist) {
@@ -581,6 +582,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         SetRpfNH(flow_table_, ctrl->rt_);
     }
 
+    if (info->bgp_router_service_flow) {
+        if (info->ttl == 1) {
+            data_.ttl = BGP_SERVICE_TTL_FWD_FLOW;
+        }
+    }
+
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.flow_source_plen_map = info->flow_source_plen_map;
@@ -649,6 +656,12 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     if (ctrl->rt_ != NULL) {
         SetRpfNH(flow_table_, ctrl->rt_);
+    }
+
+    if (info->bgp_router_service_flow) {
+        if (info->ttl == 1) {
+            data_.ttl = BGP_SERVICE_TTL_REV_FLOW;
+        }
     }
 
     data_.flow_source_vrf = info->flow_dest_vrf;
