@@ -1621,12 +1621,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-health-check-service-instance',
-          'service-health-check', 'service-instance', ['ref']) -->
+          'service-health-check', 'service-instance', ['ref', 'derived']) -->
 
 <xsd:element name="interface-route-table-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('interface-route-table-service-instance',
-          'interface-route-table', 'service-instance', ['ref']) -->
+          'interface-route-table', 'service-instance', ['ref', 'derived']) -->
 
 <xsd:element name="routing-policy-service-instance" type="RoutingPolicyServiceInstanceType"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -1748,7 +1748,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-port-health-check"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-port-health-check',
-          'virtual-machine-interface', 'service-health-check', ['ref']) -->
+          'virtual-machine-interface', 'service-health-check', ['ref', 'derived']) -->
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
@@ -1771,7 +1771,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine-interface-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-route-table',
-          'virtual-machine-interface', 'interface-route-table', ['ref']) -->
+          'virtual-machine-interface', 'interface-route-table', ['ref', 'derived']) -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('interface-route-table-routes', 'interface-route-table') -->
