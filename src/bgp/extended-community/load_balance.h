@@ -105,6 +105,7 @@ public:
         void Encode(autogen::LoadBalanceType *lb_type) const;
         bool operator==(const LoadBalanceAttribute &other) const;
         bool operator!=(const LoadBalanceAttribute &other) const;
+        const bool IsDefault() const;
     };
 
     LoadBalance();

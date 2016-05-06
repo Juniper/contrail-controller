@@ -70,6 +70,10 @@ bool LoadBalance::LoadBalanceAttribute::operator!=(
     return value1 != other.value1 || value2 != other.value2;
 }
 
+const bool LoadBalance::LoadBalanceAttribute::IsDefault() const {
+    return *this == LoadBalanceAttribute();
+}
+
 LoadBalance::LoadBalance() {
     LoadBalanceAttribute attr;
     put_value(&data_[0], 4, attr.value1);
