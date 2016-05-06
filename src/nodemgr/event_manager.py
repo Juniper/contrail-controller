@@ -130,6 +130,40 @@ class EventManager(object):
             self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
+    def update_process_core_file_list(self):
+        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: begin:')
+        ret_value = False
+        try:
+            ls_command = "ls -1 /var/crashes"
+            (corenames, stderr) = Popen(
+                ls_command.split(),
+                stdout=PIPE).communicate()
+
+            process_state_db_tmp = {}
+            for key in self.process_state_db:
+                #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
+                proc_stat = self.get_process_stat_object(key)
+                process_state_db_tmp[key] = proc_stat
+
+            #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
+            for corename in corenames.split():
+                exec_name = corename.split('.')[1]
+                for key in self.process_state_db:
+                    if key.startswith(exec_name):
+                        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
+                        process_state_db_tmp[key].core_file_list.append(corename.rstrip())
+
+            for key in self.process_state_db:
+                if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
+                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
+                    ret_value = True
+        except Exception as e:
+            sys.stderr.write('update_process_core_file_list: exception: '+str(e))
+
+        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: ret_value: '+str(ret_value)+'\n')
+        return ret_value
+    #end update_process_core_file_list
+
     def send_process_state_db_base(self, group_names, ProcessInfo,
                                    NodeStatus, NodeStatusUVE):
         name = socket.gethostname()
@@ -151,7 +185,6 @@ class EventManager(object):
                 process_info.last_exit_time = pstat.exit_time
                 process_info.core_file_list = pstat.core_file_list
                 process_infos.append(process_info)
-                name = pstat.name
                 if pstat.deleted == False:
                     delete_status = False
 
@@ -160,28 +193,27 @@ class EventManager(object):
 
             # send node UVE
             node_status = NodeStatus()
-            node_status.name = name
+            node_status.name = socket.gethostname()
             node_status.deleted = delete_status
             node_status.process_info = process_infos
-            node_status.all_core_file_list = self.all_core_file_list
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+            sys.stderr.write('send_process_state_db_base: Sending UVE:' + str(node_status_uve))
             node_status_uve.send()
 
-    def send_all_core_file(self):
+    def update_all_core_file(self):
         stat_command_option = "stat --printf=%Y /var/crashes"
         modified_time = Popen(
             stat_command_option.split(),
             stdout=PIPE).communicate()
         if modified_time[0] == self.core_dir_modified_time:
-            return
+            return False
         self.core_dir_modified_time = modified_time[0]
         ls_command_option = "ls /var/crashes"
         (corename, stderr) = Popen(
             ls_command_option.split(),
             stdout=PIPE).communicate()
         self.all_core_file_list = corename.split('\n')[0:-1]
-        self.send_process_state_db(self.group_names)
+        return True
 
     def get_process_stat_object(self, pname):
         return ProcessStat(pname)
@@ -293,7 +325,7 @@ class EventManager(object):
                 name=socket.gethostname(),
                 process_status=process_status_list)
             node_status_uve = NodeStatusUVE(data=node_status)
-            sys.stderr.write('Sending UVE:' + str(node_status_uve))
+            sys.stderr.write('send_nodemgr_process_status_base: Sending UVE:' + str(node_status_uve))
             node_status_uve.send()
 
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
@@ -325,8 +357,13 @@ class EventManager(object):
         # send node UVE
         node_status = NodeStatus(
             name=socket.gethostname(), disk_usage_info=disk_usage_infos)
+
+        # send other core file
+        if self.update_all_core_file():
+            node_status.all_core_file_list = self.all_core_file_list
+
         node_status_uve = NodeStatusUVE(data=node_status)
-        sys.stderr.write('Sending UVE:' + str(node_status_uve))
+        sys.stderr.write('send_disk_usage_info_base: Sending UVE:' + str(node_status_uve))
         node_status_uve.send()
     # end send_disk_usage_info
 
@@ -391,14 +428,15 @@ class EventManager(object):
 
     def event_tick_60(self, prev_current_time):
         self.tick_count += 1
-        # send other core file
-        self.send_all_core_file()
         # send disk usage info periodically
         self.send_disk_usage_info()
         # typical ntp sync time is about 5 min - first time,
         # we scan only after 10 min
         if self.tick_count >= 10:
             self.check_ntp_status()
+
+        if self.update_process_core_file_list():
+            self.send_process_state_db(['default'])
 
         current_time = int(time.time())
         if ((abs(current_time - prev_current_time)) > 300):
