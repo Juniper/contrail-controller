@@ -443,36 +443,37 @@ bool KSyncEntry::IsResolved() {
     return ((state_ >= IN_SYNC) && (state_ < DEL_DEFER_SYNC));
 }
 
-void KSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
+void KSyncEntry::ErrorHandler(int err, uint32_t seq_no,
+                              KSyncEvent event) const {
     if (err == 0) {
         return;
     }
     KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
                 ":", strerror(err), ">. Object <", ToString(),
-                ">. Operation <", OperationString(), ">. Message number :",
-                seq_no);
+                ">. Operation <", AckOperationString(event),
+                ">. Message number :", seq_no);
     LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
             strerror(err) << ">. Object <" << ToString() <<
-            ">. Operation <" << OperationString() << ">. Message number :"
-            << seq_no);
+            ">. Operation <" << AckOperationString(event) <<
+            ">. Message number :" << seq_no);
     KSYNC_ASSERT(err == 0);
 }
 
-std::string KSyncEntry::OperationString() const {
-    switch(state_) {
-    case INIT:
-    case TEMP:
-    case ADD_DEFER:
+std::string KSyncEntry::AckOperationString(KSyncEvent event) const {
+    switch(event) {
+    case ADD_ACK:
         return "Addition";
 
-    case CHANGE_DEFER:
-    case IN_SYNC:
-    case SYNC_WAIT:
-    case NEED_SYNC:
+    case CHANGE_ACK:
         return "Change";
 
-    default:
+    case DEL_ACK:
         return "Deletion";
+
+    default:
+        // AckOperationString should track only acks, if something else is
+        // passed convert it to EventString
+        return EventString(event);
     }
 }
 
@@ -541,7 +542,7 @@ std::string KSyncEntry::StateString() const {
     return str.str();
 }
 
-std::string KSyncEntry::EventString(KSyncEvent event) {
+std::string KSyncEntry::EventString(KSyncEvent event) const {
     std::stringstream str;
     switch (event) {
     case ADD_CHANGE_REQ:

@@ -489,15 +489,16 @@ bool FlowTableKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     return flow_entry_ < entry.flow_entry_;
 }
 
-void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
+void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no,
+                                       KSyncEvent event) const {
     if (err == ENOSPC || err == EBADF) {
         KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
                     ":", strerror(err), ">. Object <", ToString(),
-                    ">. Operation <", OperationString(), ">. Message number :",
-                    seq_no);
+                    ">. Operation <", AckOperationString(event),
+                    ">. Message number :", seq_no);
         return;
     }
-    KSyncEntry::ErrorHandler(err, seq_no);
+    KSyncEntry::ErrorHandler(err, seq_no, event);
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
