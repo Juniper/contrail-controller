@@ -16,6 +16,7 @@ struct DatabaseUsageStats {
     1: u64                                 disk_space_used_1k
     2: u64                                 disk_space_available_1k
     3: u64                                 analytics_db_size_1k
+    4: u8                                  percentage_disk_space_used
 }
 
 /**

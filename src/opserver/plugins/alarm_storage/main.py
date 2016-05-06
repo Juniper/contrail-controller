@@ -25,20 +25,19 @@ class StorageClusterState(AlarmBase):
             status =  cluster_stat['status']
         if status != 0:
             if status == 1:
-                status_string = 'HEALTH_WARN'
                 self._sev = AlarmBase.SYS_WARN
             else:
-                status_string = 'HEALTH_ERR'
                 self._sev = AlarmBase.SYS_ERR
             health_summary = cluster_stat['health_summary']
-            or_list.append(AllOf(all_of=[AlarmElement(\
-                rule=AlarmTemplate(oper="!=",
-                    operand1=Operand1(keys=["StorageCluster", "info_stats", "status"]),
-                    operand2=Operand2(json_value=json.dumps("HEALTH_OK"))),
-                    json_operand1_value=json.dumps(status_string),
-                    json_vars={\
-                       "StorageCluster.info_stats.health_summary":\
-                       json.dumps(health_summary)})]))
+            and_list = [AlarmConditionMatch(condition=AlarmCondition(
+                operation="!=", operand1="StorageCluster.info_stats.status",
+                operand2=json.dumps(0),
+                vars=["StorageCluster.info_stats.health_summary"]),
+                match=[AlarmMatch(json_operand1_value=json.dumps(status),
+                    json_vars={
+                        "StorageCluster.info_stats.health_summary":\
+                        json.dumps(health_summary)})])]
+            or_list.append(AlarmRuleMatch(rule=and_list))
         if len(or_list):
             return or_list
         else:

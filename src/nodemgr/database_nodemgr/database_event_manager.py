@@ -220,6 +220,10 @@ class DatabaseEventManager(EventManager):
                 db_stat.disk_space_used_1k = int(total_disk_space_used)
                 db_stat.disk_space_available_1k = int(total_disk_space_available)
                 db_stat.analytics_db_size_1k = int(total_analytics_db_size)
+                total_disk_space = db_stat.disk_space_used_1k + \
+                    db_stat.disk_space_available_1k
+                db_stat.percentage_disk_space_used = int(round(float(
+                    db_stat.disk_space_used_1k)/float(total_disk_space)*100))
 
                 db_info.name = socket.gethostname()
                 db_info.database_usage = [db_stat]
